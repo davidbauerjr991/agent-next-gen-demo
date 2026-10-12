@@ -1,3 +1,4 @@
+import { KnowledgeArticleSummaryRow } from "@/components/agent-next-gen-knowledge-article-card";
 import React, { useState, useRef, useLayoutEffect, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,11 @@ import {
   Menu,
   KebabMenuButton,
   Textarea,
+  ToggleGroup,
+  AIInput,
+  Spinner,
+  Interstitial,
+  Switch,
   Badge,
   QuickReplyVariableForm,
   QuickReplyMenu,
@@ -63,6 +69,13 @@ import {
   Trash2,
   X,
   PanelRight,
+  Bot,
+  Sparkles,
+  MessageSquareText,
+  UserCheck,
+  CheckCircle2,
+  AlertCircle,
+  History,
 } from "lucide-react";
 import {
   CURRENT_AGENT_FIRST_NAME,
@@ -100,6 +113,514 @@ export interface TranscriptMessage {
   timestamp: string;
   text: string;
   tags?: TranscriptTag[];
+  /** Renders as a plain system-event line ("time · name" over bold text, no bubble/avatar) instead of a chat bubble. */
+  event?: boolean;
+  /** Renders as a collapsible AI "Approval request" summary card (purple header band, checklist, experience memory, sentiment). */
+  summary?: TranscriptApprovalSummary;
+  /** Renders the "AI agent finished performing this." line plus a clickable instruction row (opens a side panel via `onSnapshotLink`). */
+  instruction?: { title: string; by: string; link: string };
+  /** Renders a "Wrap up" accordion (same shell as the approval request, success-subtle header) with a summary and a completion button. */
+  wrapUp?: { title: string; summary: string; disposition: string; buttonLabel: string; exiting?: boolean };
+}
+
+export interface TranscriptApprovalSummary {
+  title: string;
+  headline: string;
+  description: string;
+  checklist: { label: string; detail: string; status: "done" | "attention"; badge?: string; link?: string }[];
+  memoryTitle: string;
+  memory: string[];
+  sentimentLabel: string;
+  sentimentValue: string;
+  /** 1–5 filled segments */
+  sentimentLevel: number;
+  /** Hides the checklist / Experience Memory / sentiment block (content kept) so the card shows only the headline and description. */
+  hideDetails?: boolean;
+  /** Decision options (Marcus-style task card): pill options → optional note → Perform Task → working → typing → result. */
+  decisions?: {
+    value: string;
+    title: string;
+    description?: string;
+    notePlaceholder?: string;
+    noteLabel?: string;
+    /** Selecting this option asks the page to open an outbound-call popover (anchored on the option); the card only shows its result once the page confirms the call was launched. */
+    callRequest?: boolean;
+    /** Quick-prompt chips above the note box; clicking one fills it in. */
+    suggestions?: string[];
+    /** Suggestions that open a side panel (after a brief interstitial) instead of filling the note: label → link key. */
+    suggestionLinks?: Record<string, string>;
+    /** After a link suggestion is used it is removed and replaced by this one: label → replacement label. */
+    suggestionReplacements?: Record<string, string>;
+    /** Selecting this option reveals a content area (instead of submitting immediately) with a confirm button. */
+    panel?: {
+      headline: string;
+      description: string;
+      memory: string;
+      card: { title: string; sub: string };
+      article?: { label: string; link: string };
+      confirmLabel: string;
+    };
+    /** After submitting, the options stay open (note cleared) so the agent can send another instruction. */
+    repeatable?: boolean;
+    result: string;
+  }[];
+}
+
+type ApprovalDecisionDef = NonNullable<TranscriptApprovalSummary["decisions"]>[number];
+
+/** "Wrap up" card: same accordion shell as the approval request, with a success-subtle header, the AI-written summary and a "Complete wrap-up" button. */
+function WrapUpAccordion({ message, onComplete }: { message: TranscriptMessage; onComplete?: () => void }) {
+  const [open, setOpen] = useState(true);
+  const [completed, setCompleted] = useState(false);
+  const wrapUp = message.wrapUp!;
+  return (
+    // `exiting` (the agent took over instead of wrapping up) collapses and fades the whole card out before it is removed.
+    <div
+      className={cn(
+        "grid transition-[grid-template-rows,opacity] duration-300 ease-out",
+        wrapUp.exiting ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100"
+      )}
+    >
+    <div className="min-h-0 overflow-hidden">
+    <div className="overflow-hidden rounded-lyra-md border border-lyra-border-subtle">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="group flex w-full cursor-pointer items-center gap-2 bg-lyra-status-success-subtle px-4 py-2.5 text-left transition-colors hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-lyra-border-focus"
+      >
+        <Sparkles className="h-4 w-4 shrink-0 text-lyra-status-success-strong" strokeWidth={1.5} aria-hidden="true" />
+        <span className="min-w-0 flex-1 truncate lyra-body-md-emphasis text-lyra-fg-default">
+          {wrapUp.title} <span className="lyra-body-md font-normal text-lyra-fg-secondary">{message.timestamp}</span>
+        </span>
+        <span className="shrink-0 lyra-body-sm text-lyra-fg-secondary">Copilot summary</span>
+        <ChevronDown
+          className={cn("h-5 w-5 shrink-0 text-lyra-fg-secondary transition-transform", open && "rotate-180")}
+          strokeWidth={1.5}
+          aria-hidden="true"
+        />
+      </button>
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows,opacity] duration-200 ease-out",
+          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        )}
+        aria-hidden={!open}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="flex flex-col gap-3 bg-lyra-bg-surface-container-subtle px-4 py-4">
+            <p className="lyra-body-md text-lyra-fg-default">{wrapUp.summary}</p>
+            <p className="lyra-body-sm text-lyra-fg-secondary">{wrapUp.disposition}</p>
+            <div>
+              {completed ? (
+                <span className="inline-flex items-center gap-1.5 lyra-body-md-emphasis text-lyra-status-success-strong">
+                  <CheckCircle2 className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+                  Wrap-up completed
+                </span>
+              ) : (
+                <Button
+                  variant="default"
+                  size="md"
+                  className="gap-1.5"
+                  onClick={() => {
+                    setCompleted(true);
+                    onComplete?.();
+                  }}
+                >
+                  <CheckCircle2 className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+                  {wrapUp.buttonLabel}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+    </div>
+  );
+}
+
+/** Marcus-style decision flow: pick an option → (optional note) → Perform Task. What happens next (working, events, the AI replying to the customer) plays out in the chat via `onDecide`, not inside this card. */
+function ApprovalDecision({
+  decisions,
+  onDecide,
+  onLink,
+  onSuggestionAsk,
+  onCallRequest,
+  takenOver,
+}: {
+  /** The human agent took over the chat before deciding: options go away and a note replaces them. */
+  takenOver?: boolean;
+  /** Fired for `callRequest` decisions: the option's element (popover anchor) and a `confirm` that marks the card as decided once the call is launched. */
+  onCallRequest?: (req: { value: string; anchorEl: HTMLElement; confirm: () => void }) => void;
+  decisions: ApprovalDecisionDef[];
+  onDecide?: (value: string, note: string) => void;
+  onLink?: (key: string) => void;
+  /** Fired when a link suggestion is clicked, so the chat can log the lookup (same row Ask Copilot adds). */
+  onSuggestionAsk?: (text: string) => void;
+}) {
+  const [selected, setSelected] = useState<string | undefined>(undefined);
+  const [note, setNote] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  // Brief interstitial while a suggestion that opens a panel (e.g. purchase history) "loads".
+  const [loadingLabel, setLoadingLabel] = useState<string | null>(null);
+  // Link suggestions already used: they are dropped and swapped for their replacement.
+  const [usedSuggestions, setUsedSuggestions] = useState<string[]>([]);
+  const option = decisions.find((d) => d.value === selected);
+  const needsNote = !!option?.notePlaceholder;
+  const activateSuggestion = (suggestion: string) => {
+    const link = option?.suggestionLinks?.[suggestion];
+    if (!link) {
+      setNote(suggestion);
+      return;
+    }
+    setLoadingLabel(suggestion);
+    onSuggestionAsk?.(suggestion);
+    window.setTimeout(() => {
+      setLoadingLabel(null);
+      setUsedSuggestions((prev) => [...prev, suggestion]);
+      onLink?.(link);
+    }, 1400);
+  };
+  const submit = (value: string, text: string) => {
+    onDecide?.(value, text.trim());
+    if (decisions.find((d) => d.value === value)?.repeatable) {
+      // Keep the option area open for another "Something else" instruction.
+      setNote("");
+      return;
+    }
+    setSubmitted(true);
+  };
+  return (
+    <div className="flex flex-col gap-3 border-t border-lyra-border-subtle pt-3">
+      {!submitted && takenOver && (
+        <div className="flex items-center gap-2 lyra-body-md text-lyra-fg-secondary animate-in fade-in-0 duration-200">
+          <UserCheck className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
+          Agent has taken over the chat
+        </div>
+      )}
+      {!submitted && !takenOver && (
+        <>
+          <p className="lyra-body-md-emphasis text-lyra-fg-default">How would you like to proceed?</p>
+          <div className="flex flex-wrap gap-2" role="radiogroup">
+            {decisions.map((d) => {
+              const isSelected = selected === d.value;
+              return (
+                <button
+                  key={d.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={isSelected}
+                  onClick={(e) => {
+                    setSelected(d.value);
+                    if (d.callRequest && onCallRequest) {
+                      onCallRequest({ value: d.value, anchorEl: e.currentTarget, confirm: () => submit(d.value, "") });
+                      return;
+                    }
+                    // No note needed (e.g. Accept) — submit immediately, no Perform Task button.
+                    if (!d.notePlaceholder && !d.panel) submit(d.value, "");
+                  }}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-lyra-md border px-3 py-2 lyra-body-md-emphasis text-lyra-fg-default transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lyra-border-focus",
+                    isSelected
+                      ? "border-lyra-border-active bg-lyra-bg-active-subtle"
+                      : "border-lyra-border-subtle bg-lyra-bg-surface-base hover:border-lyra-state-border-hover-neutral"
+                  )}
+                >
+                  {isSelected && (
+                    <CheckCircle2 className="h-4 w-4 text-lyra-status-success-strong" strokeWidth={1.5} aria-hidden="true" />
+                  )}
+                  {d.title}
+                </button>
+              );
+            })}
+          </div>
+          {option?.description && <p className="lyra-body-sm text-lyra-fg-secondary">{option.description}</p>}
+          {option?.panel && (
+            <div className="flex flex-col gap-3 animate-in slide-in-from-bottom-2 fade-in-0 duration-200">
+              <div className="flex flex-col gap-1.5 rounded-lyra-lg border border-lyra-border-subtle bg-lyra-bg-surface-base px-4 py-3">
+                <p className="lyra-body-lg-emphasis text-lyra-fg-default">{option.panel.headline}</p>
+                <p className="lyra-body-md text-lyra-fg-secondary">{option.panel.description}</p>
+                <p className="flex items-start gap-1.5 lyra-body-md text-lyra-accent-purple-strong">
+                  <History className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
+                  {option.panel.memory}
+                </p>
+                <div className="mt-1 flex flex-wrap items-center gap-3">
+                  <div className="flex min-w-0 flex-col rounded-lyra-lg border border-lyra-border-subtle bg-lyra-bg-surface-base px-4 py-2.5">
+                    <span className="lyra-body-md-emphasis text-lyra-fg-default">{option.panel.card.title}</span>
+                    <span className="lyra-body-sm text-lyra-fg-secondary">{option.panel.card.sub}</span>
+                  </div>
+                  {option.panel.article && (
+                  <KnowledgeArticleSummaryRow
+                    data={{ id: option.panel.article!.link, title: option.panel.article!.label, body: "", internalNote: "", webLinks: [], processSteps: [] }}
+                    selected={false}
+                    onClick={() => onLink?.(option.panel!.article!.link)}
+                  />
+                  )}
+                </div>
+              </div>
+              <Button variant="default" size="md" className="self-start" onClick={() => submit(option.value, "")}>
+                {option.panel.confirmLabel}
+              </Button>
+            </div>
+          )}
+          {option?.suggestions && option.suggestions.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {option.suggestions
+                .map((sg) => (usedSuggestions.includes(sg) ? option.suggestionReplacements?.[sg] : sg))
+                .filter((sg): sg is string => !!sg && !usedSuggestions.includes(sg))
+                .map((suggestion) => (
+                <Tag
+                  key={suggestion}
+                  label={suggestion}
+                  variant="purple"
+                  icon={<Sparkles className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />}
+                  shape="pill"
+                  role="button"
+                  tabIndex={0}
+                  className="cursor-pointer"
+                  onClick={() => activateSuggestion(suggestion)}
+                  onKeyDown={(e: React.KeyboardEvent<HTMLSpanElement>) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      activateSuggestion(suggestion);
+                    }
+                  }}
+                />
+              ))}
+            </div>
+          )}
+          {needsNote && (
+            <div className="flex flex-col gap-1.5">
+              {option?.noteLabel && <Label label={option.noteLabel} labelFor="approval-decision-note" />}
+              <Textarea
+                id="approval-decision-note"
+                rows={3}
+                placeholder={option?.notePlaceholder}
+                value={note}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNote(e.target.value)}
+              />
+            </div>
+          )}
+          {selected && needsNote && (
+            <Button
+              variant="default"
+              size="md"
+              className="self-start"
+              disabled={note.trim().length === 0}
+              onClick={() => submit(selected, note)}
+            >
+              Perform Task
+            </Button>
+          )}
+        </>
+      )}
+      {submitted && option && (
+        <div className="flex items-center gap-1.5 lyra-body-md-emphasis text-lyra-fg-default animate-in fade-in-0 duration-200">
+          <CheckCircle2 className="h-4 w-4 text-lyra-status-success-strong" strokeWidth={1.5} aria-hidden="true" />
+          {option.result}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ApprovalSummaryAccordion({
+  message,
+  onDecide,
+  onLink,
+  onSuggestionAsk,
+  onCallRequest,
+  takenOver,
+  footer,
+}: {
+  onCallRequest?: (req: { value: string; anchorEl: HTMLElement; confirm: () => void }) => void;
+  takenOver?: boolean;
+  /** Custom decision footer (e.g. Marcus's own picker) rendered in place of the built-in decisions; stays visible when collapsed. */
+  footer?: React.ReactNode;
+  message: TranscriptMessage;
+  onDecide?: (value: string, note: string) => void;
+  onLink?: (key: string) => void;
+  onSuggestionAsk?: (text: string) => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const [showMore, setShowMore] = useState(false);
+  const summary = message.summary!;
+  const hasDetails =
+    !summary.hideDetails && (summary.checklist.length > 0 || summary.memory.length > 0 || !!summary.sentimentValue);
+  return (
+    <div className="overflow-hidden rounded-lyra-md border border-lyra-border-subtle">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="group flex w-full cursor-pointer items-center gap-2 bg-lyra-status-info-subtle px-4 py-2.5 text-left transition-colors hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-lyra-border-focus"
+      >
+        <Sparkles className="h-4 w-4 shrink-0 text-lyra-status-info-strong" strokeWidth={1.5} aria-hidden="true" />
+        <span className="min-w-0 flex-1 truncate lyra-body-md-emphasis text-lyra-fg-default">
+          {summary.title} <span className="lyra-body-md font-normal text-lyra-fg-secondary">{message.timestamp}</span>
+        </span>
+        <span className="shrink-0 lyra-body-sm text-lyra-fg-secondary">Copilot summary</span>
+        <ChevronDown
+          className={cn("h-5 w-5 shrink-0 text-lyra-fg-secondary transition-transform", open && "rotate-180")}
+          strokeWidth={1.5}
+          aria-hidden="true"
+        />
+      </button>
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows,opacity] duration-200 ease-out",
+          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        )}
+        aria-hidden={!open}
+      >
+        <div className="min-h-0 overflow-hidden">
+        <div className="flex flex-col gap-3 bg-lyra-bg-surface-container-subtle px-4 py-4">
+          <p className="lyra-body-lg-emphasis text-lyra-fg-default">{summary.headline}</p>
+          <p className="lyra-body-md text-lyra-fg-default">{summary.description}</p>
+          {hasDetails && (
+            <button
+              type="button"
+              onClick={() => setShowMore((v) => !v)}
+              aria-expanded={showMore}
+              className="self-start lyra-body-md text-lyra-fg-link hover:underline focus-visible:outline-none focus-visible:underline"
+            >
+              {showMore ? "Show less" : "Show more"}
+            </button>
+          )}
+          {hasDetails && (
+          <div
+            className={cn(
+              "grid transition-[grid-template-rows,opacity] duration-300 ease-out",
+              showMore ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+            )}
+            aria-hidden={!showMore}
+          >
+          <div className="min-h-0 overflow-hidden">
+          <div className={cn("grid gap-6 pt-1", summary.checklist.length > 0 && (summary.memory.length > 0 || !!summary.sentimentValue) && "md:grid-cols-2")}>
+            {summary.checklist.length > 0 && (
+            <ul className="flex flex-col gap-3">
+              {summary.checklist.map((item) => (
+                <li key={item.label} className="flex items-start gap-2">
+                  {item.status === "done" ? (
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-lyra-status-success-strong" strokeWidth={1.5} aria-hidden="true" />
+                  ) : (
+                    <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-lyra-status-warning-strong" strokeWidth={1.5} aria-hidden="true" />
+                  )}
+                  <div className="flex min-w-0 flex-col">
+                    <span className="flex flex-wrap items-center gap-2 lyra-body-md-emphasis text-lyra-fg-default">
+                      {item.link && onLink ? (
+                        <button
+                          type="button"
+                          onClick={() => onLink(item.link!)}
+                          className="text-left text-lyra-fg-link hover:underline focus-visible:outline-none focus-visible:underline"
+                        >
+                          {item.label}
+                        </button>
+                      ) : (
+                        item.label
+                      )}
+                      {item.badge && (
+                        <Badge shape="pill" color="warning" variant="subtle" fontSize={12}>
+                          {item.badge}
+                        </Badge>
+                      )}
+                    </span>
+                    <span className="lyra-body-md text-lyra-fg-secondary">{item.detail}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            )}
+            {(summary.memory.length > 0 || !!summary.sentimentValue) && (
+            <div className="flex flex-col gap-2">
+              <span className="flex items-center gap-1.5 lyra-body-sm-emphasis text-lyra-accent-purple-strong">
+                <History className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+                {summary.memoryTitle}
+              </span>
+              <ul className="flex flex-col gap-1.5">
+                {summary.memory.map((m) => (
+                  <li key={m} className="flex items-start gap-2 lyra-body-md text-lyra-fg-default">
+                    <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-lyra-accent-purple-strong" aria-hidden="true" />
+                    {m}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-2 flex items-center justify-between lyra-body-sm-emphasis text-lyra-fg-secondary">
+                <span>{summary.sentimentLabel}</span>
+                <span className="text-lyra-fg-default">{summary.sentimentValue}</span>
+              </div>
+              <div className="flex gap-2" aria-hidden="true">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <span
+                    key={n}
+                    className={cn(
+                      "h-1.5 flex-1 rounded-full",
+                      n <= summary.sentimentLevel ? "bg-lyra-status-warning-strong" : "bg-lyra-accent-purple-soft"
+                    )}
+                  />
+                ))}
+              </div>
+            </div>
+            )}
+          </div>
+          </div>
+          </div>
+          )}
+        </div>
+        </div>
+      </div>
+      {/* The decision footer sits outside the collapsing region, so it stays visible (options pending) when the summary is collapsed. */}
+      {footer && <div className={cn("bg-lyra-bg-surface-container-subtle px-4 pb-4", !open && "pt-3")}>{footer}</div>}
+      {!footer && summary.decisions && summary.decisions.length > 0 && (
+        <div className={cn("bg-lyra-bg-surface-container-subtle px-4 pb-4", !open && "pt-3")}>
+          <ApprovalDecision decisions={summary.decisions} onDecide={onDecide} onLink={onLink} onSuggestionAsk={onSuggestionAsk} onCallRequest={onCallRequest} takenOver={takenOver} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Standalone "Approval request" accordion (blue header, Copilot summary) for flows that bring their own decision UI (Marcus Webb). */
+const revealedApprovalRequests = new Set<string>();
+export function ApprovalRequestAccordion({
+  summary,
+  timestamp,
+  footer,
+  onLink,
+  revealKey,
+  revealDelayMs = 0,
+}: {
+  /** With `revealDelayMs`: the card slides in this long after mount (first time only per key), e.g. after the autosummary. */
+  revealKey?: string;
+  revealDelayMs?: number;
+  summary: TranscriptApprovalSummary;
+  timestamp: string;
+  footer?: React.ReactNode;
+  onLink?: (key: string) => void;
+}) {
+  const message = { id: "approval-request", summary, timestamp } as unknown as TranscriptMessage;
+  // First time only per key: the card isn't in the page at all until the delay passes, then it is added like any new
+  // comment (fades in, and the transcript's own auto-scroll follows it down). Later mounts render immediately.
+  const [animate] = useState(() => !!revealKey && revealDelayMs > 0 && !revealedApprovalRequests.has(revealKey));
+  const [visible, setVisible] = useState(!animate);
+  useEffect(() => {
+    if (visible) {
+      if (revealKey) revealedApprovalRequests.add(revealKey);
+      return;
+    }
+    const t = window.setTimeout(() => setVisible(true), revealDelayMs);
+    return () => window.clearTimeout(t);
+  }, [visible, revealDelayMs, revealKey]);
+  if (!visible) return null;
+  return (
+    <div
+      className={animate ? "animate-in fade-in-0 slide-in-from-bottom-2 duration-300" : undefined}
+    >
+      <ApprovalSummaryAccordion message={message} onLink={onLink} footer={footer} />
+    </div>
+  );
 }
 
 /* Each `Contact` is one contact record within the interaction —
@@ -644,6 +1165,7 @@ export function TranscriptMessageBubble({
   return (
     <ChatMessage
       variant={message.sender}
+      ai={message.sender === "agent" && message.initials === "AI"}
       name={message.name}
       initials={message.initials}
       identified={customerIdentified}
@@ -719,7 +1241,10 @@ function TypingIndicator({
   identified = true,
   narrow = false,
   bubbleFullWidth = false,
+  ai = false,
 }: {
+  /** AI agent is typing — right-aligned, purple, same look as an AI message bubble. */
+  ai?: boolean;
   initials: string;
   identified?: boolean;
   narrow?: boolean;
@@ -732,6 +1257,27 @@ function TypingIndicator({
    *  how this is measured. */
   bubbleFullWidth?: boolean;
 }) {
+  if (ai) {
+    return (
+      <div className="flex flex-col items-start" aria-live="polite" aria-label="AI agent is typing">
+        <div className={cn("flex items-start gap-2", bubbleFullWidth ? "max-w-full" : "max-w-[80%]")}>
+          {!narrow && <Avatar icon={Bot} size="xs" className="bg-[#6149C1] text-white" />}
+          <div className="rounded-lyra-lg rounded-tl-none border border-transparent bg-lyra-accent-purple-soft px-4 py-3.5">
+            <div className="flex items-center gap-1">
+              {[0, 150, 300].map((delayMs) => (
+                <span
+                  key={delayMs}
+                  className="block h-1.5 w-1.5 animate-bounce rounded-full bg-lyra-accent-purple-strong"
+                  style={{ animationDelay: `${delayMs}ms` }}
+                  aria-hidden="true"
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col items-start" aria-live="polite" aria-label="Customer is typing">
       <div className={cn("flex items-start gap-2", bubbleFullWidth ? "max-w-full" : "max-w-[80%]")}>
@@ -1872,11 +2418,11 @@ showViewDetails?: boolean;
                 <span className="inline-flex">
                   <OutcomePanel outcome={outcome} alignOffset={-20}>
                     <Button
-                      variant="icon"
-                      size="icon-sm"
+                      variant="ghost"
+                      size="sm"
                       aria-label="Outcome"
                       disabled={controlsReadOnly}
-                      className={cn("text-lyra-fg-secondary", outcomeAfterStatus && "order-2", statusAndKebabBeforeOutcome && "order-3")}
+                      className={cn("gap-1.5 text-lyra-fg-default", outcomeAfterStatus && "order-2", statusAndKebabBeforeOutcome && "order-3")}
                       onClick={(e: React.MouseEvent) => e.stopPropagation()}
                     >
                       {/* Per explicit request ("make the outcome check button
@@ -1891,6 +2437,11 @@ showViewDetails?: boolean;
                           default, matching the blue this Outcome icon has
                           always used. */}
                       <SuccessIconSolid className="h-4 w-4 text-lyra-status-info-strong" />
+                      {/* Per explicit request: in the session row, Outcome is a
+                          ghost button with a visible label next to the solid
+                          blue check. The interactionNavItem / ChannelRow
+                          Outcome button stays icon-only (not touched). */}
+                      <span>Outcome</span>
                     </Button>
                   </OutcomePanel>
                 </span>
@@ -1903,7 +2454,7 @@ showViewDetails?: boolean;
               // `isClosed`, so a just-closed CURRENT session reads
               // identically (no icon) rather than a static disabled one.
               !isClosed && (
-                <Button variant="icon" size="icon-sm" title="Outcome" disabled={controlsReadOnly} className={cn("text-lyra-fg-secondary", outcomeAfterStatus && "order-2", statusAndKebabBeforeOutcome && "order-3")}>
+                <Button variant="ghost" size="sm" title="Outcome" disabled={controlsReadOnly} className={cn("gap-1.5 text-lyra-fg-default", outcomeAfterStatus && "order-2", statusAndKebabBeforeOutcome && "order-3")}>
                   {/* Per explicit request ("make the outcome check button
                       a solid blue circle"): swaps the outline `CircleCheck`
                       lucide icon for lyra-ui's own `SuccessIconSolid` (a
@@ -1916,6 +2467,7 @@ showViewDetails?: boolean;
                       default, matching the blue this Outcome icon has
                       always used. */}
                   <SuccessIconSolid className="h-4 w-4 text-lyra-status-info-strong" />
+                  <span>Outcome</span>
                 </Button>
               )
             ))}
@@ -2255,12 +2807,15 @@ export function InteractionTranscript({
   direction,
   customerName,
   customerIdentified = true,
+  hideMockFollowUpMessages = false,
+  hideAllMessages = false,
   contactId,
   channelAddressLabel,
   skillLabel,
   isFreshLaunch,
-  contactOverview,
-  customerContextOverview,
+  contactOverview: contactOverviewIn,
+  customerContextOverview: customerContextOverviewIn,
+  hideAiActions = false,
   showCustomerContextProfile,
   showCustomerContextSnapshot,
   showCustomerContextNextBestAction,
@@ -2269,7 +2824,7 @@ export function InteractionTranscript({
   onViewInteractionHistory,
   onLaunchPreviousAgentInteraction,
   reopenedContacts,
-  liveMessages,
+  liveMessages: liveMessagesIn,
   currentStatus,
   onCurrentStatusChange,
   outcomeOpen,
@@ -2297,6 +2852,15 @@ export function InteractionTranscript({
   sessionControlsReadOnly = false,
   isNewThread = false,
   isCustomerTyping = false,
+  isAiTyping = false,
+  onApprovalDecision,
+  onApprovalCallRequest,
+  onApprovalSuggestionAsk,
+  approvalTakenOver,
+  activeSnapshotLink,
+  onWrapUpComplete,
+  onSnapshotLink,
+  autosummaryBlue = false,
   onViewSessionDetails,
   onToggleDetailsPanel,
   detailsPanelOpen = false,
@@ -2343,6 +2907,10 @@ export function InteractionTranscript({
    *  Defaults to identified so every existing caller (none of which
    *  distinguished the two cases before this prop existed) keeps showing
    *  initials exactly as before. */
+  /** Drops the shared mock follow-up session's (session-2) messages — used by scripted scenarios (Lucas Thomas) whose own transcript shouldn't show them. */
+  hideMockFollowUpMessages?: boolean;
+  /** Hides every message bubble (mock history + live) — used while an AI-led chat is only being reviewed, before the agent takes over. */
+  hideAllMessages?: boolean;
   customerIdentified?: boolean;
   /** The active channel's own BASE Contact id (`Thread.contactId`) — used
    *  as the synthetic "just launched" session's Contact ID (see
@@ -2391,6 +2959,8 @@ export function InteractionTranscript({
    * summarize).
    */
   contactOverview?: ContactOverviewInfo;
+  /** When true, only chat bubbles show: no autosummary/context overview, interstitials, approval summaries, events or wrap-up cards. */
+  hideAiActions?: boolean;
   /**
    * When set, renders the newer `CustomerContextOverview` block (Customer
    * Profile / Customer Snapshot / Next Best Action — see that component's
@@ -2674,6 +3244,23 @@ export function InteractionTranscript({
    *  `false`; every existing call site is unaffected until the caller starts
    *  computing a real value. */
   isCustomerTyping?: boolean;
+  /** Shows the AI agent's (purple, right-aligned) typing bubble at the end of the current session. */
+  isAiTyping?: boolean;
+  /** Fired when the agent picks a decision on an approval summary card — the caller plays out the follow-up in the chat. */
+  onApprovalDecision?: (value: string, note: string) => void;
+  /** Fired when a `callRequest` decision is picked — see `TranscriptApprovalSummary.decisions[].callRequest`. */
+  onApprovalCallRequest?: (req: { value: string; anchorEl: HTMLElement; confirm: () => void }) => void;
+  onApprovalSuggestionAsk?: (text: string) => void;
+  /** The agent took over before deciding on the approval card. */
+  approvalTakenOver?: boolean;
+  /** The link key whose panel is currently open (marks the matching instruction row active). */
+  activeSnapshotLink?: string;
+  /** Fired when the agent clicks "Complete wrap-up" on a wrap-up card. */
+  onWrapUpComplete?: () => void;
+  /** Snapshot bullet links (`[label](key)`) in the inline Contact Overview — called with the key. */
+  onSnapshotLink?: (key: string) => void;
+  /** Blue (info) Autosummary header instead of purple — used for the Marcus Webb and Lucas Thomas assignments. */
+  autosummaryBlue?: boolean;
   /** Fires when "View Details" is clicked on any session row (each
    *  `TranscriptSessionSeparator`'s own `onViewDetails`, per explicit
    *  request that it stop expanding `TranscriptSessionDetails` inline and
@@ -2764,6 +3351,9 @@ export function InteractionTranscript({
    *  site is unaffected. */
   hideSessionSeparatorFade?: boolean;
 }) {
+  const contactOverview = contactOverviewIn;
+  const customerContextOverview = customerContextOverviewIn;
+  const liveMessages = liveMessagesIn;
   // A freshly-launched interaction (see `isFreshLaunch`'s own doc comment)
   // shows just a single synthesized "Session Details" separator (today's
   // date, this Thread's own base contactId/skill, status "Open") in place
@@ -2855,6 +3445,8 @@ export function InteractionTranscript({
     ? TRANSCRIPT_SESSIONS_VOICE
     : channelType === "email"
     ? TRANSCRIPT_SESSIONS_EMAIL
+    : hideMockFollowUpMessages
+    ? TRANSCRIPT_SESSIONS.map((sess) => (sess.id === "session-2" ? { ...sess, messages: [] } : sess))
     : TRANSCRIPT_SESSIONS;
   // One more synthetic, empty "Session Details" separator per reopen — see
   // `reopenedContacts`' own doc comment above. Same synthetic shape as
@@ -2939,6 +3531,9 @@ export function InteractionTranscript({
   const contactOverviewAtBottom = contactOverviewPosition
     ? contactOverviewPosition === "bottom"
     : !isFreshLaunch;
+  // Once an approval request is in the conversation, the Autosummary sits directly above it (for quick access) instead of at the top.
+  const overviewBeforeApproval =
+    contactOverviewPosition === "top" && !!(contactOverview || customerContextOverview) && liveMessages.some((m) => !!m.summary);
 
   // Per explicit follow-up bug report ("you put it above the latest
   // interaction bubbles - it should be at the bottom"): for the transfer/
@@ -2973,12 +3568,18 @@ export function InteractionTranscript({
   // the original `ContactOverview` when a caller supplies `contactOverview`
   // — shared by both of the two render spots below so neither has to
   // duplicate this branch.
-  const renderContactOverviewBlock = () =>
+  // Hiding AI actions collapses (fade + slide up) rather than unmounting, mirroring the entrance animation.
+  const renderContactOverviewBlock = () => (
+    <AiActionCollapse hidden={hideAiActions}>{renderContactOverviewBlockInner()}</AiActionCollapse>
+  );
+  const renderContactOverviewBlockInner = () =>
     customerContextOverview ? (
       <CustomerContextOverview
         customerName={displayName}
         customerCard={customerContextOverview.customerCard}
         snapshot={customerContextOverview.snapshot}
+        onSnapshotLink={onSnapshotLink}
+        autosummaryBlue={autosummaryBlue}
         nextBestAction={customerContextOverview.nextBestAction}
         nextBestActionContent={customerContextOverview.nextBestActionContent}
         nextBestActionBare={customerContextOverview.nextBestActionBare}
@@ -3025,6 +3626,13 @@ export function InteractionTranscript({
   const [sessionMessages, setSessionMessages] = useState<Record<string, TranscriptMessage[]>>(() =>
     Object.fromEntries(TRANSCRIPT_SESSIONS.map((s) => [s.id, s.messages]))
   );
+  // Ids already present when this transcript first rendered — anything that
+  // arrives later (a live/simulated message) slides + fades in, same entrance
+  // Marcus Webb's chat uses; the initial history renders without animation.
+  const initialMessageIdsRef = useRef<Set<string> | null>(null);
+  if (initialMessageIdsRef.current === null) {
+    initialMessageIdsRef.current = new Set(liveMessages.map((m) => m.id));
+  }
   // Which message's "Add tag" popover is open — at most one at a time,
   // across every session (message ids are already unique per session, so
   // a single id is enough with no session key needed alongside it).
@@ -3338,7 +3946,12 @@ export function InteractionTranscript({
   // context this component is mounted in, not just the main record
   // column (where `scrollContainerRef` itself happens to be the real
   // scroll container).
+  // While an automatic scroll is settling (new content just landed and we're smooth-scrolling to it), the sentinel is
+  // briefly below the fold; `autoScrollUntilRef` lets the "not at bottom" detection below ignore that window so the
+  // "Scroll To Latest" button doesn't flash every time content is added.
+  const autoScrollUntilRef = useRef(0);
   const scrollToBottom = (behavior: ScrollBehavior = "auto") => {
+    autoScrollUntilRef.current = Date.now() + 900;
     bottomSentinelRef.current?.scrollIntoView({ block: "end", behavior });
   };
 
@@ -3367,15 +3980,41 @@ export function InteractionTranscript({
   // on screen" comes out right in every context this component mounts in,
   // not just the one where `scrollContainerRef` happens to be the real
   // scroll container.
+  // Whether the latest message is on screen, measured against the viewport AND every clipping ancestor (the docked and
+  // hover-preview Transcript panels clip their own content, which a plain viewport-rooted observer got wrong). Polled
+  // lightly rather than observed so it also catches content growth. A small bottom tolerance counts "almost at the
+  // bottom" as at the bottom, and "left the bottom" must hold for a moment and outlast any automatic scroll in progress,
+  // so adding content never flashes the "Scroll To Latest" button.
   useEffect(() => {
     const target = bottomSentinelRef.current;
     if (!target) return;
-    const observer = new IntersectionObserver(([entry]) => setIsAtBottom(entry.isIntersecting), {
-      threshold: 0,
-    });
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, []);
+    const TOLERANCE = 96;
+    const isNearBottom = () => {
+      const top = target.getBoundingClientRect().top;
+      let limit = window.innerHeight;
+      for (let el = target.parentElement; el; el = el.parentElement) {
+        if (getComputedStyle(el).overflowY !== "visible") limit = Math.min(limit, el.getBoundingClientRect().bottom);
+      }
+      return top <= limit + TOLERANCE;
+    };
+    let awaySince: number | null = null;
+    const tick = () => {
+      if (isNearBottom()) {
+        awaySince = null;
+        setIsAtBottom(true);
+        return;
+      }
+      const now = Date.now();
+      if (now < autoScrollUntilRef.current) {
+        awaySince = null;
+        return;
+      }
+      if (awaySince === null) awaySince = now;
+      else if (now - awaySince >= 400) setIsAtBottom(false);
+    };
+    const id = window.setInterval(tick, 150);
+    return () => window.clearInterval(id);
+  }, [contactId]);
 
   // Keeps the "N new" count in sync with reality: while at the bottom,
   // every message is by definition "seen," so the seen-count tracks the
@@ -3528,7 +4167,10 @@ export function InteractionTranscript({
             // (not seeded into `sessionMessages` at mount, since it isn't
             // part of the fixed `TRANSCRIPT_SESSIONS` array that seeds that
             // state) — genuinely empty there, not a bug.
-            const messages = sessionMessages[session.id] ?? [];
+            const messages =
+              hideAllMessages || (hideMockFollowUpMessages && session.id === "session-2")
+                ? []
+                : sessionMessages[session.id] ?? [];
             // Patches this session's own current status (which may have
             // been changed via the status popover) onto the otherwise-
             // static session object — `TranscriptSessionSeparator`'s chip
@@ -3826,6 +4468,7 @@ export function InteractionTranscript({
                 {(contactOverview || customerContextOverview) &&
                   session.id === lastSessionId &&
                   !contactOverviewAtBottom &&
+                  !overviewBeforeApproval &&
                   renderContactOverviewBlock()}
                 {messages.length > 0 && (
                   <div className="flex min-w-0 flex-col gap-5 py-4">
@@ -3929,6 +4572,7 @@ export function InteractionTranscript({
                   // `isCustomerTyping`'s own doc comment above for the full
                   // `lastSessionId`/`isTextChannel` scoping reasoning.
                   const showTypingIndicator = session.id === lastSessionId && isTextChannel && isCustomerTyping;
+                  const showAiTypingIndicator = session.id === lastSessionId && isTextChannel && isAiTyping;
                   const renderBubble = (message: TranscriptMessage) => (
                     <TranscriptMessageBubble
                       key={message.id}
@@ -3962,7 +4606,51 @@ export function InteractionTranscript({
                       text={message.text}
                     />
                   );
-                  const renderLiveMessage = channelType === "voice" ? renderPlainLine : renderBubble;
+                  const renderLiveMessage = (message: TranscriptMessage) => {
+                    const rendered = message.instruction ? (
+                      <InstructionInterstitial
+                        key={message.id}
+                        id={message.id}
+                        instruction={message.instruction}
+                        timestamp={message.timestamp}
+                        onOpen={(link) => onSnapshotLink?.(link)}
+                        active={activeSnapshotLink === message.instruction.link}
+                      />
+) : message.wrapUp ? (
+                      <WrapUpAccordion key={message.id} message={message} onComplete={onWrapUpComplete} />
+                    ) : message.summary ? (
+                      <div key={message.id} className="flex flex-col gap-5">
+                        {overviewBeforeApproval && session.id === lastSessionId && liveMessages.find((m) => !!m.summary)?.id === message.id && renderContactOverviewBlock()}
+                        <ApprovalSummaryAccordion message={message} onDecide={onApprovalDecision} onCallRequest={onApprovalCallRequest} onLink={onSnapshotLink} onSuggestionAsk={onApprovalSuggestionAsk} takenOver={approvalTakenOver} />
+                      </div>
+                    ) : message.event ? (
+                      <div key={message.id} className="flex flex-col gap-0.5">
+                        <span className="lyra-body-sm text-lyra-fg-secondary">
+                          {message.timestamp} · {message.name}
+                        </span>
+                        <span className="lyra-body-md-emphasis text-lyra-fg-default">{message.text}</span>
+                      </div>
+                    ) : channelType === "voice" ? (
+                      renderPlainLine(message)
+                    ) : (
+                      renderBubble(message)
+                    );
+                    const isAiAction = !!(message.instruction || message.wrapUp || message.summary || message.event);
+                    const entered = initialMessageIdsRef.current?.has(message.id) ? (
+                      rendered
+                    ) : (
+                      <div key={message.id} className="animate-in slide-in-from-bottom-4 fade-in-0 duration-200">
+                        {rendered}
+                      </div>
+                    );
+                    return isAiAction ? (
+                      <AiActionCollapse key={message.id} hidden={hideAiActions} gap>
+                        {entered}
+                      </AiActionCollapse>
+                    ) : (
+                      entered
+                    );
+                  };
                   return (
                     <>
                       {existingLiveMessages.length > 0 && (
@@ -3971,16 +4659,28 @@ export function InteractionTranscript({
                         </div>
                       )}
                       {isNonFreshOverviewSession && renderContactOverviewBlock()}
-                      {(newLiveMessages.length > 0 || showTypingIndicator) && (
+                      {(newLiveMessages.length > 0 || showTypingIndicator || showAiTypingIndicator) && (
                         <div className="flex flex-col gap-5 py-4">
                           {newLiveMessages.map(renderLiveMessage)}
                           {showTypingIndicator && (
+                            <div className="animate-in slide-in-from-bottom-4 fade-in-0 duration-200">
                             <TypingIndicator
                               initials={displayInitials}
                               identified={customerIdentified}
                               narrow={transcriptNarrow}
                               bubbleFullWidth={transcriptBubbleFullWidth}
                             />
+                            </div>
+                          )}
+                          {showAiTypingIndicator && (
+                            <div className="animate-in slide-in-from-bottom-4 fade-in-0 duration-200">
+                            <TypingIndicator
+                              ai
+                              initials="AI"
+                              narrow={transcriptNarrow}
+                              bubbleFullWidth={transcriptBubbleFullWidth}
+                            />
+                            </div>
                           )}
                         </div>
                       )}
@@ -4169,6 +4869,61 @@ export const QUICK_REPLIES: QuickReplyItem[] = [
   { id: "sorry", title: "Apology", template: "I sincerely apologize for the inconvenience this has caused you." },
 ];
 
+// Message ids whose "performing" step already played, so remounting (switching customers) doesn't replay the spinner.
+const finishedInstructionIds = new Set<string>();
+
+/** "AI agent is performing this now…" spinner for ~1.8s, then "AI agent finished performing this." plus the clickable instruction row. */
+/** Collapses its children (fade + slide up + height to 0) when `hidden`, the reverse of the entrance animation. `gap` cancels the parent's flex gap while collapsed. */
+function AiActionCollapse({ hidden, gap, children }: { hidden?: boolean; gap?: boolean; children: React.ReactNode }) {
+  return (
+    <div
+      className={cn(
+        "grid transition-[grid-template-rows,opacity,transform,margin] duration-200 ease-in-out",
+        hidden ? "pointer-events-none grid-rows-[0fr] -translate-y-2 opacity-0" : "grid-rows-[1fr] opacity-100",
+        hidden && gap && "-mt-5"
+      )}
+      aria-hidden={hidden}
+    >
+      <div className="min-h-0 overflow-hidden">{children}</div>
+    </div>
+  );
+}
+
+export function InstructionInterstitial({
+  id,
+  instruction,
+  timestamp,
+  onOpen,
+  active,
+}: {
+  /** True while this row's panel is the one open in the side panel (same selected look as Marcus's action-log rows). */
+  active?: boolean;
+  id: string;
+  instruction: { title: string; by: string; link: string };
+  timestamp: string;
+  onOpen: (link: string) => void;
+}) {
+  const [done, setDone] = useState(finishedInstructionIds.has(id));
+  useEffect(() => {
+    if (done) return;
+    const t = window.setTimeout(() => {
+      finishedInstructionIds.add(id);
+      setDone(true);
+    }, 1800);
+    return () => window.clearTimeout(t);
+  }, [done, id]);
+  return (
+    <Interstitial
+      title={instruction.title}
+      by={instruction.by}
+      timestamp={timestamp}
+      pending={!done}
+      active={active}
+      onOpen={() => onOpen(instruction.link)}
+    />
+  );
+}
+
 /** Fills a `rich` item's `template` from its current field values —
  *  `bracket` wraps each filled-in value in `[...]` (matching the reference
  *  mockup's own preview treatment, e.g. "Please allow [1–2] business
@@ -4246,7 +5001,39 @@ export function InteractionComposer({
   onSend,
   prefill,
   onPrefillConsumed,
+  copilotSuggestions,
+  copilotSuggestionLinks,
+  copilotSuggestionReplacements,
+  onCopilotSuggestionLink,
+  onCopilotAsk,
+  copilotOnly,
+  onTakeover,
+  takeoverLabel = "Takeover Chat",
+  takeoverDisabled,
+  takeoverDisabledReason,
+  hideAiActions,
+  onHideAiActionsChange,
 }: {
+  /** Shows a "Hide AI Actions" switch at the right of the mode toggle row. */
+  hideAiActions?: boolean;
+  onHideAiActionsChange?: (hide: boolean) => void;
+  takeoverLabel?: string;
+  takeoverDisabled?: boolean;
+  takeoverDisabledReason?: string;
+  /** Show only the Ask Copilot input (no Chat with Customer toggle) — used while the agent is reviewing an AI-led chat. */
+  copilotOnly?: boolean;
+  /** With `copilotOnly`: shows a "Take over" button in place of the toggle. */
+  onTakeover?: () => void;
+  /** Suggestion chips shown under the "Ask Copilot" input; clicking one fills the question. */
+  copilotSuggestions?: string[];
+  /** label → link key for chips that open a side panel (after a brief spinner) instead of filling the input. */
+  copilotSuggestionLinks?: Record<string, string>;
+  /** A used link chip is swapped for this replacement (label → replacement label). */
+  copilotSuggestionReplacements?: Record<string, string>;
+  onCopilotSuggestionLink?: (link: string) => void;
+  /** Fired whenever the agent asks Copilot something (submits a question, or uses a chip that runs a lookup) —
+   *  the caller adds a matching interstitial row to the chat. */
+  onCopilotAsk?: (text: string) => void;
   onSend: (text: string) => void;
   /** Populates the composer's own text WITHOUT sending it — per explicit
    *  request ("When one is clicked it should populate into the input but
@@ -4271,6 +5058,41 @@ export function InteractionComposer({
    *  this effect. */
   onPrefillConsumed?: () => void;
 }) {
+  const [composerTabState, setComposerTab] = useState<"chat" | "copilot">("chat");
+  const composerTab = copilotOnly ? "copilot" : composerTabState;
+  const [copilotQuestion, setCopilotQuestion] = useState("");
+  const [copilotLoading, setCopilotLoading] = useState<string | null>(null);
+  // Switching modes puts the caret straight into that mode's input so the agent can just start typing
+  // (skipped on first mount so the composer doesn't steal focus when it appears).
+  const copilotPaneRef = useRef<HTMLDivElement>(null);
+  // Focus only when the agent actually switches modes with the toggle: compare against the previous tab so mount
+  // (and dev double-invoked effects) never steal focus.
+  const prevComposerTab = useRef(composerTab);
+  useEffect(() => {
+    if (prevComposerTab.current === composerTab) return;
+    prevComposerTab.current = composerTab;
+    if (composerTab === "chat") {
+      textareaRef.current?.focus();
+    } else {
+      copilotPaneRef.current?.querySelector<HTMLElement>("textarea, input")?.focus();
+    }
+  }, [composerTab]);
+  const [copilotUsed, setCopilotUsed] = useState<string[]>([]);
+  const activateCopilotSuggestion = (suggestion: string) => {
+    const link = copilotSuggestionLinks?.[suggestion];
+    if (!link) {
+      setCopilotQuestion(suggestion);
+      return;
+    }
+    if (copilotLoading) return;
+    setCopilotLoading(suggestion);
+    onCopilotAsk?.(suggestion);
+    window.setTimeout(() => {
+      setCopilotLoading(null);
+      setCopilotUsed((prev) => [...prev, suggestion]);
+      onCopilotSuggestionLink?.(link);
+    }, 1400);
+  };
   const [message, setMessage] = useState("");
   const canSend = message.trim().length > 0;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -4281,6 +5103,7 @@ export function InteractionComposer({
   useEffect(() => {
     if (prefill === undefined) return;
     setMessage(prefill);
+    setComposerTab("chat");
     onPrefillConsumed?.();
     // The textarea's own auto-grow (further down this component, if any)
     // and caret placement both need the DOM to have actually committed
@@ -4555,9 +5378,95 @@ export function InteractionComposer({
             )}
           </div>
         )}
+        {/* "Chat with Customer" / "Ask Copilot" tabs: the chat input stays mounted (just hidden) while Copilot is showing so a draft is kept. */}
+        {copilotOnly ? (
+          // Copilot-only (agent reviewing an AI-led chat): no mode toggle, just the switch at the right.
+          onHideAiActionsChange && (
+            <div className="mb-3 flex justify-end">
+              <Switch size="sm" label="Hide AI Actions" checked={!!hideAiActions} onCheckedChange={onHideAiActionsChange} />
+            </div>
+          )
+        ) : (
+        <div className="mb-3 flex items-center justify-between gap-3">
+        <ToggleGroup
+          ariaLabel="Composer mode"
+          allowDeselect={false}
+          items={[
+            { value: "chat", label: "Chat with Customer" },
+            { value: "copilot", label: "Ask Copilot" },
+          ]}
+          value={composerTab}
+          onValueChange={(next: string) => {
+            // Always exactly one mode active: ignore the empty value a re-click may emit.
+            if (next === "chat" || next === "copilot") setComposerTab(next);
+          }}
+        />
+        {onHideAiActionsChange && (
+          <Switch
+            size="sm"
+            label="Hide AI Actions"
+            checked={!!hideAiActions}
+            onCheckedChange={onHideAiActionsChange}
+          />
+        )}
+        </div>
+        )}
+        {/* Both panes share one grid cell so the area keeps the taller (chat) height on either tab. */}
+        <div className="grid">
+        <div
+          ref={copilotPaneRef}
+          className={`col-start-1 row-start-1 ${composerTab === "copilot" ? "animate-in fade-in-0 duration-200" : "invisible pointer-events-none"}`}
+          aria-hidden={composerTab !== "copilot"}
+        >
+            <AIInput
+              value={copilotQuestion}
+              onChange={setCopilotQuestion}
+              onSubmit={(text: string) => {
+                const q = (text ?? copilotQuestion).trim();
+                if (q) onCopilotAsk?.(q);
+                setCopilotQuestion("");
+              }}
+              placeholder="Ask Copilot about this customer or conversation..."
+              helperText=""
+              className="w-full"
+            />
+            <div className="mt-3 flex items-start justify-between gap-3">
+            {copilotSuggestions && copilotSuggestions.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {copilotSuggestions
+                  .map((sg) => (copilotUsed.includes(sg) ? copilotSuggestionReplacements?.[sg] : sg))
+                  .filter((sg): sg is string => !!sg && !copilotUsed.includes(sg))
+                  .map((suggestion) => (
+                  <Tag
+                    key={suggestion}
+                    label={suggestion}
+                    variant="purple"
+                    icon={<Sparkles className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />}
+                    shape="pill"
+                    role="button"
+                    tabIndex={composerTab === "copilot" ? 0 : -1}
+                    className="cursor-pointer"
+                    onClick={() => activateCopilotSuggestion(suggestion)}
+                    onKeyDown={(e: React.KeyboardEvent<HTMLSpanElement>) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        activateCopilotSuggestion(suggestion);
+                      }
+                    }}
+                  />
+                ))}
+              </div>
+            ) : <span />}
+            {copilotOnly && onTakeover && (
+              <Button variant="destructive" size="md" className="shrink-0" onClick={onTakeover} disabled={takeoverDisabled} title={takeoverDisabled ? takeoverDisabledReason : undefined} tabIndex={composerTab === "copilot" ? 0 : -1}>
+                {takeoverLabel}
+              </Button>
+            )}
+            </div>
+        </div>
+        <div className={`col-start-1 row-start-1 ${composerTab === "chat" ? "" : "invisible pointer-events-none"}`} aria-hidden={composerTab !== "chat"}>
         <Textarea
           ref={textareaRef}
-          label="Chat with Customer"
           placeholder="Type a message... or / for quick replies"
           rows={3}
           value={message}
@@ -4607,6 +5516,8 @@ export function InteractionComposer({
               <ChevronDown className="h-4 w-4" strokeWidth={1.5} />
             </Button>
           </div>
+        </div>
+        </div>
         </div>
       </div>
     </div>

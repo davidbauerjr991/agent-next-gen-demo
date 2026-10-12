@@ -110,3 +110,54 @@ The whole outer pill (the bordered `div` wrapping the status `Tag`'s `Button` an
     A further follow-up: on an inactive/non-highlighted row the buttons still rendered visibly shorter than their real 24x24 `icon-sm` size — a second, distinct squish bug from the two above, this one about HEIGHT rather than width. Root cause: the shared `relative flex-1` anchor had no explicit height, so its height came from its only in-flow child — the clock+time text (`lyra-body-xs`'s own line-height, well under 24px). The overlay is `absolute inset-y-0`, and per the CSS spec, an absolutely positioned box with both `top`/`bottom` set and no explicit height of its own gets its height computed directly from its containing block's height — it does NOT expand to fit its own children the way normal flow would. So the overlay was inheriting that sub-24px height from the text and squeezing the two `icon-sm` (24px) buttons down to fit, instead of them rendering at their true size. Fixed by adding `h-6` explicitly to both the anchor span and the overlay div, giving `inset-y-0` a full 24px containing block to size against — matching the buttons' own `icon-sm` size and the kebab's own fixed `h-6 w-6`, so all three now sit at a consistent, unsquished 24x24 regardless of row/highlight state.
 
     A first pass rendered these two buttons as ordinary flex siblings next to the elapsed-time text and the kebab — always visible, taking up real row width. Per explicit follow-up (a screenshot showing the whole row squished — chip, clock, two buttons, and the kebab all fighting for one line), they're now a HOVER-ONLY overlay instead: the elapsed clock+time `<span>` is wrapped in a `relative inline-flex` anchor (`inline-flex`, not a plain inline `span` — an inline box is an unreliable containing block for an `absolute inset` child), and the two buttons render on an `absolute inset-y-0 left-0` layer on top of it, `pointer-events-none opacity-0` until the row (`group`, on the row's own outer div) is hovered (`group-hover:pointer-events-auto group-hover:opacity-100` — same "invisible-but-still-eats-hover-without-pointer-events-none" fix `AgentNextGenPage.tsx`'s message-bubble hover toolbar already uses). The overlay's own background matches whichever the row's current background actually is (`highlighted ? "bg-lyra-status-info-subtle" : "bg-lyra-state-hover"`, mirroring the row's own wrapping `className` condition) so it genuinely covers the clock/time text rather than letting it show through underneath. Deliberately `inset-y-0 left-0`, NOT `inset-0` — two `icon-sm` buttons are wider than most "MM:SS" labels, and stretching the overlay to exactly the anchor's own (narrower) width would squeeze them via `flex`, reproducing the exact same squished look on hover instead of always; left-anchored with natural width instead, freely extending into the (empty, same-colored) `flex-1` spacer if it needs to. Being `absolute` (out of flow) is also what makes this "cost nothing" layout-wise — hidden, the clock/time span (and the spacer and kebab after it) lay out exactly as if these two buttons didn't exist, which is what keeps the kebab pinned at one consistent position regardless of whether they're showing, per that same explicit follow-up ("keep the kebab menus aligned").
+
+## AI-led cases (Lucas Thomas / Marcus Webb pattern) — follow these when building any new scripted AI case
+
+Reference implementation: the Lucas Thomas case on the Advanced page (`agent-next-gen-lucas-thomas-scenario.ts`, `agent-next-gen-lucas-thomas-panels.tsx`, `agent-next-gen-transcript.tsx`, `AgentWorkspaceAdvancedPage.tsx`). Marcus Webb's patterns (`MarcusWebbAiChatBubble`, `ActionLogNoteEntry`, `NextBestActionOptionPicker`) are references to reuse, not code to import wholesale.
+
+**Architecture**
+- Keep each case data-driven: one scenario file (transcript, initial message count, realtime steps with typing times, decision follow-ups, panel keys, chip link/replacement maps) plus a separate panels file for side-panel bodies.
+- Setup messages are already on screen at launch; later messages play live (timeouts + typing indicators). Include a "Chat started" event at the top and hide the mock follow-up messages.
+- Side panels are native to each customer: panel state is stored per interaction, never carries over to another customer, and the chat is never shown inside a side panel.
+- Use lyra-ui components and type classes (`lyra-body-md`/`-sm`/`-lg-emphasis`, `Accordion`, `Tag`, `Badge`, `Button`, `Spinner`, `ToggleGroup`, `AIInput`) — no oversized custom text.
+- Tailwind `/alpha` on bare lyra color-variable tokens generates no CSS; use `color-mix(in srgb, var(--token) N%, transparent)`.
+
+**AI chat appearance**
+- AI messages float LEFT in purple (`bg-lyra-accent-purple-soft`); only the human agent floats right. AI avatar = purple `#6149C1` circle with the `Bot` icon (lyra-ui `ChatMessage` `ai` prop).
+- Show a typing indicator before every non-initial message (AI variant: left aligned, purple dots); animate new messages in with `animate-in slide-in-from-bottom-4 fade-in-0 duration-200`.
+- Event lines (e.g. "Launch price held") are plain text lines, not tags.
+- Before takeover: chat in review mode (warning ActionBar + Takeover button), no SLA warning; Takeover starts the SLA clock and the AI sends a warm handoff message (typing dots first) saying the customer is being transferred to the human agent.
+- Hide the channel icon / chat-active icon; hide the unassign/dismiss icons in the left-nav card and session row; lock Outcome (and kebab) in the left-nav card until takeover via `controlsDisabled`.
+
+**Interstitials (agent actions logged in the chat)**
+- A bordered clickable row: note icon, title, time, actor (John Smith or Checkout AI Agent), chevron; clicking opens a side panel. Add one whenever the agent acts: approve, decline, something else, and every Ask Copilot question or chip.
+- First show "AI agent is performing this now…" with a spinner (~1.8s), then replace it with the row alone — do NOT show an "AI agent finished performing this" line.
+- The row whose panel is open gets the selected look (`border-lyra-border-active bg-lyra-status-info-subtle`); clicking it again closes the panel.
+- Chip rows reopen the chip's own panel; typed free-form questions open the instruction panel with a "Copilot result" card and auto-open when finished.
+- Every panel the agent opens is added to the Artifacts card in Contact Details as a re-open link (Experience Memory excluded); "View All" appears only above 10 and opens an Artifacts list in the docked panel with a back arrow to Contact Details.
+
+**Approval request box**
+- Header: light blue (`bg-lyra-status-info-subtle`), sparkle icon, "Approval request · {agent}" + time, "Copilot summary" + chevron; animates open/closed.
+- Content: headline, description, checklist (green checks for done items; the pending item amber with a "Needs a person" badge) on the left; Experience Memory bullets + sentiment bars on the right. Checklist titles are links that open Experience Memory in the docked side panel with the matching event expanded.
+- White bordered areas inside the card, lyra type sizes. Collapsing hides only the summary — while a decision is pending the "How would you like to proceed?" footer stays visible.
+- If the agent takes over before deciding, the options go away and the footer says "Agent has taken over the chat".
+- A case can raise a second approval later; give each card distinct option values so one handler serves both.
+
+**Autosummary / Contact Details**
+- Autosummary headings are light blue (`autosummaryBlue`: `bg-lyra-status-info-subtle`, blue icon), not a "Needs a Person" tag. In summaries, `[label](key)` creates links that open interior slide-out panels.
+- Real-Time Summary, customer card (subtitle + tags), `detailedSummary` and `snapshot` must reflect the case itself — override them per case in `customerContextOverviewInfo`, never the generic hashed profile.
+- "View Experience Memory" under the Real-Time Summary swaps the docked panel to Experience Memory (back arrow, customer name, "Experience Memory" subhead). Orders opened from Experience Memory have no back arrow in the slide-out; orders opened from Purchase history keep theirs.
+
+**Approve / Decline / Something else**
+- Approve the Exception reveals a white bordered content area (headline, description, Experience Memory line, card of what will happen, optional knowledge-article row) with a confirm button (e.g. "Authorize and Place Order") — it does not perform immediately.
+- Decline requires a reason in a note box.
+- Something else = free-text instruction plus small purple pill chips (sparkle icon on the left). Lookup chips show a spinner then open an interior panel; a used chip is removed and replaced by a related one (e.g. Show purchase history → Check fraud screening results); other chips just fill the box.
+- After submit the card shows a green check + result line; the automation plays out in the chat, outside the card: instruction row, events, then the AI messaging the customer.
+- Resolved paths end with a Wrap up card (same accordion shell as the approval request, success-subtle header, summary, disposition line, "Complete wrap-up" button); completing it saves the outcome and closes/unassigns. If the customer follows up, keep the chat open and have the AI reply instead of auto-closing.
+
+**Chat input / Ask Copilot**
+- A lyra-ui `ToggleGroup` (not tabs): "Chat with Customer" / "Ask Copilot"; one mode always active; switching focuses that mode's input; both panes share one grid cell so the height never changes; the chat draft is kept.
+- Ask Copilot uses `AIInput` with purple pill suggestion chips beneath it. A chip in the Approval request box and the same chip in Ask Copilot must open the same panel, add the same chat row, and reopen the same content. Anything asked of Copilot is logged in the chat as an interstitial.
+
+**Verification**
+- After every edit run `npx tsc -b --noEmit` here (baseline 219) and `npx tsc --noEmit` in `../lyra-ui` (baseline 3); don't fix baseline errors unless asked. Say honestly when nothing was verified in a browser. Don't commit unless asked.

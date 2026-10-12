@@ -402,7 +402,7 @@ export function buildMarcusWebbInteraction(clockTick: number): Interaction {
     // for the general pattern) — surfaces as the Session Details/record-
     // header "Skill" field. Per explicit request, Marcus's chat routes to
     // General Support.
-    preview: "General Support",
+    preview: "AI Review",
   };
   return {
     id: MARCUS_WEBB_ID,

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Bot, CheckCircle2, ChevronRight, CornerDownLeft, MessageSquareText, XCircle } from "lucide-react";
+import { Bot, CheckCircle2, ChevronRight, CornerDownLeft, History, MessageSquareText, XCircle } from "lucide-react";
 import {
   Accordion,
   AIInput,
@@ -23,6 +23,7 @@ import {
   KnowledgeArticleSummaryRow,
   type KnowledgeArticleCardData,
 } from "@/components/agent-next-gen-knowledge-article-card";
+import { ApprovalRequestAccordion, InstructionInterstitial, type TranscriptApprovalSummary } from "@/components/agent-next-gen-transcript";
 import { MarcusWebbTransactionsTable } from "@/components/agent-next-gen-marcus-webb-transactions-panel";
 
 // Placeholder content for the "Do Something" scaffold — per explicit
@@ -307,6 +308,64 @@ const OPTIONS: MarcusWebbNextBestActionOption[] = [
     title: "Something else",
   },
 ];
+
+/** Approve's confirmation body — same layout as Lucas's Approve panel (headline, description, Experience Memory line,
+ *  card, confirm button), with Marcus's refund content. */
+const MARCUS_PHOTO_ARTICLE: KnowledgeArticleCardData = {
+  id: "damage-photo-verification",
+  title: "RET-4.1 · Verifying damage by photo",
+  body: "Before approving a damage refund, ask the customer to send clear photos of the damaged item so the claim can be verified and attached to the order.",
+  internalNote: "Photo verification is required for refunds over the $100 auto-approval limit. Do not approve until photos are on file.",
+  webLinks: [],
+  processSteps: [
+    "Ask the customer to photograph the damage from at least two angles, including the packaging.",
+    "Have them include the order number or packing slip in one photo.",
+    "Attach the photos to the order and confirm the damage matches the report.",
+    "Approve the refund, or request replacement photos if the damage can't be verified.",
+  ],
+};
+
+/** Confirmation body for an option (Approve / Reject), shown in place of the plain description. */
+interface MarcusOptionPanel {
+  headline: string;
+  description: string;
+  memory: string;
+  /** Optional summary card (omitted for Marcus: the headline already says the amount). */
+  card?: { title: string; sub: string };
+  confirmLabel: string;
+  /** Knowledge article linked from the panel (defaults to the photo-verification article). */
+  article?: KnowledgeArticleCardData;
+}
+
+const MARCUS_POLICY_ARTICLE: KnowledgeArticleCardData = {
+  id: "refund-alternatives",
+  title: "RET-2.3 · Refund exceptions and alternatives",
+  body: "When a refund can't be approved as requested, offer an alternative resolution instead: a replacement, store credit, or escalation to a supervisor.",
+  internalNote: "Claims over the $100 auto-approval limit that fail verification must not be refunded until a supervisor has reviewed them.",
+  webLinks: [],
+  processSteps: [
+    "Explain to the customer why the refund can't be approved as requested.",
+    "Offer a replacement or store credit for the full order value.",
+    "If the customer declines, escalate the claim to a supervisor with the order and damage details.",
+    "Log the outcome on the order so no money moves until a resolution is agreed.",
+  ],
+};
+
+const MARCUS_REJECT_PANEL: MarcusOptionPanel = {
+  headline: "Reject the refund: no money moves until a different resolution is reached",
+  description:
+    "The AI agent tells Marcus the refund wasn't approved as requested and offers a replacement, store credit, or escalation to a supervisor. Use this if the claim needs more verification or doesn't fit policy.",
+  memory: "Experience Memory: refund exceeds the $100 auto-approval limit · damage reported on delivery",
+  confirmLabel: "Reject the Refund",
+  article: MARCUS_POLICY_ARTICLE,
+};
+
+const MARCUS_APPROVE_PANEL: MarcusOptionPanel = {
+  headline: "Approve the refund: return the full $200.00 to Marcus's original payment method",
+  description: "The cracked ear cup was reported on delivery and the refund qualifies under the return policy.",
+  memory: "Experience Memory: damage reported on order #48213 · on hold while the refund is reviewed",
+  confirmLabel: "Authorize the Refund",
+};
 
 // What actually shows once an option is confirmed — icon/label for the
 // locked summary block, and an optional "command" sentence underneath it.
@@ -831,6 +890,29 @@ function ActionLogNoteEntry({
  *  column (`flex min-w-0 flex-1 flex-col gap-1`) holding the header THEN
  *  the bubble, mirroring `chat-message.tsx`'s own
  *  `flex items-start gap-2` → `flex min-w-0 flex-col gap-1` shape. */
+/** Marcus's refund approval request, in the same blue "Approval request" accordion the Lucas Thomas flow uses. */
+const MARCUS_WEBB_APPROVAL_SUMMARY: TranscriptApprovalSummary = {
+  title: "Approval request · Cognigy AI Agent",
+  headline: "Marcus Webb is requesting a $200 refund",
+  description:
+    "Marcus placed an order for noise-cancelling headphones last Tuesday and reported the item arrived with a cracked ear cup. I've confirmed the $200 refund qualifies, but it exceeds our $100 auto-approval limit, so I've placed Marcus on hold pending your sign-off.",
+  checklist: [
+    { label: "Order verified", link: "memory:order-placed", detail: "Noise-cancelling headphones, order #48213, placed last Tuesday", status: "done" },
+    { label: "Damage reported", link: "memory:damage-reported", detail: "Cracked ear cup reported by the customer", status: "done" },
+    { label: "Refund eligibility", link: "memory:refund-escalated", detail: "$200 refund qualifies under the return policy", status: "done" },
+    { label: "Refund approval", link: "memory:refund-escalated", detail: "Exceeds the $100 auto-approval limit", status: "attention", badge: "Needs a person" },
+  ],
+  memoryTitle: "Experience Memory",
+  memory: [
+    "Marcus is on hold while this is reviewed",
+    "Refund exceeds the $100 auto-approval limit",
+    "Cracked ear cup reported on delivery",
+  ],
+  sentimentLabel: "Customer sentiment",
+  sentimentValue: "Concerned",
+  sentimentLevel: 3,
+};
+
 function MarcusWebbAiChatBubble({
   title,
   timestamp,
@@ -864,7 +946,7 @@ function MarcusWebbAiChatBubble({
       <Avatar icon={Bot} size="xs" className="bg-[#6149C1] text-white" />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="lyra-body-sm text-lyra-fg-secondary px-1">{timestamp} · Cognigy AI Agent</span>
-        <div className="flex min-w-0 flex-col gap-3 rounded-lyra-lg rounded-tl-none bg-lyra-state-hover px-4 py-3">
+        <div className="flex min-w-0 flex-col gap-3 rounded-lyra-lg rounded-tl-none bg-lyra-accent-purple-soft px-4 py-3">
           {title}
           {children}
         </div>
@@ -916,12 +998,12 @@ function MarcusWebbAiTypingIndicator() {
           via `cn`/tailwind-merge, so this override still works cleanly)
           and same `Bot` glyph/28px circle, just the shared component now. */}
       <Avatar icon={Bot} size="xs" className="bg-[#6149C1] text-white" />
-      <div className="rounded-lyra-lg rounded-tl-none bg-lyra-state-hover px-4 py-3.5">
+      <div className="rounded-lyra-lg rounded-tl-none bg-lyra-accent-purple-soft px-4 py-3.5">
         <div className="flex items-center gap-1">
           {[0, 150, 300].map((delayMs) => (
             <span
               key={delayMs}
-              className="block h-1.5 w-1.5 animate-bounce rounded-full bg-lyra-fg-secondary"
+              className="block h-1.5 w-1.5 animate-bounce rounded-full bg-lyra-accent-purple-strong"
               style={{ animationDelay: `${delayMs}ms` }}
               aria-hidden="true"
             />
@@ -1213,7 +1295,14 @@ function MarcusWebbTaskCard<T extends string>({
   notes,
   extra,
   phase,
+  optionPanels,
+  onViewArticle,
+  selectedArticleId,
 }: {
+  onViewArticle?: (article: KnowledgeArticleCardData) => void;
+  selectedArticleId?: string | null;
+  /** Per-option confirmation body (Lucas-style): replaces that option's description and relabels the confirm button. */
+  optionPanels?: Partial<Record<T, MarcusOptionPanel>>;
   heading?: React.ReactNode;
   options: NextBestActionOption<T>[];
   selected: T | undefined;
@@ -1233,6 +1322,7 @@ function MarcusWebbTaskCard<T extends string>({
 
   const note = selected ? notes?.[selected] : undefined;
   const selectedOption = options.find((option) => option.value === selected);
+  const panel = selected ? optionPanels?.[selected] : undefined;
 
   return (
     <div className="flex flex-col gap-3">
@@ -1290,8 +1380,31 @@ function MarcusWebbTaskCard<T extends string>({
           Approve has no `note` (nothing to conflict with), and "Something
           else" has no `description` at all (see `OPTIONS`), so this only
           actually changes Reject's behavior. */}
-      {selectedOption?.description && (
+      {selectedOption?.description && !panel && (
         <p className="lyra-body-sm text-lyra-fg-secondary">{selectedOption.description}</p>
+      )}
+      {panel && (
+        <div className="flex flex-col gap-1.5 rounded-lyra-lg border border-lyra-border-subtle bg-lyra-bg-surface-base px-4 py-3 animate-in slide-in-from-bottom-2 fade-in-0 duration-200">
+          <p className="lyra-body-lg-emphasis text-lyra-fg-default">{panel.headline}</p>
+          <p className="lyra-body-md text-lyra-fg-secondary">{panel.description}</p>
+          <p className="flex items-start gap-1.5 lyra-body-md text-lyra-accent-purple-strong">
+            <History className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
+            {panel.memory}
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-3">
+            {panel.card && (
+              <div className="flex min-w-0 flex-col rounded-lyra-lg border border-lyra-border-subtle bg-lyra-bg-surface-base px-4 py-2.5">
+                <span className="lyra-body-md-emphasis text-lyra-fg-default">{panel.card.title}</span>
+                <span className="lyra-body-sm text-lyra-fg-secondary">{panel.card.sub}</span>
+              </div>
+            )}
+            <KnowledgeArticleSummaryRow
+              data={panel.article ?? MARCUS_PHOTO_ARTICLE}
+              selected={selectedArticleId === (panel.article ?? MARCUS_PHOTO_ARTICLE).id}
+              onClick={() => onViewArticle?.(panel.article ?? MARCUS_PHOTO_ARTICLE)}
+            />
+          </div>
+        </div>
       )}
       {note && (
         <div className="flex flex-col gap-1.5">
@@ -1314,7 +1427,7 @@ function MarcusWebbTaskCard<T extends string>({
           disabled={confirmDisabled}
           onClick={() => onConfirm(selected)}
         >
-          Perform Task
+          {panel?.confirmLabel ?? "Perform Task"}
         </Button>
       )}
     </div>
@@ -1343,6 +1456,10 @@ export function MarcusWebbNextBestActionCard({
   selectedArticleId,
   onOpenCustomerInfo,
   onOpenOrderInfo,
+  onOpenExperienceMemory,
+  copilotRequests,
+  onOpenCopilotRequest,
+  activeCopilotRequestId,
   onOpenTransactions,
   selectedTransactionsId,
   onDismissAndUnassign,
@@ -1446,6 +1563,12 @@ export function MarcusWebbNextBestActionCard({
    *  same floating-`InteriorPanel` mechanism `onActionLogEntryOpen`/
    *  `onViewArticle` already use. */
   onOpenOrderInfo?: () => void;
+  /** Opens the docked Experience Memory view focused on the given event id (approval checklist links). */
+  onOpenExperienceMemory?: (focus: string) => void;
+  /** Questions the agent asked Copilot (shown as interstitial rows), and which one's result panel is open. */
+  copilotRequests?: { id: string; text: string; time: string }[];
+  onOpenCopilotRequest?: (request: { id: string; text: string; time: string }) => void;
+  activeCopilotRequestId?: string | null;
   /** Fired when a "Something else" round's instruction row is clicked —
    *  per explicit follow-up request, that row now opens the customer's
    *  last-10-transactions table in a side panel (rather than expanding
@@ -2513,6 +2636,9 @@ export function MarcusWebbNextBestActionCard({
             confirmDisabled={confirmDisabled}
             notes={topLevelNotes}
             phase={topLevelPhase}
+            optionPanels={{ approve: MARCUS_APPROVE_PANEL, reject: MARCUS_REJECT_PANEL }}
+            onViewArticle={onViewArticle}
+            selectedArticleId={selectedArticleId}
           />
         ) : null,
     };
@@ -2638,6 +2764,24 @@ export function MarcusWebbNextBestActionCard({
     </Container>
   );
 
+  // Copilot interstitial rows: each is placed by whether the call had been taken over when it was asked, so a question
+  // asked after takeover lands below the takeover notice / remedy bubble instead of above it.
+  const copilotAskedAfterTakeoverRef = useRef<Record<string, boolean>>({});
+  const askedAfterTakeover = (id: string) => {
+    if (!(id in copilotAskedAfterTakeoverRef.current)) copilotAskedAfterTakeoverRef.current[id] = !!takenOver;
+    return copilotAskedAfterTakeoverRef.current[id];
+  };
+  const copilotRows = copilotRequests ?? [];
+  const renderCopilotRow = (r: { id: string; text: string; time: string }) => (
+    <InstructionInterstitial
+      key={r.id}
+      id={r.id}
+      instruction={{ title: r.text, by: "John Smith", link: r.id }}
+      timestamp={r.time}
+      active={activeCopilotRequestId === r.id}
+      onOpen={() => onOpenCopilotRequest?.(r)}
+    />
+  );
   return (
     // Per explicit follow-up request ("update the gap between chat
     // bubbles and other items to be 24px instead of 12px"): `gap-6`
@@ -2667,9 +2811,15 @@ export function MarcusWebbNextBestActionCard({
       {askedQuestions
         .filter((q) => q.id === "next-best-action")
         .map((q) => (
-          <MarcusWebbAiChatBubble key={q.id} title={q.title} timestamp={q.timestamp}>
-            {activeQuestionItem?.id === q.id && activeQuestionItem.content}
-          </MarcusWebbAiChatBubble>
+          <ApprovalRequestAccordion
+            key={q.id}
+            summary={MARCUS_WEBB_APPROVAL_SUMMARY}
+            revealKey="marcus-approval"
+            revealDelayMs={1400}
+            onLink={(key) => key.startsWith("memory:") && onOpenExperienceMemory?.(key.slice(7))}
+            timestamp={q.timestamp}
+            footer={activeQuestionItem?.id === q.id ? activeQuestionItem.content : undefined}
+          />
         ))}
       {/* Each "Something else" round's own animated sequence — per
           explicit follow-up request (with a reference screenshot):
@@ -2760,12 +2910,17 @@ export function MarcusWebbNextBestActionCard({
                   confirmDisabled={confirmDisabled}
                   notes={topLevelNotes}
                   phase={topLevelPhase}
+                  optionPanels={{ approve: MARCUS_APPROVE_PANEL, reject: MARCUS_REJECT_PANEL }}
+            onViewArticle={onViewArticle}
+            selectedArticleId={selectedArticleId}
                 />
               )}
             </MarcusWebbAiChatBubble>
           )}
         </React.Fragment>
       ))}
+      {/* Copilot questions asked BEFORE takeover sit here; ones asked after takeover render at the very end (chronological). */}
+      {copilotRows.filter((r) => !askedAfterTakeover(r.id)).map(renderCopilotRow)}
       {/* Per explicit request ("none of these should be fixed"), NONE of
           the `activeQuestionItem` questions portal into the fixed bottom
           slot anymore — all three render inline as chat bubbles instead
@@ -3058,6 +3213,7 @@ export function MarcusWebbNextBestActionCard({
           )}
         </React.Fragment>
       ))}
+      {copilotRows.filter((r) => askedAfterTakeover(r.id)).map(renderCopilotRow)}
     </div>
   );
 }

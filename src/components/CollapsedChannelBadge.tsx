@@ -134,10 +134,14 @@ export interface CollapsedChannelBadgeProps {
    *  Defaults to false/unset — every other consumer (nothing on hold) is
    *  unaffected. */
   onHold?: boolean;
+  /** Hold SLA tier (15s warning / 30s critical, lyra-ui's `getHoldSeverity`).
+   *  Colors the pause badge to match the hold counter next to it; defaults
+   *  to the old amber when omitted. */
+  holdSeverity?: "success" | "warning" | "critical";
   className?: string;
 }
 
-export function CollapsedChannelBadge({ type, severity, onHold, className }: CollapsedChannelBadgeProps) {
+export function CollapsedChannelBadge({ type, severity, onHold, holdSeverity, className }: CollapsedChannelBadgeProps) {
   const accent = CHANNEL_TYPE_ACCENT[type];
   const meta = CHANNEL_ICON_META[type];
   // `meta.icon` arrives with its own fixed size class (e.g. `h-4 w-4`) —
@@ -173,7 +177,11 @@ export function CollapsedChannelBadge({ type, severity, onHold, className }: Col
         // a card that needs attention shouldn't still read as a calm,
         // themed teal/pink/purple chip.
         onHold
-          ? "border-transparent bg-lyra-status-warning-strong text-lyra-fg-on-primary"
+          ? holdSeverity === "success"
+            ? "border-transparent bg-lyra-status-success-strong text-lyra-fg-on-primary"
+            : holdSeverity === "critical"
+            ? "border-transparent bg-lyra-status-critical-strong text-lyra-fg-on-primary"
+            : "border-transparent bg-lyra-status-warning-strong text-lyra-fg-on-primary"
           : severity === "critical"
           ? "border-transparent bg-lyra-bg-destructive text-lyra-fg-on-primary"
           : severity === "warning"

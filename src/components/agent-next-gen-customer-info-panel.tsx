@@ -3617,10 +3617,19 @@ export function DetailsPanelAccordions({
   showCustomerContextOverview = true,
   showRealTimeSummary = false,
   realTimeSummaryUpdatedLabel,
+  onViewExperienceMemory,
   onViewCustomerInfo,
   onViewInteractionHistory,
   onLinkCustomer,
+  artifacts,
+  onOpenArtifact,
+  onViewAllArtifacts,
 }: {
+  /** Fired by "View All" (only shown when more than 10 artifacts are listed). */
+  onViewAllArtifacts?: () => void;
+  /** Side panels the agent has opened on this interaction — listed as links in the Artifacts card; clicking re-opens one. */
+  artifacts?: { id: string; label: string }[];
+  onOpenArtifact?: (id: string) => void;
   customerName?: string;
   /** Same object each page already builds via `buildCustomerContextOverviewInfo`
    *  for its own main-column Contact Overview — passed straight through
@@ -3647,6 +3656,8 @@ export function DetailsPanelAccordions({
    *  page's own ticking clock). Only meaningful alongside
    *  `showRealTimeSummary`. */
   realTimeSummaryUpdatedLabel?: string;
+  /** Adds a "View Experience Memory" link to the Real-Time Summary card. */
+  onViewExperienceMemory?: () => void;
   /** Per explicit request ("remove the customer details accordion from
    *  phase 1") — hides the whole Customer Profile/Snapshot section (Phase
    *  1's own call sites pass `false`). Default `true`: every other
@@ -3730,6 +3741,7 @@ export function DetailsPanelAccordions({
           showRealTimeSummary={showRealTimeSummary}
           realTimeSummary={customerContextOverview.realTimeSummary}
           realTimeSummaryUpdatedLabel={realTimeSummaryUpdatedLabel}
+          onViewExperienceMemory={onViewExperienceMemory}
           showNextBestAction={false}
           // Per explicit follow-up request ("if a new call is made or the
           // customer does not have any information, do not display the
@@ -3801,14 +3813,33 @@ export function DetailsPanelAccordions({
               <div className="flex flex-col gap-3">
                 {/* lyra-body-md, not -sm — see `viewAllLinkClassName`'s own
                     comment just above for the same request. */}
-                <p className="lyra-body-md text-lyra-fg-secondary">{FILES_EMPTY_TEXT}</p>
+                {artifacts && artifacts.length > 0 ? (
+                  <ul className="flex flex-col gap-1.5">
+                    {artifacts.slice(0, 10).map((a) => (
+                      <li key={a.id} className="flex min-w-0 items-center gap-2">
+                        <Paperclip className="h-3.5 w-3.5 shrink-0 text-lyra-fg-secondary" strokeWidth={1.5} aria-hidden="true" />
+                        <button
+                          type="button"
+                          onClick={() => onOpenArtifact?.(a.id)}
+                          className="min-w-0 truncate text-left lyra-body-md text-lyra-fg-link hover:underline"
+                        >
+                          {a.label}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="lyra-body-md text-lyra-fg-secondary">{FILES_EMPTY_TEXT}</p>
+                )}
                 {/* "View All" sits below the artifact list (here, the empty-
                     state text above) per explicit request, rather than above
                     it. TODO: no destination defined yet for this link — see
                     this component's own top doc comment. */}
-                <button type="button" className={viewAllLinkClassName}>
-                  View All
-                </button>
+                {artifacts && artifacts.length > 10 && (
+                  <button type="button" className={viewAllLinkClassName} onClick={onViewAllArtifacts}>
+                    View All
+                  </button>
+                )}
               </div>
             ),
           },
@@ -5459,5 +5490,31 @@ export function CustomerFullScreenTabContent({
         </PanelFooter>
       )}
     </div>
+  );
+}
+
+/** Full artifacts list shown in the docked Contact Details panel after "View All". */
+export function ArtifactsListBody({
+  artifacts,
+  onOpenArtifact,
+}: {
+  artifacts: { id: string; label: string }[];
+  onOpenArtifact: (id: string) => void;
+}) {
+  return (
+    <ul className="flex flex-col divide-y divide-lyra-border-subtle px-4">
+      {artifacts.map((a) => (
+        <li key={a.id}>
+          <button
+            type="button"
+            onClick={() => onOpenArtifact(a.id)}
+            className="flex w-full items-center gap-2 py-3 text-left hover:bg-lyra-state-hover"
+          >
+            <Paperclip className="h-4 w-4 shrink-0 text-lyra-fg-secondary" strokeWidth={1.5} aria-hidden="true" />
+            <span className="min-w-0 flex-1 truncate lyra-body-md text-lyra-fg-link">{a.label}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }

@@ -18,6 +18,7 @@
 // two survivors of that lineage; the two are still NOT kept in sync with
 // each other automatically.
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import {
   AppHeader,
@@ -34,6 +35,7 @@ import {
   PageHeader,
   Button,
   InlineNotification,
+  getHoldSeverity,
   ActionIconButton,
   KebabMenuButton,
   PanelPinButton,
@@ -197,6 +199,7 @@ import {
   // Feeds the docked `CustomerInformationSidePanel`/hover preview's own
   // `bodyOverride` — that panel's own render site has the fuller "why".
   DetailsPanelAccordions,
+  ArtifactsListBody,
   // Feeds the "View customer info" `InteriorPanel` overlay's own content —
   // see `customerInfoOverlayContent`'s own doc comment for the fuller "why".
   useCustomerDetailsInteriorPanel,
@@ -225,6 +228,36 @@ import { VoiceCallControls } from "@/components/agent-next-gen-voice-call-contro
 // whole scripted Copilot walkthrough still depend on it being a chat.
 import { MARCUS_WEBB_ID, MARCUS_WEBB_CUSTOMER_ID, MARCUS_WEBB_CUSTOMER_NAME } from "@/components/agent-next-gen-marcus-webb-scenario";
 import {
+  LUCAS_THOMAS_ID,
+  LUCAS_THOMAS_CHAT_TRANSCRIPT,
+  LUCAS_THOMAS_INITIAL_COUNT,
+  LUCAS_THOMAS_REALTIME_STEPS,
+  LUCAS_THOMAS_DECISION_FOLLOWUPS,
+  LUCAS_THOMAS_COPILOT_SUGGESTIONS,
+  LUCAS_THOMAS_SHIPPING_APPROVAL_SUMMARY,
+  LUCAS_THOMAS_UPSET_APPROVAL_SUMMARY,
+  LUCAS_THOMAS_WRAP_UP,
+  LUCAS_THOMAS_COPILOT_SUGGESTION_LINKS,
+  LUCAS_THOMAS_COPILOT_SUGGESTION_REPLACEMENTS,
+  buildLucasThomasInteraction,
+} from "@/components/agent-next-gen-lucas-thomas-scenario";
+import {
+  TOM_LEWIS_CALL_ID,
+  TOM_LEWIS_CALL_LIVE_LINES,
+  TOM_LEWIS_CALL_OVERVIEW,
+  TOM_LEWIS_CALL_COPILOT_SUGGESTIONS,
+  TOM_LEWIS_CALL_COPILOT_LINKS,
+  buildTomLewisCallInteraction,
+} from "@/components/agent-next-gen-tom-lewis-void-call-scenario";
+import {
+  MAYA_CHEN_CALL_ID,
+  MAYA_CHEN_CALL_LIVE_LINES,
+  MAYA_CHEN_CALL_OVERVIEW,
+  MAYA_CHEN_CALL_COPILOT_SUGGESTIONS,
+  MAYA_CHEN_CALL_COPILOT_LINKS,
+  buildMayaChenCallInteraction,
+} from "@/components/agent-next-gen-maya-chen-refund-call-scenario";
+import {
   MarcusWebbNextBestActionCard,
   MarcusWebbActionDetailPanelBody,
   type MarcusWebbActionLogEntry,
@@ -239,6 +272,32 @@ import {
   type KnowledgeArticleCardData,
   type KnowledgeArticleWebLink,
 } from "@/components/agent-next-gen-knowledge-article-card";
+import {
+  LUCAS_THOMAS_PANEL_TITLES,
+  LucasThomasProductPanelBody,
+  LucasThomasPaymentsPanelBody,
+  LucasThomasPaymentLinkPanelBody,
+  LucasThomasArticlePanelBody,
+  LucasThomasPurchaseHistoryPanelBody,
+  LucasThomasMemoryPanelBody,
+  LucasThomasOrderPanelBody,
+  LucasThomasInstructionPanelBody,
+  LucasThomasFraudPanelBody,
+  LucasThomasPreferencesPanelBody,
+  LucasThomasAiAttemptsPanelBody,
+  LucasThomasShippingPanelBody,
+  LUCAS_THOMAS_ORDER_DETAILS,
+  type LucasThomasOrderId,
+  type LucasThomasPanelKey,
+  type LucasThomasMemoryFocus,
+  MarcusWebbMemoryPanelBody,
+  TomLewisCallMemoryPanelBody,
+  MayaChenCallMemoryPanelBody,
+  TomLewisCallPanelBody,
+  TOM_LEWIS_CALL_PANEL_TITLES,
+  type TomLewisCallPanelKey,
+  MarcusWebbCopilotPanelBody,
+} from "@/components/agent-next-gen-lucas-thomas-panels";
 import { InContactInteriorPanel } from "@/components/agent-next-gen-in-contact-panel";
 import { VideoCallWindow, VideoCallFullScreen } from "@/components/agent-next-gen-video-window";
 // The Marcus Webb action-log detail panel and the "Do Something"
@@ -253,6 +312,12 @@ type DetailPanelContent =
   | { kind: "article"; article: KnowledgeArticleCardData }
   | { kind: "article-link"; article: KnowledgeArticleCardData; link: KnowledgeArticleWebLink }
   | { kind: "order"; order: MarcusWebbOrderInfo }
+  | { kind: "lucas"; panel: LucasThomasPanelKey }
+  | { kind: "lucas-memory"; focus: LucasThomasMemoryFocus }
+  | { kind: "lucas-instruction"; decision: string; text: string; time: string }
+  | { kind: "marcus-copilot"; id: string; text: string; time: string }
+  | { kind: "tom-call"; panel: TomLewisCallPanelKey }
+  | { kind: "lucas-order"; orderId: LucasThomasOrderId; from?: "memory" | "purchases" }
   | { kind: "transactions"; id: string; note: string; timestamp: string; date: string; showFullTransactions: boolean };
 import appIcon from "@/assets/app-icon.svg";
 import damagedHeadphonesImg from "@/assets/headphones.jpg";
@@ -288,14 +353,29 @@ import {
   Check,
   X,
   Phone,
+  PhoneOff,
   ChevronDown,
   type LucideIcon,
+  ArrowLeft,
 } from "lucide-react";
 
 /** Bare digits only — used to match a dialed/SMS'd phone number against
  *  `ContactHistoryEntry.phone` regardless of formatting (parens/dashes/
  *  spaces/country code). Ported from `AgentNextGenPage.tsx` ("Phase 1") for
  *  `findContactHistoryMatch`, below — see that function's own doc comment. */
+/** Moves a persistent DOM host (which a React portal renders a stateful card into) into this spot in the layout, so the
+ *  card keeps its state and timers while the surrounding column remounts on assignment switches. */
+function PersistentHostSlot({ host }: { host: HTMLDivElement }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    ref.current?.appendChild(host);
+    return () => {
+      host.remove();
+    };
+  }, [host]);
+  return <div ref={ref} className="contents" />;
+}
+
 function digitsOnly(value: string | undefined | null): string {
   return (value || "").replace(/\D/g, "");
 }
@@ -572,24 +652,44 @@ interface InteractionNavCardProps extends InteractionNavItemProps {
    *  doc comment). Passed straight through to `CollapsedChannelBadge`'s own
    *  `onHold` prop. */
   cardOnHold?: boolean;
+  /** Hold SLA tier for the collapsed badge (15s warning / 30s critical). */
+  cardHoldSeverity?: "success" | "warning" | "critical";
+  /** True while the tile animates out (e.g. a declined incoming call). */
+  leaving?: boolean;
 }
 function InteractionNavCard({
+  leaving,
   currentChannelType,
   showChannelBadge,
   badgeSeverity,
   cardOnHold,
+  cardHoldSeverity,
   expanded,
   ...itemProps
 }: InteractionNavCardProps) {
-  return !expanded ? (
-    <div className="relative">
-      <InteractionNavItem expanded={expanded} {...itemProps} />
-      {currentChannelType && showChannelBadge && (
-        <CollapsedChannelBadge type={currentChannelType} severity={badgeSeverity} onHold={cardOnHold} />
+  // The outer wrapper is stable across expanded/collapsed, so the entrance (slight fade in from the left) plays once when
+  // the tile first appears and not again when the rail expands or collapses.
+  return (
+    <div
+      className={`grid transition-[grid-template-rows,opacity,transform] duration-300 ease-in ${
+        leaving
+          ? "pointer-events-none grid-rows-[0fr] -translate-x-4 opacity-0"
+          : "animate-in fade-in-0 slide-in-from-left-2 grid-rows-[1fr]"
+      }`}
+    >
+     <div className="min-h-0 overflow-hidden">
+      {!expanded ? (
+        <div className="relative">
+          <InteractionNavItem expanded={expanded} {...itemProps} />
+          {currentChannelType && showChannelBadge && (
+            <CollapsedChannelBadge type={currentChannelType} severity={badgeSeverity} onHold={cardOnHold} holdSeverity={cardHoldSeverity} />
+          )}
+        </div>
+      ) : (
+        <InteractionNavItem expanded={expanded} {...itemProps} />
       )}
+     </div>
     </div>
-  ) : (
-    <InteractionNavItem expanded={expanded} {...itemProps} />
   );
 }
 
@@ -1242,6 +1342,11 @@ export function AgentWorkspaceAdvancedPage({
   // Dial below. Click any resulting InteractionNavItem card to make it the
   // active one. `initialInteraction` (see above) seeds this instead, for
   // callers that want to start already mid-call.
+  const [marcusCardHost] = useState(() => {
+    const el = document.createElement("div");
+    el.style.display = "contents";
+    return el;
+  });
   const [interactions, setInteractions] = useState<Interaction[]>(
     () => (initialInteraction ? [initialInteraction] : [])
   );
@@ -1530,6 +1635,7 @@ export function AgentWorkspaceAdvancedPage({
    *  `true` while a simulated customer reply is in flight on a given
    *  channel, keyed `${interactionId}:${channelKey}`. */
   const [customerTyping, setCustomerTyping] = useState<Record<string, boolean>>({});
+  const [aiTyping, setAiTyping] = useState<Record<string, boolean>>({});
   /* ── Unknown-contact customer matching (per explicit request) ──
      When the docked Customer Information panel is showing an unknown-
      contact interaction (`!activeInteractionIsRealCustomer`, below), it now
@@ -1961,6 +2067,14 @@ export function AgentWorkspaceAdvancedPage({
       )
     : undefined;
   const activeChannelType = activeChannel?.type;
+  // The voice thread whose Transcript tab the Contact Details panel offers: the active channel when it's voice, or (Lucas) a live call
+  // John placed from the escalation card while the chat stays on screen.
+  const panelVoiceThread: Thread | undefined =
+    activeChannelType === "voice"
+      ? activeChannel
+      : activeInteraction?.id === LUCAS_THOMAS_ID && !activeInteraction.closed && !activeInteraction.voiceCallEnded
+        ? activeInteraction.threads.find((t) => t.type === "voice")
+        : undefined;
   // Per explicit follow-up request ("leave the active badge visible if the
   // agent switches between chat/other channels"): whether the interaction
   // has a chat thread open ANYWHERE among its threads, not just whether the
@@ -2012,8 +2126,14 @@ export function AgentWorkspaceAdvancedPage({
   // this — see that helper's own doc comment). `undefined` once the
   // interaction is closed, has no voice thread, or the agent has already
   // hung up (`voiceCallEnded`).
+  // Tom Lewis's cold incoming call rings in the left nav (Accept / Decline on his tile) until the agent answers; a ringing call has no
+  // live-call UI and doesn't count as the agent being on a call.
+  const [tomLewisCallRinging, setTomLewisCallRinging] = useState(false);
+  // Cold inbound calls with no AI agent (Tom rings and needs Accept; Maya is answered automatically).
+  const isColdCallId = (id: string | undefined) => id === TOM_LEWIS_CALL_ID || id === MAYA_CHEN_CALL_ID;
   const findLiveVoiceThread = (interaction: Interaction) => {
     if (interaction.closed || interaction.voiceCallEnded) return undefined;
+    if (interaction.id === TOM_LEWIS_CALL_ID && tomLewisCallRinging) return undefined;
     return interaction.threads.find((c) => c.type === "voice");
   };
   // Per explicit follow-up request ("when the agent clicks review from the
@@ -2168,7 +2288,10 @@ export function AgentWorkspaceAdvancedPage({
   const activeInteractionIsRealCustomer = activeInteraction
     ? CREATE_NEW_CUSTOMERS.some((c) => c.id === activeInteraction.id) ||
       createdCustomerRecords.some((c) => c.id === activeInteraction.id) ||
-      activeInteraction.id.startsWith("history:")
+      activeInteraction.id.startsWith("history:") ||
+      // Lucas Thomas arrives already linked to an existing customer.
+      activeInteraction.id === LUCAS_THOMAS_ID ||
+      isColdCallId(activeInteraction.id)
     : true;
   // Feeds the Customer Context Overview accordion (`customerContextOverview`
   // prop, below) that now renders in place of the old plain `ContactOverview`
@@ -2213,10 +2336,71 @@ export function AgentWorkspaceAdvancedPage({
         ...base,
         snapshot: [
           "Calling about a refund on a $200 order.",
+          "Order for [noise-cancelling headphones](order) placed last Tuesday arrived with a cracked ear cup.",
           "Refund exceeds the AI agent's $100 auto-approval limit — escalated for human approval.",
         ],
+        realTimeSummary:
+          "Marcus is on hold while the Cognigy AI Agent waits for sign-off on a $200 refund for order #48213 (noise-cancelling headphones, cracked ear cup). The refund qualifies but exceeds the AI agent's $100 auto-approval limit. Approve or reject the refund, or give the AI agent another instruction.",
         nextBestAction:
           "Review the order and approve the $200 refund so the AI agent can complete the request and take the customer off hold.",
+      };
+    }
+    if (activeInteraction.id === MAYA_CHEN_CALL_ID) {
+      return {
+        ...base,
+        customerCard: {
+          ...base.customerCard,
+          avatarInitials: "MC",
+          subtitle: MAYA_CHEN_CALL_OVERVIEW.subtitle,
+          tags: MAYA_CHEN_CALL_OVERVIEW.tags,
+          sentiment: { value: "Disappointed" },
+        },
+        detailedSummary: MAYA_CHEN_CALL_OVERVIEW.detailedSummary,
+        realTimeSummary: MAYA_CHEN_CALL_OVERVIEW.realTimeSummary,
+        snapshot: MAYA_CHEN_CALL_OVERVIEW.snapshot,
+        nextBestAction: MAYA_CHEN_CALL_OVERVIEW.nextBestAction,
+      };
+    }
+    if (activeInteraction.id === TOM_LEWIS_CALL_ID) {
+      return {
+        ...base,
+        customerCard: {
+          ...base.customerCard,
+          avatarInitials: "TL",
+          subtitle: TOM_LEWIS_CALL_OVERVIEW.subtitle,
+          tags: TOM_LEWIS_CALL_OVERVIEW.tags,
+          sentiment: { value: "Annoyed" },
+        },
+        detailedSummary: TOM_LEWIS_CALL_OVERVIEW.detailedSummary,
+        realTimeSummary: TOM_LEWIS_CALL_OVERVIEW.realTimeSummary,
+        snapshot: TOM_LEWIS_CALL_OVERVIEW.snapshot,
+        nextBestAction: TOM_LEWIS_CALL_OVERVIEW.nextBestAction,
+      };
+    }
+    if (activeInteraction.id === LUCAS_THOMAS_ID) {
+      return {
+        ...base,
+        // Customer card + summaries reflect Lucas's own assignment (CASE-30418), not the generic hashed profile.
+        customerCard: {
+          ...base.customerCard,
+          avatarInitials: "LT",
+          subtitle: "Insider since 2023 · 14 orders",
+          tags: ["Insider", "Launch edition pre-orders", "Prefers text"],
+          sentiment: { value: "Frustrated" },
+        },
+        detailedSummary: [
+          "Insider member since 2023 with 14 orders. Pre-orders launch editions and prefers text for updates. Paid by PayPal on 3 of his last 5 orders.",
+          "Today he tried to buy the Aurora X2 launch edition at $189.00. Card checkout failed twice during payment incident INC-2207, and the pay-another-way link failed too.",
+        ],
+        realTimeSummary:
+          "Aurora X2 launch order NR-11056 failed twice during payment incident INC-2207: the card was declined and the pay-another-way link also failed. Checkout AI Agent hit its authorization limit and is requesting an exception. The $189.00 launch price and his unit are held for 24 h. Lucas is frustrated.",
+        snapshot: [
+          "[Aurora X2 launch](product) order NR-11056 not placed — [card declined twice](payments) during payment incident INC-2207.",
+          "Launch price ($189.00) and unit held for 24 h; [pay-another-way](payment-link) link sent and also failed.",
+          "Checkout AI Agent hit its authorization limit and is requesting an exception.",
+        ],
+        nextBestAction:
+          "Review the approval request and approve placing order NR-11056 with another payment method at the held launch price.",
       };
     }
     return base;
@@ -2531,6 +2715,15 @@ export function AgentWorkspaceAdvancedPage({
   const activeChannelAwaitingSeverity: "success" | "warning" | "critical" | undefined = activeChannel?.awaitingResponse
     ? getAwaitingSeverity(clockTick - (activeChannel.lastCustomerMessageTick ?? activeChannel.startTick))
     : undefined;
+  // Hold SLA for the ACTIVE voice channel: a held call escalates to "warning"
+  // at 15s and "critical" at 30s (lyra-ui's `getHoldSeverity`, same
+  // thresholds as every hold-time badge). Drives the inline alert banner
+  // below, same style as the chat awaiting-SLA banner. `undefined` unless
+  // the active channel is a voice call currently on hold.
+  const activeChannelHoldSeverity: "success" | "warning" | "critical" | undefined =
+    activeChannel?.type === "voice" && activeChannel.heldByAgent && activeChannel.heldSinceTick !== undefined
+      ? getHoldSeverity(clockTick - activeChannel.heldSinceTick)
+      : undefined;
   // "interactions" removed from this page's own tab set — that content
   // moved to the Search right panel instead (see `searchContent`'s own
   // doc comment above). `DeskTabKey`/`DESK_TAB_LABELS` (shared,
@@ -2844,7 +3037,7 @@ export function AgentWorkspaceAdvancedPage({
         type: "voice",
         startTick: clockTickRef.current,
         contactId: `MW-CONTACT-${Date.now()}`,
-        preview: "General Support",
+        preview: "AI Review",
         direction: "inbound",
       };
       const interaction: Interaction = {
@@ -2877,7 +3070,7 @@ export function AgentWorkspaceAdvancedPage({
       // `activeInteractionId` here: the tile should just show up in the
       // left nav, the agent still clicks it themselves to open it.
       marcusWebbPendingInteractionRef.current = interaction;
-      setMarcusWebbNoticeOpen(true);
+      // The incoming-call toast is no longer shown on launch: the assignment tile just appears in the left nav.
       setMarcusWebbTriggered(true);
       commitMarcusWebbInteraction();
       setMarcusWebbReviewing(true);
@@ -2885,6 +3078,381 @@ export function AgentWorkspaceAdvancedPage({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [agentStatus, marcusWebbTriggered]);
+  // Per explicit request ("use the case content for lucas thomas and open the
+  // assignment when the user presses 'a' on the keyboard"): "A" adds the
+  // Lucas Thomas webchat assignment (CASE-30418, from the Agentic Workspace
+  // demo) to the left nav and opens it. Once per page load, like "L", and
+  // ignored while typing in a field.
+  const [lucasThomasTriggered, setLucasThomasTriggered] = useState(false);
+  // Lucas's AI-led chat is only REVIEWED until the agent clicks Takeover:
+  // chat hidden, review ActionBar shown (same flow as Marcus Webb).
+  const [lucasThomasReviewing, setLucasThomasReviewing] = useState(false);
+  // "Hide AI Actions" switch in the composer: transcript shows only chat bubbles.
+  const [hideAiActions, setHideAiActions] = useState(false);
+  // True while the review banner animates out after "Complete wrap-up" (the banner stays mounted for the exit animation).
+  const [lucasThomasBannerExiting, setLucasThomasBannerExiting] = useState(false);
+  // The review banner is dismissed by "Complete wrap-up" without a takeover: reviewing stays true (no composer, outcome locked).
+  const [lucasThomasBannerHidden, setLucasThomasBannerHidden] = useState(false);
+  // Set once the agent clicks Takeover: a wrap-up card that hasn't been completed is withdrawn and never appears.
+  const lucasTakenOverRef = useRef(false);
+  // Always points at the latest `handleDismissInteraction` so delayed (timeout) callers don't use a stale closure.
+  const dismissInteractionRef = useRef<((id: string) => void) | null>(null);
+  // Anything the agent asks Copilot is logged in the chat as the same "AI agent finished performing this." + clickable
+  // instruction row used for approval decisions; the row reopens the question in the side panel.
+  const handleCopilotAsk = (interactionId: string, threadKey: string, text: string) => {
+    // Asking Copilot produces an AI action row, so reveal AI actions if they were hidden.
+    setHideAiActions(false);
+    const time = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    const message: TranscriptMessage = {
+      id: `copilot-ask-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      sender: "agent",
+      name: "John Smith",
+      initials: "JS",
+      timestamp: time,
+      text,
+      instruction: {
+        title: text,
+        by: "John Smith",
+        // Lookup chips reopen the exact same panel the chip opens (so both entry points show identical content);
+        // free-form questions open the instruction/result panel.
+        link:
+          (interactionId === LUCAS_THOMAS_ID ? LUCAS_THOMAS_COPILOT_SUGGESTION_LINKS[text] : undefined) ??
+          (interactionId === TOM_LEWIS_CALL_ID ? TOM_LEWIS_CALL_COPILOT_LINKS[text] : undefined) ??
+          (interactionId === MAYA_CHEN_CALL_ID ? MAYA_CHEN_CALL_COPILOT_LINKS[text] : undefined) ??
+          `instruction:copilot:${encodeURIComponent(text)}:${encodeURIComponent(time)}`,
+      },
+    };
+    setInteractions((prev) =>
+      prev.map((i) =>
+        i.id === interactionId
+          ? { ...i, liveMessages: { ...i.liveMessages, [threadKey]: [...(i.liveMessages?.[threadKey] ?? []), message] } }
+          : i
+      )
+    );    // Free-form questions automatically open their result in the side panel once Copilot "finishes" (lookup chips open
+    // their own panel after their spinner, so only the instruction panel needs this).
+    if ((interactionId === LUCAS_THOMAS_ID || isColdCallId(interactionId)) && message.instruction && message.instruction.link.startsWith("instruction:")) {
+      window.setTimeout(() => {
+        setDetailPanelByInteraction((prev) => ({
+          ...prev,
+          [interactionId]: { kind: "lucas-instruction", decision: "copilot", text, time },
+        }));
+      }, 1800);
+    }
+  };
+  // Plays out the chat follow-up (events + AI replying to the customer) after the agent decides on Lucas's approval card.
+  // Distinct id per run so a repeated "Something else" instruction never reuses a message id.
+  const [marcusCopilotRequests, setMarcusCopilotRequests] = useState<{ id: string; text: string; time: string }[]>([]);
+  const marcusCopilotRequestsRef = useRef<{ id: string; text: string; time: string }[]>([]);
+  const handleMarcusCopilotAsk = (text: string, openAfterMs?: number) => {
+    // Asking Copilot produces an AI action row, so reveal AI actions if they were hidden.
+    setHideAiActions(false);
+    const time = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    const req = { id: `marcus-copilot-${Date.now()}`, text, time };
+    marcusCopilotRequestsRef.current = [...marcusCopilotRequestsRef.current, req];
+    setMarcusCopilotRequests((prev) => [...prev, req]);
+    // Free-form questions open their result once Copilot "finishes"; chips open their own panel after their spinner.
+    if (openAfterMs !== undefined) {
+      window.setTimeout(
+        () => setDetailPanelByInteraction((prev) => ({ ...prev, [MARCUS_WEBB_ID]: { kind: "marcus-copilot", ...req } })),
+        openAfterMs
+      );
+    }
+  };
+  const lucasFollowupRunRef = useRef(0);
+  // "Call now" on Lucas's escalation card: opens the outbound popover on the button; `confirm` marks the card decided once launched.
+  const lucasCallConfirmRef = useRef<(() => void) | null>(null);
+  const LUCAS_THOMAS_PHONE = "(415) 555-0142";
+  const handleLucasCallRequest = (req: { value: string; anchorEl: HTMLElement; confirm: () => void }) => {
+    lucasCallConfirmRef.current = req.confirm;
+    setDialpadRequest({ phoneNumber: LUCAS_THOMAS_PHONE, anchorEl: req.anchorEl, customerName: "Call Lucas Thomas" });
+  };
+  const launchLucasCall = (phoneNumber: string, skillId: string) => {
+    const confirm = lucasCallConfirmRef.current;
+    lucasCallConfirmRef.current = null;
+    confirm?.();
+    // Launching the call hands the chat off to John: Takeover Chat goes away.
+    handleLucasTakeover(true);
+    // `confirm()` above submits the card, whose `onDecide` already plays the `upset-call` steps (calling event, AI heads-up, connected).
+    const skillLabel = OUTBOUND_CONFIG.skillOptions.find((o: { value: string; label: string }) => o.value === skillId)?.label ?? OUTBOUND_CONFIG.skillOptions[0]?.label;
+    // The call connects a few seconds after launch — only then does a live voice thread exist, which is what brings up the call controls.
+    window.setTimeout(() => {
+      const voice: Thread = {
+        id: `voice:${phoneNumber}`,
+        type: "voice",
+        startTick: clockTickRef.current,
+        value: phoneNumber,
+        addressLabel: phoneNumber,
+        contactId: generateContactId(),
+        preview: skillLabel,
+        startedFresh: true,
+        direction: "outbound",
+      };
+      setInteractions((prev) =>
+        prev.map((i) =>
+          i.id === LUCAS_THOMAS_ID && !i.threads.some((t) => t.id === voice.id)
+            ? { ...i, threads: [...i.threads, voice], voiceCallEnded: undefined }
+            : i
+        )
+      );
+    }, 4200);
+  };
+  const handleLucasApprovalDecision = (value: string, note: string) => {
+    const run = (lucasFollowupRunRef.current += 1);
+    // "Something else" instructions are internal: the AI only talks to the customer when the agent's instruction
+    // is a command to say something to them (tell / say / let them know / ask / inform / notify ...).
+    const isSomethingElse = value === "other" || value === "ship-other" || value === "upset-other";
+    // Only an instruction that names the customer as the recipient counts ("tell Lucas ...", "let him know ...");
+    // instructions to the AI itself ("tell me ...", "show ...", "how old is ...") never get a customer reply.
+    const asksAiToSpeak =
+      !/^\s*(please\s+)?(tell|show|give|ask)\s+me\b/i.test(note) &&
+      /\b(tell|say to|say|let|inform|notify|message|reply to|respond to|ask|apologi[sz]e to|thank|update|confirm with|offer|follow(?:\s|-)?up with|get back to|reach out to|check in with|contact|advise|reassure|explain to)\b[^.?!]{0,40}\b(the customer|customer|lucas|him|her|them|the client|client)\b/i.test(
+        note
+      );
+    const steps = (LUCAS_THOMAS_DECISION_FOLLOWUPS[value] ?? []).filter(
+      (st) =>
+        !(isSomethingElse && st.kind === "ai" && !asksAiToSpeak) &&
+        // Wrapping up without ever taking over auto-dismisses the assignment; if the agent did take over, they remove it themselves.
+        !(value === "ship-wrapup" && st.kind === "dismiss" && lucasTakenOverRef.current)
+    );
+    const typingKey = `${LUCAS_THOMAS_ID}:chat`;
+    steps.forEach((step, idx) => {
+      const setTyping = step.kind === "customer" ? setCustomerTyping : setAiTyping;
+      if (step.typingStartMs !== undefined) {
+        window.setTimeout(() => setTyping((prev) => ({ ...prev, [typingKey]: true })), step.typingStartMs);
+      }
+      window.setTimeout(() => {
+        if (step.kind === "wrapup") {
+          if (lucasTakenOverRef.current) return;
+          const wrap: TranscriptMessage = {
+            id: "lt-wrap-up",
+            sender: "agent",
+            name: "AI agent · Checkout",
+            initials: "AI",
+            timestamp: step.timestamp ?? "",
+            text: "",
+            wrapUp: LUCAS_THOMAS_WRAP_UP,
+          };
+          setInteractions((prev) =>
+            prev.map((i) =>
+              i.id === LUCAS_THOMAS_ID
+                ? { ...i, liveMessages: { ...i.liveMessages, chat: [...(i.liveMessages?.chat ?? []), wrap] } }
+                : i
+            )
+          );
+          return;
+        }
+        if (step.kind === "approval") {
+          // A second approval request card from the AI agent (waive the priority shipping fee).
+          const approval: TranscriptMessage = {
+            id: step.approvalKey === "upset" ? "lt-upset-approval" : "lt-shipping-approval",
+            sender: "agent",
+            name: "AI agent · Checkout",
+            initials: "AI",
+            timestamp: step.timestamp ?? "",
+            text: "",
+            summary: step.approvalKey === "upset" ? LUCAS_THOMAS_UPSET_APPROVAL_SUMMARY : LUCAS_THOMAS_SHIPPING_APPROVAL_SUMMARY,
+          };
+          setInteractions((prev) =>
+            prev.map((i) =>
+              i.id === LUCAS_THOMAS_ID
+                ? { ...i, liveMessages: { ...i.liveMessages, chat: [...(i.liveMessages?.chat ?? []), approval] } }
+                : i
+            )
+          );
+          return;
+        }
+        if (step.kind === "close") {
+          // Simulated disposition + unassign: the chat flips to Closed (read-only).
+          setInteractions((prev) =>
+            prev.map((i) =>
+              i.id === LUCAS_THOMAS_ID ? { ...i, threadStatuses: { ...i.threadStatuses, chat: "Closed" } } : i
+            )
+          );
+          return;
+        }
+        if (step.kind === "dismiss") {
+          // Finally removes the assignment from the left nav (same path as Save & Dismiss).
+          dismissInteractionRef.current?.(LUCAS_THOMAS_ID);
+          return;
+        }
+        if (step.kind === "ai") setAiTyping((prev) => ({ ...prev, [typingKey]: false }));
+        if (step.kind === "customer") setCustomerTyping((prev) => ({ ...prev, [typingKey]: false }));
+        const isCustomer = step.kind === "customer";
+        const instructionText = (step.text ?? "").replace("{note}", note);
+        const message: TranscriptMessage = {
+          id: `lt-followup-${value}-${run}-${idx}`,
+          sender: isCustomer ? "customer" : "agent",
+          name: isCustomer ? "Lucas Thomas" : "AI agent · Checkout",
+          initials: isCustomer ? "LT" : "AI",
+          timestamp: step.timestamp ?? "",
+          text: (step.text ?? "").replace("{note}", note),
+          ...(step.kind === "event" ? { event: true } : {}),
+          ...(step.kind === "instruction"
+            ? {
+                instruction: {
+                  title: instructionText,
+                  by: step.by ?? "John Smith",
+                  link:
+                    step.link ??
+                    `instruction:${value}:${encodeURIComponent(instructionText)}:${encodeURIComponent(step.timestamp ?? "")}`,
+                },
+              }
+            : {}),
+        };
+        setInteractions((prev) =>
+          prev.map((i) =>
+            i.id === LUCAS_THOMAS_ID
+              ? { ...i, liveMessages: { ...i.liveMessages, chat: [...(i.liveMessages?.chat ?? []), message] } }
+              : i
+          )
+        );
+      }, step.appearMs);
+    });
+  };
+  useEffect(() => {
+    if ((agentStatus !== "available" && agentStatus !== "working") || lucasThomasTriggered) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== "a" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable) return;
+      setInteractions((prev) =>
+        prev.some((i) => i.id === LUCAS_THOMAS_ID) ? prev : [...prev, buildLucasThomasInteraction(clockTickRef.current)]
+      );
+      setLucasThomasTriggered(true);
+      setLucasThomasReviewing(true);
+      // Messages after the initial setup play out live; the customer's line
+      // is preceded by the "customer is typing" indicator.
+      const typingKey = `${LUCAS_THOMAS_ID}:chat`;
+      LUCAS_THOMAS_CHAT_TRANSCRIPT.slice(LUCAS_THOMAS_INITIAL_COUNT).forEach((message, idx) => {
+        const step = LUCAS_THOMAS_REALTIME_STEPS[idx];
+        if (!step) return;
+        const setTyping = step.typing === "ai" ? setAiTyping : setCustomerTyping;
+        if (step.typingStartMs !== undefined) {
+          window.setTimeout(() => setTyping((prev) => ({ ...prev, [typingKey]: true })), step.typingStartMs);
+        }
+        window.setTimeout(() => {
+          setTyping((prev) => ({ ...prev, [typingKey]: false }));
+          setInteractions((prev) =>
+            prev.map((i) =>
+              i.id === LUCAS_THOMAS_ID
+                ? { ...i, liveMessages: { ...i.liveMessages, chat: [...(i.liveMessages?.chat ?? []), message] } }
+                : i
+            )
+          );
+        }, step.appearMs);
+      });
+      // Deliberately NOT switching to Lucas: the assignment card just appears in the left nav; the agent opens it when ready.
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [agentStatus, lucasThomasTriggered]);
+  // "C" rings a cold incoming call from Tom Lewis (CASE-30409 from the Agentic Workspace demo, no AI agent): Accept adds the
+  // assignment, opens it and starts the live call; Decline just dismisses the notice. Ignored while typing in a field.
+  const [tomLewisCallTriggered, setTomLewisCallTriggered] = useState(false);
+  useEffect(() => {
+    if ((agentStatus !== "available" && agentStatus !== "working") || tomLewisCallTriggered || tomLewisCallRinging) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== "c" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable) return;
+      // The call rings as a new tile in the left nav (opened if it was closed), with Accept / Decline on the tile.
+      setInteractions((prev) =>
+        prev.some((i) => i.id === TOM_LEWIS_CALL_ID) ? prev : [...prev, buildTomLewisCallInteraction(clockTickRef.current)]
+      );
+      setNavOpen(true);
+      setTomLewisCallRinging(true);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [agentStatus, tomLewisCallTriggered, tomLewisCallRinging]);
+  // "B" brings in a cold incoming call from Maya Chen (CASE-30402 from the Agentic Workspace demo, no AI agent) that is answered
+  // automatically: no Accept/Decline, the call controls load straight away and the conversation plays out in the transcript.
+  const [mayaChenCallTriggered, setMayaChenCallTriggered] = useState(false);
+  const startMayaChenCall = () => {
+    setMayaChenCallTriggered(true);
+    setInteractions((prev) =>
+      prev.some((i) => i.id === MAYA_CHEN_CALL_ID) ? prev : [...prev, buildMayaChenCallInteraction(clockTickRef.current)]
+    );
+    setNavOpen(true);
+    switchActiveInteraction(MAYA_CHEN_CALL_ID);
+    setSidePanelOpen(false);
+    MAYA_CHEN_CALL_LIVE_LINES.forEach(({ appearMs, message }) => {
+      window.setTimeout(() => {
+        setInteractions((prev) =>
+          prev.map((i) =>
+            i.id === MAYA_CHEN_CALL_ID
+              ? { ...i, liveMessages: { ...i.liveMessages, voice: [...(i.liveMessages?.voice ?? []), message] } }
+              : i
+          )
+        );
+      }, appearMs);
+    });
+  };
+  useEffect(() => {
+    if ((agentStatus !== "available" && agentStatus !== "working") || mayaChenCallTriggered) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== "b" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable) return;
+      startMayaChenCall();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agentStatus, mayaChenCallTriggered]);
+  // Escape closes the open side panel: the slide-out detail panel first (article, order, Copilot answer...), otherwise the docked
+  // Contact Details panel. Skipped while another overlay (popover, menu, dialog) is open so Escape still closes that first.
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (document.querySelector('[data-radix-popper-content-wrapper], [role="dialog"], [role="menu"], [role="listbox"]')) return;
+      if (selectedDetailPanelContent) {
+        setSelectedDetailPanelContent(null);
+      } else if (sidePanelOpen) {
+        setSidePanelOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  });
+  const handleAcceptTomLewisCall = () => {
+    setTomLewisCallRinging(false);
+    setTomLewisCallTriggered(true);
+    // The call timer starts when it is answered.
+    setInteractions((prev) =>
+      prev.map((i) =>
+        i.id === TOM_LEWIS_CALL_ID
+          ? { ...i, threads: i.threads.map((t) => (t.type === "voice" ? { ...t, startTick: clockTickRef.current } : t)) }
+          : i
+      )
+    );
+    switchActiveInteraction(TOM_LEWIS_CALL_ID);
+    setSidePanelOpen(false);
+    // The conversation plays out in the live voice transcript.
+    TOM_LEWIS_CALL_LIVE_LINES.forEach(({ appearMs, message }) => {
+      window.setTimeout(() => {
+        setInteractions((prev) =>
+          prev.map((i) =>
+            i.id === TOM_LEWIS_CALL_ID
+              ? { ...i, liveMessages: { ...i.liveMessages, voice: [...(i.liveMessages?.voice ?? []), message] } }
+              : i
+          )
+        );
+      }, appearMs);
+    });
+  };
+  const [tomLewisCallLeaving, setTomLewisCallLeaving] = useState(false);
+  const handleDeclineTomLewisCall = () => {
+    if (tomLewisCallLeaving) return;
+    addToast({ variant: "info", title: "Call declined", message: "Tom Lewis call declined", duration: 4000 });
+    setTomLewisCallLeaving(true);
+    // Let the tile animate out before removing it.
+    window.setTimeout(() => {
+      setTomLewisCallRinging(false);
+      setInteractions((prev) => prev.filter((i) => i.id !== TOM_LEWIS_CALL_ID));
+      setTomLewisCallLeaving(false);
+    }, 350);
+  };
   const [showWelcomeModal, setShowWelcomeModal] = useState(true);
   // Flushes whatever `fireAgentLegStatusToast` deferred (further up this
   // component) the moment the welcome modal actually closes (Go Available /
@@ -3007,7 +3575,7 @@ export function AgentWorkspaceAdvancedPage({
   // (its own doc comment) and left via that same back arrow, which lands
   // back on "Details".
   const [customerPanelActiveTab, setCustomerPanelActiveTab] = useState<
-    "Details" | "Transcript" | "Session Details" | "Customer Info"
+    "Details" | "Transcript" | "Session Details" | "Customer Info" | "Artifacts" | "Experience Memory"
   >("Details");
   // Per explicit request ("when the agent confirms navigating away to view
   // the transcript, it should display the Transcript tab once it
@@ -3023,6 +3591,7 @@ export function AgentWorkspaceAdvancedPage({
   // effect actually runs, without needing to touch every other existing
   // "switch interaction" call site that's fine with the normal "Details"
   // reset.
+  const restoredCustomerPanelTabRef = useRef<typeof customerPanelActiveTab | null>(null);
   const pendingCustomerPanelTabRef = useRef<"Transcript" | null>(null);
   // The Marcus Webb action-log detail panel and the "Do Something"
   // knowledge-article panel used to be two SEPARATE floating
@@ -3036,7 +3605,87 @@ export function AgentWorkspaceAdvancedPage({
   // navigating WITHIN this one panel (via its new `onBack`, see
   // `interior-panel.tsx`) rather than opening a second, nested panel
   // (nesting isn't supported anywhere in this app).
-  const [selectedDetailPanelContent, setSelectedDetailPanelContent] = useState<DetailPanelContent | null>(null);
+  // Panel content is native to each customer/interaction: it only shows while
+  // that interaction is active, is hidden when switching to another one, and
+  // comes back when returning to it.
+  const [detailPanelByInteraction, setDetailPanelByInteraction] = useState<Record<string, DetailPanelContent | null>>({});
+  const selectedDetailPanelContent: DetailPanelContent | null = activeInteractionId
+    ? detailPanelByInteraction[activeInteractionId] ?? null
+    : null;
+  const setSelectedDetailPanelContent = (
+    updater: DetailPanelContent | null | ((current: DetailPanelContent | null) => DetailPanelContent | null)
+  ) => {
+    if (!activeInteractionId) return;
+    setDetailPanelByInteraction((prev) => {
+      const current = prev[activeInteractionId] ?? null;
+      const next = typeof updater === "function" ? updater(current) : updater;
+      return { ...prev, [activeInteractionId]: next };
+    });
+  };
+  // Every side panel the agent opens on an interaction is remembered here and
+  // listed as a link in the Contact Details "Artifacts" card; clicking one
+  // re-opens it (not a toggle).
+  const detailPanelArtifactKey = (c: DetailPanelContent): string => {
+    switch (c.kind) {
+      case "action-log": return `action-log:${c.entry.id}`;
+      case "article": return `article:${c.article.id}`;
+      case "article-link": return `article-link:${c.article.id}:${c.link.copyValue}`;
+      case "order": return `order:${c.order.orderId}`;
+      case "lucas": return `lucas:${c.panel}`;
+      case "lucas-memory": return "lucas-memory";
+      case "lucas-instruction": return `lucas-instruction:${c.text}`;
+      case "marcus-copilot": return `marcus-copilot:${c.id}`;
+      case "tom-call": return `tom-call:${c.panel}`;
+      case "lucas-order": return `lucas-order:${c.orderId}`;
+      case "transactions": return `transactions:${c.id}`;
+    }
+  };
+  const detailPanelArtifactLabel = (c: DetailPanelContent): string => {
+    switch (c.kind) {
+      case "action-log": return c.entry.title;
+      case "article": return c.article.title;
+      case "article-link": return c.link.title;
+      case "order": return `Order ${c.order.orderId} · ${c.order.itemName}`;
+      case "lucas": return LUCAS_THOMAS_PANEL_TITLES[c.panel].title;
+      case "lucas-memory": return "Experience Memory";
+      case "lucas-instruction": return c.text;
+      case "marcus-copilot": return c.text;
+      case "tom-call": return TOM_LEWIS_CALL_PANEL_TITLES[c.panel].title;
+      case "lucas-order": return `Order ${LUCAS_THOMAS_ORDER_DETAILS[c.orderId].item}`;
+      case "transactions": return "Transactions";
+    }
+  };
+  const [panelArtifactsByInteraction, setPanelArtifactsByInteraction] = useState<
+    Record<string, { id: string; label: string; content: DetailPanelContent }[]>
+  >({});
+  useEffect(() => {
+    if (!activeInteractionId || !selectedDetailPanelContent) return;
+    // Experience Memory lives in the docked side panel, so it is never listed as an artifact.
+    if (selectedDetailPanelContent.kind === "lucas-memory") return;
+    const content = selectedDetailPanelContent;
+    const id = detailPanelArtifactKey(content);
+    setPanelArtifactsByInteraction((prev) => {
+      const list = prev[activeInteractionId] ?? [];
+      const entry = { id, label: detailPanelArtifactLabel(content), content };
+      const idx = list.findIndex((a) => a.id === id);
+      const nextList = idx === -1 ? [...list, entry] : list.map((a, i) => (i === idx ? entry : a));
+      return { ...prev, [activeInteractionId]: nextList };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDetailPanelContent, activeInteractionId]);
+  const lucasActiveLinkKey: string | undefined =
+    selectedDetailPanelContent?.kind === "lucas"
+      ? selectedDetailPanelContent.panel
+      : selectedDetailPanelContent?.kind === "lucas-instruction"
+      ? `instruction:${selectedDetailPanelContent.decision}:${encodeURIComponent(selectedDetailPanelContent.text)}:${encodeURIComponent(selectedDetailPanelContent.time)}`
+      : selectedDetailPanelContent?.kind === "tom-call"
+      ? selectedDetailPanelContent.panel
+      : undefined;
+  const panelArtifacts = activeInteractionId ? panelArtifactsByInteraction[activeInteractionId] ?? [] : [];
+  const reopenPanelArtifact = (id: string) => {
+    const found = panelArtifacts.find((a) => a.id === id);
+    if (found) setSelectedDetailPanelContent(found.content);
+  };
   // Mirrors `selectedDetailPanelContent` but never resets to `null` — per
   // explicit bug report (on the original single-purpose version of this
   // panel), it used to go blank the instant it started closing (content
@@ -3103,6 +3752,11 @@ export function AgentWorkspaceAdvancedPage({
       if (current.kind === "transactions" && next.kind === "transactions" && current.id === next.id) {
         return null;
       }
+      if (current.kind === "marcus-copilot" && next.kind === "marcus-copilot" && current.id === next.id) {
+        return null;
+      }
+      // Any link whose panel is already open closes it (toggle), whatever the panel kind.
+      if (detailPanelArtifactKey(current) === detailPanelArtifactKey(next)) return null;
       return next;
     });
   };
@@ -3156,6 +3810,9 @@ export function AgentWorkspaceAdvancedPage({
       if (pendingCustomerPanelTabRef.current) {
         setCustomerPanelActiveTab(pendingCustomerPanelTabRef.current);
         pendingCustomerPanelTabRef.current = null;
+      } else if (restoredCustomerPanelTabRef.current) {
+        setCustomerPanelActiveTab(restoredCustomerPanelTabRef.current);
+        restoredCustomerPanelTabRef.current = null;
       } else {
         setCustomerPanelActiveTab("Details");
       }
@@ -3441,7 +4098,7 @@ export function AgentWorkspaceAdvancedPage({
      `phoneOptions` here — this keeps Phase 1's plain single-number
      rendering rather than Phase 2's richer "pick from their numbers on
      file" picker, since the request was specifically to match Phase 1. */
-  const [dialpadRequest, setDialpadRequest] = useState<{ phoneNumber: string; anchorEl?: HTMLElement | null } | null>(
+  const [dialpadRequest, setDialpadRequest] = useState<{ phoneNumber: string; anchorEl?: HTMLElement | null; customerName?: string } | null>(
     null
   );
   const [redialEntry, setRedialEntry] = useState<ContactHistoryEntry | null>(null);
@@ -3626,6 +4283,16 @@ export function AgentWorkspaceAdvancedPage({
   // takes a `tab` argument — every call site always wants "Overview" (the
   // only tab `useCustomerDetailsInteriorPanel`'s own `activeTab` resets to
   // per new `recordId`), so there's nothing left to vary.
+  // Which Experience Memory event the docked "Experience Memory" view opens expanded (set by the approval card's checklist links).
+  const [marcusMemoryFocus, setMarcusMemoryFocus] = useState<string>("refund-escalated");
+  const [experienceMemoryFocus, setExperienceMemoryFocus] = useState<LucasThomasMemoryFocus>("card-declined");
+  const openExperienceMemoryInSidePanel = (focus: LucasThomasMemoryFocus = "card-declined") => {
+    setExperienceMemoryFocus(focus);
+    setCustomerPanelActiveTab("Experience Memory");
+    setSidePanelOpen(true);
+    clearTimeout(customerInfoPreviewTimer.current);
+    setCustomerInfoPreviewOpen(false);
+  };
   const focusCustomerPanelTab = () => {
     customerPanelFocusTabVersionRef.current += 1;
     setCustomerPanelFocusTab({ tab: "Overview", version: customerPanelFocusTabVersionRef.current });
@@ -3887,7 +4554,7 @@ export function AgentWorkspaceAdvancedPage({
      should be for the incoming assignment (`sidePanelOpen` is now always
      just closed — see this helper's own top doc comment), not HOW that
      change gets animated. */
-  const sidePanelStateByAssignmentId = useRef(new Map<string, { open: boolean; fullScreen: boolean }>());
+  const sidePanelStateByAssignmentId = useRef(new Map<string, { open: boolean; fullScreen: boolean; tab: typeof customerPanelActiveTab }>());
   const switchActiveInteraction = (nextId: string | null) => {
     const outgoingId = activeInteractionId;
     if (outgoingId !== nextId) setHistoryConversationTab(null);
@@ -3895,6 +4562,7 @@ export function AgentWorkspaceAdvancedPage({
       sidePanelStateByAssignmentId.current.set(outgoingId, {
         open: sidePanelOpen,
         fullScreen: sidePanelFullScreen,
+        tab: customerPanelActiveTab,
       });
     }
     setActiveInteractionId(nextId);
@@ -3908,11 +4576,115 @@ export function AgentWorkspaceAdvancedPage({
       // the full "why"). Every "new interaction" launch path's own
       // hardcoded `setSidePanelOpen(false)` right after calling this is
       // now redundant with this line, but harmless alongside it.
-      setSidePanelOpen(false);
+      // Per latest request: the docked panel's open state AND the last view visited (Customer Info,
+      // Experience Memory, Artifacts…) are remembered per assignment and restored when the agent returns.
+      setSidePanelOpen(saved ? saved.open : false);
       setSidePanelFullScreen(saved ? saved.fullScreen : false);
+      restoredCustomerPanelTabRef.current = saved ? saved.tab : null;
     }
   };
 
+  // Agent takes over the AI-led Lucas chat (formerly the "Takeover" banner button; now the composer's "Take over chat" button).
+  const handleLucasTakeover = (quiet = false) => {
+                                    setLucasThomasReviewing(false);
+                                    // Taking over instead of wrapping up withdraws the wrap-up card (fade out, then remove) and
+                                    // keeps a not-yet-shown one from ever appearing.
+                                    lucasTakenOverRef.current = true;
+                                    setInteractions((prev) =>
+                                      prev.map((i) =>
+                                        i.id === LUCAS_THOMAS_ID
+                                          ? {
+                                              ...i,
+                                              liveMessages: {
+                                                ...i.liveMessages,
+                                                chat: (i.liveMessages?.chat ?? []).map((m) =>
+                                                  m.wrapUp ? { ...m, wrapUp: { ...m.wrapUp, exiting: true } } : m
+                                                ),
+                                              },
+                                            }
+                                          : i
+                                      )
+                                    );
+                                    window.setTimeout(() => {
+                                      setInteractions((prev) =>
+                                        prev.map((i) =>
+                                          i.id === LUCAS_THOMAS_ID
+                                            ? {
+                                                ...i,
+                                                liveMessages: {
+                                                  ...i.liveMessages,
+                                                  chat: (i.liveMessages?.chat ?? []).filter((m) => !m.wrapUp),
+                                                },
+                                              }
+                                            : i
+                                        )
+                                      );
+                                    }, 350);
+                                    // Quiet handoff (call launched): the call itself is the handoff, so no chat messages or SLA clock.
+                                    if (quiet) return;
+                                    // Warm handoff: the AI agent tells Lucas he's being transferred to John Smith (with typing indicator first).
+                                    const handoffTypingKey = `${LUCAS_THOMAS_ID}:chat`;
+                                    window.setTimeout(
+                                      () => setAiTyping((prev) => ({ ...prev, [handoffTypingKey]: true })),
+                                      500
+                                    );
+                                    window.setTimeout(() => {
+                                      setAiTyping((prev) => ({ ...prev, [handoffTypingKey]: false }));
+                                      const handoff: TranscriptMessage = {
+                                        id: "lt-warm-handoff",
+                                        sender: "agent",
+                                        name: "AI agent · Checkout",
+                                        initials: "AI",
+                                        timestamp: "2:11 PM",
+                                        text: "Thanks for your patience, Lucas. I'm going to transfer you to John Smith, one of our team members, who will take it from here. I've shared everything we've covered so he can help with your Aurora X2 order right away.",
+                                      };
+                                      setInteractions((prev) =>
+                                        prev.map((i) =>
+                                          i.id === LUCAS_THOMAS_ID
+                                            ? { ...i, liveMessages: { ...i.liveMessages, chat: [...(i.liveMessages?.chat ?? []), handoff] } }
+                                            : i
+                                        )
+                                      );
+                                    }, 2300);
+                                    // Lucas acknowledges the transfer (customer typing indicator first).
+                                    window.setTimeout(
+                                      () => setCustomerTyping((prev) => ({ ...prev, [handoffTypingKey]: true })),
+                                      3300
+                                    );
+                                    window.setTimeout(() => {
+                                      setCustomerTyping((prev) => ({ ...prev, [handoffTypingKey]: false }));
+                                      const reply: TranscriptMessage = {
+                                        id: "lt-handoff-reply",
+                                        sender: "customer",
+                                        name: "Lucas Thomas",
+                                        initials: "LT",
+                                        timestamp: "2:11 PM",
+                                        text: "Ok, sounds good",
+                                      };
+                                      setInteractions((prev) =>
+                                        prev.map((i) =>
+                                          i.id === LUCAS_THOMAS_ID
+                                            ? { ...i, liveMessages: { ...i.liveMessages, chat: [...(i.liveMessages?.chat ?? []), reply] } }
+                                            : i
+                                        )
+                                      );
+                                    }, 5300);
+                                    // SLA clock starts on takeover: the customer has been waiting since before the agent took over.
+                                    setInteractions((prev) =>
+                                      prev.map((i) =>
+                                        i.id === LUCAS_THOMAS_ID
+                                          ? {
+                                              ...i,
+                                              threads: i.threads.map((t) =>
+                                                t.type === "chat"
+                                                  ? { ...t, awaitingResponse: true, lastCustomerMessageTick: clockTickRef.current - 251 }
+                                                  : t
+                                              ),
+                                            }
+                                          : i
+                                      )
+                                    );
+  };
   // Toggles the Customer Information/"Session Details" panel — this
   // button's location has moved a few times across this file's history
   // (record header `actions` → `TranscriptSessionSeparator`'s own session
@@ -4123,7 +4895,7 @@ export function AgentWorkspaceAdvancedPage({
   // would otherwise have kept reading as "still on a call" forever after
   // hanging up, never letting the agent's auto-"Working" status revert.
   const isOnVoiceCall = interactions.some(
-    (i) => !i.closed && !i.voiceCallEnded && i.threads.some((t) => t.type === "voice")
+    (i) => !i.closed && !i.voiceCallEnded && !(i.id === TOM_LEWIS_CALL_ID && tomLewisCallRinging) && i.threads.some((t) => t.type === "voice")
   );
   const preCallStatusRef = useRef<AgentStatus | null>(null);
   useEffect(() => {
@@ -4854,6 +5626,14 @@ export function AgentWorkspaceAdvancedPage({
   // number is ever treated as completing that redial. Mirrors
   // AgentNextGenPage.tsx's own identical handler.
   const handleDialpadSubmit = (phoneNumber: string, skillId: string) => {
+    if (lucasCallConfirmRef.current) {
+      const digits = (raw: string) => raw.replace(/\D/g, "").slice(-10);
+      if (digits(phoneNumber) === digits(LUCAS_THOMAS_PHONE)) {
+        launchLucasCall(phoneNumber, skillId);
+        return;
+      }
+      lucasCallConfirmRef.current = null;
+    }
     const pendingEntry = redialEntry;
     setRedialEntry(null);
     // Same "read AND clear regardless of which branch runs" reasoning as
@@ -5368,6 +6148,7 @@ export function AgentWorkspaceAdvancedPage({
       switchActiveInteraction(remaining[0]?.id ?? null);
     }
   };
+  dismissInteractionRef.current = handleDismissInteraction;
 
   const handleDismissChannel = (id: string, channel: Pick<InteractionChannel, "id" | "type">) => {
     // Match on `id` (falling back to `type`, same as InteractionNavItem's
@@ -5448,7 +6229,8 @@ export function AgentWorkspaceAdvancedPage({
     const channel = interactions
       .find((i) => i.id === interactionId)
       ?.threads.find((c) => (c.id ?? c.type) === channelKey);
-    const isVoiceChannel = channel?.type === "voice";
+    // Voice and Lucas Thomas's chat both live in the main column only — never open a side-panel preview for them.
+    const isVoiceChannel = channel?.type === "voice" || interactionId === LUCAS_THOMAS_ID;
     if (interactionId === activeInteractionId) {
       if (isVoiceChannel) return;
       setChannelPreviewThreadKey((prev) => (prev === channelKey ? null : channelKey));
@@ -7148,6 +7930,155 @@ export function AgentWorkspaceAdvancedPage({
 
   return (
     <div className="flex flex-col h-screen bg-lyra-bg-surface-shell overflow-hidden animate-in fade-in-0 duration-500">
+      {/* Marcus's Next Best Action card lives in a persistent host node (moved into the transcript by PersistentHostSlot),
+          so navigating away and back never resets its state or its running timers. Unmounted when the assignment is dismissed. */}
+      {interactions.some((i) => i.id === MARCUS_WEBB_ID) &&
+        createPortal(
+                                      <MarcusWebbNextBestActionCard
+            onComplete={handleMarcusWebbOutcomeMessage}
+            onAgentContactedCustomer={() =>
+              handleMarcusWebbOutcomeMessage(
+                "Great news — I've received approval from a supervisor. I'm processing your $200 refund now; you should see it back on your original payment method within 3-5 business days. Is there anything else I can help with?"
+              )
+            }
+            onCustomerApprovedResolution={() =>
+              handleMarcusWebbCustomerReply("That's great, thank you so much for your help!")
+            }
+            onDispositionUpdated={handleMarcusWebbResolved}
+            onAssignmentClosed={() => {
+              // See `MARCUS_WEBB_AUTO_DISMISS_ON_CLOSE`'s own doc
+              // comment — held off for now while testing.
+              if (!MARCUS_WEBB_AUTO_DISMISS_ON_CLOSE) return;
+              handleDismissInteraction(MARCUS_WEBB_ID);
+              // Re-arms "L" — see `marcusWebbTriggered`'s own doc
+              // comment (it's otherwise a one-shot flag that's
+              // never reset anywhere else in this file).
+              setMarcusWebbTriggered(false);
+            }}
+            onPhotoRequested={() =>
+              handleMarcusWebbOutcomeMessage(
+                "Understood — to help us evaluate this further, could you send a photo of the damaged ear cup?"
+              )
+            }
+            // Per explicit request ("add customer
+            // responses to the transcript
+            // indicating they are annoyed they
+            // have to provide visual proof and
+            // that the refund was denied") —
+            // both reuse `handleMarcusWebbCustomerReply`,
+            // the same "Marcus himself replying"
+            // handler `onCustomerRespondedToTakeover`
+            // already uses below.
+            onCustomerReactedToRejection={() =>
+              handleMarcusWebbCustomerReply(
+                "Wait, seriously? I've been more than patient about this — I really don't understand why it's being denied."
+              )
+            }
+            onCustomerReactedToPhotoRequest={() =>
+              handleMarcusWebbCustomerReply(
+                "Are you kidding me? I already explained what happened. Fine, I'll send a photo, but this is getting frustrating."
+              )
+            }
+            onPhotoExpand={() => setMarcusWebbPhotoExpanded(true)}
+            onStatusEscalated={handleMarcusWebbEscalated}
+            takenOver={!marcusWebbReviewing}
+            onTakeoverGreeting={() =>
+              handleMarcusWebbHumanAgentMessage(
+                "Hello, Mr. Webb. This is John. I noticed you are not happy about your headphones. Would you be interested in store credit or a discount?"
+              )
+            }
+            onCustomerRespondedToTakeover={() =>
+              handleMarcusWebbCustomerReply("I'll take store credit.")
+            }
+            onRemedyIssued={(remedy, detail) => {
+              handleMarcusWebbHumanAgentMessage(
+                remedy === "store-credit"
+                  ? `Perfect — I've issued $${detail.storeCreditAmount} as store credit to your account; you'll see it available for your next purchase.`
+                  : remedy === "discount-code"
+                    ? `Great — I've sent a ${detail.discountPercent}% discount code for your next order to the email on file.`
+                    : `Understood — I'll go ahead and take care of that: ${detail.note?.trim()}`
+              );
+              // The reject-then-remedy path's own
+              // "issue answered" moment — mirrors
+              // `onDispositionUpdated`'s identical
+              // call on the Approve path
+              // (`handleMarcusWebbResolved`,
+              // below in this same file), so both
+              // ways of resolving Marcus's
+              // exception converge on the one
+              // shared "Resolved" signal that now
+              // also reveals the Unassign &
+              // Dismiss icon (see `showDismiss
+              // Button` above and `onDismiss
+              // Channel` below).
+              handleMarcusWebbResolved();
+            }}
+            onActionLogEntryOpen={(entry) =>
+              openDetailPanelContent({ kind: "action-log", entry })
+            }
+            selectedActionLogEntryId={
+              activeInteraction?.id === MARCUS_WEBB_ID && selectedDetailPanelContent?.kind === "action-log"
+                ? selectedDetailPanelContent.entry.id
+                : null
+            }
+            onViewArticle={(article) =>
+              openDetailPanelContent({ kind: "article", article })
+            }
+            selectedArticleId={
+              activeInteraction?.id === MARCUS_WEBB_ID && selectedDetailPanelContent?.kind === "article"
+                ? selectedDetailPanelContent.article.id
+                : null
+            }
+            // Per explicit follow-up request
+            // ("this should behave the same as
+            // if I clicked between contact
+            // history items on the home page"),
+            // order/transactions go through the
+            // SAME `openDetailPanelContent` (its
+            // own toggle-off-if-same/swap-if-
+            // different semantics, above).
+            // Marcus Webb's clickable name
+            // ("customer") no longer does, per a
+            // LATER explicit request ("move the
+            // customer information content back
+            // to the side panel") — it now opens
+            // the DOCKED `CustomerInformationSide
+            // Panel`'s own "Customer Info"
+            // drill-in instead
+            // (`focusCustomerPanelTab`), the same
+            // target the Contact Overview's own
+            // "View customer info" link opens, so
+            // the two can never disagree about
+            // where "customer info" actually
+            // lives.
+            onOpenCustomerInfo={focusCustomerPanelTab}
+            onOpenOrderInfo={() =>
+              openDetailPanelContent({ kind: "order", order: MARCUS_WEBB_ORDER })
+            }
+            copilotRequests={marcusCopilotRequests}
+            onOpenCopilotRequest={(r) => openDetailPanelContent({ kind: "marcus-copilot", ...r })}
+            activeCopilotRequestId={
+              activeInteraction?.id === MARCUS_WEBB_ID && selectedDetailPanelContent?.kind === "marcus-copilot"
+                ? selectedDetailPanelContent.id
+                : null
+            }
+            onOpenExperienceMemory={(focus) => {
+              setMarcusMemoryFocus(focus);
+              openExperienceMemoryInSidePanel();
+            }}
+            onOpenTransactions={(round) =>
+              openDetailPanelContent({ kind: "transactions", ...round })
+            }
+            selectedTransactionsId={
+              activeInteraction?.id === MARCUS_WEBB_ID && selectedDetailPanelContent?.kind === "transactions"
+                ? selectedDetailPanelContent.id
+                : null
+            }
+            onDismissAndUnassign={() => handleDismissInteraction(MARCUS_WEBB_ID)}
+            questionSlotElement={marcusQuestionSlotEl}
+          />,
+          marcusCardHost
+        )}
 
       {/* ── App Header ── */}
       <AppHeader
@@ -8007,7 +8938,8 @@ export function AgentWorkspaceAdvancedPage({
                           !interaction.voiceCallEnded &&
                           interaction.id === MARCUS_WEBB_ID &&
                           interaction.threadStatuses?.[c.id] === "Resolved"
-                        : true,
+                        : // Lucas's AI-led chat can't be unassigned/dismissed by hand: its wrap-up closes it.
+                          interaction.id !== LUCAS_THOMAS_ID || interaction.threadStatuses?.[c.id] === "Closed" || !lucasThomasReviewing,
                     // Locks the kebab and Outcome — visibly present but
                     // non-interactive — for as long as the agent is only
                     // reviewing Marcus's still-live AI-agent call
@@ -8018,7 +8950,16 @@ export function AgentWorkspaceAdvancedPage({
                     // Dismiss icon above — dismissing was never part of this
                     // lock, on either this left-nav copy or the transcript
                     // header's own identical `controlsReadOnly` idea.
-                    controlsDisabled: interaction.id === MARCUS_WEBB_ID ? marcusWebbReviewing : undefined,
+                    controlsDisabled:
+                      interaction.id === MARCUS_WEBB_ID
+                        ? marcusWebbReviewing
+                        : // Outcome (and the kebab) stay locked on Lucas until the agent takes over.
+                        interaction.id === LUCAS_THOMAS_ID
+                        ? lucasThomasReviewing
+                        : // Outcome stays locked on an incoming call until it is accepted.
+                        interaction.id === TOM_LEWIS_CALL_ID
+                        ? tomLewisCallRinging
+                        : undefined,
                     // Per explicit follow-up request ("remove the ability to
                     // hang up from the interactionNavItem overall") — "hide,
                     // don't destroy," same pattern as
@@ -8125,6 +9066,8 @@ export function AgentWorkspaceAdvancedPage({
                         ),
                       onSaveAndDismiss: () => handleOutcomeSaveAndDismiss(interaction.id),
                     } satisfies ChannelOutcomeConfig,
+                    // A live call stays blue-highlighted alongside the open chat (Lucas: John on the call).
+                    alwaysHighlighted: interaction.id === LUCAS_THOMAS_ID && c.type === "voice" && !interaction.voiceCallEnded && !interaction.closed,
                   };
                 });
                 // Closed OR Resolved channels drop out of every card-level
@@ -8238,7 +9181,8 @@ export function AgentWorkspaceAdvancedPage({
                 const cardIsRealCustomer =
                   CREATE_NEW_CUSTOMERS.some((c) => c.id === interaction.id) ||
                   createdCustomerRecords.some((c) => c.id === interaction.id) ||
-                  interaction.id.startsWith("history:");
+                  interaction.id.startsWith("history:") ||
+                  interaction.id === LUCAS_THOMAS_ID;
                 // `interaction.threads` — re-derived here (not from
                 // `cardOpenChannels`, which a closed/resolved held call
                 // would already have dropped out of) since a collapsed
@@ -8259,10 +9203,14 @@ export function AgentWorkspaceAdvancedPage({
                 )?.heldSinceTick;
                 return (
                   <InteractionNavCard
+                    leaving={interaction.id === TOM_LEWIS_CALL_ID && tomLewisCallLeaving}
+                    // While the call is unanswered and the nav is collapsed, show the hover preview automatically.
+                    forceHoverOpen={interaction.id === TOM_LEWIS_CALL_ID && tomLewisCallRinging && !tomLewisCallLeaving}
                     key={interaction.id}
                     currentChannelType={currentChannelType}
                     showChannelBadge={channels.length <= 1}
                     cardOnHold={cardOnHold}
+                    cardHoldSeverity={cardHeldSinceTick !== undefined ? getHoldSeverity(clockTick - cardHeldSinceTick) : undefined}
                     // `InteractionNavItem`'s OWN `onHold` prop (lyra-ui) —
                     // distinct from `cardOnHold` just above (this file's
                     // own wrapper prop, forwarded only to
@@ -8361,6 +9309,36 @@ export function AgentWorkspaceAdvancedPage({
                     // `h-6 w-6` "+" exactly, so the two read as the
                     // identical control regardless of which one happens to
                     // render for a given card.
+                    footerAction={
+                      interaction.id === TOM_LEWIS_CALL_ID && tomLewisCallRinging ? (
+                        <div className="flex flex-row-reverse gap-2">
+                          <Button
+                            variant="default"
+                            size="md"
+                            className="flex-1"
+                            onClick={(e: React.MouseEvent) => {
+                              e.stopPropagation();
+                              handleAcceptTomLewisCall();
+                            }}
+                          >
+                            <Phone className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+                            Accept
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="md"
+                            className="flex-1"
+                            onClick={(e: React.MouseEvent) => {
+                              e.stopPropagation();
+                              handleDeclineTomLewisCall();
+                            }}
+                          >
+                            <PhoneOff className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+                            Decline
+                          </Button>
+                        </div>
+                      ) : undefined
+                    }
                     headerAction={
                       SHOW_ADD_CHANNEL_HEADER_BUTTONS &&
                       (getHeaderAction(interaction.id) ??
@@ -9170,6 +10148,8 @@ export function AgentWorkspaceAdvancedPage({
                             moment this early return comes back out. */}
                         {activeInteraction.threads.map((c) => {
                           if (c.type === "voice") return null;
+                          // Lucas Thomas's chat lives in the main column — no header channel icon.
+                          if (activeInteraction.id === LUCAS_THOMAS_ID) return null;
                           const key = c.id ?? c.type;
                           const meta = CHANNEL_TYPE_META[c.type];
                           // Per explicit request ("update the functionality
@@ -9192,7 +10172,8 @@ export function AgentWorkspaceAdvancedPage({
                           // toggle behavior untouched — out of scope per the
                           // request's own wording, and effectively unreached
                           // now that there's no way to add one of them.
-                          const isVoiceChannel = c.type === "voice";
+                          // Lucas Thomas's chat lives in the main column only — its icon behaves like voice (active, no side-panel preview).
+                          const isVoiceChannel = c.type === "voice" || activeInteraction.id === LUCAS_THOMAS_ID;
                           const isOpen = isVoiceChannel ? key === activeChannelKey : channelPreviewThreadKey === key;
                           // Whether this icon's own channel is the one
                           // currently showing in the main column — drives
@@ -9214,7 +10195,7 @@ export function AgentWorkspaceAdvancedPage({
                           // call indicator. Every other channel keeps
                           // `meta.label` unchanged.
                           const previewLabel = c.type === "voice" ? "Voice Transcript" : meta.label;
-                          const hoverOpen = channelHoverPreviewKey === key;
+                          const hoverOpen = activeInteraction.id !== LUCAS_THOMAS_ID && channelHoverPreviewKey === key;
                           // Per explicit follow-up request ("on hover for
                           // the voice, chat, sms, email channel icons in
                           // the top right, display the content of the
@@ -9276,6 +10257,8 @@ export function AgentWorkspaceAdvancedPage({
                                         </div>
                                       ) : (
                                         <InteractionTranscript
+ hideAiActions={hideAiActions}
+                                          hideMockFollowUpMessages={activeInteraction.id === LUCAS_THOMAS_ID}
                                           channelType={c.type}
                                           direction={c.direction}
                                           customerName={activeInteraction.customerName}
@@ -9304,6 +10287,8 @@ export function AgentWorkspaceAdvancedPage({
                                       activeInteraction.threadStatuses?.[key] !== "Closed" && (
                                         <InteractionComposer
                                           onSend={(text) => handleSendMessage(activeInteraction.id, text, key)}
+                                          hideAiActions={hideAiActions}
+                                          onHideAiActionsChange={setHideAiActions}
                                         />
                                       )}
                                   </div>
@@ -9537,7 +10522,7 @@ export function AgentWorkspaceAdvancedPage({
                                     }
                                     tabs={
                                       <TabList className="px-4">
-                                        {(activeChannelType === "voice"
+                                        {(panelVoiceThread
                                           ? (["Details", "Transcript", "Session Details"] as const)
                                           : (["Details", "Session Details"] as const)
                                         ).map((label) => (
@@ -9561,12 +10546,14 @@ export function AgentWorkspaceAdvancedPage({
                                     }
                                   />
                                   <div className="flex-1 overflow-y-auto">
-                                    {customerPanelActiveTab === "Transcript" && activeChannelType === "voice" ? (
+                                    {customerPanelActiveTab === "Transcript" && panelVoiceThread ? (
                                       <InteractionTranscript
-                                        channelType={activeChannelType}
-                                        direction={activeChannel?.direction}
+ hideAiActions={hideAiActions}
+                                        hideMockFollowUpMessages={activeInteraction.id === LUCAS_THOMAS_ID}
+                                        channelType="voice"
+                                        direction={panelVoiceThread?.direction}
                                         customerName={activeInteraction.customerName}
-                                        contactId={activeChannel?.contactId ?? activeInteraction.customerId}
+                                        contactId={panelVoiceThread?.contactId ?? activeInteraction.customerId}
                                         // Per explicit request ("display
                                         // the phone number instead of the
                                         // contact ID in the session row")
@@ -9576,10 +10563,10 @@ export function AgentWorkspaceAdvancedPage({
                                         // transcript.tsx) and
                                         // AgentWorkspace2WithDeskPage.tsx's
                                         // identical wiring.
-                                        channelAddressLabel={activeChannel?.addressLabel}
-                                        skillLabel={activeChannel?.preview}
-                                        isFreshLaunch={!!activeChannel?.startedFresh}
-                                        liveMessages={activeInteraction.liveMessages?.[activeChannelKey] ?? []}
+                                        channelAddressLabel={panelVoiceThread?.addressLabel}
+                                        skillLabel={panelVoiceThread?.preview}
+                                        isFreshLaunch={!!panelVoiceThread?.startedFresh}
+                                        liveMessages={activeInteraction.liveMessages?.[panelVoiceThread?.id ?? "voice"] ?? []}
                                         dimmed={!!activeInteraction.closed || activeChannelStatus === "Closed"}
                                         currentStatus={activeChannelStatus}
                                         onCurrentStatusChange={(status) =>
@@ -9588,6 +10575,7 @@ export function AgentWorkspaceAdvancedPage({
                                         }
                                         showSessionActionCluster={false}
                                         onViewSessionDetails={(session) => {
+                                          setSelectedDetailPanelContent(null);
                                           setSelectedVoiceDetailsSession(session);
                                           setCustomerPanelActiveTab("Session Details");
                                         }}
@@ -9597,6 +10585,17 @@ export function AgentWorkspaceAdvancedPage({
                                       sessionDetailsTabContent.body
                                     ) : (
                                       <DetailsPanelAccordions
+ artifacts={panelArtifacts}
+ onOpenArtifact={(id: string) => {
+ // Opening an artifact from the hover preview closes the popover to make room for the side panel.
+ clearTimeout(customerInfoPreviewTimer.current);
+ setCustomerInfoPreviewOpen(false);
+ reopenPanelArtifact(id);
+ }}
+ onViewAllArtifacts={() => setCustomerPanelActiveTab("Artifacts")}
+ onViewExperienceMemory={
+ activeInteraction.id === LUCAS_THOMAS_ID || activeInteraction.id === MARCUS_WEBB_ID || isColdCallId(activeInteraction.id) ? () => openExperienceMemoryInSidePanel() : undefined
+ }
                                         customerName={activeInteraction.customerName}
                                         customerContextOverview={customerContextOverviewInfo}
                                         // Per explicit request ("replace the
@@ -9783,7 +10782,23 @@ export function AgentWorkspaceAdvancedPage({
                             </InlineNotification>
                           </div>
                         )}
+                        {/* Hold SLA banner — voice calls on hold: same inline
+                            alert style as the chat SLA banner above, warning
+                            at 15s on hold, error at 30s. */}
+                        {!activeInteraction.closed &&
+                          !activeInteraction.voiceCallEnded &&
+                          (activeChannelHoldSeverity === "warning" || activeChannelHoldSeverity === "critical") && (
+                          <div className="shrink-0 px-6 pt-4">
+                            <InlineNotification variant={activeChannelHoldSeverity === "critical" ? "error" : "warning"}>
+                              {activeChannelHoldSeverity === "critical"
+                                ? "Agent has breached hold time SLA."
+                                : "Agent is nearing hold time SLA breach."}
+                            </InlineNotification>
+                          </div>
+                        )}
                         <InteractionTranscript
+ hideAiActions={hideAiActions}
+                          hideMockFollowUpMessages={activeInteraction.id === LUCAS_THOMAS_ID}
                           channelType={activeChannelType}
                           // Feeds `TranscriptSessionSeparator`'s
                           // direction-aware voice/SMS icon. Per explicit
@@ -9888,138 +10903,7 @@ export function AgentWorkspaceAdvancedPage({
                                 ? {
                                     ...customerContextOverviewInfo,
                                     nextBestActionContent: (
-                                      <MarcusWebbNextBestActionCard
-                                        onComplete={handleMarcusWebbOutcomeMessage}
-                                        onAgentContactedCustomer={() =>
-                                          handleMarcusWebbOutcomeMessage(
-                                            "Great news — I've received approval from a supervisor. I'm processing your $200 refund now; you should see it back on your original payment method within 3-5 business days. Is there anything else I can help with?"
-                                          )
-                                        }
-                                        onCustomerApprovedResolution={() =>
-                                          handleMarcusWebbCustomerReply("That's great, thank you so much for your help!")
-                                        }
-                                        onDispositionUpdated={handleMarcusWebbResolved}
-                                        onAssignmentClosed={() => {
-                                          // See `MARCUS_WEBB_AUTO_DISMISS_ON_CLOSE`'s own doc
-                                          // comment — held off for now while testing.
-                                          if (!MARCUS_WEBB_AUTO_DISMISS_ON_CLOSE) return;
-                                          handleDismissInteraction(MARCUS_WEBB_ID);
-                                          // Re-arms "L" — see `marcusWebbTriggered`'s own doc
-                                          // comment (it's otherwise a one-shot flag that's
-                                          // never reset anywhere else in this file).
-                                          setMarcusWebbTriggered(false);
-                                        }}
-                                        onPhotoRequested={() =>
-                                          handleMarcusWebbOutcomeMessage(
-                                            "Understood — to help us evaluate this further, could you send a photo of the damaged ear cup?"
-                                          )
-                                        }
-                                        // Per explicit request ("add customer
-                                        // responses to the transcript
-                                        // indicating they are annoyed they
-                                        // have to provide visual proof and
-                                        // that the refund was denied") —
-                                        // both reuse `handleMarcusWebbCustomerReply`,
-                                        // the same "Marcus himself replying"
-                                        // handler `onCustomerRespondedToTakeover`
-                                        // already uses below.
-                                        onCustomerReactedToRejection={() =>
-                                          handleMarcusWebbCustomerReply(
-                                            "Wait, seriously? I've been more than patient about this — I really don't understand why it's being denied."
-                                          )
-                                        }
-                                        onCustomerReactedToPhotoRequest={() =>
-                                          handleMarcusWebbCustomerReply(
-                                            "Are you kidding me? I already explained what happened. Fine, I'll send a photo, but this is getting frustrating."
-                                          )
-                                        }
-                                        onPhotoExpand={() => setMarcusWebbPhotoExpanded(true)}
-                                        onStatusEscalated={handleMarcusWebbEscalated}
-                                        takenOver={!marcusWebbReviewing}
-                                        onTakeoverGreeting={() =>
-                                          handleMarcusWebbHumanAgentMessage(
-                                            "Hello, Mr. Webb. This is John. I noticed you are not happy about your headphones. Would you be interested in store credit or a discount?"
-                                          )
-                                        }
-                                        onCustomerRespondedToTakeover={() =>
-                                          handleMarcusWebbCustomerReply("I'll take store credit.")
-                                        }
-                                        onRemedyIssued={(remedy, detail) => {
-                                          handleMarcusWebbHumanAgentMessage(
-                                            remedy === "store-credit"
-                                              ? `Perfect — I've issued $${detail.storeCreditAmount} as store credit to your account; you'll see it available for your next purchase.`
-                                              : remedy === "discount-code"
-                                                ? `Great — I've sent a ${detail.discountPercent}% discount code for your next order to the email on file.`
-                                                : `Understood — I'll go ahead and take care of that: ${detail.note?.trim()}`
-                                          );
-                                          // The reject-then-remedy path's own
-                                          // "issue answered" moment — mirrors
-                                          // `onDispositionUpdated`'s identical
-                                          // call on the Approve path
-                                          // (`handleMarcusWebbResolved`,
-                                          // below in this same file), so both
-                                          // ways of resolving Marcus's
-                                          // exception converge on the one
-                                          // shared "Resolved" signal that now
-                                          // also reveals the Unassign &
-                                          // Dismiss icon (see `showDismiss
-                                          // Button` above and `onDismiss
-                                          // Channel` below).
-                                          handleMarcusWebbResolved();
-                                        }}
-                                        onActionLogEntryOpen={(entry) =>
-                                          openDetailPanelContent({ kind: "action-log", entry })
-                                        }
-                                        selectedActionLogEntryId={
-                                          selectedDetailPanelContent?.kind === "action-log"
-                                            ? selectedDetailPanelContent.entry.id
-                                            : null
-                                        }
-                                        onViewArticle={(article) =>
-                                          openDetailPanelContent({ kind: "article", article })
-                                        }
-                                        selectedArticleId={
-                                          selectedDetailPanelContent?.kind === "article"
-                                            ? selectedDetailPanelContent.article.id
-                                            : null
-                                        }
-                                        // Per explicit follow-up request
-                                        // ("this should behave the same as
-                                        // if I clicked between contact
-                                        // history items on the home page"),
-                                        // order/transactions go through the
-                                        // SAME `openDetailPanelContent` (its
-                                        // own toggle-off-if-same/swap-if-
-                                        // different semantics, above).
-                                        // Marcus Webb's clickable name
-                                        // ("customer") no longer does, per a
-                                        // LATER explicit request ("move the
-                                        // customer information content back
-                                        // to the side panel") — it now opens
-                                        // the DOCKED `CustomerInformationSide
-                                        // Panel`'s own "Customer Info"
-                                        // drill-in instead
-                                        // (`focusCustomerPanelTab`), the same
-                                        // target the Contact Overview's own
-                                        // "View customer info" link opens, so
-                                        // the two can never disagree about
-                                        // where "customer info" actually
-                                        // lives.
-                                        onOpenCustomerInfo={focusCustomerPanelTab}
-                                        onOpenOrderInfo={() =>
-                                          openDetailPanelContent({ kind: "order", order: MARCUS_WEBB_ORDER })
-                                        }
-                                        onOpenTransactions={(round) =>
-                                          openDetailPanelContent({ kind: "transactions", ...round })
-                                        }
-                                        selectedTransactionsId={
-                                          selectedDetailPanelContent?.kind === "transactions"
-                                            ? selectedDetailPanelContent.id
-                                            : null
-                                        }
-                                        onDismissAndUnassign={() => handleDismissInteraction(MARCUS_WEBB_ID)}
-                                        questionSlotElement={marcusQuestionSlotEl}
-                                      />
+                                      <PersistentHostSlot host={marcusCardHost} />
                                     ),
                                     nextBestActionBare: true,
                                   }
@@ -10166,7 +11050,6 @@ export function AgentWorkspaceAdvancedPage({
                           // elsewhere in this file for this exact state
                           // (e.g. the hang-up button, the review `ActionBar`
                           // itself).
-                          sessionControlsReadOnly={activeInteraction.id === MARCUS_WEBB_ID && marcusWebbReviewing}
                           reopenedContacts={activeChannel?.reopenedContacts}
                           // Per explicit follow-up request ("do not have the
                           // transcript appear in the main content area"):
@@ -10186,16 +11069,88 @@ export function AgentWorkspaceAdvancedPage({
                           // live messages here same as before, since that's
                           // the exact mechanism this column's own
                           // conversation view is built on.
+                          sessionControlsReadOnly={
+                            (activeInteraction.id === MARCUS_WEBB_ID && marcusWebbReviewing) ||
+                            (activeInteraction.id === LUCAS_THOMAS_ID && lucasThomasReviewing)
+                          }
                           liveMessages={
-                            activeChannelType === "voice"
-                              ? []
-                              : (activeInteraction.liveMessages?.[activeChannelKey] ?? [])
+                            isColdCallId(activeInteraction.id)
+                              ? // The call transcript lives in the Transcript tab; the main column keeps only AI action rows (interstitials).
+                                (activeInteraction.liveMessages?.voice ?? []).filter((m) => !!m.instruction)
+                              : activeChannelType === "voice"
+                                ? []
+                                : (activeInteraction.liveMessages?.[activeChannelKey] ?? [])
                           }
                           // See `customerTyping`'s own doc comment above —
                           // scoped to whichever channel is ACTIVE right now,
                           // same reasoning `applyToChannel` itself already
                           // uses for `channelKeyAtSend`.
                           isCustomerTyping={!!customerTyping[`${activeInteraction.id}:${activeChannelKey}`]}
+                          isAiTyping={!!aiTyping[`${activeInteraction.id}:${activeChannelKey}`]}
+                          onApprovalDecision={activeInteraction.id === LUCAS_THOMAS_ID ? handleLucasApprovalDecision : undefined}
+                          onApprovalCallRequest={activeInteraction.id === LUCAS_THOMAS_ID ? handleLucasCallRequest : undefined}
+                          onWrapUpComplete={
+                            activeInteraction.id === LUCAS_THOMAS_ID
+                              ? () => {
+                                  handleLucasApprovalDecision("ship-wrapup", "");
+                                  // The review banner animates out (no takeover: no handoff message, no SLA clock).
+                                  setLucasThomasBannerExiting(true);
+                                  window.setTimeout(() => {
+                                    setLucasThomasBannerHidden(true);
+                                    setLucasThomasBannerExiting(false);
+                                  }, 220);
+                                }
+                              : undefined
+                          }
+                          approvalTakenOver={activeInteraction.id === LUCAS_THOMAS_ID && !lucasThomasReviewing}
+                          onApprovalSuggestionAsk={
+                            activeInteraction.id === LUCAS_THOMAS_ID
+                              ? (text: string) => handleCopilotAsk(LUCAS_THOMAS_ID, "chat", text)
+                              : undefined
+                          }
+                          autosummaryBlue={activeInteraction.id === LUCAS_THOMAS_ID || activeInteraction.id === MARCUS_WEBB_ID || isColdCallId(activeInteraction.id)}
+                          // AI-led cases always keep the Autosummary above the conversation, even when the transcript remounts with messages already present.
+                          contactOverviewPosition={activeInteraction.id === LUCAS_THOMAS_ID || activeInteraction.id === MARCUS_WEBB_ID || isColdCallId(activeInteraction.id) ? "top" : undefined}
+                          activeSnapshotLink={activeInteraction.id === LUCAS_THOMAS_ID || isColdCallId(activeInteraction.id) ? lucasActiveLinkKey : undefined}
+                          onSnapshotLink={
+                            isColdCallId(activeInteraction.id)
+                              ? (key) => {
+                                  if (key === "order" || key === "card" || key === "void-steps" || key === "maya-order" || key === "maya-card" || key === "maya-refund-steps") {
+                                    openDetailPanelContent({ kind: "tom-call", panel: key });
+                                  } else if (key.startsWith("instruction:")) {
+                                    const [, decision, text, time] = key.split(":");
+                                    openDetailPanelContent({
+                                      kind: "lucas-instruction",
+                                      decision,
+                                      text: decodeURIComponent(text ?? ""),
+                                      time: decodeURIComponent(time ?? ""),
+                                    });
+                                  }
+                                }
+                              : activeInteraction.id === MARCUS_WEBB_ID
+                              ? (key) => {
+                                  if (key === "order") openDetailPanelContent({ kind: "order", order: MARCUS_WEBB_ORDER });
+                                }
+                              : activeInteraction.id === LUCAS_THOMAS_ID
+                              ? (key) =>
+                                  key === lucasActiveLinkKey
+                                    // Clicking the row/link whose panel is already open closes it (toggle).
+                                    ? setSelectedDetailPanelContent(null)
+                                    : key.startsWith("instruction:")
+                                    ? (() => {
+                                        const [, decision, text, time] = key.split(":");
+                                        openDetailPanelContent({
+                                          kind: "lucas-instruction",
+                                          decision,
+                                          text: decodeURIComponent(text ?? ""),
+                                          time: decodeURIComponent(time ?? ""),
+                                        });
+                                      })()
+                                    : key.startsWith("memory:")
+                                    ? openExperienceMemoryInSidePanel(key.slice("memory:".length) as LucasThomasMemoryFocus)
+                                    : openDetailPanelContent({ kind: "lucas", panel: key as LucasThomasPanelKey })
+                              : undefined
+                          }
                           // Same union of conditions the "closed
                           // interaction"/"channel closed" banners just above
                           // this transcript already gate on — see `dimmed`'s
@@ -10269,6 +11224,8 @@ export function AgentWorkspaceAdvancedPage({
                           // exception are both preserved unchanged).
                           onDismissChannel={
                             activeChannel &&
+                            // Lucas's chat can only be removed once it is Closed (then the "X" / Remove from Queue shows).
+                            (activeInteraction.id !== LUCAS_THOMAS_ID || activeChannelStatus === "Closed" || !lucasThomasReviewing) &&
                             (activeChannelType !== "voice" ||
                               activeInteraction.closed ||
                               (!activeInteraction.voiceCallEnded &&
@@ -10310,6 +11267,8 @@ export function AgentWorkspaceAdvancedPage({
                           // its "Details" accordions for an unrelated
                           // reason.
                           onViewSessionDetails={(session) => {
+                            // A slide-out panel (order/card/instruction…) closes when Session Details is opened.
+                            setSelectedDetailPanelContent(null);
                             const alreadyShowingThisSession =
                               sidePanelOpen &&
                               customerPanelActiveTab === "Session Details" &&
@@ -10452,6 +11411,48 @@ export function AgentWorkspaceAdvancedPage({
                               above collapses it to nothing, same as
                               before). */}
                         </div>
+                        {/* Per explicit request ("add the chat input to the
+                            bottom of a chat in v1"): the main transcript
+                            column renders its own `InteractionComposer` again
+                            for chat / SMS / WhatsApp (not voice or email),
+                            reversing the earlier "keep it in the side panel
+                            only" request below. Hidden once the interaction
+                            or this thread is closed, and while Marcus Webb's
+                            review bar owns this slot. The side panel's
+                            channel-preview composer is unchanged. */}
+                        {activeInteraction &&
+                          activeChannelType &&
+                          activeChannelType !== "voice" &&
+                          activeChannelType !== "email" &&
+                          !activeInteraction.closed &&
+                          activeInteraction.threadStatuses?.[activeChannelKey] !== "Closed" &&
+                          !(activeInteraction.id === MARCUS_WEBB_ID && marcusWebbReviewing) &&
+                          (
+                            <InteractionComposer
+                              hideAiActions={hideAiActions}
+                              onHideAiActionsChange={setHideAiActions}
+                              copilotOnly={activeInteraction.id === LUCAS_THOMAS_ID && lucasThomasReviewing}
+                              onTakeover={activeInteraction.id === LUCAS_THOMAS_ID ? () => handleLucasTakeover() : undefined}
+                              onSend={(text) => handleSendMessage(activeInteraction.id, text, activeChannelKey)}
+                              copilotSuggestions={
+                                activeInteraction.id === LUCAS_THOMAS_ID
+                                  ? LUCAS_THOMAS_COPILOT_SUGGESTIONS
+                                  : ["Summarize this conversation", "Suggest a reply", "What is the customer's history?"]
+                              }
+                              copilotSuggestionLinks={
+                                activeInteraction.id === LUCAS_THOMAS_ID ? LUCAS_THOMAS_COPILOT_SUGGESTION_LINKS : undefined
+                              }
+                              copilotSuggestionReplacements={
+                                activeInteraction.id === LUCAS_THOMAS_ID
+                                  ? LUCAS_THOMAS_COPILOT_SUGGESTION_REPLACEMENTS
+                                  : undefined
+                              }
+                              onCopilotSuggestionLink={(key: string) =>
+                                openDetailPanelContent({ kind: "lucas", panel: key as LucasThomasPanelKey })
+                              }
+                              onCopilotAsk={(text: string) => handleCopilotAsk(activeInteraction.id, activeChannelKey, text)}
+                            />
+                          )}
                         {/* Per explicit request ("don't add the chat input
                             to the main container when a new chat is open -
                             keep it in the side panel"): the main transcript
@@ -10490,76 +11491,45 @@ export function AgentWorkspaceAdvancedPage({
                             outer card now sizes to `ActionBar`'s own natural
                             content height instead of being forced taller
                             than it needs. */}
-                        {activeInteraction.id === MARCUS_WEBB_ID && marcusWebbReviewing && (
-                          // Per explicit follow-up request ("make the
-                          // background of the action bar warning color (and
-                          // border)"): `ActionBar`'s own `variant="warning"`
-                          // swaps its background/title/icon to this design
-                          // system's warning tokens in one prop, no custom
-                          // classes needed. Its bg fully covers this outer
-                          // card, so the outer card's OWN border — the only
-                          // border actually visible, since `ActionBar` has
-                          // none on three of its four sides — is switched to
-                          // match (the exact border color/opacity
-                          // `ActionBar`'s own `warning` variant uses
-                          // internally, action-bar.tsx) rather than left on
-                          // the neutral `border-lyra-border-subtle` this
-                          // card used for the previous blue/`info` look. NOT
-                          // the plain `border-lyra-status-warning-strong/40`
-                          // utility — a follow-up report ("double check the
-                          // warning outline dark mode state - it is white")
-                          // traced that to Tailwind's `/<alpha>` modifier
-                          // silently generating NO CSS at all for a color
-                          // token whose value is a bare `var(...)`
-                          // reference (confirmed against the actual built
-                          // CSS output — no such selector exists in it), so
-                          // the border fell back to the browser's
-                          // `currentColor` default instead of the warning
-                          // token. `color-mix()` computes the alpha-blended
-                          // color directly instead of relying on that
-                          // modifier, matching the fix applied to
-                          // `action-bar.tsx`'s own `warning`/`error`
-                          // variants and the identical pattern already used
-                          // in contact-overview.tsx.
-                          <div className="m-2 shrink-0 animate-in slide-in-from-bottom-4 fade-in-0 duration-200 overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--lyra-color-status-warning-strong)_40%,transparent)] bg-lyra-bg-surface-container-subtle">
-                            <ActionBar
-                              variant="warning"
-                              className="border-b-0"
-                              title="Reviewing this conversation"
-                              description="You are reviewing the AI Agent's live conversation - immediate action is requested."
-                              actions={
-                                <>
-                                  {SHOW_MARCUS_REVIEW_GUIDE_AND_TRANSFER && (
-                                    <>
-                                      <Button variant="outline" size="md">
-                                        Guide Conversation
-                                      </Button>
-                                      <Button variant="outline" size="md">
-                                        Transfer
-                                      </Button>
-                                    </>
-                                  )}
-                                  <Button
-                                    variant="destructive"
-                                    size="md"
-                                    disabled={
-                                      !!liveVoiceCallInteraction &&
-                                      liveVoiceCallInteraction.id !== MARCUS_WEBB_ID
-                                    }
-                                    title={
-                                      liveVoiceCallInteraction &&
-                                      liveVoiceCallInteraction.id !== MARCUS_WEBB_ID
-                                        ? "A call is already in progress"
-                                        : undefined
-                                    }
-                                    onClick={() => setMarcusWebbReviewing(false)}
-                                  >
-                                    Takeover
-                                  </Button>
-                                </>
-                              }
-                            />
-                          </div>
+                        {/* Cold call from Tom Lewis: just the Ask Copilot footer (no AI agent to take over from). */}
+                        {isColdCallId(activeInteraction.id) && !(activeInteraction.id === TOM_LEWIS_CALL_ID && tomLewisCallRinging) && (
+                          <InteractionComposer
+                            copilotOnly
+                            onSend={() => {}}
+                            copilotSuggestions={activeInteraction.id === MAYA_CHEN_CALL_ID ? MAYA_CHEN_CALL_COPILOT_SUGGESTIONS : TOM_LEWIS_CALL_COPILOT_SUGGESTIONS}
+                            copilotSuggestionLinks={activeInteraction.id === MAYA_CHEN_CALL_ID ? MAYA_CHEN_CALL_COPILOT_LINKS : TOM_LEWIS_CALL_COPILOT_LINKS}
+                            onCopilotSuggestionLink={(key: string) =>
+                              openDetailPanelContent({ kind: "tom-call", panel: key as TomLewisCallPanelKey })
+                            }
+                            onCopilotAsk={(text: string) => handleCopilotAsk(activeInteraction.id, "voice", text)}
+                          />
+                        )}
+                        {activeInteraction.id === MARCUS_WEBB_ID && (
+                          // Stays after takeover (Ask Copilot only — a voice call has no chat input); the Takeover Call button only while reviewing.
+                          <InteractionComposer
+                            copilotOnly
+                            takeoverLabel="Takeover Call"
+                            takeoverDisabled={!!liveVoiceCallInteraction && liveVoiceCallInteraction.id !== MARCUS_WEBB_ID}
+                            takeoverDisabledReason="A call is already in progress"
+                            onTakeover={marcusWebbReviewing ? () => setMarcusWebbReviewing(false) : undefined}
+                            onSend={() => {}}
+                            copilotSuggestions={["Summarize this call", "Show purchase history", "What did the AI agent try?"]}
+                            copilotSuggestionLinks={{
+                              "Summarize this call": "Summarize this call",
+                              "Show purchase history": "Show purchase history",
+                              "What did the AI agent try?": "What did the AI agent try?",
+                            }}
+                            onCopilotAsk={(text: string) =>
+                              handleMarcusCopilotAsk(
+                                text,
+                                ["Summarize this call", "Show purchase history", "What did the AI agent try?"].includes(text) ? undefined : 1800
+                              )
+                            }
+                            onCopilotSuggestionLink={(text: string) => {
+                              const req = marcusCopilotRequestsRef.current[marcusCopilotRequestsRef.current.length - 1];
+                              if (req) openDetailPanelContent({ kind: "marcus-copilot", ...req });
+                            }}
+                          />
                         )}
                         </>
                         )}
@@ -11460,6 +12430,10 @@ export function AgentWorkspaceAdvancedPage({
                   headerTitleOverride={
                     channelPreviewThread
                       ? channelPreviewMeta?.label
+                      : customerPanelActiveTab === "Artifacts"
+                      ? "Artifacts"
+                      : customerPanelActiveTab === "Experience Memory"
+                      ? activeInteraction.customerName
                       : customerPanelActiveTab === "Customer Info"
                       ? customerInfoOverlayContent.headerTitle
                       : "Contact Details"
@@ -11477,12 +12451,26 @@ export function AgentWorkspaceAdvancedPage({
                   // neither prop has a pre-existing ternary of its own to
                   // slot into (unlike `headerTitleOverride` above).
                   headerIconOverride={
-                    !channelPreviewThread && customerPanelActiveTab === "Customer Info"
+                    !channelPreviewThread &&
+                    (customerPanelActiveTab === "Artifacts" || customerPanelActiveTab === "Experience Memory") ? (
+                      <button
+                        type="button"
+                        onClick={() => setCustomerPanelActiveTab("Details")}
+                        aria-label="Back to Contact Details"
+                        className="flex h-6 w-6 items-center justify-center rounded-lyra-sm text-lyra-fg-secondary hover:bg-lyra-state-hover transition-colors"
+                      >
+                        <ArrowLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+                      </button>
+                    ) : !channelPreviewThread && customerPanelActiveTab === "Customer Info"
                       ? customerInfoOverlayContent.headerIcon
                       : undefined
                   }
                   headerSubheadOverride={
-                    !channelPreviewThread && customerPanelActiveTab === "Customer Info"
+                    !channelPreviewThread && customerPanelActiveTab === "Experience Memory"
+                      ? "Experience Memory"
+                      : !channelPreviewThread && customerPanelActiveTab === "Artifacts"
+                      ? activeInteraction.customerName
+                      : !channelPreviewThread && customerPanelActiveTab === "Customer Info"
                       ? customerInfoOverlayContent.headerSubhead
                       : undefined
                   }
@@ -11502,6 +12490,8 @@ export function AgentWorkspaceAdvancedPage({
                   headerTabsOverride={
                     channelPreviewThread
                       ? undefined
+                      : customerPanelActiveTab === "Artifacts" || customerPanelActiveTab === "Experience Memory"
+                      ? <></>
                       : customerPanelActiveTab === "Customer Info"
                       ? (
                         // Per explicit request: fade in the drill-in's own
@@ -11519,7 +12509,7 @@ export function AgentWorkspaceAdvancedPage({
                       )
                       : (
                         <TabList className="px-4">
-                          {(activeChannelType === "voice"
+                          {(panelVoiceThread
                             ? (["Details", "Transcript", "Session Details"] as const)
                             : (["Details", "Session Details"] as const)
                           ).map((label) => (
@@ -11558,8 +12548,29 @@ export function AgentWorkspaceAdvancedPage({
                           !activeInteraction.closed &&
                           activeInteraction.threadStatuses?.[channelPreviewThreadStableKey!] !== "Closed" && (
                             <InteractionComposer
+                              hideAiActions={hideAiActions}
+                              onHideAiActionsChange={setHideAiActions}
                               onSend={(text) =>
                                 handleSendMessage(activeInteraction.id, text, channelPreviewThreadStableKey!)
+                              }
+                              copilotSuggestions={
+                                activeInteraction.id === LUCAS_THOMAS_ID
+                                  ? LUCAS_THOMAS_COPILOT_SUGGESTIONS
+                                  : ["Summarize this conversation", "Suggest a reply", "What is the customer's history?"]
+                              }
+                              copilotSuggestionLinks={
+                                activeInteraction.id === LUCAS_THOMAS_ID ? LUCAS_THOMAS_COPILOT_SUGGESTION_LINKS : undefined
+                              }
+                              copilotSuggestionReplacements={
+                                activeInteraction.id === LUCAS_THOMAS_ID
+                                  ? LUCAS_THOMAS_COPILOT_SUGGESTION_REPLACEMENTS
+                                  : undefined
+                              }
+                              onCopilotSuggestionLink={(key: string) =>
+                                openDetailPanelContent({ kind: "lucas", panel: key as LucasThomasPanelKey })
+                              }
+                              onCopilotAsk={(text: string) =>
+                                handleCopilotAsk(activeInteraction.id, channelPreviewThreadStableKey!, text)
                               }
                             />
                           )) || undefined
@@ -11577,6 +12588,8 @@ export function AgentWorkspaceAdvancedPage({
                         </div>
                       ) : (
                         <InteractionTranscript
+ hideAiActions={hideAiActions}
+                          hideMockFollowUpMessages={activeInteraction.id === LUCAS_THOMAS_ID}
                           channelType={channelPreviewThread.type}
                           direction={channelPreviewThread.direction}
                           customerName={activeInteraction.customerName}
@@ -11594,13 +12607,37 @@ export function AgentWorkspaceAdvancedPage({
                           showViewDetails={false}
                         />
                       )
+                    ) : customerPanelActiveTab === "Experience Memory" ? (
+                      <div className="animate-in fade-in-0 duration-200">
+                        {activeInteraction.id === MAYA_CHEN_CALL_ID ? (
+                          <MayaChenCallMemoryPanelBody />
+                        ) : activeInteraction.id === TOM_LEWIS_CALL_ID ? (
+                          <TomLewisCallMemoryPanelBody />
+                        ) : activeInteraction.id === MARCUS_WEBB_ID ? (
+                          <MarcusWebbMemoryPanelBody
+                            focus={marcusMemoryFocus}
+                            onOpenOrder={() => openDetailPanelContent({ kind: "order", order: MARCUS_WEBB_ORDER })}
+                          />
+                        ) : (
+                        <LucasThomasMemoryPanelBody
+                          focus={experienceMemoryFocus}
+                          onOpenOrder={(orderId) =>
+                            openDetailPanelContent({ kind: "lucas-order", orderId, from: "memory" })
+                          }
+                        />
+                        )}
+                      </div>
+                    ) : customerPanelActiveTab === "Artifacts" ? (
+                      <div className="animate-in fade-in-0 duration-200">
+                        <ArtifactsListBody artifacts={panelArtifacts} onOpenArtifact={reopenPanelArtifact} />
+                      </div>
                     ) : customerPanelActiveTab === "Customer Info" ? (
                       // Same fade-in reasoning as `headerTabsOverride`'s
                       // own identical wrapper just above.
                       <div className="animate-in fade-in-0 duration-200">
                         {customerInfoOverlayContent.body}
                       </div>
-                    ) : customerPanelActiveTab === "Transcript" && activeChannelType === "voice" ? (
+                    ) : customerPanelActiveTab === "Transcript" && panelVoiceThread ? (
                       // A fresh `InteractionTranscript` instance, same as
                       // this tab always rendered back when it lived in the
                       // separate "Session Details" overlay — see that
@@ -11608,19 +12645,21 @@ export function AgentWorkspaceAdvancedPage({
                       // for the full "why a second instance, not the main
                       // column's own".
                       <InteractionTranscript
-                        channelType={activeChannelType}
-                        direction={activeChannel?.direction}
+ hideAiActions={hideAiActions}
+                        hideMockFollowUpMessages={activeInteraction.id === LUCAS_THOMAS_ID}
+                        channelType="voice"
+                        direction={panelVoiceThread?.direction}
                         customerName={activeInteraction.customerName}
-                        contactId={activeChannel?.contactId ?? activeInteraction.customerId}
+                        contactId={panelVoiceThread?.contactId ?? activeInteraction.customerId}
                         // Per explicit request ("display the phone number
                         // instead of the contact ID in the session row")
                         // — see `InteractionTranscript`'s own
                         // `channelAddressLabel` prop doc comment
                         // (agent-next-gen-transcript.tsx).
-                        channelAddressLabel={activeChannel?.addressLabel}
-                        skillLabel={activeChannel?.preview}
-                        isFreshLaunch={!!activeChannel?.startedFresh}
-                        liveMessages={activeInteraction.liveMessages?.[activeChannelKey] ?? []}
+                        channelAddressLabel={panelVoiceThread?.addressLabel}
+                        skillLabel={panelVoiceThread?.preview}
+                        isFreshLaunch={!!panelVoiceThread?.startedFresh}
+                        liveMessages={activeInteraction.liveMessages?.[panelVoiceThread?.id ?? "voice"] ?? []}
                         dimmed={!!activeInteraction.closed || activeChannelStatus === "Closed"}
                         currentStatus={activeChannelStatus}
                         onCurrentStatusChange={(status) =>
@@ -11628,6 +12667,7 @@ export function AgentWorkspaceAdvancedPage({
                         }
                         showSessionActionCluster={false}
                         onViewSessionDetails={(session) => {
+                          setSelectedDetailPanelContent(null);
                           setSelectedVoiceDetailsSession(session);
                           setCustomerPanelActiveTab("Session Details");
                         }}
@@ -11637,6 +12677,12 @@ export function AgentWorkspaceAdvancedPage({
                       sessionDetailsTabContent.body
                     ) : (
                       <DetailsPanelAccordions
+ artifacts={panelArtifacts}
+ onOpenArtifact={reopenPanelArtifact}
+ onViewAllArtifacts={() => setCustomerPanelActiveTab("Artifacts")}
+ onViewExperienceMemory={
+ activeInteraction.id === LUCAS_THOMAS_ID || activeInteraction.id === MARCUS_WEBB_ID || isColdCallId(activeInteraction.id) ? () => openExperienceMemoryInSidePanel() : undefined
+ }
                         customerName={activeInteraction.customerName}
                         customerContextOverview={customerContextOverviewInfo}
                         // Per explicit request ("replace the autosummary
@@ -11737,6 +12783,16 @@ export function AgentWorkspaceAdvancedPage({
                         ? lastDetailPanelContent.link.title
                         : lastDetailPanelContent?.kind === "order"
                           ? lastDetailPanelContent.order.itemName
+                          : lastDetailPanelContent?.kind === "lucas"
+                          ? LUCAS_THOMAS_PANEL_TITLES[lastDetailPanelContent.panel].title
+                          : lastDetailPanelContent?.kind === "tom-call"
+                          ? TOM_LEWIS_CALL_PANEL_TITLES[lastDetailPanelContent.panel].title
+                          : lastDetailPanelContent?.kind === "lucas-memory"
+                          ? "Lucas Thomas"
+                          : lastDetailPanelContent?.kind === "lucas-instruction" || lastDetailPanelContent?.kind === "marcus-copilot"
+                          ? lastDetailPanelContent.text
+                          : lastDetailPanelContent?.kind === "lucas-order"
+                          ? LUCAS_THOMAS_ORDER_DETAILS[lastDetailPanelContent.orderId].item
                           : lastDetailPanelContent?.kind === "transactions"
                             ? lastDetailPanelContent.note
                             : undefined
@@ -11746,10 +12802,26 @@ export function AgentWorkspaceAdvancedPage({
                     ? lastDetailPanelContent.entry.timestamp
                     : lastDetailPanelContent?.kind === "transactions"
                       ? lastDetailPanelContent.timestamp
+                      : lastDetailPanelContent?.kind === "lucas"
+                      ? LUCAS_THOMAS_PANEL_TITLES[lastDetailPanelContent.panel].subhead
+                      : lastDetailPanelContent?.kind === "tom-call"
+                      ? TOM_LEWIS_CALL_PANEL_TITLES[lastDetailPanelContent.panel].subhead
+                      : lastDetailPanelContent?.kind === "lucas-memory"
+                      ? "Experience Memory"
+                      : lastDetailPanelContent?.kind === "lucas-instruction" || lastDetailPanelContent?.kind === "marcus-copilot"
+                      ? `${lastDetailPanelContent.time} · John Smith`
+                      : lastDetailPanelContent?.kind === "lucas-order"
+                      ? `${LUCAS_THOMAS_ORDER_DETAILS[lastDetailPanelContent.orderId].orderId} · ${LUCAS_THOMAS_ORDER_DETAILS[lastDetailPanelContent.orderId].ordered}`
                       : undefined
                 }
                 onBack={
-                  lastDetailPanelContent?.kind === "article-link"
+                  // Orders opened from the purchase-history panel go back to it; orders opened from the docked
+                  // Experience Memory view have nothing to go back to inside the slide-out, so no arrow.
+                  lastDetailPanelContent?.kind === "lucas-order" && lastDetailPanelContent.from === "purchases"
+                    ? () => setSelectedDetailPanelContent({ kind: "lucas", panel: "purchase-history" })
+                    : lastDetailPanelContent?.kind === "lucas-order"
+                    ? undefined
+                    : lastDetailPanelContent?.kind === "article-link"
                     ? () =>
                         setSelectedDetailPanelContent({ kind: "article", article: lastDetailPanelContent.article })
                     : undefined
@@ -11772,6 +12844,57 @@ export function AgentWorkspaceAdvancedPage({
                 )}
                 {lastDetailPanelContent?.kind === "article-link" && (
                   <KnowledgeArticleLinkDetailBody link={lastDetailPanelContent.link} />
+                )}
+                {lastDetailPanelContent?.kind === "lucas-memory" && (
+                  <LucasThomasMemoryPanelBody
+                    focus={lastDetailPanelContent.focus}
+                    onOpenOrder={(orderId) => setSelectedDetailPanelContent({ kind: "lucas-order", orderId })}
+                  />
+                )}
+                {lastDetailPanelContent?.kind === "tom-call" && <TomLewisCallPanelBody panel={lastDetailPanelContent.panel} />}
+                {lastDetailPanelContent?.kind === "marcus-copilot" && (
+                  <MarcusWebbCopilotPanelBody text={lastDetailPanelContent.text} time={lastDetailPanelContent.time} />
+                )}
+                {lastDetailPanelContent?.kind === "lucas-instruction" && (
+                  <LucasThomasInstructionPanelBody
+                    decision={lastDetailPanelContent.decision}
+                    text={lastDetailPanelContent.text}
+                    time={lastDetailPanelContent.time}
+                  />
+                )}
+                {lastDetailPanelContent?.kind === "lucas-order" && (
+                  <LucasThomasOrderPanelBody orderId={lastDetailPanelContent.orderId} />
+                )}
+                {lastDetailPanelContent?.kind === "lucas" && lastDetailPanelContent.panel === "product" && (
+                  <LucasThomasProductPanelBody />
+                )}
+                {lastDetailPanelContent?.kind === "lucas" && lastDetailPanelContent.panel === "payments" && (
+                  <LucasThomasPaymentsPanelBody />
+                )}
+                {lastDetailPanelContent?.kind === "lucas" && lastDetailPanelContent.panel === "fraud-screening" && (
+                  <LucasThomasFraudPanelBody />
+                )}
+                {lastDetailPanelContent?.kind === "lucas" && lastDetailPanelContent.panel === "payment-preferences" && (
+                  <LucasThomasPreferencesPanelBody />
+                )}
+                {lastDetailPanelContent?.kind === "lucas" && lastDetailPanelContent.panel === "shipping-check" && (
+                  <LucasThomasShippingPanelBody />
+                )}
+                {lastDetailPanelContent?.kind === "lucas" && lastDetailPanelContent.panel === "ai-attempts" && (
+                  <LucasThomasAiAttemptsPanelBody />
+                )}
+                {lastDetailPanelContent?.kind === "lucas" && lastDetailPanelContent.panel === "purchase-history" && (
+                  <LucasThomasPurchaseHistoryPanelBody
+                    onOpenOrder={(orderId) =>
+                      setSelectedDetailPanelContent({ kind: "lucas-order", orderId, from: "purchases" })
+                    }
+                  />
+                )}
+                {lastDetailPanelContent?.kind === "lucas" && lastDetailPanelContent.panel === "article-pay-3-2" && (
+                  <LucasThomasArticlePanelBody />
+                )}
+                {lastDetailPanelContent?.kind === "lucas" && lastDetailPanelContent.panel === "payment-link" && (
+                  <LucasThomasPaymentLinkPanelBody />
                 )}
                 {lastDetailPanelContent?.kind === "order" && (
                   <MarcusWebbOrderDetailPanelBody order={lastDetailPanelContent.order} />
@@ -11924,6 +13047,12 @@ export function AgentWorkspaceAdvancedPage({
               onHangUp={() => {
                 const endedInteractionId = liveVoiceCallInteraction.id;
                 const endedThreadKey = liveVoiceCallThread.id ?? liveVoiceCallThread.type ?? "channel";
+                // Lucas's call is placed from his chat: the chat stays the main content (and the outcome is logged against it) until the assignment is dismissed.
+                const lucasChatThread =
+                  endedInteractionId === LUCAS_THOMAS_ID
+                    ? liveVoiceCallInteraction.threads.find((t) => t.type === "chat")
+                    : undefined;
+                const outcomeThreadKey = lucasChatThread ? (lucasChatThread.id ?? lucasChatThread.type) : endedThreadKey;
                 setInteractions((prev) =>
                   prev.map((i) =>
                     i.id === endedInteractionId
@@ -11940,7 +13069,9 @@ export function AgentWorkspaceAdvancedPage({
                           // match the outcome popover this opens for the
                           // voice channel specifically, and it would
                           // silently fail to show.
-                          currentThreadId: endedThreadKey,
+                          currentThreadId: outcomeThreadKey,
+                          // Lucas's call row leaves the nav card on hang-up; only the chat remains.
+                          ...(lucasChatThread ? { threads: i.threads.filter((t) => t.type !== "voice") } : {}),
                         }
                       : i
                   )
@@ -11960,7 +13091,7 @@ export function AgentWorkspaceAdvancedPage({
                 if (endedInteractionId !== activeInteractionId) {
                   switchActiveInteraction(endedInteractionId);
                 }
-                handleOutcomeOpenChange(`${endedInteractionId}:${endedThreadKey}`, true, "transcript");
+                handleOutcomeOpenChange(`${endedInteractionId}:${outcomeThreadKey}`, true, "transcript");
               }}
               elapsedSeconds={clockTick - liveVoiceCallThread.startTick}
               onAddToast={addToast}

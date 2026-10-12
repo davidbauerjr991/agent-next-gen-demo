@@ -106,6 +106,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import {
   Avatar,
+  Badge,
   Button,
   InfoIcon,
   KebabMenuButton,
@@ -1125,12 +1126,16 @@ export function VoiceCallControls({
               A second line directly below the call timer above, not a
               replacement for it. */}
           {onHold && onHoldElapsedSeconds !== undefined && (
-            <span
-              className="lyra-body-sm text-lyra-status-critical-strong"
+            <Badge
+              shape="pill"
+              color={onHoldElapsedSeconds >= 30 ? "critical" : onHoldElapsedSeconds >= 15 ? "warning" : "success"}
+              variant="subtle"
+              fontSize={12}
+              icon={<Pause strokeWidth={2} />}
               aria-label={`On hold ${formatElapsedTime(onHoldElapsedSeconds)}`}
             >
               On hold {formatElapsedTime(onHoldElapsedSeconds)}
-            </span>
+            </Badge>
           )}
           </div>
         </div>
