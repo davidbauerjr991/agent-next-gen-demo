@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
@@ -8,6 +9,10 @@ export default defineConfig({
   // the domain root — so built asset URLs need this prefix or they 404.
   base: "/agent-next-gen-demo/",
   plugins: [react()],
+  test: {
+    environment: "node",
+    include: ["src/**/*.test.{ts,tsx}"],
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

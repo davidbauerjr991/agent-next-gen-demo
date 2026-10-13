@@ -424,6 +424,7 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
       case "typing": {
         const interaction = get(action.interactionId);
         requireDigital(interaction, "customer typing");
+        if (!capabilities.typing) return;
         emit({ name: "typing", payload: { interactionId: interaction.id, role: "customer", isTyping: action.isTyping } });
         return;
       }
