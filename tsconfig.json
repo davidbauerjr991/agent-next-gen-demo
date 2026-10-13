@@ -18,7 +18,20 @@
     "noUncheckedSideEffectImports": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      // Mirror vite.config.ts's lyra-ui aliases so tsc resolves the live
+      // sibling source the same way Vite does.
+      "@nicecxone/lyra-ui": ["../lyra-ui/src/index.ts"],
+      "@nicecxone/lyra-ui/agents-data": ["../lyra-ui/src/components/__stories__/create-new-agents-data.ts"],
+      "@nicecxone/lyra-ui/customers-data": ["../lyra-ui/src/components/__stories__/create-new-customers-data.ts"],
+      // lyra-ui has its own node_modules; pin shared types to this app's
+      // copies so identical types from two installs still match (type-check
+      // only — Vite ignores these). See PLAN.md Decisions.
+      "react": ["./node_modules/@types/react"],
+      "react/*": ["./node_modules/@types/react/*"],
+      "react-dom": ["./node_modules/@types/react-dom"],
+      "react-dom/*": ["./node_modules/@types/react-dom/*"],
+      "lucide-react": ["./node_modules/lucide-react"]
     }
   },
   "include": ["src"]

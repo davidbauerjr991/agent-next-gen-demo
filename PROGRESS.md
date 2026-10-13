@@ -57,8 +57,18 @@ Status values: `todo` / `in progress` / `done` / `deferred`. Rows follow PROMPTS
 
 ## Known gaps
 
-- **Type-check baseline: 219 errors** from `npx tsc -b --noEmit` as of P0.1 (2026-10-13), all pre-existing. Steps verify by filtering tsc output to the files they touch, not by total count.
-- **`@nicecxone/lyra-ui` doesn't resolve for tsc** (32 of the 219 baseline errors): the alias is only in `vite.config.ts`, not `tsconfig.json` `paths`, so lyra types are `any` in every importer. Because of that, `ChannelKind` vs lyra `ChannelType` isn't guarded in `src/adapters/legacy/type-checks.ts` yet.
+- **Type-check baseline: 31 errors** from `npx tsc -b --noEmit` (2026-10-13, after the lyra-ui resolution chore; was 219 while `@nicecxone/lyra-ui` was untyped). All pre-existing; steps verify by filtering tsc output to the files they touch, not by total count. Breakdown:
+  - **3 inside lyra-ui itself** (its own baseline): `admin-shell.tsx` ×2 (TS2554), `list-item.tsx` ×1 (TS2430).
+  - **1 missing dev dependency**: `src/components/ui/__stories__/Shell.stories.tsx` — `@storybook/react` isn't installed in this app.
+  - **27 app-side**, grouped by cause:
+    - *lyra-ui API drift (10)* — app code no longer matches lyra-ui's current props:
+      - `ContainerHeader` `title` is `string`, app passes `activePanelContent.title` (`ReactNode`) ×6 — `AgentWorkspaceAdvancedPage.tsx` 7723, 7866, 12139; `AgentWorkspace2WithDeskPage.tsx` 6818, 6964, 10665.
+      - `CreateNewCustomerRecord` now requires `phones` ×2 — Advanced 2602, Desk 2737.
+      - `Badge` has no `color`/`fontSize` props ×1 — `agent-next-gen-lucas-thomas-panels.tsx` 669.
+      - Trigger child typed `ReactNode` where lyra expects a `ReactElement` ×1 — `agent-next-gen-customers-table.tsx` 415.
+    - *React 19 `useRef` (4)* — `useRef<T>()` with no argument (React 19 types require an initial value): `App.tsx` 180, `ShellPage.tsx` 14, Advanced 4019, Desk 3604.
+    - *`string | undefined` (6)* — mostly the optional `Interaction.customerName` passed where a `string` is required: Advanced 2317, 11309, 13381; Desk 2512, 9950, 11334.
+    - *App-internal drift (7)* — app types that drifted apart, previously masked by `any` flowing out of lyra: `InteractionTranscript` call sites missing the required `onCurrentStatusChange` ×3 (Advanced 10259, 12590; Desk 8974); unknown `focusTabOverride` property ×1 (Desk 2843); dead `=== "voice"` comparisons on unions already narrowed to exclude voice ×3 (Advanced 10176, 10197, 10285).
 
 ## Deferred items
 
