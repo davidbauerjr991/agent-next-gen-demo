@@ -1,7 +1,7 @@
 // Interior slide-out panel bodies for the Lucas Thomas snapshot links
 // (product, payment history, pay-another-way link). Mock data only.
 import React from "react";
-import { Accordion, Badge, type AccordionItem } from "@nicecxone/lyra-ui";
+import { Accordion, Badge, type AccordionItem, type BadgeColor } from "@nicecxone/lyra-ui";
 import { Sparkles, AlertTriangle, Check, CircleDot, Clock, MessageCircle, MousePointerClick, PackageCheck, Phone } from "lucide-react";
 
 export type LucasThomasPanelKey = "product" | "payments" | "payment-link" | "article-pay-3-2" | "purchase-history" | "fraud-screening" | "payment-preferences" | "ai-attempts" | "shipping-check";
@@ -665,7 +665,8 @@ function RowList({ children }: { children: React.ReactNode }) {
   );
 }
 
-const pill = (color: "success" | "critical" | "warning" | "neutral", text: string) => (
+// Pill colors have no "neutral" (that is a circle-shape variant); "slate" is the gray.
+const pill = (color: Extract<BadgeColor, "success" | "critical" | "warning" | "slate">, text: string) => (
   <Badge shape="pill" color={color} variant="subtle" fontSize={12}>
     {text}
   </Badge>
@@ -698,7 +699,7 @@ export function LucasThomasPreferencesPanelBody() {
       <RowList>
         <Row left="PayPal" sub="lucas.thomas@example.com · last used Sep 26" right={pill("success", "Preferred")} />
         <Row left="Visa ending 4417" sub="Expires 08/28 · declined twice today" right={pill("critical", "Declined")} />
-        <Row left="Apple Pay" sub="Not set up" right={pill("neutral", "Unused")} />
+        <Row left="Apple Pay" sub="Not set up" right={pill("slate", "Unused")} />
       </RowList>
       <Field label="Billing address">48 Harbor Lane, Portland, OR 97205</Field>
       <Field label="Contact preference">Chat first · email for receipts</Field>

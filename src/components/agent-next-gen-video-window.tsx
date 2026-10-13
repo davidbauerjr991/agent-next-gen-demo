@@ -51,8 +51,9 @@ function VideoTile({ label, live }: { label: string; live?: boolean }) {
 
 export interface VideoCallWindowProps {
   /** Rendered as the header title, same as every other draggable panel in
-   *  this app titling by whatever the panel is "of". */
-  customerName: string;
+   *  this app titling by whatever the panel is "of". Falls back to
+   *  "Customer" when the interaction has no name on file. */
+  customerName?: string;
   onClose: () => void;
   /** Fires when the header's fullscreen button is clicked — the caller
    *  swaps this floating window out for `VideoCallFullScreen` (see this
@@ -75,7 +76,7 @@ export interface VideoCallWindowProps {
  * dock/undock toggle is gone entirely now, not just relabeled, so there's
  * no path left that could ever switch this into "docked".
  */
-export function VideoCallWindow({ customerName, onClose, onFullScreen }: VideoCallWindowProps) {
+export function VideoCallWindow({ customerName = "Customer", onClose, onFullScreen }: VideoCallWindowProps) {
   return (
     <Draggable
       variant="float"
@@ -128,7 +129,8 @@ export function VideoCallWindow({ customerName, onClose, onFullScreen }: VideoCa
 }
 
 export interface VideoCallFullScreenProps {
-  customerName: string;
+  /** Falls back to "Customer" when the interaction has no name on file. */
+  customerName?: string;
   /** Restores the small floating `VideoCallWindow` — the header's
    *  `Minimize2` button, mirroring `InteriorPanel`'s own full-screen
    *  toggle icon convention (Maximize2 to enter, Minimize2 to exit). */
@@ -177,7 +179,7 @@ export interface VideoCallFullScreenProps {
  * caption already use here) rather than a boxed/bordered button, so they
  * read as part of the video chrome, not a floating card.
  */
-export function VideoCallFullScreen({ customerName, onExitFullScreen, onClose, customerIdentified = true }: VideoCallFullScreenProps) {
+export function VideoCallFullScreen({ customerName = "Customer", onExitFullScreen, onClose, customerIdentified = true }: VideoCallFullScreenProps) {
   return (
     // No explicit z-index on this root (back to relying on plain
     // z-index:auto/DOM-order stacking) — per explicit follow-up bug report,

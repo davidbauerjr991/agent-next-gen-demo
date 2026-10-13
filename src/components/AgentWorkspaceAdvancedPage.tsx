@@ -10293,6 +10293,10 @@ export function AgentWorkspaceAdvancedPage({
                                           skillLabel={c.preview}
                                           isFreshLaunch={!!c.startedFresh}
                                           liveMessages={activeInteraction.liveMessages?.[key] ?? []}
+                                          currentStatus={activeInteraction.threadStatuses?.[key]}
+                                          onCurrentStatusChange={(status) =>
+                                            handleInteractionStatusChange(activeInteraction.id, key, status)
+                                          }
                                           showSessionActionCluster={false}
                                           showViewDetails={false}
                                         />
@@ -12620,6 +12624,10 @@ export function AgentWorkspaceAdvancedPage({
                           skillLabel={channelPreviewThread.preview}
                           isFreshLaunch={!!channelPreviewThread.startedFresh}
                           liveMessages={activeInteraction.liveMessages?.[channelPreviewThreadStableKey!] ?? []}
+                          currentStatus={activeInteraction.threadStatuses?.[channelPreviewThreadStableKey!]}
+                          onCurrentStatusChange={(status) =>
+                            handleInteractionStatusChange(activeInteraction.id, channelPreviewThreadStableKey!, status)
+                          }
                           showSessionActionCluster={false}
                           showViewDetails={false}
                         />

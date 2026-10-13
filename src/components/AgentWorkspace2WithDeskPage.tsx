@@ -8986,6 +8986,10 @@ export function AgentWorkspace2WithDeskPage({
                                             skillLabel={c.preview}
                                             isFreshLaunch={!!c.startedFresh}
                                             liveMessages={activeInteraction.liveMessages?.[key] ?? []}
+                                            currentStatus={activeInteraction.threadStatuses?.[key]}
+                                            onCurrentStatusChange={(status) =>
+                                              handleInteractionStatusChange(activeInteraction.id, key, status)
+                                            }
                                             showSessionActionCluster={false}
                                             showViewDetails={false}
                                           />
