@@ -4,9 +4,9 @@ import path from "path";
 
 export default defineConfig({
   // GitHub Pages project site — served at
-  // https://davidbauerjr991.github.io/agent-next-gen-v3/, a subpath, not
+  // https://davidbauerjr991.github.io/agent-next-gen-demo/, a subpath, not
   // the domain root — so built asset URLs need this prefix or they 404.
-  base: "/agent-next-gen-v3/",
+  base: "/agent-next-gen-demo/",
   plugins: [react()],
   resolve: {
     alias: {
