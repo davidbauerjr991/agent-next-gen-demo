@@ -109,8 +109,6 @@ import {
   buildCustomerContextOverviewInfo,
   type CustomerPriorContactInfo,
   type Page,
-  withStringTitle,
-  type PanelContent,
 } from "@/components/agent-next-gen-shared-utils";
 import {
   type TranscriptMessage,
@@ -7351,18 +7349,17 @@ export function AgentWorkspaceAdvancedPage({
       panelTabs: AGENT_WORKSPACE_CUSTOMER_PANEL_TABS,
     },
   });
-  // `withStringTitle`: `ContainerHeader`'s `title` is a string (see `PanelContent`).
-  const contentByPanelKey: Record<PanelKey, PanelContent> = {
-    notif: withStringTitle(notifContent),
-    conversations: withStringTitle(blankPanelContent("Agent Chat")),
-    schedule: withStringTitle(scheduleContent),
-    screenpop: withStringTitle(screenPopContent),
-    customers: withStringTitle(blankPanelContent("Customers")),
-    accounts: withStringTitle(blankPanelContent("Accounts")),
-    tickets: withStringTitle(blankPanelContent("Tickets")),
+  const contentByPanelKey: Record<PanelKey, EmbeddablePanelContent> = {
+    notif: notifContent,
+    conversations: blankPanelContent("Agent Chat"),
+    schedule: scheduleContent,
+    screenpop: screenPopContent,
+    customers: blankPanelContent("Customers"),
+    accounts: blankPanelContent("Accounts"),
+    tickets: blankPanelContent("Tickets"),
     // WEM = Workforce Engagement Management
-    wem: withStringTitle(blankPanelContent("WEM")),
-    search: withStringTitle(searchContent),
+    wem: blankPanelContent("WEM"),
+    search: searchContent,
   };
   const activePanelContent = activePanelKey ? contentByPanelKey[activePanelKey] : null;
 
@@ -7738,6 +7735,7 @@ export function AgentWorkspaceAdvancedPage({
         <>
           <ContainerHeader
             title={activePanelContent.title}
+            titleText={activePanelContent.titleText}
             titleBadge={activePanelContent.titleBadge}
             titleClassName={activePanelContent.titleClassName}
             icon={
@@ -7881,6 +7879,7 @@ export function AgentWorkspaceAdvancedPage({
     >
       <ContainerHeader
         title={activePanelContent.title}
+        titleText={activePanelContent.titleText}
         titleBadge={activePanelContent.titleBadge}
         titleClassName={activePanelContent.titleClassName}
         icon={activePanelContent.dockedIcon}
@@ -9445,7 +9444,7 @@ export function AgentWorkspaceAdvancedPage({
               <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
 
                 {/* Below 768px with a docked panel open: a second region
-                    (`activePanelContent.title`, e.g. "Notifications") sits
+                    (`PANEL_KEY_METADATA[activePanelKey].label`, e.g. "Notifications") sits
                     alongside this main region, and this whole container
                     becomes the shared surface both toggle inside of instead
                     of the panel docking beside it. Per explicit follow-up
@@ -9467,7 +9466,7 @@ export function AgentWorkspaceAdvancedPage({
                       fullWidth
                       items={[
                         { value: "main", label: mainRegionTabLabel },
-                        { value: "panel", label: activePanelContent?.title ?? "" },
+                        { value: "panel", label: activePanelKey ? PANEL_KEY_METADATA[activePanelKey].label : "" },
                       ]}
                       value={narrowActiveRegion}
                       // `ToggleGroup`'s single-select mode deselects on
@@ -12158,6 +12157,7 @@ export function AgentWorkspaceAdvancedPage({
               >
                 <ContainerHeader
                   title={activePanelContent.title}
+                  titleText={activePanelContent.titleText}
                   titleBadge={activePanelContent.titleBadge}
                   titleClassName={activePanelContent.titleClassName}
                   icon={activePanelContent.dockedIcon}

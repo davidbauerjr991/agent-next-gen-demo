@@ -336,6 +336,9 @@ export function useSearchPanelContent({
   // already-dense set of conditions harder to follow for both modes.
   if (simpleCustomerSearch && customers) {
     return {
+      // Plain-text name for the close button and the sr-only heading,
+      // since `title` is a breadcrumb element.
+      titleText: "Search",
       title: renderSearchPanelBreadcrumb(
         customers.selectedRow
           ? [
@@ -399,6 +402,8 @@ export function useSearchPanelContent({
     // tab-label crumb both route through `onCloseRow` when a row is open —
     // either one returns to that tab's list, same as "Search" alone used
     // to.
+    // See the `simpleCustomerSearch` branch above.
+    titleText: "Search",
     title: renderSearchPanelBreadcrumb(
       activeTab === "customers" && customers && customers.selectedRow
         ? [

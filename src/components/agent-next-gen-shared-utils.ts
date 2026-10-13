@@ -1,4 +1,4 @@
-import type { ChannelType, SortDirection, QuickReplyField, DateRangeFilterValue, DateRange, PhoneValue, EmbeddablePanelContent } from "@nicecxone/lyra-ui";
+import type { ChannelType, SortDirection, QuickReplyField, DateRangeFilterValue, DateRange, PhoneValue } from "@nicecxone/lyra-ui";
 
 /* ── Shared, dependency-free helpers ──
    Split out of AgentNextGenPage.tsx (which had grown past Babel's 500KB
@@ -1078,25 +1078,3 @@ export {
   SHOW_ADD_CHANNEL_HEADER_BUTTON,
 };
 export type { Page, CustomerPriorContactInfo };
-
-/** `EmbeddablePanelContent` with a plain-string `title`. lyra types the title
- *  as `ReactNode`, but the shared header panel hands it to `ContainerHeader`,
- *  whose `title` is `string` (it also interpolates it into the close
- *  button's `aria-label`/tooltip). Every panel here has a string title, so
- *  narrow once where `contentByPanelKey` is built rather than at each render
- *  site. */
-export type PanelContent = Omit<EmbeddablePanelContent, "title"> & { title: string };
-
-/** Narrows a lyra panel-content value to `PanelContent` (a non-string title
- *  becomes `""`, which `ContainerHeader` renders as no title). Warns in dev
- *  so a future non-string title is noticed instead of silently disappearing. */
-export function withStringTitle(content: EmbeddablePanelContent): PanelContent {
-  if (typeof content.title === "string") return { ...content, title: content.title };
-  if (import.meta.env.DEV) {
-    console.warn(
-      "withStringTitle: panel content has a non-string title; ContainerHeader only accepts a string, so it is dropped.",
-      content.title,
-    );
-  }
-  return { ...content, title: "" };
-}
