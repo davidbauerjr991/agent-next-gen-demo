@@ -5,7 +5,7 @@ Status values: `todo` / `in progress` / `done` / `deferred`. Rows follow PROMPTS
 | Step | Title | Phase | Status | Notes |
 |---|---|---|---|---|
 | P-SETUP | Create CLAUDE.md and PROGRESS.md | Setup | done | Project rules added as a new section at the top of the existing CLAUDE.md (lyra-ui rules kept). |
-| P0.1 | Domain model | 0 | todo | |
+| P0.1 | Domain model | 0 | done | Types in `src/domain/`; mapping note in PLAN.md Decisions; type guards in `src/adapters/legacy/type-checks.ts`. |
 | P0.2 | Provider interfaces | 0 | todo | |
 | P0.3 | Provider context | 0 | todo | |
 | P0.4 | SimulatedInteractionProvider + SimTransport | 0 | todo | |
@@ -57,7 +57,8 @@ Status values: `todo` / `in progress` / `done` / `deferred`. Rows follow PROMPTS
 
 ## Known gaps
 
-_None yet._
+- **Type-check baseline: 219 errors** from `npx tsc -b --noEmit` as of P0.1 (2026-10-13), all pre-existing. Steps verify by filtering tsc output to the files they touch, not by total count.
+- **`@nicecxone/lyra-ui` doesn't resolve for tsc** (32 of the 219 baseline errors): the alias is only in `vite.config.ts`, not `tsconfig.json` `paths`, so lyra types are `any` in every importer. Because of that, `ChannelKind` vs lyra `ChannelType` isn't guarded in `src/adapters/legacy/type-checks.ts` yet.
 
 ## Deferred items
 
