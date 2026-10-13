@@ -1,5 +1,21 @@
 # CLAUDE.md
 
+## Project rules (multi-week build — see PLAN.md / PROMPTS.md)
+
+Every session working on the Agent Workspace Simulation build follows these:
+
+- UI components never import the simulation bus, TTS/ASR, the store, or any vendor SDK directly; they consume the provider interfaces via the provider context only.
+- Vendor payloads (Twilio, CXone, anything) never reach components; adapters map them to the app-owned domain model at the edge.
+- Every provider method is async; all state changes arrive as events, even in the simulation. Simulation injects configurable latency.
+- Panels, cards, pickers, and AI handlers render from the active ContactCenterProfile's schema/terminology — never hard-coded entity fields.
+- The AI never writes to the database silently; drafts fill live, the agent confirms.
+- The customer console is sim-only; the agent UI must not know it exists.
+- Verification scales to risk: type-check always; tests when they exist; browser click-through only when a step's done-criteria require it. Git is the backup — no manual .bak copies.
+- Keep steps narrow: in large page files, grep and make targeted edits rather than reading whole files.
+- Before starting any step, read PLAN.md and PROGRESS.md.
+
+## lyra-ui usage
+
 This app consumes the shared `lyra-ui` design system via a live source alias (`@nicecxone/lyra-ui`), not a local component library. Before writing or editing any UI code here:
 
 ## Rule zero: never hand-roll a button
