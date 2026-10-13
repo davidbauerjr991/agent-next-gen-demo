@@ -13,6 +13,18 @@ export {
   useProviderKind,
   useCapability,
 } from "./hooks";
+// Interaction store hooks (P0.5.0): provider state for components. The store
+// object itself is never exported.
+export {
+  useAgentState,
+  useInteractions,
+  useInteraction,
+  useEndReason,
+  useTranscript,
+  useTyping,
+  useInteractionStoreStatus,
+} from "./interaction-store-hooks";
+export type { InteractionStoreStatus, TranscriptState, TypingState } from "./interaction-store-state";
 export { readProviderKind, type ProviderKind } from "./provider-kind";
 export type { ProviderFactory } from "./factories";
 export type { ProviderContextValue } from "./context";

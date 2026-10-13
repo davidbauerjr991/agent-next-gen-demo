@@ -3,6 +3,7 @@ import type { DatabaseHandle } from "../data/database-handle";
 import type { ContactCenterProfile } from "../profiles/contact-center-profile";
 import { ProviderContext, type ProviderContextValue } from "./context";
 import { PROVIDER_FACTORIES, type ProviderFactory } from "./factories";
+import { getInteractionStore } from "./interaction-store";
 import { peekProviderSet, releaseProviderSet, retainProviderSet } from "./provider-cache";
 import type { ProviderKind } from "./provider-kind";
 
@@ -27,6 +28,14 @@ export function ProviderRoot({ kind, profile, database, factory, children }: Pro
     retainProviderSet(key);
     return () => releaseProviderSet(key);
   }, [key]);
+
+  // The interaction store (P0.5.0) follows the active provider: subscribed and
+  // hydrated while mounted, unsubscribed before the cache's deferred dispose.
+  useEffect(() => {
+    const store = getInteractionStore(providers.interaction);
+    store.start();
+    return () => store.stop();
+  }, [providers]);
 
   // Dev-only devtools handle (`__providers.interaction.accept("x")`). App
   // code must never read it — components go through the hooks.

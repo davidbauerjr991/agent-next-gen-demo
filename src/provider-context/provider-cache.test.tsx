@@ -22,7 +22,13 @@ function fakeSet() {
     assist: vi.fn(async () => {}),
   };
   const set = {
-    interaction: { capabilities: {}, dispose: dispose.interaction },
+    // `on`/`getSnapshot`: ProviderRoot also starts the interaction store (P0.5.0).
+    interaction: {
+      capabilities: {},
+      dispose: dispose.interaction,
+      on: () => () => {},
+      getSnapshot: () => new Promise(() => {}),
+    },
     media: { capabilities: {}, dispose: dispose.media },
     customerData: { dispose: dispose.customerData },
     assist: { dispose: dispose.assist },
