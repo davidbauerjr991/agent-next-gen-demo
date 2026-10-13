@@ -14,6 +14,7 @@ Every session working on the Agent Workspace Simulation build follows these:
 - Keep steps narrow: in large page files, grep and make targeted edits rather than reading whole files.
 - Before starting any step, read PLAN.md and PROGRESS.md.
 - Don't add Co-Authored-By, Claude-Session or any other attribution lines to commit messages.
+- Page parity: `AgentWorkspaceAdvancedPage.tsx` (Phase 1) and `AgentWorkspace2WithDeskPage.tsx` (Phase 2) must have identical contact-handling functionality: call controls, dialing, incoming offers, transcript, wrap-up/outcome, agent leg, status, AI assist. They may differ only in layout: Phase 2 keeps its tabs, panels and home page. Contact-handling logic goes in shared hooks/components that both pages use, never duplicated per page. Any change to one page's contact handling is made in the shared code, or in both pages in the same change. (These "Phase 1/2" labels are the two pages, not PLAN.md's phases.)
 
 ## lyra-ui usage
 
