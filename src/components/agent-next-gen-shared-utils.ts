@@ -1088,7 +1088,15 @@ export type { Page, CustomerPriorContactInfo };
 export type PanelContent = Omit<EmbeddablePanelContent, "title"> & { title: string };
 
 /** Narrows a lyra panel-content value to `PanelContent` (a non-string title
- *  becomes `""`, which `ContainerHeader` renders as no title). */
+ *  becomes `""`, which `ContainerHeader` renders as no title). Warns in dev
+ *  so a future non-string title is noticed instead of silently disappearing. */
 export function withStringTitle(content: EmbeddablePanelContent): PanelContent {
-  return { ...content, title: typeof content.title === "string" ? content.title : "" };
+  if (typeof content.title === "string") return { ...content, title: content.title };
+  if (import.meta.env.DEV) {
+    console.warn(
+      "withStringTitle: panel content has a non-string title; ContainerHeader only accepts a string, so it is dropped.",
+      content.title,
+    );
+  }
+  return { ...content, title: "" };
 }
