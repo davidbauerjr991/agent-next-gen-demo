@@ -4,17 +4,20 @@ Status values: `todo` / `in progress` / `done` / `deferred`. Rows follow PROMPTS
 
 | Step | Title | Phase | Status | Notes |
 |---|---|---|---|---|
+| P-REALIGN | Sync PLAN.md and PROGRESS.md to PROMPTS.md | Setup | done | Docs only. |
 | P-SETUP | Create CLAUDE.md and PROGRESS.md | Setup | done | Project rules added as a new section at the top of the existing CLAUDE.md (lyra-ui rules kept). |
 | P0.1 | Domain model | 0 | done | Types in `src/domain/`; mapping note in PLAN.md Decisions; type guards in `src/adapters/legacy/type-checks.ts`. |
 | P0.2 | Provider interfaces | 0 | done | Types in `src/providers/`; `recording?`/`masked?` added to domain `Interaction`. tsc: no new errors (baseline 4). Decisions in PLAN.md (conventions, `ProviderError`, extra commands, `listOutboundSkills`). No tests exist yet; contracts are exercised by P0.8. |
 | P0.3 | Provider context | 0 | done | `src/provider-context/` + placeholders in `src/adapters/placeholder/`; mounted in `main.tsx`. tsc baseline 4, eslint clean on new files. Browser check (one `created`/no `disposed`, `?provider=bogus` fallback, login round-trip keeps the flag) left to the user. Decisions in PLAN.md. |
 | P0.4 | SimulatedInteractionProvider + SimTransport | 0 | done | `src/adapters/sim/`; `sim` factory now builds it (other three providers still placeholders). tsc baseline 4, eslint clean. Runtime-checked in Node (real `BroadcastChannel`, esbuild bundle): dial → connecting → active, hold/no-op/resume, mute, end → wrap-up → completeWrapUp → `ended{agent}`; inbound chat via customer client → accept → messages + delivery → customer hang-up → wrap-up → `ended{customer}`; not-supported/invalid-state/not-found/disposed errors. Browser check done by the user (devtools flow, StrictMode lifecycle, HMR). Decisions in PLAN.md. |
 | P0.8 | Contract test suite | 0 | todo | Pulled forward before the 0.5 migrations. Also cover `provider-cache.ts` lifecycle: StrictMode remount keeps the set, real unmount disposes, key change swaps. |
-| P0.5a | Migrate the agent leg behind the provider | 0 | todo | |
+| P0.5.0 | Interaction store + view-model adapter | 0 | todo | Prerequisite for every 5.x migration. |
+| P0.5a | Migrate the agent leg behind the provider | 0 | todo | Also authorizes the lyra `AgentProfile` controlled-props change. |
 | P0.5b | Migrate dial pad / interaction creation | 0 | todo | |
-| P0.5c | Migrate scripted scenario timers | 0 | todo | |
+| P0.5d | Voice bar, incoming tile and wrap-up onto the provider | 0 | todo | |
 | P0.6 | Customer console route + handshake | 0 | todo | |
-| P0.7 | Scenario script format | 0 | todo | |
+| P0.7 | Scenario script format | 0 | todo | Runs before P0.5c. |
+| P0.5c | Migrate scripted scenario timers | 0 | todo | Needs P0.7. |
 | P1.1 | ContactCenterProfile type and registry | 1 | todo | Telecom profile (PLAN.md 1.2 thin pack) is stubbed here and filled out across P1.3/P1.8 — it has no 1.2a/1.2b row of its own. |
 | P1.3 | Generator engine | 1 | todo | |
 | P1.4 | Named databases on IndexedDB | 1 | todo | |
@@ -26,6 +29,7 @@ Status values: `todo` / `in progress` / `done` / `deferred`. Rows follow PROMPTS
 | P1.6 | Vertical-aware import | 1 | todo | |
 | P1.2a | Retail, collections, healthcare, customer-service profiles | 1 | todo | |
 | P1.2b | Thin packs: banking, insurance, travel, utilities | 1 | todo | |
+| P2.0 | Render performance pass | 2 | todo | Before P2.1; see Known gaps (slow renders). |
 | P2.1 | Console chat view | 2 | todo | |
 | P2.2 | Agent-side inbound chat | 2 | todo | |
 | P2.3 | Unknown-contact state | 2 | todo | |
