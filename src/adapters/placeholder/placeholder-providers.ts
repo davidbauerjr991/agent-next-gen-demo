@@ -88,7 +88,7 @@ function createPlaceholderInteractionProvider(): InteractionProvider {
   } satisfies InteractionProvider;
 }
 
-function createPlaceholderMediaProvider(): MediaProvider {
+export function createPlaceholderMediaProvider(): MediaProvider {
   const { reject, dispose } = placeholderLifecycle("MediaProvider");
   return {
     capabilities: NO_MEDIA_CAPABILITIES,
@@ -100,7 +100,7 @@ function createPlaceholderMediaProvider(): MediaProvider {
   } satisfies MediaProvider;
 }
 
-function createPlaceholderCustomerDataProvider(): CustomerDataProvider {
+export function createPlaceholderCustomerDataProvider(): CustomerDataProvider {
   const { reject, dispose } = placeholderLifecycle("CustomerDataProvider");
   return {
     on: () => noopUnsubscribe,
@@ -116,7 +116,7 @@ function createPlaceholderCustomerDataProvider(): CustomerDataProvider {
   } satisfies CustomerDataProvider;
 }
 
-function createPlaceholderAssistProvider(): AssistProvider {
+export function createPlaceholderAssistProvider(): AssistProvider {
   const { reject, dispose } = placeholderLifecycle("AssistProvider");
   return {
     on: () => noopUnsubscribe,

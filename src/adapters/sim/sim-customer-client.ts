@@ -1,0 +1,40 @@
+import type { ChannelKind, EntityId, InteractionId } from "../../domain";
+import { SIM_PROTOCOL_VERSION, type SimCustomerAction } from "./sim-protocol";
+import { createBroadcastTransport, DEFAULT_LATENCY, withLatency, type SimTransport } from "./sim-transport";
+import { simId } from "./sim-util";
+
+// The customer's side of the sim bus, bound to one agent session. Exposed as
+// `window.__simCustomer` in dev until the customer console (P0.6) builds on
+// it. The agent UI never uses it.
+
+export interface SimCustomerClient {
+  readonly sessionId: string;
+  /** Offers a routed inbound contact to the agent; returns its id. */
+  startInbound(request: { channel: ChannelKind; address: string; displayName: string; entityId?: EntityId }): InteractionId;
+  message(request: { interactionId: InteractionId; text: string }): void;
+  typing(request: { interactionId: InteractionId; isTyping: boolean }): void;
+  /** The customer hangs up / leaves. Goes to wrap-up like the agent's `end`. */
+  hangUp(request: { interactionId: InteractionId }): void;
+  dispose(): void;
+}
+
+export function createSimCustomerClient(
+  sessionId: string,
+  transport: SimTransport = withLatency(createBroadcastTransport(), DEFAULT_LATENCY),
+): SimCustomerClient {
+  const send = (action: SimCustomerAction) =>
+    transport.send({ v: SIM_PROTOCOL_VERSION, sessionId, type: "customer", action });
+
+  return {
+    sessionId,
+    startInbound(request) {
+      const interactionId = simId("int") as InteractionId;
+      send({ kind: "startInbound", interactionId, ...request });
+      return interactionId;
+    },
+    message: (request) => send({ kind: "message", ...request }),
+    typing: (request) => send({ kind: "typing", ...request }),
+    hangUp: (request) => send({ kind: "hangUp", ...request }),
+    dispose: () => transport.close(),
+  };
+}

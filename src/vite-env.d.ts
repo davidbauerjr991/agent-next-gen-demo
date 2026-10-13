@@ -7,4 +7,6 @@ declare module "@nicecxone/lyra-ui/styles";
 // code must never read it — use the provider hooks.
 interface Window {
   __providers?: import("./providers").ProviderSet;
+  /** Dev-only customer side of the sim bus (P0.4), until the P0.6 console. */
+  __simCustomer?: import("./adapters/sim/sim-customer-client").SimCustomerClient;
 }

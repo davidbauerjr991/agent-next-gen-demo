@@ -36,7 +36,9 @@ export interface MediaEvents {
 /**
  * Audio for voice interactions. Playback is driven by the call itself, not
  * by the UI: the simulation speaks its own transcript (pausing on hold,
- * stopping on end) and a real softphone gets audio in-band. So the UI only
+ * stopping once the interaction's state leaves "active"/"held" — i.e. on
+ * disconnect, before any wrap-up, not on the `ended` event) and a real
+ * softphone gets audio in-band. So the UI only
  * unlocks audio, sets volume, and observes state — there is no `speak`.
  * Console-side voice/rate/pitch controls are sim-only and not part of this
  * contract.

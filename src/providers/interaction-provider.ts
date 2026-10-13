@@ -101,8 +101,11 @@ export interface InteractionEvents {
   transcript: { utterance: Utterance };
   /** Someone started or stopped typing on a digital interaction. */
   typing: { interactionId: InteractionId; role: Participant["role"]; isTyping: boolean };
-  /** Fired once, after the `stateChanged` that set `state: "ended"`. Media
-   *  stops playback on this. */
+  /** Fired once when the interaction is closed: after the final
+   *  `stateChanged` to "ended" — with wrap-up support, that's after
+   *  `completeWrapUp`. `reason` is who or what ended the contact, even when
+   *  wrap-up came later. Media stops playback when `state` leaves
+   *  "active"/"held", not on this event. */
   ended: { interactionId: InteractionId; reason: EndReason };
 }
 
@@ -150,7 +153,9 @@ export interface InteractionProvider extends EventSource<InteractionEvents>, Pro
    *  via `stateChanged` with `origin: "agent-initiated"`. */
   dial(request: DialRequest): Promise<InteractionId>;
   /** Ends the contact (hang up / end chat). Goes to "wrap-up" when
-   *  `capabilities.wrapUp`, otherwise to "ended". */
+   *  `capabilities.wrapUp`, otherwise to "ended". The customer hanging up
+   *  takes the same path (after-call work happens either way); `ended` then
+   *  reports reason "customer". */
   end(interactionId: InteractionId): Promise<void>;
   /** Saves the outcome (Outcome popover / Wrap-up card) and finishes wrap-up.
    *  Without wrap-up support, records the outcome on an ended contact. */
@@ -169,7 +174,9 @@ export interface InteractionProvider extends EventSource<InteractionEvents>, Pro
   setMasked(interactionId: InteractionId, masked: boolean): Promise<void>;
   /** Sends keypad tones ("0"–"9", "*", "#") into the call. Voice only. */
   sendDtmf(interactionId: InteractionId, digits: string): Promise<void>;
-  /** Transfers to `target`; `mode` must be enabled in `capabilities.transfer`. */
+  /** Transfers to `target`; `mode` must be enabled in `capabilities.transfer`.
+   *  The contact leaves this agent like `end` does — into "wrap-up" when
+   *  `capabilities.wrapUp` — and `ended` reports reason "transfer". */
   transfer(interactionId: InteractionId, target: TransferTarget, mode: "blind" | "consult"): Promise<void>;
   /** Sends an agent message. Resolves with its id; the message itself arrives
    *  via `message` (never append it locally). Digital channels only. */
