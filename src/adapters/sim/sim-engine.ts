@@ -231,8 +231,12 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
         const skill = SIM_OUTBOUND_SKILLS.find((s) => s.id === request.skillId);
         if (!skill) throw providerError("not-found", `dial: no outbound skill "${request.skillId}"`);
         if (!request.address.trim()) throw providerError("invalid-state", "dial: address is empty");
-        const id = simId("int") as InteractionId;
         const isVoice = request.channel === "voice";
+        // The agent leg bridges the outbound call (P0.5a decision).
+        if (isVoice && capabilities.agentLeg && agent.leg !== "connected") {
+          throw providerError("invalid-state", `dial: agent leg is ${agent.leg}`);
+        }
+        const id = simId("int") as InteractionId;
         const interaction: Interaction = {
           id,
           externalId: { system: "sim", id },

@@ -2,8 +2,7 @@
 // today's component-level shapes drift from the domain model, tsc fails here.
 // Type-only — nothing is emitted, and no component imports this file. The
 // P0.5 migrations add the real legacy → domain mapper functions alongside it.
-import type { ChannelType } from "@nicecxone/lyra-ui";
-import type { AgentLegSettledStatus } from "@/components/agent-next-gen-agent-leg-state";
+import type { AgentProfileProps, ChannelType } from "@nicecxone/lyra-ui";
 import type { Thread } from "@/components/agent-next-gen-interaction-dashboard";
 import type { AgentLegState, ChannelKind, Direction } from "@/domain";
 
@@ -18,7 +17,7 @@ export type LegacyTypeChecks = [
   // Domain channels, lyra-ui channels, and Thread channels are the same set.
   Assert<Same<ChannelKind, ChannelType>>,
   Assert<Same<Thread["type"], ChannelKind>>,
-  // The cached settled leg status is a subset of the domain leg state.
-  Assert<Extends<AgentLegSettledStatus, AgentLegState>>,
+  // AgentProfile's controlled leg prop takes the domain leg state as is (P0.5a).
+  Assert<Same<NonNullable<AgentProfileProps["agentLegStatus"]>, AgentLegState>>,
   Assert<Extends<NonNullable<Thread["direction"]>, Direction>>,
 ];

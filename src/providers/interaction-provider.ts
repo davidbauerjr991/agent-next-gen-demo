@@ -150,7 +150,9 @@ export interface InteractionProvider extends EventSource<InteractionEvents>, Pro
   /** Starts an agent-initiated contact on any channel (named for the dial
    *  pad, also used by New Outbound for SMS/WhatsApp/email). Resolves with
    *  the new id so the caller can correlate; the interaction itself arrives
-   *  via `stateChanged` with `origin: "agent-initiated"`. */
+   *  via `stateChanged` with `origin: "agent-initiated"`. When
+   *  `capabilities.agentLeg`, a voice dial needs the leg "connected" and
+   *  rejects "invalid-state" otherwise (connecting included). */
   dial(request: DialRequest): Promise<InteractionId>;
   /** Ends the contact (hang up / end chat). Goes to "wrap-up" when
    *  `capabilities.wrapUp`, otherwise to "ended". The customer hanging up

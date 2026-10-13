@@ -18,6 +18,7 @@ import type { InteractionId } from "../domain";
 import type { ProviderSet } from "../providers";
 import { ProviderRoot } from "./ProviderRoot";
 import {
+  useAgentLegTransitions,
   useAgentState,
   useInteraction,
   useInteractions,
@@ -105,12 +106,21 @@ describe("interaction store hooks", () => {
     };
   }
 
-  function render(focus?: InteractionId) {
+  const legCalls: string[] = [];
+  let leg: string | undefined;
+
+  function LegProbe() {
+    leg = useAgentState()?.leg;
+    useAgentLegTransitions((settled) => legCalls.push(settled));
+    return null;
+  }
+
+  function render(focus?: InteractionId, children = <Probe focus={focus} />) {
     act(() => {
       root.render(
         <StrictMode>
           <ProviderRoot kind="sim" profile={profile} database={{ id: "hooks-db", name: "hooks", profileId: "p" }} factory={makeSet}>
-            <Probe focus={focus} />
+            {children}
           </ProviderRoot>
         </StrictMode>,
       );
@@ -162,5 +172,34 @@ describe("interaction store hooks", () => {
     await until(() => seen.messages.length === 2, "two messages");
     expect(seen.messages).toEqual(["Hi there", "Hello! How can I help?"]);
     expect(liveListeners).toBe(6);
+  });
+
+  it("useAgentLegTransitions fires on real leg changes only, never on hydrate or remount", async () => {
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    render(undefined, <LegProbe key="first" />);
+    await until(() => leg === "connected", "hydrated connected");
+    expect(legCalls).toEqual([]);
+
+    await act(() => provider.disconnectAgentLeg());
+    await until(() => leg === "disconnected", "disconnected");
+    expect(legCalls).toEqual(["disconnected"]);
+
+    await act(() => provider.connectAgentLeg());
+    await until(() => leg === "connected", "reconnected");
+    expect(legCalls).toEqual(["disconnected", "connected"]);
+
+    // A fresh mount on the same provider (a tier switch) starts silent.
+    await act(() => provider.disconnectAgentLeg());
+    await until(() => leg === "disconnected", "disconnected again");
+    legCalls.length = 0;
+    render(undefined, <LegProbe key="second" />);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    });
+    expect(leg).toBe("disconnected");
+    expect(legCalls).toEqual([]);
   });
 });

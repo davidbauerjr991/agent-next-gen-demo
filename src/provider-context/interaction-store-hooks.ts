@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useSyncExternalStore } from "react";
-import type { AgentState, Interaction, InteractionId } from "../domain";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import type { AgentLegState, AgentState, Interaction, InteractionId } from "../domain";
 import type { EndReason, ProviderError } from "../providers";
 import { useInteractionProvider } from "./hooks";
 import { getInteractionStore, type InteractionStore } from "./interaction-store";
@@ -30,6 +30,28 @@ function useStoreSelector<T>(select: (state: InteractionStoreState) => T): T {
 /** The agent's presence and leg; undefined until the first snapshot. */
 export function useAgentState(): AgentState | undefined {
   return useStoreSelector((s) => s.agent);
+}
+
+/** Calls `onSettled` when the agent leg lands on "connected" or
+ *  "disconnected" after this component has already seen a different leg
+ *  value. The first value it sees (hydrate on load, or the current state
+ *  when a page mounts after a tier switch) never fires, and "connecting"
+ *  never fires on its own. Compares values, so StrictMode's effect replay
+ *  can't fire it either. */
+export function useAgentLegTransitions(onSettled: (leg: "connected" | "disconnected") => void): void {
+  const leg = useStoreSelector((s) => s.agent?.leg);
+  const onSettledRef = useRef(onSettled);
+  useEffect(() => {
+    onSettledRef.current = onSettled;
+  });
+  const lastSeenRef = useRef<AgentLegState | undefined>(undefined);
+  useEffect(() => {
+    if (leg === undefined) return;
+    const last = lastSeenRef.current;
+    lastSeenRef.current = leg;
+    if (last === undefined || last === leg || leg === "connecting") return;
+    onSettledRef.current(leg);
+  }, [leg]);
 }
 
 /** Every interaction the store has seen this session, ended ones included,

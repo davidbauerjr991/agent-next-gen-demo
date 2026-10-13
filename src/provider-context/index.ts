@@ -17,6 +17,7 @@ export {
 // object itself is never exported.
 export {
   useAgentState,
+  useAgentLegTransitions,
   useInteractions,
   useInteraction,
   useEndReason,

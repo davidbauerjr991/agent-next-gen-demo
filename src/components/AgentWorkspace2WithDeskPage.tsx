@@ -160,7 +160,13 @@ import {
 } from "@/components/agent-next-gen-contact-history";
 import { useCustomerAiSummaryPanelContent } from "@/components/agent-next-gen-ai-summary-panel";
 import { saveCaseRecord, getCaseRecord } from "@/components/agent-next-gen-case-database";
-import { readAgentLegStatus, saveAgentLegStatus, consumeInitialAgentLegAnnouncement } from "@/components/agent-next-gen-agent-leg-state";
+import {
+  IfCapable,
+  useAgentLegTransitions,
+  useAgentState,
+  useCapability,
+  useInteractionProvider,
+} from "@/provider-context";
 import {
   type CustomerListRecord,
   CUSTOMER_LIST_RECORDS,
@@ -1768,40 +1774,20 @@ export function AgentWorkspace2WithDeskPage({
       duration: 4000,
     });
   };
-  // Bumped by `handleConnectAgentLeg` below to imperatively start
-  // connecting the agent leg from the dedicated `AgentLegDisconnectedToast`'s
-  // own "Connect" button (lyra-ui) — see `AgentProfile`'s
-  // `connectAgentLegSignal` prop for why a changing number, not a
-  // boolean/callback, is what actually triggers this (agent-profile.tsx).
-  const [connectAgentLegSignal, setConnectAgentLegSignal] = useState(0);
-  // Seeds `AgentProfile`'s new `initialAgentLegStatus` prop (agent-profile
-  // .tsx) with whatever the agent leg was last doing — possibly on a
-  // DIFFERENT page (see agent-next-gen-agent-leg-state.ts's own top-of-file
-  // doc comment for why this page alone can't be trusted to know that on
-  // its own: switching between Agent Workspace tiers fully unmounts one
-  // page and mounts another). Lazy initializer + `useState` (read once, at
-  // mount) rather than a plain `const` — matches this file's other
-  // read-once-at-mount seeds (e.g. `showWelcomeModal`'s own sibling state
-  // just below) and keeps the read out of the render body proper.
-  const [initialAgentLegStatus] = useState(() => readAgentLegStatus());
-  // Tri-state mirror of `AgentProfile`'s own real `agentLegStatus` state
-  // machine (agent-profile.tsx), seeded from the same persisted settled
-  // value above. Same pattern as 2.0's `AgentNextGenPage.tsx` — see that
-  // file's own doc comment for the full rationale: `handleConnectAgentLeg`
-  // below sets `"connecting"` the instant the agent clicks the link, and
-  // `fireAgentLegStatusToast` below sets the real settled value once
-  // `AgentProfile`'s own `~2s` connecting→connected transition (or an
-  // instant disconnect) actually fires `onAgentLegStatusChange` — never
-  // set directly to `"connected"`/`"disconnected"` from anywhere else. Per
-  // explicit request ("remove the connect agent leg from the right
-  // side"), this state's only reader — the dashboard header's "Connect
-  // Agent Leg" link/"Connecting..."/"Connection Lag Time: {lagTime}"
-  // subhead — was removed (see §129's Premium follow-up), so the read
-  // binding is dropped here (only the setter is still needed); the state
-  // itself stays, still tracked in lockstep with `AgentProfile`.
-  const [, setAgentLegStatus] = useState<"disconnected" | "connecting" | "connected">(
-    initialAgentLegStatus
-  );
+  // Agent leg (P0.5a): the interaction provider owns it. `AgentProfile`
+  // displays the store's `agent.leg` (controlled) and reports clicks through
+  // `onAgentLegToggle`; the resulting state arrives back as a `stateChanged`
+  // event. The provider set outlives page mounts (ProviderRoot sits above
+  // App's router), so the leg carries across tier switches on its own.
+  const interactionProvider = useInteractionProvider();
+  const agentState = useAgentState();
+  const agentLegCapable = useCapability((c) => c.interaction.agentLeg);
+  const handleAgentLegToggle = (action: "connect" | "disconnect") => {
+    const command = action === "connect" ? interactionProvider.connectAgentLeg() : interactionProvider.disconnectAgentLeg();
+    command.catch((error: unknown) => {
+      if (import.meta.env.DEV) console.warn(`[agent-leg] ${action} failed`, error);
+    });
+  };
   // Whether the dedicated `AgentLegDisconnectedToast` (lyra-ui) is currently
   // showing — same "presence controls mounting" idiom `useToast`'s own
   // `toasts` array already uses for every other toast, just a plain
@@ -1813,10 +1799,10 @@ export function AgentWorkspace2WithDeskPage({
   // open until the agent connects the agent leg or clicks the close
   // button."
   const [agentLegDisconnectedToastOpen, setAgentLegDisconnectedToastOpen] = useState(false);
-  // Fired by `AgentProfile`'s own `onAgentLegStatusChange` (agent-profile.tsx)
-  // once the agent leg actually finishes connecting/disconnecting — never
-  // for the in-between "connecting" state, and never on initial mount (see
-  // that prop's own doc comment). `success`/`warning` rather than always
+  // Fired (via `fireAgentLegStatusToast` below) once the agent leg actually
+  // finishes connecting/disconnecting — never for the in-between
+  // "connecting" state, and never for the leg's state on load or on a tier
+  // switch (see `useAgentLegTransitions`). `success`/`warning` rather than always
   // `success` — landing back on "disconnected" isn't a positive event the
   // way finishing a connect is, same reasoning the SLA banner elsewhere in
   // this file reserves warning/critical for something actually needing
@@ -1846,10 +1832,7 @@ export function AgentWorkspace2WithDeskPage({
   // separately below, right where the component is rendered), not this
   // function's — `AgentLegDisconnectedToast` already calls both in the
   // right order on a "Connect" click (see its own doc comment).
-  const handleConnectAgentLeg = () => {
-    setAgentLegStatus("connecting");
-    setConnectAgentLegSignal((n) => n + 1);
-  };
+  const handleConnectAgentLeg = () => handleAgentLegToggle("connect");
   // Last agent-leg status that arrived while the welcome modal was still
   // open — a ref (not state) since holding it shouldn't itself trigger a
   // re-render; the effect below is what actually flushes it once the modal
@@ -1860,50 +1843,17 @@ export function AgentWorkspace2WithDeskPage({
   // Start Offline yet at that point, so a toast landing behind (or fighting
   // for attention with) the modal's own forced-choice UI reads as premature.
   // The agent leg's own status still updates normally underneath either way
-  // (see `AgentProfile`'s `agentLegStatus`) — this just holds the
-  // notification about it until right after the modal's been answered,
-  // instead of showing it immediately or losing it entirely.
+  // (the store's `agent.leg`) — this just holds the notification about it
+  // until right after the modal's been answered, instead of showing it
+  // immediately or losing it entirely.
   const fireAgentLegStatusToast = (agentLegConnectionStatus: "disconnected" | "connected") => {
-    // Persisted immediately, unconditionally — this is the real, settled
-    // status the moment it happens; only the TOAST announcing it (below) is
-    // ever deferred, not the underlying state a later page mount needs to
-    // pick up from (see agent-next-gen-agent-leg-state.ts's own doc
-    // comment).
-    saveAgentLegStatus(agentLegConnectionStatus);
-    // Updated unconditionally, same as `saveAgentLegStatus` right above —
-    // this is the dashboard header's own tri-state mirror of the real
-    // settled status (see `agentLegStatus`'s own doc comment), not the
-    // toast announcing it, so it must NOT wait on `showWelcomeModal` the
-    // way the toast itself (below) does.
-    setAgentLegStatus(agentLegConnectionStatus);
     if (showWelcomeModal) {
       pendingAgentLegToastRef.current = agentLegConnectionStatus;
       return;
     }
     showAgentLegToast(agentLegConnectionStatus);
   };
-  // Per explicit request: "I want it to display a not connected toast [on
-  // login] but if connected, keep it connected when going to premium,
-  // advanced, basic (and likewise keep it disconnected but don't fire the
-  // toast again)." `consumeInitialAgentLegAnnouncement()` (agent-next-gen-
-  // agent-leg-state.ts) is only `true` for the very FIRST Agent Workspace
-  // page mounted in this browser tab — a genuine login — and `false` for
-  // every subsequent tier switch (App.tsx itself never unmounts across
-  // Premium/Advanced/Basic, so the module-level flag behind that function
-  // survives every switch). Reuses `fireAgentLegStatusToast` (not
-  // `showAgentLegToast` directly) so this goes through the exact same
-  // welcome-modal deferral every other agent-leg toast already does. Only
-  // fires for `"disconnected"` — a fresh login that's already carrying a
-  // CONNECTED status (e.g. a real browser reload after connecting earlier
-  // this same tab) has nothing to announce; a genuine in-session connect
-  // event is still covered by the ordinary `showAgentLegToast("connected")`
-  // success toast, unchanged.
-  useEffect(() => {
-    if (initialAgentLegStatus === "disconnected" && consumeInitialAgentLegAnnouncement()) {
-      fireAgentLegStatusToast("disconnected");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useAgentLegTransitions(fireAgentLegStatusToast);
   // "Outcome" popover (`ChannelRow`'s own `outcome` prop, channel-row.tsx) —
   // logs Resolution/Tags/Disposition code/Summary for whichever channel's
   // Outcome button was clicked. Only one can be open across the entire left
@@ -7228,9 +7178,11 @@ export function AgentWorkspace2WithDeskPage({
               onDarkModeToggle={handleDarkModeToggle}
               isDarkMode={darkMode}
               timer={formattedTimer}
-              onAgentLegStatusChange={fireAgentLegStatusToast}
-              connectAgentLegSignal={connectAgentLegSignal}
-              initialAgentLegStatus={initialAgentLegStatus}
+              // Hidden while the provider has no agent leg, and until the
+              // first agent snapshot arrives (no fake state before hydrate).
+              agentLegStatus={agentState?.leg}
+              onAgentLegToggle={handleAgentLegToggle}
+              hideAgentLeg={!agentLegCapable || !agentState}
               // Standalone AppHeader "?" icon removed — this app now uses
               // `AgentProfile`'s own conditional "Help" row instead (renders
               // below "Agent Leg Disconnected" whenever `onHelpClick` is
@@ -11400,12 +11352,14 @@ export function AgentWorkspace2WithDeskPage({
               this lives outside the plain `toasts` list. Only mounted while
               actually open, same "presence controls mounting" idiom the
               `.map()` above already uses per-item. */}
-          {agentLegDisconnectedToastOpen && (
-            <AgentLegDisconnectedToast
-              onConnect={handleConnectAgentLeg}
-              onDismiss={() => setAgentLegDisconnectedToastOpen(false)}
-            />
-          )}
+          <IfCapable when={(c) => c.interaction.agentLeg}>
+            {agentLegDisconnectedToastOpen && (
+              <AgentLegDisconnectedToast
+                onConnect={handleConnectAgentLeg}
+                onDismiss={() => setAgentLegDisconnectedToastOpen(false)}
+              />
+            )}
+          </IfCapable>
         </ToastContainer>
       </div>
     </div>

@@ -543,6 +543,21 @@ export function describeInteractionProviderContract(label: string, factory: Inte
         const [skill] = await h.provider.listOutboundSkills(channel);
         await expectNoEvents(() => expectProviderError(h.provider.dial({ channel, address: "  ", skillId: skill.id }), "invalid-state"));
       });
+
+      it("voice dial while the agent leg isn't connected", async (ctx) => {
+        ctx.skip(!caps().agentLeg, "agent leg not supported");
+        ctx.skip(!caps().channels.outbound.includes("voice"), "provider offers no outbound voice");
+        const { provider } = h;
+        const [skill] = await provider.listOutboundSkills("voice");
+        const request = { channel: "voice" as const, address: "+15551230000", skillId: skill.id };
+        await provider.disconnectAgentLeg();
+        await waitFor(() => currentLeg() === "disconnected", "leg disconnected");
+        await expectNoEvents(() => expectProviderError(provider.dial(request), "invalid-state"));
+        await provider.connectAgentLeg();
+        await waitFor(() => currentLeg() === "connected", "leg connected");
+        const id = await provider.dial(request);
+        await waitFor(() => latest(id) !== undefined, "dialed after reconnecting");
+      });
     });
 
     describe('"not-found"', () => {
