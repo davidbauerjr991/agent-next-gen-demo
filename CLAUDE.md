@@ -13,6 +13,7 @@ Every session working on the Agent Workspace Simulation build follows these:
 - Verification scales to risk: type-check always; tests when they exist; browser click-through only when a step's done-criteria require it. Git is the backup — no manual .bak copies.
 - Keep steps narrow: in large page files, grep and make targeted edits rather than reading whole files.
 - Before starting any step, read PLAN.md and PROGRESS.md.
+- Don't add Co-Authored-By, Claude-Session or any other attribution lines to commit messages.
 
 ## lyra-ui usage
 
