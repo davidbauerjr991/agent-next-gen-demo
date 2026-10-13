@@ -66,7 +66,7 @@ function useHashRouter(): [Page, (page: Page) => void] {
 
   const navigate = useCallback((next: Page) => {
     const hash = PAGE_HASH[next];
-    window.history.pushState(null, "", hash === "" ? window.location.pathname : hash);
+    window.history.pushState(null, "", hash === "" ? window.location.pathname + window.location.search : hash);
     setPageState(next);
   }, []);
 

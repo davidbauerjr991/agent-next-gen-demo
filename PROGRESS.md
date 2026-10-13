@@ -7,9 +7,9 @@ Status values: `todo` / `in progress` / `done` / `deferred`. Rows follow PROMPTS
 | P-SETUP | Create CLAUDE.md and PROGRESS.md | Setup | done | Project rules added as a new section at the top of the existing CLAUDE.md (lyra-ui rules kept). |
 | P0.1 | Domain model | 0 | done | Types in `src/domain/`; mapping note in PLAN.md Decisions; type guards in `src/adapters/legacy/type-checks.ts`. |
 | P0.2 | Provider interfaces | 0 | done | Types in `src/providers/`; `recording?`/`masked?` added to domain `Interaction`. tsc: no new errors (baseline 4). Decisions in PLAN.md (conventions, `ProviderError`, extra commands, `listOutboundSkills`). No tests exist yet; contracts are exercised by P0.8. |
-| P0.3 | Provider context | 0 | todo | |
+| P0.3 | Provider context | 0 | done | `src/provider-context/` + placeholders in `src/adapters/placeholder/`; mounted in `main.tsx`. tsc baseline 4, eslint clean on new files. Browser check (one `created`/no `disposed`, `?provider=bogus` fallback, login round-trip keeps the flag) left to the user. Decisions in PLAN.md. |
 | P0.4 | SimulatedInteractionProvider + SimTransport | 0 | todo | |
-| P0.8 | Contract test suite | 0 | todo | Pulled forward before the 0.5 migrations. |
+| P0.8 | Contract test suite | 0 | todo | Pulled forward before the 0.5 migrations. Also cover `provider-cache.ts` lifecycle: StrictMode remount keeps the set, real unmount disposes, key change swaps. |
 | P0.5a | Migrate the agent leg behind the provider | 0 | todo | |
 | P0.5b | Migrate dial pad / interaction creation | 0 | todo | |
 | P0.5c | Migrate scripted scenario timers | 0 | todo | |
@@ -62,11 +62,16 @@ Status values: `todo` / `in progress` / `done` / `deferred`. Rows follow PROMPTS
   - **1 missing dev dependency**: `src/components/ui/__stories__/Shell.stories.tsx` — `@storybook/react` isn't installed in this app.
 - **lyra title mismatch (worked around app-side):** lyra types `EmbeddablePanelContent.title` as `ReactNode`, but the `ContainerHeader` that renders it takes `title?: string` and also interpolates it into the close button's `aria-label`/tooltip (`` `Close ${title}` ``, `container-header.tsx` lines ~311/313). The app narrows with `withStringTitle`/`PanelContent` (`agent-next-gen-shared-utils.ts`, warns in dev on a non-string title). Proper fix is in lyra, on explicit request: give `ContainerHeader` a string `closeLabel` (used for the `aria-label`/tooltip) so `title` can widen to `ReactNode`, then drop the app-side wrapper.
 - **Not browser-verified:** the behavior-touching fixes in the last chore commit — session status now persists from the hover/side-panel preview transcripts (they previously had no `onCurrentStatusChange` and would have thrown), the "Unused" Apple Pay pill is now a gray `slate` pill, and the video windows fall back to "Customer" when an interaction has no name. Checked by tsc only.
-- **Provider contracts are unproven until P0.4/P0.8:** `src/providers/` has no implementation or consumer yet, so the shapes (e.g. `AssistCard` kinds, `CollectionQuery`) may get small revisions when the sim provider and contract tests use them. Revise there and log it in PLAN.md Decisions.
+- **Not browser-verified (P0.3):** the provider context was checked by tsc and eslint only. Still to confirm by hand: one `[providers] created` and no `disposed` on load (StrictMode), `?provider=bogus` warns and falls back to sim, and the login round-trip keeps `?provider=`.
+- **Provider cache has no tests yet:** `provider-cache.ts` (StrictMode remount, real unmount, key change) is covered only by the dev log until P0.8 adds a runner. A render React discards before commit could leave a never-disposed zero-ref set; accepted because the root mounts once.
+- **No control is capability-gated yet:** placeholder capabilities are all `false`, so each control gets `IfCapable`/`useCapability` in the step that moves it onto a real provider (P0.5a onward).
+- **Provider contracts are unproven until P0.4/P0.8:** `src/providers/` has only placeholder implementations (P0.3) and no consumers yet, so the shapes (e.g. `AssistCard` kinds, `CollectionQuery`) may get small revisions when the sim provider and contract tests use them. Revise there and log it in PLAN.md Decisions.
 - **Follow-up (rule-zero cleanup): 43 raw `<button` elements in `src/`** (`grep -rn "<button" src --include=*.tsx`) that CLAUDE.md says should be lyra `Button`/`ActionIconButton`/an existing button atom. Pre-existing; not part of any Phase 0 step.
 - **Follow-up (voice controls): upstream or keep local.** The local `agent-next-gen-voice-call-controls.tsx` is ahead of lyra's `voice-call-controls.tsx` (see PLAN.md Decisions). Upstreaming it is possible but only on explicit request.
 
 ## Deferred items
+
+- **Real `ContactCenterProfile` and `DatabaseHandle` (P0.3)** — only id/name stubs exist (`src/profiles/`, `src/data/`); P1.1 and P1.4 expand them. The cache key already uses their ids, so switching rebuilds the provider set.
 
 - **Provider-contract scope cuts (P0.2)** — consult merge/cancel flows, directory search for transfer targets, profile-named collection shortcuts (P1 helper over `getCollection`), compliance gates on cards (Phase 4), vendor-only features (barge, whisper, conference, callbacks). See PLAN.md Decisions.
 - **Email simulation** — composer, outbox-store, delivery states, console tab (PLAN.md "Parked"; prompt: P-PARKED).
