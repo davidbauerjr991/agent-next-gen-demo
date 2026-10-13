@@ -177,7 +177,7 @@ function App() {
   const aiFloatLeft = useRef<number | null>(null);
   const aiFloatTop  = useRef<number | null>(null);
   const aiPanelRef  = useRef<HTMLDivElement>(null);
-  const aiAnimTimer = useRef<ReturnType<typeof setTimeout>>();
+  const aiAnimTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const MAX_PANEL_HEIGHT = 860;
   const BOTTOM_PADDING   = 8;

@@ -57,18 +57,12 @@ Status values: `todo` / `in progress` / `done` / `deferred`. Rows follow PROMPTS
 
 ## Known gaps
 
-- **Type-check baseline: 31 errors** from `npx tsc -b --noEmit` (2026-10-13, after the lyra-ui resolution chore; was 219 while `@nicecxone/lyra-ui` was untyped). All pre-existing; steps verify by filtering tsc output to the files they touch, not by total count. Breakdown:
+- **Type-check baseline: 12 errors** from `npx tsc -b --noEmit` (2026-10-13, after the lyra-ui sync and type-only fixes; was 219 → 31 → 12). Steps verify by filtering tsc output to the files they touch, not by total count. Breakdown:
   - **3 inside lyra-ui itself** (its own baseline): `admin-shell.tsx` ×2 (TS2554), `list-item.tsx` ×1 (TS2430).
   - **1 missing dev dependency**: `src/components/ui/__stories__/Shell.stories.tsx` — `@storybook/react` isn't installed in this app.
-  - **27 app-side**, grouped by cause:
-    - *lyra-ui API drift (10)* — app code no longer matches lyra-ui's current props:
-      - `ContainerHeader` `title` is `string`, app passes `activePanelContent.title` (`ReactNode`) ×6 — `AgentWorkspaceAdvancedPage.tsx` 7723, 7866, 12139; `AgentWorkspace2WithDeskPage.tsx` 6818, 6964, 10665.
-      - `CreateNewCustomerRecord` now requires `phones` ×2 — Advanced 2602, Desk 2737.
-      - `Badge` has no `color`/`fontSize` props ×1 — `agent-next-gen-lucas-thomas-panels.tsx` 669.
-      - Trigger child typed `ReactNode` where lyra expects a `ReactElement` ×1 — `agent-next-gen-customers-table.tsx` 415.
-    - *React 19 `useRef` (4)* — `useRef<T>()` with no argument (React 19 types require an initial value): `App.tsx` 180, `ShellPage.tsx` 14, Advanced 4019, Desk 3604.
-    - *`string | undefined` (6)* — mostly the optional `Interaction.customerName` passed where a `string` is required: Advanced 2317, 11309, 13381; Desk 2512, 9950, 11334.
-    - *App-internal drift (7)* — app types that drifted apart, previously masked by `any` flowing out of lyra: `InteractionTranscript` call sites missing the required `onCurrentStatusChange` ×3 (Advanced 10259, 12590; Desk 8974); unknown `focusTabOverride` property ×1 (Desk 2843); dead `=== "voice"` comparisons on unions already narrowed to exclude voice ×3 (Advanced 10176, 10197, 10285).
+  - **8 app-side, being fixed in the follow-up commit** (behavior-touching): `onCurrentStatusChange` not passed to the 3 preview `InteractionTranscript`s (Advanced ×2, Desk ×1); lucas-thomas pill `color="neutral"` (`neutral` isn't a pill color); `customerName` `string | undefined` into `VideoCallWindow`/`VideoCallFullScreen` ×4.
+- **Follow-up (rule-zero cleanup): 43 raw `<button` elements in `src/`** (`grep -rn "<button" src --include=*.tsx`) that CLAUDE.md says should be lyra `Button`/`ActionIconButton`/an existing button atom. Pre-existing; not part of any Phase 0 step.
+- **Follow-up (voice controls): upstream or keep local.** The local `agent-next-gen-voice-call-controls.tsx` is ahead of lyra's `voice-call-controls.tsx` (see PLAN.md Decisions). Upstreaming it is possible but only on explicit request.
 
 ## Deferred items
 

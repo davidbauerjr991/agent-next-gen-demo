@@ -1,4 +1,4 @@
-import type { ChannelType, SortDirection, QuickReplyField, DateRangeFilterValue, DateRange, PhoneValue } from "@nicecxone/lyra-ui";
+import type { ChannelType, SortDirection, QuickReplyField, DateRangeFilterValue, DateRange, PhoneValue, EmbeddablePanelContent } from "@nicecxone/lyra-ui";
 
 /* ── Shared, dependency-free helpers ──
    Split out of AgentNextGenPage.tsx (which had grown past Babel's 500KB
@@ -896,7 +896,7 @@ function buildLocationSnapshotLines(location: CustomerLocation): string[] {
  *  customer with no real Contact History case on file. */
 function buildCustomerContextOverviewInfo(
   seed: string,
-  customerName: string,
+  customerName: string = "",
   isKnownCustomer: boolean = true,
   identified: boolean = true,
   priorContact?: CustomerPriorContactInfo
@@ -1078,3 +1078,17 @@ export {
   SHOW_ADD_CHANNEL_HEADER_BUTTON,
 };
 export type { Page, CustomerPriorContactInfo };
+
+/** `EmbeddablePanelContent` with a plain-string `title`. lyra types the title
+ *  as `ReactNode`, but the shared header panel hands it to `ContainerHeader`,
+ *  whose `title` is `string` (it also interpolates it into the close
+ *  button's `aria-label`/tooltip). Every panel here has a string title, so
+ *  narrow once where `contentByPanelKey` is built rather than at each render
+ *  site. */
+export type PanelContent = Omit<EmbeddablePanelContent, "title"> & { title: string };
+
+/** Narrows a lyra panel-content value to `PanelContent` (a non-string title
+ *  becomes `""`, which `ContainerHeader` renders as no title). */
+export function withStringTitle(content: EmbeddablePanelContent): PanelContent {
+  return { ...content, title: typeof content.title === "string" ? content.title : "" };
+}

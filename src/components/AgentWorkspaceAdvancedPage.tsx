@@ -109,6 +109,8 @@ import {
   buildCustomerContextOverviewInfo,
   type CustomerPriorContactInfo,
   type Page,
+  withStringTitle,
+  type PanelContent,
 } from "@/components/agent-next-gen-shared-utils";
 import {
   type TranscriptMessage,
@@ -465,6 +467,17 @@ const SHOW_CHANNEL_TOGGLE_GROUP = false;
 // literal `false` at the use site" reasoning as `SHOW_CHANNEL_TOGGLE_GROUP`
 // just above (avoids `no-constant-binary-expression`).
 const SHOW_ADD_CHANNEL_HEADER_BUTTONS = false;
+
+// Whether the record header's per-channel icon row renders an icon for a
+// VOICE thread. Off in this deployment (voice is the only channel, so the
+// icon just duplicates the phone icon already in the record header) — the
+// guard used to be a hard-coded `if (c.type === "voice") return null`, which
+// also made TypeScript narrow `c.type` to exclude "voice" for the rest of
+// that callback and flag the voice special-cases below as dead. They're kept
+// on purpose (a future multi-channel deployment needs them again), so the
+// restore is now this one-word flip. Annotated `boolean` (not a bare
+// `false`) so the guard doesn't narrow on a literal.
+const SHOW_VOICE_CHANNEL_HEADER_ICON: boolean = false;
 
 const SHARED_PANEL_DEFAULT_WIDTH = 360;
 
@@ -2599,6 +2612,7 @@ export function AgentWorkspaceAdvancedPage({
     const lastName = activeCustomerRecordDraft.draft.lastName.trim();
     const name = [firstName, lastName].filter(Boolean).join(" ") || activeInteraction.customerName || "New Customer";
     const newId = `created-customer:${activeInteraction.id}`;
+    const newCustomerFirstPhone = activeChannelType === "voice" ? (activeChannel?.value ?? "") : "";
     const newRecord: CreateNewCustomerRecord = {
       id: newId,
       name,
@@ -2608,7 +2622,9 @@ export function AgentWorkspaceAdvancedPage({
       firstName: firstName || name,
       lastName,
       group: activeCustomerRecordDraft.draft.group || "Standard",
-      firstPhone: activeChannelType === "voice" ? (activeChannel?.value ?? "") : "",
+      firstPhone: newCustomerFirstPhone,
+      // lyra's `phones[0].value` must equal `firstPhone` (create-new-customers-data.ts).
+      phones: newCustomerFirstPhone ? [{ label: "Mobile", value: newCustomerFirstPhone }] : [],
       emailAddress: activeChannelType === "email" ? (activeChannel?.value ?? "") : "",
       address1: "",
       city: "",
@@ -4016,7 +4032,7 @@ export function AgentWorkspaceAdvancedPage({
   const panelFloatLeft = useRef<number | null>(null);
   const panelFloatTop  = useRef<number | null>(null);
   const panelRef       = useRef<HTMLDivElement>(null);
-  const panelAnimTimer = useRef<ReturnType<typeof setTimeout>>();
+  const panelAnimTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const fullScreenAnimTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   // Defaults to "salesforce" (per explicit request) rather than starting
   // unselected — Screen Pop should open straight into the mocked
@@ -7335,17 +7351,18 @@ export function AgentWorkspaceAdvancedPage({
       panelTabs: AGENT_WORKSPACE_CUSTOMER_PANEL_TABS,
     },
   });
-  const contentByPanelKey: Record<PanelKey, EmbeddablePanelContent> = {
-    notif: notifContent,
-    conversations: blankPanelContent("Agent Chat"),
-    schedule: scheduleContent,
-    screenpop: screenPopContent,
-    customers: blankPanelContent("Customers"),
-    accounts: blankPanelContent("Accounts"),
-    tickets: blankPanelContent("Tickets"),
+  // `withStringTitle`: `ContainerHeader`'s `title` is a string (see `PanelContent`).
+  const contentByPanelKey: Record<PanelKey, PanelContent> = {
+    notif: withStringTitle(notifContent),
+    conversations: withStringTitle(blankPanelContent("Agent Chat")),
+    schedule: withStringTitle(scheduleContent),
+    screenpop: withStringTitle(screenPopContent),
+    customers: withStringTitle(blankPanelContent("Customers")),
+    accounts: withStringTitle(blankPanelContent("Accounts")),
+    tickets: withStringTitle(blankPanelContent("Tickets")),
     // WEM = Workforce Engagement Management
-    wem: blankPanelContent("WEM"),
-    search: searchContent,
+    wem: withStringTitle(blankPanelContent("WEM")),
+    search: withStringTitle(searchContent),
   };
   const activePanelContent = activePanelKey ? contentByPanelKey[activePanelKey] : null;
 
@@ -10147,7 +10164,7 @@ export function AgentWorkspaceAdvancedPage({
                             multi-channel deployment would need again the
                             moment this early return comes back out. */}
                         {activeInteraction.threads.map((c) => {
-                          if (c.type === "voice") return null;
+                          if (!SHOW_VOICE_CHANNEL_HEADER_ICON && c.type === "voice") return null;
                           // Lucas Thomas's chat lives in the main column — no header channel icon.
                           if (activeInteraction.id === LUCAS_THOMAS_ID) return null;
                           const key = c.id ?? c.type;

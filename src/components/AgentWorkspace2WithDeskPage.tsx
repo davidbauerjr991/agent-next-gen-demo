@@ -100,6 +100,8 @@ import {
   buildCustomerContextOverviewInfo,
   type CustomerPriorContactInfo,
   type Page,
+  withStringTitle,
+  type PanelContent,
 } from "@/components/agent-next-gen-shared-utils";
 import {
   type TranscriptMessage,
@@ -2734,6 +2736,7 @@ export function AgentWorkspace2WithDeskPage({
     const lastName = activeCustomerRecordDraft.draft.lastName.trim();
     const name = [firstName, lastName].filter(Boolean).join(" ") || activeInteraction.customerName || "New Customer";
     const newId = `created-customer:${activeInteraction.id}`;
+    const newCustomerFirstPhone = activeChannelType === "voice" ? (activeChannel?.value ?? "") : "";
     const newRecord: CreateNewCustomerRecord = {
       id: newId,
       name,
@@ -2743,7 +2746,9 @@ export function AgentWorkspace2WithDeskPage({
       firstName: firstName || name,
       lastName,
       group: activeCustomerRecordDraft.draft.group || "Standard",
-      firstPhone: activeChannelType === "voice" ? (activeChannel?.value ?? "") : "",
+      firstPhone: newCustomerFirstPhone,
+      // lyra's `phones[0].value` must equal `firstPhone` (create-new-customers-data.ts).
+      phones: newCustomerFirstPhone ? [{ label: "Mobile", value: newCustomerFirstPhone }] : [],
       emailAddress: activeChannelType === "email" ? (activeChannel?.value ?? "") : "",
       address1: "",
       city: "",
@@ -2837,10 +2842,11 @@ export function AgentWorkspace2WithDeskPage({
           onResetConfirmLogin={handleMarcusWebbResetConfirmLogin}
         />
       ) : undefined,
-    // Per bug-report root-cause fix — see `focusCustomerPanelTab`'s own doc
-    // comment (declared further down this file) for the full story: this is
-    // now the actual live target `focusCustomerPanelTab` drives.
-    focusTabOverride: customerPanelFocusTab,
+    // No `focusTabOverride`: this hook owns its own `activeTab` and doesn't
+    // take that option (it's `CustomerInformationSidePanel`'s own prop, and
+    // passing it here was silently dropped) — same as the Advanced page's
+    // `customerInfoOverlayContent` call. `customerPanelFocusTab` is still
+    // bumped by `focusCustomerPanelTab`, harmlessly.
   });
   // Shared clock powering every open channel's live "MM:SS since it
   // started" elapsed display — independent of `elapsedSeconds` below, which
@@ -3601,7 +3607,7 @@ export function AgentWorkspace2WithDeskPage({
   const panelFloatLeft = useRef<number | null>(null);
   const panelFloatTop  = useRef<number | null>(null);
   const panelRef       = useRef<HTMLDivElement>(null);
-  const panelAnimTimer = useRef<ReturnType<typeof setTimeout>>();
+  const panelAnimTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const fullScreenAnimTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   // Defaults to "salesforce" (per explicit request) rather than starting
   // unselected — Screen Pop should open straight into the mocked
@@ -6426,17 +6432,18 @@ export function AgentWorkspace2WithDeskPage({
       panelTabs: CUSTOMER_PANEL_TABS,
     },
   });
-  const contentByPanelKey: Record<PanelKey, EmbeddablePanelContent> = {
-    notif: notifContent,
-    conversations: blankPanelContent("Agent Chat"),
-    schedule: scheduleContent,
-    screenpop: screenPopContent,
-    customers: blankPanelContent("Customers"),
-    accounts: blankPanelContent("Accounts"),
-    tickets: blankPanelContent("Tickets"),
+  // `withStringTitle`: `ContainerHeader`'s `title` is a string (see `PanelContent`).
+  const contentByPanelKey: Record<PanelKey, PanelContent> = {
+    notif: withStringTitle(notifContent),
+    conversations: withStringTitle(blankPanelContent("Agent Chat")),
+    schedule: withStringTitle(scheduleContent),
+    screenpop: withStringTitle(screenPopContent),
+    customers: withStringTitle(blankPanelContent("Customers")),
+    accounts: withStringTitle(blankPanelContent("Accounts")),
+    tickets: withStringTitle(blankPanelContent("Tickets")),
     // WEM = Workforce Engagement Management
-    wem: blankPanelContent("WEM"),
-    search: searchContent,
+    wem: withStringTitle(blankPanelContent("WEM")),
+    search: withStringTitle(searchContent),
   };
   const activePanelContent = activePanelKey ? contentByPanelKey[activePanelKey] : null;
 

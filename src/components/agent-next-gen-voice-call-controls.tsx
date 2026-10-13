@@ -109,6 +109,7 @@ import {
   Badge,
   Button,
   InfoIcon,
+  getHoldSeverity,
   KebabMenuButton,
   PanelHeader,
   Popover,
@@ -1128,7 +1129,7 @@ export function VoiceCallControls({
           {onHold && onHoldElapsedSeconds !== undefined && (
             <Badge
               shape="pill"
-              color={onHoldElapsedSeconds >= 30 ? "critical" : onHoldElapsedSeconds >= 15 ? "warning" : "success"}
+              color={getHoldSeverity(onHoldElapsedSeconds)}
               variant="subtle"
               fontSize={12}
               icon={<Pause strokeWidth={2} />}

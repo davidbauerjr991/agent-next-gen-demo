@@ -255,7 +255,7 @@ export function CustomerChannelPicker({
    *  channels open against — defaults to `{}` (nothing excluded) there. */
   openAddresses?: Partial<Record<ChannelType, string[]>>;
   onStartInteraction: (contact: CreateNewOutboundContact, channel: ChannelType, phone: string, skillId: string) => void;
-  trigger: React.ReactNode;
+  trigger: React.ReactElement;
   /** Open state lives in whichever wrapper renders `trigger` (not in here),
    *  so that wrapper's own `aria-expanded`/hover-fade styling reads the
    *  exact same real open state `Popover` itself uses, instead of each
