@@ -60,6 +60,10 @@ export interface Interaction {
   awaitingAgentSince?: EpochMs;
   /** Voice only. */
   muted?: boolean;
+  /** Voice only. Call recording is on. */
+  recording?: boolean;
+  /** Voice only. Audio is masked (e.g. while payment details are read out); recording pauses. */
+  masked?: boolean;
   outcome?: InteractionOutcome;
 }
 
