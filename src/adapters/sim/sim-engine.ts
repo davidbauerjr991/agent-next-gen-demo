@@ -289,7 +289,7 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
           id,
           externalId: externalRef(startedAt),
           journeyId,
-          caseId: journeyCase(journeyId) ?? caseNumber(),
+          caseId: journeyCase(journeyId) ?? request.caseId ?? caseNumber(),
           ...(request.entityId ? { entityId: request.entityId } : {}),
           ...(request.contactName ? { contactName: request.contactName } : {}),
           channel: request.channel,

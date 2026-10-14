@@ -15,28 +15,33 @@ import { createContext, useContext, useEffect, useState, useSyncExternalStore } 
      `useClockValue(clock, select)`, which re-renders only when the
      selected primitive changes.
 
-   Created per page mount, so tick 0 is still "page mounted", as before. */
+   Created per page mount, so tick 0 is still "page mounted", as before.
+   Ticks are computed from wall-clock time since `anchorMs` (P0.5b.2), not
+   counted, so a throttled background tab can't drift from the store's
+   wall-clock timestamps (`tickClock(anchorMs)` in nav-card-view-model.ts
+   uses the same scale). The interval only notifies subscribers. */
 
 export interface PageClock {
   /** Seconds since this clock started (the page's `clockTick`). */
   now(): number;
+  /** `Date.now()` at tick 0. */
+  readonly anchorMs: number;
   subscribe(onTick: () => void): () => void;
   /** Starts the 1s interval; returns its cleanup. */
   start(): () => void;
 }
 
-export function createPageClock(): PageClock {
-  let tick = 0;
+export function createPageClock(anchorMs: number = Date.now()): PageClock {
   const listeners = new Set<() => void>();
   return {
-    now: () => tick,
+    now: () => Math.floor((Date.now() - anchorMs) / 1000),
+    anchorMs,
     subscribe(onTick) {
       listeners.add(onTick);
       return () => listeners.delete(onTick);
     },
     start() {
       const id = setInterval(() => {
-        tick += 1;
         listeners.forEach((l) => l());
       }, 1000);
       return () => clearInterval(id);

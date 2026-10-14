@@ -329,6 +329,20 @@ export function describeInteractionProviderContract(label: string, factory: Inte
         expect(latest(second)!.caseId).toBe(latest(first)!.caseId);
       });
 
+      it("a dial keeps a given case id on a new journey and ignores it when joining one", async (ctx) => {
+        const channel = caps().channels.outbound[0];
+        ctx.skip(!channel, "provider offers no outbound channel");
+        const { provider } = h;
+        const [skill] = await provider.listOutboundSkills(channel);
+        const first = await provider.dial({ channel, address: "one@example.com", skillId: skill.id, caseId: "CASE-DIAL" });
+        await waitFor(() => latest(first) !== undefined, "first dial appears");
+        expect(latest(first)!.caseId).toBe("CASE-DIAL");
+        const journeyId = latest(first)!.journeyId;
+        const second = await provider.dial({ channel, address: "two@example.com", skillId: skill.id, journeyId, caseId: "CASE-OTHER" });
+        await waitFor(() => latest(second) !== undefined, "second dial appears");
+        expect(latest(second)!.caseId).toBe("CASE-DIAL");
+      });
+
       it("reopen creates an active, reopened contact via stateChanged, never incoming", async (ctx) => {
         requireReopen(ctx);
         const id = await h.provider.reopen({ channel: "chat", direction: "inbound", address: "casey-handle", caseId: "CASE-A", caseStatus: "Pending", contactName: "Casey" });

@@ -26,6 +26,6 @@ export {
   useInteractionStoreStatus,
 } from "./interaction-store-hooks";
 export type { InteractionStoreStatus, TranscriptState, TypingState } from "./interaction-store-state";
-export { readProviderKind, type ProviderKind } from "./provider-kind";
+export { readProviderKind, readSimLatency, type ProviderKind, type SimLatencyPreset } from "./provider-kind";
 export type { ProviderFactory } from "./factories";
 export type { ProviderContextValue } from "./context";

@@ -3,12 +3,18 @@ import type { ContactCenterProfile } from "../profiles/contact-center-profile";
 import type { ProviderSet } from "../providers";
 import { createPlaceholderProviderSet } from "../adapters/placeholder/placeholder-providers";
 import { SIM_DEMO_SEED } from "../adapters/sim/sim-fixtures";
+import { SIM_LATENCY_PRESETS, type SimLatencyPreset } from "../adapters/sim/sim-latency";
 import { createSimProviderSet } from "../adapters/sim/sim-provider-set";
 import type { ProviderKind } from "./provider-kind";
 
 /** Builds a provider set. The profile and database are constructor inputs,
- *  never per-call arguments (PLAN.md P0.2). */
-export type ProviderFactory = (deps: { profile: ContactCenterProfile; database: DatabaseHandle }) => ProviderSet;
+ *  never per-call arguments (PLAN.md P0.2). `simLatency` is read only by the
+ *  sim (P0.5b.2); real adapters ignore it. */
+export type ProviderFactory = (deps: {
+  profile: ContactCenterProfile;
+  database: DatabaseHandle;
+  simLatency?: SimLatencyPreset;
+}) => ProviderSet;
 
 function placeholderFor(kind: ProviderKind): ProviderFactory {
   return () => {
@@ -22,7 +28,10 @@ function placeholderFor(kind: ProviderKind): ProviderFactory {
 /** One factory per `?provider=` value. `sim` is the simulated set (P0.4);
  *  twilio/cxone stay placeholders until their adapters exist. */
 export const PROVIDER_FACTORIES: Record<ProviderKind, ProviderFactory> = {
-  sim: () => createSimProviderSet({ seed: SIM_DEMO_SEED }),
+  sim: ({ simLatency = "realistic" }) => {
+    const preset = SIM_LATENCY_PRESETS[simLatency];
+    return createSimProviderSet({ seed: SIM_DEMO_SEED, latency: preset.latency, timings: { ring: preset.ring } });
+  },
   twilio: placeholderFor("twilio"),
   cxone: placeholderFor("cxone"),
 };

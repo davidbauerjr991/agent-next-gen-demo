@@ -5,7 +5,7 @@ import { ProviderContext, type ProviderContextValue } from "./context";
 import { PROVIDER_FACTORIES, type ProviderFactory } from "./factories";
 import { getInteractionStore } from "./interaction-store";
 import { peekProviderSet, releaseProviderSet, retainProviderSet } from "./provider-cache";
-import type { ProviderKind } from "./provider-kind";
+import type { ProviderKind, SimLatencyPreset } from "./provider-kind";
 
 interface ProviderRootProps {
   kind: ProviderKind;
@@ -14,15 +14,18 @@ interface ProviderRootProps {
   /** Overrides `PROVIDER_FACTORIES[kind]` — for tests and the sim-only
    *  customer console (P0.6). */
   factory?: ProviderFactory;
+  /** The sim's injected delay (`?latency=`, P0.5b.2). Part of the cache key
+   *  when `kind` is "sim", so a change builds a new set. */
+  simLatency?: SimLatencyPreset;
   children: ReactNode;
 }
 
 /** Builds the active provider set once per (kind, profile, database) and
  *  supplies it, with the profile and database, to everything below. */
-export function ProviderRoot({ kind, profile, database, factory, children }: ProviderRootProps) {
-  const key = `${kind}|${profile.id}|${database.id}`;
+export function ProviderRoot({ kind, profile, database, factory, simLatency, children }: ProviderRootProps) {
+  const key = `${kind}|${profile.id}|${database.id}${kind === "sim" && simLatency ? `|latency=${simLatency}` : ""}`;
   const create = factory ?? PROVIDER_FACTORIES[kind];
-  const providers = peekProviderSet(key, () => create({ profile, database }));
+  const providers = peekProviderSet(key, () => create({ profile, database, simLatency }));
 
   useEffect(() => {
     retainProviderSet(key);

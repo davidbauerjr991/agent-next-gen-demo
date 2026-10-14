@@ -72,6 +72,9 @@ export interface DialRequest {
   addressLabel?: string;
   /** The contact's name as the agent knows it; stored as `contactName`. */
   contactName?: string;
+  /** Case number for a new journey (e.g. the customer's own record id). A
+   *  dial into an existing journey ignores it and inherits that journey's. */
+  caseId?: string;
 }
 
 /** Reopens a past contact (Contact History, Search) as a new, active contact
