@@ -2,6 +2,7 @@ import type {
   AgentPresence,
   AgentState,
   ChannelKind,
+  Direction,
   EntityId,
   Interaction,
   InteractionId,
@@ -52,6 +53,8 @@ export interface InteractionCapabilities {
   wrapUp: boolean;
   /** The provider stores the case status (session status pill, Resolution). */
   caseStatus: boolean;
+  /** The agent can reopen a past contact (Contact History, Search). */
+  reopen: boolean;
 }
 
 /** Starts an agent-initiated contact (New Outbound, dial pad, redial). */
@@ -65,6 +68,31 @@ export interface DialRequest {
   skillId: string;
   /** Adds the contact to an existing left-nav card instead of a new one. */
   journeyId?: JourneyId;
+  /** Display form of `address` (e.g. "(456) 383-3329"); stored as `address.label`. */
+  addressLabel?: string;
+  /** The contact's name as the agent knows it; stored as `contactName`. */
+  contactName?: string;
+}
+
+/** Reopens a past contact (Contact History, Search) as a new, active contact
+ *  with `origin: "reopened"`. */
+export interface ReopenRequest {
+  channel: ChannelKind;
+  /** The original contact's direction, carried forward. */
+  direction: Direction;
+  address?: string;
+  addressLabel?: string;
+  entityId?: EntityId;
+  /** The case being reopened. Joins the open journey with this case id, if
+   *  there is one; otherwise a new journey keeps it. */
+  caseId?: string;
+  /** Joins this journey explicitly; takes precedence over `caseId`. */
+  journeyId?: JourneyId;
+  contactName?: string;
+  /** Skill to file the contact under, from `listOutboundSkills(channel)`. */
+  skillId?: string;
+  /** Case status the reopened contact resumes at. */
+  caseStatus?: string;
 }
 
 /** Where a transfer goes — the same groups New Outbound offers. */
@@ -143,7 +171,9 @@ export interface InteractionProvider extends EventSource<InteractionEvents>, Pro
 
   // ── Offer and lifecycle ────────────────────────────────────────────────
 
-  /** Accepts an offered interaction (Accept on the ringing tile). */
+  /** Accepts an offered interaction (Accept on the ringing tile, or opening a
+   *  digital offer from its notification). Sets `acceptedAt`. A voice accept
+   *  follows the one-active-call rule (see `hold`). */
   accept(interactionId: InteractionId): Promise<void>;
   /** Declines an offered interaction; it ends with reason "declined". */
   decline(interactionId: InteractionId): Promise<void>;
@@ -152,8 +182,18 @@ export interface InteractionProvider extends EventSource<InteractionEvents>, Pro
    *  the new id so the caller can correlate; the interaction itself arrives
    *  via `stateChanged` with `origin: "agent-initiated"`. When
    *  `capabilities.agentLeg`, a voice dial needs the leg "connected" and
-   *  rejects "invalid-state" otherwise (connecting included). */
+   *  rejects "invalid-state" otherwise (connecting included). A dial that
+   *  joins a journey inherits its `caseId`; a new journey gets a new one. A
+   *  voice dial follows the one-active-call rule (see `hold`) when it connects. */
   dial(request: DialRequest): Promise<InteractionId>;
+  /** Reopens a past contact as a new active contact (`origin: "reopened"`),
+   *  which arrives via `stateChanged`, never `incoming`. Journey: `journeyId`
+   *  if given, else the open journey whose `caseId` matches, else a new one.
+   *  A non-ended contact in that journey on the same channel and address is
+   *  superseded first: it closes ("ended", reason "agent") without wrap-up.
+   *  Not a placed call, so the agent-leg rule doesn't apply; a voice reopen
+   *  follows the one-active-call rule. Requires `capabilities.reopen`. */
+  reopen(request: ReopenRequest): Promise<InteractionId>;
   /** Ends the contact (hang up / end chat). Goes to "wrap-up" when
    *  `capabilities.wrapUp`, otherwise to "ended". The customer hanging up
    *  takes the same path (after-call work happens either way); `ended` then
@@ -166,7 +206,13 @@ export interface InteractionProvider extends EventSource<InteractionEvents>, Pro
   // ── In-contact controls ────────────────────────────────────────────────
   // Explicit values, not toggles: repeating a call is a no-op.
 
-  /** Puts the contact on hold (`true`) or resumes it (`false`). */
+  /** Puts the contact on hold (`true`) or resumes it (`false`).
+   *
+   *  **One active call.** With `capabilities.hold`, whenever a voice contact
+   *  becomes active (a dial connects, accept, reopen, or resume from hold),
+   *  every other active voice contact is held first, each with its own
+   *  `stateChanged`. Without `hold`, a dial, accept or reopen that would make
+   *  a second voice contact live rejects "invalid-state". */
   hold(interactionId: InteractionId, onHold: boolean): Promise<void>;
   /** Mutes (`true`) or unmutes the agent's microphone. Voice only. */
   mute(interactionId: InteractionId, muted: boolean): Promise<void>;

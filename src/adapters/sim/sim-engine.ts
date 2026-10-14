@@ -11,7 +11,7 @@ import type {
 } from "../../domain";
 import type { EndReason, InteractionCapabilities, ProviderError } from "../../providers";
 import { isProviderError, providerError } from "../provider-error";
-import { SIM_AGENT, SIM_OUTBOUND_SKILLS, SIM_PRESENCE_OPTIONS, type SimTimings } from "./sim-fixtures";
+import { SIM_AGENT, SIM_OUTBOUND_SKILLS, SIM_PRESENCE_OPTIONS, type SimSeedContact, type SimTimings } from "./sim-fixtures";
 import {
   SIM_PROTOCOL_VERSION,
   type SimCommand,
@@ -22,7 +22,7 @@ import {
   type SimEvent,
 } from "./sim-protocol";
 import type { SimTransport } from "./sim-transport";
-import { sampleMs, simId, unsupportedReason } from "./sim-util";
+import { caseNumber, contactNumber, journeyNumber, sampleMs, simId, unsupportedReason } from "./sim-util";
 
 // The simulated contact-center "switch" (P0.4). It owns all interaction and
 // agent state, answers commands from its session's provider over the bus,
@@ -35,6 +35,9 @@ export interface SimEngineOptions {
   sessionId: string;
   capabilities: InteractionCapabilities;
   timings: SimTimings;
+  /** Contacts present from the start (offered, routed). Loaded once, when
+   *  the engine is created. */
+  seed?: readonly SimSeedContact[];
   now?: () => number;
 }
 
@@ -137,6 +140,44 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
     transcripts.set(interaction.id, { messages: [], utterances: [] });
   }
 
+  function newJourney(): JourneyId {
+    return journeyNumber() as JourneyId;
+  }
+
+  /** The case number of a journey's existing contacts, if any. */
+  function journeyCase(journeyId: JourneyId): string | undefined {
+    for (const i of interactions.values()) if (i.journeyId === journeyId && i.caseId) return i.caseId;
+    return undefined;
+  }
+
+  function externalRef(atMs: number) {
+    return { system: "sim", id: contactNumber(atMs) };
+  }
+
+  // ── One active call ─────────────────────────────────────────────────────
+  // With hold support, whichever voice contact becomes active holds the
+  // others. Without it, a second live voice contact is refused up front.
+
+  function otherLiveVoice(exceptId: InteractionId | undefined, states: InteractionState[]): Interaction[] {
+    return [...interactions.values()].filter((i) => i.channel === "voice" && i.id !== exceptId && states.includes(i.state));
+  }
+
+  /** Throws when a new live voice contact isn't allowed (no hold support and
+   *  another call is live). `exceptIds` are contacts about to go away. */
+  function requireVoiceSlot(action: string, exceptIds: InteractionId[] = []) {
+    if (capabilities.hold) return;
+    const live = otherLiveVoice(undefined, ["connecting", ...LIVE]).filter((i) => !exceptIds.includes(i.id));
+    if (live.length > 0) {
+      throw providerError("invalid-state", `${action}: voice contact ${live[0].id} is still live and hold isn't supported`);
+    }
+  }
+
+  /** Holds every other active voice contact before `id` becomes active. */
+  function holdOtherCalls(id: InteractionId) {
+    if (!capabilities.hold) return;
+    for (const other of otherLiveVoice(id, ["active"])) update(other, { state: "held", heldSince: now() });
+  }
+
   /** Ends the connection now. With wrap-up support the contact stays open in
    *  "wrap-up" and `ended` fires from `completeWrapUp`; otherwise it closes. */
   function disconnect(interaction: Interaction, reason: EndReason) {
@@ -215,7 +256,11 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
       case "accept": {
         const interaction = get(command.interactionId);
         requireState(interaction, ["offered"], "accept");
-        update(interaction, { state: "active" });
+        if (interaction.channel === "voice") {
+          requireVoiceSlot("accept");
+          holdOtherCalls(interaction.id);
+        }
+        update(interaction, { state: "active", acceptedAt: now() });
         return undefined;
       }
 
@@ -236,29 +281,79 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
         if (isVoice && capabilities.agentLeg && agent.leg !== "connected") {
           throw providerError("invalid-state", `dial: agent leg is ${agent.leg}`);
         }
+        if (isVoice) requireVoiceSlot("dial");
         const id = simId("int") as InteractionId;
+        const journeyId = request.journeyId ?? newJourney();
+        const startedAt = now();
         const interaction: Interaction = {
           id,
-          externalId: { system: "sim", id },
-          journeyId: request.journeyId ?? (simId("journey") as JourneyId),
+          externalId: externalRef(startedAt),
+          journeyId,
+          caseId: journeyCase(journeyId) ?? caseNumber(),
           ...(request.entityId ? { entityId: request.entityId } : {}),
+          ...(request.contactName ? { contactName: request.contactName } : {}),
           channel: request.channel,
           direction: "outbound",
           state: isVoice ? "connecting" : "active",
           origin: "agent-initiated",
-          address: { value: request.address },
+          address: request.addressLabel !== undefined ? { value: request.address, label: request.addressLabel } : { value: request.address },
           skill: { id: skill.id, name: skill.name },
-          startedAt: now(),
+          startedAt,
         };
         add(interaction);
         emit({ name: "stateChanged", payload: { kind: "interaction", interaction } });
         if (isVoice) {
           schedule(timings.ring, () => {
             const current = interactions.get(id);
-            if (current?.state === "connecting") update(current, { state: "active" });
+            if (current?.state !== "connecting") return;
+            holdOtherCalls(id);
+            update(current, { state: "active" });
           });
         }
         return id satisfies SimCommandResults["dial"];
+      }
+
+      case "reopen": {
+        const { request } = command;
+        const skill = request.skillId === undefined ? undefined : SIM_OUTBOUND_SKILLS.find((s) => s.id === request.skillId);
+        if (request.skillId !== undefined && !skill) throw providerError("not-found", `reopen: no skill "${request.skillId}"`);
+        const open = [...interactions.values()].filter((i) => i.state !== "ended");
+        const journeyId =
+          request.journeyId ??
+          (request.caseId !== undefined ? open.find((i) => i.caseId === request.caseId)?.journeyId : undefined) ??
+          newJourney();
+        const addressValue = request.address ?? "";
+        // One live contact per thread: the same channel and address in this journey.
+        const superseded = open.filter(
+          (i) => i.journeyId === journeyId && i.channel === request.channel && (i.address?.value ?? "") === addressValue,
+        );
+        const isVoice = request.channel === "voice";
+        if (isVoice) requireVoiceSlot("reopen", superseded.map((i) => i.id));
+        for (const old of superseded) close(old, "agent");
+        const id = simId("int") as InteractionId;
+        const startedAt = now();
+        if (isVoice) holdOtherCalls(id);
+        const interaction: Interaction = {
+          id,
+          externalId: externalRef(startedAt),
+          journeyId,
+          caseId: request.caseId ?? journeyCase(journeyId) ?? caseNumber(),
+          ...(request.entityId ? { entityId: request.entityId } : {}),
+          ...(request.contactName ? { contactName: request.contactName } : {}),
+          channel: request.channel,
+          direction: request.direction,
+          state: "active",
+          origin: "reopened",
+          ...(request.address !== undefined
+            ? { address: request.addressLabel !== undefined ? { value: request.address, label: request.addressLabel } : { value: request.address } }
+            : {}),
+          ...(skill ? { skill: { id: skill.id, name: skill.name } } : {}),
+          ...(request.caseStatus !== undefined ? { caseStatus: request.caseStatus } : {}),
+          startedAt,
+        };
+        add(interaction);
+        emit({ name: "stateChanged", payload: { kind: "interaction", interaction } });
+        return id satisfies SimCommandResults["reopen"];
       }
 
       case "end": {
@@ -287,6 +382,7 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
         const interaction = get(command.interactionId);
         requireState(interaction, LIVE, "hold");
         if ((interaction.state === "held") === command.onHold) return undefined;
+        if (!command.onHold && interaction.channel === "voice") holdOtherCalls(interaction.id);
         update(interaction, command.onHold ? { state: "held", heldSince: now() } : { state: "active", heldSince: undefined });
         return undefined;
       }
@@ -394,17 +490,20 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
       case "startInbound": {
         if (!capabilities.channels.inbound.includes(action.channel)) throw new Error(`inbound ${action.channel} is not supported`);
         if (interactions.has(action.interactionId)) return;
+        const startedAt = now();
         const interaction: Interaction = {
           id: action.interactionId,
-          externalId: { system: "sim", id: action.interactionId },
-          journeyId: simId("journey") as JourneyId,
+          externalId: externalRef(startedAt),
+          journeyId: newJourney(),
+          caseId: caseNumber(),
           ...(action.entityId ? { entityId: action.entityId } : {}),
+          contactName: action.displayName,
           channel: action.channel,
           direction: "inbound",
           state: "offered",
           origin: "routed",
           address: { value: action.address },
-          startedAt: now(),
+          startedAt,
         };
         add(interaction);
         customerNames.set(interaction.id, action.displayName);
@@ -447,6 +546,39 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
     } catch (err) {
       if (import.meta.env.DEV) console.warn(`[sim] customer ${action.kind} ignored:`, isProviderError(err) ? err.message : err);
     }
+  }
+
+  // ── Seed ────────────────────────────────────────────────────────────────
+  // Loaded once per engine, which lives once per provider-cache key (one per
+  // tab), so remounts and tier switches never duplicate it. No events: the
+  // agent side picks seeds up through `getSnapshot`. Seeds for one entity
+  // share a journey and case.
+
+  const seedJourneys = new Map<string, { journeyId: JourneyId; caseId: string }>();
+  for (const seed of options.seed ?? []) {
+    if (interactions.has(seed.id)) continue;
+    const journeyKey = seed.entityId ?? seed.id;
+    let journey = seedJourneys.get(journeyKey);
+    if (!journey) {
+      journey = { journeyId: newJourney(), caseId: caseNumber() };
+      seedJourneys.set(journeyKey, journey);
+    }
+    const startedAt = now() - seed.ageMinutes * 60_000;
+    add({
+      id: seed.id,
+      externalId: externalRef(startedAt),
+      journeyId: journey.journeyId,
+      caseId: journey.caseId,
+      ...(seed.entityId ? { entityId: seed.entityId } : {}),
+      contactName: seed.contactName,
+      channel: seed.channel,
+      direction: "inbound",
+      state: "offered",
+      origin: "routed",
+      ...(seed.address !== undefined ? { address: { value: seed.address } } : {}),
+      startedAt,
+    });
+    customerNames.set(seed.id, seed.contactName);
   }
 
   // ── Wiring ──────────────────────────────────────────────────────────────

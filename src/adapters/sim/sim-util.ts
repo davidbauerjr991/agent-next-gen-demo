@@ -10,6 +10,32 @@ export function simId(prefix: string): string {
   return `${prefix}-${random}`;
 }
 
+// Display ids in the formats the agent UI already shows, so sim contacts
+// look like today's page-made ones.
+
+function digits(count: number): string {
+  const min = 10 ** (count - 1);
+  return String(min + Math.floor(Math.random() * 9 * min));
+}
+
+/** A contact's external id: `CTX-yyyymmdd-nnnnn`. */
+export function contactNumber(atMs: number): string {
+  const date = new Date(atMs);
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `CTX-${date.getFullYear()}${mm}${dd}-${digits(5)}`;
+}
+
+/** A case number: `CS-nnnnnnn`. */
+export function caseNumber(): string {
+  return `CS-${digits(7)}`;
+}
+
+/** A journey id: 12 digits, the card's "interaction id" format. */
+export function journeyNumber(): string {
+  return digits(12);
+}
+
 /** A uniform sample from `[minMs, maxMs]`. */
 export function sampleMs(range: { minMs: number; maxMs: number }): number {
   const min = Math.max(0, range.minMs);
@@ -44,6 +70,8 @@ export function unsupportedReason(command: SimCommand, capabilities: Interaction
       return off(capabilities.agentLeg, "the agent leg");
     case "dial":
       return off(capabilities.channels.outbound.includes(command.request.channel), `outbound ${command.request.channel}`);
+    case "reopen":
+      return off(capabilities.reopen, "reopen");
     default:
       return null;
   }

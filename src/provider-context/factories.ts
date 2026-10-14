@@ -2,6 +2,7 @@ import type { DatabaseHandle } from "../data/database-handle";
 import type { ContactCenterProfile } from "../profiles/contact-center-profile";
 import type { ProviderSet } from "../providers";
 import { createPlaceholderProviderSet } from "../adapters/placeholder/placeholder-providers";
+import { SIM_DEMO_SEED } from "../adapters/sim/sim-fixtures";
 import { createSimProviderSet } from "../adapters/sim/sim-provider-set";
 import type { ProviderKind } from "./provider-kind";
 
@@ -21,7 +22,7 @@ function placeholderFor(kind: ProviderKind): ProviderFactory {
 /** One factory per `?provider=` value. `sim` is the simulated set (P0.4);
  *  twilio/cxone stay placeholders until their adapters exist. */
 export const PROVIDER_FACTORIES: Record<ProviderKind, ProviderFactory> = {
-  sim: () => createSimProviderSet(),
+  sim: () => createSimProviderSet({ seed: SIM_DEMO_SEED }),
   twilio: placeholderFor("twilio"),
   cxone: placeholderFor("cxone"),
 };

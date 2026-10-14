@@ -3,8 +3,9 @@
 // Type-only — nothing is emitted, and no component imports this file. The
 // P0.5 migrations add the real legacy → domain mapper functions alongside it.
 import type { AgentProfileProps, ChannelType } from "@nicecxone/lyra-ui";
-import type { Thread } from "@/components/agent-next-gen-interaction-dashboard";
-import type { AgentLegState, ChannelKind, Direction } from "@/domain";
+import type { Interaction as NavCard, Thread } from "@/components/agent-next-gen-interaction-dashboard";
+import type { AgentLegState, ChannelKind, Direction, EntityId, InteractionId } from "@/domain";
+import type { ReopenRequest } from "@/providers";
 
 type Assert<T extends true> = T;
 type Extends<A, B> = [A] extends [B] ? true : false;
@@ -20,4 +21,10 @@ export type LegacyTypeChecks = [
   // AgentProfile's controlled leg prop takes the domain leg state as is (P0.5a).
   Assert<Same<NonNullable<AgentProfileProps["agentLegStatus"]>, AgentLegState>>,
   Assert<Extends<NonNullable<Thread["direction"]>, Direction>>,
+  // Store-built cards (P0.5b.1): the command target and entity link carry the domain ids.
+  Assert<Same<NonNullable<Thread["providerInteractionId"]>, InteractionId>>,
+  Assert<Extends<EntityId, NonNullable<NavCard["entityId"]>>>,
+  // The reopen request mirrors the thread fields a reopen restores.
+  Assert<Same<ReopenRequest["direction"], Direction>>,
+  Assert<Same<ReopenRequest["channel"], Thread["type"]>>,
 ];

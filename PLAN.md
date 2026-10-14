@@ -13,7 +13,9 @@ All client-side. The provider layer keeps a real backend (Twilio, CXone ACD) a s
 5. **Migrate existing simulation behind the provider.** Incremental: new flows first, existing paths after.
    - **5.0 Interaction store + view-model adapter.** A store in `src/provider-context/` that subscribes to the active `InteractionProvider`, hydrates via `getSnapshot()`/`getTranscript()`, upserts snapshot events by id, and exposes hooks (`useAgentState`, `useInteractions`, `useInteraction`, `useTranscript`); plus a pure adapter that groups domain Interactions by `journeyId` into the pages' existing left-nav card view model. Prerequisite for every migration below.
    - **5a Agent leg.** The agent-leg `setTimeout` connect sequence and the in-memory leg-state module move onto `connectAgentLeg`/`disconnectAgentLeg`; also authorizes a backward-compatible lyra `AgentProfile` change (optional controlled leg props).
-   - **5b Dial pad / interaction creation** through `dial`.
+   - **5b Dial pad / interaction creation** through `dial`. Split in two, because once cards come from the store, every path that creates or changes a card goes through the provider:
+     - **5b.1 Provider groundwork** (no page changes): `reopen`, `caseId`/`contactName`/`acceptedAt`, the one-active-voice-contact rule, the engine's demo seed, and the view-model changes (offer exclusion, reopen folding).
+     - **5b.2 Pages onto store-backed nav cards**: shared `useNavCards`/`useOutboundDial`, the `journeyId` re-key, notifications/reopen/linking through the provider, and hold/hang-up/dismiss pulled forward from 5d (into a 5b.3 if the plan gets too large).
    - **5d Voice bar, incoming tile and wrap-up onto the provider.** Hold/mute/record/mask/keypad, hang up, Accept/Decline, the session status pill (`setCaseStatus`), and the Outcome popover / Wrap-up card (`completeWrapUp`).
    - **5c Scenario player; retire page timers.** Marcus Webb scenario timers move into the engine's scenario player. Runs after step 7.
 6. **Customer console route.** `#/customer-console`, same Vite app, talks only to the sim provider — the agent UI never knows it exists. Replaces `window.__simCustomer`. Handshake: attach to an existing interaction or create one ("Start inbound chat/call as <entity>" or "as unknown caller" with free phone/name entry), carrying identifiers (ANI, email, chat handle) and pre-contact context.
@@ -144,7 +146,7 @@ Order of attack: Phase 0, then Phase 1 with just the telecom profile (so existin
     - Group scope and the in-call rule are per-page options on the shared `<NewOutboundLauncher>`, not logic in either page.
     - **What converges in P0.5b is how a voice call is placed.** Both pages use one shared `useOutboundDial`, with identical behavior: skills from `listOutboundSkills("voice")`, voice dial requires the agent leg connected, redial pre-fill and matching against any of the entity's numbers (row 16), and connecting → connected shown from provider events.
     - **No `internalDial` capability for now.**
-    - **Open, decide before implementing P0.5b:** what a second voice dial during an active call does. The sim currently allows both (the second call connects alongside the first; nothing is held or rejected), and the `dial` contract doesn't say.
+    - **Second voice dial during an active call: auto-hold** (decided 2026-10-14; see P0.5b.1 below).
   - **Redial matching (row 16): Desk.** Matches against any of the entity's contact methods.
   - **Reopen from Contact History (row 18): Advanced.** Resets timers and the awaiting state, and selects the clicked channel.
   - **Outcome (row 19): Advanced.** Starts empty, remembers tags/disposition per channel, and is written to Contact History. This is the shape `completeWrapUp(outcome)` takes.
@@ -162,3 +164,57 @@ Order of attack: Phase 0, then Phase 1 with just the telecom profile (so existin
     - **Rows 12 and 13: Advanced.** Picking a channel, or adding one to an open card, opens the docked preview, and the main column stays on the active contact. Done in P0.5b.
     - **Row 21: Advanced.** Opening a notification also expands the left nav. Done in P0.5d. (2026-10-14)
 - P-CHORE-TICK — **Self-ticking timers.** Neither workspace page holds a per-second (or the queues' 4s) tick in its own state any more, so the page doesn't re-render on the beat. Each page creates a **page clock** (`agent-next-gen-page-clock.ts`: one 1s interval per page mount, tick 0 = mount, the same `clockTick` scale every `startTick`/`heldSinceTick`/`lastCustomerMessageTick` uses) and a **queue simulation** (`agent-next-gen-queue-sim.ts`: the 4s random walk), and provides both by context. **Display** goes through `<ClockTick>`/`<ClockValue>`/`<QueueSubItems>` render props (`agent-next-gen-clock-tick.tsx`) wrapped around only the element that shows a live value: `AgentProfile` (status timer, now `statusSinceTick`), each nav card, each record-header channel tab, `DashboardQueue`, the drilldown rows, and the Real-Time Summary card. In app-owned components (voice bar, Marcus Webb notice) only the text sits inside it. **Logic** reads `clock.now()` (handlers, timeouts, scenario builders; it replaces `clockTickRef`). **Threshold values** at page level (awaiting/hold severity, the SLA-breached chip) use `useClockValue(clock, select)`, which re-renders only when the selected primitive changes. One clock per page rather than one interval per component, so adjacent timers flip together. App-only: lyra's time props are strings, so the lyra component showing a clock still re-renders each second. Text-only flashing there needs lyra changes (not authorized). `VoiceCallControls` now takes `callStartTick`/`holdStartTick` instead of seconds. **`VITE_NO_STRICT_MODE=1`** (e.g. `VITE_NO_STRICT_MODE=1 npm run dev`) skips StrictMode for demo sessions; it's off by default (`src/main.tsx`). (2026-10-14)
+- P0.5b — **Split, and rulings.** P0.5d was planned first, but its controls need contacts that exist in the provider, so 5b goes first, as 5b.1 (provider groundwork, no page changes) and 5b.2 (pages, in a fresh session). Rulings:
+  - **After 5b.2, every contact on screen is a provider contact.** The one exception is scripted scenario cards (Marcus, Lucas, Tom, Maya, and Desk's Marcus chat), which stay page-local until 5c. They're checked by card id about 136 times on Advanced.
+  - **Seed:** an engine seed fixture reproduces today's notification assignments exactly (same names, channels, messages, statuses, order, timers) on both pages. P1's generated databases can replace it.
+  - **Reopen:** a provider command, used by Contact History reopen (including restoring a stored case), the Search row, re-clicking a dismissed notification, and Save & Redial's reopen side.
+  - **Tier switch:** contacts carry over, since the store lives for the tab. A visible change from today, where a switch started with no cards. Seeds are created once per engine (once per tab), so a switch never duplicates them, and carried-over contacts keep their real elapsed times. Page-only bits (live typed messages, the selected card, panels) still reset.
+  - **Second voice call:** auto-hold (below). (2026-10-14)
+- P0.5b.1 — **Domain and contract.**
+  - **New `Interaction` fields:**
+    - `caseId?` is the case number shown in the UI (`CS-nnnnnnn`), shared across a journey. This **corrects the P0.1 mapping**: the card's `customerId` has always held the case id (`generateCaseId()`, the case-database key, `ContactHistoryEntry.caseId`), not the entity, so `buildNavCards` now sets `customerId` = `caseId` ?? `entityId` ?? the address. The entity moves to a new card field, `entityId`.
+    - `contactName?` is the name the contact presented. Seeds use it to keep the notification names, which differ from their linked directory records (a kept quirk: `CREATE_NEW_CUSTOMERS[Number(id) % length]`).
+    - `acceptedAt?` is set by `accept`. The thread clock runs from it, matching today, where opening a notification starts the timer.
+  - **`reopen(ReopenRequest)` → `InteractionId`**, gated by `capabilities.reopen` (sim on, placeholder off).
+    - It creates `origin: "reopened"`, `state: "active"`, via `stateChanged`, never `incoming`.
+    - **Journey:** `journeyId` if given, else the open journey with the same `caseId`, else a new one (keeping the given `caseId` or minting one).
+    - **Supersede:** a non-ended contact in that journey on the same channel and address closes first (`ended{agent}`, no wrap-up), so a thread has one live contact.
+    - A voice reopen isn't a placed call, so the agent-leg rule doesn't apply.
+  - **`DialRequest`** gains `addressLabel?`/`contactName?`. A dial into a journey inherits its `caseId`.
+  - **One active voice contact:** with `capabilities.hold`, whichever voice contact becomes active (dial connects, accept, reopen, resume) holds every other active voice contact first, each with its own `stateChanged`. Without `hold`, a dial, accept or reopen that would make a second voice contact live rejects `invalid-state`. This replaces the sim's old "both calls stay active". On Desk, which allows dialing during a call, the first card now shows on hold.
+  - **Offers:** the ringing tile (5d) shows voice offers. Digital offers surface as notifications, and opening one is `accept`. (2026-10-14)
+- P0.5b.1 — **Sim and view model.**
+  - **Seed:** `SIM_DEMO_SEED` (`sim-fixtures.ts`) is notifications 1, 3 and 4 as offered, routed, inbound contacts: Noah Patel (email), Lauren Kim (email), Ethan Zhang (SMS). They have fixed ids `seed-notification-<n>` and no address, like today's notification threads. `startedAt` = now minus the notification's age.
+    - It's plain data; `src/adapters/legacy/demo-seed.test.ts` checks it against `INITIAL_NOTIFICATIONS`, `NOTIFICATION_CHANNEL` and `CREATE_NEW_CUSTOMERS`.
+    - `SimOptions.seed` defaults to none (the contract suite starts empty). `PROVIDER_FACTORIES.sim` passes it.
+    - It's loaded at engine creation with no events (hydrate picks it up), and seeds for one entity share a journey and case.
+  - **Display ids** match today's formats: external ids `CTX-yyyymmdd-nnnnn`, journey ids 12 digits (the card's "interaction id"), case ids `CS-nnnnnnn`.
+  - **`buildNavCards`:**
+    - Offered contacts are left out.
+    - The thread key is `${channel}:${address}` (or the channel alone), today's convention. Contacts in a journey with the same key fold into one `Thread`: the newest drives state and is `Thread.providerInteractionId` (the command target); `contactId` stays the first contact's; each contact following a "Closed" case (`isClosedStatus`) adds a `reopenedContacts` entry, with `messagesBeforeReopen` from an option. A reopen of a still-open thread just refreshes it, as today.
+    - `threadStatuses` is keyed by thread key. `customerName` = the page's `displayName(i)` ?? `contactName` ?? the address label ?? the address value.
+    - `startTick` comes from `acceptedAt ?? startedAt` through wall-clock `tickClock`, so carried-over contacts keep their elapsed time. (2026-10-14)
+- P0.5b.2 — **Design** (agreed 2026-10-14; the fresh session plans from this).
+  - **`src/contact-handling/useNavCards()`**:
+    - Cards = `buildNavCards(useInteractions())` merged with a UI overlay (`currentThreadId`, `startedFresh`, `liveMessages`, per-thread `awaitingResponse`/`lastCustomerMessageTick`/`messageCount`), plus a page-local list for scenario cards only.
+    - `patchCard(id, fn)` replaces `setInteractions(prev => prev.map(...))`. On a store card it keeps only the UI fields `fn` changed and warns in dev if `fn` touched a provider-owned field. On a scenario card it updates the local list.
+  - **`useOutboundDial()`** places every dial and redial: New Outbound (new card, or into a card via `journeyId`), Quick Dial, Redial, redial from an active card, the dial-pad submit with row-16 matching, the ad-hoc "+", and Save & Redial.
+    - After `dial` resolves, it waits for the id in the store before activating it. Nothing is optimistic, so a card appears one latency round trip after Start.
+    - A leg `invalid-state` shows the disconnected toast. Channels are filtered by `capabilities.interaction.channels.outbound`.
+  - **Other card sources:**
+    - Notification click: `accept(seedId)` if offered, switch if already live, `reopen` if dismissed. A page-side `NOTIFICATION_INTERACTION_ID` map goes next to `NOTIFICATION_CHANNEL`.
+    - Contact History reopen and the Search row use `reopen`. A stored case record means one `reopen` per thread, all with its `caseId`.
+    - Link/save customer use `associateEntity`. The case database is unchanged.
+  - **Pulled forward from 5d**, because the store owns `state`: Hold calls `hold()`, hang-up and nav End Call call `end()` (`voiceCallEnded` comes from wrap-up), and Unassign & Dismiss calls `end` if live, then `completeWrapUp(outcome from channelOutcomeSelections)`, then hides the card. If the plan gets too large to review comfortably, these three move to a **P0.5b.3**. Mute/record/mask/keypad, tile accept/decline, the status pill, the Outcome/Wrap-up UX and all capability gating stay in 5d.
+  - **Re-key inventory** (card id → `journeyId`, in one change):
+    - `activeInteractionId`, `clickedInteractionIds`, `channelsExpandedById`
+    - `detailPanelByInteraction`, `panelArtifactsByInteraction`
+    - `channelPreviewThreadKey`, `channelHoverPreviewKey`
+    - `outcomeDraftKey`, `channelOutcomeSelections`
+    - `threadLaunchTimestamps`, `customerTyping`
+    - `redialActiveInteraction`, `dialpadRequest`
+    - every `interactions.find(i => i.id === <customer id>)`, and directory lookups by `card.id`, which move to `card.entityId`
+  - **Page clock:** gains an `anchorMs` and computes ticks from `Date.now()`, so throttled background tabs don't drift from the store's wall-clock ticks.
+  - **Demo latency:** make the sim's injected latency adjustable for demos so the non-optimistic delay doesn't feel laggy, either with a `?latency=low` option read at boot next to `?provider=` and passed to `SimOptions.latency`, or with a lower default range. 5b.2's plan picks one.
+  - **Known gap until P2.2:** live typed messages and the faked awaiting badge are page overlay, so they reset on a tier switch.
+  - **Desk visual changes** (rows 12 and 13, docked preview) need before/after approval in 5b.2's plan. (2026-10-14)

@@ -1,7 +1,7 @@
 import type { InteractionCapabilities, InteractionEvents, InteractionProvider, ProviderError } from "../../providers";
 import { providerError } from "../provider-error";
 import { createSimEngine, type SimEngine } from "./sim-engine";
-import { DEFAULT_SIM_TIMINGS, SIM_CAPABILITIES, type SimTimings } from "./sim-fixtures";
+import { DEFAULT_SIM_TIMINGS, SIM_CAPABILITIES, type SimSeedContact, type SimTimings } from "./sim-fixtures";
 import {
   SIM_PROTOCOL_VERSION,
   type SimCommand,
@@ -33,6 +33,9 @@ export interface SimOptions {
   engine?: boolean;
   /** How long a command waits for its reply before rejecting "network". */
   commandTimeoutMs?: number;
+  /** Contacts the engine starts with (e.g. `SIM_DEMO_SEED`). Default none,
+   *  so the contract suite starts from an empty engine. */
+  seed?: readonly SimSeedContact[];
 }
 
 /** The sim provider plus its session id, which the customer side (the P0.6
@@ -63,6 +66,7 @@ export function createSimulatedInteractionProvider(options: SimOptions = {}): Si
           sessionId,
           capabilities,
           timings: { ...DEFAULT_SIM_TIMINGS, ...options.timings },
+          seed: options.seed ?? [],
         });
   const transport = withLatency(createTransport(), options.latency ?? DEFAULT_LATENCY);
 
@@ -159,6 +163,7 @@ export function createSimulatedInteractionProvider(options: SimOptions = {}): Si
     accept: (interactionId) => request({ name: "accept", interactionId }),
     decline: (interactionId) => request({ name: "decline", interactionId }),
     dial: (dialRequest) => request({ name: "dial", request: dialRequest }),
+    reopen: (reopenRequest) => request({ name: "reopen", request: reopenRequest }),
     end: (interactionId) => request({ name: "end", interactionId }),
     completeWrapUp: (interactionId, outcome) => request({ name: "completeWrapUp", interactionId, outcome }),
 

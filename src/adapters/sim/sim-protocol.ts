@@ -15,6 +15,7 @@ import type {
   InteractionEvents,
   OutboundSkill,
   ProviderError,
+  ReopenRequest,
   TransferTarget,
 } from "../../providers";
 
@@ -37,6 +38,7 @@ export type SimCommand =
   | { name: "accept"; interactionId: InteractionId }
   | { name: "decline"; interactionId: InteractionId }
   | { name: "dial"; request: DialRequest }
+  | { name: "reopen"; request: ReopenRequest }
   | { name: "end"; interactionId: InteractionId }
   | { name: "completeWrapUp"; interactionId: InteractionId; outcome: InteractionOutcome }
   | { name: "hold"; interactionId: InteractionId; onHold: boolean }
@@ -64,6 +66,7 @@ export interface SimCommandResults {
   accept: void;
   decline: void;
   dial: InteractionId;
+  reopen: InteractionId;
   end: void;
   completeWrapUp: void;
   hold: void;

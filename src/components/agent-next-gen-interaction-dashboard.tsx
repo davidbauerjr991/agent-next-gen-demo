@@ -23,6 +23,7 @@ import {
   DonutChart,
 } from "@nicecxone/lyra-ui";
 import { type TranscriptMessage } from "@/components/agent-next-gen-transcript";
+import type { InteractionId } from "@/domain";
 import {
   newCaseNotificationTitle,
   channelNoun,
@@ -328,6 +329,11 @@ export interface Thread {
      *  been reopened — see `Thread.contactId`'s own doc comment above. */
     contactId: string;
   }[];
+  /** The provider contact this thread currently represents (the newest one,
+   *  after any reopen), i.e. the id to send commands to. Set only on cards
+   *  built from the interaction store (`buildNavCards`); `id` stays the
+   *  stable `${type}:${value}` thread key across reopens. */
+  providerInteractionId?: InteractionId;
 }
 
 /** One live interaction in the left nav — an agent/customer/team/skill
@@ -533,6 +539,10 @@ export interface Interaction {
    * status `TRANSCRIPT_SESSIONS`/`_VOICE`/`_EMAIL` otherwise assigns it.
    */
   threadStatuses?: Record<string, string>;
+  /** The linked directory record (domain `entityId`), for record lookups.
+   *  Set only on store-built cards, whose `id` is the journey rather than
+   *  the customer record. */
+  entityId?: string;
 }
 
 /** Whether ANY currently-open channel on this Interaction is actually

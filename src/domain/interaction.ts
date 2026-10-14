@@ -53,7 +53,16 @@ export interface Interaction {
   /** Case status from the active profile's vocabulary (Open, Pending, …).
    *  Business status, independent of the connection `state`. */
   caseStatus?: string;
+  /** The case number shown to the agent (e.g. "CS-1234567"). Every contact in
+   *  a journey shares it; a reopen finds an open journey by it. */
+  caseId?: string;
+  /** The name the contact presented (caller-ID name, chat pre-contact name),
+   *  independent of the linked entity's own display name. */
+  contactName?: string;
   startedAt: EpochMs;
+  /** When the agent accepted a routed offer. The handle-time clock runs from
+   *  here when set, otherwise from `startedAt`. */
+  acceptedAt?: EpochMs;
   endedAt?: EpochMs;
   heldSince?: EpochMs;
   /** Set while the customer's last message is unanswered by the agent. */

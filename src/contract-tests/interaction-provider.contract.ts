@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, type TestContext } from "vitest";
-import type { AgentState, ChannelKind, EntityId, Interaction, InteractionId, InteractionState } from "../domain";
+import type { AgentState, ChannelKind, EntityId, Interaction, InteractionId, InteractionState, JourneyId } from "../domain";
 import type { EndReason, InteractionProvider } from "../providers";
 import { expectProviderError, recordEvents, settle, waitFor, type Recorder } from "./event-recorder";
 
@@ -302,6 +302,134 @@ export function describeInteractionProviderContract(label: string, factory: Inte
       });
     });
 
+    // ── Reopen, case ids, acceptance (P0.5b.1) ────────────────────────────
+
+    describe("reopen, case ids and acceptedAt", () => {
+      const requireReopen = (ctx: TestContext) => ctx.skip(!caps().reopen, "reopen not supported");
+
+      it("accept stamps acceptedAt", async (ctx) => {
+        requireInbound(ctx, "chat");
+        const id = await startAccepted("chat");
+        const accepted = latest(id)!;
+        expect(accepted.acceptedAt).toBeTypeOf("number");
+        expect(accepted.acceptedAt!).toBeGreaterThanOrEqual(accepted.startedAt);
+      });
+
+      it("a dial that joins a journey shares its case id", async (ctx) => {
+        const channel = caps().channels.outbound[0];
+        ctx.skip(!channel, "provider offers no outbound channel");
+        const { provider } = h;
+        const [skill] = await provider.listOutboundSkills(channel);
+        const first = await provider.dial({ channel, address: "one@example.com", skillId: skill.id });
+        await waitFor(() => latest(first) !== undefined, "first dial appears");
+        const journeyId = latest(first)!.journeyId;
+        const second = await provider.dial({ channel, address: "two@example.com", skillId: skill.id, journeyId });
+        await waitFor(() => latest(second) !== undefined, "second dial appears");
+        expect(latest(second)!.journeyId).toBe(journeyId);
+        expect(latest(second)!.caseId).toBe(latest(first)!.caseId);
+      });
+
+      it("reopen creates an active, reopened contact via stateChanged, never incoming", async (ctx) => {
+        requireReopen(ctx);
+        const id = await h.provider.reopen({ channel: "chat", direction: "inbound", address: "casey-handle", caseId: "CASE-A", caseStatus: "Pending", contactName: "Casey" });
+        await waitFor(() => latest(id) !== undefined, "reopened contact appears");
+        expect(latest(id)).toMatchObject({ id, channel: "chat", direction: "inbound", state: "active", origin: "reopened", caseId: "CASE-A", caseStatus: "Pending", contactName: "Casey" });
+        expect(rec.events("incoming")).toEqual([]);
+      });
+
+      it("reopen joins the open journey with the same case id, or the given journeyId", async (ctx) => {
+        requireReopen(ctx);
+        const { provider } = h;
+        const first = await provider.reopen({ channel: "chat", direction: "inbound", address: "a", caseId: "CASE-B" });
+        const byCase = await provider.reopen({ channel: "email", direction: "inbound", address: "a@example.com", caseId: "CASE-B" });
+        const other = await provider.reopen({ channel: "chat", direction: "inbound", address: "b", caseId: "CASE-C" });
+        await waitFor(() => [first, byCase, other].every((id) => latest(id) !== undefined), "reopened contacts appear");
+        const journeyId = latest(first)!.journeyId;
+        expect(latest(byCase)!.journeyId).toBe(journeyId);
+        expect(latest(other)!.journeyId).not.toBe(journeyId);
+
+        const byJourney = await provider.reopen({ channel: "sms", direction: "outbound", address: "+15550001111", journeyId });
+        await waitFor(() => latest(byJourney) !== undefined, "reopen by journey appears");
+        expect(latest(byJourney)!.journeyId).toBe(journeyId);
+        expect(latest(byJourney)!.caseId).toBe("CASE-B");
+      });
+
+      it("reopen supersedes a live contact on the same channel and address: it ends with reason agent, without wrap-up", async (ctx) => {
+        requireReopen(ctx);
+        const { provider } = h;
+        const request = { channel: "chat" as const, direction: "inbound" as const, address: "same-handle", caseId: "CASE-D" };
+        const old = await provider.reopen(request);
+        await waitForState(old, "active");
+        const replacement = await provider.reopen(request);
+        await waitForState(replacement, "active");
+        await expectClosed(old, "agent");
+        expect(statesOf(old).map((e) => e.interaction.state)).not.toContain("wrap-up");
+        expect(latest(replacement)!.journeyId).toBe(latest(old)!.journeyId);
+      });
+    });
+
+    // ── One active call ───────────────────────────────────────────────────
+
+    describe("one active voice contact", () => {
+      it("with hold: accepting a second call holds the first, and resuming the first holds the second", async (ctx) => {
+        requireInbound(ctx, "voice");
+        ctx.skip(!caps().hold, "hold not supported");
+        const { provider } = h;
+        const first = await startAccepted("voice");
+        const second = await startInbound("voice");
+        await provider.accept(second);
+        await waitForState(second, "active");
+        await waitForState(first, "held");
+        // The first was held before the second went active.
+        const heldAt = rec.indexOf((e) => e.kind === "event" && e.name === "stateChanged" && (e.payload as { interaction?: Interaction }).interaction?.id === first && (e.payload as { interaction: Interaction }).interaction.state === "held");
+        const activeAt = rec.indexOf((e) => e.kind === "event" && e.name === "stateChanged" && (e.payload as { interaction?: Interaction }).interaction?.id === second && (e.payload as { interaction: Interaction }).interaction.state === "active");
+        expect(heldAt).toBeLessThan(activeAt);
+
+        await provider.hold(first, false);
+        await waitForState(first, "active");
+        await waitForState(second, "held");
+      });
+
+      it("with hold: an outbound call holds the active call when it connects", async (ctx) => {
+        requireInbound(ctx, "voice");
+        ctx.skip(!caps().hold, "hold not supported");
+        ctx.skip(!caps().channels.outbound.includes("voice"), "provider offers no outbound voice");
+        const { provider } = h;
+        const first = await startAccepted("voice");
+        const [skill] = await provider.listOutboundSkills("voice");
+        const dialed = await provider.dial({ channel: "voice", address: "+15559990000", skillId: skill.id });
+        await waitForState(dialed, "active");
+        await waitForState(first, "held");
+      });
+
+      it("with hold: a voice reopen holds the active call", async (ctx) => {
+        requireInbound(ctx, "voice");
+        ctx.skip(!caps().hold, "hold not supported");
+        ctx.skip(!caps().reopen, "reopen not supported");
+        const first = await startAccepted("voice");
+        const reopened = await h.provider.reopen({ channel: "voice", direction: "outbound", address: "+15558880000" });
+        await waitForState(reopened, "active");
+        await waitForState(first, "held");
+      });
+
+      it("without hold: a second live voice contact rejects invalid-state", async (ctx) => {
+        requireInbound(ctx, "voice");
+        ctx.skip(caps().hold, "hold is supported");
+        const { provider } = h;
+        const first = await startAccepted("voice");
+        const second = await startInbound("voice");
+        await expectNoEvents(() => expectProviderError(provider.accept(second), "invalid-state"));
+        if (caps().channels.outbound.includes("voice")) {
+          const [skill] = await provider.listOutboundSkills("voice");
+          await expectNoEvents(() => expectProviderError(provider.dial({ channel: "voice", address: "+15559990000", skillId: skill.id }), "invalid-state"));
+        }
+        if (caps().reopen) {
+          await expectNoEvents(() => expectProviderError(provider.reopen({ channel: "voice", direction: "outbound", address: "+15558880000" }), "invalid-state"));
+        }
+        expect(latest(first)?.state).toBe("active");
+      });
+    });
+
     // ── Ack before event ──────────────────────────────────────────────────
 
     describe("ack-before-event ordering", () => {
@@ -353,6 +481,13 @@ export function describeInteractionProviderContract(label: string, factory: Inte
         const mark = rec.mark();
         const id = await rec.track("dial", h.provider.dial({ channel, address: channel === "email" ? "casey@example.com" : "+15551230000", skillId: skill.id }));
         await expectAckFirst("dial", mark, stateOf(id));
+      });
+
+      it("reopen", async (ctx) => {
+        ctx.skip(!caps().reopen, "reopen not supported");
+        const mark = rec.mark();
+        const id = await rec.track("reopen", h.provider.reopen({ channel: "chat", direction: "inbound", address: "casey-handle" }));
+        await expectAckFirst("reopen", mark, stateOf(id));
       });
     });
 
@@ -455,6 +590,7 @@ export function describeInteractionProviderContract(label: string, factory: Inte
         { name: "setCaseStatus", supported: (c) => c.caseStatus, call: (p) => p.setCaseStatus(GHOST, "Open") },
         { name: "connectAgentLeg", supported: (c) => c.agentLeg, call: (p) => p.connectAgentLeg() },
         { name: "disconnectAgentLeg", supported: (c) => c.agentLeg, call: (p) => p.disconnectAgentLeg() },
+        { name: "reopen", supported: (c) => c.reopen, call: (p) => p.reopen({ channel: "chat", direction: "inbound", journeyId: "ghost-journey" as JourneyId }) },
         ...ALL_CHANNELS.map<Gated>((channel) => ({
           name: `dial (${channel})`,
           supported: (c) => c.channels.outbound.includes(channel),

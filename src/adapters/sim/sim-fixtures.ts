@@ -1,4 +1,4 @@
-import type { AgentId, AgentPresence, PresenceCategory } from "../../domain";
+import type { AgentId, AgentPresence, ChannelKind, EntityId, InteractionId, PresenceCategory } from "../../domain";
 import type { InteractionCapabilities, OutboundSkill } from "../../providers";
 
 // Static data the sim engine serves. Plain data on purpose: adapters don't
@@ -76,7 +76,35 @@ export const SIM_CAPABILITIES: InteractionCapabilities = {
   agentLeg: true,
   wrapUp: true,
   caseStatus: true,
+  reopen: true,
 };
+
+/** A contact the engine starts with: a routed offer already waiting for the
+ *  agent. It arrives through `getSnapshot`, never as an `incoming` event. */
+export interface SimSeedContact {
+  /** Fixed, so the UI can link a notification to it. */
+  id: InteractionId;
+  channel: ChannelKind;
+  /** Display name the contact presented (`Interaction.contactName`). */
+  contactName: string;
+  entityId?: EntityId;
+  address?: string;
+  /** How long ago the contact arrived (sets `startedAt`). */
+  ageMinutes: number;
+}
+
+/** The demo's waiting assignments, matching the agent UI's notifications
+ *  "1", "3" and "4" (INITIAL_NOTIFICATIONS / NOTIFICATION_CHANNEL in
+ *  agent-next-gen-interaction-dashboard.tsx). Each `entityId` is the record
+ *  the page links today, `CREATE_NEW_CUSTOMERS[Number(id) % length]`, kept
+ *  even though its directory name differs from `contactName`. Plain data on
+ *  purpose; `demo-seed.test.ts` guards against drift. P1's generated
+ *  databases replace this. */
+export const SIM_DEMO_SEED: readonly SimSeedContact[] = [
+  { id: "seed-notification-1" as InteractionId, channel: "email", contactName: "Noah Patel", entityId: "customer-2" as EntityId, ageMinutes: 13 },
+  { id: "seed-notification-3" as InteractionId, channel: "email", contactName: "Lauren Kim", entityId: "customer-4" as EntityId, ageMinutes: 24 },
+  { id: "seed-notification-4" as InteractionId, channel: "sms", contactName: "Ethan Zhang", entityId: "customer-5" as EntityId, ageMinutes: 37 },
+];
 
 /** Scripted delays inside the engine, separate from bus latency. */
 export interface SimTimings {

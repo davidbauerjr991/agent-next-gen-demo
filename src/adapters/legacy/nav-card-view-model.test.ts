@@ -38,17 +38,31 @@ describe("buildNavCards — grouping", () => {
   it("makes one card per journey, ordered by the journey's first contact, threads by startedAt", () => {
     const cards = buildNavCards(
       [
-        contact("b2", "journey-b", { startedAt: at(40) }),
+        contact("b2", "journey-b", { startedAt: at(40), channel: "email", address: { value: "b@example.com" } }),
         contact("a1", "journey-a", { startedAt: at(10) }),
         contact("b1", "journey-b", { startedAt: at(5) }),
-        contact("a2", "journey-a", { startedAt: at(20) }),
+        contact("a2", "journey-a", { startedAt: at(20), channel: "voice", address: { value: "+1555" } }),
       ],
       { toTick },
     );
     expect(cards.map((c) => c.id)).toEqual(["journey-b", "journey-a"]);
     expect(cards.map((c) => c.interactionId)).toEqual(["journey-b", "journey-a"]);
-    expect(cards[0].threads.map((t) => t.id)).toEqual(["b1", "b2"]);
-    expect(cards[1].threads.map((t) => t.id)).toEqual(["a1", "a2"]);
+    expect(cards[0].threads.map((t) => [t.id, t.providerInteractionId])).toEqual([
+      ["chat", "b1"],
+      ["email:b@example.com", "b2"],
+    ]);
+    expect(cards[1].threads.map((t) => [t.id, t.providerInteractionId])).toEqual([
+      ["chat", "a1"],
+      ["voice:+1555", "a2"],
+    ]);
+  });
+
+  it("leaves offered contacts out until they're accepted", () => {
+    const offered = contact("o", "journey-o", { state: "offered", origin: "routed", direction: "inbound" });
+    expect(buildNavCards([offered], { toTick })).toEqual([]);
+    const cards = buildNavCards([offered, contact("a", "journey-o", { channel: "email", startedAt: at(1) })], { toTick });
+    expect(cards).toHaveLength(1);
+    expect(cards[0].threads.map((t) => t.id)).toEqual(["email"]);
   });
 
   it("keeps two concurrent journeys with the same entity as separate cards", () => {
@@ -77,7 +91,8 @@ describe("buildNavCards — field mapping", () => {
       { toTick, messageCounts: new Map([["sms-1" as InteractionId, 3]]) },
     );
     expect(card.threads[0]).toEqual({
-      id: "sms-1",
+      id: "sms:+14563833329",
+      providerInteractionId: "sms-1",
       type: "sms",
       startTick: -30,
       contactId: "ext-sms-1",
@@ -106,12 +121,29 @@ describe("buildNavCards — field mapping", () => {
     expect(thread.awaitingResponse).toBeUndefined();
   });
 
-  it("maps case status per thread", () => {
+  it("maps case status per thread key", () => {
     const [card] = buildNavCards(
-      [contact("a", "j", { caseStatus: "Pending" }), contact("b", "j", { startedAt: at(1) })],
+      [contact("a", "j", { caseStatus: "Pending" }), contact("b", "j", { channel: "email", startedAt: at(1) })],
       { toTick },
     );
-    expect(card.threadStatuses).toEqual({ a: "Pending" });
+    expect(card.threadStatuses).toEqual({ chat: "Pending" });
+  });
+
+  it("runs the thread clock from acceptedAt when the contact was accepted", () => {
+    const [card] = buildNavCards(
+      [contact("a", "j", { origin: "routed", startedAt: at(-600), acceptedAt: at(-20) })],
+      { toTick },
+    );
+    expect(card.threads[0].startTick).toBe(-20);
+  });
+
+  it("uses the case id as customerId, and links the entity", () => {
+    const [card] = buildNavCards(
+      [contact("a", "j", { caseId: "CS-1234567", entityId: "customer-2" as EntityId })],
+      { toTick },
+    );
+    expect(card.customerId).toBe("CS-1234567");
+    expect(card.entityId).toBe("customer-2");
   });
 
   it("sets voiceCallEnded once a voice contact reaches wrap-up, and closed only when every contact ended", () => {
@@ -129,17 +161,68 @@ describe("buildNavCards — field mapping", () => {
     expect(chatOnly.voiceCallEnded).toBeUndefined();
   });
 
-  it("resolves the customer name from displayName, then address label, then address value", () => {
+  it("resolves the customer name from displayName, then contactName, then address label, then address value", () => {
     const named = contact("a", "j1", { entityId: "e1" as EntityId, address: { value: "+1555", label: "Mobile" } });
+    const presented = contact("d", "j4", { contactName: "Noah Patel", address: { value: "+1777", label: "Work" }, startedAt: at(3) });
     const labeled = contact("b", "j2", { address: { value: "+1666", label: "Home" }, startedAt: at(1) });
     const bare = contact("c", "j3", { address: { value: "visitor@example.com" }, startedAt: at(2) });
-    const cards = buildNavCards([named, labeled, bare], {
+    const cards = buildNavCards([named, labeled, bare, presented], {
       toTick,
       displayName: (i) => (i.entityId === "e1" ? "Marcus Webb" : undefined),
     });
-    expect(cards.map((c) => c.customerName)).toEqual(["Marcus Webb", "Home", "visitor@example.com"]);
-    expect(cards.map((c) => c.customerId)).toEqual(["e1", "+1666", "visitor@example.com"]);
+    expect(cards.map((c) => c.customerName)).toEqual(["Marcus Webb", "Home", "visitor@example.com", "Noah Patel"]);
+    expect(cards.map((c) => c.customerId)).toEqual(["e1", "+1666", "visitor@example.com", "+1777"]);
     expect(cards.every((c) => c.currentThreadId === undefined && c.liveMessages === undefined)).toBe(true);
+  });
+});
+
+describe("buildNavCards — reopen folding", () => {
+  const sms = (id: string, patch: Partial<Interaction> = {}) =>
+    contact(id, "j", { channel: "sms", address: { value: "+1555" }, ...patch });
+
+  it("folds contacts on one thread: newest drives state, the first keeps contactId", () => {
+    const [card] = buildNavCards(
+      [
+        sms("old", { state: "ended", caseStatus: "Pending", startedAt: at(0) }),
+        sms("new", { origin: "reopened", caseStatus: "Open", startedAt: at(30) }),
+      ],
+      { toTick, messageCounts: new Map([["old" as InteractionId, 2], ["new" as InteractionId, 1]]) },
+    );
+    expect(card.threads).toHaveLength(1);
+    const [thread] = card.threads;
+    expect(thread.id).toBe("sms:+1555");
+    expect(thread.providerInteractionId).toBe("new");
+    expect(thread.contactId).toBe("ext-old");
+    expect(thread.startTick).toBe(30);
+    expect(thread.messageCount).toBe(3);
+    expect(card.threadStatuses).toEqual({ "sms:+1555": "Open" });
+    expect(card.closed).toBeUndefined();
+    // The predecessor wasn't closed, so it's a refresh, not a reopen.
+    expect(thread.reopenedContacts).toBeUndefined();
+  });
+
+  it("adds a reopenedContacts entry for each contact that follows a closed case", () => {
+    const [card] = buildNavCards(
+      [
+        sms("first", { state: "ended", caseStatus: "Closed", startedAt: at(0) }),
+        sms("second", { state: "ended", origin: "reopened", caseStatus: "Closed", startedAt: at(10) }),
+        sms("third", { origin: "reopened", startedAt: at(20) }),
+      ],
+      { toTick, messagesBeforeReopen: (c) => (c.id === "second" ? 4 : 7) },
+    );
+    const entries = card.threads[0].reopenedContacts ?? [];
+    expect(entries.map((e) => [e.id, e.contactId, e.messagesBeforeReopen])).toEqual([
+      ["session-reopened-second", "ext-second", 4],
+      ["session-reopened-third", "ext-third", 7],
+    ]);
+  });
+
+  it("honours a custom closed-status rule", () => {
+    const [card] = buildNavCards(
+      [sms("a", { state: "ended", caseStatus: "Done" }), sms("b", { startedAt: at(5) })],
+      { toTick, isClosedStatus: (s) => s === "Done" },
+    );
+    expect(card.threads[0].reopenedContacts).toHaveLength(1);
   });
 });
 
@@ -171,16 +254,23 @@ describe("buildNavCards — against the sim", () => {
     const second = await provider.dial({ channel: "voice", address: "+15550002222", skillId: voiceSkill.id, journeyId });
     const inbound = customer.startInbound({ channel: "chat", address: "web-visitor", displayName: "Visitor" });
     await settle(provider);
+    // Still offered, so not a card yet.
+    expect(buildNavCards((await provider.getSnapshot()).interactions, { toTick: tickClock(Date.now()) })).toHaveLength(1);
+    await provider.accept(inbound);
+    await settle(provider);
 
     const { interactions } = await provider.getSnapshot();
     const cards = buildNavCards(interactions, { toTick: tickClock(Date.now()) });
     expect(cards).toHaveLength(2);
     expect(cards[0].id).toBe(journeyId);
-    expect(cards[0].threads.map((t) => [t.id, t.type])).toEqual([
-      [first, "chat"],
-      [second, "voice"],
+    expect(cards[0].threads.map((t) => [t.id, t.providerInteractionId, t.type])).toEqual([
+      ["chat:a@example.com", first, "chat"],
+      ["voice:+15550002222", second, "voice"],
     ]);
-    expect(cards[1].threads.map((t) => t.id)).toEqual([inbound]);
+    // Both contacts on the journey share its case number.
+    expect(cards[0].customerId).toMatch(/^CS-\d{7}$/);
+    expect(cards[1].threads.map((t) => t.providerInteractionId)).toEqual([inbound]);
     expect(cards[1].threads[0].direction).toBe("inbound");
+    expect(cards[1].customerName).toBe("Visitor");
   });
 });

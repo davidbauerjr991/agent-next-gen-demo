@@ -7,7 +7,7 @@ import {
 } from "../../contract-tests/interaction-provider.contract";
 import { expectProviderError, recordEvents, waitFor } from "../../contract-tests/event-recorder";
 import { createMemoryBus } from "./memory-transport";
-import { SIM_CAPABILITIES } from "./sim-fixtures";
+import { SIM_CAPABILITIES, SIM_DEMO_SEED } from "./sim-fixtures";
 import { createSimCustomerClient } from "./sim-customer-client";
 import { createSimulatedInteractionProvider, type SimOptions } from "./simulated-interaction-provider";
 import type { SimTransport } from "./sim-transport";
@@ -62,8 +62,54 @@ describeInteractionProviderContract(
     agentLeg: false,
     wrapUp: false,
     caseStatus: false,
+    reopen: false,
   }),
 );
+
+describe("sim seed", () => {
+  it("starts with the seed as offered, routed contacts in the snapshot, with no events", async () => {
+    const bus = createMemoryBus();
+    const provider = createSimulatedInteractionProvider(instant(bus.createTransport, { seed: SIM_DEMO_SEED }));
+    const rec = recordEvents(provider);
+    try {
+      const before = Date.now();
+      const { interactions } = await provider.getSnapshot();
+      expect(interactions.map((i) => i.id)).toEqual(SIM_DEMO_SEED.map((s) => s.id));
+      for (const seed of SIM_DEMO_SEED) {
+        const i = interactions.find((x) => x.id === seed.id)!;
+        expect(i).toMatchObject({ channel: seed.channel, contactName: seed.contactName, entityId: seed.entityId, state: "offered", origin: "routed", direction: "inbound" });
+        expect(i.caseId).toMatch(/^CS-\d{7}$/);
+        expect(i.externalId?.id).toMatch(/^CTX-\d{8}-\d{5}$/);
+        expect(i.journeyId).toMatch(/^\d{12}$/);
+        expect(before - i.startedAt).toBeGreaterThanOrEqual(seed.ageMinutes * 60_000 - 1000);
+      }
+      expect(rec.events("incoming")).toEqual([]);
+
+      // Opening a seed accepts it; its clock runs from acceptance.
+      const [first] = SIM_DEMO_SEED;
+      await provider.accept(first.id);
+      await waitFor(
+        () => rec.events("stateChanged").some((e) => e.kind === "interaction" && e.interaction.id === first.id && e.interaction.state === "active"),
+        "seed accepted",
+      );
+      const accepted = (await provider.getSnapshot()).interactions.find((i) => i.id === first.id)!;
+      expect(accepted.acceptedAt).toBeGreaterThanOrEqual(before);
+    } finally {
+      rec.stop();
+      await provider.dispose();
+    }
+  });
+
+  it("is loaded once per engine: the contract harness's default is no seed", async () => {
+    const bus = createMemoryBus();
+    const provider = createSimulatedInteractionProvider(instant(bus.createTransport));
+    try {
+      expect((await provider.getSnapshot()).interactions).toEqual([]);
+    } finally {
+      await provider.dispose();
+    }
+  });
+});
 
 describe("sim-specific behavior", () => {
   it("isolates two sessions on one bus: no shared interactions, events or replies", async () => {
