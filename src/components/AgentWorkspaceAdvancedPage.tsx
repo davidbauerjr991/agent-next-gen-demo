@@ -11604,15 +11604,20 @@ export function AgentWorkspaceAdvancedPage({
                   pointer events — the same "fully inactive but still really
                   there, still correctly sized" result `visibility:hidden`
                   was reaching for, just via a property children genuinely
-                  cannot override. */}
-              <div
-                className={
-                  activeDeskTab === "customers"
-                    ? "relative flex flex-1 overflow-hidden animate-in fade-in-0 duration-200"
-                    : "absolute inset-0 flex overflow-hidden opacity-0"
-                }
-                inert={activeDeskTab !== "customers"}
-              >
+                  cannot override.
+
+                  On this page none of the above applies anymore: Phase 1
+                  has no desk tabs (`activeDeskTab` is a constant "home"), so
+                  the always-mounted, invisible Customers table only sat on
+                  top of Home, where the component-highlight overlay labeled
+                  Home as `CustomersListView`/`TableToolbar`/... It's now
+                  rendered only while the Customers tab is active, i.e.
+                  never on Phase 1. The tab-switch handling above still
+                  lives in AgentWorkspace2WithDeskPage.tsx, which has real
+                  desk tabs. The Search panel's own Customers sub-tab
+                  doesn't need this block; it renders its own row panel. */}
+              {activeDeskTab === "customers" && (
+              <div className="relative flex flex-1 overflow-hidden animate-in fade-in-0 duration-200">
                 <CustomersListView
                   onStartInteraction={(contact, channel, phone, skillId) =>
                     handleStartCall({ contact, channel, phone, skillId })
@@ -11675,6 +11680,7 @@ export function AgentWorkspaceAdvancedPage({
                   hidePrevNext
                 />
               </div>
+              )}
               {activeDeskTab !== "customers" && (activeDeskTab !== "home" ? (
                 // Accounts/Tickets/WEM — no content built yet; same
                 // "Coming soon" placeholder treatment used elsewhere in
