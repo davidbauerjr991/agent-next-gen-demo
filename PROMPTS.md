@@ -85,7 +85,41 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 5b.2; 5b.1 is co
 
 ### P0.5d — Voice bar, incoming tile and wrap-up onto the provider   ✋ (Plan: Opus · Implement: Opus)
 ```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 5d (after 5b.2, which already moved hold, hang-up and Unassign & Dismiss onto the provider). In plan mode, propose moving the remaining contact controls onto InteractionProvider via the P0.5.0 hooks: voice bar hold/mute/record/mask/keypad (add controlled muted/onMuteChange to the app's local agent-next-gen-voice-call-controls.tsx per the voice-controls decision; sendDtmf for the keypad), hang up via end(), the incoming tile's Accept/Decline via accept()/decline(), the session status pill via setCaseStatus(), and the Outcome popover / Wrap-up card via completeWrapUp(). Gate each control with IfCapable/useCapability (hide, don't disable). Transfer stays unwired unless trivially mappable to blind transfer. Build <IncomingOfferTile> with an optional origin badge and reason line (unused for now) so P6.4's 'Escalated from virtual agent' state is a data change, not a component rework. Done = each control behaves as today but state comes from events (no optimistic local state); npm test passes; list browser checks for me, including a customer hang-up via __simCustomer landing in wrap-up. Don't write code yet.
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 5d. 5b.2 is done and already moved these onto the provider, in src/contact-handling/useContactCommands.ts (shared by both pages):
+- hold/resume → hold();
+- hang-up and the nav End Call → end() (wrap-up shows as voiceCallEnded);
+- Unassign & Dismiss, Save & Dismiss and Save & Redial → end + completeWrapUp;
+- the session status pill → setCaseStatus().
+Build on those; don't redo them.
+
+In plan mode, propose the rest, in shared code first (no logic added to one page and ported later):
+- Voice bar mute/record/mask/keypad via mute()/setRecording()/setMasked()/sendDtmf(). Add controlled muted/onMuteChange to the app's local agent-next-gen-voice-call-controls.tsx, per the voice-controls decision.
+- The persistent voice bar on both pages (parity rows 1–6). A shared useLiveVoiceCall() + <LiveVoiceCallBar> replaces findLiveVoiceThread:
+  - hold timer and label/avatar on Desk;
+  - hang-up opens Outcome on Desk;
+  - the "View Transcript?" confirm;
+  - Desk's implicit "on hold while not the active card" indicator (row 3) goes away.
+- Accept/Decline: generalize Advanced's ringing tile into <IncomingOfferTile> on both pages via accept()/decline(), with an optional origin badge and reason line (unused for now), so P6.4's "Escalated from virtual agent" is a data change, not a rework.
+- Outcome (rows 19, 20): a shared useOutcomeDraft with per-channel persistence on both pages, feeding completeWrapUp. Desk today records an outcome only on Save & Dismiss. Remove the hover-preview Outcome on Desk.
+- Wrap-up card: via completeWrapUp().
+- Nav card convergence (rows 7, 8, 9, 23):
+  - End Call shown on both pages, using the hang-up path;
+  - Consult/Transfer, kebab and add participant gated by capabilities;
+  - Outcome always visible on voice rows.
+  Fold these into one CONTACT_HANDLING_FLAGS + capabilities, replacing the per-page SHOW_* constants.
+- Opening a notification expands the left nav on both pages (row 21).
+- Rows that are still open and need decisions:
+  - Desk's docked channel preview (rows 12/13) stays deferred unless I say otherwise.
+  - Row 11 (the voice icon in the record header) rides along if you edit the record header.
+- Known 5b.2 gaps to fix here:
+  - Advanced's Outcome briefly shows Cancel / Save & Close after hang-up until the wrap-up event arrives. Open it in its ended state, or wait for the event.
+  - The seen-cards and read-notification state reset on a tier switch. Consider deriving "unread" from the seed offer still waiting.
+
+Gate every control with IfCapable/useCapability (hide, don't disable). Transfer stays unwired unless trivially mappable to blind transfer. Scripted scenario cards keep their local handling until 5c.
+
+For every visual change on either page, give a before/after and wait for my approval.
+
+Done = each control behaves as today on both pages, with state from events (no optimistic local state); npm test passes; type-check at baseline. List browser checks for me, including a customer hang-up via __simCustomer landing in wrap-up. Don't write code yet.
 ```
 
 ### P0.6 — Customer console route   (Plan: Opus · Implement: Sonnet)

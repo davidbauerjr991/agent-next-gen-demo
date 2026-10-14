@@ -225,3 +225,31 @@ Order of attack: Phase 0, then Phase 1 with just the telecom profile (so existin
     - Advanced: `"refuse"`, on every path. New Outbound is disabled during a call; Redial and Save & Redial don't open the pad; a voice "+" or dial isn't placed. Scripted scenario calls count as being on a call. The agent sees an info toast, "A call is already in progress".
     - Desk: `"auto-hold"`; the provider holds the first call when the second connects.
   - **The "New" badge is on both pages' nav cards** (shared `useNewAssignments`): a card is new until it has been active once. The three seeded assignment notifications start unread.
+- P0.5b.2 — **As built** (2026-10-14; supersedes the design entry where they differ).
+  - **Cards:** `useNavCards` keeps the pages' `setInteractions(prev => next)` updater shape.
+    - Store cards keep only overlay fields: `currentThreadId`, `startedFresh`, `liveMessages`, `customerId` (a linked record), and per thread `awaitingResponse`, `lastCustomerMessageTick`, `messageCount`, `startedFresh`.
+    - Any other change is dropped, with a dev warning naming the field.
+    - Adding a non-scenario card is refused; it must come from `dial`/`reopen`/`accept`.
+    - `threadStatuses` is not overlay: the design's temporary overlay was replaced by pulling the status pill forward to `setCaseStatus`, because reopen folding reads the stored `caseStatus`.
+  - **Visibility rule:** a thread whose newest contact has ended is hidden, and so is a card left with no threads. This is what makes dismissed cards stay gone across tier switches, with no hide state.
+  - **Activation is never optimistic.** `useContactActivation` activates a launched contact only once it is in the store. Activation modes:
+    - "focus": a new card, a redial, a reopen, a notification.
+    - "added": a channel added to an open card. Advanced opens the docked preview; Desk switches the main column while rows 12/13 are deferred.
+    - "none": the other threads of a restored case.
+  - **Identity:** `card.entityId` carries what the old card id meant.
+    - A directory id, or `history:${caseId}` for Contact History contacts, which is also how they're registered for "+".
+    - Address-only contacts (the old `adhoc:`/`quickdial:` cards) have none.
+    - New Outbound passes the contact's subtitle as `DialRequest.caseId`, so a directory customer's card keeps that customer's record id.
+    - The name is `contactName`, unless the contact only presented an address and was later linked (`directoryDisplayName`).
+  - **Notifications:** `NOTIFICATION_INTERACTION_ID` maps each assignment notification to its seed. Opening it:
+    - accepts the offer, into the customer's open card if there is one;
+    - switches to it if it's live;
+    - reopens it if it was dismissed, again into an open card if there is one.
+  - **Dismiss and wrap-up** (`useContactCommands`):
+    - Each contact on a thread is declined if still offered; otherwise it's ended if live, then wrap-up completes with the outcome.
+    - Advanced uses the per-channel outcome selections; Desk's Save & Dismiss uses its draft.
+    - The success toast waits for the provider.
+    - Save & Redial leaves the ended call in wrap-up until the redial is placed, then completes only the wrap-up contacts, so the card never empties.
+    - Scripted scenario cards keep their local handling until 5c.
+  - **Thread restarts:** a digital launch onto a thread whose contact is still live goes through `reopen` with the card's journey (superseding the old contact); voice always dials.
+  - **Lyra:** the Redial dial pad's top-left flash was a pre-existing lyra Popover bug: the virtual anchor was measured after it left the page. It's fixed in lyra `1a0c15c` with `createLastKnownAnchor`, authorized by the user. lyra has no test runner, so the helper's unit test lives in this app (`src/lyra-checks/`).
