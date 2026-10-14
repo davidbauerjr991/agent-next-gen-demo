@@ -308,6 +308,37 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 5, step 5. Replace Phase
 
 ---
 
+## Phase 6 — Virtual agent and escalation to a human
+
+Runs after Phase 5: it needs chat (P2.x), voice (P3.x), the handoff snapshot (P2.4), the console (P0.6) and model access (P5.1). Nothing in this phase is scripted — the bot and the simulated customer are both model calls.
+
+### P6.1 — Escalation domain + BotAgentProvider contract   (Plan: Opus · Implement: Opus)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 6, step 1. In plan mode, propose: (1) domain changes in src/domain — Interaction.origin gains "escalated"; Interaction.escalation { at, reason: "customer-requested" | "out-of-authority" | "sentiment" | "bot-uncertain", summary, intent, sentimentTrend, botAttempts, pendingRequest? }; Message and Utterance gain author "bot" beside customer/agent — the bot segment is the same Interaction's transcript up to escalation.at, same InteractionId and journeyId, never a second contact; (2) a BotAgentProvider contract in src/providers (types only, imports only src/domain, same conventions as P0.2): handle(interactionId), onCustomerTurn(turn), release(interactionId); events botTurn, thinking, escalate, released; ProviderError only; capabilities for channels and canEscalate. The bot converses and asks to escalate — routing stays with the engine; (3) the profile's bot pack in src/profiles — persona, authority limits, escalation policy, tools over getCollection — with the telecom profile filled in; (4) a placeholder adapter for the new provider and a slot for it in ProviderSet; (5) tests: describeInteractionProviderContract gains "an escalated incoming carries escalation and getTranscript returns the bot segment", gated on a new InteractionProvider capability "escalation" so adapters without a virtual agent skip it, and a new describeBotAgentProviderContract (turn ordering, escalate at most once, release cancels in-flight work, not-supported gating). Nothing visible changes. Done = types compile, npm test passes with the new suites against the placeholder and the sim. Don't write code yet.
+```
+
+### P6.2 — SimulatedBotAgentProvider + bot-first routing   (Plan: Opus · Implement: Opus)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 6, step 2. In plan mode, propose SimulatedBotAgentProvider in src/adapters/sim/ on the P5.1 model backends — lift the backend selection into a shared module if it still lives inside the assist adapter, so AssistProvider and BotAgentProvider use the same one. System prompt from the profile's bot pack (persona, authority, compliance); tools = the profile's collection query plus escalate(reason, summary). Add bot-first routing to SimEngine: a console-started contact flagged bot-first is handed to the bot, customer SimCustomerAction messages become onCustomerTurn, botTurn becomes a transcript/message event with author "bot", and escalate moves the contact to the queue and emits incoming with escalation populated and the bot transcript already in place. The engine must honor an explicit request for a person even if the model misses it (a policy guard, not a script). Chat only; a dev-only bot-first flag on the console handshake is enough for now (P6.3 adds the real control). Done = starting a bot-first chat from the console as Marcus Webb and typing an over-limit refund request produces an incoming offer in the agent app carrying escalation and the bot's turns; a test with a stubbed model backend covers the escalate path end to end; the BotAgentProvider contract suite passes against the sim; list browser checks for me. Don't write code yet.
+```
+
+### P6.3 — Console AI-customer mode   (Plan: Opus · Implement: Sonnet)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 6, step 3. In plan mode, propose a "Play as <entity>" mode on the console beside typed and canned lines: a model-driven customer persona built from the entity record and contact history (via CustomerDataProvider), plus a goal and temperament picked on the console (e.g. refund over the bot's limit, rising frustration, wants a human), with a bot-first toggle on the handshake. It emits ordinary SimCustomerAction messages so the engine can't tell it from a typed customer, and it keeps taking turns against the bot until escalation, then against the human agent. During the bot segment the console voices both parties with its own TTS (no agent is on the contact yet). Done = with no typing at all, a bot-first chat between the AI customer and the bot runs to an escalation and the console shows the thread; list browser checks for me. Don't write code yet.
+```
+
+### P6.4 — Agent-side handoff   ✋ (Plan: Opus · Implement: Opus)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 6, step 4. I'm explicitly authorizing a lyra-ui change to the transcript component for this step, backward compatible with a story. In plan mode, propose the human side of the handoff, built once in the shared contact-handling code and consumed by both pages per the parity decision: the incoming tile shows "Escalated from virtual agent" with escalation.reason; accepting loads the transcript with author "bot" turns rendered distinctly and a handoff divider at escalation.at; the P2.4 handoff snapshot is seeded from escalation (summary, intent, sentiment trend, what the bot tried, pending request) through the profile's template and then frozen; AI assist resumes over the full transcript on the next utterance. Accept drops the entire bot segment into the transcript at once, so measure that render against P2.0's budget. Grep page files; targeted edits. Done = the escalated contact looks and behaves identically on AgentWorkspaceAdvancedPage and AgentWorkspace2WithDeskPage apart from layout; accept renders under ~50ms; npm test passes; list browser checks for me. Don't write code yet.
+```
+
+### P6.5 — Voice escalation   (Plan: Opus · Implement: Sonnet)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 6, step 5. In plan mode, propose extending bot-first routing to voice: during the bot segment the console voices customer and bot in two distinct voices; escalate rings the agent app via the existing P3.3 path with escalation on the offer; on Answer the console stops the bot's voice and SimulatedMediaProvider takes over the customer's voice mid-call on the same Interaction — no re-ring, no second contact, playback rules from P3.4 unchanged. Done = a bot-first voice call plays both voices on the console, escalates, rings the agent, and after Answer the customer's next line is heard in the agent window with the transcript continuous across the divider; list browser checks for me. Don't write code yet.
+```
+
+---
+
 ## Later
 
 ### P-ADAPTER — First real adapter   (Plan: Opus · Implement: Opus)
