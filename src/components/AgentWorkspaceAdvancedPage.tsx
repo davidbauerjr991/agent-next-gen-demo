@@ -2961,6 +2961,10 @@ export function AgentWorkspaceAdvancedPage({
       };
       const interaction: Interaction = {
         id: MARCUS_WEBB_ID,
+        // Marcus's directory record (lyra's create-new-customers-data.ts) has
+        // this same id. Since P0.5b.2 the page looks records up by
+        // `entityId`, not the card id, so the scenario card carries it too.
+        entityId: MARCUS_WEBB_ID,
         interactionId: `MW-INTERACTION-${Date.now()}`,
         customerName: MARCUS_WEBB_CUSTOMER_NAME,
         customerId: MARCUS_WEBB_CUSTOMER_ID,
