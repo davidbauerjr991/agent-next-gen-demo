@@ -1051,8 +1051,19 @@ export const NOTIFICATION_CHANNEL: Record<string, ChannelType> = {
   "4": "sms",
 };
 
+/** The provider contact each assignment notification stands for (P0.5b.2):
+ *  the sim seeds these as waiting offers (`SIM_DEMO_SEED`), and opening the
+ *  notification accepts it. demo-seed.test.ts keeps the two in step. */
+export const NOTIFICATION_INTERACTION_ID: Record<string, string> = {
+  "1": "seed-notification-1",
+  "3": "seed-notification-3",
+  "4": "seed-notification-4",
+};
+
+// The three seeded assignments (1, 3, 4) start unread: each stands for an
+// offer waiting in the provider (P0.5b.2). The rest are history and start read.
 export const INITIAL_NOTIFICATIONS: AgentNotification[] = [
-  { id: "1", type: "new-case",       title: newCaseNotificationTitle(NOTIFICATION_CHANNEL["1"]), subtitle: "Noah Patel",   timestamp: "13m ago", read: true },
+  { id: "1", type: "new-case",       title: newCaseNotificationTitle(NOTIFICATION_CHANNEL["1"]), subtitle: "Noah Patel",   timestamp: "13m ago", read: false },
   // "new-agent-chat", not "new-chat" — a request from a colleague, not a
   // customer, so it gets its own type (distinct icon/color,
   // agent-notifications.tsx) and title, per explicit request that it read
@@ -1062,8 +1073,8 @@ export const INITIAL_NOTIFICATIONS: AgentNotification[] = [
   // "Escalation - {channel}" — same per-channel suffix pattern as
   // "new-case"'s own title, per explicit request, rather than a bare
   // "Escalation" that doesn't say what actually landed.
-  { id: "3", type: "escalation",     title: `Escalation - ${channelNoun(NOTIFICATION_CHANNEL["3"])}`,     subtitle: "Lauren Kim",    timestamp: "24m ago", read: true },
-  { id: "4", type: "new-case",       title: newCaseNotificationTitle(NOTIFICATION_CHANNEL["4"]),          subtitle: "Ethan Zhang",   timestamp: "37m ago", read: true  },
+  { id: "3", type: "escalation",     title: `Escalation - ${channelNoun(NOTIFICATION_CHANNEL["3"])}`,     subtitle: "Lauren Kim",    timestamp: "24m ago", read: false },
+  { id: "4", type: "new-case",       title: newCaseNotificationTitle(NOTIFICATION_CHANNEL["4"]),          subtitle: "Ethan Zhang",   timestamp: "37m ago", read: false },
   { id: "5", type: "new-chat",       title: "New Chat",                                                   subtitle: "Olivia Reed",   timestamp: "51m ago", read: true  },
   { id: "6", type: "missed-call",    title: "Missed Call",                                                 subtitle: "David Brown",   timestamp: "1h ago",  read: true  },
 ];

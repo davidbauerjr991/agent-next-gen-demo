@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
 import { describe, expect, it } from "vitest";
-import { INITIAL_NOTIFICATIONS, NOTIFICATION_CHANNEL } from "@/components/agent-next-gen-interaction-dashboard";
+import { INITIAL_NOTIFICATIONS, NOTIFICATION_CHANNEL, NOTIFICATION_INTERACTION_ID } from "@/components/agent-next-gen-interaction-dashboard";
 import { SIM_DEMO_SEED } from "../sim/sim-fixtures";
 
 // The sim's demo seed is plain data (adapters import nothing from the UI),
@@ -13,6 +13,12 @@ describe("SIM_DEMO_SEED", () => {
 
   it("has one seed per assignment notification, by id", () => {
     expect(SIM_DEMO_SEED.map((s) => s.id)).toEqual(assignmentNotifications.map((n) => `seed-notification-${n.id}`));
+  });
+
+  it("NOTIFICATION_INTERACTION_ID points each assignment notification at its seed", () => {
+    expect(NOTIFICATION_INTERACTION_ID).toEqual(
+      Object.fromEntries(assignmentNotifications.map((n) => [n.id, `seed-notification-${n.id}`])),
+    );
   });
 
   it.each(assignmentNotifications.map((n) => [n.id, n] as const))("notification %s: same name, channel and linked record", (id, n) => {

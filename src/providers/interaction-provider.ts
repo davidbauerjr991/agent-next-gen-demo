@@ -176,8 +176,13 @@ export interface InteractionProvider extends EventSource<InteractionEvents>, Pro
 
   /** Accepts an offered interaction (Accept on the ringing tile, or opening a
    *  digital offer from its notification). Sets `acceptedAt`. A voice accept
-   *  follows the one-active-call rule (see `hold`). */
-  accept(interactionId: InteractionId): Promise<void>;
+   *  follows the one-active-call rule (see `hold`).
+   *
+   *  `journeyId` joins the accepted contact to an existing journey — e.g. the
+   *  customer already has a card open — taking that journey's `caseId`. It
+   *  must name a journey with a contact that hasn't ended (`not-found`
+   *  otherwise). Without it the contact keeps the journey it was offered in. */
+  accept(interactionId: InteractionId, options?: { journeyId?: JourneyId }): Promise<void>;
   /** Declines an offered interaction; it ends with reason "declined". */
   decline(interactionId: InteractionId): Promise<void>;
   /** Starts an agent-initiated contact on any channel (named for the dial

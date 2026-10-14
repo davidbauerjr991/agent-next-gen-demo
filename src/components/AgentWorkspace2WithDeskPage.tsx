@@ -34,7 +34,6 @@ import {
   Input,
   LeftNav,
   NavRail,
-  CreateNew,
   useAddChannelButton,
   InteractionNavItem,
   type InteractionNavItemProps,
@@ -83,16 +82,12 @@ import { CREATE_NEW_CUSTOMERS, type CreateNewCustomerRecord } from "@nicecxone/l
 import { useScheduleContent } from "@nicecxone/lyra-ui";
 import {
   initialsFor,
-  generateCaseId,
-  generateInteractionId,
-  generateContactId,
   formatElapsedTime,
   formatWaitTime,
   getAwaitingSeverity,
   CURRENT_AGENT_FIRST_NAME,
   CURRENT_AGENT_LAST_NAME,
   CURRENT_AGENT_ID,
-  withoutChannelStatus,
   nextCustomerSortDirection,
   synthesizeChannelAddress,
   SHOW_ADD_CHANNEL_HEADER_BUTTON,
@@ -123,7 +118,6 @@ import {
   OUTBOUND_AGENTS,
   CONTACT_HISTORY_OUTBOUND_CONTACTS,
   buildContactHistoryOutboundContacts,
-  HIDDEN_OUTBOUND_GROUP_IDS,
 } from "@/components/agent-next-gen-outbound-data";
 import {
   type Thread,
@@ -135,7 +129,6 @@ import {
   sortAssignments,
   AssignmentsSectionCaption,
   interactionHasBreachedSla,
-  NOTIFICATION_CHANNEL,
   INITIAL_NOTIFICATIONS,
   WELCOME_MODAL_LAST_LOGIN,
   INITIAL_QUEUE_SUB_ITEMS,
@@ -158,7 +151,7 @@ import {
   CONTACT_HISTORY,
 } from "@/components/agent-next-gen-contact-history";
 import { useCustomerAiSummaryPanelContent } from "@/components/agent-next-gen-ai-summary-panel";
-import { saveCaseRecord, getCaseRecord } from "@/components/agent-next-gen-case-database";
+import { saveCaseRecord } from "@/components/agent-next-gen-case-database";
 import {
   IfCapable,
   useAgentLegTransitions,
@@ -166,6 +159,19 @@ import {
   useCapability,
   useInteractionProvider,
 } from "@/provider-context";
+import {
+  buildOpenChannelTagger,
+  directoryDisplayName,
+  NewOutboundLauncher,
+  useContactActivation,
+  useContactCommands,
+  useContactReopen,
+  useNavCards,
+  useNewAssignments,
+  useOutboundDial,
+  useOutboundSkills,
+  type Activation,
+} from "@/contact-handling";
 import {
   type CustomerListRecord,
   CUSTOMER_LIST_RECORDS,
@@ -631,61 +637,27 @@ const PHASE2_ASSIGNMENT_SORT_OPTIONS = ASSIGNMENT_SORT_OPTIONS.filter((o) => o.v
 // be? Falls back to the same generic "Customer" every genuinely nameless
 // interaction already shows (the plain `?? "Customer"` case below), the
 // moment a second channel joins. A REAL directory contact is unaffected —
-// its id carries neither prefix, so `isAddressOnly` is false and this just
-// returns `customerName` untouched (an actual person's name), no matter how
-// many channels are open. Used everywhere `customerName` previously read
+// it has an `entityId` (since P0.5b.2 the card id is a journey id, so the
+// old `adhoc:`/`quickdial:` id prefixes are gone), so `isAddressOnly` is
+// false and this just returns `customerName` untouched, no matter how many
+// channels are open. Used everywhere `customerName` previously read
 // `?? "Customer"` directly (the dismiss toast, the main tab label, the
 // record-header title, `InteractionNavItem`'s own `customerName` prop) so
 // all four stay in agreement about what this card is currently called.
-function interactionDisplayName(interaction: Pick<Interaction, "id" | "customerName" | "threads">): string {
-  const isAddressOnly = interaction.id.startsWith("adhoc:") || interaction.id.startsWith("quickdial:");
+function interactionDisplayName(interaction: Pick<Interaction, "id" | "entityId" | "customerName" | "threads">): string {
+  const isAddressOnly = !interaction.entityId && !isDeskScenarioCardId(interaction.id);
   if (isAddressOnly && interaction.threads.length > 1) return "Customer";
   return interaction.customerName ?? "Customer";
 }
 
-// Builds a `tagOpenChannels` closure off of the given `interactions` — reads
-// each `Thread.type`/`.value` (skipping any channel the agent has
-// explicitly closed, `channelStatuses[c.id] === "Closed"`, since reselecting
-// a closed channel is how it gets reopened again — see `handleStartCall`'s
-// own `isReopenOfClosedChannel` branch) into per-contact maps of every
-// address in use (`openChannelAddresses`) and every channel *type* open
-// regardless of address (`openChannelTypes`, needed even when a channel has
-// no stored address at all, e.g. `handleRedial`'s voice channel). Pulled out
-// to a standalone function (rather than inlined in the `outboundConfig`
-// `useMemo` below) so the exact same tagging can ALSO run over
-// `CONTACT_HISTORY_OUTBOUND_CONTACTS` (see the `contactHistoryOutboundContacts`
-// memo further down) — those contacts are deliberately kept OUT of
-// `outboundConfig.groups` itself (would make them wrongly searchable from
-// New Outbound, see that memo's own doc comment), so they'd otherwise never
-// receive this tagging at all and their already-open channels would show as
-// selectable again in a reopened Contact History card's "+" (Add Channel) row.
-function buildOpenChannelTagger(interactions: Interaction[]) {
-  const openAddressesByContactId = new Map<string, Partial<Record<ChannelType, string[]>>>();
-  const openTypesByContactId = new Map<string, Set<ChannelType>>();
-  for (const interaction of interactions) {
-    const byType: Partial<Record<ChannelType, string[]>> = {};
-    const types = new Set<ChannelType>();
-    for (const c of interaction.threads) {
-      if (interaction.threadStatuses?.[c.id] === "Closed") continue;
-      types.add(c.type);
-      if (!c.value) continue;
-      (byType[c.type] ??= []).push(c.value);
-    }
-    openAddressesByContactId.set(interaction.id, byType);
-    openTypesByContactId.set(interaction.id, types);
-  }
-  return function tagOpenChannels(
-    contact: NonNullable<CreateNewOutboundConfig["groups"][number]["contacts"]>[number]
-  ) {
-    const openChannelAddresses = openAddressesByContactId.get(contact.id);
-    const openChannelTypes = openTypesByContactId.get(contact.id);
-    if (!openChannelTypes || openChannelTypes.size === 0) return contact;
-    return {
-      ...contact,
-      ...(openChannelAddresses && Object.keys(openChannelAddresses).length > 0 ? { openChannelAddresses } : {}),
-      openChannelTypes: [...openChannelTypes],
-    };
-  };
+// `buildOpenChannelTagger` (open channels per contact, for New Outbound and
+// "+") moved to src/contact-handling/open-channel-tagger.ts in P0.5b.2,
+// shared with Advanced and keyed by the card's `entityId`.
+
+/** The scripted scenario card — the only card this page still owns
+ *  (P0.5b.2); every other card is a provider contact. Until P0.5c. */
+function isDeskScenarioCardId(id: string): boolean {
+  return id === MARCUS_WEBB_ID;
 }
 
 /** "7/23/2025 09:32 AM" — same compact numeric date/time style Agent
@@ -1562,9 +1534,39 @@ export function AgentWorkspace2WithDeskPage({
   // Dial below. Click any resulting InteractionNavItem card to make it the
   // active one. `initialInteraction` (see above) seeds this instead, for
   // callers that want to start already mid-call.
-  const [interactions, setInteractions] = useState<Interaction[]>(
-    () => (initialInteraction ? [initialInteraction] : [])
+  // The page clock (agent-next-gen-page-clock.ts) is created here, ahead of
+  // the cards, because store cards measure their timers from its anchor.
+  // Handlers and timeouts read the current tick with `clock.now()`; only the
+  // `<ClockTick>`/`<ClockValue>` wrappers re-render each second.
+  const clock = usePageClockSource();
+  /** Customer directory records created THIS session via "Create New
+   *  Customer" — there's no backend to persist into the static
+   *  `CREATE_NEW_CUSTOMERS`, so they live here for the session and are
+   *  checked alongside it wherever a real-customer test or the match pool
+   *  is built. Declared before the cards, which name linked contacts from it. */
+  const [createdCustomerRecords, setCreatedCustomerRecords] = useState<CreateNewCustomerRecord[]>([]);
+  const navCardDisplayName = useMemo(
+    () =>
+      directoryDisplayName(
+        (entityId) =>
+          createdCustomerRecords.find((c) => c.id === entityId) ?? CREATE_NEW_CUSTOMERS.find((c) => c.id === entityId)
+      ),
+    [createdCustomerRecords]
   );
+  // Left-nav cards (P0.5b.2): provider contacts come from the interaction
+  // store (one card per journey, `card.id` = `journeyId`); the scripted
+  // Marcus Webb chat stays page-local until P0.5c. `setInteractions` keeps
+  // the old updater shape — see useNavCards for what it keeps and drops.
+  const {
+    cards: interactions,
+    setCards: setInteractions,
+    findOpenCard,
+    seedOverlay,
+  } = useNavCards({
+    anchorMs: clock.anchorMs,
+    displayName: navCardDisplayName,
+    isScenarioCardId: isDeskScenarioCardId,
+  });
   // Real "Assignments resolved today" count — previously read by the
   // dashboard header's own `SHOW_RESOLVED_TODAY_CHIP`-gated Badge (see
   // that flag's own doc comment, agent-next-gen-shared-utils.ts, and the
@@ -1928,18 +1930,6 @@ export function AgentWorkspace2WithDeskPage({
   /** The "Search Customers" box's own typed value — reset alongside
    *  `customerMatchStep` for the same reason. */
   const [customerMatchQuery, setCustomerMatchQuery] = useState("");
-  /** Customer directory records created THIS session via "Create New
-   *  Customer" (see `handleCreateNewCustomer` below) — there's no real
-   *  backend here to persist a new record into the actual
-   *  `CREATE_NEW_CUSTOMERS` directory (that array is static, imported
-   *  data), so newly "created" customers live here instead, in-memory for
-   *  the rest of the session. Checked alongside `CREATE_NEW_CUSTOMERS`
-   *  everywhere a real-customer membership test happens
-   *  (`activeInteractionIsRealCustomer` below) and everywhere the match/
-   *  search pool is built, so a customer created earlier this session
-   *  reads as "real" from then on and can even show up as a possible
-   *  match for a LATER unrelated unknown contact. */
-  const [createdCustomerRecords, setCreatedCustomerRecords] = useState<CreateNewCustomerRecord[]>([]);
   const handleOutcomeOpenChange = (key: string, open: boolean, source: "leftnav" | "transcript" | "tab" | "header" | "hover") => {
     if (open) {
       // Reset to a fresh draft every time a (possibly different) channel's
@@ -1989,8 +1979,7 @@ export function AgentWorkspace2WithDeskPage({
   const handleOutcomeSaveAndRedial = (interactionId: string, phoneNumber: string, anchorEl: HTMLElement | null) => {
     setOutcomeDraftKey(null);
     setOutcomeDraftSource(null);
-    setRedialActiveInteraction({ interactionId, phoneNumber });
-    setDialpadRequest({ phoneNumber, anchorEl });
+    outboundDial.openCardRedialPad(interactionId, phoneNumber, anchorEl);
   };
   // Formerly drove the record header's own icon-button-cluster Outcome
   // popover and status chip (Consult/Transfer, Outcome, kebab, status
@@ -2062,6 +2051,9 @@ export function AgentWorkspace2WithDeskPage({
   const [activeInteractionId, setActiveInteractionId] = useState<string | null>(
     () => initialInteraction?.id ?? null
   );
+  // The nav cards' "New" badge — a card is new until it has been the active
+  // one. Shared with Advanced (`useNewAssignments`, nav card convergence).
+  const isNewAssignment = useNewAssignments(activeInteractionId);
   // Customers table's "+ Filter" state, lifted up here (not local to
   // `CustomersListView`) — that component sits inside the Desk dashboard's
   // own branch of the `showSettings ? ... : activeInteraction ? ... : (
@@ -2338,7 +2330,7 @@ export function AgentWorkspace2WithDeskPage({
   // header's own status chip (`ChannelStatusTag`, further down — an agent
   // call has no real Open/Pending/Resolved/Closed disposition to log
   // against a colleague the way a genuine customer contact does).
-  const activeInteractionIsAgentCall = !!activeInteraction && OUTBOUND_AGENTS.some((a: CreateNewOutboundContact) => a.id === activeInteraction.id);
+  const activeInteractionIsAgentCall = !!activeInteraction && OUTBOUND_AGENTS.some((a: CreateNewOutboundContact) => a.id === activeInteraction.entityId);
   // Per explicit request ("Marcus Webb when initiated should not show
   // customer information") — the scripted Marcus Webb interaction
   // (`MARCUS_WEBB_ID`) hides Customer Information the same way
@@ -2396,9 +2388,9 @@ export function AgentWorkspace2WithDeskPage({
   // synthetic-id case specifically, without also covering `adhoc:`/
   // `quickdial:`/`redial:` (still genuinely unknown contacts, unaffected).
   const activeInteractionIsRealCustomer = activeInteraction
-    ? CREATE_NEW_CUSTOMERS.some((c) => c.id === activeInteraction.id) ||
-      createdCustomerRecords.some((c) => c.id === activeInteraction.id) ||
-      activeInteraction.id.startsWith("history:")
+    ? CREATE_NEW_CUSTOMERS.some((c) => c.id === activeInteraction.entityId) ||
+      createdCustomerRecords.some((c) => c.id === activeInteraction.entityId) ||
+      !!activeInteraction.entityId?.startsWith("history:")
     : true;
   // Per explicit request ("when view all is clicked on the customer
   // information — instead of opening the side panel, take the content ...
@@ -2445,9 +2437,9 @@ export function AgentWorkspace2WithDeskPage({
   // exactly as before, just via the simpler direct check.
   const activeInteractionCustomerIdentified =
     !!activeInteraction &&
-    !activeInteraction.id.startsWith("adhoc:") &&
-    !activeInteraction.id.startsWith("quickdial:") &&
-    !activeInteraction.id.startsWith("redial:") &&
+    // A known contact (P0.5b.2: an entity, where the old `adhoc:`/
+    // `quickdial:`/`redial:` card ids meant an address-only one).
+    (!!activeInteraction.entityId || isDeskScenarioCardId(activeInteraction.id)) &&
     activeChannelType === "chat";
   // Computed once so the SAME object feeds both the Customer Context
   // Overview cards AND the new "AI Customer Summary" panel
@@ -2633,15 +2625,19 @@ export function AgentWorkspace2WithDeskPage({
    *  applies. */
   const handleLinkCustomerRecord = (customer: CreateNewCustomerRecord) => {
     if (!activeInteraction) return;
-    const fromId = activeInteraction.id;
+    const cardId = activeInteraction.id;
+    // P0.5b.2: the card's contacts join the record through the provider
+    // (`associateEntity`); the card keeps its journey id, and its name comes
+    // from the directory (`directoryDisplayName`). `customerId` — the record
+    // id Customer Information looks up — is page overlay state.
+    const linked = contactCommands.linkEntity(activeInteraction, customer.id);
     setInteractions((prev) =>
       prev.map((interaction) =>
-        interaction.id === fromId
-          ? { ...interaction, id: customer.id, customerId: customer.customerId, customerName: customer.name }
+        interaction.id === cardId
+          ? { ...interaction, customerId: customer.customerId, ...(linked ? {} : { customerName: customer.name }) }
           : interaction
       )
     );
-    setActiveInteractionId(customer.id);
     addToast({
       variant: "success",
       title: "Linked to record",
@@ -2706,12 +2702,15 @@ export function AgentWorkspace2WithDeskPage({
       agentTeam: "",
       paymentBalance: activeCustomerRecordDraft.draft.balanceDue || "$0.00",
     };
-    const fromId = activeInteraction.id;
+    const cardId = activeInteraction.id;
     setCreatedCustomerRecords((prev) => [...prev, newRecord]);
-    setInteractions((prev) =>
-      prev.map((interaction) => (interaction.id === fromId ? { ...interaction, id: newId, customerName: name } : interaction))
-    );
-    setActiveInteractionId(newId);
+    // Same as linking (P0.5b.2): the card's contacts join the new record.
+    const linked = contactCommands.linkEntity(activeInteraction, newId);
+    if (!linked) {
+      setInteractions((prev) =>
+        prev.map((interaction) => (interaction.id === cardId ? { ...interaction, customerName: name } : interaction))
+      );
+    }
     addToast({
       variant: "success",
       title: "Customer created",
@@ -2799,8 +2798,8 @@ export function AgentWorkspace2WithDeskPage({
   // (`statusSinceTick` below). Not page state: a tick re-renders only the
   // `<ClockTick>`/`<ClockValue>` wrappers that show a live time, so the page
   // itself doesn't re-render every second (agent-next-gen-page-clock.ts).
-  // Handlers and timeouts read the current tick with `clock.now()`.
-  const clock = usePageClockSource();
+  // Handlers and timeouts read the current tick with `clock.now()`. (The
+  // clock itself is created up with the cards.)
   // Same idea for the home tab's live queue widgets (4s random walk):
   // only `<QueueSubItems>` readers re-render (agent-next-gen-queue-sim.ts).
   const queueSim = useQueueSimSource();
@@ -3093,7 +3092,7 @@ export function AgentWorkspace2WithDeskPage({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [agentStatus, marcusWebbState.triggered, clock]);
+  }, [agentStatus, marcusWebbState.triggered, clock, setInteractions]);
   const [showWelcomeModal, setShowWelcomeModal] = useState(true);
   // Flushes whatever `fireAgentLegStatusToast` deferred (further up this
   // component) the moment the welcome modal actually closes (Go Available /
@@ -3608,43 +3607,11 @@ export function AgentWorkspace2WithDeskPage({
      another. */
   const [selectedContactHistoryEntry, setSelectedContactHistoryEntry] = useState<ContactHistoryEntry | null>(null);
 
-  /* Per explicit request ("when the redial button is clicked open a popover
-     that displays the number and the ability to select a skill - then make
-     sure the skill name is in the new interactionNavItem that launches -
-     use the existing popover"): clicking Redial no longer dials
-     immediately — it opens the SAME Dial Pad popover `outboundConfig`'s own
-     "+" New Outbound button already renders
-     (`CreateNewOutboundConfig.dialpadRequest`, create-new.tsx), pre-filled
-     with this entry's own number, so the agent still picks a skill there
-     before the call actually starts. `redialEntry` remembers WHICH entry
-     this request is for, so `handleDialpadSubmit` (below,
-     `handleRedial`'s own doc comment) can tell a completed redial apart
-     from an ordinary New Outbound dial.
-     `anchorEl`/`customerName`/`phoneOptions` added per explicit follow-up
-     request ("don't close the interior panel... simply open the popover
-     (place it on top of the redial button)... If it is an existing
-     customer, display the customer name and an ability to select from any
-     of the phone numbers available") — see `handleRedialButtonClick`'s own
-     doc comment for how each is filled in. Premium tier only: Phase 1
-     (AgentNextGenPage.tsx) keeps the plain single-number popover exactly as
-     before — per explicit instruction, this richer picker is scoped to
-     here, where `CREATE_NEW_CUSTOMERS` is a real "customer database" each
-     redialable entry can actually resolve back to (Phase 1's Contact
-     History entries have no such backing database). */
-  const [dialpadRequest, setDialpadRequest] = useState<{
-    phoneNumber: string;
-    anchorEl?: HTMLElement | null;
-    customerName?: string;
-    phoneOptions?: { value: string; label: string }[];
-  } | null>(null);
-  const [redialEntry, setRedialEntry] = useState<ContactHistoryEntry | null>(null);
-  // Pending "Save & Redial" from the Outcome popover (see
-  // `handleOutcomeSaveAndRedial`) — a plain `{interactionId, phoneNumber}`
-  // pair rather than a full `ContactHistoryEntry` like `redialEntry` above,
-  // since this interaction is already known directly (no entry/customerId
-  // lookup needed) — see `handleRedialActiveInteraction`'s own doc comment.
-  // Mirrors AgentWorkspaceAdvancedPage.tsx's own identical state.
-  const [redialActiveInteraction, setRedialActiveInteraction] = useState<{ interactionId: string; phoneNumber: string } | null>(null);
+  // The Dial Pad request (Redial, Save & Redial) and the pending redial it
+  // completes live in the shared `useOutboundDial` (P0.5b.2):
+  // `outboundDial.dialpadRequest`, `openRedialPad`, `openCardRedialPad`.
+  // Redial pre-fills the customer's name and numbers on file, as this page
+  // always did — now on both pages (row 16).
 
   /* Home tab's queue widget row: the live counts come from the queue
      simulation (`queueSim`, agent-next-gen-queue-sim.ts) and the wait times
@@ -4254,195 +4221,43 @@ export function AgentWorkspace2WithDeskPage({
       handlePanelButtonClick("conversations")();
       return;
     }
-    const skillLabel = OUTBOUND_CONFIG.skillOptions.find((o) => o.value === selection.skillId)?.label;
-    // `phoneOptions` only has a value→label mapping for phone numbers (raw
-    // digits → formatted display string) — email/WhatsApp addresses are
-    // already human-readable as-is (see `create-new.tsx`'s
-    // `defaultDetailValueFor`, where their `value` and `label` are the same
-    // string), so falling back to `selection.phone` itself is correct there,
-    // not a placeholder.
-    const addressLabel = OUTBOUND_CONFIG.phoneOptions.find((o) => o.value === selection.phone)?.label ?? selection.phone;
-    // Read before `setInteractions` below — whether this customer already
-    // has a card open decides whether Customer Information animates open
-    // (see the `setSidePanelOpen` call at the end of this handler).
-    const isNewInteraction = !interactions.some((i) => i.id === selection.contact.id);
-    // Read before `setInteractions` below, same reasoning as
-    // `isNewInteraction` — this channel's own id (`type:phone`, reused
-    // verbatim across restarts at the same address) is how a restart of a
-    // previously-CLOSED channel is actually detected: if a channel with
-    // this exact id already exists on this contact's interaction AND its
-    // own `channelStatuses` entry currently reads `"Closed"`, this is a
-    // genuine reopen (agent picked the same channel/handle again via "Add
-    // Channel"), not a brand-new one — see `Thread.
-    // reopenedContacts`'s own doc comment for what that then does.
-    const existingInteraction = interactions.find((i) => i.id === selection.contact.id);
-    const existingChannelId = `${selection.channel}:${selection.phone}`;
-    const existingChannel = existingInteraction?.threads.find((c) => c.id === existingChannelId);
-    const isReopenOfClosedChannel =
-      !!existingChannel && existingInteraction?.threadStatuses?.[existingChannelId] === "Closed";
-    // This Interaction's own identity — see `Interaction.interactionId`'s
-    // own doc comment for the full start/end lifecycle. `existingInteraction`
-    // is only truthy when a card for this exact contact is ALREADY open (the
-    // same check `isNewInteraction` above makes), so this is exactly "carry
-    // the ongoing journey's id forward, or start a new journey" with no
-    // separate lookup needed.
-    const interactionId = existingInteraction?.interactionId ?? generateInteractionId();
-    const reopenedContacts = isReopenOfClosedChannel
-      ? [
-          ...(existingChannel!.reopenedContacts ?? []),
-          {
-            // `Date.now()` (a real, always-unique timestamp), not
-            // `clockTick` (an incrementing seconds counter this app's own
-            // shared 1s interval drives) — two reopens landing inside the
-            // same tick would otherwise collide on id.
-            id: `session-reopened-${Date.now()}`,
-            date: new Date().toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" }),
-            startTime: new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
-            // This reopen's own, genuinely distinct Contact ID — a reopen is
-            // a NEW Contact within the same still-ongoing Interaction/Thread,
-            // not a continuation of the Thread's original one (`newChannel.
-            // contactId` below, untouched by a reopen).
-            contactId: generateContactId(),
-            // Snapshot of how many live messages this channel had BEFORE
-            // this reopen — per explicit correction, those messages must
-            // stay visible (dimmed) under their own prior session, not be
-            // wiped. See this field's own doc comment on `Thread.
-            // reopenedContacts` for how `InteractionTranscript` uses it.
-            messagesBeforeReopen: existingInteraction?.liveMessages?.[existingChannelId]?.length ?? 0,
-          },
-        ]
-      : existingChannel?.reopenedContacts;
-    const newChannel: Thread = {
-      id: existingChannelId,
-      type: selection.channel,
-      startTick: clock.now(),
-      preview: skillLabel,
-      value: selection.phone,
-      addressLabel,
-      // A freshly started outbound conversation hasn't exchanged any
-      // messages yet — `0` (not omitted) so the tooltip actually reads "0
-      // Messages" instead of showing nothing. Voice has no message concept
-      // at all, so it's left `undefined` there — see
-      // `ChannelTabProps.messageCount`'s own doc comment.
-      messageCount: selection.channel === "voice" ? undefined : 0,
-      // This Thread's own BASE Contact id — generated once, the moment the
-      // Thread is genuinely new (`existingChannel` falsy). A reopen of an
-      // already-existing (closed) Thread does NOT get a fresh one here —
-      // that reopen's own distinct Contact id lives on its own
-      // `reopenedContacts` entry above instead, same "the Thread persists,
-      // each Contact within it is its own instance" split the Thread/Contact
-      // model draws.
-      contactId: existingChannel?.contactId ?? generateContactId(),
-      reopenedContacts,
-      // Per explicit follow-up request ("whenever a new channel is open
-      // unless it is re-opening a channel it should open as a draft"): an
-      // agent-initiated outbound launch always gets a fresh, empty session
-      // — see `Thread.startedFresh`'s own doc comment for why this is now a
-      // per-Thread flag rather than the interaction-wide one this used to
-      // rely on exclusively. `existingChannel`'s own reopen path already
-      // renders its own synthetic empty session via `reopenedContacts`
-      // regardless of this flag, so unconditionally `true` here is correct
-      // either way.
-      startedFresh: true,
-      // Agent-initiated launch — always outbound. See `Thread.direction`'s
-      // own doc comment on `agent-next-gen-interaction-dashboard.tsx`.
-      direction: "outbound",
-    };
-
-    setInteractions((prev) => {
-      const idx = prev.findIndex((i) => i.id === selection.contact.id);
-      // No existing interaction with this contact — start a new card.
-      if (idx === -1) {
-        return [...prev, {
-          id: selection.contact.id,
-          // `adhoc:`-prefixed ids are lyra-ui's own "Continue with" flow
-          // (`buildAdHocSearchContact`, create-new.tsx) — a typed query that
-          // matched no real directory contact, so CreateNew builds a
-          // throwaway contact whose `name` IS the raw typed phone number/
-          // email itself. Passed straight through as `customerName` (not
-          // blanked out) — per explicit request, the raw address is exactly
-          // what should show as this card's name/title text (both here and
-          // in `CustomerInformationSidePanel`'s header) when there's no real
-          // customer — only the AVATAR needs different treatment for that
-          // case (a channel icon instead of initials derived from the
-          // address's own leading character), which is driven by the
-          // separate `customerIdentified` prop at the `InteractionNavItem`
-          // render call site below, not by blanking this out.
-          interactionId,
-          customerName: selection.contact.name,
-          // `subtitle` is the contact's real id (customerId/agentId/
-          // TEAM-.../SKL-.../ASN-...) whenever CreateNew's record set one —
-          // only missing for records that genuinely have none.
-          customerId: selection.contact.subtitle ?? generateCaseId(),
-          threads: [newChannel],
-          currentThreadId: newChannel.id,
-          startedFresh: true,
-        }];
-      }
-      // Same contact already has an interaction open — restart the matching
-      // channel's timer if this is the *same* type+address (e.g. redialing
-      // the same SMS number), or add a new row alongside the existing ones
-      // if it's a different address on the same type (e.g. a second SMS
-      // thread on a different number) — those are genuinely separate
-      // conversations, not a duplicate of the first, so they shouldn't
-      // overwrite it.
-      return prev.map((interaction, i) => {
-        if (i !== idx) return interaction;
-        const chIdx = interaction.threads.findIndex((c) => c.id === newChannel.id);
-        const channels = chIdx === -1
-          ? [...interaction.threads, newChannel]
-          : interaction.threads.map((c, j) => (j === chIdx ? newChannel : c));
-        // The channel just started/restarted always takes over as current —
-        // mirrors InteractionNavItem's own auto-select-newest rule, now
-        // mirrored up here too since this state is what drives both the
-        // card (via currentChannelKey) and the new ChannelToggle bar.
-        return {
-          ...interaction,
-          threads: channels,
-          currentThreadId: newChannel.id,
-          // Only matters when `chIdx !== -1` (same-address restart, reused
-          // `newChannel.id`) — clears that one channel's possibly-stale
-          // "Closed" entry so a redialed/reopened channel reads as freshly
-          // open again, without disturbing any sibling channel's own
-          // status. A genuinely new channel (`chIdx === -1`) has no entry
-          // to clear in the first place, so this is a no-op there.
-          threadStatuses: withoutChannelStatus(interaction.threadStatuses, newChannel.id),
-          // Same "clear stale per-call state on restart" moment as
-          // `threadStatuses` just above, for the dedicated `voiceCallEnded`
-          // flag (see its own doc comment, agent-next-gen-interaction-
-          // dashboard.tsx) — only when the channel actually being
-          // started/restarted here is itself voice, since this handler
-          // also opens sms/email/whatsapp/chat and those should never
-          // touch this interaction's own voice-call state.
-          voiceCallEnded: newChannel.type === "voice" ? undefined : interaction.voiceCallEnded,
-          // NOTE: `liveMessages` is deliberately left untouched here (no
-          // `withoutLiveMessages` call) — per explicit correction, reopening
-          // a closed channel must NOT wipe its prior messages. They stay in
-          // the flat `liveMessages[newChannel.id]` array exactly as they
-          // were; `InteractionTranscript` slices that array back into
-          // per-session chunks using each `reopenedContacts` entry's own
-          // `messagesBeforeReopen` boundary, so the old messages keep
-          // rendering (dimmed) under their original session instead of
-          // vanishing. `withoutLiveMessages` is still used elsewhere
-          // (`handleQuickDial`/`handleRedial`/
-          // `handleReopenContactHistoryEntry`/
-          // `handleOpenAssignmentFromNotification`) — those flows have no
-          // reopened-session concept to attribute old messages to, so
-          // clearing is still correct there.
-        };
-      });
-    });
-    switchActiveInteraction(selection.contact.id);
-    // Only a genuinely NEW interaction touches Customer Information's
-    // open/closed state at all — starting a second interaction with a
-    // customer who already has one open leaves the panel exactly as the
-    // agent last left it for THAT card, rather than re-applying anything
-    // here. A new one always starts closed — see the `lastSidePanelOpen
-    // Choice` doc comment (its own declaration site, now removed — see
-    // this file's own git history) for the earlier "remember last choice"
-    // version this reverses, per explicit follow-up request.
-    if (isNewInteraction) setSidePanelOpen(false);
+    // P0.5b.2: placed through the provider (useOutboundDial). A new contact
+    // gets its own card; one with a card open joins its journey, and the new
+    // channel takes over the main column (handleContactActivated — Desk's
+    // behavior while rows 12/13 are deferred). A voice dial during a live
+    // call is allowed here; the provider holds the first call when the
+    // second connects.
+    outboundDial.startCall(selection);
   };
+
+  // Where a launched contact lands once the provider has it (P0.5b.2,
+  // useContactActivation). "focus" (a new card, a redial, a reopen, a
+  // notification) and — on this page, while rows 12/13 are deferred —
+  // "added" (a channel added to an open card) both make that thread the
+  // card's main column.
+  const handleContactActivated = ({ journeyId, threadKey, isNewCard }: Activation) => {
+    switchActiveInteraction(journeyId);
+    setInteractions((prev) =>
+      prev.map((i) => (i.id === journeyId && i.currentThreadId !== threadKey ? { ...i, currentThreadId: threadKey } : i))
+    );
+    // A new card starts with Customer Information closed; an existing one
+    // keeps the panel as the agent left it. (Outcome drafts reset on every
+    // open on this page until row 19 converges in 5d.)
+    if (isNewCard) setSidePanelOpen(false);
+  };
+  const { activateWhenReady } = useContactActivation(handleContactActivated, seedOverlay);
+  const { allOptions: allOutboundSkills, idForName: skillIdForName } = useOutboundSkills();
+  const outboundDial = useOutboundDial({
+    findOpenCard,
+    findCustomer: (entityId) =>
+      createdCustomerRecords.find((c) => c.id === entityId) ?? CREATE_NEW_CUSTOMERS.find((c) => c.id === entityId),
+    activateWhenReady,
+    onLegDisconnected: () => setAgentLegDisconnectedToastOpen(true),
+    // A second voice call is allowed on this page; the provider holds the
+    // first one when the second connects.
+    secondVoiceCall: "auto-hold",
+  });
+  const contactReopen = useContactReopen({ findOpenCard, activateWhenReady, skillIdForName });
 
   // App-local only (per "changes to components should only happen locally
   // unless specified") — lyra-ui's shared `CreateNew` intentionally keeps
@@ -4496,351 +4311,22 @@ export function AgentWorkspace2WithDeskPage({
     return () => document.removeEventListener("click", onDocumentClick);
   }, []);
 
-  const handleQuickDial = (phoneNumber: string, skillId: string) => {
-    // No contact record for a quick-dialed number — key the card off the
-    // number itself so redialing the same number restarts its card rather
-    // than stacking up duplicates.
-    const id = `quickdial:${phoneNumber}`;
-    // Read before `setInteractions` below — see `handleStartCall`'s own
-    // `isNewInteraction` comment for why.
-    const isNewInteraction = !interactions.some((i) => i.id === id);
-    // Carries the EXISTING card's own interactionId forward when this
-    // number already has one open — same "still the same journey" reasoning
-    // as `handleStartCall`'s own `interactionId` — a fresh one only when
-    // `isNewInteraction`.
-    const interactionId = interactions.find((i) => i.id === id)?.interactionId ?? generateInteractionId();
-    // Per explicit request/bug report: the dial pad screen (create-new.tsx's
-    // own dialpad group) DOES have a real "Select outbound skill" field —
-    // it just used to be entirely decorative, since `onQuickDial` had no
-    // parameter to carry the chosen skill back through at all, so this
-    // always fell back to the first configured skill regardless of what the
-    // agent actually picked (see `CreateNewOutboundConfig.onQuickDial`'s own
-    // doc comment, create-new.tsx, for the fix on that end). Still falls
-    // back to the first skill if `skillId` doesn't resolve to a known one
-    // (e.g. `skillOptions` changed since) — same "first skill, not a blank"
-    // default idiom `agent-next-gen-customers-table.tsx` already uses for
-    // `skillId`, so a call launched with no real skill match still shows
-    // SOME skill rather than none.
-    const skillLabel = OUTBOUND_CONFIG.skillOptions.find((s) => s.value === skillId)?.label ?? OUTBOUND_CONFIG.skillOptions[0]?.label;
-    // Voice has no message concept at all, so `messageCount` is left
-    // undefined here (not `0`) — see `ChannelTabProps.messageCount`'s own
-    // doc comment for why that's a deliberate omission, not an oversight.
-    const newChannel: Thread = {
-      id: "voice",
-      type: "voice",
-      startTick: clock.now(),
-      preview: skillLabel,
-      value: phoneNumber,
-      addressLabel: phoneNumber,
-      contactId: generateContactId(),
-      // Per explicit follow-up request — see `Thread.startedFresh`'s own
-      // doc comment. A quick-dialed number has no prior conversation to
-      // show; always a fresh, empty session.
-      startedFresh: true,
-      // Agent-initiated launch — always outbound.
-      direction: "outbound",
-    };
-    setInteractions((prev) => {
-      const idx = prev.findIndex((i) => i.id === id);
-      // `customerName` per explicit request: a quick-dialed number has no
-      // directory contact to derive a name from (this handler's own doc
-      // comment above), so it was previously left unset entirely — every
-      // `?? "Customer"` display fallback (the record-header title, the main
-      // tab label, the dismiss toast) then showed the literal word
-      // "Customer" instead of the number actually being dialed. Reuses the
-      // same raw `phoneNumber` string already set on `newChannel.value`/
-      // `addressLabel` above, so the card's name/title text matches exactly
-      // what's shown on its own channel row. (This tier additionally reverts
-      // to "Customer" once a second channel joins the card — see
-      // `interactionDisplayName`'s own doc comment further down — so this
-      // still only ever shows on a still-single-channel card.)
-      if (idx === -1) return [...prev, { id, interactionId, customerName: phoneNumber, customerId: generateCaseId(), threads: [newChannel], currentThreadId: newChannel.id, startedFresh: true }];
-      // `threads: [newChannel]` wholesale-replaces every previous channel
-      // with this one fresh "voice" channel, so `threadStatuses`/
-      // `liveMessages` are reset entirely too (rather than selectively
-      // cleared like `handleStartCall`'s reused-id case) — no other channel
-      // survives this merge for a stale entry to belong to. `liveMessages`
-      // in particular matters here since `newChannel.id` is always the same
-      // literal `"voice"` — without clearing it, redialing the same number
-      // again would reopen still showing whatever was said on the PREVIOUS
-      // call under that reused id. `voiceCallEnded` reset the same way and
-      // for the same reason (see its own doc comment, agent-next-gen-
-      // interaction-dashboard.tsx) — unconditional here since this handler
-      // only ever creates a voice channel, unlike `handleStartCall`'s
-      // type-gated reset.
-      return prev.map((interaction, i) =>
-        i === idx
-          ? { ...interaction, threads: [newChannel], currentThreadId: newChannel.id, threadStatuses: undefined, liveMessages: undefined, voiceCallEnded: undefined }
-          : interaction
-      );
-    });
-    switchActiveInteraction(id);
-    if (isNewInteraction) setSidePanelOpen(false);
-  };
+  // Every dial and redial below goes through the shared `useOutboundDial`
+  // (P0.5b.2), identical on both pages: skills from the provider, voice
+  // needs the agent leg, Contact History redial matches any of the
+  // customer's numbers (row 16). The card appears once the provider's
+  // contact reaches the store (handleContactActivated).
+  // Contact History's Redial button: opens the Dial Pad pre-filled with the
+  // customer's numbers on file; `handleDialpadSubmit` finishes the redial
+  // once a skill is picked (useOutboundDial, row 16).
+  const handleRedialButtonClick = (entry: ContactHistoryEntry, anchorEl: HTMLElement | null) =>
+    outboundDial.openRedialPad(entry, anchorEl);
 
-  /* "Redial" from the home tab's Contact History card — same merge-by-id
-     pattern as `handleQuickDial` (a fresh "voice" channel, keyed so redialing
-     the same past contact again restarts their existing card instead of
-     stacking a duplicate), but keyed off that contact-history entry's own
-     `caseId` (namespaced "history:" to stay distinct from quick-dial/outbound
-     ids, and to converge on the same id `handleReopenContactHistoryEntry`
-     below computes for the same entry — see that handler's own doc comment)
-     and carrying the customer's real name, since — unlike a quick-dialed
-     number — Contact History always has one on hand. Also expands the nav,
-     same reasoning as handleStartCall/handleQuickDial above.
-
-     Prefers `entry.customerId` (the real `CREATE_NEW_CUSTOMERS` id) over the
-     synthetic `history:` one whenever it's on hand — this was a real, shipped
-     bug: `useAddChannelButton`'s `getHeaderAction` looks up an interaction's
-     own id in `outboundConfig.groups` to build its "+" (Add Channel) button.
-     A synthetic `history:CST-30164`-style id never matches any real contact,
-     so `getHeaderAction` now returns `null` for it (no button at all) rather
-     than one that renders but silently does nothing once picked — see
-     `getHeaderAction`'s own doc comment in create-new.tsx. Using the real id
-     makes a redialed card id-identical to one started from the Outbound
-     picker for the same customer, so "Add Channel" (and, as a side effect,
-     redialing the same customer who already has a card open elsewhere) both
-     resolve correctly. Only the 5 hand-authored `CONTACT_HISTORY` rows
-     (fictional names/case IDs, no backing `CREATE_NEW_CUSTOMERS` record)
-     still fall back to the synthetic id, and so get no "+" button — same
-     pre-existing limitation `handleQuickDial` already has for numbers with
-     no contact record at all, not something new.
-
-     Previously keyed the fallback off `entry.id` (this row's own id, e.g.
-     "ch1") rather than `entry.caseId` (stable across every appearance of the
-     same case) — per explicit bug report: `buildContactHistoryByRange`'s
-     wider "Last 48/72 Hours" ranges combine the static `CONTACT_HISTORY`
-     fixture with agent-dismissed-derived rows for the same real conversation
-     with no deduplication, so the same person's fixture row and its
-     dismissed-derived duplicate had DIFFERENT `entry.id`s and so produced two
-     separate cards for the same person on redial/reopen. `entry.caseId` is
-     set identically on both (the fixture row directly, the dismissed-derived
-     row via `caseId: interaction.customerId` — see
-     `buildDismissedContactHistoryEntry`'s own comment), so both now resolve
-     to the same card. Also unified onto `handleReopenContactHistoryEntry`'s
-     existing "history:" prefix (previously this handler alone used
-     "redial:") so the two handlers converge on one id for the same case
-     even if the entry is later reopened on a different channel than it was
-     redialed on. */
-  /** Prefers this entry's own REAL known reach-back address for `channelType`
-   *  (`phone`/`email`/`whatsappHandle` — same fields `contactHistoryDisplayIdentity`,
-   *  agent-next-gen-contact-history.tsx, already reads) over a fabricated
-   *  one — see this same helper's doc comment in AgentNextGenPage.tsx for
-   *  the full "why" (per explicit bug report, "when I redial 704-555-0142
-   *  it opens with a different number"): these 5 hand-authored rows already
-   *  carry a real address, so synthesis (a hash-derived string unrelated to
-   *  it) should only ever be the fallback, not the default. */
-  const knownOrSynthesizedAddress = (entry: ContactHistoryEntry, channelType: ChannelType): string => {
-    const known =
-      channelType === "email"
-        ? entry.email
-        : channelType === "whatsapp"
-        ? entry.whatsappHandle
-        : channelType === "voice" || channelType === "sms"
-        ? entry.phone
-        : undefined;
-    return known ?? synthesizeChannelAddress(channelType, entry.caseId, entry.name);
-  };
-
-  const handleRedial = (entry: ContactHistoryEntry, skillId: string) => {
-    const id = entry.customerId ?? `history:${entry.caseId}`;
-    // Read before `setInteractions` below — see `handleStartCall`'s own
-    // `isNewInteraction` comment for why.
-    const isNewInteraction = !interactions.some((i) => i.id === id);
-    // Same "carry the existing journey's id forward, or start a new one"
-    // reasoning as `handleStartCall`/`handleQuickDial` above.
-    const interactionId = interactions.find((i) => i.id === id)?.interactionId ?? generateInteractionId();
-    // Prefers this row's own real `phone` (see `knownOrSynthesizedAddress`'s
-    // own doc comment above) — falls back to the same deterministic
-    // synthesis `buildCustomerInfoFields`/`OUTBOUND_CUSTOMERS` use for a
-    // customer with nothing real on file, keyed off `entry.caseId` since
-    // that's what this interaction's own `customerId` is set to just below
-    // (same seed `buildCustomerInfoFields` itself would read). Set on BOTH
-    // `value` and `addressLabel` (identical string here — see
-    // `synthesizeChannelAddress`'s own doc comment for why `value` matters
-    // just as much as the visible label) — Voice's own exhaustion check
-    // reads `openChannelTypes`, not an address, so this is more "stay
-    // consistent with every other handler" than something this specific
-    // channel strictly needs today.
-    const voiceAddress = knownOrSynthesizedAddress(entry, "voice");
-    // Per explicit request ("when the redial button is clicked open a
-    // popover that displays the number and the ability to select a skill -
-    // then make sure the skill name is in the new interactionNavItem that
-    // launches"): this used to set no `preview` at all — a redial had no
-    // skill-picker step of its own, so unlike `handleStartCall`'s
-    // `newChannel.preview`/`handleQuickDial`'s own (now-fixed) `skillLabel`,
-    // the resulting card's channel row rendered with no skill line
-    // whatsoever. `skillId` now comes from that same dialpad-screen skill
-    // picker (see `handleRedialButtonClick`/`handleDialpadSubmit` below) —
-    // same "first skill, not a blank" fallback idiom `handleQuickDial`
-    // above already uses for an unresolved id.
-    const skillLabel = OUTBOUND_CONFIG.skillOptions.find((s) => s.value === skillId)?.label ?? OUTBOUND_CONFIG.skillOptions[0]?.label;
-    const newChannel: Thread = {
-      id: "voice",
-      type: "voice",
-      startTick: clock.now(),
-      preview: skillLabel,
-      value: voiceAddress,
-      addressLabel: voiceAddress,
-      contactId: generateContactId(),
-      // Per explicit follow-up request — see `Thread.startedFresh`'s own
-      // doc comment. A redial is a fresh new call, not a continuation of
-      // Contact History's own past conversation; always an empty session.
-      startedFresh: true,
-      // Agent-initiated launch — always outbound.
-      direction: "outbound",
-    };
-    setInteractions((prev) => {
-      const idx = prev.findIndex((i) => i.id === id);
-      if (idx === -1) return [...prev, { id, interactionId, customerName: entry.name, customerId: entry.caseId, threads: [newChannel], currentThreadId: newChannel.id, startedFresh: true }];
-      // Same reasoning as `handleQuickDial` above — `threads: [newChannel]`
-      // wholesale-replaces every previous channel, so `threadStatuses`/
-      // `liveMessages`/`voiceCallEnded` reset entirely rather than being
-      // selectively cleared.
-      return prev.map((interaction, i) =>
-        i === idx
-          ? { ...interaction, threads: [newChannel], currentThreadId: newChannel.id, threadStatuses: undefined, liveMessages: undefined, voiceCallEnded: undefined }
-          : interaction
-      );
-    });
-    switchActiveInteraction(id);
-    if (isNewInteraction) setSidePanelOpen(false);
-  };
-
-  // "Save & Redial" (Outcome popover, once a voice call has ended — see
-  // `handleOutcomeSaveAndRedial`) finishing via `handleDialpadSubmit` below.
-  // Unlike `handleRedial` above, this is keyed DIRECTLY by the already-known
-  // `interactionId` (the interaction whose call just ended) rather than
-  // resolved from a `ContactHistoryEntry`'s own `customerId` — there's no
-  // ambiguity to resolve here, and keying directly avoids any risk of
-  // accidentally landing on a DIFFERENT interaction that happens to share
-  // that customerId. Same fresh-outbound-voice-`Thread` shape `handleRedial`
-  // builds. Also clears `closed` (not just `voiceCallEnded`) — a redial
-  // restarting a previously-closed/reopened-from-history voice interaction
-  // should go fully live again, not stay stuck read-only/dimmed (several
-  // render sites check `interaction.closed` directly). Mirrors
-  // AgentWorkspaceAdvancedPage.tsx's own identical handler.
-  const handleRedialActiveInteraction = (interactionId: string, phoneNumber: string, skillId: string) => {
-    const skillLabel = OUTBOUND_CONFIG.skillOptions.find((s) => s.value === skillId)?.label ?? OUTBOUND_CONFIG.skillOptions[0]?.label;
-    const newChannel: Thread = {
-      id: "voice",
-      type: "voice",
-      startTick: clock.now(),
-      preview: skillLabel,
-      value: phoneNumber,
-      addressLabel: phoneNumber,
-      contactId: generateContactId(),
-      startedFresh: true,
-      direction: "outbound",
-    };
-    setInteractions((prev) =>
-      prev.map((i) =>
-        i.id === interactionId
-          ? {
-              ...i,
-              threads: [newChannel],
-              currentThreadId: newChannel.id,
-              threadStatuses: undefined,
-              liveMessages: undefined,
-              voiceCallEnded: undefined,
-              closed: undefined,
-            }
-          : i
-      )
-    );
-    switchActiveInteraction(interactionId);
-  };
-
-  // Redial button's own onClick (Contact History summary panel's footer,
-  // below) — per the explicit request quoted on `dialpadRequest`'s own doc
-  // comment above, this no longer calls `handleRedial` directly. It instead
-  // opens the existing Dial Pad popover pre-filled with this entry's
-  // number, and remembers the entry so `handleDialpadSubmit` (just below)
-  // can finish the job once a skill is actually picked there.
-  //
-  // `anchorEl` (the Redial button's own DOM node, read via the click
-  // event's `currentTarget` at the call site below) repositions the
-  // popover there instead of the "+" New Outbound trigger — per explicit
-  // follow-up request ("place it on top of the redial button").
-  //
-  // `customer` — looked up the same way `handleOpenInteractionRow`'s own
-  // doc comment above describes (a REAL `CREATE_NEW_CUSTOMERS`/
-  // `createdCustomerRecords` record, found via `entry.customerId`, not the
-  // synthetic `history:`-prefixed fallback `handleRedial` itself falls back
-  // to) — when found, its own `name`/`phones` are threaded through as
-  // `customerName`/`phoneOptions`, so the popover shows the customer's name
-  // and a "Select Phone" dropdown of every number on file for them instead
-  // of just this one entry's own address (per explicit follow-up request:
-  // "If it is an existing customer, display the customer name and an
-  // ability to select from any of the phone numbers available"). No
-  // backing customer record (the 5 hand-authored `CONTACT_HISTORY` fixture
-  // rows that never got one, or any other ad-hoc entry) falls back to the
-  // plain single-number popover exactly as before.
-  const handleRedialButtonClick = (entry: ContactHistoryEntry, anchorEl: HTMLElement | null) => {
-    setRedialEntry(entry);
-    const customer = entry.customerId ? customerDirectoryPool.find((c) => c.id === entry.customerId) : undefined;
-    setDialpadRequest(
-      customer
-        ? {
-            phoneNumber: customer.phones[0]?.value ?? customer.firstPhone,
-            anchorEl,
-            customerName: customer.name,
-            phoneOptions: customer.phones,
-          }
-        : { phoneNumber: knownOrSynthesizedAddress(entry, "voice"), anchorEl }
-    );
-  };
-
-  // The single `onQuickDial` handler passed to `<CreateNew>` below — fires
-  // for EVERY dialpad submission, not just a redial's, so this has to tell
-  // the two apart itself. `CreateNew` has no dismiss/cancel callback of its
-  // own (create-new.tsx), so a `redialEntry` set by the click above could
-  // otherwise leak into a later, unrelated dial if the agent cancelled the
-  // popover and dialed something else afterward — reading AND clearing it
-  // here (regardless of which branch runs) closes that gap, and comparing
-  // normalized digits (rather than trusting the pending entry blindly)
-  // means only a submission that actually matches the redialed number is
-  // ever treated as completing that redial. Checks every one of the
-  // resolved customer's own `phones` (not just the entry's single address)
-  // when one was found — the agent may well have picked a DIFFERENT number
-  // than the one this popover opened pre-filled with (`handleRedialButtonClick`'s
-  // own "Select Phone" dropdown, above), and any of that same customer's
-  // numbers still correctly counts as completing this redial.
-  const handleDialpadSubmit = (phoneNumber: string, skillId: string) => {
-    const pendingEntry = redialEntry;
-    setRedialEntry(null);
-    // Same "read AND clear regardless of which branch runs" reasoning as
-    // `pendingEntry` above, for the "Save & Redial" pending state — see
-    // `handleOutcomeSaveAndRedial`/`redialActiveInteraction`'s own doc
-    // comments.
-    const pendingActiveInteraction = redialActiveInteraction;
-    setRedialActiveInteraction(null);
-    const normalize = (raw: string) => {
-      const digits = raw.replace(/\D/g, "");
-      return digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
-    };
-    if (pendingEntry) {
-      const customer = pendingEntry.customerId
-        ? customerDirectoryPool.find((c) => c.id === pendingEntry.customerId)
-        : undefined;
-      const candidateNumbers = customer
-        ? customer.phones.map((p) => p.value)
-        : [knownOrSynthesizedAddress(pendingEntry, "voice")];
-      if (candidateNumbers.some((n) => normalize(n) === normalize(phoneNumber))) {
-        handleRedial(pendingEntry, skillId);
-        return;
-      }
-    }
-    // Checked before falling through to `handleQuickDial` — if the agent
-    // edited the pre-filled number before dialing, this intentionally does
-    // NOT match, and falls through to a normal new quick-dial card instead
-    // of reusing the ended interaction.
-    if (pendingActiveInteraction && normalize(pendingActiveInteraction.phoneNumber) === normalize(phoneNumber)) {
-      handleRedialActiveInteraction(pendingActiveInteraction.interactionId, phoneNumber, skillId);
-      return;
-    }
-    handleQuickDial(phoneNumber, skillId);
-  };
+  // The single `onQuickDial` handler for New Outbound's dial pad: a pending
+  // redial matches any of the customer's numbers; Save & Redial matches
+  // that card's number; anything else is a quick dial.
+  const handleDialpadSubmit = (phoneNumber: string, skillId: string) =>
+    outboundDial.dialpadSubmit(phoneNumber, skillId, (id) => interactions.find((i) => i.id === id));
 
   // Record header's "+" Add Channel fallback (`AddChannelAdHocButton`,
   // agent-next-gen-add-channel-button.tsx) — per explicit follow-up request
@@ -4872,47 +4358,10 @@ export function AgentWorkspace2WithDeskPage({
   // ad-hoc flow had a skill picker of its own at all.
   const handleAddAdHocChannel = (query: string, channel: ChannelType, skillId: string) => {
     if (!activeInteraction) return;
-    const interactionId = activeInteraction.id;
-    const channelId = `${channel}:${query}`;
-    const skillLabel = OUTBOUND_CONFIG.skillOptions.find((o) => o.value === skillId)?.label;
-    const newChannel: Thread = {
-      id: channelId,
-      type: channel,
-      startTick: clock.now(),
-      value: query,
-      addressLabel: query,
-      messageCount: channel === "voice" ? undefined : 0,
-      contactId: generateContactId(),
-      preview: skillLabel,
-      // Per explicit follow-up request ("whenever a new channel is open
-      // unless it is re-opening a channel it should open as a draft — you
-      // can see if you go to 2.0 and open an interaction from the search
-      // then add a channel it populates the content") — see `Thread.
-      // startedFresh`'s own doc comment for the full per-Thread fix.
-      startedFresh: true,
-      // Agent-initiated launch — always outbound.
-      direction: "outbound",
-    };
-    setInteractions((prev) =>
-      prev.map((interaction) => {
-        if (interaction.id !== interactionId) return interaction;
-        const chIdx = interaction.threads.findIndex((c) => c.id === channelId);
-        const threads =
-          chIdx === -1
-            ? [...interaction.threads, newChannel]
-            : interaction.threads.map((c, j) => (j === chIdx ? newChannel : c));
-        return {
-          ...interaction,
-          threads,
-          currentThreadId: newChannel.id,
-          threadStatuses: withoutChannelStatus(interaction.threadStatuses, newChannel.id),
-          // Same type-gated reset as `handleStartCall`'s own — see that
-          // call site's doc comment — since this ad-hoc "+" flow can also
-          // add a voice channel, not just sms/email/whatsapp/chat.
-          voiceCallEnded: newChannel.type === "voice" ? undefined : interaction.voiceCallEnded,
-        };
-      })
-    );
+    // Joins the active card's journey through the provider; the new channel
+    // takes over the main column (handleContactActivated, rows 12/13
+    // deferred on this page).
+    outboundDial.addAdHocChannel(activeInteraction, query, channel, skillId);
   };
 
   /** Fired by the "Re-open" button on a Contact History entry's summary
@@ -4973,163 +4422,13 @@ export function AgentWorkspace2WithDeskPage({
    *  Either way, the agent decides what to do next AFTER seeing the
    *  reopened card, not before. */
   const handleReopenContactHistoryEntry = (entry: ContactHistoryEntry) => {
-    // Keyed off `entry.caseId`, not `entry.id` — see `handleRedial`'s own
-    // doc comment above for the full reasoning (same fixture-vs-dismissed-
-    // duplicate bug, fixed identically in both handlers so they converge on
-    // one id per case).
-    const id = entry.customerId ?? `history:${entry.caseId}`;
-    const existingInteraction = interactions.find((i) => i.id === id);
-    // Restore the exact record `agent-next-gen-case-database.ts` saved for
-    // this case instead of rebuilding a lossy guess from this entry's own
-    // single-channel summary — see that module's own top-of-file comment,
-    // and this same short-circuit's doc comment in AgentNextGenPage.tsx,
-    // for the full reasoning (mirrored here per this file's own
-    // established convention).
-    if (!existingInteraction) {
-      const storedRecord = getCaseRecord(entry.caseId);
-      if (storedRecord) {
-        // Per explicit bug report ("it's still doing it ... same email
-        // opens in a new interactionNavItem") — see this same short-circuit's
-        // doc comment in AgentNextGenPage.tsx for the full "why": a record
-        // cached under an earlier id scheme keeps its own stale `id`
-        // forever, so restoring it verbatim can no longer be found by a
-        // later `existingInteraction` lookup and just keeps re-appending.
-        // Re-key onto today's `id`/`entry.caseId` and replace-or-append
-        // (never blind-push) so repeated reopens converge on one card.
-        const restored: Interaction = { ...storedRecord, id, customerId: entry.caseId };
-        setInteractions((prev) => {
-          const idx = prev.findIndex((i) => i.id === id);
-          return idx === -1 ? [...prev, restored] : prev.map((i, j) => (j === idx ? restored : i));
-        });
-        switchActiveInteraction(id);
-        setSidePanelOpen(false);
-        return;
-      }
-    }
-    const isNewInteraction = !existingInteraction;
-    // Same "carry the existing journey's id forward, or start a new one"
-    // reasoning as `handleStartCall`/`handleQuickDial`/`handleRedial` above.
-    const interactionId = existingInteraction?.interactionId ?? generateInteractionId();
-    // Same reasoning as `handleRedial`'s own `addressLabel`/`value` above —
-    // prefers this row's own real address (`knownOrSynthesizedAddress`'s own
-    // doc comment, above `handleRedial`), falling back to the same
-    // deterministic synthesis, keyed off `entry.caseId` (this interaction's
-    // own `customerId`, set just below). `entry.channelType`
-    // covers "chat" here too (unlike `handleRedial`, always "voice"), which
-    // is exactly the case `synthesizeChannelAddress` special-cases into
-    // "Chat {time}" instead of a fabricated address (and chat has no
-    // `value`-based exhaustion check to satisfy either way — see that
-    // function's own doc comment). Setting `value` here (not just
-    // `addressLabel`, which is all this used to set) was a real, shipped
-    // bug: confirmed via screenshot that reopening a hand-authored Contact
-    // History row, then clicking its still-enabled header Email/WhatsApp/
-    // SMS button, opened a silent duplicate of the exact same channel
-    // instead of disabling itself — `buildOpenChannelTagger`
-    // (AgentWorkspace2WithDeskPage.tsx) only ever reads `Thread.value`
-    // to populate `openChannelAddresses`, never `addressLabel`, so a
-    // channel with no `value` set could never register as "already open" no
-    // matter how it displayed on its own tab.
-    const address = knownOrSynthesizedAddress(entry, entry.channelType);
-    // Same "is there already a Thread of this exact type on this card, and
-    // is IT currently Closed" lookup `handleStartCall` does for its own
-    // `existingChannel`/`isReopenOfClosedChannel` — see this function's own
-    // doc comment above for why. `entry.channelType` alone (not a
-    // `type:address` composite like `handleStartCall`'s own
-    // `existingChannelId`) is this handler's own established channel-id
-    // scheme (unchanged from before this merge fix) — Contact History rows
-    // carry no real per-address identity to build a composite id from.
-    // (`existingInteraction` itself is computed once, at the top of this
-    // function, so the DB-restore short-circuit above can use it too.)
-    const existingChannelId = entry.channelType;
-    const existingChannel = existingInteraction?.threads.find((c) => c.id === existingChannelId);
-    const isReopenOfClosedChannel =
-      !!existingChannel && existingInteraction?.threadStatuses?.[existingChannelId] === "Closed";
-    // Same reopen-stacking shape `handleStartCall` builds for its own
-    // `reopenedContacts` — see that field's own doc comment (`Thread.
-    // reopenedContacts`, agent-next-gen-interaction-dashboard.tsx) for the
-    // full picture of how `InteractionTranscript` turns this into one more
-    // "Session Details" separator, prior messages preserved (dimmed) under
-    // their own boundary rather than wiped.
-    const reopenedContacts = isReopenOfClosedChannel
-      ? [
-          ...(existingChannel!.reopenedContacts ?? []),
-          {
-            id: `session-reopened-${Date.now()}`,
-            date: new Date().toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" }),
-            startTime: new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
-            contactId: generateContactId(),
-            messagesBeforeReopen: existingInteraction?.liveMessages?.[existingChannelId]?.length ?? 0,
-          },
-        ]
-      : existingChannel?.reopenedContacts;
-    const newChannel: Thread = {
-      id: existingChannelId,
-      type: entry.channelType,
-      startTick: clock.now(),
-      value: address,
-      addressLabel: address,
-      // Reopening an EXISTING Thread keeps its own base Contact id — a
-      // reopen's own distinct Contact id lives on its `reopenedContacts`
-      // entry above instead, same "the Thread persists, each Contact
-      // within it is its own instance" split `handleStartCall` already
-      // draws. Only a genuinely new Thread gets a fresh one here.
-      contactId: existingChannel?.contactId ?? generateContactId(),
-      reopenedContacts,
-      // Reopening a past conversation — carry through whatever direction
-      // it originally had (`ContactHistoryEntry.direction`), never
-      // hardcoded; this is ambiguous, unlike a fresh agent-initiated
-      // launch (`handleStartCall`/`handleQuickDial`/`handleRedial` above).
-      direction: existingChannel?.direction ?? entry.direction,
-    };
-    setInteractions((prev) => {
-      const idx = prev.findIndex((i) => i.id === id);
-      if (idx === -1) {
-        return [
-          ...prev,
-          {
-            id,
-            interactionId,
-            customerName: entry.name,
-            customerId: entry.caseId,
-            threads: [newChannel],
-            currentThreadId: newChannel.id,
-            threadStatuses: { [newChannel.id]: entry.statusLabel },
-          },
-        ];
-      }
-      return prev.map((interaction, i) => {
-        if (i !== idx) return interaction;
-        // Merge, not replace — same "add alongside, or replace just the
-        // matching one in place" logic `handleStartCall` uses for its own
-        // `threads` update, so any OTHER already-open channel on this same
-        // card (unrelated to `entry.channelType`) survives untouched.
-        const chIdx = interaction.threads.findIndex((c) => c.id === newChannel.id);
-        const threads =
-          chIdx === -1
-            ? [...interaction.threads, newChannel]
-            : interaction.threads.map((c, j) => (j === chIdx ? newChannel : c));
-        return {
-          ...interaction,
-          threads,
-          currentThreadId: newChannel.id,
-          // Merged alongside whatever this card's other channels already
-          // have — a wholesale replace here would wipe an unrelated
-          // channel's own status the same way `threads: [newChannel]`
-          // used to wipe its whole channel list.
-          threadStatuses: { ...interaction.threadStatuses, [newChannel.id]: entry.statusLabel },
-          // `liveMessages` deliberately left untouched (no reset) — same
-          // reasoning as `handleStartCall`'s own merge branch: this
-          // channel's prior messages need to stay in place so
-          // `InteractionTranscript` can keep rendering them (dimmed) under
-          // their original session via `reopenedContacts.
-          // messagesBeforeReopen` above, and any OTHER channel's own
-          // `liveMessages` entry was never touched by this reopen in the
-          // first place.
-        };
-      });
-    });
-    switchActiveInteraction(id);
-    if (isNewInteraction) setSidePanelOpen(false);
+    // P0.5b.2: through the provider's `reopen` (useContactReopen), identical
+    // on both pages (row 18, Advanced's behavior): fresh timers, no stale
+    // awaiting state, the clicked channel selected. A stored case comes back
+    // thread by thread with its live messages; otherwise the row's channel
+    // reopens at the row's status, folding into the open card's thread of
+    // that channel if there is one.
+    void contactReopen.reopenHistoryEntry(entry);
   };
 
   /* "Unassign & Dismiss" — `InteractionNavItem` itself decides which of
@@ -5226,7 +4525,7 @@ export function AgentWorkspace2WithDeskPage({
     // filtered list `setInteractions` below produces, so the two state
     // updates can never disagree about what's actually left.
     const remaining = interactions.filter((interaction) => interaction.id !== id);
-    setInteractions(remaining);
+    setInteractions(() => remaining);
     // The dismissed id no longer belongs to any real assignment — drop its
     // Customer Information panel snapshot too (see `switchActiveInteraction`
     // above), so it can't resurface stale open/full-screen values if some
@@ -5587,22 +4886,24 @@ export function AgentWorkspace2WithDeskPage({
   // trigger for the current channel started funneling through here (see
   // this function's own three real call sites) — a toast firing on nearly
   // every status click read as excessive rather than helpful.
-  const handleInteractionStatusChange = (interactionId: string, channelId: string, status: string) => {
+  // Scenario cards keep their status locally; a store card's goes through
+  // `setCaseStatus` (useContactCommands, P0.5b.2) and comes back as an event.
+  const setLocalThreadStatus = (interactionId: string, channelId: string, status: string) => {
     setInteractions((prev) =>
-      prev.map((interaction) => {
-        if (interaction.id !== interactionId) return interaction;
-        // Live "Assignments resolved today" count (see `resolvedTodayCount`'s
-        // own doc comment above) — increments only on the actual Open/
-        // whatever→Resolved TRANSITION, not on every write to an
-        // already-Resolved channel (re-selecting the same status from the
-        // dropdown, or a second status change on a channel that's already
-        // Resolved, shouldn't inflate the count).
-        if (status === "Resolved" && interaction.threadStatuses?.[channelId] !== "Resolved") {
-          setResolvedTodayCount((n) => n + 1);
-        }
-        return { ...interaction, threadStatuses: { ...interaction.threadStatuses, [channelId]: status } };
-      })
+      prev.map((interaction) =>
+        interaction.id === interactionId
+          ? { ...interaction, threadStatuses: { ...interaction.threadStatuses, [channelId]: status } }
+          : interaction
+      )
     );
+  };
+  const contactCommands = useContactCommands({ cards: interactions, setLocalStatus: setLocalThreadStatus });
+  const handleInteractionStatusChange = (interactionId: string, channelId: string, status: string) => {
+    // Live "Assignments resolved today" count — increments only on the actual
+    // whatever→Resolved transition, not on re-selecting Resolved.
+    const current = interactions.find((i) => i.id === interactionId)?.threadStatuses?.[channelId];
+    if (status === "Resolved" && current !== "Resolved") setResolvedTodayCount((n) => n + 1);
+    contactCommands.setStatus(interactionId, channelId, status);
   };
 
   /* ── Preventing duplicate channels from the CreateNew picker ──
@@ -5636,8 +4937,12 @@ export function AgentWorkspace2WithDeskPage({
      re-enables the moment its interaction is dismissed. */
   const outboundConfig = useMemo<CreateNewOutboundConfig>(() => {
     const tagOpenChannels = buildOpenChannelTagger(interactions);
+    // Skills come from the provider (`listOutboundSkills`, P0.5b.2); the
+    // static list only fills in until they load.
+    const providerSkills = allOutboundSkills();
     return {
       ...OUTBOUND_CONFIG,
+      skillOptions: providerSkills.length > 0 ? providerSkills : OUTBOUND_CONFIG.skillOptions,
       groups: OUTBOUND_CONFIG.groups.map((group) => {
         // Teams' own "Choose team" sub-picker — per explicit request,
         // picking a team here swaps this group's `contacts` from the
@@ -5673,7 +4978,7 @@ export function AgentWorkspace2WithDeskPage({
         };
       }),
     };
-  }, [interactions, selectedOutboundTeamId]);
+  }, [interactions, selectedOutboundTeamId, allOutboundSkills]);
 
   // Every "Agent Next Gen" consumer (this app, AgentNextGenTemplate.
   // stories.tsx, LeftNav.stories.tsx's "Agent Next Gen Left Nav" story,
@@ -5967,90 +5272,13 @@ export function AgentWorkspace2WithDeskPage({
      (`customerName` below), since the merge branch further down never
      overwrites an existing card's `customerName`. */
   const handleOpenAssignmentFromNotification = (notification: AgentNotification) => {
-    const customerIdx = Number(notification.id) % CREATE_NEW_CUSTOMERS.length;
-    const id = CREATE_NEW_CUSTOMERS[Number.isFinite(customerIdx) ? customerIdx : 0].id;
-    // Read before `setInteractions` below — see `handleStartCall`'s own
-    // `isNewInteraction` comment for why.
-    const isNewInteraction = !interactions.some((i) => i.id === id);
-    // Same "carry the existing journey's id forward, or start a new one"
-    // reasoning as every other handler above.
-    const interactionId = interactions.find((i) => i.id === id)?.interactionId ?? generateInteractionId();
-    const channel = NOTIFICATION_CHANNEL[notification.id] ?? "email";
-    const newChannel: Thread = {
-      id: channel,
-      type: channel,
-      startTick: clock.now(),
-      contactId: generateContactId(),
-      // A notification represents an already-existing, real conversation
-      // reaching the agent — always inbound. See `Thread.direction`'s own
-      // doc comment on `agent-next-gen-interaction-dashboard.tsx`.
-      direction: "inbound",
-    };
-    setInteractions((prev) => {
-      const idx = prev.findIndex((i) => i.id === id);
-      if (idx === -1) {
-        // NOT `startedFresh: true` here, unlike `handleStartCall`'s own
-        // new-card branch — a notification (new case/escalation/agent
-        // chat) represents an already-existing, already-routed
-        // conversation with real prior history (e.g. Ethan Zhang's "New
-        // SMS" notification), not a brand-new outbound interaction the
-        // agent is originating from scratch. Marking it fresh made
-        // clicking that notification wrongly show `InteractionTranscript`'s
-        // empty "session details only" state instead of its full mock
-        // conversation — `startedFresh` must stay reserved for the actual
-        // agent-initiated launch paths (`handleStartCall`/`handleQuickDial`/
-        // `handleRedial`).
-        return [...prev, {
-          id,
-          interactionId,
-          customerName: notification.subtitle,
-          customerId: generateCaseId(),
-          threads: [newChannel],
-          currentThreadId: newChannel.id,
-        }];
-      }
-      // See AgentNextGenPage.tsx's identical fix for the full "why
-      // wholesale-replace was wrong here" rationale (bug report: "when I
-      // open Priya Shah's chat it re-opens her email") — `idx !== -1`
-      // means this customer already has a card open, so replacing
-      // `threads` outright deleted whatever OTHER channel was already
-      // live on it. Merge-by-id instead, same `handleReopenContactHistory
-      // Entry`/`handleStartCall` pattern this now matches.
-      return prev.map((interaction, i) => {
-        if (i !== idx) return interaction;
-        const chIdx = interaction.threads.findIndex((c) => c.id === newChannel.id);
-        const threads =
-          chIdx === -1
-            ? [...interaction.threads, newChannel]
-            : interaction.threads.map((c, j) => (j === chIdx ? newChannel : c));
-        return {
-          ...interaction,
-          threads,
-          currentThreadId: newChannel.id,
-          // `liveMessages` still needs clearing for THIS channel specifically
-          // — `newChannel.id` reuses a fixed per-notification channel type/
-          // id, so without this, opening the same notification-backed
-          // assignment again could reopen it still showing a stale previous
-          // conversation under that reused key. Every OTHER channel's own
-          // `liveMessages` entry is untouched now — only this one key is
-          // dropped, not the whole map.
-          liveMessages: interaction.liveMessages
-            ? Object.fromEntries(Object.entries(interaction.liveMessages).filter(([key]) => key !== newChannel.id))
-            : interaction.liveMessages,
-        };
-      });
-    });
-    switchActiveInteraction(id);
-    if (isNewInteraction) {
-      setSidePanelOpen(false);
-      // Used to force the nav open here ("when a new interaction comes in
-      // - if the left nav is closed, open it") for genuinely INBOUND
-      // arrivals like this one — dropped per a newer explicit request: the
-      // left nav now defaults open on load (see `navOpen`'s own doc
-      // comment above) but otherwise only ever changes via the agent's own
-      // toggle, so an assignment arriving while the agent has it closed no
-      // longer reopens it out from under them.
-    }
+    // P0.5b.2: the notification stands for a provider contact
+    // (NOTIFICATION_INTERACTION_ID): a waiting offer is accepted, a live one
+    // is switched to, a dismissed one is reopened (useContactReopen). The
+    // card opens with Customer Information closed (handleContactActivated).
+    // This page doesn't expand a collapsed nav for it (row 21 converges in
+    // P0.5d).
+    void contactReopen.openNotification(notification);
     setNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n)));
   };
 
@@ -6074,75 +5302,9 @@ export function AgentWorkspace2WithDeskPage({
   // first place, so this reliably finds the same record every row was
   // built from without a second, parallel id scheme.
   const handleOpenInteractionRow = (record: InteractionHistoryRecord) => {
-    const customer = CREATE_NEW_CUSTOMERS.find((c) => c.customerId === record.caseId) ?? CREATE_NEW_CUSTOMERS[0];
-    const id = customer.id;
-    // Read before `setInteractions` below — see `handleStartCall`'s own
-    // `isNewInteraction` comment for why.
-    const isNewInteraction = !interactions.some((i) => i.id === id);
-    // Same "carry the existing journey's id forward, or start a new one"
-    // reasoning as every other handler above.
-    const interactionId = interactions.find((i) => i.id === id)?.interactionId ?? generateInteractionId();
-    // Same reasoning as `handleRedial`/`handleReopenContactHistoryEntry`'s
-    // own `addressLabel`/`value` above — `InteractionHistoryRecord` has no
-    // stored address either, so it's synthesized the same deterministic
-    // way, keyed off `record.caseId` (this interaction's own `customerId`,
-    // set just below) so it agrees with the Customer Information panel's
-    // own fields — AND `OUTBOUND_CUSTOMERS`' own `email`/`primaryPhone` for
-    // this exact customer (`record.caseId` is this row's real
-    // `customerId`, the same seed `OUTBOUND_CUSTOMERS` itself keys off —
-    // see `handleOpenInteractionRow`'s own `customer` lookup just above).
-    // `record.type` covers "chat" here too, which `synthesizeChannelAddress`
-    // special-cases into "Chat {time}". Setting `value` (not just
-    // `addressLabel`) fixes the same already-open-channel-not-disabling bug
-    // `handleReopenContactHistoryEntry`'s own doc comment describes — this
-    // handler had the identical gap, just for real `CREATE_NEW_CUSTOMERS`
-    // records reopened from the Interactions table instead of hand-authored
-    // Contact History ones.
-    const address = synthesizeChannelAddress(record.type, record.caseId, record.customerName);
-    const newChannel: Thread = {
-      id: record.type,
-      type: record.type,
-      startTick: clock.now(),
-      value: address,
-      addressLabel: address,
-      contactId: generateContactId(),
-      preview: record.skill,
-    };
-    setInteractions((prev) => {
-      const idx = prev.findIndex((i) => i.id === id);
-      if (idx === -1) {
-        return [...prev, {
-          id,
-          interactionId,
-          customerName: record.customerName,
-          customerId: record.caseId,
-          threads: [newChannel],
-          currentThreadId: newChannel.id,
-        }];
-      }
-      // See AgentNextGenPage.tsx's identical fix for the full rationale
-      // (bug report: "when I open Priya Shah's chat it re-opens her
-      // email") — merge-by-id instead of wholesale-replacing `threads`,
-      // so any OTHER already-open channel on this card survives.
-      return prev.map((interaction, i) => {
-        if (i !== idx) return interaction;
-        const chIdx = interaction.threads.findIndex((c) => c.id === newChannel.id);
-        const threads =
-          chIdx === -1
-            ? [...interaction.threads, newChannel]
-            : interaction.threads.map((c, j) => (j === chIdx ? newChannel : c));
-        return {
-          ...interaction,
-          threads,
-          currentThreadId: newChannel.id,
-          liveMessages: interaction.liveMessages
-            ? Object.fromEntries(Object.entries(interaction.liveMessages).filter(([key]) => key !== newChannel.id))
-            : interaction.liveMessages,
-        };
-      });
-    });
-    switchActiveInteraction(id);
-    if (isNewInteraction) setSidePanelOpen(false);
+    // P0.5b.2: a provider `reopen` of the row's case (useContactReopen),
+    // joining the customer's open card if there is one.
+    void contactReopen.reopenSearchRow(record);
   };
 
   // Notifications' real content — same `useAgentNotificationsContent`
@@ -7258,30 +6420,24 @@ export function AgentWorkspace2WithDeskPage({
           // nothing used it — not re-added for this reversion since
           // `pinnedHeader` covers this exact spot on its own.
           pinnedHeader={
-            <CreateNew
-              title="New Outbound"
-              outbound={{
-                ...outboundConfig,
-                // `outboundConfig` itself keeps "customers" (see
-                // `HIDDEN_OUTBOUND_GROUP_IDS`'s own doc comment,
-                // agent-next-gen-outbound-data.tsx, for why: this app's
-                // `useAddChannelButton` call further down needs that
-                // group to resolve a known customer's own "+" button) —
-                // this picker's own browsable "Choose group" list is the
-                // one place that still shouldn't show it, per the
-                // original "keep dial pad but not customers" request, so
-                // the exclusion is applied here instead.
-                groups: outboundConfig.groups.filter((group) => !HIDDEN_OUTBOUND_GROUP_IDS.includes(group.id)),
-                onStartCall: handleStartCall,
-                // Per explicit request — see `dialpadRequest`'s own doc
-                // comment above for why this is `handleDialpadSubmit`
-                // (which tells a completed redial apart from an ordinary
-                // dial) rather than `handleQuickDial` directly.
-                onQuickDial: handleDialpadSubmit,
-                dialpadRequest,
-                onDialpadRequestHandled: () => setDialpadRequest(null),
-              }}
+            /* The shared New Outbound launcher (P0.5b.2). This page's scope
+               and in-call rule are a temporary parity exception (rows
+               14/15): the full picker minus `HIDDEN_OUTBOUND_GROUP_IDS`
+               (`outboundConfig` itself keeps "customers" for the "+"
+               lookup), and never disabled during a call — a second voice
+               call auto-holds the first, in the provider.
+               `handleDialpadSubmit` tells a completed redial apart from an
+               ordinary dial. */
+            <NewOutboundLauncher
+              outboundConfig={outboundConfig}
+              scope="full"
+              inCallPolicy="allow"
+              onActiveCall={false}
               expanded={navOpen}
+              onStartCall={handleStartCall}
+              onQuickDial={handleDialpadSubmit}
+              dialpadRequest={outboundDial.dialpadRequest}
+              onDialpadRequestHandled={outboundDial.clearDialpadRequest}
             />
           }
           header={
@@ -7817,11 +6973,10 @@ export function AgentWorkspace2WithDeskPage({
                     // `chat` covers all of them at once; `history:` non-chat
                     // still lands on `false` exactly as before.
                     customerIdentified={
-                      !interaction.id.startsWith("adhoc:") &&
-                      !interaction.id.startsWith("quickdial:") &&
-                      !interaction.id.startsWith("redial:") &&
+                      (!!interaction.entityId || isDeskScenarioCardId(interaction.id)) &&
                       currentChannelType === "chat"
                     }
+                    isNewAssignment={isNewAssignment(interaction.id)}
                     active={activeInteractionId === interaction.id}
                     // Exits fullscreen directly here (not just via the
                     // `activeInteractionId`-keyed effect near
@@ -7869,7 +7024,7 @@ export function AgentWorkspace2WithDeskPage({
                     // identical control regardless of which one happens to
                     // render for a given card.
                     headerAction={
-                      getHeaderAction(interaction.id) ??
+                      (interaction.entityId ? getHeaderAction(interaction.entityId) : null) ??
                       (SHOW_ADD_CHANNEL_HEADER_BUTTON && interaction.id === activeInteractionId && (
                         <AddChannelAdHocButton
                           onLaunch={handleAddAdHocChannel}
@@ -8585,7 +7740,7 @@ export function AgentWorkspace2WithDeskPage({
                               fallback) pair Phase 1 and every other "+" in
                               this app already use, unchanged. */}
                           {SHOW_ADD_CHANNEL_HEADER_BUTTON && (getHeaderAction(
-                            activeInteraction.id,
+                            activeInteraction.entityId ?? "",
                             "ml-0.5 h-8 w-8 px-0 border border-lyra-border-soft bg-lyra-bg-control text-lyra-fg-action hover:bg-lyra-state-hover active:bg-lyra-state-pressed",
                             { label: "Add Channel", showLabel: false }
                           ) ?? (

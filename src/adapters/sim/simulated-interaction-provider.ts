@@ -160,7 +160,8 @@ export function createSimulatedInteractionProvider(options: SimOptions = {}): Si
     connectAgentLeg: () => request({ name: "connectAgentLeg" }),
     disconnectAgentLeg: () => request({ name: "disconnectAgentLeg" }),
 
-    accept: (interactionId) => request({ name: "accept", interactionId }),
+    accept: (interactionId, options) =>
+      request({ name: "accept", interactionId, ...(options?.journeyId ? { journeyId: options.journeyId } : {}) }),
     decline: (interactionId) => request({ name: "decline", interactionId }),
     dial: (dialRequest) => request({ name: "dial", request: dialRequest }),
     reopen: (reopenRequest) => request({ name: "reopen", request: reopenRequest }),

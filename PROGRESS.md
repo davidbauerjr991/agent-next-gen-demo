@@ -182,6 +182,7 @@ All of these live in a new UI-side folder (e.g. `src/contact-handling/`). They c
 - **Only `InteractionProvider` is contract-tested:** Media, CustomerData and Assist are still placeholders, so their shapes (e.g. `AssistCard` kinds, `CollectionQuery`) may get small revisions when their sim providers arrive. Revise there and log it in PLAN.md Decisions.
 - **Contract assumes hold works on chat:** the sim allows holding a digital contact; a real vendor may not. If so, split `capabilities.hold` per channel rather than skipping tests.
 - **Follow-up (rule-zero cleanup): 43 raw `<button` elements in `src/`** (`grep -rn "<button" src --include=*.tsx`) that CLAUDE.md says should be lyra `Button`/`ActionIconButton`/an existing button atom. Pre-existing; not part of any Phase 0 step.
+- **Known gap (P0.5b.2): a linked record's id resets on a tier switch.** Linking an unknown contact to a customer record (or creating one) goes through `associateEntity`, so the link and the card's name carry over a tier switch. The record id that Customer Information looks up (`card.customerId`) is page overlay state, though, because the provider has no command to change a case id. After a switch, Customer Information falls back to the case's own id until the agent links again.
 - **Follow-up (voice controls): upstream or keep local.** The local `agent-next-gen-voice-call-controls.tsx` is ahead of lyra's `voice-call-controls.tsx` (see PLAN.md Decisions). Upstreaming it is possible but only on explicit request.
 
 ## Deferred items

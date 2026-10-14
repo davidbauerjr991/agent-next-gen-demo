@@ -6,6 +6,7 @@ import type {
   Interaction,
   InteractionId,
   InteractionOutcome,
+  JourneyId,
   Message,
   MessageId,
   Utterance,
@@ -35,7 +36,7 @@ export type SimCommand =
   | { name: "setAgentState"; code: string; reasonCode?: string }
   | { name: "connectAgentLeg" }
   | { name: "disconnectAgentLeg" }
-  | { name: "accept"; interactionId: InteractionId }
+  | { name: "accept"; interactionId: InteractionId; journeyId?: JourneyId }
   | { name: "decline"; interactionId: InteractionId }
   | { name: "dial"; request: DialRequest }
   | { name: "reopen"; request: ReopenRequest }

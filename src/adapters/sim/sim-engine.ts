@@ -256,11 +256,21 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
       case "accept": {
         const interaction = get(command.interactionId);
         requireState(interaction, ["offered"], "accept");
+        // Joining an open journey (e.g. the customer already has a card).
+        let joined: Partial<Interaction> = {};
+        if (command.journeyId !== undefined && command.journeyId !== interaction.journeyId) {
+          const open = [...interactions.values()].some(
+            (i) => i.journeyId === command.journeyId && i.id !== interaction.id && i.state !== "ended",
+          );
+          if (!open) throw providerError("not-found", `accept: no open journey "${command.journeyId}"`);
+          const caseId = journeyCase(command.journeyId);
+          joined = { journeyId: command.journeyId, ...(caseId ? { caseId } : {}) };
+        }
         if (interaction.channel === "voice") {
           requireVoiceSlot("accept");
           holdOtherCalls(interaction.id);
         }
-        update(interaction, { state: "active", acceptedAt: now() });
+        update(interaction, { ...joined, state: "active", acceptedAt: now() });
         return undefined;
       }
 

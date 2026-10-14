@@ -307,6 +307,26 @@ export function describeInteractionProviderContract(label: string, factory: Inte
     describe("reopen, case ids and acceptedAt", () => {
       const requireReopen = (ctx: TestContext) => ctx.skip(!caps().reopen, "reopen not supported");
 
+      it("accept with a journeyId joins that open journey and takes its case id", async (ctx) => {
+        requireInbound(ctx, "chat");
+        const first = await startAccepted("chat");
+        const { journeyId, caseId } = latest(first)!;
+        const second = await startInbound("chat");
+        const offered = rec.events("incoming").find((e) => e.interaction.id === second)!.interaction;
+        expect(offered.journeyId).not.toBe(journeyId);
+        await h.provider.accept(second, { journeyId });
+        await waitForState(second, "active");
+        expect(latest(second)).toMatchObject({ journeyId, caseId });
+      });
+
+      it("accept into a journey with nothing open rejects not-found and leaves the offer", async (ctx) => {
+        requireInbound(ctx, "chat");
+        const id = await startInbound("chat");
+        await expect(h.provider.accept(id, { journeyId: "no-such-journey" as JourneyId })).rejects.toMatchObject({ code: "not-found" });
+        const { interactions } = await h.provider.getSnapshot();
+        expect(interactions.find((i) => i.id === id)?.state).toBe("offered");
+      });
+
       it("accept stamps acceptedAt", async (ctx) => {
         requireInbound(ctx, "chat");
         const id = await startAccepted("chat");

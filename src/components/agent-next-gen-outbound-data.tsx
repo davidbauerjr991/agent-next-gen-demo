@@ -299,22 +299,20 @@ function contactHistoryOutboundContact(entry: ContactHistoryEntry, id: string): 
  *  dialable directory contacts an agent should be able to search up and
  *  call cold.
  *
- *  Two entries for a row that supports "Redial" (`entry.redial`) — one
- *  under EACH of the two synthetic ids that row's card could actually end
- *  up carrying, since which one applies depends on which button the agent
- *  clicked (Redial vs. Re-open), not something knowable ahead of time
- *  here; a row without Redial only ever produces the `history:` id. */
+ *  Since P0.5b.2 a redialed or reopened Contact History card carries one
+ *  entity id per case, `history:${caseId}` (`historyEntityId`,
+ *  src/contact-handling/contact-identity.ts), whichever button opened it —
+ *  so each case is registered once, under that id. */
 export function buildContactHistoryOutboundContacts(
   entries: ContactHistoryEntry[]
 ): NonNullable<CreateNewOutboundConfig["groups"][number]["contacts"]> {
-  return entries.flatMap((entry) =>
-    entry.redial
-      ? [
-          contactHistoryOutboundContact(entry, `redial:${entry.id}`),
-          contactHistoryOutboundContact(entry, `history:${entry.id}`),
-        ]
-      : [contactHistoryOutboundContact(entry, `history:${entry.id}`)]
-  );
+  const seen = new Set<string>();
+  return entries.flatMap((entry) => {
+    const id = `history:${entry.caseId}`;
+    if (seen.has(id)) return [];
+    seen.add(id);
+    return [contactHistoryOutboundContact(entry, id)];
+  });
 }
 
 /** The 5 hand-authored `CONTACT_HISTORY` rows' own contacts — static, since
