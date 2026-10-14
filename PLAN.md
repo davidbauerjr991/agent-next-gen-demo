@@ -135,7 +135,9 @@ Order of attack: Phase 0, then Phase 1 with just the telecom profile (so existin
 - Parity — **Phase 1 and Phase 2 pages have identical contact handling.** `AgentWorkspaceAdvancedPage` (Phase 1) and `AgentWorkspace2WithDeskPage` (Phase 2) must behave the same for call controls, dialing, incoming offers, transcript, wrap-up/outcome, agent leg, status and AI assist. They may differ only in layout: Phase 2 keeps its tabs, panels and home page. From now on, contact-handling logic lives in shared hooks/components that both pages use, never copied per page. P0.5b/5d and later steps build the shared piece first and have each page consume it; new logic is not added to one page's file and ported later. Existing duplicated blocks (e.g. the agent-leg toast wiring from P0.5a, copied into both pages) are consolidated into shared code when a step next touches them. "Phase 1/2" here names the two pages, not this plan's phases. (2026-10-13)
 - Parity decisions — Resolutions of the Parity audit (PROGRESS.md; row numbers refer to that table). Each one is built once in shared contact-handling code and used by both pages.
   - **Voice bar (rows 1–5): Advanced.** The controls follow the live call and stay visible wherever the agent navigates. The bar shows a hold timer and the customer label/avatar, and hang-up opens Outcome. **Navigating away never changes hold state**: held changes only through `hold()` and arrives as an event, so Desk's implicit "on hold while not the active card" goes away. The "View Transcript?" confirm follows from the persistent bar.
-  - **Nav-row End Call and the add-channel "+" (rows 7, 10): on both pages.** End Call uses the same hang-up path as the voice bar.
+  - **Nav-row End Call and the add-channel "+" (rows 7, 10): on both pages.** End Call uses the same hang-up path as the voice bar and opens Outcome (confirmed 2026-10-14).
+  - **Nav-row Outcome on voice rows (row 9): Advanced.** Always visible, so outcome is reachable without hunting for it.
+  - **Redial/reopen nav ids (row 17): closed.** Resolved by P0.5b's `journeyId` re-key.
   - **Consult/Transfer, kebab and add participant (rows 8, 23): on both pages, gated by capabilities** (hide, don't disable).
   - **New Outbound (rows 14, 15).** Disabled during a call: Advanced (row 15). Picker scope is undecided (row 14); before P0.5b, the two scopes are shown side by side with a recommendation.
   - **Redial matching (row 16): Desk.** Matches against any of the entity's contact methods.
@@ -144,4 +146,9 @@ Order of attack: Phase 0, then Phase 1 with just the telecom profile (so existin
   - **Outcome in the hover preview (row 20): removed.** Outcome is set only from the live contact.
   - **Incoming offers (row 24).** Advanced's ringing tile is generalized in P0.5d into a shared `<IncomingOfferTile>` on both pages. It has an optional origin badge and reason line, unused for now, for P6.4.
   - **Call previous agent (row 25): kept on both pages.**
-  - **AI scenarios (row 26): Advanced's set is the standard** (Marcus Webb voice review, Lucas Thomas, Tom Lewis, Maya Chen). Desk's Copilot-tab Marcus Webb chat flow and its localStorage persistence are dropped; Phase 6 covers that ground. (2026-10-14)
+  - **AI scenarios (row 26): Advanced's set is the standard** (Marcus Webb voice review, Lucas Thomas, Tom Lewis, Maya Chen). Desk's Copilot-tab Marcus Webb chat flow and its localStorage persistence are dropped; Phase 6 covers that ground.
+  - **Layout clarification.** Per the parity rule, Phase 2 may differ from Phase 1 only in its tabs, panels and home page.
+    - The home page side panel, including its redial, stays Phase 2-only.
+    - The nav card (`interactionNavItems`) converges per rows 7, 9 and 10.
+    - The voice call controls use Advanced's placement on both pages: a persistent bar visible wherever the agent goes (rows 1–5).
+    - Any other change to where something appears or how it looks needs the user's approval first. In plan mode, list each visual change with a before/after and wait. (2026-10-14)
