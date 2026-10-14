@@ -59,6 +59,11 @@ Status values: `todo` / `in progress` / `done` / `deferred`. Rows follow PROMPTS
 | P5.3 | Hybrid rule | 5 | todo | |
 | P5.4 | Streaming + conversation context | 5 | todo | |
 | P5.5 | Replace the no-match fallback | 5 | todo | |
+| P6.1 | Escalation domain + BotAgentProvider contract | 6 | todo | Added to PLAN.md and PROMPTS.md in `fc38378`; runs after Phase 5. |
+| P6.2 | SimulatedBotAgentProvider + bot-first routing | 6 | todo | |
+| P6.3 | Console AI-customer mode | 6 | todo | |
+| P6.4 | Agent-side handoff | 6 | todo | Authorizes a backward-compatible lyra transcript change. Uses `<IncomingOfferTile>`'s origin badge and reason line from P0.5d. |
+| P6.5 | Voice escalation | 6 | todo | |
 | P-ADAPTER | First real adapter | Later | todo | |
 | P-PARKED | Email and SMS | Later | deferred | See Deferred items. |
 
@@ -166,6 +171,8 @@ All of these live in a new UI-side folder (e.g. `src/contact-handling/`). They c
   - 8: Tier switch A ↔ B: queue waits restart from their baselines, with no console errors.
   - 9: `VITE_NO_STRICT_MODE=1 npm run dev` works with one `[providers] created`. Without it, StrictMode is back.
 - **Self-ticking timers: known limits.** (a) lyra's time props are strings, so the lyra component that shows a clock (`AgentProfile`, `InteractionNavItem`, `ChannelToggle`, `DashboardQueue`, `CustomerContextOverview`) re-renders each second, not just its text. Text-only would need additive lyra props; not authorized. (b) Render-time `new Date()` reads were refreshed for free by the old page tick and now refresh on the next real re-render: `buildContactHistoryEntryFromInteractionRecord`'s "2h ago" and `InteractionTranscript`'s fresh-session date (both minute-level). (c) The Marcus notice timer now steps on the shared page clock's beat, so its first increment can come under 1s after it opens (it used to be exactly 1s; the status timer already behaved this way).
+- **Phase 1 Home no longer mounts the hidden Customers table (`b83a4a2`).** Phase 1 has no desk tabs (`activeDeskTab` is a constant "home"), so the always-mounted, invisible `CustomersListView` only sat on top of Home, and the component-highlight overlay labeled Home as `CustomersListView`/`TableToolbar`/…. `AgentWorkspaceAdvancedPage.tsx` now renders it only while the Customers tab is active, i.e. never on Phase 1. Phase 2 keeps its tab handling. **Not browser-verified:** its check is 1c in the self-ticking list above (no `CustomersListView`/`TableToolbar`/`SortableTableHead`/`TableCell` in the overlay or Components tree on Phase 1 Home), which hasn't been run.
+- **lyra-ui sync pointer moved to `5cad164` (in `19a57e4`).** The only lyra commit in that range was docs-only ("Docs: no commit attribution"), so there was nothing to migrate.
 - **Two existing eslint issues** (neither from recent changes): the unused `_omit` in `agent-next-gen-shared-utils.ts` (`@typescript-eslint/no-unused-vars`), and a `react-refresh/only-export-components` warning in `agent-next-gen-search-panel.tsx`.
 - **Only `InteractionProvider` is contract-tested:** Media, CustomerData and Assist are still placeholders, so their shapes (e.g. `AssistCard` kinds, `CollectionQuery`) may get small revisions when their sim providers arrive. Revise there and log it in PLAN.md Decisions.
 - **Contract assumes hold works on chat:** the sim allows holding a digital contact; a real vendor may not. If so, split `capabilities.hold` per channel rather than skipping tests.
