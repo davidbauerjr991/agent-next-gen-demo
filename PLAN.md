@@ -151,4 +151,8 @@ Order of attack: Phase 0, then Phase 1 with just the telecom profile (so existin
     - The home page side panel, including its redial, stays Phase 2-only.
     - The nav card (`interactionNavItems`) converges per rows 7, 9 and 10.
     - The voice call controls use Advanced's placement on both pages: a persistent bar visible wherever the agent goes (rows 1–5).
-    - Any other change to where something appears or how it looks needs the user's approval first. In plan mode, list each visual change with a before/after and wait. (2026-10-14)
+    - Any other change to where something appears or how it looks needs the user's approval first. In plan mode, list each visual change with a before/after and wait.
+  - **Rows 11, 12, 13, 21 converge** (not allowed layout differences). Each step below lists the before/after in plan mode for approval.
+    - **Row 11:** the voice icon is shown in the record header on both pages (`SHOW_VOICE_CHANNEL_HEADER_ICON` → `true`). This rides along with whichever step next edits the record header.
+    - **Rows 12 and 13: Advanced.** Picking a channel, or adding one to an open card, opens the docked preview, and the main column stays on the active contact. Done in P0.5b.
+    - **Row 21: Advanced.** Opening a notification also expands the left nav. Done in P0.5d. (2026-10-14)
