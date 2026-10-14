@@ -19,6 +19,7 @@ import { waitFor } from "@/contract-tests/event-recorder";
 import type { ProviderSet } from "@/providers";
 import { ProviderRoot } from "@/provider-context";
 import { useContactActivation, type Activation } from "./useContactActivation";
+import { useContactCommands } from "./useContactCommands";
 import { useContactReopen } from "./useContactReopen";
 import { useNavCards } from "./useNavCards";
 import { useOutboundDial } from "./useOutboundDial";
@@ -35,6 +36,7 @@ interface Api {
   setCards: ReturnType<typeof useNavCards>["setCards"];
   dial: ReturnType<typeof useOutboundDial>;
   reopen: ReturnType<typeof useContactReopen>;
+  commands: ReturnType<typeof useContactCommands>;
 }
 
 describe("contact handling", () => {
@@ -72,7 +74,8 @@ describe("contact handling", () => {
       },
     });
     const reopen = useContactReopen({ findOpenCard: nav.findOpenCard, activateWhenReady, skillIdForName: () => undefined });
-    api = { cards: nav.cards, setCards: nav.setCards, dial, reopen };
+    const commands = useContactCommands({ cards: nav.cards, setLocalStatus: () => {} });
+    api = { cards: nav.cards, setCards: nav.setCards, dial, reopen, commands };
     return null;
   }
 
@@ -282,6 +285,64 @@ describe("contact handling", () => {
     await until(() => api.cards.some((c) => c.threads.some((t) => t.heldByAgent)), "first call held");
     expect(api.cards).toHaveLength(2);
     expect(refused).toBe(3);
+  });
+
+  it("holds and resumes a call, and hang-up takes it to wrap-up (shown as ended)", async () => {
+    act(() => api.dial.quickDial("5550001111", "general"));
+    await until(() => activations.length === 1, "dialed");
+    await until(() => !!api.cards[0]?.threads[0], "card");
+    act(() => {
+      api.commands.setHold(api.cards[0].threads[0], true);
+    });
+    await until(() => !!api.cards[0].threads[0].heldByAgent, "held");
+    expect(api.cards[0].threads[0].heldSinceTick).toBeTypeOf("number");
+    act(() => {
+      api.commands.setHold(api.cards[0].threads[0], false);
+    });
+    await until(() => !api.cards[0].threads[0].heldByAgent, "resumed");
+    act(() => {
+      api.commands.hangUp(api.cards[0].threads[0]);
+    });
+    await until(() => !!api.cards[0]?.voiceCallEnded, "ended (wrap-up)");
+    expect(api.cards).toHaveLength(1);
+  });
+
+  it("Unassign & Dismiss: one thread leaves the card, then the whole card goes", async () => {
+    act(() => api.dial.startCall({ contact, channel: "sms", phone: "+15550001111", skillId: "general" }));
+    await until(() => activations.length === 1, "first");
+    act(() => api.dial.startCall({ contact, channel: "email", phone: "x@example.com", skillId: "general" }));
+    await until(() => activations.length === 2, "second");
+    await until(() => api.cards[0]?.threads.length === 2, "two threads");
+    let ok: boolean | undefined;
+    await act(async () => {
+      ok = await api.commands.dismissThread(api.cards[0], "email:x@example.com", { tags: ["Billing"] });
+    });
+    expect(ok).toBe(true);
+    await until(() => api.cards[0]?.threads.length === 1, "email gone");
+    expect(api.cards[0].threads[0].id).toBe("sms:+15550001111");
+    await act(async () => {
+      ok = await api.commands.dismissCard(api.cards[0], () => ({ dispositionCode: "resolved" }));
+    });
+    expect(ok).toBe(true);
+    await until(() => api.cards.length === 0, "card gone");
+  });
+
+  it("Save & Redial completes the ended call only after the new one is placed, and the card stays", async () => {
+    act(() => api.dial.quickDial("5550001111", "general"));
+    await until(() => activations.length === 1, "dialed");
+    await until(() => !!api.cards[0]?.threads[0], "card");
+    act(() => {
+      api.commands.hangUp(api.cards[0].threads[0]);
+    });
+    await until(() => !!api.cards[0]?.voiceCallEnded, "ended");
+    const card = api.cards[0];
+    act(() => api.dial.redialCard(card, "5550001111", "general"));
+    await until(() => activations.length === 2, "redialed");
+    await act(() => api.commands.completeEndedCalls(api.cards[0]));
+    await settle();
+    expect(api.cards).toHaveLength(1);
+    expect(api.cards[0].id).toBe(card.id);
+    expect(api.cards[0].voiceCallEnded).toBeUndefined();
   });
 
   it("hides a card once its contacts are wrapped up, and a reopened notification comes back as a new card", async () => {

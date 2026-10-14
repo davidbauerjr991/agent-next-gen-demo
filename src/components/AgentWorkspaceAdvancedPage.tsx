@@ -4843,6 +4843,9 @@ export function AgentWorkspaceAdvancedPage({
     isOnScenarioCall: () => agentOnActiveVoiceCall,
     onVoiceCallRefused: () =>
       addToast({ variant: "info", title: "Call in progress", message: "A call is already in progress", duration: 4000 }),
+    // Save & Redial: the ended call's wrap-up completes with its saved
+    // outcome once the new call is placed, so the card never empties.
+    onCardRedialPlaced: (card) => void contactCommands.completeEndedCalls(card, outcomeFor(card.id)),
   });
   const contactReopen = useContactReopen({ findOpenCard, activateWhenReady, skillIdForName });
 
@@ -5183,18 +5186,27 @@ export function AgentWorkspaceAdvancedPage({
         // are untouched, different (fictional) cases entirely.
         setDismissedContactHistory((prev) => [entry, ...prev.filter((e) => e.caseId !== entry.caseId)]);
       }
-      fireDismissToast(dismissed, !everSentAgentMessage);
+      // A provider card is closed through the provider (P0.5b.2): every
+      // contact ended and its wrap-up completed with that channel's saved
+      // outcome; the card then leaves the nav (and stays gone after a tier
+      // switch). The toast waits until the provider accepted it. A scripted
+      // scenario card is removed locally, as before.
+      if (dismissed.threads.some((t) => t.providerInteractionId)) {
+        void contactCommands.dismissCard(dismissed, outcomeFor(id)).then((ok) => {
+          if (ok) fireDismissToast(dismissed, !everSentAgentMessage);
+        });
+      } else {
+        setInteractions((prev) => prev.filter((interaction) => interaction.id !== id));
+        fireDismissToast(dismissed, !everSentAgentMessage);
+      }
     }
     // Dismissing the active assignment shouldn't strand the agent on an
     // empty dashboard when there's other open work waiting — hand "active"
     // to whichever assignment now sits at the top of the LeftNav list
     // (`interactions` renders top-down, see the `header` block below)
     // instead of clearing to `null`. Only clears to `null` (back to the
-    // dashboard) once every assignment is gone. Computed from the same
-    // filtered list `setInteractions` below produces, so the two state
-    // updates can never disagree about what's actually left.
+    // dashboard) once every assignment is gone.
     const remaining = interactions.filter((interaction) => interaction.id !== id);
-    setInteractions(() => remaining);
     // The dismissed id no longer belongs to any real assignment — drop its
     // Customer Information panel snapshot too (see `switchActiveInteraction`
     // above), so it can't resurface stale open/full-screen values if some
@@ -5226,19 +5238,36 @@ export function AgentWorkspaceAdvancedPage({
     // assignment's current `customerName`/`recordId` still exist before the
     // state update below removes just this one channel from it.
     const interaction = interactions.find((i) => i.id === id);
-    if (interaction) {
-      // Same "genuine, never-launched draft" check `handleDismissInteraction`
-      // runs, scoped to just THIS channel — see that handler's own doc
-      // comment for the full reasoning. Only affects the toast's wording
-      // here (`fireDismissToast`'s own `isDraftDelete` doc comment) — this
-      // handler never logs Contact History either way (dismissing one
-      // channel of a still-open, multi-channel card was never a "the whole
-      // assignment is over" event to log in the first place).
-      const everSentAgentMessage = (interaction.liveMessages?.[dismissedKey] ?? []).some(
-        (m) => m.sender === "agent"
-      );
-      fireDismissToast(interaction, !everSentAgentMessage);
+    if (!interaction) return;
+    // Same "genuine, never-launched draft" check `handleDismissInteraction`
+    // runs, scoped to just THIS channel — see that handler's own doc
+    // comment for the full reasoning. Only affects the toast's wording
+    // here (`fireDismissToast`'s own `isDraftDelete` doc comment) — this
+    // handler never logs Contact History either way (dismissing one
+    // channel of a still-open, multi-channel card was never a "the whole
+    // assignment is over" event to log in the first place).
+    const everSentAgentMessage = (interaction.liveMessages?.[dismissedKey] ?? []).some(
+      (m) => m.sender === "agent"
+    );
+    // A provider thread is closed through the provider (P0.5b.2) and leaves
+    // the card once it has; the toast waits for that. If it was the main
+    // column, the card's newest remaining thread takes over.
+    const dismissedThread = interaction.threads.find((c) => c.id === dismissedKey);
+    if (dismissedThread?.providerInteractionId) {
+      void contactCommands.dismissThread(interaction, dismissedKey, outcomeFor(id)(dismissedKey)).then((ok) => {
+        if (!ok) return;
+        fireDismissToast(interaction, !everSentAgentMessage);
+        setInteractions((prev) =>
+          prev.map((i) => {
+            if (i.id !== id || i.currentThreadId !== dismissedKey) return i;
+            const others = i.threads.filter((c) => c.id !== dismissedKey);
+            return { ...i, currentThreadId: others[others.length - 1]?.id };
+          })
+        );
+      });
+      return;
     }
+    fireDismissToast(interaction, !everSentAgentMessage);
     setInteractions((prev) =>
       prev.map((interaction) => {
         if (interaction.id !== id) return interaction;
@@ -5633,6 +5662,12 @@ export function AgentWorkspaceAdvancedPage({
     );
   };
   const contactCommands = useContactCommands({ cards: interactions, setLocalStatus: setLocalThreadStatus });
+  /** The outcome a channel's wrap-up completes with: the tags and
+   *  disposition the agent saved for it in Outcome (row 19). */
+  const outcomeFor = (cardId: string) => (threadKey: string) => {
+    const saved = channelOutcomeSelections[`${cardId}:${threadKey}`];
+    return saved ? { tags: saved.tags, ...(saved.dispositionCode ? { dispositionCode: saved.dispositionCode } : {}) } : {};
+  };
   const handleInteractionStatusChange = (interactionId: string, channelId: string, status: string) => {
     // Live "Assignments resolved today" count — increments only on the actual
     // whatever→Resolved transition, not on re-selecting Resolved.
@@ -7857,11 +7892,15 @@ export function AgentWorkspaceAdvancedPage({
                       !interaction.voiceCallEnded &&
                       !(interaction.id === MARCUS_WEBB_ID && marcusWebbReviewing)
                         ? () => {
-                            setInteractions((prev) =>
-                              prev.map((i) =>
-                                i.id === interaction.id ? { ...i, voiceCallEnded: true } : i
-                              )
-                            );
+                            // A provider call ends through `end()` (to
+                            // wrap-up); a scripted scenario call locally.
+                            if (!contactCommands.hangUp(c)) {
+                              setInteractions((prev) =>
+                                prev.map((i) =>
+                                  i.id === interaction.id ? { ...i, voiceCallEnded: true } : i
+                                )
+                              );
+                            }
                             if (interaction.id === activeInteractionId) {
                               setVoiceVideoWindowOpen(false);
                               setVoiceVideoFullScreen(false);
@@ -11941,6 +11980,10 @@ export function AgentWorkspaceAdvancedPage({
               // `onHold` is true.
               onHold={liveVoiceCallThread.heldByAgent}
               onHoldChange={(next) => {
+                // A provider call holds/resumes through `hold()` and the
+                // held state comes back as an event (P0.5b.2); only a
+                // scripted scenario call is held locally.
+                if (contactCommands.setHold(liveVoiceCallThread, next)) return;
                 setInteractions((prev) =>
                   prev.map((interaction) =>
                     interaction.id === liveVoiceCallInteraction.id
@@ -11966,12 +12009,16 @@ export function AgentWorkspaceAdvancedPage({
                     ? liveVoiceCallInteraction.threads.find((t) => t.type === "chat")
                     : undefined;
                 const outcomeThreadKey = lucasChatThread ? (lucasChatThread.id ?? lucasChatThread.type) : endedThreadKey;
+                // A provider call ends through `end()`: it goes to wrap-up,
+                // which the card shows as ended (P0.5b.2). Only a scripted
+                // scenario call is marked ended locally.
+                const endedByProvider = contactCommands.hangUp(liveVoiceCallThread);
                 setInteractions((prev) =>
                   prev.map((i) =>
                     i.id === endedInteractionId
                       ? {
                           ...i,
-                          voiceCallEnded: true,
+                          ...(endedByProvider ? {} : { voiceCallEnded: true }),
                           // Per explicit request ("when a call is ended,
                           // open the outcome menu ... for the active
                           // contact"): force the tab bar onto the voice

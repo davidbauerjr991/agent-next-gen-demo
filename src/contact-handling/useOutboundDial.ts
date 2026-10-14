@@ -46,6 +46,9 @@ export interface UseOutboundDialOptions {
   isOnScenarioCall?: () => boolean;
   /** A voice launch was refused by `secondVoiceCall: "refuse"`. */
   onVoiceCallRefused?: () => void;
+  /** Save & Redial's new call was placed on `card`; the page completes the
+   *  ended call's wrap-up now (not earlier), so the card never empties. */
+  onCardRedialPlaced?: (card: NavCard) => void;
 }
 
 interface DialTarget {
@@ -73,6 +76,7 @@ export function useOutboundDial({
   secondVoiceCall,
   isOnScenarioCall,
   onVoiceCallRefused,
+  onCardRedialPlaced,
 }: UseOutboundDialOptions) {
   const provider = useInteractionProvider();
   const interactions = useInteractions();
@@ -96,10 +100,10 @@ export function useOutboundDial({
   const place = useCallback(
     async (target: DialTarget) => {
       const channel = target.channel as ChannelKind;
-      if (target.channel === "voice" && refuseVoice()) return;
+      if (target.channel === "voice" && refuseVoice()) return false;
       if (!outboundChannels.includes(channel)) {
         if (import.meta.env.DEV) console.warn(`[outbound] the provider can't dial out on ${channel}`);
-        return;
+        return false;
       }
       const key = `${target.channel}:${target.address}`;
       // A digital thread that's still live on this card restarts as a reopen,
@@ -138,12 +142,14 @@ export function useOutboundDial({
           id = await provider.dial(request);
         }
         activateWhenReady(id, target.mode, !target.card);
+        return true;
       } catch (error) {
         if (target.channel === "voice" && isProviderError(error) && error.code === "invalid-state" && agentState?.leg !== "connected") {
           onLegDisconnected();
-          return;
+          return false;
         }
         if (import.meta.env.DEV) console.warn("[outbound] dial failed", error);
+        return false;
       }
     },
     [provider, interactions, agentState, outboundChannels, activateWhenReady, onLegDisconnected, refuseVoice],
@@ -213,9 +219,11 @@ export function useOutboundDial({
         skillId,
         card,
         mode: "focus",
+      }).then((placed) => {
+        if (placed) onCardRedialPlaced?.(card);
       });
     },
-    [place],
+    [place, onCardRedialPlaced],
   );
 
   /** The ad-hoc "+" (a typed address added to the active card). */
