@@ -33,7 +33,7 @@ All client-side. The provider layer keeps a real backend (Twilio, CXone ACD) a s
 
 ## Phase 2 — Realtime chat simulation
 
-0. **Render performance pass.** Profile which components re-render on a single provider event and why (React Profiler / dev timing hook); smallest fixes (memoized selectors in the store hooks, `React.memo` on heavy subtrees, state splitting). No visual changes; target under ~50ms per event.
+0. **Render performance pass.** Profile which components re-render on a single provider event and why (React Profiler / dev timing hook); smallest fixes (memoized selectors in the store hooks, `React.memo` on heavy subtrees, state splitting). No visual changes; target under ~50ms per event, **measured against a production build** (the slow renders on the dev server are dev-mode overhead; see PROGRESS.md Known gaps).
 1. Console chat view: thread (lyra-ui `chat-message`/`conversation-message`), composer, typing toggle, canned lines from the active profile, "End chat."
 2. Agent app: `incoming` event for chat creates an inbound interaction via the existing channel-row / interaction-nav flow; messages append; the agent composer calls `sendMessage`; typing both ways.
 3. **Unknown-contact state.** No match on the handshake identifier → Profile card shows "New <entity>" with the handle; handoff snapshot says no prior history; an empty "Draft <entity>" card appears in the AI-assist slot, fields from the profile's schema.
