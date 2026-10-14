@@ -138,6 +138,7 @@ import {
   FileText,
 } from "lucide-react";
 import { formatElapsedTime } from "@/components/agent-next-gen-shared-utils";
+import { ClockTick } from "@/components/agent-next-gen-clock-tick";
 
 /** One column: icon on top, visible label underneath — the main control
  *  shape this bar now uses everywhere (see this file's own top doc comment
@@ -512,15 +513,17 @@ export interface VoiceCallControlsProps {
    *  "Closed" from the status popover). The only real, non-decorative
    *  action in this whole bar — see this file's own top doc comment. */
   onHangUp: () => void;
-  /** Seconds since this call started (`clockTick - Thread.startTick`, same
-   *  tick source every other timer in this app reads off) — rendered as a
+  /** Page-clock tick this call started at (`Thread.startTick`, same tick
+   *  source every other timer in this app reads off). The duration
+   *  (page clock now − this) ticks inside its own `<ClockTick>`, so only
+   *  the timer text re-renders each second, not the bar — rendered as a
    *  running "MM:SS" (`formatElapsedTime`, same format/helper
    *  `InteractionNavItem`'s own per-channel elapsed timer uses) above the
    *  768px breakpoint, or a plain clock glyph with the same duration on a
    *  `Tooltip` below it — see this file's own top doc comment. Optional so
    *  an existing caller that hasn't wired this through yet still renders
    *  (just without the timer) instead of crashing. */
-  elapsedSeconds?: number;
+  callStartTick?: number;
   /** Same shared toast surface every other mock/placeholder control in
    *  this app already fires through (`agent-next-gen-customer-info-
    *  panel.tsx`'s own `onAddToast`, etc.) — omit to silently no-op instead
@@ -597,8 +600,9 @@ export interface VoiceCallControlsProps {
   onHoldChange?: (onHold: boolean) => void;
   /** Per explicit request ("when a call is placed on hold, add an on hold
    *  timer below the call timer in the call controls and in the
-   *  interaction nav item") — seconds since this call was put on hold,
-   *  rendered as a second "On hold MM:SS" line directly below the running
+   *  interaction nav item") — page-clock tick this call was put on hold
+   *  at (`Thread.heldSinceTick`); the time since then ticks in its own
+   *  `<ClockTick>` and is rendered as a second "On hold MM:SS" line directly below the running
    *  call-duration timer, in the same red/critical color every other
    *  "needs attention" reading in this app uses, whenever `onHold` is also
    *  true. Only meaningful (and only rendered) while `onHold` is true;
@@ -606,8 +610,9 @@ export interface VoiceCallControlsProps {
    *  without it" fallback every other optional prop here already follows.
    *  Mirrors lyra-ui's own identical `VoiceCallControls` prop
    *  (voice-call-controls.tsx) — kept in sync per this file's own
-   *  established "app-local twin" convention. */
-  onHoldElapsedSeconds?: number;
+   *  established "app-local twin" convention (lyra's takes seconds; this
+   *  one takes the start tick so the bar doesn't re-render every second). */
+  holdStartTick?: number;
   /** Per explicit request (Agent Workspace 2.0 Phase 1 only): hides the
    *  "Add video" button entirely. This bar's own divider just before it
    *  stays either way — it still separates the call-feature cluster from
@@ -635,7 +640,7 @@ export interface VoiceCallControlsProps {
    *  comment for the `quickdial:<number>` id pattern used when no contact
    *  record matches a dialed number). Omit entirely to render neither the
    *  avatar nor this line — same "renders fine without it" fallback every
-   *  other optional prop here already follows (see `elapsedSeconds`'s own
+   *  other optional prop here already follows (see `callStartTick`'s own
    *  doc comment) — for a caller that hasn't wired customer identity
    *  through yet. */
   customerLabel?: string;
@@ -653,7 +658,7 @@ export interface VoiceCallControlsProps {
 
 export function VoiceCallControls({
   onHangUp,
-  elapsedSeconds,
+  callStartTick,
   onAddToast,
   onToggleTranscript,
   transcriptOpen,
@@ -663,7 +668,7 @@ export function VoiceCallControls({
   videoOpen,
   onHold: onHoldControlled,
   onHoldChange,
-  onHoldElapsedSeconds,
+  holdStartTick,
   showAddVideo = true,
   stretch = false,
   customerLabel,
@@ -1106,10 +1111,12 @@ export function VoiceCallControls({
               this pulsing is specific to the badge this request named, not
               a blanket "recording" treatment applied everywhere red shows
               up in this bar. */}
-          {elapsedSeconds !== undefined && (
+          {callStartTick !== undefined && (
+            <ClockTick>
+              {(clockTick) => (
             <span
               className="flex items-center gap-1 lyra-body-sm text-lyra-fg-secondary"
-              aria-label={`Call duration ${formatElapsedTime(elapsedSeconds)}`}
+              aria-label={`Call duration ${formatElapsedTime(clockTick - callStartTick)}`}
             >
               {recording ? (
                 <Circle
@@ -1120,23 +1127,29 @@ export function VoiceCallControls({
               ) : (
                 <Clock className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
               )}
-              <span className="w-[34px] shrink-0 text-right tabular-nums">{formatElapsedTime(elapsedSeconds)}</span>
+              <span className="w-[34px] shrink-0 text-right tabular-nums">{formatElapsedTime(clockTick - callStartTick)}</span>
             </span>
+              )}
+            </ClockTick>
           )}
-          {/* On-hold timer — see `onHoldElapsedSeconds`'s own doc comment.
+          {/* On-hold timer — see `holdStartTick`'s own doc comment.
               A second line directly below the call timer above, not a
               replacement for it. */}
-          {onHold && onHoldElapsedSeconds !== undefined && (
+          {onHold && holdStartTick !== undefined && (
+            <ClockTick>
+              {(clockTick) => (
             <Badge
               shape="pill"
-              color={getHoldSeverity(onHoldElapsedSeconds)}
+              color={getHoldSeverity(clockTick - holdStartTick)}
               variant="subtle"
               fontSize={12}
               icon={<Pause strokeWidth={2} />}
-              aria-label={`On hold ${formatElapsedTime(onHoldElapsedSeconds)}`}
+              aria-label={`On hold ${formatElapsedTime(clockTick - holdStartTick)}`}
             >
-              On hold {formatElapsedTime(onHoldElapsedSeconds)}
+              On hold {formatElapsedTime(clockTick - holdStartTick)}
             </Badge>
+              )}
+            </ClockTick>
           )}
           </div>
         </div>

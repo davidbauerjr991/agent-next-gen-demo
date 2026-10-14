@@ -1,5 +1,10 @@
 /// <reference types="vite/client" />
 
+interface ImportMetaEnv {
+  /** "1" skips StrictMode (src/main.tsx). For demo sessions; off by default. */
+  readonly VITE_NO_STRICT_MODE?: string;
+}
+
 // CSS-only alias (see vite.config.ts); imported for its side effect.
 declare module "@nicecxone/lyra-ui/styles";
 

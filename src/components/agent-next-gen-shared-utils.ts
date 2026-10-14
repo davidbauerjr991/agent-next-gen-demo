@@ -86,6 +86,20 @@ function formatElapsedTime(totalSeconds: number): string {
 /** Same idea as `formatElapsedTime` above but "HH:MM:SS", for the home tab's
  *  queue widgets — their wait time can run past an hour (e.g. voicemail),
  *  unlike a just-started interaction's MM:SS elapsed display. */
+/** The Real-Time Summary's `"Updated 8 seconds ago"`/`"Updated 3 minutes
+ *  ago"`-style caption, from seconds since it was last "updated" —
+ *  deliberately plain seconds/minutes/hours (no relative-time library
+ *  pulled in for one caption). Rendered by `DetailsPanelAccordions` inside
+ *  a `<ClockValue>`, so it re-renders only when this string changes. */
+function formatRealTimeSummaryUpdatedLabel(elapsedSeconds: number): string {
+  const elapsed = Math.max(0, elapsedSeconds);
+  if (elapsed < 60) return `Updated ${elapsed} second${elapsed === 1 ? "" : "s"} ago`;
+  const minutes = Math.floor(elapsed / 60);
+  if (minutes < 60) return `Updated ${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.floor(minutes / 60);
+  return `Updated ${hours} hour${hours === 1 ? "" : "s"} ago`;
+}
+
 function formatWaitTime(totalSeconds: number): string {
   const clamped = Math.max(0, totalSeconds);
   const hh = Math.floor(clamped / 3600);
@@ -220,12 +234,12 @@ const CURRENT_AGENT_CONNECTION_LAG_TIME = "00:32";
    `formatHeaderSubtitle` while it briefly held a full sentence; renamed
    back to `formatHeaderDate` once it went back to a date — kept as its own
    shared helper (rather than inlined at each of the 3 call sites) since
-   it's identical across all 3 tiers. Ticks live for free: the main
-   component's own `clockTick` state already re-renders this whole tree once
-   a second for the open-channel elapsed timers, so this just reads
-   `new Date()` again on whichever render that produces — no separate
-   interval needed here (rolls over at midnight, and updates the visible
-   minute, without a page reload). */
+   it's identical across all 3 tiers. It reads `new Date()` on whichever
+   render calls it. That used to mean "live for free," because the page
+   re-rendered every second. Since the page clock moved into self-ticking
+   components (agent-next-gen-page-clock.ts), it no longer does: a caller
+   that needs this to stay live must render it inside a `<ClockValue>`.
+   Neither workspace page calls it today. */
 function formatHeaderDate(): string {
   const now = new Date();
   const datePart = now.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
@@ -234,8 +248,9 @@ function formatHeaderDate(): string {
 }
 
 /* Dashboard page-header title — "Good Morning/Afternoon/Evening, {name}",
-   read fresh on every render off the agent's local clock, same "ticks live
-   for free" reasoning as `formatHeaderDate` above. History: this started as
+   read fresh on every render off the agent's local clock (same caveat as
+   `formatHeaderDate` above: no longer refreshed by a page-wide tick).
+   History: this started as
    a time-of-day greeting ("Good morning, John"), was flattened to a plain
    "Welcome Back, {name}" per an explicit follow-up reasoning that an
    agent's local clock/timezone isn't reliable when connected through a VPN
@@ -1041,6 +1056,7 @@ export {
   generateContactId,
   formatElapsedTime,
   formatWaitTime,
+  formatRealTimeSummaryUpdatedLabel,
   AWAITING_WARNING_SECONDS,
   AWAITING_CRITICAL_SECONDS,
   getAwaitingSeverity,

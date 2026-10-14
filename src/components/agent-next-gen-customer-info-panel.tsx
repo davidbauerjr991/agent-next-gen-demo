@@ -62,7 +62,9 @@ import {
   phoneValueFromDisplay,
   phoneDisplayFromValue,
   initialsFor,
+  formatRealTimeSummaryUpdatedLabel,
 } from "@/components/agent-next-gen-shared-utils";
+import { ClockValue } from "@/components/agent-next-gen-clock-tick";
 import { type ContactHistoryStatusVariant } from "@/components/agent-next-gen-contact-history";
 import { OUTBOUND_AGENTS } from "@/components/agent-next-gen-outbound-data";
 import { MARCUS_WEBB_CUSTOMER_ID } from "@/components/agent-next-gen-marcus-webb-scenario";
@@ -3616,7 +3618,7 @@ export function DetailsPanelAccordions({
   customerContextOverview,
   showCustomerContextOverview = true,
   showRealTimeSummary = false,
-  realTimeSummaryUpdatedLabel,
+  realTimeSummaryUpdatedAtTick,
   onViewExperienceMemory,
   onViewCustomerInfo,
   onViewInteractionHistory,
@@ -3649,13 +3651,14 @@ export function DetailsPanelAccordions({
    *  `false`: every existing `DetailsPanelAccordions` call site keeps
    *  showing the original "Autosummary" exactly as before. */
   showRealTimeSummary?: boolean;
-  /** `"Updated 8 seconds ago"`-style caption — passed straight through to
-   *  `CustomerContextOverview`'s own identically-named prop (see that
-   *  prop's own doc comment for the full "why"); this component doesn't
-   *  compute the relative-time string itself, the caller does (it has the
-   *  page's own ticking clock). Only meaningful alongside
+  /** Page-clock tick the Real-Time Summary was last "updated" at. This
+   *  component turns it into the `"Updated 8 seconds ago"`-style caption
+   *  (`formatRealTimeSummaryUpdatedLabel`) passed to
+   *  `CustomerContextOverview`'s `realTimeSummaryUpdatedLabel` (see that
+   *  prop's own doc comment for the full "why"), inside a `<ClockValue>`
+   *  so only that card re-renders as it ticks. Only meaningful alongside
    *  `showRealTimeSummary`. */
-  realTimeSummaryUpdatedLabel?: string;
+  realTimeSummaryUpdatedAtTick?: number;
   /** Adds a "View Experience Memory" link to the Real-Time Summary card. */
   onViewExperienceMemory?: () => void;
   /** Per explicit request ("remove the customer details accordion from
@@ -3724,6 +3727,18 @@ export function DetailsPanelAccordions({
         </Button>
       )}
       {showCustomerContextOverview && customerContextOverview && (
+        // Only this card re-renders for the "Updated N seconds ago"
+        // caption, and only when the label text changes (every second for
+        // the first minute, then every minute) — see
+        // `realTimeSummaryUpdatedAtTick`'s own doc comment.
+        <ClockValue
+          select={(clockTick) =>
+            realTimeSummaryUpdatedAtTick === undefined
+              ? undefined
+              : formatRealTimeSummaryUpdatedLabel(clockTick - realTimeSummaryUpdatedAtTick)
+          }
+        >
+          {(realTimeSummaryUpdatedLabel) => (
         <CustomerContextOverview
           customerName={customerName ?? ""}
           customerCard={customerContextOverview.customerCard}
@@ -3754,6 +3769,8 @@ export function DetailsPanelAccordions({
           onViewInteractionHistory={onViewInteractionHistory}
           className="pt-0"
         />
+          )}
+        </ClockValue>
       )}
       <Accordion
         // Open by default per explicit request — this is a single-item

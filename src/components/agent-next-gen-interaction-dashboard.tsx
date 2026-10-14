@@ -30,6 +30,7 @@ import {
   formatCreateDate,
   percentOfTeam,
   getAwaitingSeverity,
+  formatWaitTime,
 } from "@/components/agent-next-gen-shared-utils";
 import { cn } from "@/lib/utils";
 import {
@@ -1222,7 +1223,7 @@ export const INITIAL_QUEUE_SUB_ITEMS: Record<string, QueueSubItem[]> = {
    panel's own "In Queue" figures for the same queue could — and did —
    disagree, e.g. "2 Contacts" on a queue whose sub-items summed to 5).
    Fixed the same way `skillsCount` already worked, and still true now that
-   the source list is React state instead of a module constant: derived
+   the source list is live (agent-next-gen-queue-sim.ts) instead of a module constant: derived
    directly from a `QueueSubItem[]`, the same list the side panel renders,
    so the two can never drift apart — including while the live simulation
    below is nudging that list's counts up and down. */
@@ -1239,7 +1240,7 @@ export const AGENTS_COUNT_BY_QUEUE: Record<string, number> = { "1": 3, "2": 2, "
 
 /** Baseline queue-wait seconds (matches the reference screenshot's
  *  00:02:34 / 00:00:00 / 00:02:00 / 00:00:24) — the component below adds
- *  the shared `clockTick` counter to these every render so the home tab's
+ *  the page clock's tick to these (`buildLatestContacts`) so the home tab's
  *  "Wait Time" ticks up in real time like a live clock, the same
  *  convention `formatElapsedTime`'s callers already use for interaction
  *  elapsed-time displays. */
@@ -1257,6 +1258,32 @@ export const LATEST_CONTACTS_STATIC: Omit<LatestContact, "contactsCount" | "skil
   { id: "4", name: "Work Item",     icon: ClipboardList, status: "open",   channel: "Emily", caseId: "CST-15001", interactions: buildInteractions(4, "open", 7) },
   { id: "5", name: "Outbound Voice", icon: PhoneOutgoing, status: "open",  channel: "Atlas", caseId: "CST-21042", interactions: buildInteractions(5, "open", 2) },
 ];
+
+/* Home tab's queue widget row: each queue's fixed fields merged with the
+   live `contactsCount`/`skillsCount` (from the queue simulation's
+   `subItems`) and `wait` (from the page clock's tick). Wait is pinned to
+   zero once a queue actually empties (matches the reference screenshot's
+   own Inbound Voice row: 0 contacts, 00:00:00 wait) rather than ticking up
+   forever regardless of whether anyone's still waiting. `bases` lets a page
+   show a subset of `LATEST_CONTACTS_STATIC`. Called inside `<QueueSubItems>`
+   + `<ClockTick>` (agent-next-gen-clock-tick.tsx), so only the queue cards
+   re-render. */
+export function buildLatestContacts(
+  bases: typeof LATEST_CONTACTS_STATIC,
+  subItems: Record<string, QueueSubItem[]>,
+  clockTick: number
+): LatestContact[] {
+  return bases.map((base) => {
+    const contactsCount = sumInQueue(subItems[base.id]);
+    return {
+      ...base,
+      contactsCount,
+      skillsCount: subItems[base.id].length,
+      agentsCount: AGENTS_COUNT_BY_QUEUE[base.id],
+      wait: contactsCount > 0 ? formatWaitTime(QUEUE_WAIT_BASE_SECONDS[base.id] + clockTick) : formatWaitTime(0),
+    };
+  });
+}
 
 /* ── Home screen summary cards ── */
 

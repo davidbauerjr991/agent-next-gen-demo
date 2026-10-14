@@ -137,19 +137,18 @@ import {
   interactionHasBreachedSla,
   NOTIFICATION_CHANNEL,
   INITIAL_NOTIFICATIONS,
-  type LatestContact,
   WELCOME_MODAL_LAST_LOGIN,
-  type QueueSubItem,
   INITIAL_QUEUE_SUB_ITEMS,
-  sumInQueue,
-  AGENTS_COUNT_BY_QUEUE,
-  QUEUE_WAIT_BASE_SECONDS,
   LATEST_CONTACTS_STATIC,
+  buildLatestContacts,
   type DeskTabKey,
   DESK_TAB_LABELS,
   PerformanceBreakdownCard,
   PerformanceSummaryCard,
 } from "@/components/agent-next-gen-interaction-dashboard";
+import { PageClockContext, usePageClockSource, useClockValue } from "@/components/agent-next-gen-page-clock";
+import { QueueSimContext, useQueueSimSource } from "@/components/agent-next-gen-queue-sim";
+import { ClockTick, QueueSubItems } from "@/components/agent-next-gen-clock-tick";
 import {
   type ContactHistoryEntry,
   buildDismissedContactHistoryEntry,
@@ -757,8 +756,8 @@ function resolveActiveChannelDateTimeLabel(
  *  1. `lastCustomerMessageTick` — set the instant a real (or simulated)
  *     customer reply lands on THIS session (`handleSendMessage`'s reply
  *     timeout). It's a `clockTick` value — real elapsed seconds since this
- *     page mounted (`clockTick`'s own 1-per-second `setInterval`, see that
- *     state's doc comment above) — so `pageMountTimeMs + tick * 1000` gives
+ *     page mounted (the page clock's 1-per-second tick, see `clock`'s doc
+ *     comment in the page) — so `pageMountTimeMs + tick * 1000` gives
  *     an exact, real wall-clock `Date`, not a mock string.
  *  2. `reopenedContacts` — a thread reopened from Contact History carries a
  *     real historical date/time of its own even with no live reply yet.
@@ -2532,12 +2531,11 @@ export function AgentWorkspace2WithDeskPage({
   // Captured once, this component's real mount instant — lets
   // `resolveInteractionLastCustomerResponseLabel` (below) convert a
   // `lastCustomerMessageTick` value (real elapsed seconds since mount,
-  // since `clockTick`, declared further down, ticks once per real second —
-  // see that state's own doc comment) back into an exact real `Date`,
-  // rather than a mock/relative string. Declared here (ahead of
-  // `clockTick` itself) purely so it's available before
-  // `lastCustomerResponseLabel` reads it a few lines below — it doesn't
-  // actually depend on `clockTick`'s own state.
+  // since the page clock (`clock`, declared further down) ticks once per
+  // real second — see its own doc comment) back into an exact real `Date`,
+  // rather than a mock/relative string. Declared here (ahead of `clock`
+  // itself) purely so it's available before `lastCustomerResponseLabel`
+  // reads it a few lines below — it doesn't actually depend on the clock.
   const pageMountTimeRef = useRef(Date.now());
   // Looks up `threadLaunchTimestamps`' own captured entry (if any) for the
   // ACTIVE channel specifically — see that state's own doc comment for the
@@ -2797,9 +2795,15 @@ export function AgentWorkspace2WithDeskPage({
     // bumped by `focusCustomerPanelTab`, harmlessly.
   });
   // Shared clock powering every open channel's live "MM:SS since it
-  // started" elapsed display — independent of `elapsedSeconds` below, which
-  // is the agent's own status timer and resets on status change.
-  const [clockTick, setClockTick] = useState(0);
+  // started" elapsed display, and the agent's status timer
+  // (`statusSinceTick` below). Not page state: a tick re-renders only the
+  // `<ClockTick>`/`<ClockValue>` wrappers that show a live time, so the page
+  // itself doesn't re-render every second (agent-next-gen-page-clock.ts).
+  // Handlers and timeouts read the current tick with `clock.now()`.
+  const clock = usePageClockSource();
+  // Same idea for the home tab's live queue widgets (4s random walk):
+  // only `<QueueSubItems>` readers re-render (agent-next-gen-queue-sim.ts).
+  const queueSim = useQueueSimSource();
   // Whether ANY assignment in the whole Personal Queue has a channel that's
   // actually breached SLA (red/"critical", not just "warning") — drives the
   // home header's "Personal Queue" chip color per explicit request ("make
@@ -2809,27 +2813,10 @@ export function AgentWorkspace2WithDeskPage({
   // (agent-next-gen-interaction-dashboard.tsx) for why this re-derives the
   // same per-channel severity check each LeftNav card's own render loop
   // already applies, rather than importing that inline logic directly.
-  const hasBreachedSlaAssignment = useMemo(
-    () => interactions.some((i) => interactionHasBreachedSla(i, clockTick)),
-    [interactions, clockTick]
+  // A boolean via `useClockValue`, so the page re-renders only when it flips.
+  const hasBreachedSlaAssignment = useClockValue(clock, (clockTick) =>
+    interactions.some((i) => interactionHasBreachedSla(i, clockTick))
   );
-  // Mirrors `clockTick` for code that needs the CURRENT tick inside a
-  // callback that itself fires later (`handleSendMessage`'s simulated
-  // customer-reply `setTimeout`, 2s after the call that scheduled it) —
-  // reading the `clockTick` state variable there would close over its
-  // stale value from scheduling time, not whatever it's actually
-  // incremented to by the time that timeout fires. Updated in the same
-  // place `clockTick` itself is, so the two can't drift apart.
-  const clockTickRef = useRef(0);
-  useEffect(() => {
-    const id = setInterval(() => {
-      setClockTick((t) => {
-        clockTickRef.current = t + 1;
-        return t + 1;
-      });
-    }, 1000);
-    return () => clearInterval(id);
-  }, []);
   // Same "how urgently is this channel awaiting a reply" signal the record-
   // header tab bar's own `<ChannelTab awaitingSeverity=...>` call site
   // computes per-channel (render return, further down) — resolved once
@@ -2840,9 +2827,13 @@ export function AgentWorkspace2WithDeskPage({
   // banner's own JSX. `undefined` whenever the active channel isn't
   // awaiting at all (mirrors `awaitingSeverity` being omitted for that case
   // everywhere else) — that's what tells the banner to render nothing.
-  const activeChannelAwaitingSeverity: "success" | "warning" | "critical" | undefined = activeChannel?.awaitingResponse
-    ? getAwaitingSeverity(clockTick - (activeChannel.lastCustomerMessageTick ?? activeChannel.startTick))
-    : undefined;
+  // Read through `useClockValue`, so the page re-renders only when the tier
+  // changes, not every second.
+  const activeChannelAwaitingSeverity: "success" | "warning" | "critical" | undefined = useClockValue(clock, (clockTick) =>
+    activeChannel?.awaitingResponse
+      ? getAwaitingSeverity(clockTick - (activeChannel.lastCustomerMessageTick ?? activeChannel.startTick))
+      : undefined
+  );
   // Widened from the plain `DeskTabKey` union (still the base type: "home" |
   // "customers" | "accounts" | "tickets" | "wem" | "interactions") to also
   // allow a `customer:${contactNumber}` id — one of the dynamic tabs
@@ -3089,7 +3080,7 @@ export function AgentWorkspace2WithDeskPage({
       if (e.key.toLowerCase() !== "l" || e.metaKey || e.ctrlKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
       if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable) return;
-      const interaction = buildMarcusWebbInteraction(clockTickRef.current);
+      const interaction = buildMarcusWebbInteraction(clock.now());
       setInteractions((prev) => (prev.some((i) => i.id === MARCUS_WEBB_ID) ? prev : [...prev, interaction]));
       setMarcusWebbState(saveMarcusWebbScenario({ triggered: true, interaction, copilotStep: "decision" }));
       // Used to force the nav open here too ("when a new interaction comes
@@ -3102,7 +3093,7 @@ export function AgentWorkspace2WithDeskPage({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [agentStatus, marcusWebbState.triggered]);
+  }, [agentStatus, marcusWebbState.triggered, clock]);
   const [showWelcomeModal, setShowWelcomeModal] = useState(true);
   // Flushes whatever `fireAgentLegStatusToast` deferred (further up this
   // component) the moment the welcome modal actually closes (Go Available /
@@ -3125,7 +3116,10 @@ export function AgentWorkspace2WithDeskPage({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showWelcomeModal]);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  // Page-clock tick the agent's current status started at. The header's
+  // HH:MM:SS status timer is the page clock minus this, ticking inside
+  // `<ClockTick>` around `AgentProfile` only; a status change resets it.
+  const [statusSinceTick, setStatusSinceTick] = useState(0);
   const [appMenuOpen, setAppMenuOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(
     () => document.documentElement.getAttribute("data-theme") === "dark"
@@ -3652,60 +3646,11 @@ export function AgentWorkspace2WithDeskPage({
   // Mirrors AgentWorkspaceAdvancedPage.tsx's own identical state.
   const [redialActiveInteraction, setRedialActiveInteraction] = useState<{ interactionId: string; phoneNumber: string } | null>(null);
 
-  /* ── Live queue simulation ──
-     The home tab's queue widgets should look "live" — wait time ticks up
-     like a real clock, and Contacts fluctuates a bit over time — without
-     reintroducing the old `randomContactsCount()` bug (an independently-
-     randomized number that could disagree with the side panel's own
-     breakdown, see the comment on `sumInQueue` above). So the *only* thing
-     that gets randomized here is `queueSubItems` itself — the same list
-     the side panel renders and `sumInQueue` totals for the Contacts metric
-     — every few seconds one random sub-item's `inQueueCount` nudges by
-     -1/0/+1 (clamped to [0, 20]). Both the widget's Contacts number and the
-     side panel's "In Queue" figures re-derive from this one state update,
-     so they can't drift apart. Wait time uses the shared `clockTick`
-     (declared above) instead of its own timer — same "count seconds since
-     mount" convention `formatElapsedTime`'s callers already use — added to
-     each queue's `QUEUE_WAIT_BASE_SECONDS` baseline every render. */
-  const [queueSubItems, setQueueSubItems] = useState<Record<string, QueueSubItem[]>>(INITIAL_QUEUE_SUB_ITEMS);
-  useEffect(() => {
-    const id = setInterval(() => {
-      setQueueSubItems((prev) => {
-        const queueIds = Object.keys(prev);
-        const queueId = queueIds[Math.floor(Math.random() * queueIds.length)];
-        const items = prev[queueId];
-        const itemIndex = Math.floor(Math.random() * items.length);
-        const delta = Math.floor(Math.random() * 3) - 1; // -1, 0, or 1
-        const nextCount = Math.max(0, Math.min(20, items[itemIndex].inQueueCount + delta));
-        if (nextCount === items[itemIndex].inQueueCount) return prev;
-        return {
-          ...prev,
-          [queueId]: items.map((item, i) => (i === itemIndex ? { ...item, inQueueCount: nextCount } : item)),
-        };
-      });
-    }, 4000);
-    return () => clearInterval(id);
-  }, []);
-
-  /* Home tab's queue widget row — `LATEST_CONTACTS_STATIC`'s fixed fields
-     merged with the live `contactsCount`/`skillsCount` (derived from
-     `queueSubItems`) and `wait` (derived from `clockTick`) every time
-     either changes. Wait is pinned to zero once a queue actually empties
-     (matches the reference screenshot's own Inbound Voice row: 0 contacts,
-     00:00:00 wait) rather than ticking up forever regardless of whether
-     anyone's still waiting. */
-  const latestContacts = useMemo<LatestContact[]>(() => {
-    return LATEST_CONTACTS_STATIC.map((base) => {
-      const contactsCount = sumInQueue(queueSubItems[base.id]);
-      return {
-        ...base,
-        contactsCount,
-        skillsCount: queueSubItems[base.id].length,
-        agentsCount: AGENTS_COUNT_BY_QUEUE[base.id],
-        wait: contactsCount > 0 ? formatWaitTime(QUEUE_WAIT_BASE_SECONDS[base.id] + clockTick) : formatWaitTime(0),
-      };
-    });
-  }, [queueSubItems, clockTick]);
+  /* Home tab's queue widget row: the live counts come from the queue
+     simulation (`queueSim`, agent-next-gen-queue-sim.ts) and the wait times
+     from the page clock, merged in by `buildLatestContacts` inside
+     `<QueueSubItems>` + `<ClockTick>` at the `DashboardQueue` call site, so
+     only the queue cards re-render. */
 
   /* Customer Information panel — a left-docked `SidePanel` (per explicit
      request to move this content into a left side panel, matching a
@@ -4232,20 +4177,9 @@ export function AgentWorkspace2WithDeskPage({
     return Math.min(window.innerHeight - top - BOTTOM_PADDING, MAX_PANEL_HEIGHT);
   };
 
-  /* Timer */
-  useEffect(() => {
-    const id = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  const h = Math.floor(elapsedSeconds / 3600);
-  const m = Math.floor((elapsedSeconds % 3600) / 60);
-  const s = elapsedSeconds % 60;
-  const formattedTimer = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-
   const handleStatusChange = (status: AgentStatus) => {
     setAgentStatus(status);
-    setElapsedSeconds(0);
+    setStatusSinceTick(clock.now());
   };
 
   // Auto "Working" status while on a live voice call, per explicit request
@@ -4281,12 +4215,12 @@ export function AgentWorkspace2WithDeskPage({
       if (agentStatus !== "working") {
         preCallStatusRef.current = agentStatus;
         setAgentStatus("working");
-        setElapsedSeconds(0);
+        setStatusSinceTick(clock.now());
       }
     } else if (agentStatus === "working") {
       setAgentStatus(preCallStatusRef.current ?? "unavailable");
       preCallStatusRef.current = null;
-      setElapsedSeconds(0);
+      setStatusSinceTick(clock.now());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOnVoiceCall]);
@@ -4381,7 +4315,7 @@ export function AgentWorkspace2WithDeskPage({
     const newChannel: Thread = {
       id: existingChannelId,
       type: selection.channel,
-      startTick: clockTick,
+      startTick: clock.now(),
       preview: skillLabel,
       value: selection.phone,
       addressLabel,
@@ -4594,7 +4528,7 @@ export function AgentWorkspace2WithDeskPage({
     const newChannel: Thread = {
       id: "voice",
       type: "voice",
-      startTick: clockTick,
+      startTick: clock.now(),
       preview: skillLabel,
       value: phoneNumber,
       addressLabel: phoneNumber,
@@ -4744,7 +4678,7 @@ export function AgentWorkspace2WithDeskPage({
     const newChannel: Thread = {
       id: "voice",
       type: "voice",
-      startTick: clockTick,
+      startTick: clock.now(),
       preview: skillLabel,
       value: voiceAddress,
       addressLabel: voiceAddress,
@@ -4791,7 +4725,7 @@ export function AgentWorkspace2WithDeskPage({
     const newChannel: Thread = {
       id: "voice",
       type: "voice",
-      startTick: clockTick,
+      startTick: clock.now(),
       preview: skillLabel,
       value: phoneNumber,
       addressLabel: phoneNumber,
@@ -4944,7 +4878,7 @@ export function AgentWorkspace2WithDeskPage({
     const newChannel: Thread = {
       id: channelId,
       type: channel,
-      startTick: clockTick,
+      startTick: clock.now(),
       value: query,
       addressLabel: query,
       messageCount: channel === "voice" ? undefined : 0,
@@ -5131,7 +5065,7 @@ export function AgentWorkspace2WithDeskPage({
     const newChannel: Thread = {
       id: existingChannelId,
       type: entry.channelType,
-      startTick: clockTick,
+      startTick: clock.now(),
       value: address,
       addressLabel: address,
       // Reopening an EXISTING Thread keeps its own base Contact id — a
@@ -5261,7 +5195,7 @@ export function AgentWorkspace2WithDeskPage({
         // — see that effect's own doc comment in AgentNextGenPage.tsx for why
         // this exact moment can't rely on the effect alone.
         saveCaseRecord(dismissed);
-        const entry = buildDismissedContactHistoryEntry(dismissed, clockTick);
+        const entry = buildDismissedContactHistoryEntry(dismissed, clock.now());
         // Upsert by `caseId`, not a plain prepend — per explicit bug report:
         // reopening a dismissed case (from Contact History or otherwise),
         // touching it, and dismissing it again used to log a SECOND row for
@@ -5559,12 +5493,10 @@ export function AgentWorkspace2WithDeskPage({
       setInteractions((prev) =>
         prev.map((interaction) =>
           interaction.id === interactionId
-            // `clockTickRef.current`, not the `clockTick` state variable —
-            // this callback fires 2.5s after `handleSendMessage` was
-            // called, and a plain closure over `clockTick` would still
-            // read its value from THAT moment, not now. See the ref's own
-            // doc comment above.
-            ? applyToChannel(interaction, customerMessage, true, clockTickRef.current)
+            // `clock.now()` reads the tick at the moment this callback
+            // fires (2.5s after `handleSendMessage` was called), not the
+            // tick from when it was scheduled.
+            ? applyToChannel(interaction, customerMessage, true, clock.now())
             : interaction
         )
       );
@@ -6047,7 +5979,7 @@ export function AgentWorkspace2WithDeskPage({
     const newChannel: Thread = {
       id: channel,
       type: channel,
-      startTick: clockTick,
+      startTick: clock.now(),
       contactId: generateContactId(),
       // A notification represents an already-existing, real conversation
       // reaching the agent — always inbound. See `Thread.direction`'s own
@@ -6170,7 +6102,7 @@ export function AgentWorkspace2WithDeskPage({
     const newChannel: Thread = {
       id: record.type,
       type: record.type,
-      startTick: clockTick,
+      startTick: clock.now(),
       value: address,
       addressLabel: address,
       contactId: generateContactId(),
@@ -6983,6 +6915,8 @@ export function AgentWorkspace2WithDeskPage({
   ) : null;
 
   return (
+    <PageClockContext.Provider value={clock}>
+    <QueueSimContext.Provider value={queueSim}>
     <div className="flex flex-col h-screen bg-lyra-bg-surface-shell overflow-hidden animate-in fade-in-0 duration-500">
 
       {/* ── App Header ── */}
@@ -7170,6 +7104,10 @@ export function AgentWorkspace2WithDeskPage({
                 />
               </span>
             </Tooltip>
+            {/* Status timer: only `AgentProfile` re-renders each second
+                (its `timer` prop is a string, so it can't tick on its own). */}
+            <ClockTick>
+              {(clockTick) => (
             <AgentProfile
               name="John Smith"
               initials="JS"
@@ -7177,7 +7115,7 @@ export function AgentWorkspace2WithDeskPage({
               onStatusChange={handleStatusChange}
               onDarkModeToggle={handleDarkModeToggle}
               isDarkMode={darkMode}
-              timer={formattedTimer}
+              timer={formatWaitTime(clockTick - statusSinceTick)}
               // Hidden while the provider has no agent leg, and until the
               // first agent snapshot arrives (no fake state before hydrate).
               agentLegStatus={agentState?.leg}
@@ -7198,6 +7136,8 @@ export function AgentWorkspace2WithDeskPage({
               hideConnectedApps
               className="ml-1"
             />
+              )}
+            </ClockTick>
           </>
         }
       />
@@ -7407,8 +7347,14 @@ export function AgentWorkspace2WithDeskPage({
                   `assignmentSort` (`AssignmentsSectionCaption`'s own sort
                   button) — `interactions` itself stays in insertion order
                   for everything else that reads it, only this rendering
-                  reorders a copy. */}
-              {sortAssignments(interactions, assignmentSort, assignmentSortDirection).map((interaction) => {
+                  reorders a copy.
+                  Each card sits in its own `<ClockTick>`, so a tick
+                  re-renders that card (its elapsed/awaiting timers) and
+                  not the page. The card body below keeps its old
+                  indentation to keep this diff small. */}
+              {sortAssignments(interactions, assignmentSort, assignmentSortDirection).map((interaction) => (
+                <ClockTick key={interaction.id}>
+                  {(clockTick) => {
                 const mostRecentId = interaction.threads[interaction.threads.length - 1]?.id;
                 const currentId = interaction.currentThreadId ?? mostRecentId;
                 // Seconds since the CUSTOMER last wrote on this channel —
@@ -7964,7 +7910,9 @@ export function AgentWorkspace2WithDeskPage({
                     onCurrentChannelChange={(key) => handleChannelSelect(interaction.id, key)}
                   />
                 );
-              })}
+              }}
+                </ClockTick>
+              ))}
             </>
           }
         />
@@ -9085,9 +9033,12 @@ export function AgentWorkspace2WithDeskPage({
                                   c.type !== "voice" &&
                                   !!c.startedFresh &&
                                   c.lastCustomerMessageTick === undefined;
+                                // Own `<ClockTick>`: only this tab re-renders
+                                // for its last-contact/awaiting timers.
                                 return (
+                                  <ClockTick key={key}>
+                                    {(clockTick) => (
                                   <ChannelToggle
-                                    key={key}
                                     type={c.type}
                                     address={c.addressLabel}
                                     statusLabel={activeInteraction.threadStatuses?.[c.id] ?? "Open"}
@@ -9147,6 +9098,8 @@ export function AgentWorkspace2WithDeskPage({
                                       onCancel: handleOutcomeCancel,
                                     } satisfies ChannelOutcomeConfig}
                                   />
+                                    )}
+                                  </ClockTick>
                                 );
                               })}
                               {historyConversationForActive && (
@@ -9432,7 +9385,7 @@ export function AgentWorkspace2WithDeskPage({
                             setVoiceVideoWindowOpen(false);
                             setVoiceVideoFullScreen(false);
                           }}
-                          elapsedSeconds={clockTick - activeInteractionVoiceThread.startTick}
+                          callStartTick={activeInteractionVoiceThread.startTick}
                           onAddToast={addToast}
                           onToggleTranscript={() => {
                             if (detailsPanelOpen && voiceDetailsPanelTab === "Transcript") {
@@ -10330,13 +10283,15 @@ export function AgentWorkspace2WithDeskPage({
                     )}
                     {/* ── Queue widgets ──
                         `DashboardQueue` ("cards" variant, its default) —
-                        the numbers come straight from `latestContacts`
-                        (see the "Live queue simulation" state above), so
-                        they'd stay in sync with the accordion presentation
-                        of the same data if that's ever turned back on (see
-                        the note below) — and Contacts/Wait Time visibly
+                        the numbers come straight from `buildLatestContacts`
+                        (live queue simulation + page clock), so they'd stay
+                        in sync with the accordion presentation of the same
+                        data if that's ever turned back on (see the note
+                        below) — and Contacts/Wait Time visibly
                         tick/fluctuate in real time rather than sitting
-                        frozen at the same numbers forever. Clicking a
+                        frozen at the same numbers forever. Only this
+                        element re-renders for that (`<QueueSubItems>` +
+                        `<ClockTick>`). Clicking a
                         widget opens the interior panel with that queue's
                         sub-queue breakdown; the selected widget gets the
                         "info-strong" (blue) treatment `DashboardQueue`
@@ -10352,8 +10307,12 @@ export function AgentWorkspace2WithDeskPage({
                         (`ContactHistoryCard`, the summary cards) keep
                         their own `mt-6` — they still need spacing from
                         whatever row sits above THEM. */}
+                    <QueueSubItems>
+                      {(queueSubItems) => (
+                    <ClockTick>
+                      {(clockTick) => (
                     <DashboardQueue
-                      items={latestContacts.map((contact) => ({
+                      items={buildLatestContacts(LATEST_CONTACTS_STATIC, queueSubItems, clockTick).map((contact) => ({
                         id: contact.id,
                         name: contact.name,
                         icon: contact.icon,
@@ -10375,12 +10334,16 @@ export function AgentWorkspace2WithDeskPage({
                         setSelectedQueueId(id);
                       }}
                     />
+                      )}
+                    </ClockTick>
+                      )}
+                    </QueueSubItems>
 
                     {/* ── Latest Cases ──
                         Removed for now (was `DashboardQueue`'s "accordion"
                         variant, showing the same data as expandable rows
                         with each queue's `InteractionsTable` as content) —
-                        may come back later, so `latestContacts`,
+                        may come back later, so `buildLatestContacts`,
                         `InteractionsTable`, and the rest of the data/markup
                         it depended on are left in place rather than deleted. */}
 
@@ -10448,14 +10411,16 @@ export function AgentWorkspace2WithDeskPage({
                     open={interiorPanelOpen || Boolean(selectedQueueId) || Boolean(selectedContactHistoryEntry)}
                     headerTitle={
                       selectedQueueId
-                        ? latestContacts.find((c) => c.id === selectedQueueId)?.name ?? "Queue"
+                        ? LATEST_CONTACTS_STATIC.find((c) => c.id === selectedQueueId)?.name ?? "Queue"
                         : selectedContactHistoryEntry
                         ? selectedContactHistoryEntry.name
                         : "Case Details"
                     }
                     // "{n} Skills" for the queue drill-down (the same count
-                    // as that queue widget's own Skills metric, derived from
-                    // this exact `queueSubItems[selectedQueueId]` list) or,
+                    // as that queue widget's own Skills metric; the queue
+                    // simulation only changes counts, never list lengths,
+                    // so the initial list's length is the live one too and
+                    // this panel doesn't re-render on its 4s beat) or,
                     // per explicit follow-up request, the routing skill name
                     // for a Contact History entry (previously the case ID —
                     // `headerTitle` above already shows the customer's real
@@ -10463,7 +10428,7 @@ export function AgentWorkspace2WithDeskPage({
                     // about the contact instead).
                     headerSubhead={
                       selectedQueueId
-                        ? `${(queueSubItems[selectedQueueId] ?? []).length} Skills`
+                        ? `${(INITIAL_QUEUE_SUB_ITEMS[selectedQueueId] ?? []).length} Skills`
                         : selectedContactHistoryEntry?.skillName
                     }
                     onClose={() => {
@@ -10524,6 +10489,11 @@ export function AgentWorkspace2WithDeskPage({
                   >
                     {selectedQueueId ? (
                       <div className="flex flex-col">
+                        {/* Only these rows re-render on the queue
+                            simulation's 4s beat ("N In Queue"). */}
+                        <QueueSubItems>
+                          {(queueSubItems) => (
+                        <>
                         {(queueSubItems[selectedQueueId] ?? []).map((item, i) => (
                           <div
                             key={item.id}
@@ -10574,6 +10544,9 @@ export function AgentWorkspace2WithDeskPage({
                             </div>
                           </div>
                         ))}
+                        </>
+                          )}
+                        </QueueSubItems>
                       </div>
                     ) : selectedContactHistoryEntry ? (
                       <ContactHistoryEntryDetail entry={selectedContactHistoryEntry} />
@@ -11363,5 +11336,7 @@ export function AgentWorkspace2WithDeskPage({
         </ToastContainer>
       </div>
     </div>
+    </QueueSimContext.Provider>
+    </PageClockContext.Provider>
   );
 }
