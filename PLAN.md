@@ -139,7 +139,12 @@ Order of attack: Phase 0, then Phase 1 with just the telecom profile (so existin
   - **Nav-row Outcome on voice rows (row 9): Advanced.** Always visible, so outcome is reachable without hunting for it.
   - **Redial/reopen nav ids (row 17): closed.** Resolved by P0.5b's `journeyId` re-key.
   - **Consult/Transfer, kebab and add participant (rows 8, 23): on both pages, gated by capabilities** (hide, don't disable).
-  - **New Outbound (rows 14, 15).** Disabled during a call: Advanced (row 15). Picker scope is undecided (row 14); before P0.5b, the two scopes are shown side by side with a recommendation.
+  - **New Outbound (rows 14, 15): a deliberate, temporary parity exception, to revisit later** (ruled 2026-10-14; replaces the earlier "row 15: Advanced").
+    - Neither launcher changes. Desk keeps its full picker exactly as is: same groups, Favorites as the default, placeholder groups shown, and voice dialing allowed during an active call. Advanced keeps Dial Pad only, disabled during a call.
+    - Group scope and the in-call rule are per-page options on the shared `<NewOutboundLauncher>`, not logic in either page.
+    - **What converges in P0.5b is how a voice call is placed.** Both pages use one shared `useOutboundDial`, with identical behavior: skills from `listOutboundSkills("voice")`, voice dial requires the agent leg connected, redial pre-fill and matching against any of the entity's numbers (row 16), and connecting → connected shown from provider events.
+    - **No `internalDial` capability for now.**
+    - **Open, decide before implementing P0.5b:** what a second voice dial during an active call does. The sim currently allows both (the second call connects alongside the first; nothing is held or rejected), and the `dial` contract doesn't say.
   - **Redial matching (row 16): Desk.** Matches against any of the entity's contact methods.
   - **Reopen from Contact History (row 18): Advanced.** Resets timers and the awaiting state, and selects the clicked channel.
   - **Outcome (row 19): Advanced.** Starts empty, remembers tags/disposition per channel, and is written to Contact History. This is the shape `completeWrapUp(outcome)` takes.
