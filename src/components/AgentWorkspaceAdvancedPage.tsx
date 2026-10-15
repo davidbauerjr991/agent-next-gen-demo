@@ -202,6 +202,7 @@ import {
   threadAcceptsReplies,
   type CopilotComposerProps,
   ConfirmCloseDialog,
+  copilotSuggestionsFor,
   useChannelSync,
   enabledChannelOptions,
   historyOnChannels,
@@ -3137,13 +3138,13 @@ export function AgentWorkspaceAdvancedPage({
       return next;
     });
   };
-  /** A composer's Copilot chips and ask, for one thread (Lucas has his own). */
+  /** A composer's Copilot chips and ask, for one thread: the chips follow the
+   *  thread's channel (Lucas has his own). */
   const copilotComposerProps = (interactionId: string, threadKey: string): CopilotComposerProps => {
     const isLucas = scenarioKeyOf(interactionId) === LUCAS_THOMAS_ID;
+    const channel = interactions.find((i) => i.id === interactionId)?.threads.find((t) => (t.id ?? t.type) === threadKey)?.type;
     return {
-      copilotSuggestions: isLucas
-        ? LUCAS_THOMAS_COPILOT_SUGGESTIONS
-        : ["Summarize this conversation", "Suggest a reply", "What is the customer's history?"],
+      copilotSuggestions: isLucas ? LUCAS_THOMAS_COPILOT_SUGGESTIONS : copilotSuggestionsFor(channel),
       copilotSuggestionLinks: isLucas ? LUCAS_THOMAS_COPILOT_SUGGESTION_LINKS : undefined,
       copilotSuggestionReplacements: isLucas ? LUCAS_THOMAS_COPILOT_SUGGESTION_REPLACEMENTS : undefined,
       onCopilotSuggestionLink: (key: string) => openDetailPanelContent({ kind: "lucas", panel: key as LucasThomasPanelKey }),
@@ -9785,28 +9786,27 @@ export function AgentWorkspaceAdvancedPage({
                               above collapses it to nothing, same as
                               before). */}
                         </div>
-                        {/* Per explicit request ("add the chat input to the
-                            bottom of a chat in v1"): the main transcript
-                            column renders its own `InteractionComposer` again
-                            for chat / SMS / WhatsApp (not voice or email),
-                            reversing the earlier "keep it in the side panel
-                            only" request below. Hidden once the interaction
-                            or this thread is closed, and while Marcus Webb's
-                            review bar owns this slot. The side panel's
-                            channel-preview composer is unchanged. */}
+                        {/* Every live assignment gets the composer, whatever its
+                            channel or script: inline at the bottom of the main
+                            column, or (AI display "panel") its Copilot part in
+                            the Contact Details footer. Voice and email have no
+                            customer chat here, so they get Copilot only. Hidden
+                            once the interaction or this thread is closed. */}
                         {activeInteraction &&
                           activeChannelType &&
-                          activeChannelType !== "voice" &&
-                          activeChannelType !== "email" &&
                           !activeInteraction.closed &&
                           activeInteraction.threadStatuses?.[activeChannelKey] !== "Closed" &&
-                          !(scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID && marcusWebbReviewing) &&
                           (
                             <InteractionComposer
                               hideAiActions={hideAiActions}
                               onHideAiActionsChange={setHideAiActions}
                               copilotDock={copilotDock}
-                              copilotOnly={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && lucasThomasReviewing}
+                              copilotOnly={
+                                activeChannelType === "voice" ||
+                                activeChannelType === "email" ||
+                                (scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && lucasThomasReviewing) ||
+                                (scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID && marcusWebbReviewing)
+                              }
                               onTakeover={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID ? () => handleLucasTakeover() : undefined}
                               onSend={(text) => handleSendMessage(activeInteraction.id, text, activeChannelKey)}
                               {...copilotComposerProps(activeInteraction.id, activeChannelKey)}

@@ -5550,7 +5550,7 @@ export function InteractionComposer({
   // own multi-line layout), then Takeover full width.
   const dockedCopilot = copilotDock?.mount
     ? createPortal(
-        <div data-slot="copilot-composer" className="flex w-full flex-col gap-3">
+        <div data-slot="copilot-composer" data-placement="panel" className="flex w-full flex-col gap-3">
           {renderCopilotChips(true)}
           <AIInput
             value={copilotQuestion}
@@ -5677,9 +5677,20 @@ export function InteractionComposer({
         {!copilotDocked && (
         <div
           ref={copilotPaneRef}
+          data-slot="copilot-composer"
+          data-placement="inline"
           className={`col-start-1 row-start-1 ${composerTab === "copilot" ? "animate-in fade-in-0 duration-200" : "invisible pointer-events-none"}`}
           aria-hidden={composerTab !== "copilot"}
         >
+            {/* Chips above the input, as in the docked composer. */}
+            <div className="mb-3 flex items-start justify-between gap-3">
+            {renderCopilotChips(composerTab === "copilot") ?? <span />}
+            {copilotOnly && onTakeover && (
+              <Button variant="destructive" size="md" className="shrink-0" onClick={onTakeover} disabled={takeoverDisabled} title={takeoverDisabled ? takeoverDisabledReason : undefined} tabIndex={composerTab === "copilot" ? 0 : -1}>
+                {takeoverLabel}
+              </Button>
+            )}
+            </div>
             <AIInput
               value={copilotQuestion}
               onChange={setCopilotQuestion}
@@ -5688,14 +5699,6 @@ export function InteractionComposer({
               helperText=""
               className="w-full"
             />
-            <div className="mt-3 flex items-start justify-between gap-3">
-            {renderCopilotChips(composerTab === "copilot") ?? <span />}
-            {copilotOnly && onTakeover && (
-              <Button variant="destructive" size="md" className="shrink-0" onClick={onTakeover} disabled={takeoverDisabled} title={takeoverDisabled ? takeoverDisabledReason : undefined} tabIndex={composerTab === "copilot" ? 0 : -1}>
-                {takeoverLabel}
-              </Button>
-            )}
-            </div>
         </div>
         )}
         <div className={`col-start-1 row-start-1 ${composerTab === "chat" ? "" : "invisible pointer-events-none"}`} aria-hidden={composerTab !== "chat"}>
