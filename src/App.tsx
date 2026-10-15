@@ -6,6 +6,7 @@ import { AgentWorkspace2WithDeskPage } from "@/components/AgentWorkspace2WithDes
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
 import { OutboundEngagementPage } from "@/components/OutboundEngagementPage";
 import { LoginPage } from "@/components/LoginPage";
+import { useApplyTheme } from "@/settings";
 
 type Page = "agent-workspace" | "agent-with-desk" | "agent-advanced" | "outbound" | "login";
 
@@ -151,6 +152,8 @@ const AI_PANEL_DEFAULT_WIDTH = 360;
 /* ── App ── */
 function App() {
   const [page, setPage] = useHashRouter();
+  // The settings store's theme drives `<html data-theme>` on every page.
+  useApplyTheme();
   const [sidebarOpen, setSidebarOpen] = useState(() => readBoolCookie("lyra_sidebar_open", false));
   const [messages,   setMessages]   = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");

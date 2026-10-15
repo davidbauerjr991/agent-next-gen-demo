@@ -6,6 +6,10 @@ import App from "./App";
 import { ProviderRoot, readProviderKind, readSimLatency } from "./provider-context";
 import { PLACEHOLDER_PROFILE } from "./profiles/contact-center-profile";
 import { PLACEHOLDER_DATABASE } from "./data/database-handle";
+import { applyStoredTheme } from "./settings";
+
+// The saved theme applies before the first render (P-SETTINGS).
+applyStoredTheme();
 
 // Opt-out for demo sessions: `VITE_NO_STRICT_MODE=1 npm run dev` skips
 // StrictMode's double render/effect replay. Off by default; read at

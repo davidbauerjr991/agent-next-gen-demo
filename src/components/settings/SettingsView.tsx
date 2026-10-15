@@ -1,0 +1,364 @@
+// Settings page (P-SETTINGS). Every control reads and writes the settings
+// store through hooks and applies immediately; there's no save button.
+// Settings with no target in the workspace yet stay toggleable (they count
+// toward the preset) and carry a tag saying which step brings them.
+import * as React from "react";
+import {
+  Badge,
+  Button,
+  Checkbox,
+  Input,
+  PageHeader,
+  Popover,
+  RadioGroup,
+  RadioGroupItem,
+  Select,
+  Switch,
+  Tag,
+  Tooltip,
+} from "@nicecxone/lyra-ui";
+import { readSimLatency, useProviderKind } from "@/provider-context";
+import {
+  EXTRA_HEADER_APPS,
+  PRESET_LABELS,
+  SEAMS,
+  useResetSettings,
+  useSettings,
+  useWorkspacePreset,
+  type ExtraHeaderApp,
+  type PhoneSetup,
+  type PresetId,
+  type SeamId,
+} from "@/settings";
+
+const EXTRA_APP_LABELS: Record<ExtraHeaderApp, string> = {
+  customers: "Customers",
+  accounts: "Accounts",
+  tickets: "Tickets",
+  wem: "WEM",
+  screenpop: "Screen Pop",
+};
+
+const SEAM_LABELS: Record<SeamId, string> = {
+  phone: "Phone system",
+  media: "Media (text-to-speech, speech recognition)",
+  crm: "Customer data / CRM",
+  tickets: "Tickets",
+  email: "Email / marketing",
+  wfm: "Workforce management / calendar",
+  ai: "AI agent",
+  knowledge: "Knowledge base",
+  directory: "Address books",
+  apps: "Apps",
+};
+
+const VALID_STATION_ID = "12345";
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <fieldset className="mt-6 flex flex-col gap-3 first:mt-0">
+      <legend className="mb-1 lyra-body-md-emphasis text-lyra-fg-default">{title}</legend>
+      {children}
+    </fieldset>
+  );
+}
+
+/** A setting the workspace doesn't use yet: still toggleable, labeled. */
+function Pending({ children }: { children: string }) {
+  return <Tag variant="neutral" label={children} />;
+}
+
+function SwitchRow({
+  label,
+  checked,
+  onCheckedChange,
+  pending,
+}: {
+  label: string;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  pending?: string;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <Switch size="sm" label={label} checked={checked} onCheckedChange={onCheckedChange} />
+      {pending && <Pending>{pending}</Pending>}
+    </div>
+  );
+}
+
+export function SettingsView({ showPageHeader = true }: { showPageHeader?: boolean }) {
+  const [header, updateHeader] = useSettings("header");
+  const [home, updateHome] = useSettings("home");
+  const [assignments, updateAssignments] = useSettings("assignments");
+  const [voice, updateVoice] = useSettings("voice");
+  const [ai, updateAi] = useSettings("ai");
+  const [phone, updatePhone] = useSettings("phone");
+  const [appearance, updateAppearance] = useSettings("appearance");
+  const [connections] = useSettings("connections");
+  const { preset, pick } = useWorkspacePreset();
+  const resetSettings = useResetSettings();
+  const [resetOpen, setResetOpen] = React.useState(false);
+  const providerKind = useProviderKind();
+
+  const presetOptions = [
+    { value: "phase1", label: PRESET_LABELS.phase1 },
+    { value: "phase2", label: PRESET_LABELS.phase2 },
+    ...(preset === "custom" ? [{ value: "custom", label: PRESET_LABELS.custom, disabled: true }] : []),
+  ];
+
+  const phoneDigits = phone.phoneNumber.replace(/\D/g, "").length;
+  const phoneNumberError =
+    phone.setup === "phone-number" && phone.phoneNumber !== "" && phoneDigits < 7
+      ? "Phone number is not valid. Please enter a different number."
+      : undefined;
+  const stationIdError =
+    phone.setup === "work-station" && phone.stationId !== "" && phone.stationId !== VALID_STATION_ID
+      ? "Invalid Station ID"
+      : undefined;
+
+  return (
+    <>
+      {showPageHeader && <PageHeader title="Settings" />}
+      <div className="flex-1 overflow-y-auto p-6" data-testid="settings-view">
+        <Section title="Workspace preset">
+          <div className="max-w-xs">
+            <Select
+              label="Preset"
+              options={presetOptions}
+              value={preset}
+              onValueChange={(value) => {
+                if (value === "phase1" || value === "phase2") pick(value as PresetId);
+              }}
+            />
+          </div>
+          <p className="lyra-body-sm text-lyra-fg-secondary">
+            Phase 2 turns on every Header and Home setting and the omnichannel layout. Changing any one of them shows
+            Custom.
+          </p>
+        </Section>
+
+        <Section title="Header">
+          <SwitchRow
+            label="Show app icons"
+            checked={header.showAppIcons}
+            onCheckedChange={(showAppIcons) => updateHeader({ showAppIcons })}
+          />
+          {header.showAppIcons && (
+            <div className="ml-7 flex flex-col gap-3">
+              <Checkbox label="Search" checked={header.search} onCheckedChange={(c) => updateHeader({ search: !!c })} />
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  label="Agent chat"
+                  checked={header.agentChat}
+                  onCheckedChange={(c) => updateHeader({ agentChat: !!c })}
+                />
+                <Pending>Chat drawer arrives in P0.9.3</Pending>
+              </div>
+              <Checkbox
+                label="Calendar"
+                checked={header.calendar}
+                onCheckedChange={(c) => updateHeader({ calendar: !!c })}
+              />
+              <Checkbox
+                label="Notifications"
+                checked={header.notifications}
+                onCheckedChange={(c) => updateHeader({ notifications: !!c })}
+              />
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  label="Apps grid"
+                  checked={header.appsGrid}
+                  onCheckedChange={(c) => updateHeader({ appsGrid: !!c })}
+                />
+                <Pending>Embedded apps arrive in P7.6</Pending>
+              </div>
+              <p className="mt-1 lyra-body-sm-emphasis text-lyra-fg-secondary">Other apps</p>
+              {EXTRA_HEADER_APPS.map((app) => (
+                <Checkbox
+                  key={app}
+                  label={EXTRA_APP_LABELS[app]}
+                  checked={header.pins[app]}
+                  onCheckedChange={(c) => updateHeader((prev) => ({ pins: { ...prev.pins, [app]: !!c } }))}
+                />
+              ))}
+            </div>
+          )}
+        </Section>
+
+        <Section title="Home">
+          <SwitchRow
+            label="Home tabs (Dashboard, Customers, Accounts, Tickets)"
+            checked={home.homeTabs}
+            onCheckedChange={(homeTabs) => updateHome({ homeTabs })}
+            pending="Arrives in P0.5d.2"
+          />
+          <SwitchRow
+            label="Calendar view"
+            checked={home.calendarView}
+            onCheckedChange={(calendarView) => updateHome({ calendarView })}
+            pending="Arrives in P0.5d.2"
+          />
+        </Section>
+
+        <Section title="Assignments">
+          <SwitchRow
+            label="Omnichannel layout"
+            checked={assignments.omnichannel}
+            onCheckedChange={(omnichannel) => updateAssignments({ omnichannel })}
+            pending="Arrives in P2.2"
+          />
+          <SwitchRow
+            label="New Outbound at the bottom"
+            checked={assignments.newOutboundAtBottom}
+            onCheckedChange={(newOutboundAtBottom) => updateAssignments({ newOutboundAtBottom })}
+          />
+          <SwitchRow
+            label="Home and Settings at the top"
+            checked={assignments.navItemsAtTop}
+            onCheckedChange={(navItemsAtTop) => updateAssignments({ navItemsAtTop })}
+          />
+          <SwitchRow
+            label="Don't allow interactions to collapse"
+            checked={assignments.noInteractionCollapse}
+            onCheckedChange={(noInteractionCollapse) => updateAssignments({ noInteractionCollapse })}
+          />
+        </Section>
+
+        <Section title="Voice">
+          <div className="max-w-xs">
+            <Select
+              label="Voice controls location"
+              options={[
+                { value: "bottom", label: "Bottom" },
+                { value: "top", label: "Top of left nav" },
+              ]}
+              value={voice.controlsLocation}
+              onValueChange={(value) => updateVoice({ controlsLocation: value as typeof voice.controlsLocation })}
+            />
+          </div>
+        </Section>
+
+        <Section title="AI">
+          <div className="max-w-xs">
+            <Select
+              label="AI display"
+              options={[
+                { value: "inline", label: "Inline in the transcript" },
+                { value: "panel", label: "In the Contact Details panel" },
+              ]}
+              value={ai.displayLocation}
+              onValueChange={(value) => updateAi({ displayLocation: value as typeof ai.displayLocation })}
+            />
+          </div>
+        </Section>
+
+        <Section title="Phone setup">
+          <div className="flex items-center gap-2">
+            <Pending>Used by the launch screen; a real phone system reads it with its adapter</Pending>
+          </div>
+          <RadioGroup
+            label="Phone setup"
+            value={phone.setup}
+            onValueChange={(value) => updatePhone({ setup: value as PhoneSetup })}
+          >
+            <RadioGroupItem value="soft-phone" label="Integrated Soft Phone" />
+            <RadioGroupItem value="phone-number" label="Phone Number" />
+            <RadioGroupItem value="work-station" label="Station ID" />
+          </RadioGroup>
+          {phone.setup === "phone-number" && (
+            <div className="max-w-xs">
+              <Input
+                label="Phone number"
+                type="tel"
+                value={phone.phoneNumber}
+                onChange={(e) => updatePhone({ phoneNumber: e.target.value })}
+                error={phoneNumberError}
+              />
+            </div>
+          )}
+          {phone.setup === "work-station" && (
+            <div className="max-w-xs">
+              <Input
+                label="Station ID"
+                value={phone.stationId}
+                onChange={(e) => updatePhone({ stationId: e.target.value })}
+                error={stationIdError}
+              />
+            </div>
+          )}
+        </Section>
+
+        <Section title="Appearance">
+          <SwitchRow
+            label="Dark mode"
+            checked={appearance.theme === "dark"}
+            onCheckedChange={(dark) => updateAppearance({ theme: dark ? "dark" : "light" })}
+          />
+        </Section>
+
+        <Section title="Connections">
+          <p className="lyra-body-sm text-lyra-fg-secondary">
+            Every seam runs on the simulator until its real adapter exists.
+            {providerKind === "sim" &&
+              ` Simulated latency: ${readSimLatency(window.location.search, import.meta.env.DEV)}.`}
+          </p>
+          <div className="flex flex-col divide-y divide-lyra-border-soft rounded-lyra-md border border-lyra-border-soft">
+            {SEAMS.map((seam) => (
+              <div key={seam} className="flex flex-wrap items-center gap-3 px-4 py-3" data-seam={seam}>
+                <span className="min-w-[12rem] flex-1 lyra-body-md text-lyra-fg-default">{SEAM_LABELS[seam]}</span>
+                <Badge shape="pill" color="info" variant="subtle" fontSize={12}>
+                  {connections.seams[seam].mode === "simulated" ? "Simulated" : connections.seams[seam].mode}
+                </Badge>
+                <div className="w-56">
+                  <Input aria-label={`${SEAM_LABELS[seam]} endpoint`} placeholder="Endpoint" disabled />
+                </div>
+                <Tooltip content="Available when this seam has a real adapter" placement="bottom">
+                  <span className="inline-flex gap-2">
+                    <Button variant="outline" disabled>
+                      Test
+                    </Button>
+                    <Button disabled>Save</Button>
+                  </span>
+                </Tooltip>
+              </div>
+            ))}
+          </div>
+        </Section>
+
+        <div className="mt-8 flex justify-end">
+          <Popover
+            open={resetOpen}
+            onOpenChange={setResetOpen}
+            placement="top"
+            align="end"
+            title="Reset to defaults?"
+            content={
+              <p className="lyra-body-md text-lyra-fg-default">
+                Every setting on this page goes back to its default (Phase 1). This can't be undone.
+              </p>
+            }
+            footer={
+              <div className="flex items-center justify-end gap-2">
+                <Button variant="outline" size="md" onClick={() => setResetOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  size="md"
+                  onClick={() => {
+                    resetSettings();
+                    setResetOpen(false);
+                  }}
+                >
+                  Reset
+                </Button>
+              </div>
+            }
+          >
+            <Button variant="outline">Reset to defaults</Button>
+          </Popover>
+        </div>
+      </div>
+    </>
+  );
+}

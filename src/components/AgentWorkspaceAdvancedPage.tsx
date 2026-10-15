@@ -263,6 +263,8 @@ import {
 } from "@/contact-handling/scenario-cases";
 import { useCopilotAsk, useCopilotResultTimer } from "@/contact-handling/useCopilotAsk";
 import { usePresenceSync } from "@/contact-handling/usePresenceSync";
+import { PRESET_LABELS, headerPatchForPin, pinnedKeysFromHeader, useSettings, useWorkspacePreset } from "@/settings";
+import { SettingsView } from "@/components/settings/SettingsView";
 import { LUCAS_THOMAS_SCRIPT, MAYA_CHEN_SCRIPT, TOM_LEWIS_SCRIPT } from "@/scenarios";
 import {
   MarcusWebbNextBestActionCard,
@@ -2892,17 +2894,13 @@ export function AgentWorkspaceAdvancedPage({
   // `<ClockTick>` around `AgentProfile` only; a status change resets it.
   const [statusSinceTick, setStatusSinceTick] = useState(0);
   const [appMenuOpen, setAppMenuOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(
-    () => document.documentElement.getAttribute("data-theme") === "dark"
-  );
-
-  const handleDarkModeToggle = () => {
-    setDarkMode((prev) => {
-      const next = !prev;
-      document.documentElement.setAttribute("data-theme", next ? "dark" : "light");
-      return next;
-    });
-  };
+  // Theme comes from the settings store (`appearance`); `useApplyTheme` at
+  // the app root writes `<html data-theme>`.
+  const [appearance, updateAppearance] = useSettings("appearance");
+  const darkMode = appearance.theme === "dark";
+  const handleDarkModeToggle = () => updateAppearance({ theme: darkMode ? "light" : "dark" });
+  const { preset: workspacePreset } = useWorkspacePreset();
+  const appDisplayName = `Agent Workspace 2.0 | ${PRESET_LABELS[workspacePreset]}`;
 
   const appMenuGroups = buildAppMenuGroups((page) => {
     setAppMenuOpen(false);
@@ -3463,23 +3461,14 @@ export function AgentWorkspaceAdvancedPage({
   // those three; it just no longer shows a persistent header icon BY
   // DEFAULT on load — an agent can still pin it back from that menu, which
   // then persists for the rest of the session same as any other app.
-  const [pinnedKeys, setPinnedKeys] = useState<Record<PanelKey, boolean>>({
-    // Notifications re-pinned per explicit follow-up request ("pin
-    // notifications in 2.0 only", then "make notifications pinned in
-    // premium and advanced too") — Notifications is back to a persistent
-    // header icon on load across all 3 tiers now. Schedule's own pinned
-    // state (from the earlier swap) is untouched — still `true` — so this
-    // tier now shows both as persistent header icons, same as 2.0.
-    notif: true,
-    conversations: true,
-    schedule: true,
-    screenpop: false,
-    customers: false,
-    accounts: false,
-    tickets: false,
-    wem: false,
-    search: true,
-  });
+  // P-SETTINGS: the pins live in the settings store's `header` section
+  // (Search/Agent Chat/Calendar/Notifications are header flags, the rest are
+  // extra pins), so the apps menu's pin buttons and the Settings page edit
+  // the same persisted values. Defaults are unchanged: Notifications, Agent
+  // Chat, Schedule and Search pinned.
+  const [headerSettings, updateHeaderSettings] = useSettings("header");
+  const pinnedKeys: Record<PanelKey, boolean> = pinnedKeysFromHeader(headerSettings);
+  const togglePinnedKey = (key: PanelKey) => updateHeaderSettings((prev) => headerPatchForPin(prev, key, !pinnedKeysFromHeader(prev)[key]));
   const [appsMenuOpen, setAppsMenuOpen] = useState(false);
 
   /* Interior panel (right) */
@@ -5842,7 +5831,7 @@ export function AgentWorkspaceAdvancedPage({
           )}
           <PanelPinButton
             pinned={pinnedKeys[key]}
-            onToggle={() => setPinnedKeys((prev) => ({ ...prev, [key]: !prev[key] }))}
+            onToggle={() => togglePinnedKey(key)}
             pinnedLabel={`Unpin ${label}`}
             unpinnedLabel={`Pin ${label}`}
             // Notifications used to be forced pinned here (`disabled` +
@@ -6405,8 +6394,8 @@ export function AgentWorkspaceAdvancedPage({
                 `AppNameMenu` call site already uses for its title ("Agent
                 Workspace 2.0 | Phase 2"). */}
             <AppNameMenu
-              icon={<img src={appIcon} alt="Agent Workspace 2.0 | Phase 1" className="h-6 w-6" />}
-              name="Agent Workspace 2.0 | Phase 1"
+              icon={<img src={appIcon} alt={appDisplayName} className="h-6 w-6" />}
+              name={appDisplayName}
               compact={isCompactHeader}
               groups={appMenuGroups}
               menuFooter={<CXoneLogo />}
@@ -6541,8 +6530,12 @@ export function AgentWorkspaceAdvancedPage({
                 applies here). Wrapped in `false &&` rather than deleted, in
                 case it needs to come back. Search itself is exempted above
                 per the follow-up request, so this map now effectively covers
-                only the remaining eight keys whenever it's re-enabled. */}
-            {false && (
+                only the remaining eight keys whenever it's re-enabled.
+                P-SETTINGS: now gated by Settings → Header → "Show app
+                icons" (off in Phase 1, on in Phase 2). Search shows as a
+                pin in this row; the standalone Search button above stays
+                hidden so it never appears twice. */}
+            {headerSettings.showAppIcons && (
               <>
             <div ref={headerIconsMeasureRef} className="flex items-center gap-0">
               {panelOrder.filter(showHeaderIcon).map((key) => {
@@ -6591,6 +6584,8 @@ export function AgentWorkspaceAdvancedPage({
                 divider) so it stretches to match the row's height inside
                 AppHeader's `flex items-center` actions container instead of
                 a hand-picked fixed height. */}
+            {headerSettings.appsGrid && (
+              <>
             <Separator orientation="vertical" className="h-auto self-stretch pl-lyra-1 pr-lyra-1" />
             <Tooltip content="View All Apps" placement="bottom" disabled={appsMenuOpen}>
               <span className="inline-flex">
@@ -6622,6 +6617,8 @@ export function AgentWorkspaceAdvancedPage({
                 />
               </span>
             </Tooltip>
+              </>
+            )}
               </>
             )}
             {/* Status timer: only `AgentProfile` re-renders each second
@@ -7658,10 +7655,8 @@ export function AgentWorkspaceAdvancedPage({
                   )}
                 >
               {showSettings ? (
-                // ── Settings — a blank page for now (real settings content
-                // isn't built yet), same "just the header, blank body below"
-                // placeholder pattern the interaction record view below
-                // uses. Takes priority over both Desk and an active
+                // ── Settings (P-SETTINGS: `SettingsView`, reading and
+                // writing the settings store). Takes priority over both Desk and an active
                 // interaction — see the `showSettings` state's own doc
                 // comment for how the three views stay mutually exclusive.
                 // `key="settings"` (here and on the other two branches
@@ -7679,8 +7674,7 @@ export function AgentWorkspaceAdvancedPage({
                 // `flex flex-1 flex-col min-w-0 overflow-hidden` exactly, so
                 // this extra nesting level is layout-inert.
                 <div key="settings" className="flex flex-1 flex-col min-w-0 overflow-hidden animate-in fade-in-0 duration-200">
-                  {showPageHeader && <PageHeader title="Settings" />}
-                  <div className="flex-1 overflow-y-auto" />
+                  <SettingsView showPageHeader={showPageHeader} />
                 </div>
               ) : showAllContacts && !activeInteraction ? (
                 // ── All Contacts — standalone, detached view. Per explicit
