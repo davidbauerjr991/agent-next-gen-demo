@@ -50,16 +50,6 @@ Wrap up this step: run the type-check and the test suite, update PROGRESS.md (do
 
 ## Phase 0 — remaining
 
-### P-REALIGN — Sync PLAN.md and PROGRESS.md to this file   (Sonnet · Sonnet) — run first
-```
-Read CLAUDE.md, PLAN.md, PROGRESS.md and PROMPTS.md (I just replaced PROMPTS.md with a revised version). Docs-only realignment, no code changes. Update PLAN.md's phase bodies (leave the Decisions section untouched) and PROGRESS.md's step table so they match PROMPTS.md and the decisions already recorded:
-- Phase 0: step 2 lists the full command set, ProviderError and listOutboundSkills; step 4 lives in src/adapters/sim with __simCustomer as a stand-in until step 6; add step 5.0 "Interaction store + view-model adapter" before 5a; step 5a also authorizes the lyra AgentProfile change; add step 5d "Voice bar, incoming tile and wrap-up onto the provider"; step 7 (scenario format) now runs before 5c.
-- Phase 2: add step 0 "Render performance pass" before step 1.
-- Phase 3: audio stops when an interaction's state leaves active/held, not on ended; MediaProvider has no speak() — the sim media provider drives TTS from transcript events itself.
-- Phase 4: compliance gates are added to the AssistCard contract in step 5; cards and extracted fields arrive as AssistProvider events.
-PROGRESS.md: mark done steps done, keep Known gaps and Deferred as they are. Commit "Docs: realign PLAN and PROGRESS with revised PROMPTS".
-```
-
 ### P0.8 — Contract test suite   (Plan: Opus · Implement: Sonnet)
 ```
 Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 8 (contract tests), pulled forward before step 5. In plan mode, propose a test runner that fits this Vite project, and a contract suite parameterized by any InteractionProvider factory that runs incoming → accept → message → hold → end → completeWrapUp, asserting events and state transitions, plus: ack-before-event ordering, idempotent no-op commands (no event), "not-supported" for every command whose capability is false, "invalid-state" and "not-found" cases, ended reasons including customer hang-up and transfer through wrap-up, and dispose() rejecting pending and later calls. Run it against SimulatedInteractionProvider with an in-memory transport and zero latency. Also include the provider-cache lifecycle tests noted in PROGRESS.md (StrictMode remount reuses the set, real unmount disposes, key change swaps sets). Done = suite passes, runs with one npm script (npm test), and PLAN.md records it as the bar every future adapter must pass. Don't write code yet.
