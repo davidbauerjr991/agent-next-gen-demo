@@ -29,10 +29,10 @@ describe("workspace presets", () => {
     expect(preset(freshStore())).toBe("phase1");
   });
 
-  it("Phase 2 turns on every Header and Home flag, Desk's app placements, and the omnichannel layout", () => {
+  it("Phase 2 turns on every Header flag, Desk's app placements, and the omnichannel layout", () => {
     const store = freshStore();
     store.updateMany(presetPatches("phase2"));
-    const { header, home, assignments } = store.getState().values;
+    const { header, assignments } = store.getState().values;
     expect([header.showAppIcons, header.search, header.notifications, header.appsGrid].every(Boolean)).toBe(true);
     expect(header.agentChat).toEqual({ enabled: true, placement: "header" });
     for (const app of ["customers", "accounts", "tickets"] as const) {
@@ -41,26 +41,28 @@ describe("workspace presets", () => {
     for (const app of ["schedule", "wem"] as const) {
       expect(header.apps[app]).toEqual({ enabled: true, placement: "header" });
     }
-    expect(Object.values(home).every(Boolean)).toBe(true);
     expect(assignments.omnichannel).toBe(true);
     expect(preset(store)).toBe("phase2");
   });
 
-  it("leaves the left-nav toggles, Voice and AI alone", () => {
+  it("leaves the left-nav toggles, Home, Voice and AI alone", () => {
     const store = freshStore();
     store.update("assignments", { navItemsAtTop: true });
     store.update("voice", { controlsLocation: "top" });
+    store.update("home", { greeting: "Hi", showHeader: false });
     store.updateMany(presetPatches("phase2"));
     expect(store.getState().values.assignments.navItemsAtTop).toBe(true);
     expect(store.getState().values.voice.controlsLocation).toBe("top");
+    expect(store.getState().values.home).toMatchObject({ greeting: "Hi", showHeader: false });
+    expect(preset(store)).toBe("phase2");
     store.updateMany(presetPatches("phase1"));
     expect(store.getState().values.assignments.navItemsAtTop).toBe(true);
+    expect(store.getState().values.home).toMatchObject({ greeting: "Hi", showHeader: false });
     expect(preset(store)).toBe("phase1");
   });
 
   it.each([
     ["header", { search: false }],
-    ["home", { homeTabs: true }],
     ["assignments", { omnichannel: true }],
   ] as const)("changing one %s flag reads Custom", (section, patch) => {
     const store = freshStore();
@@ -85,7 +87,7 @@ describe("workspace presets", () => {
     expect(preset(store)).toBe("custom");
     store.updateMany(presetPatches("phase2"));
     expect(preset(store)).toBe("phase2");
-    store.update("home", { calendarView: false });
+    store.update("assignments", { omnichannel: false });
     store.updateMany(presetPatches("phase1"));
     expect(preset(store)).toBe("phase1");
   });

@@ -107,18 +107,75 @@ const header = defineSection<HeaderSettings>({
   },
 });
 
+/** An ordered list of entries keyed by `values`: unknown and repeated keys
+ *  are dropped, and missing keys are appended in `values` order with their
+ *  default entry, so a stored order survives an added or removed key. */
+export const keyedList =
+  <K extends string, T extends { key: K }>(values: readonly K[], entry: Field<T>): Field<T[]> =>
+  (raw, fallback) => {
+    if (!Array.isArray(raw)) return fallback;
+    const defaults = new Map(fallback.map((item) => [item.key, item]));
+    const seen = new Set<K>();
+    const out: T[] = [];
+    for (const item of raw) {
+      const key = (item as { key?: unknown } | null)?.key;
+      if (typeof key !== "string" || !(values as readonly string[]).includes(key) || seen.has(key as K)) continue;
+      const base = defaults.get(key as K);
+      if (!base) continue;
+      seen.add(key as K);
+      out.push(entry(item, base));
+    }
+    for (const item of fallback) if (!seen.has(item.key)) out.push(item);
+    return out;
+  };
+
+/** Dashboard sections, in v3's default order (Settings → Home). */
+export const HOME_SECTIONS = ["queue", "contactHistory", "performance", "productivity"] as const;
+export type HomeSectionKey = (typeof HOME_SECTIONS)[number];
+export interface HomeSection {
+  key: HomeSectionKey;
+  enabled: boolean;
+}
+
+/** The Dashboard's queue tiles (`LATEST_CONTACTS_STATIC`). */
+export const HOME_QUEUE_CHANNELS = ["digital", "inboundVoice", "voicemail", "workItem", "outboundVoice"] as const;
+export type HomeQueueChannel = (typeof HOME_QUEUE_CHANNELS)[number];
+
 export interface HomeSettings {
-  /** Dashboard / Customers / Accounts / Tickets tabs (P0.5d.2). */
-  homeTabs: boolean;
-  /** Calendar view on Home (P0.5d.2). */
-  calendarView: boolean;
+  /** The "Hello Jordan" header block. */
+  showHeader: boolean;
+  greeting: string;
+  /** Appends the agent's first name to the greeting. */
+  showFirstName: boolean;
+  /** Which Dashboard sections render, in this order. */
+  sections: HomeSection[];
+  queue: { channels: Record<HomeQueueChannel, boolean> };
 }
 
 const home = defineSection<HomeSettings>({
   key: "home",
-  version: 1,
-  defaults: { homeTabs: false, calendarView: false },
-  fields: { homeTabs: bool(), calendarView: bool() },
+  // v2: v3's Dashboard settings. The v1 flags went away: Home tabs follow
+  // the apps placed as "tab", and the calendar view was retired (P0.5d.2).
+  version: 2,
+  defaults: {
+    showHeader: true,
+    greeting: "Hello",
+    showFirstName: true,
+    sections: HOME_SECTIONS.map((key) => ({ key, enabled: true })),
+    // v3's defaults: Digital and Work Item hidden.
+    queue: { channels: { digital: false, inboundVoice: true, voicemail: true, workItem: false, outboundVoice: true } },
+  },
+  fields: {
+    showHeader: bool(),
+    greeting: str(),
+    showFirstName: bool(),
+    sections: keyedList(HOME_SECTIONS, group<HomeSection>({ key: oneOf(HOME_SECTIONS), enabled: bool() })),
+    queue: group<HomeSettings["queue"]>({
+      channels: group<Record<HomeQueueChannel, boolean>>(
+        Object.fromEntries(HOME_QUEUE_CHANNELS.map((c) => [c, bool()])) as Fields<Record<HomeQueueChannel, boolean>>,
+      ),
+    }),
+  },
 });
 
 export interface AssignmentsSettings {

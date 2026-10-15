@@ -48,7 +48,6 @@ import {
   Icon,
   Badge,
   Separator,
-  DashboardQueue,
   AgentWelcomeMessage,
   TabList,
   Tab,
@@ -98,7 +97,6 @@ import {
   getAwaitingSeverity,
   CURRENT_AGENT_FIRST_NAME,
   CURRENT_AGENT_LAST_NAME,
-  CURRENT_AGENT_ID,
   synthesizeChannelAddress,
   SHOW_ADD_CHANNEL_HEADER_BUTTON,
   buildCustomerContextOverviewInfo,
@@ -144,9 +142,6 @@ import {
   WELCOME_MODAL_LAST_LOGIN,
   INITIAL_QUEUE_SUB_ITEMS,
   LATEST_CONTACTS_STATIC,
-  buildLatestContacts,
-  PerformanceBreakdownCard,
-  PerformanceSummaryCard,
 } from "@/components/agent-next-gen-interaction-dashboard";
 import { PageClockContext, usePageClock, usePageClockSource, useClockValue } from "@/components/agent-next-gen-page-clock";
 import { QueueSimContext, useQueueSimSource } from "@/components/agent-next-gen-queue-sim";
@@ -211,6 +206,7 @@ import {
 } from "@/contact-handling";
 import { NeedsOutcomeBadge } from "@/components/OnHoldBadge";
 import { CustomersTabBody } from "@/components/home-tabs";
+import { HomeDashboard } from "@/components/home-dashboard";
 import { useCustomerTableState } from "@/components/customer-table-state";
 import { useSearchPanelContent, type SearchPanelTabKey } from "@/components/agent-next-gen-search-panel";
 // `InteractionsListView` reimported directly per the "All Contacts"
@@ -3503,19 +3499,6 @@ export function AgentWorkspaceAdvancedPage({
   // page used to keep a plain single-number pad; the picker is kept here
   // by the row 16 parity ruling (confirmed 2026-10-14).
 
-  /* Home tab's queue widget row. The live counts come from the queue
-     simulation (`queueSim`, agent-next-gen-queue-sim.ts) and the wait times
-     from the page clock; both are merged in by `buildLatestContacts` inside
-     `<QueueSubItems>` + `<ClockTick>` at the `DashboardQueue` call site, so
-     only the queue cards re-render.
-     Per explicit request ("remove the digital and work item cards in the
-     queue row") — the "Digital" and "Work Item" queue widgets are dropped
-     from this tier's home tab. Filtered by name rather than by
-     `LATEST_CONTACTS_STATIC`'s own `id`s, which stay meaningful (matching
-     the queue simulation/`AGENTS_COUNT_BY_QUEUE`/`QUEUE_WAIT_BASE_SECONDS`,
-     all still keyed by the full original id set) — only the rendered
-     widget row itself shrinks. */
-  const homeQueueBases = LATEST_CONTACTS_STATIC.filter((base) => base.name !== "Digital" && base.name !== "Work Item");
 
   /* Customer Information panel — a left-docked `SidePanel` (per explicit
      request to move this content into a left side panel, matching a
@@ -10001,35 +9984,17 @@ export function AgentWorkspaceAdvancedPage({
                 </div>
               ) : (
                 <>
-                <div key={activeDeskTab} className="flex flex-1 flex-col min-w-0 overflow-y-auto px-6 py-6 animate-in fade-in-0 duration-200">
-                  <div className="w-full max-w-[1024px] mx-auto lyra-container-grid-wrap">
-                    {showPageHeader && (
-                      // Dashboard header — per explicit request ("go back
-                      // to the version of the home page that does NOT
-                      // have a home page header"), moved back OUT of the
-                      // fixed, non-scrolling top slot and into the
-                      // scrollable dashboard body instead — mirrors the
-                      // identical change made to 2.0 (`AgentNextGenPage.tsx`
-                      // §129, which has the full rationale, including the
-                      // historical `-mx-6 mb-6`/`bordered={false}`/
-                      // `titleSize="2xl"` wrapper this reuses) and Premium
-                      // (`AgentWorkspace2WithDeskPage.tsx`, same §129
-                      // follow-up).
-                      //
-                      // Title switched from "Agent {first} {last}" to a
-                      // plain "Hello {first name}" greeting. Subtitle
-                      // ("User Name: {id}") is unchanged. The tri-state
-                      // Connect Agent Leg/Connecting.../Connection Lag
-                      // Time block that used to sit under the Personal
-                      // Queue chip in `actions` is removed entirely —
-                      // `actions` now holds only the chip.
-                      <div className="-mx-6 mb-6">
-                        <PageHeader
-                          title={`Hello ${CURRENT_AGENT_FIRST_NAME}`}
-                          subtitle={`User Name: ${CURRENT_AGENT_ID}`}
-                          bordered={false}
-                          titleSize="2xl"
-                          actions={
+                <HomeDashboard
+                  key={activeDeskTab}
+                  showPageHeader={showPageHeader}
+                  selectedQueueId={selectedQueueId}
+                  // Only one job at a time in the shared docked slot: a queue
+                  // click replaces a Contact History entry's summary.
+                  onSelectQueue={(id) => {
+                    setSelectedContactHistoryEntry(null);
+                    setSelectedQueueId(id);
+                  }}
+                  headerActions={
                             <Tooltip content="Toggle Assignment Panel" placement="bottom" asLabel>
                               <Button
                                 variant="ghost"
@@ -10051,76 +10016,8 @@ export function AgentWorkspaceAdvancedPage({
                                 <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
                               </Button>
                             </Tooltip>
-                          }
-                        />
-                      </div>
-                    )}
-                    {/* ── Queue widgets ──
-                        `DashboardQueue` ("cards" variant, its default) —
-                        the numbers come straight from `buildLatestContacts`
-                        (see `homeQueueBases` above), so they'd stay in
-                        sync with the accordion presentation of the same
-                        data if that's ever turned back on (see the note
-                        below) — and Contacts/Wait Time visibly
-                        tick/fluctuate in real time rather than sitting
-                        frozen at the same numbers forever. Only this
-                        element re-renders for that (`<QueueSubItems>` +
-                        `<ClockTick>`). Clicking a widget opens the interior
-                        panel with that queue's sub-queue breakdown; the
-                        selected widget gets the "info-strong" (blue)
-                        treatment `DashboardQueue` applies on selection,
-                        driven by the controlled `selectedId`/`onSelect`
-                        pair kept in sync with the panel state. */}
-                    {/* No `mt-6` here — this is the first row in the
-                        dashboard body, and the scroll wrapper around
-                        `.lyra-container-grid-wrap` already supplies its
-                        own top spacing (`py-6` a few lines up), so an
-                        extra `mt-6` on top of that just doubled the gap
-                        between the tab bar and this row. The rows below
-                        (`ContactHistoryCard`, the summary cards) keep
-                        their own `mt-6` — they still need spacing from
-                        whatever row sits above THEM. */}
-                    <QueueSubItems>
-                      {(queueSubItems) => (
-                    <ClockTick>
-                      {(clockTick) => (
-                    <DashboardQueue
-                      items={buildLatestContacts(homeQueueBases, queueSubItems, clockTick).map((contact) => ({
-                        id: contact.id,
-                        name: contact.name,
-                        icon: contact.icon,
-                        wait: contact.wait,
-                        skillsCount: contact.skillsCount,
-                        contactsCount: contact.contactsCount,
-                        agentsCount: contact.agentsCount,
-                      }))}
-                      selectedId={selectedQueueId}
-                      onSelect={(id) => {
-                        // Same "only one job in this shared docked slot at a
-                        // time" rule as the Contact History row's own
-                        // `onSelectEntry` above, the other direction — a
-                        // queue widget click while a Contact History entry's
-                        // summary is showing needs to actually swap the
-                        // panel over, not leave the old entry's content
-                        // sitting underneath a now-mismatched queue header.
-                        setSelectedContactHistoryEntry(null);
-                        setSelectedQueueId(id);
-                      }}
-                    />
-                      )}
-                    </ClockTick>
-                      )}
-                    </QueueSubItems>
-
-                    {/* ── Latest Cases ──
-                        Removed for now (was `DashboardQueue`'s "accordion"
-                        variant, showing the same data as expandable rows
-                        with each queue's `InteractionsTable` as content) —
-                        may come back later, so `buildLatestContacts`,
-                        `InteractionsTable`, and the rest of the data/markup
-                        it depended on are left in place rather than deleted. */}
-
-                    <div className="mt-6">
+                  }
+                  contactHistory={
                       <ContactHistoryCard
                         onSelectEntry={(entry) => {
                           // Clicking the row that's ALREADY selected closes
@@ -10168,23 +10065,8 @@ export function AgentWorkspaceAdvancedPage({
                         // above) — only this one entry point into it is
                         // gone now.
                       />
-                    </div>
-
-                    {/* ── Summary cards ──
-                        Was three cards (Activity/Performance/Productivity);
-                        Activity's ring chart moved into the bottom of
-                        PerformanceBreakdownCard (Productivity) and the
-                        standalone Activity card was removed, since the ring
-                        visualized the exact same Available/Working/
-                        Unavailable data Productivity's own rows already
-                        list — one card showing it twice added nothing a
-                        single card + ring didn't already cover. */}
-                    <div className="mt-6 lyra-container-grid">
-                      <PerformanceSummaryCard />
-                      <PerformanceBreakdownCard />
-                    </div>
-                  </div>
-                </div>
+                  }
+                />
                 {showInteriorPanel && (
                   <InteriorPanel
                     side="right"
@@ -10202,7 +10084,7 @@ export function AgentWorkspaceAdvancedPage({
                     open={interiorPanelOpen || Boolean(selectedQueueId) || Boolean(selectedContactHistoryEntry)}
                     headerTitle={
                       selectedQueueId
-                        ? homeQueueBases.find((c) => c.id === selectedQueueId)?.name ?? "Queue"
+                        ? LATEST_CONTACTS_STATIC.find((c) => c.id === selectedQueueId)?.name ?? "Queue"
                         : selectedContactHistoryEntry
                         ? selectedContactHistoryEntry.name
                         : "Case Details"

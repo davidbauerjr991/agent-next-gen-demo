@@ -3,7 +3,9 @@
 // Settings with no target in the workspace yet stay toggleable (they count
 // toward the preset) and carry a tag saying which step brings them.
 import * as React from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import {
+  ActionIconButton,
   Badge,
   Button,
   Checkbox,
@@ -21,6 +23,7 @@ import {
 import { readSimLatency, useProviderKind } from "@/provider-context";
 import {
   EXTRA_HEADER_APPS,
+  HOME_QUEUE_CHANNELS,
   PRESET_LABELS,
   SEAMS,
   useResetSettings,
@@ -30,6 +33,8 @@ import {
   type AppDisplay,
   type AppPlacement,
   type ExtraHeaderApp,
+  type HomeQueueChannel,
+  type HomeSectionKey,
   type PhoneSetup,
   type PresetId,
   type SeamId,
@@ -64,6 +69,31 @@ const SEAM_LABELS: Record<SeamId, string> = {
   directory: "Address books",
   apps: "Apps",
 };
+
+const HOME_SECTION_LABELS: Record<HomeSectionKey, string> = {
+  queue: "Queue",
+  contactHistory: "Contact history",
+  performance: "Performance",
+  productivity: "Productivity",
+};
+
+// The queue tiles' names (`LATEST_CONTACTS_STATIC`).
+const HOME_QUEUE_CHANNEL_LABELS: Record<HomeQueueChannel, string> = {
+  digital: "Digital",
+  inboundVoice: "Inbound Voice",
+  voicemail: "Voicemail",
+  workItem: "Work Item",
+  outboundVoice: "Outbound Voice",
+};
+
+/** `items` with the entry at `index` swapped with its neighbor. */
+function moveItem<T>(items: T[], index: number, delta: -1 | 1): T[] {
+  const j = index + delta;
+  if (j < 0 || j >= items.length) return items;
+  const next = [...items];
+  [next[index], next[j]] = [next[j], next[index]];
+  return next;
+}
 
 const VALID_STATION_ID = "12345";
 
@@ -158,7 +188,7 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
           </div>
           <p className="lyra-body-sm text-lyra-fg-secondary">
             Phase 2 turns on the header apps (Customers, Accounts and Tickets as Home tabs; Schedule and WEM in the
-            header), the Home settings and the omnichannel layout. Changing any one of them shows Custom.
+            header) and the omnichannel layout. Changing any one of them shows Custom.
           </p>
         </Section>
 
@@ -237,19 +267,74 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
           )}
         </Section>
 
+        {/* v3's Settings → Home: the Dashboard's header and sections. */}
         <Section title="Home">
-          <SwitchRow
-            label="Home tabs (Dashboard, Customers, Accounts, Tickets)"
-            checked={home.homeTabs}
-            onCheckedChange={(homeTabs) => updateHome({ homeTabs })}
-            pending="Arrives in P0.5d.2"
-          />
-          <SwitchRow
-            label="Calendar view"
-            checked={home.calendarView}
-            onCheckedChange={(calendarView) => updateHome({ calendarView })}
-            pending="Arrives in P0.5d.2"
-          />
+          <SwitchRow label="Show header" checked={home.showHeader} onCheckedChange={(showHeader) => updateHome({ showHeader })} />
+          {home.showHeader && (
+            <div className="max-w-sm">
+              <Input
+                label="Greeting"
+                value={home.greeting}
+                onChange={(e) => updateHome({ greeting: e.target.value })}
+                placeholder="Hello"
+              />
+            </div>
+          )}
+          {home.showHeader && (
+            <Checkbox
+              label="Display agent first name"
+              checked={home.showFirstName}
+              onCheckedChange={(c) => updateHome({ showFirstName: c === true })}
+            />
+          )}
+          {home.sections.map((section, index) => (
+            <React.Fragment key={section.key}>
+              <div className="flex max-w-sm items-center justify-between gap-2" data-home-section-row={section.key}>
+                <Switch
+                  size="sm"
+                  label={HOME_SECTION_LABELS[section.key]}
+                  checked={section.enabled}
+                  onCheckedChange={(enabled) =>
+                    updateHome((prev) => ({
+                      sections: prev.sections.map((s) => (s.key === section.key ? { ...s, enabled } : s)),
+                    }))
+                  }
+                />
+                <div className="flex items-center gap-0.5">
+                  <ActionIconButton
+                    size="sm"
+                    title={`Move ${HOME_SECTION_LABELS[section.key]} up`}
+                    disabled={index === 0}
+                    onClick={() => updateHome((prev) => ({ sections: moveItem(prev.sections, index, -1) }))}
+                  >
+                    <ChevronUp className="h-4 w-4" strokeWidth={1.5} />
+                  </ActionIconButton>
+                  <ActionIconButton
+                    size="sm"
+                    title={`Move ${HOME_SECTION_LABELS[section.key]} down`}
+                    disabled={index === home.sections.length - 1}
+                    onClick={() => updateHome((prev) => ({ sections: moveItem(prev.sections, index, 1) }))}
+                  >
+                    <ChevronDown className="h-4 w-4" strokeWidth={1.5} />
+                  </ActionIconButton>
+                </div>
+              </div>
+              {section.key === "queue" && section.enabled && (
+                <div className="ml-7 flex flex-col gap-2">
+                  {HOME_QUEUE_CHANNELS.map((channel) => (
+                    <Checkbox
+                      key={channel}
+                      label={HOME_QUEUE_CHANNEL_LABELS[channel]}
+                      checked={home.queue.channels[channel]}
+                      onCheckedChange={(c) =>
+                        updateHome((prev) => ({ queue: { channels: { ...prev.queue.channels, [channel]: c === true } } }))
+                      }
+                    />
+                  ))}
+                </div>
+              )}
+            </React.Fragment>
+          ))}
         </Section>
 
         <Section title="Assignments">

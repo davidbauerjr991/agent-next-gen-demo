@@ -1,17 +1,17 @@
 // Workspace presets (one-page decision, 2026-10-15). "Phase 1" and "Phase 2"
-// are values for the Header section (including each app's display), the Home
-// flags and the omnichannel layout. The preset isn't stored: it's whichever
-// preset matches the current values, else "custom", so changing one setting
-// reads Custom and re-picking a preset clears it. The left-nav toggles, Voice
-// and AI aren't part of it.
-import type { AppDisplay, AssignmentsSettings, ExtraHeaderApp, HeaderSettings, HomeSettings, SettingsState } from "./settings-schema";
+// are values for the Header section (including each app's display; apps
+// placed as "tab" are the Home tabs) and the omnichannel layout. The preset
+// isn't stored: it's whichever preset matches the current values, else
+// "custom", so changing one setting reads Custom and re-picking a preset
+// clears it. The left-nav toggles, Home (the Dashboard), Voice and AI aren't
+// part of it.
+import type { AppDisplay, AssignmentsSettings, ExtraHeaderApp, HeaderSettings, SettingsState } from "./settings-schema";
 
 export type PresetId = "phase1" | "phase2";
 export type WorkspacePreset = PresetId | "custom";
 
 export interface PresetValues {
   header: HeaderSettings;
-  home: HomeSettings;
   assignments: Pick<AssignmentsSettings, "omnichannel">;
 }
 
@@ -35,7 +35,6 @@ export const PRESETS: Record<PresetId, PresetValues> = {
       appsGrid: true,
       apps: NO_APPS,
     },
-    home: { homeTabs: false, calendarView: false },
     assignments: { omnichannel: false },
   },
   // Desk's layout: Customers/Accounts/Tickets as Home tabs, Schedule and WEM
@@ -56,7 +55,6 @@ export const PRESETS: Record<PresetId, PresetValues> = {
         screenpop: app(false),
       },
     },
-    home: { homeTabs: true, calendarView: true },
     assignments: { omnichannel: true },
   },
 };
@@ -89,7 +87,6 @@ export function derivePreset(values: SettingsState): WorkspacePreset {
     const preset = PRESETS[id];
     if (
       matches(values.header, preset.header) &&
-      matches(values.home, preset.home) &&
       matches(values.assignments, preset.assignments)
     ) {
       return id;
