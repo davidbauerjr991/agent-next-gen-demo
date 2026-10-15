@@ -131,6 +131,8 @@ describe("scenario cases", () => {
       cases.respond(LUCAS_THOMAS_ID, { value: "accept" });
       await vi.advanceTimersByTimeAsync(1000);
     });
+    // The card carries the recorded decision, so a remounted card starts decided.
+    expect(rows(LUCAS_THOMAS_ID).find((r) => r.summary)?.decided).toEqual({ value: "accept" });
     const instruction = rows(LUCAS_THOMAS_ID).find((r) => r.instruction);
     expect(instruction?.instruction).toMatchObject({ title: "Authorize and place order NR-11056", by: "John Smith" });
     expect(instruction?.instruction?.link).toMatch(/^instruction:accept:Authorize%20and%20place%20order%20NR-11056:/);

@@ -91,7 +91,11 @@ export function toTranscriptRows(transcript: Pick<TranscriptState, "messages" | 
       });
     } else if (a?.kind === "approval") {
       const summary = script.content.approvals?.[a.ref];
-      if (summary) rows.push({ at: m.sentAt, row: { ...base, name: bot, initials: "AI", text: "", summary } });
+      if (summary) {
+        // The decision the provider recorded, so the card stays decided across a remount (tier switch).
+        const decided = a.response ? { value: a.response.value, ...(a.response.note ? { note: a.response.note } : {}) } : undefined;
+        rows.push({ at: m.sentAt, row: { ...base, name: bot, initials: "AI", text: "", summary, ...(decided ? { decided } : {}) } });
+      }
     } else if (a?.kind === "wrap-up") {
       const wrapUp = script.content.wrapUps?.[a.ref];
       if (wrapUp) {

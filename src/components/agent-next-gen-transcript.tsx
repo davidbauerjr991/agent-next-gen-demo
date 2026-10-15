@@ -118,6 +118,8 @@ export interface TranscriptMessage {
   event?: boolean;
   /** Renders as a collapsible AI "Approval request" summary card (purple header band, checklist, experience memory, sentiment). */
   summary?: TranscriptApprovalSummary;
+  /** The decision already made on this approval card (the provider's record), so a remounted card shows it decided. */
+  decided?: { value: string; note?: string };
   /** Renders the "AI agent finished performing this." line plus a clickable instruction row (opens a side panel via `onSnapshotLink`). */
   instruction?: { title: string; by: string; link: string };
   /** Renders a "Wrap up" accordion (same shell as the approval request, success-subtle header) with a summary and a completion button. */
@@ -258,7 +260,10 @@ function ApprovalDecision({
   onSuggestionAsk,
   onCallRequest,
   takenOver,
+  decided,
 }: {
+  /** A decision already made (e.g. before a tier switch): the card starts decided. */
+  decided?: { value: string; note?: string };
   /** The human agent took over the chat before deciding: options go away and a note replaces them. */
   takenOver?: boolean;
   /** Fired for `callRequest` decisions: the option's element (popover anchor) and a `confirm` that marks the card as decided once the call is launched. */
@@ -269,9 +274,10 @@ function ApprovalDecision({
   /** Fired when a link suggestion is clicked, so the chat can log the lookup (same row Ask Copilot adds). */
   onSuggestionAsk?: (text: string) => void;
 }) {
-  const [selected, setSelected] = useState<string | undefined>(undefined);
-  const [note, setNote] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const decidedOnce = decided && !decisions.find((d) => d.value === decided.value)?.repeatable ? decided : undefined;
+  const [selected, setSelected] = useState<string | undefined>(decidedOnce?.value);
+  const [note, setNote] = useState(decidedOnce?.note ?? "");
+  const [submitted, setSubmitted] = useState(!!decidedOnce);
   // Brief interstitial while a suggestion that opens a panel (e.g. purchase history) "loads".
   const [loadingLabel, setLoadingLabel] = useState<string | null>(null);
   // Link suggestions already used: they are dropped and swapped for their replacement.
@@ -584,7 +590,7 @@ function ApprovalSummaryAccordion({
       {footer && <div className={cn("bg-lyra-bg-surface-container-subtle px-4 pb-4", !open && "pt-3")}>{footer}</div>}
       {!footer && summary.decisions && summary.decisions.length > 0 && (
         <div className={cn("bg-lyra-bg-surface-container-subtle px-4 pb-4", !open && "pt-3")}>
-          <ApprovalDecision decisions={summary.decisions} onDecide={onDecide} onLink={onLink} onSuggestionAsk={onSuggestionAsk} onCallRequest={onCallRequest} takenOver={takenOver} />
+          <ApprovalDecision decisions={summary.decisions} onDecide={onDecide} onLink={onLink} onSuggestionAsk={onSuggestionAsk} onCallRequest={onCallRequest} takenOver={takenOver} decided={message.decided} />
         </div>
       )}
     </div>

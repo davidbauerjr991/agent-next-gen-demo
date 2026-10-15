@@ -389,6 +389,31 @@ describe("Advanced: P0.5c browser-check fixes", () => {
   });
 });
 
+describe("Advanced: an approval card's decision survives a tier switch (P0.5c)", () => {
+  it("Lucas's approved card is still decided after Advanced → Desk → Advanced", async () => {
+    await show(AgentWorkspaceAdvancedPage);
+    await play(LUCAS_THOMAS_SCRIPT.id);
+    await advance(14_000);
+    // Approve through the provider, the call the card's Approve makes.
+    await act(async () => {
+      const snapshot = provider.getSnapshot();
+      await vi.advanceTimersByTimeAsync(50);
+      const lucas = (await snapshot).interactions.find((i) => i.caseId === LUCAS_THOMAS_SCRIPT.entity.caseId)!;
+      const transcript = provider.getTranscript(lucas.id);
+      await vi.advanceTimersByTimeAsync(50);
+      const card = (await transcript).messages.find((m) => m.annotation?.kind === "approval")!;
+      const answered = provider.respondToRequest(lucas.id, { value: "accept", requestId: card.id });
+      await vi.advanceTimersByTimeAsync(200);
+      await answered;
+    });
+    await show(AgentWorkspace2WithDeskPage);
+    await show(AgentWorkspaceAdvancedPage);
+    await click(navCard("Lucas Thomas"));
+    expect(bodyText()).toContain("Exception approved");
+    expect(bodyText()).not.toContain("How would you like to proceed?");
+  });
+});
+
 describe("tier switch", () => {
   it("Desk → Advanced: a carried-over chat shows once, never also in the docked preview", async () => {
     await show(AgentWorkspace2WithDeskPage);
