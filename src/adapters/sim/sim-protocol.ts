@@ -17,6 +17,7 @@ import type {
   OutboundSkill,
   ProviderError,
   ReopenRequest,
+  RequestResponse,
   TransferTarget,
 } from "../../providers";
 
@@ -51,7 +52,9 @@ export type SimCommand =
   | { name: "sendMessage"; interactionId: InteractionId; text: string }
   | { name: "setTyping"; interactionId: InteractionId; isTyping: boolean }
   | { name: "setCaseStatus"; interactionId: InteractionId; status: string }
-  | { name: "associateEntity"; interactionId: InteractionId; entityId: EntityId };
+  | { name: "associateEntity"; interactionId: InteractionId; entityId: EntityId }
+  | { name: "takeOver"; interactionId: InteractionId; handoff?: boolean }
+  | { name: "respondToRequest"; interactionId: InteractionId; response: RequestResponse };
 
 export type SimCommandName = SimCommand["name"];
 
@@ -80,6 +83,8 @@ export interface SimCommandResults {
   setTyping: void;
   setCaseStatus: void;
   associateEntity: void;
+  takeOver: void;
+  respondToRequest: void;
 }
 
 /** An `InteractionProvider` event, derived from the contract so it can't drift. */
@@ -100,8 +105,16 @@ export type SimCustomerAction =
       skillId?: string;
       /** Custom pre-contact summary lines (voice); default built by the engine. */
       summary?: string[];
+      /** The case number to file it under; default a new one. */
+      caseId?: string;
     }
+  /** Plays a scenario script (src/scenarios) as this customer: the engine
+   *  routes the contact and plays its steps (P0.5c). `channel` overrides the
+   *  script's own. */
+  | { kind: "playScenario"; interactionId: InteractionId; scenarioId: string; channel?: ChannelKind }
   | { kind: "message"; interactionId: InteractionId; text: string }
+  /** A customer line on a voice call (an utterance). */
+  | { kind: "speak"; interactionId: InteractionId; text: string }
   | { kind: "typing"; interactionId: InteractionId; isTyping: boolean }
   | { kind: "hangUp"; interactionId: InteractionId };
 

@@ -72,6 +72,9 @@ export function unsupportedReason(command: SimCommand, capabilities: Interaction
       return off(capabilities.channels.outbound.includes(command.request.channel), `outbound ${command.request.channel}`);
     case "reopen":
       return off(capabilities.reopen, "reopen");
+    case "takeOver":
+    case "respondToRequest":
+      return off(capabilities.review, "review");
     default:
       return null;
   }

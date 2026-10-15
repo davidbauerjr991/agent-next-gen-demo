@@ -11,6 +11,7 @@ import {
 } from "./sim-protocol";
 import { createBroadcastTransport, DEFAULT_LATENCY, withLatency, type LatencyRange, type SimTransport } from "./sim-transport";
 import { simId, unsupportedReason } from "./sim-util";
+import type { ScenarioScript } from "../../scenarios/scenario-script";
 
 // The simulated InteractionProvider (P0.4): a pure client of the sim engine.
 // It holds no interaction state — every method, reads included, is a
@@ -39,6 +40,8 @@ export interface SimOptions {
   /** Customers routing recognizes an inbound address by (e.g.
    *  `SIM_DEMO_DIRECTORY`). Default none: every inbound contact is unknown. */
   directory?: readonly SimDirectoryEntry[];
+  /** Scenario scripts the customer side can play (e.g. `SCENARIOS`). */
+  scripts?: readonly ScenarioScript[];
 }
 
 /** The sim provider plus its session id, which the customer side (the P0.6
@@ -71,6 +74,7 @@ export function createSimulatedInteractionProvider(options: SimOptions = {}): Si
           timings: { ...DEFAULT_SIM_TIMINGS, ...options.timings },
           seed: options.seed ?? [],
           directory: options.directory ?? [],
+          scripts: options.scripts ?? [],
         });
   const transport = withLatency(createTransport(), options.latency ?? DEFAULT_LATENCY);
 
@@ -182,5 +186,8 @@ export function createSimulatedInteractionProvider(options: SimOptions = {}): Si
     setTyping: (interactionId, isTyping) => request({ name: "setTyping", interactionId, isTyping }),
     setCaseStatus: (interactionId, status) => request({ name: "setCaseStatus", interactionId, status }),
     associateEntity: (interactionId, entityId) => request({ name: "associateEntity", interactionId, entityId }),
+    takeOver: (interactionId, options) =>
+      request({ name: "takeOver", interactionId, ...(options?.handoff !== undefined ? { handoff: options.handoff } : {}) }),
+    respondToRequest: (interactionId, response) => request({ name: "respondToRequest", interactionId, response }),
   } satisfies SimulatedInteractionProvider;
 }

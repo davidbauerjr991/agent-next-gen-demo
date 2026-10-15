@@ -19,8 +19,14 @@ export interface SimCustomerClient {
     entityId?: EntityId;
     skillId?: string;
     summary?: string[];
+    caseId?: string;
   }): InteractionId;
+  /** Plays a scenario script as the customer (P0.5c); returns the contact's
+   *  id. `channel` overrides the script's own. */
+  playScenario(scenarioId: string, options?: { channel?: ChannelKind }): InteractionId;
   message(request: { interactionId: InteractionId; text: string }): void;
+  /** A customer line on a voice call. */
+  speak(request: { interactionId: InteractionId; text: string }): void;
   typing(request: { interactionId: InteractionId; isTyping: boolean }): void;
   /** The customer hangs up / leaves. Goes to wrap-up like the agent's `end`. */
   hangUp(request: { interactionId: InteractionId }): void;
@@ -41,7 +47,13 @@ export function createSimCustomerClient(
       send({ kind: "startInbound", interactionId, ...request });
       return interactionId;
     },
+    playScenario(scenarioId, options) {
+      const interactionId = simId("int") as InteractionId;
+      send({ kind: "playScenario", interactionId, scenarioId, ...(options?.channel ? { channel: options.channel } : {}) });
+      return interactionId;
+    },
     message: (request) => send({ kind: "message", ...request }),
+    speak: (request) => send({ kind: "speak", ...request }),
     typing: (request) => send({ kind: "typing", ...request }),
     hangUp: (request) => send({ kind: "hangUp", ...request }),
     dispose: () => transport.close(),

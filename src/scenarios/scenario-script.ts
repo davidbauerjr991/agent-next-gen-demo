@@ -29,6 +29,11 @@ interface StepBase {
   onlyOn?: ChannelKind[];
   /** `false` keeps a customer line out of the console's canned-lines panel. */
   canned?: false;
+  /** Plays only when the condition holds. `note-addresses-customer`: the
+   *  branch's note tells the bot to say something to the customer
+   *  (`noteAddressesCustomer`, ./note-rules.ts); otherwise the step is
+   *  skipped, so an internal instruction gets no customer-facing reply. */
+  onlyIf?: "note-addresses-customer";
 }
 
 export type ScenarioStep = StepBase &
@@ -47,9 +52,9 @@ export type ScenarioStep = StepBase &
     /** A presentation beat: `instruction` is an interstitial row (`text`,
      *  `by`, `link` = side-panel key); `approval` and `wrap-up` are cards
      *  (`ref` into `content`); `close` closes the chat; `dismiss`
-     *  unassigns it (`unlessTakenOver`: only if the agent never took over).
-     *  instruction, approval and wrap-up become a `Message` with an
-     *  `annotation`. */
+     *  unassigns it. `unlessTakenOver` (wrap-up, dismiss): only if the agent
+     *  never took over. instruction, approval and wrap-up become a `Message`
+     *  with an `annotation`. */
     | {
         kind: "beat";
         beat: "instruction" | "approval" | "wrap-up" | "close" | "dismiss";
@@ -62,10 +67,16 @@ export type ScenarioStep = StepBase &
   );
 
 /** What the agent's decision sets off. `{note}` in a step's text is replaced
- *  with what the agent typed, and only in a branch that lists `note`. */
+ *  with what the agent typed, and `{name}` with the decision's `vars.name`,
+ *  only in a branch that lists the input. */
 export interface ScenarioBranch {
   label: string;
-  inputs?: "note"[];
+  /** `note` (what the agent typed) or the names of other values the
+   *  decision carries. */
+  inputs?: string[];
+  /** `action`: started directly by an agent-UI action outside the thread
+   *  (e.g. a next-best-action card step), not by a decision or wrap-up card. */
+  trigger?: "action";
   steps: ScenarioStep[];
 }
 
@@ -79,7 +90,7 @@ export interface ScenarioStart {
    *  connected (bot-handled cases), no ring. */
   answer: "agent" | "auto" | "delivered";
   /** Delivered in review: the bot handled it, the agent reads along until
-   *  they take over. Data only until 5c decides how it's reported. */
+   *  they take over. The engine reports it as `Interaction.review`. */
   review?: true;
   /** The contact started this long before launch (sets its wait clock). */
   ageMs?: number;

@@ -32,14 +32,16 @@ function send(client: SimCustomerClient, action: ScenarioCustomerAction) {
       return client.message({ interactionId: action.interactionId, text: action.text });
     case "typing":
       return client.typing({ interactionId: action.interactionId, isTyping: action.isTyping });
+    case "speak":
+      return client.speak({ interactionId: action.interactionId, text: action.text });
     case "hangUp":
       return client.hangUp({ interactionId: action.interactionId });
-    default:
-      throw new Error(`the sim can't send a "${action.kind}" action yet (P0.5c adds speak)`);
   }
 }
 
-async function withSim(run: (ctx: { client: SimCustomerClient; rec: ReturnType<typeof recordEvents> }) => Promise<void>) {
+async function withSim(
+  run: (ctx: { client: SimCustomerClient; rec: ReturnType<typeof recordEvents>; provider: ReturnType<typeof createSimulatedInteractionProvider> }) => Promise<void>,
+) {
   const bus = createMemoryBus();
   const provider = createSimulatedInteractionProvider({
     latency: ZERO,
@@ -49,7 +51,7 @@ async function withSim(run: (ctx: { client: SimCustomerClient; rec: ReturnType<t
   const client = createSimCustomerClient(provider.sessionId, bus.createTransport());
   const rec = recordEvents(provider);
   try {
-    await run({ client, rec });
+    await run({ client, rec, provider });
   } finally {
     rec.stop();
     client.dispose();
@@ -68,29 +70,35 @@ describe.each(SCENARIOS.map((script) => [script.id, script] as const))("scenario
     expect(parsed.script).toEqual(script);
   });
 
-  it("launches in the sim as its own channel and its customer lines arrive as messages", async () => {
-    await withSim(async ({ client, rec }) => {
+  it("launches in the sim as its own channel and its customer lines arrive as messages or utterances", async () => {
+    await withSim(async ({ client, rec, provider }) => {
       const id = client.startInbound(startRequest(script));
       await waitFor(() => rec.events("incoming").some((e) => e.interaction.id === id), "offered");
       const offer = rec.events("incoming").find((e) => e.interaction.id === id)!.interaction;
-      expect(offer).toMatchObject({ channel: script.channel, contactName: script.entity.name });
+      expect(offer).toMatchObject({ channel: script.channel, contactName: script.entity.name, caseId: script.entity.caseId });
       expect(offer.address?.value).toBe(script.channel === "chat" ? script.entity.key : script.entity.phone);
 
-      if (script.channel === "voice") {
-        // A voice customer line is `speak`, which the sim can't take until P0.5c.
-        const customerSteps = stepsFor(script).filter((s) => toCustomerAction(script, s, id));
-        for (const step of customerSteps) expect(toCustomerAction(script, step, id)!.kind).toMatch(/^(speak|hangUp)$/);
-        return;
-      }
       const sent: string[] = [];
+      if (script.channel === "voice") {
+        // A voice line needs a live call.
+        await provider.accept(id);
+        await waitFor(() => rec.events("stateChanged").some((e) => e.kind === "interaction" && e.interaction.id === id && e.interaction.state === "active"), "accepted");
+      }
       for (const step of stepsFor(script).filter((s) => s.at >= 0)) {
         const action = toCustomerAction(script, step, id);
         if (!action) continue;
+        expect(action.kind).toBe(script.channel === "voice" ? "speak" : action.kind);
         send(client, action);
-        if (action.kind === "message") sent.push(action.text);
+        if (action.kind === "message" || action.kind === "speak") sent.push(action.text);
       }
-      await waitFor(() => rec.events("message").length >= sent.length, "messages");
-      expect(rec.events("message").map((e) => e.message.text)).toEqual(sent);
+      if (script.channel === "voice") {
+        await waitFor(() => rec.events("transcript").length >= sent.length, "utterances");
+        expect(rec.events("transcript").map((e) => e.utterance.text)).toEqual(sent);
+        expect((await provider.getTranscript(id)).utterances.map((u) => u.text)).toEqual(sent);
+      } else {
+        await waitFor(() => rec.events("message").length >= sent.length, "messages");
+        expect(rec.events("message").map((e) => e.message.text)).toEqual(sent);
+      }
     });
   });
 });
@@ -112,7 +120,7 @@ describe("running a script as another channel", () => {
   });
 
   it("Lucas as voice: starts from his number, drops typing and chat-only lines, and speaks the customer's lines", async () => {
-    expect(startRequest(LUCAS_THOMAS_SCRIPT, "voice")).toMatchObject({ channel: "voice", address: "(415) 555-0132", displayName: "Lucas Thomas" });
+    expect(startRequest(LUCAS_THOMAS_SCRIPT, "voice")).toMatchObject({ channel: "voice", address: "(415) 555-0142", displayName: "Lucas Thomas" });
     const steps = stepsFor(LUCAS_THOMAS_SCRIPT, "voice");
     expect(steps.some((s) => s.kind === "typing")).toBe(false);
     expect(steps.some((s) => s.id === "lt-chat-started")).toBe(false);
@@ -131,7 +139,7 @@ describe("running a script as another channel", () => {
       const started = client.startInbound(startRequest(LUCAS_THOMAS_SCRIPT, "voice"));
       await waitFor(() => rec.events("incoming").some((e) => e.interaction.id === started), "offered");
       const offer = rec.events("incoming").find((e) => e.interaction.id === started)!.interaction;
-      expect(offer).toMatchObject({ channel: "voice", address: { value: "(415) 555-0132" } });
+      expect(offer).toMatchObject({ channel: "voice", address: { value: "(415) 555-0142" } });
       expect(offer.preContactSummary).toBeDefined();
     });
   });
@@ -269,5 +277,30 @@ describe("validateScenario catches", () => {
     const noComplete = lucas();
     noComplete.content.wrapUps!.main.completeBranch = "gone";
     expect(problems(noComplete)).toContain('completeBranch "gone" is not a branch');
+    // An action branch (started by an agent-UI action) needs no decision.
+    const action = lucas();
+    action.branches!.orphan = { label: "Action", trigger: "action", steps: [{ id: "orphan-1", kind: "event", at: 0, text: "x" }] };
+    expect(problems(action)).toBe("");
+    const badTrigger = lucas();
+    badTrigger.branches!.orphan = { label: "Bad", trigger: "later" as "action", steps: [{ id: "orphan-1", kind: "event", at: 0, text: "x" }] };
+    expect(problems(badTrigger)).toContain("unknown trigger");
+  });
+
+  it("onlyIf outside a note branch, unknown conditions, and unlessTakenOver on the wrong step", () => {
+    const main = lucas();
+    main.steps[1] = { ...main.steps[1], onlyIf: "note-addresses-customer" };
+    expect(problems(main)).toContain("needs a branch with a note input");
+    const unknown = lucas();
+    unknown.branches!.other.steps[0] = { ...unknown.branches!.other.steps[0], onlyIf: "sometimes" as "note-addresses-customer" };
+    expect(problems(unknown)).toContain("unknown onlyIf condition");
+    const wrongStep = lucas();
+    wrongStep.steps[1] = { ...wrongStep.steps[1], unlessTakenOver: true } as ScenarioScript["steps"][number];
+    expect(problems(wrongStep)).toContain("unlessTakenOver applies to wrap-up and dismiss beats only");
+  });
+
+  it("a placeholder that isn't one of the branch's inputs", () => {
+    const script = clone(getScenario("marcus-webb-scenario")!) as ScenarioScript;
+    script.branches!["remedy-discount-code"].inputs = ["storeCreditAmount"];
+    expect(problems(script)).toContain("placeholder {discountPercent}");
   });
 });

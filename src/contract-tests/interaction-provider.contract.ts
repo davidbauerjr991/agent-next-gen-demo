@@ -19,6 +19,12 @@ export interface InteractionContractHarness {
     message(id: InteractionId, text: string): Promise<void>;
     hangUp(id: InteractionId): Promise<void>;
     typing(id: InteractionId, isTyping: boolean): Promise<void>;
+    /** A customer line on a voice call. */
+    speak(id: InteractionId, text: string): Promise<void>;
+    /** Routes a bot-handled contact to the agent in review, with one request
+     *  the agent can answer with `respondToRequest({ value: actionValue })`.
+     *  Omitted: the review tests that need one are skipped. */
+    startInReview?(channel: ChannelKind): Promise<{ id: InteractionId; actionValue: string }>;
   };
   /** Tears down the driver and anything else the factory made. Idempotent. */
   dispose(): Promise<void>;
@@ -327,6 +333,58 @@ export function describeInteractionProviderContract(label: string, factory: Inte
           await settle(provider, Math.max(5, h.settleMs ?? 0));
           expect(rec.since(mark).filter((e) => e.kind === "event" && e.name === "typing")).toEqual([]);
         }
+      });
+    });
+
+    // ── Speech and review (P0.5c) ─────────────────────────────────────────
+
+    describe("speech and review", () => {
+      it("voice: a customer line arrives as a transcript utterance, upserted and returned by getTranscript", async (ctx) => {
+        requireInbound(ctx, "voice");
+        const { provider } = h;
+        const id = await startAccepted("voice");
+        await h.customer.speak(id, "Hi, I'm calling about my bill.");
+        await waitFor(() => rec.events("transcript").some((e) => e.utterance.interactionId === id), "customer utterance");
+        const [{ utterance }] = rec.events("transcript");
+        expect(utterance).toMatchObject({ interactionId: id, text: "Hi, I'm calling about my bill.", isFinal: true, speaker: { role: "customer" } });
+        expect((await provider.getTranscript(id)).utterances).toEqual([utterance]);
+      });
+
+      it("review commands reject not-supported without capabilities.review", async (ctx) => {
+        ctx.skip(caps().review, "review is supported");
+        await expectProviderError(h.provider.takeOver(GHOST), "not-supported");
+        await expectProviderError(h.provider.respondToRequest(GHOST, { value: "x" }), "not-supported");
+      });
+
+      it("takeOver rejects on a contact that was never in review; respondToRequest rejects with no request", async (ctx) => {
+        ctx.skip(!caps().review, "review not supported");
+        requireInbound(ctx, "chat");
+        const id = await startAccepted("chat");
+        await expectProviderError(h.provider.takeOver(id), "invalid-state");
+        await expectProviderError(h.provider.respondToRequest(id, { value: "anything" }), "not-found");
+        await expectProviderError(h.provider.takeOver(GHOST), "not-found");
+      });
+
+      for (const channel of ["chat", "voice"] as const)
+      it(`${channel} in review: delivered active with review, answered, then taken over once`, async (ctx) => {
+        ctx.skip(!caps().review, "review not supported");
+        ctx.skip(!h.customer.startInReview, "the harness can't start a contact in review");
+        requireInbound(ctx, channel);
+        const { provider } = h;
+        const { id, actionValue } = await h.customer.startInReview!(channel);
+        await waitFor(() => latest(id)?.review !== undefined, "contact in review");
+        expect(latest(id)).toMatchObject({ state: "active", channel });
+        expect(latest(id)?.acceptedAt).toBeUndefined();
+        expect(rec.events("incoming").some((e) => e.interaction.id === id)).toBe(false);
+
+        await provider.respondToRequest(id, { value: actionValue });
+        await expectProviderError(provider.respondToRequest(id, { value: `${actionValue}-not-a-request` }), "not-found");
+
+        await provider.takeOver(id);
+        await waitFor(() => latest(id)?.review === undefined, "review cleared");
+        expect(latest(id)?.acceptedAt).toBeGreaterThan(0);
+        await settleNow();
+        await expectNoEvents(() => provider.takeOver(id));
       });
     });
 

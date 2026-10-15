@@ -52,6 +52,14 @@ export const SIM_OUTBOUND_SKILLS: OutboundSkill[] = [
   { id: "vip", name: "VIP Support" },
 ];
 
+/** Skills inbound contacts can be routed to: the outbound ones plus queues
+ *  only routing uses (bot-handled reviews, returns). */
+export const SIM_INBOUND_SKILLS: OutboundSkill[] = [
+  ...SIM_OUTBOUND_SKILLS,
+  { id: "ai-review", name: "AI Review" },
+  { id: "returns", name: "Returns" },
+];
+
 export const SIM_AGENT = {
   id: "sim-agent" as AgentId,
   displayName: "John Smith",
@@ -77,6 +85,7 @@ export const SIM_CAPABILITIES: InteractionCapabilities = {
   wrapUp: true,
   caseStatus: true,
   reopen: true,
+  review: true,
 };
 
 /** A contact the engine starts with: a routed offer already waiting for the
@@ -93,6 +102,8 @@ export const SIM_CONTACT_REASONS: Readonly<Record<string, string>> = {
   sales: "Interested in plans or upgrades",
   escalations: "Escalated issue that needs follow-up",
   vip: "Priority request from a VIP customer",
+  "ai-review": "Virtual agent needs a person to review",
+  returns: "Return or refund for an order",
 };
 
 /** A customer the sim's routing recognizes by an inbound address (the

@@ -55,6 +55,23 @@ export interface InteractionCapabilities {
   caseStatus: boolean;
   /** The agent can reopen a past contact (Contact History, Search). */
   reopen: boolean;
+  /** Bot-handled contacts can arrive in review (`Interaction.review`): the
+   *  agent reads along, answers the bot's requests (`respondToRequest`) and
+   *  can `takeOver`. */
+  review: boolean;
+}
+
+/** The agent's answer to a bot's request (an approval card, a proposed
+ *  wrap-up, a next-best-action decision). */
+export interface RequestResponse {
+  /** The decision, e.g. "accept"; a wrap-up card is answered "complete". */
+  value: string;
+  /** The card being answered, when the request is a message in the thread. */
+  requestId?: MessageId;
+  /** What the agent typed (decline reason, "something else" instruction). */
+  note?: string;
+  /** Other values the decision carries (an amount, a percentage). */
+  vars?: Record<string, string>;
 }
 
 /** Starts an agent-initiated contact (New Outbound, dial pad, redial). */
@@ -245,4 +262,18 @@ export interface InteractionProvider extends EventSource<InteractionEvents>, Pro
   /** Links the interaction to a record — e.g. after the agent saves the Draft
    *  card for an unknown contact. */
   associateEntity(interactionId: InteractionId, entityId: EntityId): Promise<void>;
+
+  // ── Review (bot-handled contacts) ──────────────────────────────────────
+  // Both require `capabilities.review`.
+
+  /** Takes a contact in review over from the bot: `review` clears and the
+   *  handle clock starts (`acceptedAt`); a voice contact becomes the agent's
+   *  call (one-active-call rule). `handoff: false` skips the bot's handoff
+   *  line to the customer. "invalid-state" if the contact was never in
+   *  review; a second call is a no-op. */
+  takeOver(interactionId: InteractionId, options?: { handoff?: boolean }): Promise<void>;
+  /** Answers a bot's request. When `requestId` names a card, that message is
+   *  updated with `annotation.response`. "not-found" for a decision the
+   *  contact has no request for. Answering a card twice is a no-op. */
+  respondToRequest(interactionId: InteractionId, response: RequestResponse): Promise<void>;
 }

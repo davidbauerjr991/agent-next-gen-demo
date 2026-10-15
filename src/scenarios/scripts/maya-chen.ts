@@ -14,7 +14,7 @@ export const MAYA_CHEN_SCRIPT = {
   // The demo shows no number for Maya; this one is a placeholder.
   entity: { key: "maya-chen-refund-call", name: "Maya Chen", caseId: "CASE-30402", phone: "(646) 555-0143" },
   channel: "voice",
-  skill: { name: "Returns" },
+  skill: { name: "Returns", id: "returns" },
   participants: { agent: "John Smith" },
   start: { answer: "auto" },
   launch: { hotkey: "B" },

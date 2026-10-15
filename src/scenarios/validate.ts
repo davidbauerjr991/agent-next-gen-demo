@@ -10,10 +10,10 @@ const SPEAKERS = ["customer", "bot", "agent"];
 const ANCHORS = ["launch", "answered", "takeover"];
 const BEATS = ["instruction", "approval", "wrap-up", "close", "dismiss"];
 const ANSWERS = ["agent", "auto", "delivered"];
+const CONDITIONS = ["note-addresses-customer"];
 
-/** `SimCustomerAction` plus `speak`, the voice line P0.5c adds to the sim
- *  protocol (a customer utterance); every other action is unchanged. */
-export type ScenarioCustomerAction = SimCustomerAction | { kind: "speak"; interactionId: InteractionId; text: string };
+/** The customer-side actions a step can be (a subset of `SimCustomerAction`). */
+export type ScenarioCustomerAction = Extract<SimCustomerAction, { kind: "message" | "speak" | "typing" | "hangUp" }>;
 
 type StartInbound = Extract<SimCustomerAction, { kind: "startInbound" }>;
 export type ScenarioStartRequest = Omit<StartInbound, "kind" | "interactionId">;
@@ -37,6 +37,7 @@ export function startRequest(script: ScenarioScript, channel: ChannelKind = scri
     channel,
     address: addressFor(script, channel),
     displayName: script.entity.name,
+    caseId: script.entity.caseId,
     ...(script.entity.directoryId ? { entityId: script.entity.directoryId as EntityId } : {}),
     ...(script.skill.id ? { skillId: script.skill.id } : {}),
     ...(script.start.summary ? { summary: script.start.summary } : {}),
@@ -168,6 +169,13 @@ export function validateScenario(input: unknown, options: { channel?: ChannelKin
       if (raw.onlyOn !== undefined && (!Array.isArray(raw.onlyOn) || raw.onlyOn.some((c) => !CHANNELS.includes(c as ChannelKind)))) {
         err(`${at}: onlyOn must list channels`);
       }
+      if (raw.onlyIf !== undefined) {
+        if (!CONDITIONS.includes(raw.onlyIf as string)) err(`${at}: unknown onlyIf condition`);
+        else if (!branchInputs?.includes("note")) err(`${at}: onlyIf "${String(raw.onlyIf)}" needs a branch with a note input`);
+      }
+      if (raw.unlessTakenOver !== undefined && !(raw.kind === "beat" && (raw.beat === "wrap-up" || raw.beat === "dismiss"))) {
+        err(`${at}: unlessTakenOver applies to wrap-up and dismiss beats only`);
+      }
       const step = raw as unknown as ScenarioStep;
       if (step.at < 0) {
         if (branchInputs) err(`${at}: a branch step can't be in the past`);
@@ -200,16 +208,17 @@ export function validateScenario(input: unknown, options: { channel?: ChannelKin
       }
       const text = "text" in step && typeof step.text === "string" ? step.text : "";
       for (const [, name] of text.matchAll(/\{(\w+)\}/g)) {
-        if (name !== "note" || !branchInputs?.includes("note")) err(`${at}: placeholder {${name}} isn't an input of this branch`);
+        if (!branchInputs?.includes(name)) err(`${at}: placeholder {${name}} isn't an input of this branch`);
       }
     }
   };
 
   checkSteps(script.steps, "steps");
   for (const [key, branch] of Object.entries(branches)) {
-    if (!isStr(branch?.label) || (branch.inputs !== undefined && branch.inputs.some((i) => i !== "note"))) {
-      err(`branch "${key}": needs a label, and its only input is note`);
+    if (!isStr(branch?.label) || (branch.inputs !== undefined && (!Array.isArray(branch.inputs) || branch.inputs.some((i) => !/^\w+$/.test(String(i)))))) {
+      err(`branch "${key}": needs a label, and inputs must be plain names`);
     }
+    if (branch?.trigger !== undefined && branch.trigger !== "action") err(`branch "${key}": unknown trigger`);
     checkSteps(branch?.steps, `branch "${key}"`, branch?.inputs ?? []);
   }
 
@@ -231,8 +240,10 @@ export function validateScenario(input: unknown, options: { channel?: ChannelKin
     completeBranches.add(wrapUp.completeBranch);
     if (!(wrapUp.completeBranch in branches)) err(`wrap-up "${ref}": completeBranch "${wrapUp.completeBranch}" is not a branch`);
   }
-  for (const key of Object.keys(branches)) {
-    if (!decisionValues.has(key) && !completeBranches.has(key)) err(`branch "${key}": nothing starts it (no decision or wrap-up points to it)`);
+  for (const [key, branch] of Object.entries(branches)) {
+    if (!decisionValues.has(key) && !completeBranches.has(key) && branch.trigger !== "action") {
+      err(`branch "${key}": nothing starts it (no decision or wrap-up points to it, and it isn't an action branch)`);
+    }
   }
 
   // Copilot chips, and the links inside the overview's snapshot.

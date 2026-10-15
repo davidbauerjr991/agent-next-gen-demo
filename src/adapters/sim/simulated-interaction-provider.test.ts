@@ -11,6 +11,7 @@ import { SIM_CAPABILITIES, SIM_DEMO_SEED, type SimDirectoryEntry } from "./sim-f
 import { createSimCustomerClient } from "./sim-customer-client";
 import { createSimulatedInteractionProvider, type SimOptions } from "./simulated-interaction-provider";
 import type { SimTransport } from "./sim-transport";
+import type { ScenarioScript } from "../../scenarios/scenario-script";
 
 const ZERO = { minMs: 0, maxMs: 0 };
 
@@ -27,10 +28,29 @@ const KNOWN_CALLER: SimDirectoryEntry = {
   emails: ["lauren.briggs@example.com"],
 };
 
+/** A minimal bot-handled script for the contract's review tests: delivered
+ *  in review with one setup line and one action the agent can answer. */
+const REVIEW_SCRIPT: ScenarioScript = {
+  version: 1,
+  id: "contract-review",
+  title: "Contract review",
+  summary: "A bot-handled contact in review.",
+  entity: { key: "contract-review", name: "Riley Review", caseId: "CASE-REVIEW", phone: "(555) 010-0000" },
+  channel: "chat",
+  skill: { name: "AI Review", id: "ai-review" },
+  participants: { bot: "Contract Bot" },
+  start: { answer: "delivered", review: true },
+  steps: [{ id: "cr-1", kind: "say", speaker: "customer", at: -1000, text: "Hello?" }],
+  branches: { ack: { label: "Acknowledge", trigger: "action", steps: [{ id: "cr-ack", kind: "say", speaker: "bot", at: 0, text: "Noted." }] } },
+  content: { panelKeys: [] },
+};
+
 function simHarness(capabilities?: Partial<InteractionCapabilities>) {
   return (): InteractionContractHarness => {
     const bus = createMemoryBus();
-    const provider = createSimulatedInteractionProvider(instant(bus.createTransport, { capabilities, directory: [KNOWN_CALLER] }));
+    const provider = createSimulatedInteractionProvider(
+      instant(bus.createTransport, { capabilities, directory: [KNOWN_CALLER], scripts: [REVIEW_SCRIPT] }),
+    );
     const client = createSimCustomerClient(provider.sessionId, bus.createTransport());
     return {
       provider,
@@ -40,6 +60,8 @@ function simHarness(capabilities?: Partial<InteractionCapabilities>) {
         message: async (id, text) => client.message({ interactionId: id, text }),
         hangUp: async (id) => client.hangUp({ interactionId: id }),
         typing: async (id, isTyping) => client.typing({ interactionId: id, isTyping }),
+        speak: async (id, text) => client.speak({ interactionId: id, text }),
+        startInReview: async (channel) => ({ id: client.playScenario(REVIEW_SCRIPT.id, { channel }), actionValue: "ack" }),
       },
       async dispose() {
         client.dispose();
@@ -72,6 +94,7 @@ describeInteractionProviderContract(
     wrapUp: false,
     caseStatus: false,
     reopen: false,
+    review: false,
   }),
 );
 

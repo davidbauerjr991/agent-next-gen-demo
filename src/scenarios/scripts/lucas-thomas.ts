@@ -14,11 +14,11 @@ export const LUCAS_THOMAS_SCRIPT = {
   title: "Lucas Thomas: declined launch order",
   summary:
     "A bot-handled webchat about a declined Aurora X2 launch order. The agent approves or declines an exception; a follow-up about shipping leads to a second approval and a wrap-up.",
-  // The case gives him no number; this one is a placeholder (it lets the
-  // script launch as voice).
-  entity: { key: "lucas-thomas", name: "Lucas Thomas", caseId: "CASE-30418", phone: "(415) 555-0132" },
+  // The case gives him no number; this placeholder is the one the page's
+  // "Call now" dials, and it lets the script launch as voice.
+  entity: { key: "lucas-thomas", name: "Lucas Thomas", caseId: "CASE-30418", phone: "(415) 555-0142" },
   channel: "chat",
-  skill: { name: "AI Review" },
+  skill: { name: "AI Review", id: "ai-review" },
   participants: { bot: "AI agent · Checkout" },
   start: { answer: "delivered", review: true, ageMs: 251_000 },
   launch: { hotkey: "A" },
@@ -148,7 +148,7 @@ export const LUCAS_THOMAS_SCRIPT = {
         { id: "ship-accept-5-typing", kind: "typing", speaker: "customer", at: 7400, durationMs: 2600 },
         { id: "ship-accept-5", kind: "say", speaker: "customer", at: 10_000, text: "That's wonderful, thank you so much for sorting this out!" },
         // The chat has ended: a wrap-up card; completing it saves the outcome.
-        { id: "ship-accept-6", kind: "beat", beat: "wrap-up", ref: "main", at: 12_000 },
+        { id: "ship-accept-6", kind: "beat", beat: "wrap-up", ref: "main", at: 12_000, unlessTakenOver: true },
       ],
     },
     "ship-wrapup": {
@@ -183,9 +183,10 @@ export const LUCAS_THOMAS_SCRIPT = {
       steps: [
         { id: "ship-other-1", kind: "beat", beat: "instruction", at: 150, text: "{note}" },
         { id: "ship-other-2", kind: "event", at: 900, text: "Instruction sent to the AI agent: {note}" },
-        { id: "ship-other-3-typing", kind: "typing", speaker: "bot", at: 1500, durationMs: 3000 },
+        { id: "ship-other-3-typing", kind: "typing", speaker: "bot", at: 1500, durationMs: 3000, onlyIf: "note-addresses-customer" },
         {
           id: "ship-other-3",
+          onlyIf: "note-addresses-customer",
           kind: "say",
           speaker: "bot",
           at: 4500,
@@ -256,9 +257,10 @@ export const LUCAS_THOMAS_SCRIPT = {
       steps: [
         { id: "upset-other-1", kind: "beat", beat: "instruction", at: 150, text: "{note}" },
         { id: "upset-other-2", kind: "event", at: 900, text: "Instruction sent to the AI agent: {note}" },
-        { id: "upset-other-3-typing", kind: "typing", speaker: "bot", at: 1200, durationMs: 2800 },
+        { id: "upset-other-3-typing", kind: "typing", speaker: "bot", at: 1200, durationMs: 2800, onlyIf: "note-addresses-customer" },
         {
           id: "upset-other-3",
+          onlyIf: "note-addresses-customer",
           kind: "say",
           speaker: "bot",
           at: 4000,
@@ -272,9 +274,10 @@ export const LUCAS_THOMAS_SCRIPT = {
       steps: [
         { id: "other-1", kind: "beat", beat: "instruction", at: 150, text: "{note}" },
         { id: "other-2", kind: "event", at: 900, text: "Instruction sent to the AI agent: {note}" },
-        { id: "other-3-typing", kind: "typing", speaker: "bot", at: 1200, durationMs: 2800 },
+        { id: "other-3-typing", kind: "typing", speaker: "bot", at: 1200, durationMs: 2800, onlyIf: "note-addresses-customer" },
         {
           id: "other-3",
+          onlyIf: "note-addresses-customer",
           kind: "say",
           speaker: "bot",
           at: 4000,

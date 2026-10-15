@@ -85,6 +85,13 @@ export interface Interaction {
    *  contact (known callers), the case status. Shown as the contact's
    *  Autosummary; the P2.4 handoff snapshot will be seeded from it. */
   preContactSummary?: string[];
+  /** A bot-handled contact routed to the agent to read along on (P0.5c):
+   *  the agent isn't on it until `takeOver`. A voice contact in review isn't
+   *  the agent's call (it's never auto-held and doesn't block a dial), and
+   *  customer lines don't start the awaiting-reply clock. */
+  review?: { by: string; since: EpochMs };
+  /** The contact was answered without the agent accepting it (auto-answer). */
+  autoAnswered?: true;
 }
 
 /** A discrete text unit on a digital channel (chat, SMS, WhatsApp, email). */
@@ -98,7 +105,16 @@ export interface Message {
   /** A non-text row a scripted scenario puts in the thread: an interstitial
    *  line, an approval-request card or a wrap-up card. `ref` names the
    *  payload in the scenario's content (src/scenarios), never on the wire. */
-  annotation?: { kind: "instruction" | "approval" | "wrap-up"; ref: string; by?: string; link?: string };
+  annotation?: {
+    kind: "instruction" | "approval" | "wrap-up";
+    ref: string;
+    by?: string;
+    link?: string;
+    /** The agent's answer to an approval or wrap-up card (`respondToRequest`). */
+    response?: { value: string; note?: string; at: EpochMs };
+    /** The card was withdrawn (an unfinished wrap-up card when the agent takes over). */
+    withdrawn?: true;
+  };
   text: string;
   sentAt: EpochMs;
   delivery?: "sending" | "sent" | "delivered" | "read" | "failed";

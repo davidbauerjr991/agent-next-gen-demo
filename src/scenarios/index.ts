@@ -9,6 +9,7 @@ import { TOM_LEWIS_SCRIPT } from "./scripts/tom-lewis";
 import type { ScenarioScript } from "./scenario-script";
 
 export type * from "./scenario-script";
+export { noteAddressesCustomer } from "./note-rules";
 export {
   addressFor,
   cannedLines,

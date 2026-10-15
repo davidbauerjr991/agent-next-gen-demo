@@ -8,6 +8,7 @@ import type {
   MessageId,
   Participant,
   Utterance,
+  UtteranceId,
 } from "../../domain";
 import { normalizePhone } from "../../domain";
 import type { EndReason, InteractionCapabilities, ProviderError } from "../../providers";
@@ -16,6 +17,7 @@ import {
   DEFAULT_INBOUND_SKILL_ID,
   SIM_AGENT,
   SIM_CONTACT_REASONS,
+  SIM_INBOUND_SKILLS,
   SIM_OUTBOUND_SKILLS,
   SIM_PRESENCE_OPTIONS,
   type SimDirectoryEntry,
@@ -35,6 +37,9 @@ import {
 } from "./sim-protocol";
 import type { SimTransport } from "./sim-transport";
 import { caseNumber, contactNumber, journeyNumber, sampleMs, simId, unsupportedReason } from "./sim-util";
+import type { ScenarioScript } from "../../scenarios/scenario-script";
+import { startRequest } from "../../scenarios/validate";
+import { createScenarioPlayer } from "./sim-scenario-player";
 
 // The simulated contact-center "switch" (P0.4). It owns all interaction and
 // agent state, answers commands from its session's provider over the bus,
@@ -52,6 +57,8 @@ export interface SimEngineOptions {
   seed?: readonly SimSeedContact[];
   /** Customers an inbound contact is matched against by address. */
   directory?: readonly SimDirectoryEntry[];
+  /** Scenario scripts the customer side can play (`playScenario`, P0.5c). */
+  scripts?: readonly ScenarioScript[];
   now?: () => number;
 }
 
@@ -83,6 +90,8 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
   const endReasons = new Map<InteractionId, EndReason>();
   /** Customer display names, for authoring their messages. */
   const customerNames = new Map<InteractionId, string>();
+  /** Contacts the agent took over from review (a second `takeOver` is a no-op). */
+  const takenOver = new Set<InteractionId>();
   const timers = new Set<ReturnType<typeof setTimeout>>();
   let disposed = false;
 
@@ -142,6 +151,7 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
     }
     interactions.set(next.id, next);
     emit({ name: "stateChanged", payload: { kind: "interaction", interaction: next } });
+    player.onInteraction(next);
     return next;
   }
 
@@ -158,7 +168,7 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
   /** The skill an inbound contact is routed to (default General Support). */
   function routedSkill(skillId: string | undefined): { id: string; name: string } {
     const id = skillId ?? DEFAULT_INBOUND_SKILL_ID;
-    const skill = SIM_OUTBOUND_SKILLS.find((s) => s.id === id);
+    const skill = SIM_INBOUND_SKILLS.find((s) => s.id === id);
     if (!skill) throw providerError("not-found", `startInbound: unknown skill "${id}"`);
     return { id: skill.id, name: skill.name };
   }
@@ -225,8 +235,10 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
   // With hold support, whichever voice contact becomes active holds the
   // others. Without it, a second live voice contact is refused up front.
 
+  /** The agent's other voice calls in `states`. A call in review is the
+   *  bot's, not the agent's, so it never counts. */
   function otherLiveVoice(exceptId: InteractionId | undefined, states: InteractionState[]): Interaction[] {
-    return [...interactions.values()].filter((i) => i.channel === "voice" && i.id !== exceptId && states.includes(i.state));
+    return [...interactions.values()].filter((i) => i.channel === "voice" && i.id !== exceptId && !i.review && states.includes(i.state));
   }
 
   /** Throws when a new live voice contact isn't allowed (no hold support and
@@ -271,6 +283,31 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
     if (index === -1) transcript.messages.push(message);
     else transcript.messages[index] = message;
     emit({ name: "message", payload: { message } });
+  }
+
+  function pushUtterance(utterance: Utterance) {
+    const transcript = transcripts.get(utterance.interactionId);
+    if (!transcript) return;
+    const index = transcript.utterances.findIndex((u) => u.id === utterance.id);
+    if (index === -1) transcript.utterances.push(utterance);
+    else transcript.utterances[index] = utterance;
+    emit({ name: "transcript", payload: { utterance } });
+  }
+
+  /** Writes a line into the transcript, oldest first, with no event: setup
+   *  lines a contact arrives with, hydrated through `getTranscript`. */
+  function seed(entry: { message?: Message; utterance?: Utterance }) {
+    const id = entry.message?.interactionId ?? entry.utterance?.interactionId;
+    const transcript = id ? transcripts.get(id) : undefined;
+    if (!transcript) return;
+    if (entry.message) {
+      transcript.messages.push(entry.message);
+      transcript.messages.sort((a, b) => a.sentAt - b.sentAt);
+    }
+    if (entry.utterance) {
+      transcript.utterances.push(entry.utterance);
+      transcript.utterances.sort((a, b) => a.startedAt - b.startedAt);
+    }
   }
 
   // ── Commands ────────────────────────────────────────────────────────────
@@ -539,6 +576,38 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
         if (interaction.entityId !== command.entityId) update(interaction, { entityId: command.entityId, entityMatchedBy: "agent" });
         return undefined;
       }
+
+      case "takeOver": {
+        const interaction = get(command.interactionId);
+        if (!interaction.review) {
+          if (takenOver.has(interaction.id)) return undefined;
+          throw providerError("invalid-state", `takeOver: interaction ${interaction.id} isn't in review`);
+        }
+        requireState(interaction, LIVE, "takeOver");
+        takenOver.add(interaction.id);
+        if (interaction.channel === "voice") holdOtherCalls(interaction.id);
+        // The customer has been waiting on a person since their first line.
+        const firstCustomerLine = transcripts.get(interaction.id)?.messages.find((m) => m.author.role === "customer" && m.kind === "text");
+        update(interaction, {
+          review: undefined,
+          acceptedAt: now(),
+          ...(firstCustomerLine && interaction.awaitingAgentSince === undefined ? { awaitingAgentSince: firstCustomerLine.sentAt } : {}),
+        });
+        // An unfinished wrap-up card the bot proposed is withdrawn.
+        for (const message of transcripts.get(interaction.id)?.messages ?? []) {
+          const a = message.annotation;
+          if (a?.kind === "wrap-up" && !a.response && !a.withdrawn) pushMessage({ ...message, annotation: { ...a, withdrawn: true } });
+        }
+        player.onTakeOver(interaction.id, command.handoff !== false);
+        return undefined;
+      }
+
+      case "respondToRequest": {
+        const interaction = get(command.interactionId);
+        requireState(interaction, LIVE, "respondToRequest");
+        player.respond(interaction.id, command.response);
+        return undefined;
+      }
     }
   }
 
@@ -562,53 +631,120 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
   // Customer actions are fire-and-forget (no reply), so a bad one is only
   // logged in dev.
 
+  type InboundRequest = Omit<Extract<SimCustomerAction, { kind: "startInbound" }>, "kind"> & { startedAt?: number };
+
+  /** Routes an inbound contact (offered) and stores it, unannounced: the
+   *  shared path of `startInbound` and the scenario player. */
+  function routeInbound(request: InboundRequest): Interaction {
+    if (!capabilities.channels.inbound.includes(request.channel)) throw new Error(`inbound ${request.channel} is not supported`);
+    const startedAt = request.startedAt ?? now();
+    // Routing recognizes a known caller by address unless the customer
+    // side already named the entity.
+    const match = request.entityId ? undefined : matchDirectory(request.channel, request.address);
+    const interaction: Interaction = {
+      id: request.interactionId,
+      externalId: externalRef(startedAt),
+      journeyId: newJourney(),
+      caseId: request.caseId ?? caseNumber(),
+      ...(request.entityId ? { entityId: request.entityId } : {}),
+      ...(match ? { entityId: match.entityId, entityMatchedBy: "routing" as const } : {}),
+      contactName: request.displayName,
+      channel: request.channel,
+      direction: "inbound",
+      state: "offered",
+      origin: "routed",
+      address: { value: request.address },
+      // Every routed contact carries the skill it was routed to, like a
+      // real ACD; General Support unless the customer side picked one.
+      skill: routedSkill(request.skillId),
+      startedAt,
+    };
+    if (request.channel === "voice") {
+      interaction.preContactSummary = preContactSummary(interaction, request.summary);
+    }
+    add(interaction);
+    customerNames.set(interaction.id, request.displayName);
+    return interaction;
+  }
+
+  function customerParticipant(interaction: Interaction): Participant {
+    return {
+      role: "customer",
+      ...(interaction.entityId ? { id: interaction.entityId } : {}),
+      displayName: customerNames.get(interaction.id) ?? interaction.address?.value ?? "Customer",
+    };
+  }
+
+  /** Plays a scenario: routes its contact, writes its setup lines, announces
+   *  it the way the script says it's answered, then starts the timeline. */
+  function playScenario(action: Extract<SimCustomerAction, { kind: "playScenario" }>) {
+    if (interactions.has(action.interactionId)) return;
+    const { script, channel } = player.prepare(action.scenarioId, action.channel);
+    if (script.start.review && !capabilities.review) throw providerError("not-supported", `playScenario: "${script.id}" arrives in review, which isn't supported`);
+    const interaction = routeInbound({
+      ...startRequest(script, channel),
+      interactionId: action.interactionId,
+      startedAt: now() - (script.start.ageMs ?? 0),
+    });
+    player.backfill(interaction, script);
+    switch (script.start.answer) {
+      case "agent":
+        emit({ name: "incoming", payload: { interaction } });
+        break;
+      case "auto":
+        emit({ name: "incoming", payload: { interaction } });
+        if (channel === "voice") holdOtherCalls(interaction.id);
+        update(interaction, { state: "active", acceptedAt: now(), autoAnswered: true });
+        break;
+      case "delivered": {
+        const delivered: Partial<Interaction> = script.start.review
+          ? { state: "active", review: { by: script.participants?.bot ?? "Virtual agent", since: now() } }
+          : { state: "active", acceptedAt: now() };
+        if (channel === "voice" && !script.start.review) holdOtherCalls(interaction.id);
+        const next = { ...interaction, ...delivered } as Interaction;
+        interactions.set(next.id, next);
+        emit({ name: "stateChanged", payload: { kind: "interaction", interaction: next } });
+        break;
+      }
+    }
+    player.start(interactions.get(interaction.id) ?? interaction, script);
+  }
+
   function customerAction(action: SimCustomerAction) {
     switch (action.kind) {
       case "startInbound": {
-        if (!capabilities.channels.inbound.includes(action.channel)) throw new Error(`inbound ${action.channel} is not supported`);
         if (interactions.has(action.interactionId)) return;
-        const startedAt = now();
-        // Routing recognizes a known caller by address unless the customer
-        // side already named the entity.
-        const match = action.entityId ? undefined : matchDirectory(action.channel, action.address);
-        const interaction: Interaction = {
-          id: action.interactionId,
-          externalId: externalRef(startedAt),
-          journeyId: newJourney(),
-          caseId: caseNumber(),
-          ...(action.entityId ? { entityId: action.entityId } : {}),
-          ...(match ? { entityId: match.entityId, entityMatchedBy: "routing" as const } : {}),
-          contactName: action.displayName,
-          channel: action.channel,
-          direction: "inbound",
-          state: "offered",
-          origin: "routed",
-          address: { value: action.address },
-          // Every routed contact carries the skill it was routed to, like a
-          // real ACD; General Support unless the customer side picked one.
-          skill: routedSkill(action.skillId),
-          startedAt,
-        };
-        if (action.channel === "voice") {
-          interaction.preContactSummary = preContactSummary(interaction, action.summary);
-        }
-        add(interaction);
-        customerNames.set(interaction.id, action.displayName);
+        const interaction = routeInbound(action);
         emit({ name: "incoming", payload: { interaction } });
         return;
       }
+      case "playScenario":
+        playScenario(action);
+        return;
       case "message": {
         const interaction = get(action.interactionId);
         requireDigital(interaction, "customer message");
         requireState(interaction, ["offered", "connecting", ...LIVE], "customer message");
-        const author: Participant = {
-          role: "customer",
-          ...(interaction.entityId ? { id: interaction.entityId } : {}),
-          displayName: customerNames.get(interaction.id) ?? interaction.address?.value ?? "Customer",
-        };
         const sentAt = now();
-        pushMessage({ id: simId("msg") as MessageId, interactionId: interaction.id, author, kind: "text", text: action.text, sentAt });
-        if (interaction.awaitingAgentSince === undefined) update(interaction, { awaitingAgentSince: sentAt });
+        pushMessage({ id: simId("msg") as MessageId, interactionId: interaction.id, author: customerParticipant(interaction), kind: "text", text: action.text, sentAt });
+        // While a bot has the contact (review), nobody is waiting on the agent.
+        if (interaction.awaitingAgentSince === undefined && !interaction.review) update(interaction, { awaitingAgentSince: sentAt });
+        return;
+      }
+      case "speak": {
+        const interaction = get(action.interactionId);
+        requireVoice(interaction, "customer speak");
+        requireState(interaction, LIVE, "customer speak");
+        const at = now();
+        pushUtterance({
+          id: simId("utt") as UtteranceId,
+          interactionId: interaction.id,
+          speaker: customerParticipant(interaction),
+          text: action.text,
+          startedAt: at,
+          endedAt: at,
+          isFinal: true,
+        });
         return;
       }
       case "typing": {
@@ -634,6 +770,31 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
       if (import.meta.env.DEV) console.warn(`[sim] customer ${action.kind} ignored:`, isProviderError(err) ? err.message : err);
     }
   }
+
+  // ── Scenario player (P0.5c) ─────────────────────────────────────────────
+
+  const player = createScenarioPlayer(
+    {
+      now,
+      get: (id) => interactions.get(id),
+      customerName: (id) => customerNames.get(id) ?? "Customer",
+      customer: handleCustomer,
+      pushMessage,
+      pushUtterance,
+      seedMessage: (message) => seed({ message }),
+      seedUtterance: (utterance) => seed({ utterance }),
+      messages: (id) => transcripts.get(id)?.messages ?? [],
+      emitTyping(interactionId, role, isTyping) {
+        const interaction = interactions.get(interactionId);
+        if (!capabilities.typing || !interaction || !DIGITAL_CHANNELS.has(interaction.channel)) return;
+        emit({ name: "typing", payload: { interactionId, role, isTyping } });
+      },
+      update,
+      close: (interaction) => close(interaction, "agent"),
+    },
+    options.scripts ?? [],
+    () => agent.presence.code,
+  );
 
   // ── Seed ────────────────────────────────────────────────────────────────
   // Loaded once per engine, which lives once per provider-cache key (one per
@@ -681,6 +842,7 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
     dispose() {
       if (disposed) return;
       disposed = true;
+      player.dispose();
       for (const timer of timers) clearTimeout(timer);
       timers.clear();
       unsubscribe();

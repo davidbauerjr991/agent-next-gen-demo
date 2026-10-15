@@ -30,6 +30,7 @@ const NO_INTERACTION_CAPABILITIES: InteractionCapabilities = {
   wrapUp: false,
   caseStatus: false,
   reopen: false,
+  review: false,
 };
 
 const NO_MEDIA_CAPABILITIES: MediaCapabilities = {
@@ -87,6 +88,8 @@ function createPlaceholderInteractionProvider(): InteractionProvider {
     setTyping: reject("setTyping"),
     setCaseStatus: reject("setCaseStatus"),
     associateEntity: reject("associateEntity"),
+    takeOver: reject("takeOver"),
+    respondToRequest: reject("respondToRequest"),
   } satisfies InteractionProvider;
 }
 
