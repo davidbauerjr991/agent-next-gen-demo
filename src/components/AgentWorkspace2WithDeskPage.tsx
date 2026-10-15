@@ -643,10 +643,6 @@ function interactionDisplayName(interaction: Pick<Interaction, "id" | "entityId"
 // "+") moved to src/contact-handling/open-channel-tagger.ts in P0.5b.2,
 // shared with Advanced and keyed by the card's `entityId`.
 
-/** Desk has no scripted scenario cards (its Marcus Webb chat flow was
- *  dropped per parity row 26), so every card is a provider contact. */
-const isDeskScenarioCardId = (): boolean => false;
-
 /** "7/23/2025 09:32 AM" — same compact numeric date/time style Agent
  *  Workspace 2.0's own identical helper produces (AgentNextGenPage.tsx —
  *  see that file's own doc comment for the full reasoning), duplicated here
@@ -869,7 +865,6 @@ export function AgentWorkspace2WithDeskPage({
   } = useNavCards({
     anchorMs: clock.anchorMs,
     displayName: navCardDisplayName,
-    isScenarioCardId: isDeskScenarioCardId,
   });
   // Real "Assignments resolved today" count — previously read by the
   // dashboard header's own `SHOW_RESOLVED_TODAY_CHIP`-gated Badge (see
@@ -3899,18 +3894,9 @@ export function AgentWorkspace2WithDeskPage({
   // trigger for the current channel started funneling through here (see
   // this function's own three real call sites) — a toast firing on nearly
   // every status click read as excessive rather than helpful.
-  // Scenario cards keep their status locally; a store card's goes through
-  // `setCaseStatus` (useContactCommands, P0.5b.2) and comes back as an event.
-  const setLocalThreadStatus = (interactionId: string, channelId: string, status: string) => {
-    setInteractions((prev) =>
-      prev.map((interaction) =>
-        interaction.id === interactionId
-          ? { ...interaction, threadStatuses: { ...interaction.threadStatuses, [channelId]: status } }
-          : interaction
-      )
-    );
-  };
-  const contactCommands = useContactCommands({ cards: interactions, setLocalStatus: setLocalThreadStatus });
+  // A card's status goes through `setCaseStatus` (useContactCommands,
+  // P0.5b.2) and comes back as an event.
+  const contactCommands = useContactCommands({ cards: interactions });
   const handleInteractionStatusChange = (interactionId: string, channelId: string, status: string) => {
     // Live "Assignments resolved today" count — increments only on the actual
     // whatever→Resolved transition, not on re-selecting Resolved.
@@ -3991,33 +3977,14 @@ export function AgentWorkspace2WithDeskPage({
   // call (held or live) in its own state; else the call it last showed;
   // else the live call, else a held one. Selecting never changes hold state.
   const voiceBarCall = useVoiceBarCall(interactions, activeInteractionId, findLiveVoiceThread);
-  /** Holds or resumes a call that isn't on the provider, locally. */
-  const setScenarioCallHold = (cardId: string, threadId: string, onHold: boolean) => {
-    setInteractions((prev) =>
-      prev.map((interaction) =>
-        interaction.id === cardId
-          ? {
-              ...interaction,
-              threads: interaction.threads.map((c) =>
-                c.id === threadId ? { ...c, heldByAgent: onHold, heldSinceTick: onHold ? clock.now() : undefined } : c
-              ),
-            }
-          : interaction
-      )
-    );
-  };
   // The bar's call: Hold/Mute/Record/Mask/Keypad on the provider.
-  const activeVoiceCallControls = useVoiceCallControls(voiceBarCall?.thread, {
-    onScenarioHold: (next) => {
-      if (voiceBarCall) setScenarioCallHold(voiceBarCall.card.id, voiceBarCall.thread.id, next);
-    },
-  });
+  const activeVoiceCallControls = useVoiceCallControls(voiceBarCall?.thread);
   /** The nav row's hold chip (P0.5d.1): resumes a held call (the provider
    *  holds the live one, and the card is selected so the bar and main column
    *  land on it) or holds the live call. */
   const handleCallHoldChip = (card: Interaction, thread: Interaction["threads"][number]) => {
     const resume = !!thread.heldByAgent;
-    if (!contactCommands.setHold(thread, !resume)) setScenarioCallHold(card.id, thread.id, !resume);
+    contactCommands.setHold(thread, !resume);
     if (resume && card.id !== activeInteractionId) switchActiveInteraction(card.id);
   };
 

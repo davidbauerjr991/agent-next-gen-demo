@@ -44,10 +44,9 @@ export function buildOpenChannelTagger(cards: readonly NavCard[]) {
   };
 }
 
-/** A store-built voice thread is on a call per its `onCall`; a scripted
- *  scenario call (no provider contact) until its wrap-up starts. */
+/** A voice thread is on a call per its `onCall` (connecting, live or held). */
 function isOnCall(thread: NavCard["threads"][number]): boolean {
-  return thread.providerInteractionId ? !!thread.onCall : thread.wrapUpSinceTick === undefined;
+  return !!thread.onCall;
 }
 
 /** A card known only by an address (a typed number/email, no directory

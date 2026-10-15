@@ -20,7 +20,7 @@ export const LUCAS_THOMAS_SCRIPT = {
   channel: "chat",
   skill: { name: "AI Review", id: "ai-review" },
   participants: { bot: "AI agent · Checkout" },
-  start: { answer: "delivered", review: true, ageMs: 251_000 },
+  start: { answer: "delivered", review: true, ageMs: 251_000, caseStatus: "Open" },
   launch: { hotkey: "A" },
   steps: [
     // Already on screen at launch.

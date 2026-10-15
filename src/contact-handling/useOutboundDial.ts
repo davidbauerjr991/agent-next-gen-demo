@@ -41,9 +41,6 @@ export interface UseOutboundDialOptions {
    *  Save & Redial, a voice "+") or "auto-hold" (Desk: the provider holds the
    *  first call when the second connects). */
   secondVoiceCall: "refuse" | "auto-hold";
-  /** A page-local call the store doesn't know about (a scripted scenario
-   *  call) also counts as being on a call. */
-  isOnScenarioCall?: () => boolean;
   /** A voice launch was refused by `secondVoiceCall: "refuse"`. */
   onVoiceCallRefused?: () => void;
   /** A voice launch was refused because the agent is already on a live or
@@ -104,7 +101,6 @@ export function useOutboundDial({
   onLegDisconnected,
   onRedial,
   secondVoiceCall,
-  isOnScenarioCall,
   onVoiceCallRefused,
   onAlreadyOnCall,
   onCardRedialPlaced,
@@ -123,10 +119,10 @@ export function useOutboundDial({
   const refuseVoice = useCallback(() => {
     if (secondVoiceCall !== "refuse") return false;
     const onCall =
-      interactions.some((i) => i.channel === "voice" && ON_CALL_STATES.has(i.state)) || !!isOnScenarioCall?.();
+      interactions.some((i) => i.channel === "voice" && ON_CALL_STATES.has(i.state) && !i.review);
     if (onCall) onVoiceCallRefused?.();
     return onCall;
-  }, [secondVoiceCall, interactions, isOnScenarioCall, onVoiceCallRefused]);
+  }, [secondVoiceCall, interactions, onVoiceCallRefused]);
 
   const place = useCallback(
     async (target: DialTarget) => {

@@ -20,6 +20,7 @@ export interface SimCustomerClient {
     skillId?: string;
     summary?: string[];
     caseId?: string;
+    caseStatus?: string;
   }): InteractionId;
   /** Plays a scenario script as the customer (P0.5c); returns the contact's
    *  id. `channel` overrides the script's own. */

@@ -308,7 +308,7 @@ describe("respondToRequest", () => {
     await advance(1000);
     expect(currentMessages(id).map((m) => m.text)).toEqual(expect.arrayContaining(["Authorize and place order NR-11056", "Exception approved by John Smith"]));
     const instruction = currentMessages(id).find((m) => m.annotation?.kind === "instruction")!;
-    expect(instruction.annotation).toMatchObject({ kind: "instruction", ref: "accept-1" });
+    expect(instruction.annotation).toMatchObject({ kind: "instruction", ref: "accept" });
 
     // Answering the same card again is a no-op.
     await provider.respondToRequest(id, { value: "decline", requestId: card.id, note: "no" });
@@ -347,7 +347,7 @@ describe("respondToRequest", () => {
     await expectProviderError(provider.respondToRequest(id, { value: "accept", requestId: "missing" as Message["id"] }), "not-found");
   });
 
-  it("wrap-up: completing the card closes the case, then dismisses the contact", async () => {
+  it("wrap-up: completing the card closes the case, then dismisses the contact into wrap-up", async () => {
     const id = await play(BEATS_SCRIPT);
     await advance(5);
     const approval = currentMessages(id).find((m) => m.annotation?.kind === "approval")!;
@@ -360,7 +360,9 @@ describe("respondToRequest", () => {
     expect(latest(id)?.caseStatus).toBe("Closed");
     expect(latest(id)?.state).toBe("active");
     await advance(100);
-    expect(latest(id)?.state).toBe("ended");
+    // The bot ended it for the agent; their outcome closes it.
+    expect(latest(id)?.state).toBe("wrap-up");
+    await provider.completeWrapUp(id, {});
     expect(rec.events("ended")).toEqual([{ interactionId: id, reason: "agent" }]);
   });
 

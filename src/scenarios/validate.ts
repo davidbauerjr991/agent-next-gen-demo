@@ -41,6 +41,7 @@ export function startRequest(script: ScenarioScript, channel: ChannelKind = scri
     ...(script.entity.directoryId ? { entityId: script.entity.directoryId as EntityId } : {}),
     ...(script.skill.id ? { skillId: script.skill.id } : {}),
     ...(script.start.summary ? { summary: script.start.summary } : {}),
+    ...(script.start.caseStatus ? { caseStatus: script.start.caseStatus } : {}),
   };
 }
 

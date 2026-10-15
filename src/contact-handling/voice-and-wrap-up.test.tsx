@@ -52,7 +52,6 @@ describe("voice bar, wrap-up and incoming offers", () => {
   let customer: SimCustomerClient;
   let api: Api;
   let activations: Activation[];
-  let scenarioHolds: boolean[];
   let declined: number;
   let dbCounter = 0;
   /** While set, events to the provider queue here instead of arriving. */
@@ -63,7 +62,7 @@ describe("voice bar, wrap-up and incoming offers", () => {
   let capabilities: Partial<InteractionCapabilities> = {};
 
   function Harness() {
-    const nav = useNavCards({ anchorMs: 0, isScenarioCardId: () => false });
+    const nav = useNavCards({ anchorMs: 0 });
     const { activateWhenReady } = useContactActivation((a) => activations.push(a), nav.seedOverlay);
     const dial = useOutboundDial({
       findOpenCard: nav.findOpenCard,
@@ -77,8 +76,8 @@ describe("voice bar, wrap-up and incoming offers", () => {
     const callThread = scenarioCall
       ? ({ id: "voice", type: "voice", startTick: 0, contactId: "s", heldByAgent: true } as NavCard["threads"][number])
       : liveCard?.threads.find((t) => t.type === "voice");
-    const voice = useVoiceCallControls(callThread, { onScenarioHold: (h) => scenarioHolds.push(h) });
-    const commands = useContactCommands({ cards: nav.cards, setLocalStatus: () => {} });
+    const voice = useVoiceCallControls(callThread);
+    const commands = useContactCommands({ cards: nav.cards });
     const drafts = useChannelOutcomeDrafts();
     const offer = useIncomingOffer({
       findOpenCard: nav.findOpenCard,
@@ -165,7 +164,6 @@ describe("voice bar, wrap-up and incoming offers", () => {
   beforeEach(async () => {
     heldEvents = null;
     activations = [];
-    scenarioHolds = [];
     declined = 0;
     showHarness = true;
     scenarioCall = false;
@@ -226,14 +224,13 @@ describe("voice bar, wrap-up and incoming offers", () => {
       expect(api.voice).toMatchObject({ showHold: false, showMute: false, showRecord: false, showMask: false, showKeypad: false });
     });
 
-    it("leaves a scripted scenario call uncontrolled and holds it through the page", async () => {
+    it("leaves a thread with no provider contact uncontrolled, and its hold inert", async () => {
       scenarioCall = true;
       render();
       expect(api.voice.onMuteChange).toBeUndefined();
       expect(api.voice.muted).toBeUndefined();
       expect(api.voice.onHold).toBe(true);
-      act(() => api.voice.onHoldChange(false));
-      expect(scenarioHolds).toEqual([false]);
+      expect(() => act(() => api.voice.onHoldChange(false))).not.toThrow();
     });
   });
 

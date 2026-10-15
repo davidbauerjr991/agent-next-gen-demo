@@ -5,9 +5,8 @@ import { useCapability, useInteraction, useInteractionProvider } from "@/provide
 // The voice bar's in-call controls on the provider (P0.5d.1), shared by both
 // pages: the result is spread onto `<VoiceCallControls>`. State comes from the
 // store (events), never optimistically from the click. Capabilities the
-// provider lacks hide their control. A scripted scenario call (no
-// `providerInteractionId`) leaves mute/record/mask uncontrolled, so the bar
-// keeps its local behavior, and holds through the page's own local update.
+// provider lacks hide their control. Every call is a provider call since
+// P0.5c (scripted cases included); with no call, the controls are inert.
 
 function warn(what: string) {
   return (error: unknown) => {
@@ -34,7 +33,6 @@ export interface VoiceCallControlProps {
 
 export function useVoiceCallControls(
   thread: Pick<NavCard["threads"][number], "providerInteractionId" | "heldByAgent"> | undefined,
-  options: { onScenarioHold: (onHold: boolean) => void },
 ): VoiceCallControlProps {
   const provider = useInteractionProvider();
   const target = thread?.providerInteractionId;
@@ -44,12 +42,10 @@ export function useVoiceCallControls(
   const showRecord = useCapability((c) => c.interaction.record);
   const showMask = useCapability((c) => c.interaction.mask);
   const showKeypad = useCapability((c) => c.interaction.dtmf);
-  const { onScenarioHold } = options;
-
   return useMemo<VoiceCallControlProps>(() => {
     const flags = { showHold, showMute, showRecord, showMask, showKeypad };
     if (!target) {
-      return { ...flags, onHold: thread?.heldByAgent, onHoldChange: onScenarioHold };
+      return { ...flags, onHold: thread?.heldByAgent, onHoldChange: () => {} };
     }
     return {
       ...flags,
@@ -63,5 +59,5 @@ export function useVoiceCallControls(
       onMaskedChange: (masked) => void provider.setMasked(target, masked).catch(warn("setMasked")),
       onSendDtmf: (digit) => void provider.sendDtmf(target, digit).catch(warn("sendDtmf")),
     };
-  }, [target, contact, provider, thread?.heldByAgent, onScenarioHold, showHold, showMute, showRecord, showMask, showKeypad]);
+  }, [target, contact, provider, thread?.heldByAgent, showHold, showMute, showRecord, showMask, showKeypad]);
 }

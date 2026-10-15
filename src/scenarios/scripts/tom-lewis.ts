@@ -14,7 +14,7 @@ export const TOM_LEWIS_SCRIPT = {
   channel: "voice",
   skill: { name: "Billing", id: "billing" },
   participants: { agent: "John Smith" },
-  start: { answer: "agent" },
+  start: { answer: "agent", caseStatus: "Open" },
   launch: { hotkey: "C" },
   steps: [
     {

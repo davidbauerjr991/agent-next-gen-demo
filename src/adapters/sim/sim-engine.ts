@@ -646,6 +646,7 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
       externalId: externalRef(startedAt),
       journeyId: newJourney(),
       caseId: request.caseId ?? caseNumber(),
+      ...(request.caseStatus ? { caseStatus: request.caseStatus } : {}),
       ...(request.entityId ? { entityId: request.entityId } : {}),
       ...(match ? { entityId: match.entityId, entityMatchedBy: "routing" as const } : {}),
       contactName: request.displayName,
@@ -790,7 +791,9 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
         emit({ name: "typing", payload: { interactionId, role, isTyping } });
       },
       update,
-      close: (interaction) => close(interaction, "agent"),
+      end: (interaction) => {
+        if (LIVE.includes(interaction.state)) disconnect(interaction, "agent");
+      },
     },
     options.scripts ?? [],
     () => agent.presence.code,

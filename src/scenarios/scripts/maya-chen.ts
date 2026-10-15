@@ -16,7 +16,7 @@ export const MAYA_CHEN_SCRIPT = {
   channel: "voice",
   skill: { name: "Returns", id: "returns" },
   participants: { agent: "John Smith" },
-  start: { answer: "auto" },
+  start: { answer: "auto", caseStatus: "Open" },
   launch: { hotkey: "B" },
   steps: [
     {

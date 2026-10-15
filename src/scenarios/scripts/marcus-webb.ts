@@ -22,7 +22,7 @@ export const MARCUS_WEBB_SCRIPT = {
   channel: "voice",
   skill: { name: "AI Review", id: "ai-review" },
   participants: { bot: "Cognigy AI Agent" },
-  start: { answer: "delivered", review: true, ageMs: 180_000 },
+  start: { answer: "delivered", review: true, ageMs: 180_000, caseStatus: "Open" },
   launch: { hotkey: "L" },
   steps: [
     {

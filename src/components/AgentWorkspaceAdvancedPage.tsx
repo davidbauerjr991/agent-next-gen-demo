@@ -91,7 +91,6 @@ import { CREATE_NEW_CUSTOMERS, type CreateNewCustomerRecord } from "@nicecxone/l
 import { useScheduleContent } from "@nicecxone/lyra-ui";
 import {
   initialsFor,
-  generateContactId,
   formatElapsedTime,
   formatWaitTime,
   getAwaitingSeverity,
@@ -245,40 +244,20 @@ import {
 // explicitly asked).
 import { CollapsedChannelBadge } from "@/components/CollapsedChannelBadge";
 import { AddChannelAdHocButton } from "@/components/agent-next-gen-add-channel-button";
-// The Marcus Webb scenario's fixed identity; this page builds his voice
-// card itself in the "L" trigger effect (below, right after `agentStatus`).
-import { MARCUS_WEBB_ID, MARCUS_WEBB_CUSTOMER_ID, MARCUS_WEBB_CUSTOMER_NAME } from "@/components/agent-next-gen-marcus-webb-scenario";
-import { MARCUS_WEBB_CALL_TRANSCRIPT } from "@/scenarios/legacy/marcus-webb-transcript";
+// The scripted cases (P0.5c): the sim engine plays them from src/scenarios
+// and they arrive as ordinary provider contacts. `useScenarioCases` tells
+// which card is which case (by case id) and supplies its transcript rows,
+// typing, review state and the bot commands (takeover, decisions).
 import {
+  MARCUS_WEBB_ID,
   LUCAS_THOMAS_ID,
-  LUCAS_THOMAS_CHAT_TRANSCRIPT,
-  LUCAS_THOMAS_INITIAL_COUNT,
-  LUCAS_THOMAS_REALTIME_STEPS,
-  LUCAS_THOMAS_DECISION_FOLLOWUPS,
-  LUCAS_THOMAS_COPILOT_SUGGESTIONS,
-  LUCAS_THOMAS_SHIPPING_APPROVAL_SUMMARY,
-  LUCAS_THOMAS_UPSET_APPROVAL_SUMMARY,
-  LUCAS_THOMAS_WRAP_UP,
-  LUCAS_THOMAS_COPILOT_SUGGESTION_LINKS,
-  LUCAS_THOMAS_COPILOT_SUGGESTION_REPLACEMENTS,
-  buildLucasThomasInteraction,
-} from "@/components/agent-next-gen-lucas-thomas-scenario";
-import {
   TOM_LEWIS_CALL_ID,
-  TOM_LEWIS_CALL_LIVE_LINES,
-  TOM_LEWIS_CALL_OVERVIEW,
-  TOM_LEWIS_CALL_COPILOT_SUGGESTIONS,
-  TOM_LEWIS_CALL_COPILOT_LINKS,
-  buildTomLewisCallInteraction,
-} from "@/components/agent-next-gen-tom-lewis-void-call-scenario";
-import {
   MAYA_CHEN_CALL_ID,
-  MAYA_CHEN_CALL_LIVE_LINES,
-  MAYA_CHEN_CALL_OVERVIEW,
-  MAYA_CHEN_CALL_COPILOT_SUGGESTIONS,
-  MAYA_CHEN_CALL_COPILOT_LINKS,
-  buildMayaChenCallInteraction,
-} from "@/components/agent-next-gen-maya-chen-refund-call-scenario";
+  mergeRows,
+  useScenarioCases,
+} from "@/contact-handling/scenario-cases";
+import { useCopilotAsk, useCopilotResultTimer } from "@/contact-handling/useCopilotAsk";
+import { LUCAS_THOMAS_SCRIPT, MAYA_CHEN_SCRIPT, TOM_LEWIS_SCRIPT } from "@/scenarios";
 import {
   MarcusWebbNextBestActionCard,
   MarcusWebbActionDetailPanelBody,
@@ -762,10 +741,16 @@ const ADVANCED_ASSIGNMENT_SORT_OPTIONS = ASSIGNMENT_SORT_OPTIONS.filter((o) => o
 // "+") moved to src/contact-handling/open-channel-tagger.ts in P0.5b.2,
 // shared with Desk and keyed by the card's `entityId`.
 
-/** The scripted scenario cards — the only cards this page still owns
- *  (P0.5b.2); every other card is a provider contact. Until P0.5c. */
-const ADVANCED_SCENARIO_CARD_IDS = new Set<string>([MARCUS_WEBB_ID, LUCAS_THOMAS_ID, TOM_LEWIS_CALL_ID, MAYA_CHEN_CALL_ID]);
-const isAdvancedScenarioCardId = (id: string) => ADVANCED_SCENARIO_CARD_IDS.has(id);
+// The scripted cases' chips and overviews, from their scripts (P0.7/P0.5c).
+const LUCAS_THOMAS_COPILOT_SUGGESTIONS: string[] = LUCAS_THOMAS_SCRIPT.content.copilot!.suggestions;
+const LUCAS_THOMAS_COPILOT_SUGGESTION_LINKS: Record<string, string> = LUCAS_THOMAS_SCRIPT.content.copilot!.links;
+const LUCAS_THOMAS_COPILOT_SUGGESTION_REPLACEMENTS: Record<string, string> = LUCAS_THOMAS_SCRIPT.content.copilot!.replacements ?? {};
+const TOM_LEWIS_CALL_OVERVIEW = TOM_LEWIS_SCRIPT.content.overview!;
+const TOM_LEWIS_CALL_COPILOT_SUGGESTIONS: string[] = TOM_LEWIS_SCRIPT.content.copilot!.suggestions;
+const TOM_LEWIS_CALL_COPILOT_LINKS: Record<string, string> = TOM_LEWIS_SCRIPT.content.copilot!.links;
+const MAYA_CHEN_CALL_OVERVIEW = MAYA_CHEN_SCRIPT.content.overview!;
+const MAYA_CHEN_CALL_COPILOT_SUGGESTIONS: string[] = MAYA_CHEN_SCRIPT.content.copilot!.suggestions;
+const MAYA_CHEN_CALL_COPILOT_LINKS: Record<string, string> = MAYA_CHEN_SCRIPT.content.copilot!.links;
 
 /** Duplicated verbatim from AgentNextGenPage.tsx (Agent Workspace 2.0) per
  *  this codebase's "no shared sync" convention (see BEHAVIOR.md) — used
@@ -911,10 +896,10 @@ const MARCUS_WEBB_AUTO_DISMISS_ON_CLOSE = false;
 // restore the left-nav's own standalone End Call icon.
 const SHOW_END_CALL_IN_INTERACTION_NAV_ROWS = false;
 
-/* ── MARCUS_WEBB_CALL_TRANSCRIPT ──
- *  Moved to src/scenarios/legacy/marcus-webb-transcript.ts (so this file
- *  exports only components); the "L" handler below wires it into his
- *  `Interaction.liveMessages.voice`. */
+/* ── Marcus Webb's call transcript ──
+ *  His script (src/scenarios/scripts/marcus-webb.ts) holds it; the sim
+ *  engine writes it into his call's transcript when the scenario plays
+ *  (P0.5c), and `useScenarioCases` renders it from the store. */
 
 /* ── MarcusWebbIncomingCallNotice ──
  *  Per explicit request ("when a new call comes in (clicking the 'L' button
@@ -972,6 +957,11 @@ const SHOW_END_CALL_IN_INTERACTION_NAV_ROWS = false;
  *  independent Takeover button, which flips `marcusWebbReviewing` false). */
 const SHOW_MARCUS_NOTICE_DETAILS = false;
 
+// Not rendered since P0.5c ("hide, don't destroy"): it was already never
+// opened (its `open` state was never set true), and Marcus now arrives from
+// the engine like any routed contact. Restore it by rendering it when his
+// scenario contact first appears.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function MarcusWebbIncomingCallNotice({
   contextOverview,
   onReview,
@@ -1289,20 +1279,45 @@ export function AgentWorkspaceAdvancedPage({
       ),
     [createdCustomerRecords]
   );
-  // Left-nav cards (P0.5b.2): provider contacts come from the interaction
-  // store (one card per journey, `card.id` = `journeyId`); the scripted
-  // scenario cards stay page-local until P0.5c. `setInteractions` keeps the
-  // old updater shape — see useNavCards for what it keeps and drops.
+  // Left-nav cards (P0.5b.2): every card is a provider contact from the
+  // interaction store (one card per journey, `card.id` = `journeyId`),
+  // scripted cases included (P0.5c). `setInteractions` keeps the old
+  // updater shape — see useNavCards for what it keeps and drops.
   const {
-    cards: interactions,
+    cards: navCards,
     setCards: setInteractions,
     findOpenCard,
     seedOverlay,
   } = useNavCards({
     anchorMs: clock.anchorMs,
     displayName: navCardDisplayName,
-    isScenarioCardId: isAdvancedScenarioCardId,
   });
+  // The scripted cases among them. `scenarioKeyOf(card.id)` is the case key
+  // (`LUCAS_THOMAS_ID`, …) of a scripted case's card, `scenarioCardId(key)`
+  // the card of a case. Their transcripts come from the store; the page's own
+  // rows for the same thread (Ask Copilot interstitials, typed lines) are
+  // merged in by time.
+  const scenarioCases = useScenarioCases(navCards);
+  const { keyOf: scenarioKeyOf, cardIdOf: scenarioCardId } = scenarioCases;
+  /** The scripted case playing on this card's thread, if any. */
+  const scenarioThreadOf = (cardId: string | undefined, threadKey: string | undefined) => {
+    const key = scenarioKeyOf(cardId);
+    const scenario = key ? scenarioCases.byKey[key] : undefined;
+    return scenario && scenario.threadKey === threadKey ? scenario : undefined;
+  };
+  const interactions = useMemo(
+    () =>
+      navCards.map((card) => {
+        const key = scenarioKeyOf(card.id);
+        const scenario = key ? scenarioCases.byKey[key] : undefined;
+        if (!scenario?.threadKey) return card;
+        return {
+          ...card,
+          liveMessages: { ...card.liveMessages, [scenario.threadKey]: mergeRows(scenario.rows, card.liveMessages?.[scenario.threadKey]) },
+        };
+      }),
+    [navCards, scenarioCases, scenarioKeyOf]
+  );
   // Real "Assignments resolved today" count — previously read by the
   // dashboard header's own `SHOW_RESOLVED_TODAY_CHIP`-gated Badge (see
   // that flag's own doc comment, agent-next-gen-shared-utils.ts, and the
@@ -1501,7 +1516,6 @@ export function AgentWorkspaceAdvancedPage({
    *  `true` while a simulated customer reply is in flight on a given
    *  channel, keyed `${interactionId}:${channelKey}`. */
   const [customerTyping, setCustomerTyping] = useState<Record<string, boolean>>({});
-  const [aiTyping, setAiTyping] = useState<Record<string, boolean>>({});
   /* ── Unknown-contact customer matching (per explicit request) ──
      When the docked Customer Information panel is showing an unknown-
      contact interaction (`!activeInteractionIsRealCustomer`, below), it now
@@ -1772,6 +1786,8 @@ export function AgentWorkspaceAdvancedPage({
   // redialing a new assignment always sets this, so the screen switches
   // over automatically the moment one is added.
   const activeInteraction = interactions.find((i) => i.id === activeInteractionId) ?? null;
+  /** The scripted case key of the active card (`LUCAS_THOMAS_ID`, …), if any. */
+  const activeScenarioKey = scenarioKeyOf(activeInteraction?.id);
 
   // Single, shared Customer Overview/Detail/Directory draft for whichever
   // interaction is currently active — owned HERE (not inside
@@ -1883,7 +1899,7 @@ export function AgentWorkspaceAdvancedPage({
   const panelVoiceThread: Thread | undefined =
     activeChannelType === "voice"
       ? activeChannel
-      : activeInteraction?.id === LUCAS_THOMAS_ID && !activeInteraction.closed && !activeInteraction.voiceCallEnded
+      : activeInteraction && scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && !activeInteraction.closed && !activeInteraction.voiceCallEnded
         ? activeInteraction.threads.find((t) => t.type === "voice")
         : undefined;
   // Per explicit follow-up request ("leave the active badge visible if the
@@ -1937,17 +1953,20 @@ export function AgentWorkspaceAdvancedPage({
   // this — see that helper's own doc comment). `undefined` once the
   // interaction is closed, has no voice thread, or the agent has already
   // hung up (`voiceCallEnded`).
-  // Tom Lewis's cold incoming call rings in the left nav (Accept / Decline on his tile) until the agent answers; a ringing call has no
-  // live-call UI and doesn't count as the agent being on a call.
-  const [tomLewisCallRinging, setTomLewisCallRinging] = useState(false);
   // Cold inbound calls with no AI agent (Tom rings and needs Accept; Maya is answered automatically).
-  const isColdCallId = (id: string | undefined) => id === TOM_LEWIS_CALL_ID || id === MAYA_CHEN_CALL_ID;
+  const isColdCallId = (id: string | undefined) => {
+    const key = scenarioKeyOf(id);
+    return key === TOM_LEWIS_CALL_ID || key === MAYA_CHEN_CALL_ID;
+  };
   const findLiveVoiceThread = (interaction: Interaction) => {
-    // A ringing offer (provider or Tom's) isn't a call yet.
+    // A ringing offer (Tom's included) isn't a call yet.
     if (interaction.closed || interaction.voiceCallEnded || interaction.offered) return undefined;
-    if (interaction.id === TOM_LEWIS_CALL_ID && tomLewisCallRinging) return undefined;
     return interaction.threads.find((c) => c.type === "voice");
   };
+  // Whether Marcus's / Lucas's contact is still with the bot (in review):
+  // engine state since P0.5c (`Interaction.review`), cleared by `takeOver`.
+  const marcusWebbReviewing = !!scenarioCases.byKey[MARCUS_WEBB_ID]?.reviewing;
+  const lucasThomasReviewing = !!scenarioCases.byKey[LUCAS_THOMAS_ID]?.reviewing;
   // Per explicit follow-up request ("when the agent clicks review from the
   // toast display an action bar component in place of the call controls"):
   // this is the split the toast's own `onReview`/`onTakeover` doc comment
@@ -1964,8 +1983,8 @@ export function AgentWorkspaceAdvancedPage({
   // Moved up from its original spot right after the "New Contact" toast's
   // own auto-close effect (see git history) to right here, because
   // `liveVoiceCallInteraction` immediately below now needs to read it —
-  // see that const's own doc comment for why.
-  const [marcusWebbReviewing, setMarcusWebbReviewing] = useState(false);
+  // see that const's own doc comment for why. The ActionBar has since been
+  // replaced by the composer's Takeover Call button.
   // The single call this page currently has any UI for. Used to be a
   // plain `.find()` first match with no Marcus-awareness — per explicit
   // bug report ("when I launched Marcus Webb's inbound but didn't go to
@@ -2009,7 +2028,7 @@ export function AgentWorkspaceAdvancedPage({
   // Marcus's call under AI review only counts when his card is selected
   // (the review bar replaces the voice bar there).
   const voiceBarCall = useVoiceBarCall(interactions, activeInteractionId, (card) =>
-    marcusWebbReviewing && card.id === MARCUS_WEBB_ID && card.id !== activeInteractionId ? undefined : findLiveVoiceThread(card)
+    marcusWebbReviewing && scenarioKeyOf(card.id) === MARCUS_WEBB_ID && card.id !== activeInteractionId ? undefined : findLiveVoiceThread(card)
   );
   const liveVoiceCallInteraction = voiceBarCall?.card ?? null;
   const liveVoiceCallThread = voiceBarCall?.thread;
@@ -2107,7 +2126,7 @@ export function AgentWorkspaceAdvancedPage({
       createdCustomerRecords.some((c) => c.id === activeInteraction.entityId) ||
       !!activeInteraction.entityId?.startsWith("history:") ||
       // Lucas Thomas arrives already linked to an existing customer.
-      activeInteraction.id === LUCAS_THOMAS_ID ||
+      scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID ||
       isColdCallId(activeInteraction.id)
     : true;
   // Feeds the Customer Context Overview accordion (`customerContextOverview`
@@ -2130,7 +2149,9 @@ export function AgentWorkspaceAdvancedPage({
   const customerContextOverviewBase = useMemo(() => {
     if (!activeInteraction) return undefined;
     const base = buildCustomerContextOverviewInfo(
-      activeInteraction.id,
+      // Hash-seeded: a scripted case seeds by its key (its old card id), so
+      // its generic profile is the same as before it came from the engine.
+      activeScenarioKey ?? activeInteraction.id,
       activeInteraction.customerName,
       activeInteractionIsRealCustomer,
       activeInteractionIsRealCustomer,
@@ -2148,7 +2169,7 @@ export function AgentWorkspaceAdvancedPage({
     // computed them (the generic hashed "Customer Profile" card) — per
     // explicit follow-up correction, that section stays untouched; only
     // the accordion CONTENT below it changes.
-    if (activeInteraction.id === MARCUS_WEBB_ID) {
+    if (activeScenarioKey === MARCUS_WEBB_ID) {
       return {
         ...base,
         snapshot: [
@@ -2162,7 +2183,7 @@ export function AgentWorkspaceAdvancedPage({
           "Review the order and approve the $200 refund so the AI agent can complete the request and take the customer off hold.",
       };
     }
-    if (activeInteraction.id === MAYA_CHEN_CALL_ID) {
+    if (activeScenarioKey === MAYA_CHEN_CALL_ID) {
       return {
         ...base,
         customerCard: {
@@ -2178,7 +2199,7 @@ export function AgentWorkspaceAdvancedPage({
         nextBestAction: MAYA_CHEN_CALL_OVERVIEW.nextBestAction,
       };
     }
-    if (activeInteraction.id === TOM_LEWIS_CALL_ID) {
+    if (activeScenarioKey === TOM_LEWIS_CALL_ID) {
       return {
         ...base,
         customerCard: {
@@ -2194,7 +2215,7 @@ export function AgentWorkspaceAdvancedPage({
         nextBestAction: TOM_LEWIS_CALL_OVERVIEW.nextBestAction,
       };
     }
-    if (activeInteraction.id === LUCAS_THOMAS_ID) {
+    if (activeScenarioKey === LUCAS_THOMAS_ID) {
       return {
         ...base,
         // Customer card + summaries reflect Lucas's own assignment (CASE-30418), not the generic hashed profile.
@@ -2221,10 +2242,11 @@ export function AgentWorkspaceAdvancedPage({
       };
     }
     return base;
-  }, [activeInteraction?.id, activeInteraction?.customerName, activeInteraction?.customerId, activeInteractionIsRealCustomer]);
+  }, [activeInteraction?.id, activeInteraction?.customerName, activeInteraction?.customerId, activeInteractionIsRealCustomer, activeScenarioKey]);
   // An inbound call's pre-contact summary (P0.5d.1) replaces the Autosummary
-  // lines, for a known customer or an unknown caller alike.
-  const activePreContactSummary = preContactSummaryOf(activeInteraction);
+  // lines, for a known customer or an unknown caller alike. A scripted
+  // case's own overview wins over it (P0.5c).
+  const activePreContactSummary = scenarioKeyOf(activeInteraction?.id) ? undefined : preContactSummaryOf(activeInteraction);
   const customerContextOverviewInfo = useMemo(
     () => (customerContextOverviewBase ? withPreContactSummary(customerContextOverviewBase, activePreContactSummary) : undefined),
     [customerContextOverviewBase, activePreContactSummary],
@@ -2665,60 +2687,12 @@ export function AgentWorkspaceAdvancedPage({
   const [windowWidth, setWindowWidth] = useState(() => window.innerWidth);
   const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
   const [agentStatus, setAgentStatus] = useState<AgentStatus>("unavailable");
-  // Per explicit request ("if I push the L button on the keyboard it
-  // launches Marcus Webb's contact [in Premium] - do this for both Phase 1
-  // and 1B"): mirrors `AgentWorkspace2WithDeskPage.tsx`'s ("Premium") own
-  // "L" trigger — fires the instant the agent presses "L", any time
-  // they're "available" and this page hasn't already fired it this load.
-  // Per explicit follow-up ("if it's easier for now - just launch the
-  // assignment - I have a new case I want to wire to it"): only the launch
-  // itself is ported here, not Premium's scripted Copilot walkthrough
-  // (`MarcusWebbCopilotCard`/the reset-password flow) — this just gets
-  // Marcus's interaction into the left nav, exactly like a real inbound
-  // assignment, ready for a real case to be wired to it later. A plain
-  // local `useState` gate (not Premium's shared, localStorage-persisted
-  // `marcusWebbState`) since none of that scenario's own step-tracking is
-  // needed without the Copilot card — this only ever needs to know "has
-  // this page's own load already fired it."
+  // The scripted cases (Marcus "L", Lucas "A", Tom "C", Maya "B") are
+  // launched by the sim's dev hotkeys and played by its engine (P0.5c,
+  // src/adapters/sim/sim-scenario-hotkeys.ts); routing offers them only
+  // while the agent is available or working. They arrive as provider
+  // contacts, so this page builds no card and runs no scenario timer.
   //
-  // Same "ignore L while the agent is actually typing" guard as Premium's
-  // own listener — a real, printable letter the agent needs to type into
-  // the composer/search/etc. constantly, so only a "bare L" press outside
-  // any text field counts as the demo shortcut. Has to live here (after
-  // `agentStatus` itself), same reasoning as Premium's own copy of this
-  // effect — the dependency array is evaluated as part of this call, so
-  // referencing a not-yet-declared `const` would be a hard TDZ error.
-  const [marcusWebbTriggered, setMarcusWebbTriggered] = useState(false);
-  // Builds Marcus's `Interaction` and holds it here before opening
-  // `MarcusWebbIncomingCallNotice` (this file's own top-of-file component —
-  // see its doc comment for the full "why"). Per a later explicit
-  // follow-up request ("load the assignment tile in the left nav when the
-  // toast comes in"), the "L" handler now commits this into `interactions`
-  // immediately (`commitMarcusWebbInteraction`, below) rather than waiting
-  // for "Review"/"Takeover" — this ref still exists as the one shared
-  // source `commitMarcusWebbInteraction` reads from no matter which caller
-  // fires it, and stays a plain ref (not state) since holding it never
-  // needs to trigger a re-render on its own (only `marcusWebbNoticeOpen`
-  // toggling does that).
-  const marcusWebbPendingInteractionRef = useRef<Interaction | null>(null);
-  const [marcusWebbNoticeOpen, setMarcusWebbNoticeOpen] = useState(false);
-  // Per explicit request ("on new contact toasts, if the agent goes to the
-  // assignment in the left nav, close the toast automatically"): the toast
-  // (`MarcusWebbIncomingCallNotice`, its own render site far below) used to
-  // only close via its own "Close"/"Review"/"Takeover" buttons — an agent
-  // who instead just clicked Marcus's tile directly in the LeftNav (it's
-  // already visible there the instant the toast opens, per
-  // `commitMarcusWebbInteraction`'s own doc comment) landed on his
-  // interaction with the toast still sitting open on top of it, since
-  // nothing about `switchActiveInteraction`/clicking a tile ever touched
-  // `marcusWebbNoticeOpen`. This effect closes it the moment Marcus
-  // actually becomes the active interaction by ANY path — the LeftNav
-  // tile click included — not just the toast's own two buttons, which
-  // still work exactly as before (they set this directly, so this effect
-  // is a harmless no-op right behind them in that case).
-  useEffect(() => {
-    if (activeInteractionId === MARCUS_WEBB_ID) setMarcusWebbNoticeOpen(false);
-  }, [activeInteractionId]);
   // Whether the agent themself is genuinely "on a call" right now, for the
   // purposes of the "we cannot have 2+ calls at once" restrictions below
   // (disabling "New Outbound" and Contact History's "Redial" button) — per
@@ -2734,7 +2708,7 @@ export function AgentWorkspaceAdvancedPage({
   // agent as mid-call the instant Marcus was triggered. Reuses the exact
   // same "is this actually a call the agent is on" exclusion the live-call
   // controls bar itself already applies (`!(marcusWebbReviewing &&
-  // liveVoiceCallInteraction.id === MARCUS_WEBB_ID)`, see that render
+  // scenarioKeyOf(liveVoiceCallInteraction.id) === MARCUS_WEBB_ID)`, see that render
   // site's own doc comment below) — Marcus's call only counts once the
   // agent has actually clicked "Takeover" (`marcusWebbReviewing` flips to
   // `false`), matching the same moment the call-controls bar itself
@@ -2747,7 +2721,7 @@ export function AgentWorkspaceAdvancedPage({
   // `liveVoiceCallInteraction` already points at THAT call, so this line
   // needs no further change to correctly flip `true`.
   const agentOnActiveVoiceCall =
-    !!liveVoiceCallInteraction && !(marcusWebbReviewing && liveVoiceCallInteraction.id === MARCUS_WEBB_ID);
+    !!liveVoiceCallInteraction && !(marcusWebbReviewing && scenarioKeyOf(liveVoiceCallInteraction.id) === MARCUS_WEBB_ID);
   // Whether the Reject flow's customer-provided photo (rendered inline in
   // `MarcusWebbNextBestActionCard`, never in the transcript — see that
   // file's own top doc comment) is taking over the MAIN interaction
@@ -2758,196 +2732,33 @@ export function AgentWorkspaceAdvancedPage({
   // away and back.
   const [marcusWebbPhotoExpanded, setMarcusWebbPhotoExpanded] = useState(false);
   useEffect(() => {
-    if (activeInteractionId !== MARCUS_WEBB_ID) setMarcusWebbPhotoExpanded(false);
-  }, [activeInteractionId]);
-  // Feeds `MarcusWebbIncomingCallNotice`'s own Customer Profile/Contact
-  // Snapshot content (`DetailsPanelAccordions`, via that card's
-  // `contextOverview` prop — currently unused while `SHOW_MARCUS_NOTICE_
-  // DETAILS` is off) — same `buildCustomerContextOverviewInfo` call
-  // `customerContextOverviewInfo` (above) makes for whichever interaction
-  // is actually active, just for Marcus specifically and computed once up
-  // front, since this card needs to show that content BEFORE he's ever
-  // `activeInteraction` (added to `interactions` the instant the toast
-  // opens now, but not selected/active until the agent clicks his tile —
-  // see `marcusWebbPendingInteractionRef` above).
-  // `isKnownCustomer=false` — Marcus is deliberately NOT a
-  // `CREATE_NEW_CUSTOMERS` record (agent-next-gen-marcus-webb-scenario.ts's
-  // own top-of-file comment), so this renders the exact same "no prior
-  // contact history on file" content his real docked panel would once
-  // he's actually opened, not a fabricated profile invented just for this
-  // notice.
-  const marcusWebbContextOverviewInfo = useMemo(
-    () =>
-      buildCustomerContextOverviewInfo(
-        MARCUS_WEBB_ID,
-        MARCUS_WEBB_CUSTOMER_NAME,
-        false,
-        true,
-        extractPriorContactInfo(findContactHistoryMatch(MARCUS_WEBB_CUSTOMER_NAME, MARCUS_WEBB_CUSTOMER_ID))
-      ),
-    []
-  );
-  // Adds Marcus's held interaction into `interactions` — called from the
-  // "L" keydown handler itself now (per later explicit follow-up request,
-  // immediately when the toast opens, not gated behind a button click),
-  // and still from "Review"/"Takeover" too (see the notice's own render
-  // site) for when those are ever un-hidden — the dedup-by-id guard below
-  // makes calling this more than once harmless.
-  const commitMarcusWebbInteraction = () => {
-    const interaction = marcusWebbPendingInteractionRef.current;
-    if (!interaction) return;
-    setInteractions((prev) => (prev.some((i) => i.id === MARCUS_WEBB_ID) ? prev : [...prev, interaction]));
-    marcusWebbPendingInteractionRef.current = null;
-  };
-  useEffect(() => {
-    // Per bug report ("pushing L when I have an active call is not
-    // launching the marcus elevation"): `agentStatus` auto-flips to
-    // `"working"` the instant the agent is on ANY live voice call (see
-    // `isOnVoiceCall`'s own effect above) — a status this gate didn't
-    // originally account for, so once a call was already in progress this
-    // whole effect returned early and never attached the "L" listener at
-    // all. `"working"` is exactly the state this trigger needs to fire
-    // FROM (escalating a second, unrelated call in while already on one),
-    // so it's allowed alongside `"available"` here — everything else
-    // (`"unavailable"`, every specific reason code) still blocks it, same
-    // as before.
-    if ((agentStatus !== "available" && agentStatus !== "working") || marcusWebbTriggered) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() !== "l" || e.metaKey || e.ctrlKey || e.altKey) return;
-      const target = e.target as HTMLElement | null;
-      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable) return;
-      // Per explicit follow-up request ("update the marcus webb assignment
-      // to be voice not chat"): a voice `Thread` instead of the shared
-      // scenario module's own chat one — same "already-existing, unprompted
-      // inbound arrival" shape as `handleOpenAssignmentFromNotification`'s
-      // own Thread (`direction: "inbound"`, no `startedFresh`), just this
-      // scenario's own fixed identity instead of a real notification's.
-      // No `messageCount` — voice threads don't surface a badge count the
-      // way chat/sms/whatsapp do (see `Thread.messageCount`'s own doc
-      // comment). `liveMessages` IS populated below, though: per explicit
-      // request ("create a transcript for the marcus webb call between
-      // marcus and the AI Agent"), `MARCUS_WEBB_CALL_TRANSCRIPT` (defined
-      // above) is wired in under the `"voice"` key so it renders as real
-      // message bubbles — `activeChannelKey` resolves to `channel.id`
-      // ("voice") for this thread, which is exactly what every
-      // `InteractionTranscript` render site's `liveMessages={
-      // activeInteraction.liveMessages?.[activeChannelKey] ?? []}` lookup
-      // keys off of.
-      const channel: Thread = {
-        id: "voice",
-        type: "voice",
-        startTick: clock.now(),
-        contactId: `MW-CONTACT-${Date.now()}`,
-        preview: "AI Review",
-        direction: "inbound",
-      };
-      const interaction: Interaction = {
-        id: MARCUS_WEBB_ID,
-        // Marcus's directory record (lyra's create-new-customers-data.ts) has
-        // this same id. Since P0.5b.2 the page looks records up by
-        // `entityId`, not the card id, so the scenario card carries it too.
-        entityId: MARCUS_WEBB_ID,
-        interactionId: `MW-INTERACTION-${Date.now()}`,
-        customerName: MARCUS_WEBB_CUSTOMER_NAME,
-        customerId: MARCUS_WEBB_CUSTOMER_ID,
-        threads: [channel],
-        currentThreadId: channel.id,
-        liveMessages: { voice: MARCUS_WEBB_CALL_TRANSCRIPT },
-        // Without this, the session-status chip falls back to
-        // `TRANSCRIPT_SESSIONS_VOICE`'s own generic hardcoded "Resolved"
-        // default (rule #27's "every channel shows session info" fixture)
-        // — reading as already-resolved the instant this freshly-loaded,
-        // still-in-progress call opens. A brand-new incoming call is Open,
-        // not Resolved. Keyed by channel id, same as `threadStatuses`'
-        // every other write (`handleInteractionStatusChange`).
-        threadStatuses: { voice: "Open" },
-      };
-      // Per explicit follow-up request ("load the assignment tile in the
-      // left nav when the toast comes in"): committed immediately now,
-      // rather than held until Review/Takeover is clicked — reuses
-      // `commitMarcusWebbInteraction` unchanged (its own dedup-by-id guard
-      // makes it harmless if Review/Takeover ever call it again too, see
-      // that function's own doc comment). `setMarcusWebbReviewing(true)`
-      // right alongside it, so the tile's own Marcus-specific
-      // `controlsDisabled`/locked-kebab-and-outcome treatment is correct
-      // the instant it appears, not just after a click — same value
-      // `onReview` used to set. Deliberately NOT setting
-      // `activeInteractionId` here: the tile should just show up in the
-      // left nav, the agent still clicks it themselves to open it.
-      marcusWebbPendingInteractionRef.current = interaction;
-      // The incoming-call toast is no longer shown on launch: the assignment tile just appears in the left nav.
-      setMarcusWebbTriggered(true);
-      commitMarcusWebbInteraction();
-      setMarcusWebbReviewing(true);
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-    // `commitMarcusWebbInteraction` only reads a ref and the stable
-    // `setInteractions` (useNavCards' `setCards`), so re-subscribing the
-    // hotkey on every render for it would change nothing.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agentStatus, marcusWebbTriggered, clock]);
-  // Per explicit request ("use the case content for lucas thomas and open the
-  // assignment when the user presses 'a' on the keyboard"): "A" adds the
-  // Lucas Thomas webchat assignment (CASE-30418, from the Agentic Workspace
-  // demo) to the left nav and opens it. Once per page load, like "L", and
-  // ignored while typing in a field.
-  const [lucasThomasTriggered, setLucasThomasTriggered] = useState(false);
-  // Lucas's AI-led chat is only REVIEWED until the agent clicks Takeover:
-  // chat hidden, review ActionBar shown (same flow as Marcus Webb).
-  const [lucasThomasReviewing, setLucasThomasReviewing] = useState(false);
+    if (activeScenarioKey !== MARCUS_WEBB_ID) setMarcusWebbPhotoExpanded(false);
+  }, [activeScenarioKey]);
   // "Hide AI Actions" switch in the composer: transcript shows only chat bubbles.
   const [hideAiActions, setHideAiActions] = useState(false);
-  // True while the review banner animates out after "Complete wrap-up" (the banner stays mounted for the exit animation).
-  const [lucasThomasBannerExiting, setLucasThomasBannerExiting] = useState(false);
-  // The review banner is dismissed by "Complete wrap-up" without a takeover: reviewing stays true (no composer, outcome locked).
-  const [lucasThomasBannerHidden, setLucasThomasBannerHidden] = useState(false);
-  // Set once the agent clicks Takeover: a wrap-up card that hasn't been completed is withdrawn and never appears.
-  const lucasTakenOverRef = useRef(false);
-  // Always points at the latest `handleDismissInteraction` so delayed (timeout) callers don't use a stale closure.
+  // Always points at the latest `handleDismissInteraction`, for the engine's
+  // dismiss of a scripted case (below).
   const dismissInteractionRef = useRef<((id: string) => void) | null>(null);
   // Anything the agent asks Copilot is logged in the chat as the same "AI agent finished performing this." + clickable
-  // instruction row used for approval decisions; the row reopens the question in the side panel.
-  const handleCopilotAsk = (interactionId: string, threadKey: string, text: string) => {
-    // Asking Copilot produces an AI action row, so reveal AI actions if they were hidden.
-    setHideAiActions(false);
-    const time = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-    const message: TranscriptMessage = {
-      id: `copilot-ask-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      sender: "agent",
-      name: "John Smith",
-      initials: "JS",
-      timestamp: time,
-      text,
-      instruction: {
-        title: text,
-        by: "John Smith",
-        // Lookup chips reopen the exact same panel the chip opens (so both entry points show identical content);
-        // free-form questions open the instruction/result panel.
-        link:
-          (interactionId === LUCAS_THOMAS_ID ? LUCAS_THOMAS_COPILOT_SUGGESTION_LINKS[text] : undefined) ??
-          (interactionId === TOM_LEWIS_CALL_ID ? TOM_LEWIS_CALL_COPILOT_LINKS[text] : undefined) ??
-          (interactionId === MAYA_CHEN_CALL_ID ? MAYA_CHEN_CALL_COPILOT_LINKS[text] : undefined) ??
-          `instruction:copilot:${encodeURIComponent(text)}:${encodeURIComponent(time)}`,
-      },
-    };
-    setInteractions((prev) =>
-      prev.map((i) =>
-        i.id === interactionId
-          ? { ...i, liveMessages: { ...i.liveMessages, [threadKey]: [...(i.liveMessages?.[threadKey] ?? []), message] } }
-          : i
-      )
-    );    // Free-form questions automatically open their result in the side panel once Copilot "finishes" (lookup chips open
-    // their own panel after their spinner, so only the instruction panel needs this).
-    if ((interactionId === LUCAS_THOMAS_ID || isColdCallId(interactionId)) && message.instruction && message.instruction.link.startsWith("instruction:")) {
-      window.setTimeout(() => {
-        setDetailPanelByInteraction((prev) => ({
-          ...prev,
-          [interactionId]: { kind: "lucas-instruction", decision: "copilot", text, time },
-        }));
-      }, 1800);
-    }
-  };
+  // instruction row used for approval decisions; the row reopens the question in the side panel (shared `useCopilotAsk`).
+  const handleCopilotAsk = useCopilotAsk({
+    setCards: setInteractions,
+    onAsk: () => setHideAiActions(false),
+    linkFor: (cardId, text) => {
+      const key = scenarioKeyOf(cardId);
+      return key === LUCAS_THOMAS_ID
+        ? LUCAS_THOMAS_COPILOT_SUGGESTION_LINKS[text]
+        : key === TOM_LEWIS_CALL_ID
+          ? TOM_LEWIS_CALL_COPILOT_LINKS[text]
+          : key === MAYA_CHEN_CALL_ID
+            ? MAYA_CHEN_CALL_COPILOT_LINKS[text]
+            : undefined;
+    },
+    autoOpensResult: (cardId) => scenarioKeyOf(cardId) === LUCAS_THOMAS_ID || isColdCallId(cardId),
+    openResult: (cardId, { text, time }) =>
+      setDetailPanelByInteraction((prev) => ({ ...prev, [cardId]: { kind: "lucas-instruction", decision: "copilot", text, time } })),
+  });
+  const copilotResultTimer = useCopilotResultTimer();
   // Plays out the chat follow-up (events + AI replying to the customer) after the agent decides on Lucas's approval card.
   // Distinct id per run so a repeated "Something else" instruction never reuses a message id.
   const [marcusCopilotRequests, setMarcusCopilotRequests] = useState<{ id: string; text: string; time: string }[]>([]);
@@ -2960,14 +2771,14 @@ export function AgentWorkspaceAdvancedPage({
     marcusCopilotRequestsRef.current = [...marcusCopilotRequestsRef.current, req];
     setMarcusCopilotRequests((prev) => [...prev, req]);
     // Free-form questions open their result once Copilot "finishes"; chips open their own panel after their spinner.
-    if (openAfterMs !== undefined) {
-      window.setTimeout(
-        () => setDetailPanelByInteraction((prev) => ({ ...prev, [MARCUS_WEBB_ID]: { kind: "marcus-copilot", ...req } })),
+    const cardId = scenarioCardId(MARCUS_WEBB_ID);
+    if (openAfterMs !== undefined && cardId) {
+      copilotResultTimer(
+        () => setDetailPanelByInteraction((prev) => ({ ...prev, [cardId]: { kind: "marcus-copilot", ...req } })),
         openAfterMs
       );
     }
   };
-  const lucasFollowupRunRef = useRef(0);
   // "Call now" on Lucas's escalation card: opens the outbound popover on the button; `confirm` marks the card decided once launched.
   const lucasCallConfirmRef = useRef<(() => void) | null>(null);
   const LUCAS_THOMAS_PHONE = "(415) 555-0142";
@@ -2978,237 +2789,48 @@ export function AgentWorkspaceAdvancedPage({
   const launchLucasCall = (phoneNumber: string, skillId: string) => {
     const confirm = lucasCallConfirmRef.current;
     lucasCallConfirmRef.current = null;
+    // `confirm()` submits the card: its decision makes the engine play the
+    // `upset-call` steps (calling event, the bot's heads-up, connected).
     confirm?.();
-    // Launching the call hands the chat off to John: Takeover Chat goes away.
-    handleLucasTakeover(true);
-    // `confirm()` above submits the card, whose `onDecide` already plays the `upset-call` steps (calling event, AI heads-up, connected).
-    const skillLabel = OUTBOUND_CONFIG.skillOptions.find((o: { value: string; label: string }) => o.value === skillId)?.label ?? OUTBOUND_CONFIG.skillOptions[0]?.label;
-    // The call connects a few seconds after launch — only then does a live voice thread exist, which is what brings up the call controls.
-    window.setTimeout(() => {
-      const voice: Thread = {
-        id: `voice:${phoneNumber}`,
-        type: "voice",
-        startTick: clock.now(),
-        value: phoneNumber,
-        addressLabel: phoneNumber,
-        contactId: generateContactId(),
-        preview: skillLabel,
-        startedFresh: true,
-        direction: "outbound",
-      };
-      setInteractions((prev) =>
-        prev.map((i) =>
-          i.id === LUCAS_THOMAS_ID && !i.threads.some((t) => t.id === voice.id)
-            ? { ...i, threads: [...i.threads, voice], voiceCallEnded: undefined }
-            : i
-        )
-      );
-    }, 4200);
+    // Launching the call hands the chat off to John, without the bot's
+    // handoff line: Takeover Chat goes away.
+    scenarioCases.takeOver(LUCAS_THOMAS_ID, { handoff: false });
+    // A real outbound call into Lucas's journey: it connects after the sim's
+    // ring delay, which is what brings up the call controls.
+    const card = interactions.find((c) => scenarioKeyOf(c.id) === LUCAS_THOMAS_ID);
+    if (card) outboundDial.addAdHocChannel(card, phoneNumber, "voice", skillId);
   };
+  // The agent's decision on one of Lucas's approval cards, or Complete
+  // wrap-up ("ship-wrapup"): the engine plays the branch it starts.
   const handleLucasApprovalDecision = (value: string, note: string) => {
-    const run = (lucasFollowupRunRef.current += 1);
-    // "Something else" instructions are internal: the AI only talks to the customer when the agent's instruction
-    // is a command to say something to them (tell / say / let them know / ask / inform / notify ...).
-    const isSomethingElse = value === "other" || value === "ship-other" || value === "upset-other";
-    // Only an instruction that names the customer as the recipient counts ("tell Lucas ...", "let him know ...");
-    // instructions to the AI itself ("tell me ...", "show ...", "how old is ...") never get a customer reply.
-    const asksAiToSpeak =
-      !/^\s*(please\s+)?(tell|show|give|ask)\s+me\b/i.test(note) &&
-      /\b(tell|say to|say|let|inform|notify|message|reply to|respond to|ask|apologi[sz]e to|thank|update|confirm with|offer|follow(?:\s|-)?up with|get back to|reach out to|check in with|contact|advise|reassure|explain to)\b[^.?!]{0,40}\b(the customer|customer|lucas|him|her|them|the client|client)\b/i.test(
-        note
-      );
-    const steps = (LUCAS_THOMAS_DECISION_FOLLOWUPS[value] ?? []).filter(
-      (st) =>
-        !(isSomethingElse && st.kind === "ai" && !asksAiToSpeak) &&
-        // Wrapping up without ever taking over auto-dismisses the assignment; if the agent did take over, they remove it themselves.
-        !(value === "ship-wrapup" && st.kind === "dismiss" && lucasTakenOverRef.current)
-    );
-    const typingKey = `${LUCAS_THOMAS_ID}:chat`;
-    steps.forEach((step, idx) => {
-      const setTyping = step.kind === "customer" ? setCustomerTyping : setAiTyping;
-      if (step.typingStartMs !== undefined) {
-        window.setTimeout(() => setTyping((prev) => ({ ...prev, [typingKey]: true })), step.typingStartMs);
+    scenarioCases.respond(LUCAS_THOMAS_ID, { value, ...(note ? { note } : {}) });
+  };
+  // A scripted call answered automatically (Maya) opens like an accepted
+  // offer: the nav opens and the side panel closes, as her hotkey used to.
+  // A scripted chat the bot ended (Lucas wrapped up without a takeover)
+  // leaves the nav the way Unassign & Dismiss does, Contact History row
+  // included. Each happens once per contact.
+  const scenarioReactions = useRef(new Set<string>());
+  useEffect(() => {
+    for (const scenario of Object.values(scenarioCases.byKey)) {
+      if (!scenario?.cardId) continue;
+      const { contact, cardId } = scenario;
+      if (contact.autoAnswered && contact.state === "active" && !scenarioReactions.current.has(`open:${contact.id}`)) {
+        scenarioReactions.current.add(`open:${contact.id}`);
+        setNavOpen(true);
+        switchActiveInteraction(cardId);
+        setSidePanelOpen(false);
       }
-      window.setTimeout(() => {
-        if (step.kind === "wrapup") {
-          if (lucasTakenOverRef.current) return;
-          const wrap: TranscriptMessage = {
-            id: "lt-wrap-up",
-            sender: "agent",
-            name: "AI agent · Checkout",
-            initials: "AI",
-            timestamp: step.timestamp ?? "",
-            text: "",
-            wrapUp: LUCAS_THOMAS_WRAP_UP,
-          };
-          setInteractions((prev) =>
-            prev.map((i) =>
-              i.id === LUCAS_THOMAS_ID
-                ? { ...i, liveMessages: { ...i.liveMessages, chat: [...(i.liveMessages?.chat ?? []), wrap] } }
-                : i
-            )
-          );
-          return;
-        }
-        if (step.kind === "approval") {
-          // A second approval request card from the AI agent (waive the priority shipping fee).
-          const approval: TranscriptMessage = {
-            id: step.approvalKey === "upset" ? "lt-upset-approval" : "lt-shipping-approval",
-            sender: "agent",
-            name: "AI agent · Checkout",
-            initials: "AI",
-            timestamp: step.timestamp ?? "",
-            text: "",
-            summary: step.approvalKey === "upset" ? LUCAS_THOMAS_UPSET_APPROVAL_SUMMARY : LUCAS_THOMAS_SHIPPING_APPROVAL_SUMMARY,
-          };
-          setInteractions((prev) =>
-            prev.map((i) =>
-              i.id === LUCAS_THOMAS_ID
-                ? { ...i, liveMessages: { ...i.liveMessages, chat: [...(i.liveMessages?.chat ?? []), approval] } }
-                : i
-            )
-          );
-          return;
-        }
-        if (step.kind === "close") {
-          // Simulated disposition + unassign: the chat flips to Closed (read-only).
-          setInteractions((prev) =>
-            prev.map((i) =>
-              i.id === LUCAS_THOMAS_ID ? { ...i, threadStatuses: { ...i.threadStatuses, chat: "Closed" } } : i
-            )
-          );
-          return;
-        }
-        if (step.kind === "dismiss") {
-          // Finally removes the assignment from the left nav (same path as Save & Dismiss).
-          dismissInteractionRef.current?.(LUCAS_THOMAS_ID);
-          return;
-        }
-        if (step.kind === "ai") setAiTyping((prev) => ({ ...prev, [typingKey]: false }));
-        if (step.kind === "customer") setCustomerTyping((prev) => ({ ...prev, [typingKey]: false }));
-        const isCustomer = step.kind === "customer";
-        const instructionText = (step.text ?? "").replace("{note}", note);
-        const message: TranscriptMessage = {
-          id: `lt-followup-${value}-${run}-${idx}`,
-          sender: isCustomer ? "customer" : "agent",
-          name: isCustomer ? "Lucas Thomas" : "AI agent · Checkout",
-          initials: isCustomer ? "LT" : "AI",
-          timestamp: step.timestamp ?? "",
-          text: (step.text ?? "").replace("{note}", note),
-          ...(step.kind === "event" ? { event: true } : {}),
-          ...(step.kind === "instruction"
-            ? {
-                instruction: {
-                  title: instructionText,
-                  by: step.by ?? "John Smith",
-                  link:
-                    step.link ??
-                    `instruction:${value}:${encodeURIComponent(instructionText)}:${encodeURIComponent(step.timestamp ?? "")}`,
-                },
-              }
-            : {}),
-        };
-        setInteractions((prev) =>
-          prev.map((i) =>
-            i.id === LUCAS_THOMAS_ID
-              ? { ...i, liveMessages: { ...i.liveMessages, chat: [...(i.liveMessages?.chat ?? []), message] } }
-              : i
-          )
-        );
-      }, step.appearMs);
-    });
-  };
-  useEffect(() => {
-    if ((agentStatus !== "available" && agentStatus !== "working") || lucasThomasTriggered) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() !== "a" || e.metaKey || e.ctrlKey || e.altKey) return;
-      const target = e.target as HTMLElement | null;
-      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable) return;
-      setInteractions((prev) =>
-        prev.some((i) => i.id === LUCAS_THOMAS_ID) ? prev : [...prev, buildLucasThomasInteraction(clock.now())]
-      );
-      setLucasThomasTriggered(true);
-      setLucasThomasReviewing(true);
-      // Messages after the initial setup play out live; the customer's line
-      // is preceded by the "customer is typing" indicator.
-      const typingKey = `${LUCAS_THOMAS_ID}:chat`;
-      LUCAS_THOMAS_CHAT_TRANSCRIPT.slice(LUCAS_THOMAS_INITIAL_COUNT).forEach((message, idx) => {
-        const step = LUCAS_THOMAS_REALTIME_STEPS[idx];
-        if (!step) return;
-        const setTyping = step.typing === "ai" ? setAiTyping : setCustomerTyping;
-        if (step.typingStartMs !== undefined) {
-          window.setTimeout(() => setTyping((prev) => ({ ...prev, [typingKey]: true })), step.typingStartMs);
-        }
-        window.setTimeout(() => {
-          setTyping((prev) => ({ ...prev, [typingKey]: false }));
-          setInteractions((prev) =>
-            prev.map((i) =>
-              i.id === LUCAS_THOMAS_ID
-                ? { ...i, liveMessages: { ...i.liveMessages, chat: [...(i.liveMessages?.chat ?? []), message] } }
-                : i
-            )
-          );
-        }, step.appearMs);
-      });
-      // Deliberately NOT switching to Lucas: the assignment card just appears in the left nav; the agent opens it when ready.
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [agentStatus, lucasThomasTriggered, clock, setInteractions]);
-  // "C" rings a cold incoming call from Tom Lewis (CASE-30409 from the Agentic Workspace demo, no AI agent): Accept adds the
-  // assignment, opens it and starts the live call; Decline just dismisses the notice. Ignored while typing in a field.
-  const [tomLewisCallTriggered, setTomLewisCallTriggered] = useState(false);
-  useEffect(() => {
-    if ((agentStatus !== "available" && agentStatus !== "working") || tomLewisCallTriggered || tomLewisCallRinging) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() !== "c" || e.metaKey || e.ctrlKey || e.altKey) return;
-      const target = e.target as HTMLElement | null;
-      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable) return;
-      // The call rings as a new tile in the left nav (opened if it was closed), with Accept / Decline on the tile.
-      setInteractions((prev) =>
-        prev.some((i) => i.id === TOM_LEWIS_CALL_ID) ? prev : [...prev, buildTomLewisCallInteraction(clock.now())]
-      );
-      setNavOpen(true);
-      setTomLewisCallRinging(true);
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [agentStatus, tomLewisCallTriggered, tomLewisCallRinging, clock, setInteractions]);
-  // "B" brings in a cold incoming call from Maya Chen (CASE-30402 from the Agentic Workspace demo, no AI agent) that is answered
-  // automatically: no Accept/Decline, the call controls load straight away and the conversation plays out in the transcript.
-  const [mayaChenCallTriggered, setMayaChenCallTriggered] = useState(false);
-  const startMayaChenCall = () => {
-    setMayaChenCallTriggered(true);
-    setInteractions((prev) =>
-      prev.some((i) => i.id === MAYA_CHEN_CALL_ID) ? prev : [...prev, buildMayaChenCallInteraction(clock.now())]
-    );
-    setNavOpen(true);
-    switchActiveInteraction(MAYA_CHEN_CALL_ID);
-    setSidePanelOpen(false);
-    MAYA_CHEN_CALL_LIVE_LINES.forEach(({ appearMs, message }) => {
-      window.setTimeout(() => {
-        setInteractions((prev) =>
-          prev.map((i) =>
-            i.id === MAYA_CHEN_CALL_ID
-              ? { ...i, liveMessages: { ...i.liveMessages, voice: [...(i.liveMessages?.voice ?? []), message] } }
-              : i
-          )
-        );
-      }, appearMs);
-    });
-  };
-  useEffect(() => {
-    if ((agentStatus !== "available" && agentStatus !== "working") || mayaChenCallTriggered) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() !== "b" || e.metaKey || e.ctrlKey || e.altKey) return;
-      const target = e.target as HTMLElement | null;
-      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable) return;
-      startMayaChenCall();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+      // Still the bot's (`review`): the agent's own dismiss after a takeover
+      // also passes through wrap-up, and must not run twice.
+      if (contact.review && contact.state === "wrap-up" && !scenarioReactions.current.has(`dismiss:${contact.id}`)) {
+        scenarioReactions.current.add(`dismiss:${contact.id}`);
+        dismissInteractionRef.current?.(cardId);
+      }
+    }
+    // switchActiveInteraction is a plain function redefined every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agentStatus, mayaChenCallTriggered]);
+  }, [scenarioCases.byKey]);
   // Escape closes the open side panel: the slide-out detail panel first (article, order, Copilot answer...), otherwise the docked
   // Contact Details panel. Skipped while another overlay (popover, menu, dialog) is open so Escape still closes that first.
   useEffect(() => {
@@ -3224,44 +2846,6 @@ export function AgentWorkspaceAdvancedPage({
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
   });
-  const handleAcceptTomLewisCall = () => {
-    setTomLewisCallRinging(false);
-    setTomLewisCallTriggered(true);
-    // The call timer starts when it is answered.
-    setInteractions((prev) =>
-      prev.map((i) =>
-        i.id === TOM_LEWIS_CALL_ID
-          ? { ...i, threads: i.threads.map((t) => (t.type === "voice" ? { ...t, startTick: clock.now() } : t)) }
-          : i
-      )
-    );
-    switchActiveInteraction(TOM_LEWIS_CALL_ID);
-    setSidePanelOpen(false);
-    // The conversation plays out in the live voice transcript.
-    TOM_LEWIS_CALL_LIVE_LINES.forEach(({ appearMs, message }) => {
-      window.setTimeout(() => {
-        setInteractions((prev) =>
-          prev.map((i) =>
-            i.id === TOM_LEWIS_CALL_ID
-              ? { ...i, liveMessages: { ...i.liveMessages, voice: [...(i.liveMessages?.voice ?? []), message] } }
-              : i
-          )
-        );
-      }, appearMs);
-    });
-  };
-  const [tomLewisCallLeaving, setTomLewisCallLeaving] = useState(false);
-  const handleDeclineTomLewisCall = () => {
-    if (tomLewisCallLeaving) return;
-    addToast({ variant: "info", title: "Call declined", message: "Tom Lewis call declined", duration: 4000 });
-    setTomLewisCallLeaving(true);
-    // Let the tile animate out before removing it.
-    window.setTimeout(() => {
-      setTomLewisCallRinging(false);
-      setInteractions((prev) => prev.filter((i) => i.id !== TOM_LEWIS_CALL_ID));
-      setTomLewisCallLeaving(false);
-    }, 350);
-  };
   const [showWelcomeModal, setShowWelcomeModal] = useState(true);
   // Flushes whatever `fireAgentLegStatusToast` deferred (further up this
   // component) the moment the welcome modal actually closes (Go Available /
@@ -4330,107 +3914,9 @@ export function AgentWorkspaceAdvancedPage({
     }
   };
 
-  // Agent takes over the AI-led Lucas chat (formerly the "Takeover" banner button; now the composer's "Take over chat" button).
-  const handleLucasTakeover = (quiet = false) => {
-                                    setLucasThomasReviewing(false);
-                                    // Taking over instead of wrapping up withdraws the wrap-up card (fade out, then remove) and
-                                    // keeps a not-yet-shown one from ever appearing.
-                                    lucasTakenOverRef.current = true;
-                                    setInteractions((prev) =>
-                                      prev.map((i) =>
-                                        i.id === LUCAS_THOMAS_ID
-                                          ? {
-                                              ...i,
-                                              liveMessages: {
-                                                ...i.liveMessages,
-                                                chat: (i.liveMessages?.chat ?? []).map((m) =>
-                                                  m.wrapUp ? { ...m, wrapUp: { ...m.wrapUp, exiting: true } } : m
-                                                ),
-                                              },
-                                            }
-                                          : i
-                                      )
-                                    );
-                                    window.setTimeout(() => {
-                                      setInteractions((prev) =>
-                                        prev.map((i) =>
-                                          i.id === LUCAS_THOMAS_ID
-                                            ? {
-                                                ...i,
-                                                liveMessages: {
-                                                  ...i.liveMessages,
-                                                  chat: (i.liveMessages?.chat ?? []).filter((m) => !m.wrapUp),
-                                                },
-                                              }
-                                            : i
-                                        )
-                                      );
-                                    }, 350);
-                                    // Quiet handoff (call launched): the call itself is the handoff, so no chat messages or SLA clock.
-                                    if (quiet) return;
-                                    // Warm handoff: the AI agent tells Lucas he's being transferred to John Smith (with typing indicator first).
-                                    const handoffTypingKey = `${LUCAS_THOMAS_ID}:chat`;
-                                    window.setTimeout(
-                                      () => setAiTyping((prev) => ({ ...prev, [handoffTypingKey]: true })),
-                                      500
-                                    );
-                                    window.setTimeout(() => {
-                                      setAiTyping((prev) => ({ ...prev, [handoffTypingKey]: false }));
-                                      const handoff: TranscriptMessage = {
-                                        id: "lt-warm-handoff",
-                                        sender: "agent",
-                                        name: "AI agent · Checkout",
-                                        initials: "AI",
-                                        timestamp: "2:11 PM",
-                                        text: "Thanks for your patience, Lucas. I'm going to transfer you to John Smith, one of our team members, who will take it from here. I've shared everything we've covered so he can help with your Aurora X2 order right away.",
-                                      };
-                                      setInteractions((prev) =>
-                                        prev.map((i) =>
-                                          i.id === LUCAS_THOMAS_ID
-                                            ? { ...i, liveMessages: { ...i.liveMessages, chat: [...(i.liveMessages?.chat ?? []), handoff] } }
-                                            : i
-                                        )
-                                      );
-                                    }, 2300);
-                                    // Lucas acknowledges the transfer (customer typing indicator first).
-                                    window.setTimeout(
-                                      () => setCustomerTyping((prev) => ({ ...prev, [handoffTypingKey]: true })),
-                                      3300
-                                    );
-                                    window.setTimeout(() => {
-                                      setCustomerTyping((prev) => ({ ...prev, [handoffTypingKey]: false }));
-                                      const reply: TranscriptMessage = {
-                                        id: "lt-handoff-reply",
-                                        sender: "customer",
-                                        name: "Lucas Thomas",
-                                        initials: "LT",
-                                        timestamp: "2:11 PM",
-                                        text: "Ok, sounds good",
-                                      };
-                                      setInteractions((prev) =>
-                                        prev.map((i) =>
-                                          i.id === LUCAS_THOMAS_ID
-                                            ? { ...i, liveMessages: { ...i.liveMessages, chat: [...(i.liveMessages?.chat ?? []), reply] } }
-                                            : i
-                                        )
-                                      );
-                                    }, 5300);
-                                    // SLA clock starts on takeover: the customer has been waiting since before the agent took over.
-                                    setInteractions((prev) =>
-                                      prev.map((i) =>
-                                        i.id === LUCAS_THOMAS_ID
-                                          ? {
-                                              ...i,
-                                              threads: i.threads.map((t) =>
-                                                t.type === "chat"
-                                                  ? { ...t, awaitingResponse: true, lastCustomerMessageTick: clock.now() - 251 }
-                                                  : t
-                                              ),
-                                            }
-                                          : i
-                                      )
-                                    );
-  };
+  // Agent takes over the AI-led Lucas chat (the composer's "Take over chat" button). The engine withdraws an unfinished
+  // wrap-up card, starts the SLA clock and plays the bot's warm handoff (typing, the transfer message, Lucas's reply).
+  const handleLucasTakeover = () => scenarioCases.takeOver(LUCAS_THOMAS_ID);
   // Toggles the Customer Information/"Session Details" panel — this
   // button's location has moved a few times across this file's history
   // (record header `actions` → `TranscriptSessionSeparator`'s own session
@@ -4630,7 +4116,7 @@ export function AgentWorkspaceAdvancedPage({
   // would otherwise have kept reading as "still on a call" forever after
   // hanging up, never letting the agent's auto-"Working" status revert.
   const isOnVoiceCall = interactions.some(
-    (i) => !i.closed && !i.voiceCallEnded && !i.offered && !(i.id === TOM_LEWIS_CALL_ID && tomLewisCallRinging) && i.threads.some((t) => t.type === "voice")
+    (i) => !i.closed && !i.voiceCallEnded && !i.offered && i.threads.some((t) => t.type === "voice")
   );
   const preCallStatusRef = useRef<AgentStatus | null>(null);
   useEffect(() => {
@@ -5202,7 +4688,7 @@ export function AgentWorkspaceAdvancedPage({
       .find((i) => i.id === interactionId)
       ?.threads.find((c) => (c.id ?? c.type) === channelKey);
     // Voice and Lucas Thomas's chat both live in the main column only — never open a side-panel preview for them.
-    const isVoiceChannel = channel?.type === "voice" || interactionId === LUCAS_THOMAS_ID;
+    const isVoiceChannel = channel?.type === "voice" || scenarioKeyOf(interactionId) === LUCAS_THOMAS_ID;
     if (interactionId === activeInteractionId) {
       if (isVoiceChannel) return;
       setChannelPreviewThreadKey(channelPreviewThreadKey === channelKey ? null : channelKey);
@@ -5212,107 +4698,12 @@ export function AgentWorkspaceAdvancedPage({
     if (!isVoiceChannel) setChannelPreviewThreadKey(channelKey);
   };
 
-  /** Fired by `MarcusWebbNextBestActionCard`'s own `onComplete` — per
-   *  explicit bug report ("the transcript doesn't appear to have
-   *  updated"), appends the AI agent's follow-up line (reflecting whatever
-   *  the reviewing agent decided) straight onto Marcus's voice
-   *  `liveMessages`, the same array `MARCUS_WEBB_CALL_TRANSCRIPT` seeded at
-   *  launch (line ~2426) — so the transcript actually shows the call being
-   *  wrapped up instead of staying frozen on "please hold." Deliberately a
-   *  small, dedicated handler rather than reusing `handleSendMessage`
-   *  below: this message is from the AI AGENT continuing the call, not the
-   *  reviewing human agent, and voice has none of that handler's
-   *  composer-specific machinery (typing indicators, awaiting-response
-   *  badges, a simulated customer reply) to reuse anyway. Hardcoded to the
-   *  `"voice"` key/`MARCUS_WEBB_ID` — matches how this interaction's
-   *  `liveMessages` was seeded, not a general-purpose append. */
-  const handleMarcusWebbOutcomeMessage = (text: string) => {
-    const message: TranscriptMessage = {
-      id: `live-${Date.now()}-marcus-outcome`,
-      sender: "agent",
-      name: "Cognigy AI Agent",
-      initials: "AI",
-      timestamp: new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
-      text,
-    };
-    setInteractions((prev) =>
-      prev.map((interaction) =>
-        interaction.id === MARCUS_WEBB_ID
-          ? {
-              ...interaction,
-              liveMessages: {
-                ...interaction.liveMessages,
-                voice: [...(interaction.liveMessages?.voice ?? []), message],
-              },
-            }
-          : interaction
-      )
-    );
-  };
-
-  /** Fired by `MarcusWebbNextBestActionCard`'s Approve flow, step 2
-   *  ("Waiting for customer response") — same idea/shape as
-   *  `handleMarcusWebbOutcomeMessage` just above, but `sender: "customer"`
-   *  (Marcus himself "replying") instead of the AI agent. Kept as its own
-   *  tiny handler rather than a `sender` param on that one, since the two
-   *  are conceptually different messages fired from different steps of the
-   *  Approve flow, not interchangeable calls to the same thing. */
-  const handleMarcusWebbCustomerReply = (text: string) => {
-    const message: TranscriptMessage = {
-      id: `live-${Date.now()}-marcus-customer-reply`,
-      sender: "customer",
-      name: MARCUS_WEBB_CUSTOMER_NAME,
-      initials: "MW",
-      timestamp: new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
-      text,
-    };
-    setInteractions((prev) =>
-      prev.map((interaction) =>
-        interaction.id === MARCUS_WEBB_ID
-          ? {
-              ...interaction,
-              liveMessages: {
-                ...interaction.liveMessages,
-                voice: [...(interaction.liveMessages?.voice ?? []), message],
-              },
-            }
-          : interaction
-      )
-    );
-  };
-
-  /** Fired by `MarcusWebbNextBestActionCard`'s Takeover flow
-   *  (`onTakeoverGreeting`/`onCustomerRespondedToTakeover`'s reply/
-   *  `onRemedyIssued`) — the human agent's OWN voice on the call, as
-   *  opposed to the AI's (`handleMarcusWebbOutcomeMessage`) or the
-   *  customer's (`handleMarcusWebbCustomerReply` just above). Reuses the
-   *  exact same name/initials the page header's own `AgentProfile` already
-   *  shows for the current logged-in agent (`name="John Smith"
-   *  initials="JS"`, this file's own header render) rather than inventing
-   *  a different one. */
-  const handleMarcusWebbHumanAgentMessage = (text: string) => {
-    const message: TranscriptMessage = {
-      id: `live-${Date.now()}-marcus-human-agent`,
-      sender: "agent",
-      name: "John Smith",
-      initials: "JS",
-      timestamp: new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
-      text,
-    };
-    setInteractions((prev) =>
-      prev.map((interaction) =>
-        interaction.id === MARCUS_WEBB_ID
-          ? {
-              ...interaction,
-              liveMessages: {
-                ...interaction.liveMessages,
-                voice: [...(interaction.liveMessages?.voice ?? []), message],
-              },
-            }
-          : interaction
-      )
-    );
-  };
+  /** Marcus's call continues as his Next Best Action card's steps land: each
+   *  callback starts one of his script's action branches (the bot's, his own
+   *  or the agent's line), which the engine adds to the call's transcript
+   *  (P0.5c). The card keeps its own step timing. */
+  const marcusWebbSays = (branch: string, inputs: { note?: string; vars?: Record<string, string> } = {}) =>
+    scenarioCases.respond(MARCUS_WEBB_ID, { value: branch, ...inputs });
 
   /** Fired by `MarcusWebbNextBestActionCard`'s Approve flow, step 3
    *  ("Disposition updated to 'Exception Approved'") — per explicit
@@ -5331,14 +4722,15 @@ export function AgentWorkspaceAdvancedPage({
    *  — Marcus's interaction only ever has the one voice channel, but this
    *  stays robust rather than hardcoding `"voice"` here too. */
   const handleMarcusWebbResolved = () => {
-    const interaction = interactions.find((i) => i.id === MARCUS_WEBB_ID);
+    const interaction = interactions.find((i) => scenarioKeyOf(i.id) === MARCUS_WEBB_ID);
+    if (!interaction) return;
     const channelKey =
-      interaction?.currentThreadId ??
-      (interaction?.threads[interaction.threads.length - 1]
+      interaction.currentThreadId ??
+      (interaction.threads[interaction.threads.length - 1]
         ? interaction.threads[interaction.threads.length - 1].id ?? interaction.threads[interaction.threads.length - 1].type
         : undefined) ??
       "channel";
-    handleInteractionStatusChange(MARCUS_WEBB_ID, channelKey, "Resolved");
+    handleInteractionStatusChange(interaction.id, channelKey, "Resolved");
     setOutcomeDraft((d) => ({ ...d, dispositionCode: "Exception Approved" }));
   };
 
@@ -5350,14 +4742,15 @@ export function AgentWorkspaceAdvancedPage({
    *  OPTIONS`' own selectable rows, so no new status-color entry was
    *  needed for this one. */
   const handleMarcusWebbEscalated = () => {
-    const interaction = interactions.find((i) => i.id === MARCUS_WEBB_ID);
+    const interaction = interactions.find((i) => scenarioKeyOf(i.id) === MARCUS_WEBB_ID);
+    if (!interaction) return;
     const channelKey =
-      interaction?.currentThreadId ??
-      (interaction?.threads[interaction.threads.length - 1]
+      interaction.currentThreadId ??
+      (interaction.threads[interaction.threads.length - 1]
         ? interaction.threads[interaction.threads.length - 1].id ?? interaction.threads[interaction.threads.length - 1].type
         : undefined) ??
       "channel";
-    handleInteractionStatusChange(MARCUS_WEBB_ID, channelKey, "Escalated");
+    handleInteractionStatusChange(interaction.id, channelKey, "Escalated");
   };
 
   /** Fired by `InteractionComposer`'s Send button — appends the agent's
@@ -5532,18 +4925,9 @@ export function AgentWorkspaceAdvancedPage({
   // trigger for the current channel started funneling through here (see
   // this function's own three real call sites) — a toast firing on nearly
   // every status click read as excessive rather than helpful.
-  // Scenario cards keep their status locally; a store card's goes through
-  // `setCaseStatus` (useContactCommands, P0.5b.2) and comes back as an event.
-  const setLocalThreadStatus = (interactionId: string, channelId: string, status: string) => {
-    setInteractions((prev) =>
-      prev.map((interaction) =>
-        interaction.id === interactionId
-          ? { ...interaction, threadStatuses: { ...interaction.threadStatuses, [channelId]: status } }
-          : interaction
-      )
-    );
-  };
-  const contactCommands = useContactCommands({ cards: interactions, setLocalStatus: setLocalThreadStatus });
+  // A card's status goes through `setCaseStatus` (useContactCommands,
+  // P0.5b.2) and comes back as an event — scripted cases too since P0.5c.
+  const contactCommands = useContactCommands({ cards: interactions });
   /** The outcome a channel's wrap-up completes with: its Outcome draft
    *  (tags, disposition, summary notes; row 19). */
   const outcomeFor = (cardId: string) => (threadKey: string) => outcomeDrafts.outcomeOf(outcomeDraftKeyOf(cardId, threadKey));
@@ -5620,34 +5004,14 @@ export function AgentWorkspaceAdvancedPage({
     activateWhenReady,
     onDeclined: () => addToast({ variant: "info", title: "Call declined", duration: 4000 }),
   });
-  /** Holds or resumes a scripted scenario call locally (until P0.5c). */
-  const setScenarioCallHold = (cardId: string, threadId: string, onHold: boolean) => {
-    setInteractions((prev) =>
-      prev.map((interaction) =>
-        interaction.id === cardId
-          ? {
-              ...interaction,
-              threads: interaction.threads.map((c) =>
-                c.id === threadId ? { ...c, heldByAgent: onHold, heldSinceTick: onHold ? clock.now() : undefined } : c
-              ),
-            }
-          : interaction
-      )
-    );
-  };
-  // The bar's call: Hold/Mute/Record/Mask/Keypad on the provider; only a
-  // scripted scenario call holds locally.
-  const liveVoiceCallControls = useVoiceCallControls(liveVoiceCallThread, {
-    onScenarioHold: (next) => {
-      if (liveVoiceCallInteraction && liveVoiceCallThread) setScenarioCallHold(liveVoiceCallInteraction.id, liveVoiceCallThread.id, next);
-    },
-  });
+  // The bar's call: Hold/Mute/Record/Mask/Keypad on the provider.
+  const liveVoiceCallControls = useVoiceCallControls(liveVoiceCallThread);
   /** The nav row's hold chip (P0.5d.1): resumes a held call (the provider
    *  holds the live one, and the card is selected so the bar and main column
    *  land on it) or holds the live call. */
   const handleCallHoldChip = (card: Interaction, thread: Interaction["threads"][number]) => {
     const resume = !!thread.heldByAgent;
-    if (!contactCommands.setHold(thread, !resume)) setScenarioCallHold(card.id, thread.id, !resume);
+    contactCommands.setHold(thread, !resume);
     if (resume && card.id !== activeInteractionId) switchActiveInteraction(card.id);
   };
 
@@ -6859,72 +6223,38 @@ export function AgentWorkspaceAdvancedPage({
     <div className="flex flex-col h-screen bg-lyra-bg-surface-shell overflow-hidden animate-in fade-in-0 duration-500">
       {/* Marcus's Next Best Action card lives in a persistent host node (moved into the transcript by PersistentHostSlot),
           so navigating away and back never resets its state or its running timers. Unmounted when the assignment is dismissed. */}
-      {interactions.some((i) => i.id === MARCUS_WEBB_ID) &&
+      {!!scenarioCardId(MARCUS_WEBB_ID) &&
         createPortal(
                                       <MarcusWebbNextBestActionCard
-            onComplete={handleMarcusWebbOutcomeMessage}
-            onAgentContactedCustomer={() =>
-              handleMarcusWebbOutcomeMessage(
-                "Great news — I've received approval from a supervisor. I'm processing your $200 refund now; you should see it back on your original payment method within 3-5 business days. Is there anything else I can help with?"
-              )
-            }
-            onCustomerApprovedResolution={() =>
-              handleMarcusWebbCustomerReply("That's great, thank you so much for your help!")
-            }
+            // Each line below is one of Marcus's script's action branches
+            // (src/scenarios/scripts/marcus-webb.ts), played by the engine.
+            // `onComplete` only ever passes the card's rejection reply.
+            onComplete={() => marcusWebbSays("rejected")}
+            onAgentContactedCustomer={() => marcusWebbSays("approved")}
+            onCustomerApprovedResolution={() => marcusWebbSays("customer-thanks")}
             onDispositionUpdated={handleMarcusWebbResolved}
             onAssignmentClosed={() => {
               // See `MARCUS_WEBB_AUTO_DISMISS_ON_CLOSE`'s own doc
               // comment — held off for now while testing.
               if (!MARCUS_WEBB_AUTO_DISMISS_ON_CLOSE) return;
-              handleDismissInteraction(MARCUS_WEBB_ID);
-              // Re-arms "L" — see `marcusWebbTriggered`'s own doc
-              // comment (it's otherwise a one-shot flag that's
-              // never reset anywhere else in this file).
-              setMarcusWebbTriggered(false);
+              const cardId = scenarioCardId(MARCUS_WEBB_ID);
+              if (cardId) handleDismissInteraction(cardId);
             }}
-            onPhotoRequested={() =>
-              handleMarcusWebbOutcomeMessage(
-                "Understood — to help us evaluate this further, could you send a photo of the damaged ear cup?"
-              )
-            }
-            // Per explicit request ("add customer
-            // responses to the transcript
-            // indicating they are annoyed they
-            // have to provide visual proof and
-            // that the refund was denied") —
-            // both reuse `handleMarcusWebbCustomerReply`,
-            // the same "Marcus himself replying"
-            // handler `onCustomerRespondedToTakeover`
-            // already uses below.
-            onCustomerReactedToRejection={() =>
-              handleMarcusWebbCustomerReply(
-                "Wait, seriously? I've been more than patient about this — I really don't understand why it's being denied."
-              )
-            }
-            onCustomerReactedToPhotoRequest={() =>
-              handleMarcusWebbCustomerReply(
-                "Are you kidding me? I already explained what happened. Fine, I'll send a photo, but this is getting frustrating."
-              )
-            }
+            onPhotoRequested={() => marcusWebbSays("photo-requested")}
+            // Per explicit request ("add customer responses to the
+            // transcript indicating they are annoyed they have to provide
+            // visual proof and that the refund was denied").
+            onCustomerReactedToRejection={() => marcusWebbSays("rejection-reaction")}
+            onCustomerReactedToPhotoRequest={() => marcusWebbSays("photo-reaction")}
             onPhotoExpand={() => setMarcusWebbPhotoExpanded(true)}
             onStatusEscalated={handleMarcusWebbEscalated}
             takenOver={!marcusWebbReviewing}
-            onTakeoverGreeting={() =>
-              handleMarcusWebbHumanAgentMessage(
-                "Hello, Mr. Webb. This is John. I noticed you are not happy about your headphones. Would you be interested in store credit or a discount?"
-              )
-            }
-            onCustomerRespondedToTakeover={() =>
-              handleMarcusWebbCustomerReply("I'll take store credit.")
-            }
+            onTakeoverGreeting={() => marcusWebbSays("takeover-greeting")}
+            onCustomerRespondedToTakeover={() => marcusWebbSays("takeover-reply")}
             onRemedyIssued={(remedy, detail) => {
-              handleMarcusWebbHumanAgentMessage(
-                remedy === "store-credit"
-                  ? `Perfect — I've issued $${detail.storeCreditAmount} as store credit to your account; you'll see it available for your next purchase.`
-                  : remedy === "discount-code"
-                    ? `Great — I've sent a ${detail.discountPercent}% discount code for your next order to the email on file.`
-                    : `Understood — I'll go ahead and take care of that: ${detail.note?.trim()}`
-              );
+              if (remedy === "store-credit") marcusWebbSays("remedy-store-credit", { vars: { storeCreditAmount: detail.storeCreditAmount ?? "" } });
+              else if (remedy === "discount-code") marcusWebbSays("remedy-discount-code", { vars: { discountPercent: detail.discountPercent ?? "" } });
+              else marcusWebbSays("remedy-other", { note: detail.note?.trim() ?? "" });
               // The reject-then-remedy path's own
               // "issue answered" moment — mirrors
               // `onDispositionUpdated`'s identical
@@ -6944,7 +6274,7 @@ export function AgentWorkspaceAdvancedPage({
               openDetailPanelContent({ kind: "action-log", entry })
             }
             selectedActionLogEntryId={
-              activeInteraction?.id === MARCUS_WEBB_ID && selectedDetailPanelContent?.kind === "action-log"
+              scenarioKeyOf(activeInteraction?.id) === MARCUS_WEBB_ID && selectedDetailPanelContent?.kind === "action-log"
                 ? selectedDetailPanelContent.entry.id
                 : null
             }
@@ -6952,7 +6282,7 @@ export function AgentWorkspaceAdvancedPage({
               openDetailPanelContent({ kind: "article", article })
             }
             selectedArticleId={
-              activeInteraction?.id === MARCUS_WEBB_ID && selectedDetailPanelContent?.kind === "article"
+              scenarioKeyOf(activeInteraction?.id) === MARCUS_WEBB_ID && selectedDetailPanelContent?.kind === "article"
                 ? selectedDetailPanelContent.article.id
                 : null
             }
@@ -6985,7 +6315,7 @@ export function AgentWorkspaceAdvancedPage({
             copilotRequests={marcusCopilotRequests}
             onOpenCopilotRequest={(r) => openDetailPanelContent({ kind: "marcus-copilot", ...r })}
             activeCopilotRequestId={
-              activeInteraction?.id === MARCUS_WEBB_ID && selectedDetailPanelContent?.kind === "marcus-copilot"
+              scenarioKeyOf(activeInteraction?.id) === MARCUS_WEBB_ID && selectedDetailPanelContent?.kind === "marcus-copilot"
                 ? selectedDetailPanelContent.id
                 : null
             }
@@ -6997,11 +6327,14 @@ export function AgentWorkspaceAdvancedPage({
               openDetailPanelContent({ kind: "transactions", ...round })
             }
             selectedTransactionsId={
-              activeInteraction?.id === MARCUS_WEBB_ID && selectedDetailPanelContent?.kind === "transactions"
+              scenarioKeyOf(activeInteraction?.id) === MARCUS_WEBB_ID && selectedDetailPanelContent?.kind === "transactions"
                 ? selectedDetailPanelContent.id
                 : null
             }
-            onDismissAndUnassign={() => handleDismissInteraction(MARCUS_WEBB_ID)}
+            onDismissAndUnassign={() => {
+              const cardId = scenarioCardId(MARCUS_WEBB_ID);
+              if (cardId) handleDismissInteraction(cardId);
+            }}
             questionSlotElement={marcusQuestionSlotEl}
           />,
           marcusCardHost
@@ -7646,7 +6979,7 @@ export function AgentWorkspaceAdvancedPage({
                         <NeedsOutcomeBadge elapsed={formatElapsedTime(clockTick - c.wrapUpSinceTick)} />
                       ) : c.type === "voice" &&
                         findLiveVoiceThread(interaction)?.id === c.id &&
-                        !(interaction.id === MARCUS_WEBB_ID && marcusWebbReviewing) ? (
+                        !(scenarioKeyOf(interaction.id) === MARCUS_WEBB_ID && marcusWebbReviewing) ? (
                         <VoiceHoldChip
                           held={!!c.heldByAgent}
                           heldSeconds={c.heldSinceTick !== undefined ? clockTick - c.heldSinceTick : 0}
@@ -7818,10 +7151,10 @@ export function AgentWorkspaceAdvancedPage({
                       c.type === "voice"
                         ? !interaction.closed &&
                           !interaction.voiceCallEnded &&
-                          interaction.id === MARCUS_WEBB_ID &&
+                          scenarioKeyOf(interaction.id) === MARCUS_WEBB_ID &&
                           interaction.threadStatuses?.[c.id] === "Resolved"
                         : // Lucas's AI-led chat can't be unassigned/dismissed by hand: its wrap-up closes it.
-                          interaction.id !== LUCAS_THOMAS_ID || interaction.threadStatuses?.[c.id] === "Closed" || !lucasThomasReviewing,
+                          scenarioKeyOf(interaction.id) !== LUCAS_THOMAS_ID || interaction.threadStatuses?.[c.id] === "Closed" || !lucasThomasReviewing,
                     // Locks the kebab and Outcome — visibly present but
                     // non-interactive — for as long as the agent is only
                     // reviewing Marcus's still-live AI-agent call
@@ -7833,15 +7166,13 @@ export function AgentWorkspaceAdvancedPage({
                     // lock, on either this left-nav copy or the transcript
                     // header's own identical `controlsReadOnly` idea.
                     controlsDisabled:
-                      interaction.id === MARCUS_WEBB_ID
+                      scenarioKeyOf(interaction.id) === MARCUS_WEBB_ID
                         ? marcusWebbReviewing
                         : // Outcome (and the kebab) stay locked on Lucas until the agent takes over.
-                        interaction.id === LUCAS_THOMAS_ID
+                        scenarioKeyOf(interaction.id) === LUCAS_THOMAS_ID
                         ? lucasThomasReviewing
                         : // Outcome stays locked on an incoming call until it is accepted.
-                        interaction.id === TOM_LEWIS_CALL_ID
-                        ? tomLewisCallRinging
-                        : interaction.offered || undefined,
+                          interaction.offered || undefined,
                     // Per explicit follow-up request ("remove the ability to
                     // hang up from the interactionNavItem overall") — "hide,
                     // don't destroy," same pattern as
@@ -7863,7 +7194,7 @@ export function AgentWorkspaceAdvancedPage({
                       !interaction.closed &&
                       !interaction.voiceCallEnded &&
                       !interaction.offered &&
-                      !(interaction.id === MARCUS_WEBB_ID && marcusWebbReviewing)
+                      !(scenarioKeyOf(interaction.id) === MARCUS_WEBB_ID && marcusWebbReviewing)
                         ? () => {
                             // A provider call ends through `end()` (to
                             // wrap-up, where the card shows its wrap-up card);
@@ -7903,7 +7234,7 @@ export function AgentWorkspaceAdvancedPage({
                     // with it) there.
                     outcome: outcomeConfigFor(interaction, c, "leftnav"),
                     // A live call stays blue-highlighted alongside the open chat (Lucas: John on the call).
-                    alwaysHighlighted: interaction.id === LUCAS_THOMAS_ID && c.type === "voice" && !interaction.voiceCallEnded && !interaction.closed,
+                    alwaysHighlighted: scenarioKeyOf(interaction.id) === LUCAS_THOMAS_ID && c.type === "voice" && !interaction.voiceCallEnded && !interaction.closed,
                   };
                 });
                 // Closed OR Resolved channels drop out of every card-level
@@ -7941,7 +7272,7 @@ export function AgentWorkspaceAdvancedPage({
                 // call actually does end.
                 const cardOpenChannels = interaction.threads.filter(
                   (c) =>
-                    (interaction.id === MARCUS_WEBB_ID && c.type === "voice" && !interaction.voiceCallEnded) ||
+                    (scenarioKeyOf(interaction.id) === MARCUS_WEBB_ID && c.type === "voice" && !interaction.voiceCallEnded) ||
                     (interaction.threadStatuses?.[c.id] !== "Closed" &&
                       interaction.threadStatuses?.[c.id] !== "Resolved")
                 );
@@ -8018,7 +7349,7 @@ export function AgentWorkspaceAdvancedPage({
                   CREATE_NEW_CUSTOMERS.some((c) => c.id === interaction.entityId) ||
                   createdCustomerRecords.some((c) => c.id === interaction.entityId) ||
                   !!interaction.entityId?.startsWith("history:") ||
-                  interaction.id === LUCAS_THOMAS_ID;
+                  scenarioKeyOf(interaction.id) === LUCAS_THOMAS_ID;
                 // `interaction.threads` — re-derived here (not from
                 // `cardOpenChannels`, which a closed/resolved held call
                 // would already have dropped out of) since a collapsed
@@ -8039,11 +7370,8 @@ export function AgentWorkspaceAdvancedPage({
                 )?.heldSinceTick;
                 return (
                   <InteractionNavCard
-                    leaving={interaction.id === TOM_LEWIS_CALL_ID && tomLewisCallLeaving}
                     // While the call is unanswered and the nav is collapsed, show the hover preview automatically.
-                    forceHoverOpen={
-                      (interaction.id === TOM_LEWIS_CALL_ID && tomLewisCallRinging && !tomLewisCallLeaving) || !!interaction.offered
-                    }
+                    forceHoverOpen={!!interaction.offered}
                     key={interaction.id}
                     currentChannelType={currentChannelType}
                     showChannelBadge={channels.length <= 1}
@@ -8139,10 +7467,8 @@ export function AgentWorkspaceAdvancedPage({
                     onDismiss={() => handleDismissInteraction(interaction.id)}
                     onDismissChannel={(channel) => handleDismissChannel(interaction.id, channel)}
                     footerAction={
-                      interaction.id === TOM_LEWIS_CALL_ID && tomLewisCallRinging ? (
-                        <IncomingOfferActions onAccept={handleAcceptTomLewisCall} onDecline={handleDeclineTomLewisCall} />
-                      ) : interaction.offered ? (
-                        // A ringing provider voice offer (P0.5d.1).
+                      interaction.offered ? (
+                        // A ringing voice offer (P0.5d.1), scripted ones included (Tom, P0.5c).
                         <IncomingOfferActions
                           onAccept={() => void incomingOffer.accept(interaction)}
                           onDecline={incomingOffer.canDecline ? () => void incomingOffer.decline(interaction) : undefined}
@@ -8960,7 +8286,7 @@ export function AgentWorkspaceAdvancedPage({
                         {activeInteraction.threads.map((c) => {
                           if (!SHOW_VOICE_CHANNEL_HEADER_ICON && c.type === "voice") return null;
                           // Lucas Thomas's chat lives in the main column — no header channel icon.
-                          if (activeInteraction.id === LUCAS_THOMAS_ID) return null;
+                          if (scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID) return null;
                           const key = c.id ?? c.type;
                           const meta = CHANNEL_TYPE_META[c.type];
                           // Per explicit request ("update the functionality
@@ -8984,7 +8310,7 @@ export function AgentWorkspaceAdvancedPage({
                           // request's own wording, and effectively unreached
                           // now that there's no way to add one of them.
                           // Lucas Thomas's chat lives in the main column only — its icon behaves like voice (active, no side-panel preview).
-                          const isVoiceChannel = c.type === "voice" || activeInteraction.id === LUCAS_THOMAS_ID;
+                          const isVoiceChannel = c.type === "voice" || scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID;
                           const isOpen = isVoiceChannel ? key === activeChannelKey : channelPreviewThreadKey === key;
                           // Whether this icon's own channel is the one
                           // currently showing in the main column — drives
@@ -9006,7 +8332,7 @@ export function AgentWorkspaceAdvancedPage({
                           // call indicator. Every other channel keeps
                           // `meta.label` unchanged.
                           const previewLabel = c.type === "voice" ? "Voice Transcript" : meta.label;
-                          const hoverOpen = activeInteraction.id !== LUCAS_THOMAS_ID && channelHoverPreviewKey === key;
+                          const hoverOpen = scenarioKeyOf(activeInteraction.id) !== LUCAS_THOMAS_ID && channelHoverPreviewKey === key;
                           // Per explicit follow-up request ("on hover for
                           // the voice, chat, sms, email channel icons in
                           // the top right, display the content of the
@@ -9069,7 +8395,7 @@ export function AgentWorkspaceAdvancedPage({
                                       ) : (
                                         <InteractionTranscript
  hideAiActions={hideAiActions}
-                                          hideMockFollowUpMessages={activeInteraction.id === LUCAS_THOMAS_ID}
+                                          hideMockFollowUpMessages={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID}
                                           channelType={c.type}
                                           direction={c.direction}
                                           customerName={activeInteraction.customerName}
@@ -9369,7 +8695,7 @@ export function AgentWorkspaceAdvancedPage({
                                     {customerPanelActiveTab === "Transcript" && panelVoiceThread ? (
                                       <InteractionTranscript
  hideAiActions={hideAiActions}
-                                        hideMockFollowUpMessages={activeInteraction.id === LUCAS_THOMAS_ID}
+                                        hideMockFollowUpMessages={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID}
                                         channelType="voice"
                                         direction={panelVoiceThread?.direction}
                                         customerName={activeInteraction.customerName}
@@ -9414,7 +8740,7 @@ export function AgentWorkspaceAdvancedPage({
  }}
  onViewAllArtifacts={() => setCustomerPanelActiveTab("Artifacts")}
  onViewExperienceMemory={
- activeInteraction.id === LUCAS_THOMAS_ID || activeInteraction.id === MARCUS_WEBB_ID || isColdCallId(activeInteraction.id) ? () => openExperienceMemoryInSidePanel() : undefined
+ scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID || scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID || isColdCallId(activeInteraction.id) ? () => openExperienceMemoryInSidePanel() : undefined
  }
                                         customerName={activeInteraction.customerName}
                                         customerContextOverview={customerContextOverviewInfo}
@@ -9618,7 +8944,7 @@ export function AgentWorkspaceAdvancedPage({
                         )}
                         <InteractionTranscript
  hideAiActions={hideAiActions}
-                          hideMockFollowUpMessages={activeInteraction.id === LUCAS_THOMAS_ID}
+                          hideMockFollowUpMessages={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID}
                           // Voice wrap-up (P0.5d.1): while this card's call is
                           // in wrap-up (agent or customer hang-up), its
                           // wrap-up card is the last item in the scrolling
@@ -9737,7 +9063,7 @@ export function AgentWorkspaceAdvancedPage({
                                 // sparkle-icon title bar/chevron/green
                                 // background would just be redundant chrome
                                 // around it.
-                                activeInteraction.id === MARCUS_WEBB_ID
+                                scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID
                                 ? {
                                     ...customerContextOverviewInfo,
                                     nextBestActionContent: (
@@ -9807,7 +9133,7 @@ export function AgentWorkspaceAdvancedPage({
                           // Every other interaction keeps the new
                           // Autosummary-instead-of-Next-Best-Action
                           // behavior.
-                          showCustomerContextNextBestAction={activeInteraction.id === MARCUS_WEBB_ID}
+                          showCustomerContextNextBestAction={scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID}
                           // "View customer info" — per explicit request
                           // ("match the customer info side panel content
                           // to what is currently in phase 1 (clicking
@@ -9900,22 +9226,21 @@ export function AgentWorkspaceAdvancedPage({
                           // explicitly gated on `customerPanelActiveTab ===
                           // "Transcript" && activeChannelType === "voice"`),
                           // this one has no such gate, so a voice thread's
-                          // `liveMessages` (e.g. `MARCUS_WEBB_CALL_TRANSCRIPT`,
-                          // wired in under the `"voice"` key by the "L"
-                          // keydown handler) would otherwise leak into the
-                          // main column too. Excluded here for voice
+                          // `liveMessages` (e.g. Marcus's call transcript, from
+                          // the store under his voice thread's key) would
+                          // otherwise leak into the main column too. Excluded here for voice
                           // specifically — chat/sms/whatsapp still get their
                           // live messages here same as before, since that's
                           // the exact mechanism this column's own
                           // conversation view is built on.
                           sessionControlsReadOnly={
-                            (activeInteraction.id === MARCUS_WEBB_ID && marcusWebbReviewing) ||
-                            (activeInteraction.id === LUCAS_THOMAS_ID && lucasThomasReviewing)
+                            (scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID && marcusWebbReviewing) ||
+                            (scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && lucasThomasReviewing)
                           }
                           liveMessages={
                             isColdCallId(activeInteraction.id)
                               ? // The call transcript lives in the Transcript tab; the main column keeps only AI action rows (interstitials).
-                                (activeInteraction.liveMessages?.voice ?? []).filter((m) => !!m.instruction)
+                                (activeInteraction.liveMessages?.[activeChannelKey] ?? []).filter((m) => !!m.instruction)
                               : activeChannelType === "voice"
                                 ? []
                                 : (activeInteraction.liveMessages?.[activeChannelKey] ?? [])
@@ -9924,33 +9249,29 @@ export function AgentWorkspaceAdvancedPage({
                           // scoped to whichever channel is ACTIVE right now,
                           // same reasoning `applyToChannel` itself already
                           // uses for `channelKeyAtSend`.
-                          isCustomerTyping={!!customerTyping[`${activeInteraction.id}:${activeChannelKey}`]}
-                          isAiTyping={!!aiTyping[`${activeInteraction.id}:${activeChannelKey}`]}
-                          onApprovalDecision={activeInteraction.id === LUCAS_THOMAS_ID ? handleLucasApprovalDecision : undefined}
-                          onApprovalCallRequest={activeInteraction.id === LUCAS_THOMAS_ID ? handleLucasCallRequest : undefined}
+                          // A scripted case's typing comes from the store (P0.5c).
+                          isCustomerTyping={
+                            !!customerTyping[`${activeInteraction.id}:${activeChannelKey}`] ||
+                            !!scenarioThreadOf(activeInteraction.id, activeChannelKey)?.customerTyping
+                          }
+                          isAiTyping={!!scenarioThreadOf(activeInteraction.id, activeChannelKey)?.aiTyping}
+                          onApprovalDecision={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID ? handleLucasApprovalDecision : undefined}
+                          onApprovalCallRequest={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID ? handleLucasCallRequest : undefined}
                           onWrapUpComplete={
-                            activeInteraction.id === LUCAS_THOMAS_ID
-                              ? () => {
-                                  handleLucasApprovalDecision("ship-wrapup", "");
-                                  // The review banner animates out (no takeover: no handoff message, no SLA clock).
-                                  setLucasThomasBannerExiting(true);
-                                  window.setTimeout(() => {
-                                    setLucasThomasBannerHidden(true);
-                                    setLucasThomasBannerExiting(false);
-                                  }, 220);
-                                }
+                            scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID
+                              ? () => scenarioCases.respond(LUCAS_THOMAS_ID, { value: "complete" })
                               : undefined
                           }
-                          approvalTakenOver={activeInteraction.id === LUCAS_THOMAS_ID && !lucasThomasReviewing}
+                          approvalTakenOver={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && !lucasThomasReviewing}
                           onApprovalSuggestionAsk={
-                            activeInteraction.id === LUCAS_THOMAS_ID
-                              ? (text: string) => handleCopilotAsk(LUCAS_THOMAS_ID, "chat", text)
+                            scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID
+                              ? (text: string) => handleCopilotAsk(activeInteraction.id, activeChannelKey, text)
                               : undefined
                           }
-                          autosummaryBlue={activeInteraction.id === LUCAS_THOMAS_ID || activeInteraction.id === MARCUS_WEBB_ID || isColdCallId(activeInteraction.id)}
+                          autosummaryBlue={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID || scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID || isColdCallId(activeInteraction.id)}
                           // AI-led cases always keep the Autosummary above the conversation, even when the transcript remounts with messages already present.
-                          contactOverviewPosition={activeInteraction.id === LUCAS_THOMAS_ID || activeInteraction.id === MARCUS_WEBB_ID || isColdCallId(activeInteraction.id) ? "top" : undefined}
-                          activeSnapshotLink={activeInteraction.id === LUCAS_THOMAS_ID || isColdCallId(activeInteraction.id) ? lucasActiveLinkKey : undefined}
+                          contactOverviewPosition={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID || scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID || isColdCallId(activeInteraction.id) ? "top" : undefined}
+                          activeSnapshotLink={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID || isColdCallId(activeInteraction.id) ? lucasActiveLinkKey : undefined}
                           onSnapshotLink={
                             isColdCallId(activeInteraction.id)
                               ? (key) => {
@@ -9966,11 +9287,11 @@ export function AgentWorkspaceAdvancedPage({
                                     });
                                   }
                                 }
-                              : activeInteraction.id === MARCUS_WEBB_ID
+                              : scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID
                               ? (key) => {
                                   if (key === "order") openDetailPanelContent({ kind: "order", order: MARCUS_WEBB_ORDER });
                                 }
-                              : activeInteraction.id === LUCAS_THOMAS_ID
+                              : scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID
                               ? (key) =>
                                   key === lucasActiveLinkKey
                                     // Clicking the row/link whose panel is already open closes it (toggle).
@@ -10064,11 +9385,11 @@ export function AgentWorkspaceAdvancedPage({
                           onDismissChannel={
                             activeChannel &&
                             // Lucas's chat can only be removed once it is Closed (then the "X" / Remove from Queue shows).
-                            (activeInteraction.id !== LUCAS_THOMAS_ID || activeChannelStatus === "Closed" || !lucasThomasReviewing) &&
+                            (scenarioKeyOf(activeInteraction.id) !== LUCAS_THOMAS_ID || activeChannelStatus === "Closed" || !lucasThomasReviewing) &&
                             (activeChannelType !== "voice" ||
                               activeInteraction.closed ||
                               (!activeInteraction.voiceCallEnded &&
-                                activeInteraction.id === MARCUS_WEBB_ID &&
+                                scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID &&
                                 activeChannelStatus === "Resolved"))
                               ? () => {
                                   if (activeInteraction.threads.length > 1) {
@@ -10186,7 +9507,7 @@ export function AgentWorkspaceAdvancedPage({
                             separator's own single-row height) keeps the
                             close button from ever landing in that same
                             strip in the first place. */}
-                        {marcusWebbPhotoExpanded && activeInteraction.id === MARCUS_WEBB_ID && (
+                        {marcusWebbPhotoExpanded && scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID && (
                           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-lyra-bg-surface-inverse">
                             <button
                               type="button"
@@ -10265,24 +9586,24 @@ export function AgentWorkspaceAdvancedPage({
                           activeChannelType !== "email" &&
                           !activeInteraction.closed &&
                           activeInteraction.threadStatuses?.[activeChannelKey] !== "Closed" &&
-                          !(activeInteraction.id === MARCUS_WEBB_ID && marcusWebbReviewing) &&
+                          !(scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID && marcusWebbReviewing) &&
                           (
                             <InteractionComposer
                               hideAiActions={hideAiActions}
                               onHideAiActionsChange={setHideAiActions}
-                              copilotOnly={activeInteraction.id === LUCAS_THOMAS_ID && lucasThomasReviewing}
-                              onTakeover={activeInteraction.id === LUCAS_THOMAS_ID ? () => handleLucasTakeover() : undefined}
+                              copilotOnly={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && lucasThomasReviewing}
+                              onTakeover={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID ? () => handleLucasTakeover() : undefined}
                               onSend={(text) => handleSendMessage(activeInteraction.id, text, activeChannelKey)}
                               copilotSuggestions={
-                                activeInteraction.id === LUCAS_THOMAS_ID
+                                scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID
                                   ? LUCAS_THOMAS_COPILOT_SUGGESTIONS
                                   : ["Summarize this conversation", "Suggest a reply", "What is the customer's history?"]
                               }
                               copilotSuggestionLinks={
-                                activeInteraction.id === LUCAS_THOMAS_ID ? LUCAS_THOMAS_COPILOT_SUGGESTION_LINKS : undefined
+                                scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID ? LUCAS_THOMAS_COPILOT_SUGGESTION_LINKS : undefined
                               }
                               copilotSuggestionReplacements={
-                                activeInteraction.id === LUCAS_THOMAS_ID
+                                scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID
                                   ? LUCAS_THOMAS_COPILOT_SUGGESTION_REPLACEMENTS
                                   : undefined
                               }
@@ -10331,26 +9652,26 @@ export function AgentWorkspaceAdvancedPage({
                             content height instead of being forced taller
                             than it needs. */}
                         {/* Cold call from Tom Lewis: just the Ask Copilot footer (no AI agent to take over from). */}
-                        {isColdCallId(activeInteraction.id) && !(activeInteraction.id === TOM_LEWIS_CALL_ID && tomLewisCallRinging) && (
+                        {isColdCallId(activeInteraction.id) && !activeInteraction.offered && (
                           <InteractionComposer
                             copilotOnly
                             onSend={() => {}}
-                            copilotSuggestions={activeInteraction.id === MAYA_CHEN_CALL_ID ? MAYA_CHEN_CALL_COPILOT_SUGGESTIONS : TOM_LEWIS_CALL_COPILOT_SUGGESTIONS}
-                            copilotSuggestionLinks={activeInteraction.id === MAYA_CHEN_CALL_ID ? MAYA_CHEN_CALL_COPILOT_LINKS : TOM_LEWIS_CALL_COPILOT_LINKS}
+                            copilotSuggestions={scenarioKeyOf(activeInteraction.id) === MAYA_CHEN_CALL_ID ? MAYA_CHEN_CALL_COPILOT_SUGGESTIONS : TOM_LEWIS_CALL_COPILOT_SUGGESTIONS}
+                            copilotSuggestionLinks={scenarioKeyOf(activeInteraction.id) === MAYA_CHEN_CALL_ID ? MAYA_CHEN_CALL_COPILOT_LINKS : TOM_LEWIS_CALL_COPILOT_LINKS}
                             onCopilotSuggestionLink={(key: string) =>
                               openDetailPanelContent({ kind: "tom-call", panel: key as TomLewisCallPanelKey })
                             }
-                            onCopilotAsk={(text: string) => handleCopilotAsk(activeInteraction.id, "voice", text)}
+                            onCopilotAsk={(text: string) => handleCopilotAsk(activeInteraction.id, activeChannelKey, text)}
                           />
                         )}
-                        {activeInteraction.id === MARCUS_WEBB_ID && (
+                        {scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID && (
                           // Stays after takeover (Ask Copilot only — a voice call has no chat input); the Takeover Call button only while reviewing.
                           <InteractionComposer
                             copilotOnly
                             takeoverLabel="Takeover Call"
-                            takeoverDisabled={!!liveVoiceCallInteraction && liveVoiceCallInteraction.id !== MARCUS_WEBB_ID}
+                            takeoverDisabled={!!liveVoiceCallInteraction && scenarioKeyOf(liveVoiceCallInteraction.id) !== MARCUS_WEBB_ID}
                             takeoverDisabledReason="A call is already in progress"
-                            onTakeover={marcusWebbReviewing ? () => setMarcusWebbReviewing(false) : undefined}
+                            onTakeover={marcusWebbReviewing ? () => scenarioCases.takeOver(MARCUS_WEBB_ID, { handoff: false }) : undefined}
                             onSend={() => {}}
                             copilotSuggestions={["Summarize this call", "Show purchase history", "What did the AI agent try?"]}
                             copilotSuggestionLinks={{
@@ -11406,15 +10727,15 @@ export function AgentWorkspaceAdvancedPage({
                                 handleSendMessage(activeInteraction.id, text, channelPreviewThreadStableKey!)
                               }
                               copilotSuggestions={
-                                activeInteraction.id === LUCAS_THOMAS_ID
+                                scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID
                                   ? LUCAS_THOMAS_COPILOT_SUGGESTIONS
                                   : ["Summarize this conversation", "Suggest a reply", "What is the customer's history?"]
                               }
                               copilotSuggestionLinks={
-                                activeInteraction.id === LUCAS_THOMAS_ID ? LUCAS_THOMAS_COPILOT_SUGGESTION_LINKS : undefined
+                                scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID ? LUCAS_THOMAS_COPILOT_SUGGESTION_LINKS : undefined
                               }
                               copilotSuggestionReplacements={
-                                activeInteraction.id === LUCAS_THOMAS_ID
+                                scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID
                                   ? LUCAS_THOMAS_COPILOT_SUGGESTION_REPLACEMENTS
                                   : undefined
                               }
@@ -11441,7 +10762,7 @@ export function AgentWorkspaceAdvancedPage({
                       ) : (
                         <InteractionTranscript
  hideAiActions={hideAiActions}
-                          hideMockFollowUpMessages={activeInteraction.id === LUCAS_THOMAS_ID}
+                          hideMockFollowUpMessages={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID}
                           channelType={channelPreviewThread.type}
                           direction={channelPreviewThread.direction}
                           customerName={activeInteraction.customerName}
@@ -11465,11 +10786,11 @@ export function AgentWorkspaceAdvancedPage({
                       )
                     ) : customerPanelActiveTab === "Experience Memory" ? (
                       <div className="animate-in fade-in-0 duration-200">
-                        {activeInteraction.id === MAYA_CHEN_CALL_ID ? (
+                        {scenarioKeyOf(activeInteraction.id) === MAYA_CHEN_CALL_ID ? (
                           <MayaChenCallMemoryPanelBody />
-                        ) : activeInteraction.id === TOM_LEWIS_CALL_ID ? (
+                        ) : scenarioKeyOf(activeInteraction.id) === TOM_LEWIS_CALL_ID ? (
                           <TomLewisCallMemoryPanelBody />
-                        ) : activeInteraction.id === MARCUS_WEBB_ID ? (
+                        ) : scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID ? (
                           <MarcusWebbMemoryPanelBody
                             focus={marcusMemoryFocus}
                             onOpenOrder={() => openDetailPanelContent({ kind: "order", order: MARCUS_WEBB_ORDER })}
@@ -11502,7 +10823,7 @@ export function AgentWorkspaceAdvancedPage({
                       // column's own".
                       <InteractionTranscript
  hideAiActions={hideAiActions}
-                        hideMockFollowUpMessages={activeInteraction.id === LUCAS_THOMAS_ID}
+                        hideMockFollowUpMessages={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID}
                         channelType="voice"
                         direction={panelVoiceThread?.direction}
                         customerName={activeInteraction.customerName}
@@ -11537,7 +10858,7 @@ export function AgentWorkspaceAdvancedPage({
  onOpenArtifact={reopenPanelArtifact}
  onViewAllArtifacts={() => setCustomerPanelActiveTab("Artifacts")}
  onViewExperienceMemory={
- activeInteraction.id === LUCAS_THOMAS_ID || activeInteraction.id === MARCUS_WEBB_ID || isColdCallId(activeInteraction.id) ? () => openExperienceMemoryInSidePanel() : undefined
+ scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID || scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID || isColdCallId(activeInteraction.id) ? () => openExperienceMemoryInSidePanel() : undefined
  }
                         customerName={activeInteraction.customerName}
                         customerContextOverview={customerContextOverviewInfo}
@@ -11830,7 +11151,7 @@ export function AgentWorkspaceAdvancedPage({
               praises for a real live call is wrong for "reviewing," which
               should only be visible while actually looking at that one
               interaction. It's moved to that interaction's own content
-              column instead (`activeInteraction.id === MARCUS_WEBB_ID &&
+              column instead (`scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID &&
               marcusWebbReviewing`, right where `InteractionComposer` would
               sit for a chat channel — see that composer's own doc comment
               for the "why nothing renders there for voice today" this
@@ -11838,7 +11159,7 @@ export function AgentWorkspaceAdvancedPage({
           {voiceBarCall &&
           liveVoiceCallInteraction &&
           liveVoiceCallThread &&
-          !(marcusWebbReviewing && liveVoiceCallInteraction.id === MARCUS_WEBB_ID) ? (
+          !(marcusWebbReviewing && scenarioKeyOf(liveVoiceCallInteraction.id) === MARCUS_WEBB_ID) ? (
             // The shared voice bar (VoiceBar, same as Desk): placement,
             // look, which call, and the provider's Hold/Mute/Record/Mask/
             // Keypad come from it; this page passes its own panels.
@@ -11846,38 +11167,13 @@ export function AgentWorkspaceAdvancedPage({
               call={voiceBarCall}
               controls={liveVoiceCallControls}
               onHangUp={() => {
-                const endedInteractionId = liveVoiceCallInteraction.id;
                 setVoiceVideoWindowOpen(false);
                 setVoiceVideoFullScreen(false);
-                // A provider call ends through `end()`. Once it's in wrap-up
-                // the call's card shows its inline wrap-up card, and the main
-                // column stays on whatever the agent is viewing (P0.5d.1).
-                if (contactCommands.hangUp(liveVoiceCallThread)) return;
-                // Scripted scenario calls end locally until P0.5c, but follow
-                // the same rule (P0.5d.1): the call goes to wrap-up in place
-                // (its card shows the wrap-up card and its row the "Needs
-                // outcome" chip); no page switch, no Outcome popover.
-                // Lucas's call is placed from his chat: its row leaves the
-                // card and the chat stays; his own wrap-up card closes him.
-                const isLucas = endedInteractionId === LUCAS_THOMAS_ID;
-                const endedAt = clock.now();
-                setInteractions((prev) =>
-                  prev.map((i) =>
-                    i.id === endedInteractionId
-                      ? {
-                          ...i,
-                          voiceCallEnded: true,
-                          threads: isLucas
-                            ? i.threads.filter((t) => t.type !== "voice")
-                            : i.threads.map((t) => (t.type === "voice" ? { ...t, wrapUpSinceTick: endedAt } : t)),
-                        }
-                      : i
-                  )
-                );
-                // A call that's ended should never leave `marcusWebbReviewing`
-                // stuck `true` for next time — see that state's own doc
-                // comment (above, with the rest of the Marcus Webb state).
-                if (endedInteractionId === MARCUS_WEBB_ID) setMarcusWebbReviewing(false);
+                // Every call, scripted ones included (P0.5c), ends through
+                // `end()`. Once it's in wrap-up the call's card shows its
+                // inline wrap-up card, and the main column stays on whatever
+                // the agent is viewing (P0.5d.1).
+                contactCommands.hangUp(liveVoiceCallThread);
               }}
               onAddToast={addToast}
               onToggleTranscript={
@@ -12163,107 +11459,6 @@ export function AgentWorkspaceAdvancedPage({
         </div>
       )}
       <div className="fixed bottom-4 right-4 z-[9999] flex flex-col items-end gap-2">
-        {/* Marcus Webb's own incoming-call notice — per explicit request,
-            rendered in this SAME toast area (this whole `fixed bottom-4
-            right-4` block, shared with the plain `toasts` stack below) so
-            it visually arrives from the same place every other
-            notification does, first in this flex-col so it stacks above
-            them rather than getting buried underneath. A lyra-ui `Popover`
-            (`asAnchor`, so nothing here has click-to-toggle behavior of its
-            own — see `Popover`'s own `asAnchor` doc comment, popover.tsx)
-            anchored to a plain, invisible `span` planted right here rather
-            than at Marcus's own (nonexistent-until-committed) trigger
-            button — `placement="top"` is what makes it slide in FROM the
-            bottom (`data-[side=top]:slide-in-from-bottom-2`/`slide-out-to-
-            bottom-1`, popover.tsx's own Content className) instead of
-            sideways, satisfying "animate up from the bottom of the screen"
-            for free, off the same Popover primitive every other
-            hover-preview in this file already uses. */}
-        {marcusWebbNoticeOpen && (
-          <Popover
-            open={marcusWebbNoticeOpen}
-            onOpenChange={setMarcusWebbNoticeOpen}
-            asAnchor
-            placement="top"
-            align="end"
-            sideOffset={0}
-            showArrow={false}
-            bodyPadding={false}
-            className="border-0 bg-transparent p-0 shadow-none"
-            onOpenAutoFocus={(e: Event) => e.preventDefault()}
-            // Escape/outside-click still `preventDefault()`d — per explicit
-            // follow-up request, the notice now has a real close button
-            // (`onClose` below) instead, which stays the one deliberate way
-            // to dismiss it rather than also allowing an accidental
-            // Escape/outside-click to do the same.
-            onEscapeKeyDown={(e: Event) => e.preventDefault()}
-            onInteractOutside={(e: Event) => e.preventDefault()}
-            content={
-              <MarcusWebbIncomingCallNotice
-                contextOverview={marcusWebbContextOverviewInfo}
-                onClose={() => setMarcusWebbNoticeOpen(false)}
-                onReview={() => {
-                  // Per explicit follow-up request, "Review" now navigates
-                  // to the contact view too — same `setActiveInteractionId`
-                  // "Takeover" already used, so both actions land the agent
-                  // on Marcus's interaction; only what's available once
-                  // they're there differs — this is that split
-                  // (`marcusWebbReviewing`, see its own doc comment above):
-                  // "Review" leaves the agent in review-only mode (the
-                  // live-call bar shows the "Reviewing this conversation"
-                  // `ActionBar` in place of full `VoiceCallControls`),
-                  // "Takeover" (below) skips it entirely.
-                  commitMarcusWebbInteraction();
-                  setMarcusWebbNoticeOpen(false);
-                  setActiveInteractionId(MARCUS_WEBB_ID);
-                  setMarcusWebbReviewing(true);
-                  // Per explicit follow-up request ("display the transcript
-                  // in the session details panel when the contact goes into
-                  // review mode"), LATER reversed by a further explicit
-                  // follow-up ("Marcus Webb shouldn't default to Transcript
-                  // on first open, show the Overview tab like other
-                  // contacts") — this no longer force-selects "Transcript"
-                  // here; the `[activeInteractionId]` effect's own
-                  // unconditional `setCustomerPanelActiveTab("Details")`
-                  // (displayed as "Overview") now applies to this switch
-                  // exactly like every other interaction, Marcus included.
-                  // `setSidePanelOpen(false)` still needs to be explicit here
-                  // (same as `onTakeover` just below) — the docked panel
-                  // doesn't otherwise know this counts as a fresh interaction
-                  // "loading" since Marcus's interaction is seeded directly
-                  // rather than going through one of the shared launch-path
-                  // handlers that already call this.
-                  setSidePanelOpen(false);
-                }}
-                onTakeover={() => {
-                  commitMarcusWebbInteraction();
-                  setMarcusWebbNoticeOpen(false);
-                  setActiveInteractionId(MARCUS_WEBB_ID);
-                  setMarcusWebbReviewing(false);
-                  // Per explicit follow-up request ("start every
-                  // conversation with the contact details panel closed") —
-                  // this is itself a "new interaction loading" for the
-                  // agent (the first time Marcus's interaction becomes
-                  // active this session), same as every other
-                  // `isNewInteraction` launch path's own
-                  // `setSidePanelOpen(false)` (see the `sidePanelOpen` state
-                  // declaration's own doc comment) — but this one is
-                  // hand-written since Marcus's interaction is seeded
-                  // directly rather than going through one of those shared
-                  // launch-path handlers. `customerPanelActiveTab` needs no
-                  // explicit set here: `marcusWebbReviewing` is already
-                  // `false` by the time the `[activeInteractionId]` effect
-                  // above runs, so its own guard already resets it to
-                  // "Details" (displayed as "Overview") exactly like every
-                  // other interaction switch.
-                  setSidePanelOpen(false);
-                }}
-              />
-            }
-          >
-            <span className="h-0 w-0" />
-          </Popover>
-        )}
         {/* Only once there's more than one toast actually stacked up —
             with just one (or zero) on screen, its own "×" is already the
             one-click way to clear it; this chip only earns its place once

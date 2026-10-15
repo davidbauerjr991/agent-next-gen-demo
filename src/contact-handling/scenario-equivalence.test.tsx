@@ -102,7 +102,7 @@ describe("scenario player ≡ startInbound", () => {
   let dbCounter = 0;
 
   function Harness() {
-    const nav = useNavCards({ anchorMs: 0, isScenarioCardId: () => false });
+    const nav = useNavCards({ anchorMs: 0 });
     const { activateWhenReady } = useContactActivation(() => {}, nav.seedOverlay);
     const dial = useOutboundDial({
       findOpenCard: nav.findOpenCard,
@@ -115,7 +115,7 @@ describe("scenario player ≡ startInbound", () => {
         alreadyOnCall += 1;
       },
     });
-    const commands = useContactCommands({ cards: nav.cards, setLocalStatus: () => {} });
+    const commands = useContactCommands({ cards: nav.cards });
     api = { cards: nav.cards, dial, commands };
     return null;
   }

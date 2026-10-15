@@ -5,16 +5,15 @@ import { useInteractions } from "@/provider-context";
 import { diffCardOverlay, mergeCardOverlay, type CardOverlay } from "./nav-card-overlay";
 
 // The left nav's cards (P0.5b.2). Every contact the provider knows about comes
-// from the interaction store through `buildNavCards`; the page's own UI state
-// for those cards lives in an overlay (nav-card-overlay.ts). Scripted scenario
-// cards (Marcus, Lucas, Tom, Maya) stay page-local until P0.5c.
+// from the interaction store through `buildNavCards`, scripted scenario cases
+// included since P0.5c; the page's own UI state for those cards lives in an
+// overlay (nav-card-overlay.ts).
 //
 // `setCards` takes the same `prev => next` updater the pages used with
 // `useState<Interaction[]>`, so existing update sites keep working:
 //   - a store card's overlay fields are kept; any other change is dropped
 //     (it belongs to the provider) with a dev warning naming the field;
-//   - scenario cards are added, replaced and removed as before;
-//   - adding or removing a store card is not possible here — that's `dial`,
+//   - adding or removing a card is not possible here — that's `dial`,
 //     `reopen`, `accept` or dismiss through the provider.
 
 export interface UseNavCardsOptions {
@@ -22,13 +21,10 @@ export interface UseNavCardsOptions {
   anchorMs: number;
   /** Customer name for a contact: the page's directory lookup by `entityId`. */
   displayName?: (interaction: DomainInteraction) => string | undefined;
-  /** Ids of page-local scenario cards. Adding any other id through `setCards`
-   *  is a bug (it should be a provider command) and warns in dev. */
-  isScenarioCardId: (id: string) => boolean;
 }
 
 export interface NavCards {
-  /** Store cards and scenario cards, in the order this page first saw them. */
+  /** The store's cards, in the order this page first saw them. */
   cards: NavCard[];
   setCards: (update: (prev: NavCard[]) => NavCard[]) => void;
   /** True for a card backed by provider contacts. */
@@ -42,7 +38,6 @@ export interface NavCards {
 
 interface LocalState {
   overlay: Record<string, CardOverlay>;
-  scenario: NavCard[];
 }
 
 /** Drops each thread whose newest contact has ended (dismissed, declined,
@@ -65,12 +60,12 @@ export function visibleContacts(interactions: readonly DomainInteraction[]): Dom
   });
 }
 
-export function useNavCards({ anchorMs, displayName, isScenarioCardId }: UseNavCardsOptions): NavCards {
+export function useNavCards({ anchorMs, displayName }: UseNavCardsOptions): NavCards {
   const interactions = useInteractions();
-  const [local, setLocal] = useState<LocalState>({ overlay: {}, scenario: [] });
+  const [local, setLocal] = useState<LocalState>({ overlay: {} });
 
-  // First-seen order across store and scenario cards, so new cards append
-  // like they did when the page owned the list.
+  // First-seen order, so new cards append like they did when the page owned
+  // the list.
   const order = useRef(new Map<string, number>());
   const orderOf = (id: string) => {
     let n = order.current.get(id);
@@ -111,8 +106,7 @@ export function useNavCards({ anchorMs, displayName, isScenarioCardId }: UseNavC
 
   const cards = useMemo(() => {
     const merged = storeCards.map((card) => withMessageCounts(mergeCardOverlay(card, local.overlay[card.id])));
-    const all = [...merged, ...local.scenario];
-    return all
+    return merged
       .map((card) => ({ card, n: orderOf(card.id) }))
       .sort((a, b) => a.n - b.n)
       .map(({ card }) => card);
@@ -122,33 +116,25 @@ export function useNavCards({ anchorMs, displayName, isScenarioCardId }: UseNavC
     (update: (prev: NavCard[]) => NavCard[]) => {
       setLocal((prev) => {
         const storeById = new Map(storeCardsRef.current.map((c) => [c.id, c]));
-        const before = [
-          ...storeCardsRef.current.map((c) => withMessageCounts(mergeCardOverlay(c, prev.overlay[c.id]))),
-          ...prev.scenario,
-        ];
+        const before = storeCardsRef.current.map((c) => withMessageCounts(mergeCardOverlay(c, prev.overlay[c.id])));
         const after = update(before);
         if (after === before) return prev;
 
         const beforeById = new Map(before.map((c) => [c.id, c]));
         const afterIds = new Set(after.map((c) => c.id));
         let overlay = prev.overlay;
-        const scenario: NavCard[] = [];
         const ignored: string[] = [];
 
         for (const card of after) {
-          if (storeById.has(card.id)) {
-            const prior = beforeById.get(card.id)!;
-            if (prior === card) continue;
-            const diff = diffCardOverlay(prior, card, overlay[card.id]);
-            ignored.push(...diff.ignored.map((field) => `${card.id}.${field}`));
-            overlay = { ...overlay, [card.id]: diff.overlay };
-          } else {
-            if (!beforeById.has(card.id) && !isScenarioCardId(card.id)) {
-              ignored.push(`${card.id} (added; contacts come from dial/reopen/accept)`);
-              continue;
-            }
-            scenario.push(card);
+          if (!storeById.has(card.id)) {
+            ignored.push(`${card.id} (added; contacts come from dial/reopen/accept)`);
+            continue;
           }
+          const prior = beforeById.get(card.id)!;
+          if (prior === card) continue;
+          const diff = diffCardOverlay(prior, card, overlay[card.id]);
+          ignored.push(...diff.ignored.map((field) => `${card.id}.${field}`));
+          overlay = { ...overlay, [card.id]: diff.overlay };
         }
         for (const id of storeById.keys()) {
           if (!afterIds.has(id)) ignored.push(`${id} (removed; dismiss through the provider)`);
@@ -156,13 +142,10 @@ export function useNavCards({ anchorMs, displayName, isScenarioCardId }: UseNavC
         if (ignored.length > 0 && import.meta.env.DEV) {
           console.warn(`[nav-cards] provider-owned changes ignored: ${ignored.join(", ")}`);
         }
-        const scenarioUnchanged =
-          scenario.length === prev.scenario.length && scenario.every((c, i) => c === prev.scenario[i]);
-        if (overlay === prev.overlay && scenarioUnchanged) return prev;
-        return { overlay, scenario: scenarioUnchanged ? prev.scenario : scenario };
+        return overlay === prev.overlay ? prev : { overlay };
       });
     },
-    [isScenarioCardId],
+    [],
   );
 
   const isStoreCard = useCallback((id: string) => storeIdsRef.current.has(id), []);

@@ -94,6 +94,8 @@ export interface ScenarioStart {
   review?: true;
   /** The contact started this long before launch (sets its wait clock). */
   ageMs?: number;
+  /** The case's status when the contact arrives (session status pill). */
+  caseStatus?: string;
 }
 
 export interface ScenarioEntity {

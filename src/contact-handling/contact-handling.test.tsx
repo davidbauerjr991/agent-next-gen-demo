@@ -57,7 +57,7 @@ describe("contact handling", () => {
   let heldEvents: (() => void)[] | null = null;
 
   function Harness() {
-    const nav = useNavCards({ anchorMs: 0, isScenarioCardId: (id) => id === "scenario" });
+    const nav = useNavCards({ anchorMs: 0 });
     const latestCards = nav.cards;
     const { activateWhenReady } = useContactActivation((a) => {
       activations.push(a);
@@ -79,7 +79,7 @@ describe("contact handling", () => {
       },
     });
     const reopen = useContactReopen({ findOpenCard: nav.findOpenCard, activateWhenReady, skillIdForName: () => undefined });
-    const commands = useContactCommands({ cards: nav.cards, setLocalStatus: () => {} });
+    const commands = useContactCommands({ cards: nav.cards });
     api = { cards: nav.cards, setCards: nav.setCards, dial, reopen, commands };
     return null;
   }

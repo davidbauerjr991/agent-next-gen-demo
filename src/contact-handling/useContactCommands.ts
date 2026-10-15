@@ -3,10 +3,10 @@ import { threadKey as threadKeyOf, type NavCard } from "@/adapters/legacy/nav-ca
 import type { EntityId, Interaction, InteractionId, InteractionOutcome } from "@/domain";
 import { useInteractionProvider, useInteractions } from "@/provider-context";
 
-// Commands on an open card's contacts, shared by both pages (P0.5b.2). A store
-// card's change goes to the provider and comes back as an event; scenario
-// cards (no `providerInteractionId`) keep the page's local update — each
-// command returns false for them so the page can apply its own.
+// Commands on an open card's contacts, shared by both pages (P0.5b.2). A
+// change goes to the provider and comes back as an event. Every card is a
+// provider card since P0.5c; a command on a thread with no provider contact
+// returns false (nothing to do).
 
 function warn(what: string) {
   return (error: unknown) => {
@@ -16,14 +16,10 @@ function warn(what: string) {
 
 const LIVE_STATES = new Set<Interaction["state"]>(["connecting", "active", "held"]);
 
-export function useContactCommands(options: {
-  cards: readonly NavCard[];
-  /** The page's local status update, for scenario cards. */
-  setLocalStatus: (cardId: string, threadKey: string, status: string) => void;
-}) {
+export function useContactCommands(options: { cards: readonly NavCard[] }) {
   const provider = useInteractionProvider();
   const interactions = useInteractions();
-  const { cards, setLocalStatus } = options;
+  const { cards } = options;
 
   const threadOf = useCallback(
     (cardId: string, threadKey: string) => cards.find((c) => c.id === cardId)?.threads.find((t) => t.id === threadKey),
@@ -35,13 +31,10 @@ export function useContactCommands(options: {
   const setStatus = useCallback(
     (cardId: string, threadKey: string, status: string) => {
       const target = threadOf(cardId, threadKey)?.providerInteractionId;
-      if (!target) {
-        setLocalStatus(cardId, threadKey, status);
-        return;
-      }
+      if (!target) return;
       provider.setCaseStatus(target, status).catch(warn("setCaseStatus"));
     },
-    [threadOf, provider, setLocalStatus],
+    [threadOf, provider],
   );
 
   /** Link/Create customer: every contact on the card joins the record. */

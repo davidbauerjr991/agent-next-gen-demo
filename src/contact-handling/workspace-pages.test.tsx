@@ -16,6 +16,7 @@ import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedP
 import type { ChannelKind, InteractionId } from "@/domain";
 import { DEFAULT_SLA } from "@/profiles/contact-center-profile";
 import { ProviderRoot } from "@/provider-context";
+import { LUCAS_THOMAS_SCRIPT, MARCUS_WEBB_SCRIPT, MAYA_CHEN_SCRIPT, SCENARIOS, TOM_LEWIS_SCRIPT } from "@/scenarios";
 
 // Both workspace pages, whole, against the sim (5d.1 recheck): the incoming
 // tile's answer SLA, session controls while ringing, the docked voice bar
@@ -91,6 +92,7 @@ async function show(Page: PageComponent) {
             latency: ZERO,
             timings: { ring: ZERO, legConnect: ZERO, delivery: ZERO },
             directory: SIM_DEMO_DIRECTORY,
+            scripts: SCENARIOS,
           });
           customer = createSimCustomerClient(provider.sessionId, bus.createTransport());
           return {
@@ -210,6 +212,67 @@ describe.each(PAGES)("%s", (_label, Page) => {
     expect(mainContainer.textContent).toMatch(/#CTX-/);
     expect(mainContainer.contains(bar)).toBe(false);
     expect(bar.parentElement!.firstElementChild).toBe(mainContainer);
+  });
+});
+
+/** Plays a scenario as the customer, the way the dev hotkeys do. Routing
+ *  needs the agent available. */
+async function play(scenarioId: string) {
+  await act(async () => {
+    void provider.setAgentState("available");
+    await vi.advanceTimersByTimeAsync(20);
+    customer.playScenario(scenarioId);
+    await vi.advanceTimersByTimeAsync(100);
+  });
+}
+
+const bodyText = () => document.body.textContent ?? "";
+
+// The scripted cases are Advanced-only (Desk is frozen, 2026-10-15). They
+// arrive as engine contacts; the page builds no card and runs no timer.
+describe("Advanced: scripted cases from the scenario player (P0.5c)", () => {
+  it("Lucas: his chat shows the setup lines, then the live ones as they play", async () => {
+    await show(AgentWorkspaceAdvancedPage);
+    await play(LUCAS_THOMAS_SCRIPT.id);
+    await click(navCard("Lucas Thomas"));
+    expect(bodyText()).toContain("My card got declined on the Aurora X2 launch order. Is the price gone?");
+    expect(bodyText()).toContain("Here's a secure link to pay another way.");
+    expect(bodyText()).not.toContain("That failed too.");
+    await advance(5000);
+    expect(bodyText()).toContain("That failed too. Can someone just place it for me?");
+  });
+
+  it("Tom rings like any inbound offer; Accept connects him", async () => {
+    await show(AgentWorkspaceAdvancedPage);
+    await play(TOM_LEWIS_SCRIPT.id);
+    expect(navCard("Tom Lewis").getAttribute("aria-label")).toContain("new assignment");
+    const acceptButton = [...container.querySelectorAll("aside button")].find((b) => b.textContent === "Accept") as HTMLElement;
+    expect(acceptButton).toBeDefined();
+    await click(acceptButton);
+    await click(navCard("Tom Lewis"));
+    expect(mainControls()).toContain("Outcome");
+    expect(container.querySelectorAll("[data-slot=voice-bar]")).toHaveLength(1);
+  });
+
+  it("Maya is answered by herself and opens on screen", async () => {
+    await show(AgentWorkspaceAdvancedPage);
+    await play(MAYA_CHEN_SCRIPT.id);
+    expect(navCard("Maya Chen")).toBeDefined();
+    // Selected without a click: her session row and the call bar are up.
+    expect(bodyText()).toMatch(/#CTX-/);
+    expect(container.querySelectorAll("[data-slot=voice-bar]")).toHaveLength(1);
+  });
+
+  it("Marcus arrives in review: Takeover Call instead of the voice bar, until the agent takes over", async () => {
+    await show(AgentWorkspaceAdvancedPage);
+    await play(MARCUS_WEBB_SCRIPT.id);
+    await click(navCard("Marcus Webb"));
+    expect(container.querySelectorAll("[data-slot=voice-bar]")).toHaveLength(0);
+    const takeover = [...container.querySelectorAll("button")].find((b) => b.textContent === "Takeover Call") as HTMLElement;
+    expect(takeover).toBeDefined();
+    await click(takeover);
+    await advance(200);
+    expect(container.querySelectorAll("[data-slot=voice-bar]")).toHaveLength(1);
   });
 });
 

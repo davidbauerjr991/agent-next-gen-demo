@@ -174,9 +174,17 @@ function WrapUpAccordion({ message, onComplete }: { message: TranscriptMessage; 
   const [open, setOpen] = useState(true);
   const [completed, setCompleted] = useState(false);
   const wrapUp = message.wrapUp!;
+  // Withdrawn already when it mounted (e.g. after a tier switch): nothing to
+  // animate out. Otherwise it removes itself once the exit animation ends.
+  const [withdrawnOnMount] = useState(!!wrapUp.exiting);
+  const [gone, setGone] = useState(false);
+  if (withdrawnOnMount || gone) return null;
   return (
     // `exiting` (the agent took over instead of wrapping up) collapses and fades the whole card out before it is removed.
     <div
+      onTransitionEnd={(e) => {
+        if (wrapUp.exiting && e.target === e.currentTarget) setGone(true);
+      }}
       className={cn(
         "grid transition-[grid-template-rows,opacity] duration-300 ease-out",
         wrapUp.exiting ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100"

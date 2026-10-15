@@ -107,6 +107,8 @@ export type SimCustomerAction =
       summary?: string[];
       /** The case number to file it under; default a new one. */
       caseId?: string;
+      /** The case's status when it arrives (e.g. "Open"). */
+      caseStatus?: string;
     }
   /** Plays a scenario script (src/scenarios) as this customer: the engine
    *  routes the contact and plays its steps (P0.5c). `channel` overrides the

@@ -32,8 +32,9 @@ export interface ScenarioHost {
   messages(id: InteractionId): readonly Message[];
   emitTyping(id: InteractionId, role: Participant["role"], isTyping: boolean): void;
   update(interaction: Interaction, patch: Partial<Interaction>): Interaction;
-  /** Ends the contact for good (`ended`, reason "agent"), skipping wrap-up. */
-  close(interaction: Interaction): void;
+  /** The bot ends the contact on the agent's behalf: wrap-up (the agent's
+   *  outcome closes it), or straight to ended without wrap-up support. */
+  end(interaction: Interaction): void;
 }
 
 export interface ScenarioPlayer {
@@ -146,6 +147,8 @@ export function createScenarioPlayer(
   interface Inputs {
     note?: string;
     vars?: Record<string, string>;
+    /** The branch playing, if any: an instruction row's `ref`. */
+    branch?: string;
   }
 
   function fill(text: string, inputs: Inputs): string {
@@ -199,7 +202,9 @@ export function createScenarioPlayer(
             host.pushMessage(
               eventMessage(id, fill(step.text ?? "", inputs), host.now(), {
                 kind: "instruction",
-                ref: step.id,
+                // The decision that started it (the agent UI's instruction
+                // panel is keyed by it), else the step.
+                ref: inputs.branch ?? step.id,
                 ...(step.by ? { by: step.by } : {}),
                 ...(step.link ? { link: step.link } : {}),
               }),
@@ -216,7 +221,7 @@ export function createScenarioPlayer(
             if (interaction.caseStatus !== "Closed") host.update(interaction, { caseStatus: "Closed" });
             return;
           case "dismiss":
-            host.close(interaction);
+            host.end(interaction);
             return;
         }
     }
@@ -340,7 +345,7 @@ export function createScenarioPlayer(
         branchKey = response.value;
       }
       const branch = branchKey !== undefined ? branches[branchKey] : undefined;
-      if (branch) schedule(run, stepsFor(run.script, run.channel, branch.steps), { note: response.note, vars: response.vars });
+      if (branch) schedule(run, stepsFor(run.script, run.channel, branch.steps), { note: response.note, vars: response.vars, branch: branchKey });
     },
 
     isScripted: (id) => runs.has(id),
