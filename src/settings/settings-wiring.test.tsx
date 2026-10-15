@@ -8,6 +8,7 @@ import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
 import { LoginPage } from "@/components/LoginPage";
 import { buildAppMenuGroups } from "@/components/agent-next-gen-outbound-data";
+import { LUCAS_THOMAS_SCRIPT } from "@/scenarios";
 import { applyStoredTheme, useApplyTheme } from "./hooks";
 import { derivePreset } from "./presets";
 import { getSettingsStore, resetSettingsStoreForTests, sectionStorageKey } from "./settings-store";
@@ -205,6 +206,38 @@ describe("Voice: controls location", () => {
     await h.click(h.container.querySelector('[aria-label="Collapse sidebar"]')!);
     expect(bar().closest("aside")).toBeNull();
     expect(bar().getAttribute("data-placement")).toBe("bottom");
+  });
+});
+
+describe("AI: display location", () => {
+  it("In the Contact Details panel moves Lucas's Autosummary and approval card out of the transcript", async () => {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await h.play(LUCAS_THOMAS_SCRIPT.id);
+    await h.click(h.navCard("Lucas Thomas"));
+    await h.advance(14_000);
+    const occurrences = (text: string) =>
+      [...h.container.querySelectorAll("*")].filter((el) => el.children.length === 0 && el.textContent === text);
+    const feed = () => h.container.querySelector("[data-slot=ai-feed]");
+    const prompt = "How would you like to proceed?";
+    expect(occurrences(prompt)).toHaveLength(1);
+    expect(feed()).toBeNull();
+
+    await setSettings("ai", { displayLocation: "panel" });
+    expect(feed()).not.toBeNull();
+    // One approval card, and it's in the panel's feed.
+    expect(occurrences(prompt)).toHaveLength(1);
+    expect(feed()!.contains(occurrences(prompt)[0])).toBe(true);
+    expect(feed()!.textContent).toContain("Autosummary");
+
+    // Deciding from the panel reaches the provider like the inline card.
+    const approve = [...feed()!.querySelectorAll("button, [role=radio], label")].find((el) =>
+      /approve/i.test(el.textContent ?? ""),
+    );
+    expect(approve).toBeTruthy();
+
+    await setSettings("ai", { displayLocation: "inline" });
+    expect(feed()).toBeNull();
+    expect(occurrences(prompt)).toHaveLength(1);
   });
 });
 

@@ -86,6 +86,7 @@ import {
   CHANNEL_TYPE_META,
   InteriorPanel,
   EmptyState,
+  CustomerContextOverview,
 } from "@nicecxone/lyra-ui";
 import { CREATE_NEW_CUSTOMERS, type CreateNewCustomerRecord } from "@nicecxone/lyra-ui/customers-data";
 import { useScheduleContent } from "@nicecxone/lyra-ui";
@@ -116,7 +117,9 @@ import {
   TRANSCRIPT_SESSIONS,
   TRANSCRIPT_SESSIONS_VOICE,
   TRANSCRIPT_SESSIONS_EMAIL,
+  AiActionsFeed,
 } from "@/components/agent-next-gen-transcript";
+import { isAiActionMessage } from "@/components/agent-next-gen-ai-messages";
 import {
   buildAppMenuGroups,
   OUTBOUND_TEAMS,
@@ -1671,6 +1674,12 @@ export function AgentWorkspaceAdvancedPage({
   // returns every card expanded rather than restoring stale collapsed ones.
   const [assignmentsSettings] = useSettings("assignments");
   const [voiceSettings] = useSettings("voice");
+  // Settings → AI display: "panel" moves the AI content out of the transcript
+  // into the docked Contact Details panel (`renderAiPanelFeed`).
+  const [aiSettings] = useSettings("ai");
+  const aiInPanel = aiSettings.displayLocation === "panel";
+  const stripAiInPanel = (messages: TranscriptMessage[]) =>
+    aiInPanel ? messages.filter((m) => !isAiActionMessage(m)) : messages;
   const [leftNavVoiceSlot, setLeftNavVoiceSlot] = useState<HTMLDivElement | null>(null);
   const { newOutboundAtBottom, navItemsAtTop, noInteractionCollapse } = assignmentsSettings;
   useEffect(() => {
@@ -6281,6 +6290,98 @@ export function AgentWorkspaceAdvancedPage({
     // as left once Settings closes.
     () => { setShowSettings(true); switchActiveInteraction(null); }
   );
+  // The links inside an interaction's AI content (Autosummary links,
+  // interstitial rows, approval checklists) open the matching side panel.
+  // Shared by the inline transcript and the Contact Details panel's AI feed.
+  const snapshotLinkHandlerFor = (interactionId: string): ((key: string) => void) | undefined =>
+    isColdCallId(interactionId)
+      ? (key) => {
+          if (key === "order" || key === "card" || key === "void-steps" || key === "maya-order" || key === "maya-card" || key === "maya-refund-steps") {
+            openDetailPanelContent({ kind: "tom-call", panel: key });
+          } else if (key.startsWith("instruction:")) {
+            const [, decision, text, time] = key.split(":");
+            openDetailPanelContent({
+              kind: "lucas-instruction",
+              decision,
+              text: decodeURIComponent(text ?? ""),
+              time: decodeURIComponent(time ?? ""),
+            });
+          }
+        }
+      : scenarioKeyOf(interactionId) === MARCUS_WEBB_ID
+      ? (key) => {
+          if (key === "order") openDetailPanelContent({ kind: "order", order: MARCUS_WEBB_ORDER });
+        }
+      : scenarioKeyOf(interactionId) === LUCAS_THOMAS_ID
+      ? (key) =>
+          key === lucasActiveLinkKey
+            // Clicking the row/link whose panel is already open closes it (toggle).
+            ? setSelectedDetailPanelContent(null)
+            : key.startsWith("instruction:")
+            ? (() => {
+                const [, decision, text, time] = key.split(":");
+                openDetailPanelContent({
+                  kind: "lucas-instruction",
+                  decision,
+                  text: decodeURIComponent(text ?? ""),
+                  time: decodeURIComponent(time ?? ""),
+                });
+              })()
+            : key.startsWith("memory:")
+            ? openExperienceMemoryInSidePanel(key.slice("memory:".length) as LucasThomasMemoryFocus)
+            : openDetailPanelContent({ kind: "lucas", panel: key as LucasThomasPanelKey })
+      : undefined;
+
+  // Settings → AI display "In the Contact Details panel" (P-SETTINGS, ported
+  // from v3): the Autosummary and the AI rows (interstitials, approval
+  // requests, wrap-up cards, event lines) leave the transcript and render as
+  // a feed at the bottom of the docked Contact Details panel, with the same
+  // handlers the inline transcript uses.
+  const renderAiPanelFeed = () => {
+    if (!activeInteraction) return null;
+    const key = scenarioKeyOf(activeInteraction.id);
+    const isMarcus = key === MARCUS_WEBB_ID;
+    const isLucas = key === LUCAS_THOMAS_ID;
+    const overview =
+      (activeInteractionIsRealCustomer || activePreContactSummary) && customerContextOverviewInfo ? (
+        <CustomerContextOverview
+          customerName={activeInteraction.customerName ?? ""}
+          snapshot={customerContextOverviewInfo.snapshot}
+          onSnapshotLink={snapshotLinkHandlerFor(activeInteraction.id)}
+          nextBestAction={customerContextOverviewInfo.nextBestAction}
+          nextBestActionContent={isMarcus ? <PersistentHostSlot host={marcusCardHost} /> : undefined}
+          nextBestActionBare={isMarcus ? true : undefined}
+          autosummaryBlue={isLucas || isMarcus || isColdCallId(activeInteraction.id)}
+          showCustomerProfile={false}
+          showContactSnapshot
+          showNextBestAction={isMarcus}
+          className="pt-0"
+        />
+      ) : undefined;
+    return (
+      <AiActionsFeed
+        messages={Object.values(activeInteraction.liveMessages ?? {}).flat()}
+        overview={overview}
+        onApprovalDecision={isLucas ? handleLucasApprovalDecision : undefined}
+        onApprovalCallRequest={isLucas ? handleLucasCallRequest : undefined}
+        onApprovalSuggestionAsk={isLucas ? (text: string) => handleCopilotAsk(activeInteraction.id, activeChannelKey, text) : undefined}
+        approvalTakenOver={isLucas && !lucasThomasReviewing}
+        onWrapUpComplete={isLucas ? () => scenarioCases.respond(LUCAS_THOMAS_ID, { value: "complete" }) : undefined}
+        onSnapshotLink={snapshotLinkHandlerFor(activeInteraction.id)}
+        activeSnapshotLink={isLucas || isColdCallId(activeInteraction.id) ? lucasActiveLinkKey : undefined}
+      />
+    );
+  };
+  // "AI in panel": the Contact Details panel opens on Details whenever an
+  // interaction becomes active. Declared after the interaction-switch panel
+  // save/restore effects so it wins (v3).
+  useEffect(() => {
+    if (aiInPanel && activeInteractionId) {
+      setCustomerPanelActiveTab("Details");
+      setSidePanelOpen(true);
+    }
+  }, [aiInPanel, activeInteractionId]);
+
   /* The shared New Outbound launcher (P0.5b.2). This page's scope is a
      temporary parity exception (row 14): Dial Pad only (no group picker,
      "New Outbound" header, no back button). Like Desk, it stays enabled
@@ -9114,7 +9215,9 @@ export function AgentWorkspaceAdvancedPage({
                           customerContextOverview={
                             // An unknown caller still gets the overview when
                             // the call carried a pre-contact summary (P0.5d.1).
-                            activeInteractionIsRealCustomer || activePreContactSummary
+                            // With Settings → AI display "In the Contact
+                            // Details panel" it moves to the panel's feed.
+                            !aiInPanel && (activeInteractionIsRealCustomer || activePreContactSummary)
                               ? // Per explicit request ("i want the next best
                                 // action content ... to populate like the way
                                 // claude asks questions"), Marcus Webb's own
@@ -9307,14 +9410,14 @@ export function AgentWorkspaceAdvancedPage({
                             (scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID && marcusWebbReviewing) ||
                             (scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && lucasThomasReviewing)
                           }
-                          liveMessages={
+                          liveMessages={stripAiInPanel(
                             isColdCallId(activeInteraction.id)
                               ? // The call transcript lives in the Transcript tab; the main column keeps only AI action rows (interstitials).
                                 (activeInteraction.liveMessages?.[activeChannelKey] ?? []).filter((m) => !!m.instruction)
                               : activeChannelType === "voice"
                                 ? []
                                 : (activeInteraction.liveMessages?.[activeChannelKey] ?? [])
-                          }
+                          )}
                           // See `customerTyping`'s own doc comment above —
                           // scoped to whichever channel is ACTIVE right now,
                           // same reasoning `applyToChannel` itself already
@@ -9342,45 +9445,7 @@ export function AgentWorkspaceAdvancedPage({
                           // AI-led cases always keep the Autosummary above the conversation, even when the transcript remounts with messages already present.
                           contactOverviewPosition={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID || scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID || isColdCallId(activeInteraction.id) ? "top" : undefined}
                           activeSnapshotLink={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID || isColdCallId(activeInteraction.id) ? lucasActiveLinkKey : undefined}
-                          onSnapshotLink={
-                            isColdCallId(activeInteraction.id)
-                              ? (key) => {
-                                  if (key === "order" || key === "card" || key === "void-steps" || key === "maya-order" || key === "maya-card" || key === "maya-refund-steps") {
-                                    openDetailPanelContent({ kind: "tom-call", panel: key });
-                                  } else if (key.startsWith("instruction:")) {
-                                    const [, decision, text, time] = key.split(":");
-                                    openDetailPanelContent({
-                                      kind: "lucas-instruction",
-                                      decision,
-                                      text: decodeURIComponent(text ?? ""),
-                                      time: decodeURIComponent(time ?? ""),
-                                    });
-                                  }
-                                }
-                              : scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID
-                              ? (key) => {
-                                  if (key === "order") openDetailPanelContent({ kind: "order", order: MARCUS_WEBB_ORDER });
-                                }
-                              : scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID
-                              ? (key) =>
-                                  key === lucasActiveLinkKey
-                                    // Clicking the row/link whose panel is already open closes it (toggle).
-                                    ? setSelectedDetailPanelContent(null)
-                                    : key.startsWith("instruction:")
-                                    ? (() => {
-                                        const [, decision, text, time] = key.split(":");
-                                        openDetailPanelContent({
-                                          kind: "lucas-instruction",
-                                          decision,
-                                          text: decodeURIComponent(text ?? ""),
-                                          time: decodeURIComponent(time ?? ""),
-                                        });
-                                      })()
-                                    : key.startsWith("memory:")
-                                    ? openExperienceMemoryInSidePanel(key.slice("memory:".length) as LucasThomasMemoryFocus)
-                                    : openDetailPanelContent({ kind: "lucas", panel: key as LucasThomasPanelKey })
-                              : undefined
-                          }
+                          onSnapshotLink={snapshotLinkHandlerFor(activeInteraction.id)}
                           // Same union of conditions the "closed
                           // interaction"/"channel closed" banners just above
                           // this transcript already gate on — see `dimmed`'s
@@ -10937,6 +11002,8 @@ export function AgentWorkspaceAdvancedPage({
  }
                         customerName={activeInteraction.customerName}
                         customerContextOverview={customerContextOverviewInfo}
+                        // Settings → AI display "In the Contact Details panel".
+                        aiFeed={aiInPanel ? renderAiPanelFeed() : undefined}
                         // Per explicit request ("replace the autosummary
                         // card in the contact details with the content
                         // depicted in the screenshot of the real time

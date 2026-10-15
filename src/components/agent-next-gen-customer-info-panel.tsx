@@ -3628,7 +3628,11 @@ export function DetailsPanelAccordions({
   artifacts,
   onOpenArtifact,
   onViewAllArtifacts,
+  aiFeed,
 }: {
+  /** "AI in panel" mode: the AI cards/interstitials (see `AiActionsFeed`),
+   *  shown below the original cards. */
+  aiFeed?: React.ReactNode;
   /** Fired by "View All" (only shown when more than 10 artifacts are listed). */
   onViewAllArtifacts?: () => void;
   /** Side panels the agent has opened on this interaction — listed as links in the Artifacts card; clicking re-opens one. */
@@ -3864,6 +3868,10 @@ export function DetailsPanelAccordions({
           },
         ]}
       />
+      {/* Settings → AI display "In the Contact Details panel" (P-SETTINGS,
+          ported from v3): the AI cards and interstitials sit below the
+          original items. */}
+      {aiFeed && <div data-slot="ai-feed">{aiFeed}</div>}
     </div>
   );
 }

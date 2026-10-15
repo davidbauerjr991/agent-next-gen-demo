@@ -83,6 +83,7 @@ import {
   initialsFor,
   quickReplyFieldDisplayValue,
 } from "@/components/agent-next-gen-shared-utils";
+import { isAiActionMessage } from "@/components/agent-next-gen-ai-messages";
 import { useCapability } from "@/provider-context";
 
 /* ── Transcript + Composer ──
@@ -170,6 +171,76 @@ export interface TranscriptApprovalSummary {
 }
 
 type ApprovalDecisionDef = NonNullable<TranscriptApprovalSummary["decisions"]>[number];
+
+/**
+ * Settings → AI display "In the Contact Details panel" (P-SETTINGS, ported
+ * from v3): the AI content that normally sits inline in the transcript
+ * (instruction interstitials, approval request summaries, wrap-up cards,
+ * event lines) rendered as a stacked feed for the Contact Details panel
+ * instead. `overview` is the (already built) Autosummary block shown first.
+ * Same components and handlers the inline transcript uses, so behavior
+ * matches.
+ */
+export function AiActionsFeed({
+  messages,
+  overview,
+  onApprovalDecision,
+  onApprovalCallRequest,
+  onApprovalSuggestionAsk,
+  approvalTakenOver,
+  onWrapUpComplete,
+  onSnapshotLink,
+  activeSnapshotLink,
+}: {
+  messages: TranscriptMessage[];
+  overview?: React.ReactNode;
+  onApprovalDecision?: (value: string, note: string) => void;
+  onApprovalCallRequest?: (req: { value: string; anchorEl: HTMLElement; confirm: () => void }) => void;
+  onApprovalSuggestionAsk?: (text: string) => void;
+  approvalTakenOver?: boolean;
+  onWrapUpComplete?: () => void;
+  onSnapshotLink?: (key: string) => void;
+  activeSnapshotLink?: string;
+}) {
+  const aiMessages = messages.filter(isAiActionMessage);
+  if (!overview && aiMessages.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-3">
+      {overview}
+      {aiMessages.map((message) =>
+        message.instruction ? (
+          <InstructionInterstitial
+            key={message.id}
+            id={message.id}
+            instruction={message.instruction}
+            timestamp={message.timestamp}
+            onOpen={(link) => onSnapshotLink?.(link)}
+            active={activeSnapshotLink === message.instruction.link}
+          />
+        ) : message.wrapUp ? (
+          <WrapUpAccordion key={message.id} message={message} onComplete={onWrapUpComplete} />
+        ) : message.summary ? (
+          <ApprovalSummaryAccordion
+            key={message.id}
+            message={message}
+            onDecide={onApprovalDecision}
+            onCallRequest={onApprovalCallRequest}
+            onLink={onSnapshotLink}
+            onSuggestionAsk={onApprovalSuggestionAsk}
+            takenOver={approvalTakenOver}
+          />
+        ) : (
+          <div key={message.id} className="flex flex-col gap-0.5">
+            <span className="lyra-body-sm text-lyra-fg-secondary">
+              {message.timestamp} · {message.name}
+            </span>
+            <span className="lyra-body-md-emphasis text-lyra-fg-default">{message.text}</span>
+          </div>
+        )
+      )}
+    </div>
+  );
+}
 
 /** "Wrap up" card: same accordion shell as the approval request, with a success-subtle header, the AI-written summary and a "Complete wrap-up" button. */
 function WrapUpAccordion({ message, onComplete }: { message: TranscriptMessage; onComplete?: () => void }) {
