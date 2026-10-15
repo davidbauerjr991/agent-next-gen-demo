@@ -238,6 +238,7 @@ describe("Assignments: left nav", () => {
 
   it("Don't allow interactions to collapse removes the card chevrons and Collapse all, and expands collapsed cards", async () => {
     await h.show(AgentWorkspaceAdvancedPage);
+    await setSettings("channels", { chat: true });
     await h.accept(await h.startInbound("chat", "priya.shah@example.com", "Priya Shah"));
     await h.accept(await h.startInbound("chat", "dan.ortiz@example.com", "Dan Ortiz"));
     const labeled = (...labels: string[]) =>

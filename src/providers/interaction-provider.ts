@@ -184,6 +184,10 @@ export interface InteractionProvider extends EventSource<InteractionEvents>, Pro
 
   /** Sets presence by status code from `listPresenceOptions`. */
   setAgentState(code: string, reasonCode?: string): Promise<void>;
+  /** Sets the channels the agent takes contacts on (`AgentState.channels`).
+   *  Routing stops offering contacts on the others; contacts already open on
+   *  them stay until they end. */
+  setAgentChannels(channels: ChannelKind[]): Promise<void>;
   /** Connects the agent leg; state passes through "connecting". */
   connectAgentLeg(): Promise<void>;
   /** Disconnects the agent leg. */

@@ -20,8 +20,10 @@ import {
   Tooltip,
   WarningIcon,
 } from "@nicecxone/lyra-ui";
-import { readSimLatency, useProviderKind } from "@/provider-context";
+import { readSimLatency, useInteractions, useProviderKind } from "@/provider-context";
 import {
+  CONTACT_CHANNELS,
+  type ContactChannel,
   EXTRA_HEADER_APPS,
   HOME_QUEUE_CHANNELS,
   LAUNCHER_TABS,
@@ -88,6 +90,14 @@ const HOME_QUEUE_CHANNEL_LABELS: Record<HomeQueueChannel, string> = {
   voicemail: "Voicemail",
   workItem: "Work Item",
   outboundVoice: "Outbound Voice",
+};
+
+const CHANNEL_LABELS: Record<ContactChannel, string> = {
+  voice: "Voice",
+  chat: "Chat",
+  email: "Email",
+  sms: "SMS",
+  whatsapp: "WhatsApp",
 };
 
 // CXone's Directory App tabs (Dial Pad is ours).
@@ -201,6 +211,10 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
   const [home, updateHome] = useSettings("home");
   const [assignments, updateAssignments] = useSettings("assignments");
   const [outbound, updateOutbound] = useSettings("outbound");
+  const [channels, updateChannels] = useSettings("channels");
+  const callInProgress = useInteractions().some(
+    (i) => i.channel === "voice" && (i.state === "connecting" || i.state === "active" || i.state === "held"),
+  );
   const [voice, updateVoice] = useSettings("voice");
   const [ai, updateAi] = useSettings("ai");
   const [phone, updatePhone] = useSettings("phone");
@@ -433,6 +447,26 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
             checked={assignments.confirmClose}
             onCheckedChange={(confirmClose) => updateAssignments({ confirmClose })}
           />
+        </Section>
+
+        {/* The channels agents contact customers on. Voice can't be turned
+            off during a call: its switch gives way to a note. */}
+        <Section title="Channels">
+          {CONTACT_CHANNELS.map((channel) =>
+            channel === "voice" && channels.voice && callInProgress ? (
+              <div key={channel} className="flex items-center gap-2" data-channel-row={channel}>
+                <span className="lyra-body-md text-lyra-fg-default">{CHANNEL_LABELS[channel]}</span>
+                <Pending>A call is in progress</Pending>
+              </div>
+            ) : (
+              <SwitchRow
+                key={channel}
+                label={CHANNEL_LABELS[channel]}
+                checked={channels[channel]}
+                onCheckedChange={(on) => updateChannels({ [channel]: on })}
+              />
+            ),
+          )}
         </Section>
 
         {/* CXone's agent settings, by their names (the CXone adapter maps them 1:1). */}

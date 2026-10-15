@@ -171,6 +171,7 @@ describe("Apps placed in the left nav open as pages", () => {
   it("selecting a card leaves the page", async () => {
     await h.show(AgentWorkspaceAdvancedPage);
     await placeApp("tickets", "leftnav");
+    await setSettings("channels", { chat: true });
     await h.accept(await h.startInbound("chat", "dan.ortiz@example.com", "Dan Ortiz"));
     await h.click(railItem("Tickets")!);
     expect(page()).not.toBeNull();
@@ -242,6 +243,7 @@ describe("Omnichannel layout (assignments.omnichannel)", () => {
     await voiceAndEmail();
     await setSettings("assignments", { omnichannel: true });
     await h.click(headerIcon("Email")!);
+    await setSettings("channels", { chat: true });
     await h.accept(await h.startInbound("chat", "dan.ortiz@example.com", "Dan Ortiz"));
     await h.click(h.navCard("Dan Ortiz"));
     expect(slideOut()?.getAttribute("data-thread")).toBeFalsy();

@@ -40,6 +40,7 @@ function phase2(): SettingsState {
     ...base,
     header: { ...base.header, showAppIcons: true, apps },
     assignments: { ...base.assignments, omnichannel: true },
+    channels: { voice: true, chat: true, email: true, sms: true, whatsapp: true },
     // Every Directory App tab and every Outbound Calling behavior.
     outbound: {
       launcher: Object.fromEntries(LAUNCHER_TABS.map((t) => [t, true])) as Record<LauncherTab, boolean>,

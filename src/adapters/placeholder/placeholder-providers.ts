@@ -70,6 +70,7 @@ function createPlaceholderInteractionProvider(): InteractionProvider {
     listPresenceOptions: reject("listPresenceOptions"),
     listOutboundSkills: reject("listOutboundSkills"),
     setAgentState: reject("setAgentState"),
+    setAgentChannels: reject("setAgentChannels"),
     connectAgentLeg: reject("connectAgentLeg"),
     disconnectAgentLeg: reject("disconnectAgentLeg"),
     accept: reject("accept"),

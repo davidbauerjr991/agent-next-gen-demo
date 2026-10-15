@@ -54,6 +54,7 @@ describe.each([
   it("collapsed shows compact tiles; hovering expands every piece at once", async () => {
     await act(async () => {
       getSettingsStore().update("assignments", assignments);
+      getSettingsStore().update("channels", { chat: true });
     });
     await h.show(AgentWorkspaceAdvancedPage);
     await h.accept(await h.startInbound("chat", "priya.shah@example.com", "Priya Shah"));

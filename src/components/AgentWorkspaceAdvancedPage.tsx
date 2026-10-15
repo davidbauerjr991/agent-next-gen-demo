@@ -203,6 +203,10 @@ import {
   type CopilotComposerProps,
   AsyncChannelSlideOut,
   ConfirmCloseDialog,
+  useChannelSync,
+  enabledChannelOptions,
+  historyOnChannels,
+  withEnabledChannels,
   ADDRESS_BOOKS,
   channelTempo,
   omnichannelMainKey,
@@ -280,6 +284,7 @@ import {
   useSettings,
   useWorkspaceProfile,
   type ExtraHeaderApp,
+  CONTACT_CHANNELS,
 } from "@/settings";
 import { SettingsView } from "@/components/settings/SettingsView";
 import { LUCAS_THOMAS_SCRIPT, MAYA_CHEN_SCRIPT, TOM_LEWIS_SCRIPT } from "@/scenarios";
@@ -1669,26 +1674,15 @@ export function AgentWorkspaceAdvancedPage({
   // status popover (`statusMenuOpenId`/`statusMenuView`) is the only copy
   // of this left.
   // Per explicit request ("hide all non-voice contacts from the contact
-  // history - this will only have inbound/outbound voice capabilities"):
-  // filters EVERY range `buildContactHistoryByRange` returns down to
-  // `channelType === "voice"` — that builder also mixes in the shared
-  // static mock fixtures (`CONTACT_HISTORY`/`EXTENDED_CONTACT_HISTORY`/
-  // `CONTACT_HISTORY_STRESS_BATCH`, agent-next-gen-contact-history.tsx) for
-  // the "Last 48/72 Hours" ranges, not just this file's own
-  // `dismissedContactHistory`, so filtering `dismissedContactHistory`
-  // itself before calling in wouldn't have caught those. Filtered here,
-  // at this one Phase 1 call site, rather than inside the shared builder
-  // itself — that function (and its mock fixtures) is reused elsewhere
-  // (Agent Workspace 2.0/Phase 2), neither of which this voice-only
-  // request applies to.
-  const contactHistoryByRange = useMemo(() => {
-    const byRange = buildContactHistoryByRange(dismissedContactHistory);
-    return {
-      today: byRange.today.filter((entry) => entry.channelType === "voice"),
-      last48h: byRange.last48h.filter((entry) => entry.channelType === "voice"),
-      last72h: byRange.last72h.filter((entry) => entry.channelType === "voice"),
-    };
-  }, [dismissedContactHistory]);
+  // Settings → Channels: the channels agents contact customers on.
+  const [channelSettings] = useSettings("channels");
+  // Contact History shows only the channels that are on (Phase 1: voice).
+  // Every range is filtered, since the builder mixes in the shared mock
+  // fixtures for the 48/72-hour ranges.
+  const contactHistoryByRange = useMemo(
+    () => historyOnChannels(buildContactHistoryByRange(dismissedContactHistory), channelSettings),
+    [dismissedContactHistory, channelSettings]
+  );
   // Drives `AssignmentsSortButton`'s `RadioGroup` — "Last Updated" (default,
   // matching a typical inbox's own default order) or "Create Date". Actual
   // ordering happens where the cards render (`sortAssignments`), leaving
@@ -1729,7 +1723,14 @@ export function AgentWorkspaceAdvancedPage({
   // New Outbound's tabs and the Outbound Calling behaviors (CXone's names);
   // a behavior that's off hides its control.
   const [outboundSettings] = useSettings("outbound");
-  const calling = outboundSettings.calling;
+  // Voice off (Settings → Channels) also hides the voice-only behaviors
+  // (Dial Pad, Redial).
+  const enabledChannels = useMemo(() => CONTACT_CHANNELS.filter((c) => channelSettings[c]), [channelSettings]);
+  const calling = {
+    ...outboundSettings.calling,
+    adHoc: outboundSettings.calling.adHoc && channelSettings.voice,
+    redial: outboundSettings.calling.redial && channelSettings.voice,
+  };
   // Settings → Assignments → "Confirm before closing": an agent's dismiss
   // waits for the confirm dialog (ConfirmCloseDialog, mounted with the modals).
   const [pendingClose, setPendingClose] = useState<(() => void) | null>(null);
@@ -4063,6 +4064,8 @@ export function AgentWorkspaceAdvancedPage({
   // (the auto-"Working" one included), so a scripted case isn't offered
   // during Lunch.
   usePresenceSync(agentStatus);
+  // Routing offers contacts only on the channels that are on.
+  useChannelSync(enabledChannels);
 
   // Auto "Working" status while on a live voice call, per explicit request
   // ("when an agent is in a call the status should change to 'working'").
@@ -5071,12 +5074,16 @@ export function AgentWorkspaceAdvancedPage({
      Recomputed whenever `interactions` changes so an address/channel
      re-enables the moment its interaction is dismissed. */
   const outboundConfig = useMemo<CreateNewOutboundConfig>(() => {
-    const tagOpenChannels = buildOpenChannelTagger(interactions);
+    // Settings → Channels: New Outbound and the add-channel "+" offer only
+    // the channels that are on (hidden, not disabled), on every contact.
+    const tagChannels = buildOpenChannelTagger(interactions);
+    const tagOpenChannels = (contact: CreateNewOutboundContact) => withEnabledChannels(tagChannels(contact), channelSettings);
     // Skills come from the provider (`listOutboundSkills`, P0.5b.2); the
     // static list only fills in until they load.
     const providerSkills = allOutboundSkills();
     return {
       ...OUTBOUND_CONFIG,
+      channelOptions: enabledChannelOptions(OUTBOUND_CONFIG.channelOptions, channelSettings),
       skillOptions: providerSkills.length > 0 ? providerSkills : OUTBOUND_CONFIG.skillOptions,
       groups: OUTBOUND_CONFIG.groups.map((group) => {
         // Teams' own "Choose team" sub-picker — per explicit request,
@@ -5113,7 +5120,7 @@ export function AgentWorkspaceAdvancedPage({
         };
       }),
     };
-  }, [interactions, selectedOutboundTeamId, allOutboundSkills]);
+  }, [interactions, selectedOutboundTeamId, allOutboundSkills, channelSettings]);
 
   // `CONTACT_HISTORY_OUTBOUND_CONTACTS` (the 5 hand-authored rows) PLUS a
   // live-rebuilt contact for every row in `dismissedContactHistory` (see
@@ -6398,7 +6405,7 @@ export function AgentWorkspaceAdvancedPage({
     <NewOutboundLauncher
       outboundConfig={outboundConfig}
       tabs={outboundSettings.launcher}
-      adHoc={outboundSettings.calling.adHoc}
+      adHoc={calling.adHoc}
       addressBooks={ADDRESS_BOOKS}
       expanded={navOpen}
       onStartCall={handleStartCall}
@@ -10014,6 +10021,8 @@ export function AgentWorkspaceAdvancedPage({
                         // doc comment (agent-next-gen-contact-history.tsx)
                         // for why this tier alone passes it.
                         defaultDateFilter="last72h"
+                        // Channel chips only when the agent works more than one channel.
+                        showChannelTags={enabledChannels.length > 1}
                         // `onOpenAllContacts` intentionally omitted — per
                         // explicit request ("remove all contacts button from
                         // the contact history in the home dashboard"). This

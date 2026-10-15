@@ -165,6 +165,7 @@ export function createSimulatedInteractionProvider(options: SimOptions = {}): Si
     listOutboundSkills: (channel) => request({ name: "listOutboundSkills", channel }),
 
     setAgentState: (code, reasonCode) => request({ name: "setAgentState", code, reasonCode }),
+    setAgentChannels: (channels) => request({ name: "setAgentChannels", channels }),
     connectAgentLeg: () => request({ name: "connectAgentLeg" }),
     disconnectAgentLeg: () => request({ name: "disconnectAgentLeg" }),
 

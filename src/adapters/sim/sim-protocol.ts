@@ -35,6 +35,7 @@ export type SimCommand =
   | { name: "listPresenceOptions" }
   | { name: "listOutboundSkills"; channel: ChannelKind }
   | { name: "setAgentState"; code: string; reasonCode?: string }
+  | { name: "setAgentChannels"; channels: ChannelKind[] }
   | { name: "connectAgentLeg" }
   | { name: "disconnectAgentLeg" }
   | { name: "accept"; interactionId: InteractionId; journeyId?: JourneyId }
@@ -65,6 +66,7 @@ export interface SimCommandResults {
   listPresenceOptions: AgentPresence[];
   listOutboundSkills: OutboundSkill[];
   setAgentState: void;
+  setAgentChannels: void;
   connectAgentLeg: void;
   disconnectAgentLeg: void;
   accept: void;

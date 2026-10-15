@@ -225,6 +225,21 @@ const assignments = defineSection<AssignmentsSettings>({
   },
 });
 
+/** The channels agents contact customers on. Off hides every way to start
+ *  or route a contact on that channel; contacts already open on it stay
+ *  until they end. */
+export const CONTACT_CHANNELS = ["voice", "chat", "email", "sms", "whatsapp"] as const;
+export type ContactChannel = (typeof CONTACT_CHANNELS)[number];
+export type ChannelsSettings = Record<ContactChannel, boolean>;
+
+const channels = defineSection<ChannelsSettings>({
+  key: "channels",
+  version: 1,
+  // Phase 1: voice only.
+  defaults: { voice: true, chat: false, email: false, sms: false, whatsapp: false },
+  fields: Object.fromEntries(CONTACT_CHANNELS.map((c) => [c, bool()])) as Fields<ChannelsSettings>,
+});
+
 /** The New Outbound launcher's tabs, named after CXone's Directory App so
  *  the CXone adapter maps them 1:1 (`dialpad` is ours). Agents, Skills and
  *  Teams need the DirectoryProvider (P0.9); Search is built into every tab. */
@@ -346,7 +361,7 @@ const connections = defineSection<ConnectionsSettings>({
   },
 });
 
-export const SECTIONS = { header, home, assignments, outbound, voice, ai, phone, appearance, connections };
+export const SECTIONS = { header, home, assignments, channels, outbound, voice, ai, phone, appearance, connections };
 
 export type SectionKey = keyof typeof SECTIONS;
 export type SettingsState = { [K in SectionKey]: (typeof SECTIONS)[K]["defaults"] };

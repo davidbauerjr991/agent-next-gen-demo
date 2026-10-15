@@ -1,4 +1,5 @@
 import type { AgentId, EpochMs, ExternalRef } from "./ids";
+import type { ChannelKind } from "./interaction";
 
 /** The agent's softphone/telephony connection. "connecting" is transient. */
 export type AgentLegState = "disconnected" | "connecting" | "connected";
@@ -20,4 +21,8 @@ export interface AgentState {
   presence: AgentPresence;
   leg: AgentLegState;
   legChangedAt?: EpochMs;
+  /** The channels the agent takes contacts on (an ACD's per-agent media
+   *  types). Routing offers nothing on another channel. Absent: every
+   *  channel the provider supports. */
+  channels?: ChannelKind[];
 }

@@ -344,6 +344,14 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
         return undefined;
       }
 
+      case "setAgentChannels": {
+        const channels = [...new Set(command.channels)];
+        const same = agent.channels && agent.channels.length === channels.length && channels.every((c) => agent.channels!.includes(c));
+        if (same) return undefined;
+        setAgent({ channels });
+        return undefined;
+      }
+
       case "connectAgentLeg": {
         if (agent.leg !== "disconnected") return undefined;
         setAgent({ leg: "connecting", legChangedAt: now() });
@@ -720,6 +728,12 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
     switch (action.kind) {
       case "startInbound": {
         if (interactions.has(action.interactionId)) return;
+        // The agent takes no contacts on this channel (Settings → Channels),
+        // like routing during Lunch: refused, logged in dev. Scripted
+        // scenarios aren't gated (they're demo content, not routing).
+        if (agent.channels && !agent.channels.includes(action.channel)) {
+          throw new Error(`channel ${action.channel} is off in Settings → Channels`);
+        }
         const interaction = routeInbound(action);
         emit({ name: "incoming", payload: { interaction } });
         return;

@@ -12,6 +12,7 @@ import { SIM_DEMO_DIRECTORY } from "@/adapters/sim/sim-demo-directory";
 import { createSimCustomerClient, type SimCustomerClient } from "@/adapters/sim/sim-customer-client";
 import { createSimulatedInteractionProvider, type SimulatedInteractionProvider } from "@/adapters/sim/simulated-interaction-provider";
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
+import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
 import type { ChannelKind, InteractionId } from "@/domain";
 import { DEFAULT_SLA } from "@/profiles/contact-center-profile";
 import { ProviderRoot } from "@/provider-context";
@@ -114,6 +115,14 @@ async function show(Page: PageComponent) {
 
 const advance = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
 
+/** Settings → Channels → Chat on (Phase 1 is voice only), synced to routing. */
+async function withChat() {
+  await act(async () => {
+    getSettingsStore().update("channels", { chat: true });
+    await vi.advanceTimersByTimeAsync(50);
+  });
+}
+
 async function startInbound(channel: ChannelKind, address: string, displayName: string): Promise<InteractionId> {
   let id = "" as InteractionId;
   await act(async () => {
@@ -160,6 +169,8 @@ function navTexts(tier: "warning" | "critical"): string[] {
 }
 
 beforeEach(() => {
+  localStorage.clear();
+  resetSettingsStoreForTests();
   vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
   databaseCounter += 1;
   databaseId = `pages-${databaseCounter}`;
@@ -329,6 +340,7 @@ describe("Advanced: P0.5c browser-check fixes", () => {
 
   it("4. a live chat row has no Unassign & Dismiss icon; it appears once the contact has ended", async () => {
     await show(AgentWorkspaceAdvancedPage);
+    await withChat();
     const id = await startInbound("chat", "priya.shah@example.com", "Priya Shah");
     await accept(id);
     await click(navCard("Priya Shah"));
@@ -422,6 +434,7 @@ describe("Advanced: an approval card's decision survives a remount (P0.5c)", () 
 describe("remount", () => {
   it("a carried-over chat shows once, never also in the docked preview", async () => {
     await show(AgentWorkspaceAdvancedPage);
+    await withChat();
     const id = await startInbound("chat", "priya.shah@example.com", "Priya Shah");
     await accept(id);
     await click(navCard("Priya Shah"));
