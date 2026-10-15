@@ -21,6 +21,10 @@ import { SCENARIOS } from "@/scenarios";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+// Whole-page renders run several seconds each when the full suite runs in
+// parallel; vitest's 5s default is too tight for them.
+vi.setConfig({ testTimeout: 30_000 });
+
 // jsdom has no layout. The pages measure their containers to pick narrow
 // modes, so every box reads as desktop-sized, and the browser APIs they call
 // exist as no-ops.

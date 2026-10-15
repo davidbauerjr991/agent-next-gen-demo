@@ -7593,6 +7593,15 @@ export function AgentWorkspaceAdvancedPage({
                   cardAwaitingChannels.length > 0
                     ? Math.max(...cardAwaitingChannels.map(channelAwaitingWaitSeconds))
                     : undefined;
+                // The card's SLA tier: a ringing offer on its answer SLA
+                // (profile thresholds), else the longest awaiting reply.
+                // Drives the outline/timer and the new-assignment dot.
+                const cardSlaSeverity =
+                  interaction.offered && earliestStart !== undefined
+                    ? answerSeverity(clockTick - earliestStart, answerSla)
+                    : cardAwaitingWaitSeconds !== undefined
+                      ? getAwaitingSeverity(cardAwaitingWaitSeconds)
+                      : undefined;
                 // PROTOTYPE (CollapsedChannelBadge, local-only): the same
                 // channel this card's `currentChannelKey` prop below already
                 // resolves to — falls back to the most-recent channel when
@@ -7710,13 +7719,12 @@ export function AgentWorkspaceAdvancedPage({
                     // answer SLA (profile thresholds): timer and border turn
                     // warning, then critical, while it goes unanswered.
                     awaitingResponse={!!interaction.offered || cardAwaitingChannels.length > 0}
-                    awaitingSeverity={
-                      interaction.offered && earliestStart !== undefined
-                        ? answerSeverity(clockTick - earliestStart, answerSla)
-                        : cardAwaitingWaitSeconds !== undefined
-                          ? getAwaitingSeverity(cardAwaitingWaitSeconds)
-                          : undefined
-                    }
+                    awaitingSeverity={cardSlaSeverity}
+                    // The new-assignment dot takes the same answer/awaiting
+                    // SLA tier as the chip and outline: green within target,
+                    // amber at warning, red once breached. When it shows is
+                    // unchanged (`isNewAssignment`).
+                    newAssignmentSeverity={cardSlaSeverity ?? "success"}
                     // "" (not a fallback duration) once every channel on
                     // this card is closed — see `cardOpenChannels`'s own doc
                     // comment above for why `earliestStart` is `undefined`

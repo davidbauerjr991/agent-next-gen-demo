@@ -22,6 +22,11 @@ import { LUCAS_THOMAS_SCRIPT, MARCUS_WEBB_SCRIPT, MAYA_CHEN_SCRIPT, SCENARIOS, T
 // tile's answer SLA, session controls while ringing, the docked voice bar
 // and a tier switch. Parity: every page-level check runs on both pages.
 
+// Whole-page renders run several seconds each when the full suite runs in
+// parallel; vitest's 5s default timed the first one out, and the rest of the
+// file then failed with it.
+vi.setConfig({ testTimeout: 30_000 });
+
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 // jsdom has no layout. The pages measure their containers to pick narrow
