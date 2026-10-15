@@ -12,7 +12,14 @@ export {
   applyStoredTheme,
 } from "./hooks";
 export { PROFILE_LABELS, type ProfileId, type WorkspaceProfile } from "./profiles";
-export { pinnedKeysFromHeader, leftNavKeysFromHeader, headerPatchForPin, type HeaderPanelKey } from "./header-pins";
+export {
+  pinnedKeysFromHeader,
+  leftNavKeysFromHeader,
+  headerPatchForPin,
+  homeTabApps,
+  tabOrderPatch,
+  type HeaderPanelKey,
+} from "./header-pins";
 export {
   EXTRA_HEADER_APPS,
   type AppDisplay,

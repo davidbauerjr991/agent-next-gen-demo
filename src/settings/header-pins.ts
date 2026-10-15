@@ -29,6 +29,19 @@ export function leftNavKeysFromHeader(header: HeaderSettings): HeaderPanelKey[] 
   ];
 }
 
+/** Apps placed as Home tabs, in the stored tab order. The tab bar shows
+ *  (Dashboard first) whenever this isn't empty. */
+export function homeTabApps(header: HeaderSettings): ExtraHeaderApp[] {
+  return header.tabOrder.filter((app) => header.apps[app].enabled && header.apps[app].placement === "tab");
+}
+
+/** The `header` patch for a dragged Home tab order: the dragged tab apps in
+ *  their new order, then every other app in its old order. */
+export function tabOrderPatch(header: HeaderSettings, dragged: readonly string[]): Partial<HeaderSettings> {
+  const moved = dragged.filter((k): k is ExtraHeaderApp => isExtra(k as HeaderPanelKey));
+  return { tabOrder: [...moved, ...header.tabOrder.filter((app) => !moved.includes(app))] };
+}
+
 /** The `header` patch that pins (shows in the header) or unpins one app from
  *  the apps menu. Pinning moves the app to the header placement. */
 export function headerPatchForPin(header: HeaderSettings, key: HeaderPanelKey, pinned: boolean): Partial<HeaderSettings> {

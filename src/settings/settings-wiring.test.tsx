@@ -141,7 +141,7 @@ describe("Header: Show app icons", () => {
     expect(headerHas("Search")).toBe(true);
   });
 
-  it("an app's display: header shows its icon, Left Nav shows a rail item, tab is stored without rendering", async () => {
+  it("an app's display: header shows its icon, Left Nav shows a rail item, tab shows a Home tab", async () => {
     await h.show(AgentWorkspaceAdvancedPage);
     await setSettings("header", { showAppIcons: true });
     const setCustomers = (enabled: boolean, placement: AppPlacement) =>
@@ -164,6 +164,8 @@ describe("Header: Show app icons", () => {
     expect(headerHas("Customers")).toBe(false);
     expect(railHas("Customers")).toBe(false);
     expect(store().getState().values.header.apps.customers).toEqual({ enabled: true, placement: "tab" });
+    const tabStrip = h.container.querySelector("[data-slot=home-tabs]");
+    expect([...(tabStrip?.querySelectorAll('[role="tab"]') ?? [])].map((t) => t.textContent?.trim())).toEqual(["Dashboard", "Customers"]);
   });
 
   it("Agent chat's display: header shows its icon, Left Nav shows a rail item that opens its panel", async () => {

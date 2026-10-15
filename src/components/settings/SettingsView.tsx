@@ -249,16 +249,13 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
                       onCheckedChange={(c) => setDisplay({ enabled: !!c })}
                     />
                     {display.enabled && (
-                      <div className="ml-7 flex items-end gap-2">
-                        <div className="w-full max-w-xs">
-                          <Select
-                            label={`${EXTRA_APP_LABELS[app]} display`}
-                            options={APP_DISPLAY_OPTIONS}
-                            value={display.placement}
-                            onValueChange={(value) => setDisplay({ placement: value as AppPlacement })}
-                          />
-                        </div>
-                        {display.placement === "tab" && <Pending>Arrives in P0.5d.2</Pending>}
+                      <div className="ml-7 w-full max-w-xs">
+                        <Select
+                          label={`${EXTRA_APP_LABELS[app]} display`}
+                          options={APP_DISPLAY_OPTIONS}
+                          value={display.placement}
+                          onValueChange={(value) => setDisplay({ placement: value as AppPlacement })}
+                        />
                       </div>
                     )}
                   </React.Fragment>

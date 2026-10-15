@@ -18,6 +18,16 @@ export const oneOf =
 
 export type Fields<T> = { [K in keyof T]: Field<T[K]> };
 
+/** An ordering of `values`: unknown and repeated keys are dropped, and
+ *  missing keys are appended in `values` order. */
+export const keyList =
+  <K extends string>(values: readonly K[]): Field<K[]> =>
+  (raw, fallback) => {
+    if (!Array.isArray(raw)) return fallback;
+    const out = [...new Set(raw.filter((k): k is K => typeof k === "string" && (values as readonly string[]).includes(k)))];
+    return [...out, ...values.filter((k) => !out.includes(k))];
+  };
+
 /** A nested object, read field by field; unknown stored fields are dropped. */
 export const group =
   <T extends object>(fields: Fields<T>): Field<T> =>
@@ -55,7 +65,7 @@ export const APP_PLACEMENTS = ["tab", "leftnav", "header"] as const;
 export type AppPlacement = (typeof APP_PLACEMENTS)[number];
 export interface AppDisplay {
   enabled: boolean;
-  /** "tab" is stored but inert until P0.5d.2's Home tabs. */
+  /** "tab": a Home tab after Dashboard (the tab bar shows while any app is one). */
   placement: AppPlacement;
 }
 
@@ -76,6 +86,8 @@ export interface HeaderSettings {
   /** The View All Apps picker (embedded apps, P7.6). */
   appsGrid: boolean;
   apps: Record<ExtraHeaderApp, AppDisplay>;
+  /** The Home tabs' order after Dashboard (dragging a tab writes it). */
+  tabOrder: ExtraHeaderApp[];
 }
 
 const appDisplay = group<AppDisplay>({ enabled: bool(), placement: oneOf(APP_PLACEMENTS) });
@@ -94,6 +106,7 @@ const header = defineSection<HeaderSettings>({
     notifications: true,
     appsGrid: true,
     apps: Object.fromEntries(EXTRA_HEADER_APPS.map((app) => [app, HIDDEN_APP])) as Record<ExtraHeaderApp, AppDisplay>,
+    tabOrder: [...EXTRA_HEADER_APPS],
   },
   fields: {
     showAppIcons: bool(),
@@ -104,6 +117,7 @@ const header = defineSection<HeaderSettings>({
     apps: group<Record<ExtraHeaderApp, AppDisplay>>(
       Object.fromEntries(EXTRA_HEADER_APPS.map((app) => [app, appDisplay])) as Fields<Record<ExtraHeaderApp, AppDisplay>>,
     ),
+    tabOrder: keyList(EXTRA_HEADER_APPS),
   },
 });
 

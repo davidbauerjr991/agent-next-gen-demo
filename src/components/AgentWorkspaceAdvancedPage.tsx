@@ -205,7 +205,8 @@ import {
   type OutcomeDraft,
 } from "@/contact-handling";
 import { NeedsOutcomeBadge } from "@/components/OnHoldBadge";
-import { CustomersTabBody } from "@/components/home-tabs";
+import { AppTabBody, CustomerTabBodies, CustomersTabBody, HomeTabStrip } from "@/components/home-tabs";
+import { isCustomerTab, keptMountedClass, useHomeTabs } from "@/components/home-tabs-state";
 import { HomeDashboard } from "@/components/home-dashboard";
 import { useCustomerTableState } from "@/components/customer-table-state";
 import { useSearchPanelContent, type SearchPanelTabKey } from "@/components/agent-next-gen-search-panel";
@@ -225,6 +226,7 @@ import {
   HistoryConversationView,
   CustomerInformationSidePanel,
   AGENT_WORKSPACE_CUSTOMER_PANEL_TABS,
+  CUSTOMER_PANEL_TABS,
   type CustomerPanelTabLabel,
   buildCustomerInfoFields,
   useCustomerRecordDraft,
@@ -261,7 +263,16 @@ import {
 } from "@/contact-handling/scenario-cases";
 import { useCopilotAsk, useCopilotResultTimer } from "@/contact-handling/useCopilotAsk";
 import { usePresenceSync } from "@/contact-handling/usePresenceSync";
-import { PROFILE_LABELS, headerPatchForPin, leftNavKeysFromHeader, pinnedKeysFromHeader, useSettings, useWorkspaceProfile } from "@/settings";
+import {
+  PROFILE_LABELS,
+  headerPatchForPin,
+  homeTabApps,
+  leftNavKeysFromHeader,
+  pinnedKeysFromHeader,
+  tabOrderPatch,
+  useSettings,
+  useWorkspaceProfile,
+} from "@/settings";
 import { SettingsView } from "@/components/settings/SettingsView";
 import { LUCAS_THOMAS_SCRIPT, MAYA_CHEN_SCRIPT, TOM_LEWIS_SCRIPT } from "@/scenarios";
 import {
@@ -2570,43 +2581,6 @@ export function AgentWorkspaceAdvancedPage({
       ? getHoldSeverity(clockTick - activeChannel.heldSinceTick)
       : undefined
   );
-  // "interactions" removed from this page's own tab set — that content
-  // moved to the Search right panel instead (see `searchContent`'s own
-  // doc comment above). `DeskTabKey`/`DESK_TAB_LABELS` (shared,
-  // agent-next-gen-interaction-dashboard.tsx) still include `"interactions"`
-  // — untouched, since `AgentWorkspace2WithDeskPage.tsx` still uses it.
-  //
-  // The Home/Customers/Accounts/Tickets/WEM `TabList` row itself was
-  // removed from this page's dashboard entirely per a follow-up explicit
-  // request ("remove all of the tabs from the home page") — WEM moved to
-  // its own top-right app-header icon instead (see `PANEL_KEY_METADATA.wem`
-  // above), Customers already has its Search-panel Customers tab as a real
-  // alternative, and Accounts/Tickets never had real content built. With no
-  // `TabList` left to switch it, `activeDeskTab` can now only ever be
-  // "home" — a plain constant, not `useState`, since nothing sets it
-  // anymore (its own `setActiveDeskTab` setter, and the whole `deskTabOrder`
-  // reorder-state this file used to also need for that row's drag-to-
-  // reorder, are both gone for the same reason). The now-orphaned Customers/
-  // Accounts/Tickets/WEM per-tab render branches further down this file
-  // (the desk's own — separate from the Search panel's — `CustomersListView`
-  // instance, and the Accounts/Tickets/WEM "Coming soon" placeholder) are
-  // deliberately left in place rather than deleted, same "hide it, don't
-  // destroy it" convention `HIDDEN_FROM_APPS_MENU`/`OUTBOUND_GROUPS`'s own
-  // "Dial Pad" entry already follow elsewhere in this file — they simply
-  // can never be reached anymore now that `activeDeskTab` is pinned to
-  // "home".
-  //
-  // Still a `useState` (setter just never called/destructured anymore),
-  // NOT a plain `const activeDeskTab: SomeUnion = "home"` — TypeScript
-  // narrows a `const`'s later reads to its own literal initializer's type
-  // even under an explicit wider annotation (confirmed live: that version
-  // hit real `tsc` "no overlap" errors at every `activeDeskTab ===
-  // "customers"`-style comparison below). `useState<T>(initial)`'s return
-  // is typed as the explicit generic `T` itself, not narrowed from
-  // `initial`'s own literal type, which is what keeps those comparisons
-  // (and the "orphaned but not deleted" branches they gate) type-checking
-  // correctly with no runtime behavior change.
-  const [activeDeskTab] = useState<"home" | "customers" | "accounts" | "tickets" | "wem">("home");
   /* Settings — a third top-level view alongside Desk/interaction-record,
      shown in place of both in the content column when the Settings rail
      item is clicked. Mutually exclusive with an active interaction: opening
@@ -3473,6 +3447,10 @@ export function AgentWorkspaceAdvancedPage({
   const [headerSettings, updateHeaderSettings] = useSettings("header");
   const pinnedKeys: Record<PanelKey, boolean> = pinnedKeysFromHeader(headerSettings);
   const togglePinnedKey = (key: PanelKey) => updateHeaderSettings((prev) => headerPatchForPin(prev, key, !pinnedKeysFromHeader(prev)[key]));
+  // Home tabs: Dashboard plus the apps placed as "tab" (none on Phase 1, so no tab bar).
+  const tabApps = homeTabApps(headerSettings);
+  const homeTabs = useHomeTabs(tabApps);
+  const activeDeskTab = homeTabs.activeTab;
   const [appsMenuOpen, setAppsMenuOpen] = useState(false);
 
   /* Interior panel (right) */
@@ -9858,130 +9836,44 @@ export function AgentWorkspaceAdvancedPage({
                 </div>
               ) : (
                 <div key="dashboard" className="flex flex-1 flex-col min-w-0 overflow-hidden animate-in fade-in-0 duration-200">
-              {/* Body row: main content + interior panel */}
-              <div className="relative flex flex-1 overflow-hidden">
-              {/* Customers list view + row-info panel stay mounted across
-                  desk-tab switches (never unmounted by the `hidden` toggle
-                  below) so `CustomersListView`'s own search/sort/filters/
-                  added-filter-keys/visible-columns/pagination/row-selection
-                  state all survive navigating away to another tab and back
-                  — a plain `cond ? <CustomersListView/> : ...` would remount
-                  it fresh (and lose every one of those) each time.
-
-                  Both now live together in ONE real box (`flex flex-1
-                  overflow-hidden`, not `display:contents`) that toggles
-                  `hidden` as a whole, rather than each having its own
-                  separate visibility mechanism the way this used to be
-                  split (`CustomersListView` behind a `contents`/`hidden`
-                  wrapper, `CustomerRowInfoPanel` driven by nulling its own
-                  `row` prop instead). That split was the actual cause of a
-                  reported bug: nulling `row` on tab-switch didn't hide the
-                  panel — it told `InteriorPanel` to CLOSE, which plays its
-                  own 250ms width-close transition. Because the panel was a
-                  real flex sibling of whatever the newly-selected tab was
-                  about to show, that 250ms of shrinking width visibly
-                  reflowed the new tab's content growing to fill the space
-                  beside it — the "dashboard animating its position" bug.
-                  Removing it from layout instantly (rather than animating
-                  the panel closed) is what fixes the reported reflow — the
-                  panel's own real open/close animation still plays normally
-                  for actual same-tab closes (its header's × button, or
-                  `onRowClick` picking a different row); only navigating AWAY
-                  from this tab skips it.
-
-                  `display:none` (Tailwind's `hidden`) was the first attempt
-                  here, but it caused a SECOND, subtler bug on the way BACK
-                  in: `InteriorPanel` (inside `CustomerRowInfoPanel`) tracks
-                  its own real DOM parent's width via `ResizeObserver` to
-                  decide whether to auto-full-screen below 768px (see that
-                  component's own doc comment) — and `display:none` elements
-                  report a genuine 0×0 size to `ResizeObserver`, not just a
-                  stale old value. So the instant this wrapper went
-                  `display:none`, the observer fired with width 0, and that
-                  0 lingered as `InteriorPanel`'s last-known parent width
-                  until a NEW (necessarily asynchronous — `ResizeObserver`
-                  callbacks never run synchronously with the style change
-                  that caused them) callback caught up with the real width
-                  after switching back. For that one frame, `parentWidth`
-                  read as 0 (well under both the 1024px/768px thresholds),
-                  so `InteriorPanel` briefly rendered its full-screen/
-                  absolute-overlay layout before correcting itself back to
-                  its normal ~350-425px docked width and position — visible
-                  as the panel sliding in from full width, the left-to-right
-                  animation reported after this fix's first pass.
-
-                  `visibility:hidden` (`invisible`) + `position:absolute
-                  inset-0` was the SECOND attempt, replacing `display:none` —
-                  it still generates a real box with a real, stable size for
-                  `ResizeObserver`, fixing the bug above. But it introduced a
-                  THIRD bug: `visibility` is inherited but overridable by a
-                  descendant that sets its own explicit value — and
-                  `InteriorPanel`'s inner content div does exactly that
-                  (`style={{ visibility: open ? "visible" : "hidden" }}`,
-                  interior-panel.tsx), keyed off its OWN `open` prop, which is
-                  `row !== null` — true regardless of which desk tab is
-                  active, since `row` is just `selectedCustomerRow` now, not
-                  gated on `activeDeskTab` (see the render call site below).
-                  So `invisible` on this wrapper got silently overridden back
-                  to visible one level down, and — still `position:absolute`,
-                  so no longer competing for flex space either — the panel
-                  rendered floating on top of whatever tab WAS actually
-                  active, confirmed from a screenshot showing it overlapping
-                  the Dashboard.
-
-                  `opacity-0` (this wrapper) + `inert` (native HTML attribute,
-                  supported as a real prop since React 19 — see this file's
-                  own React version) is the fix that actually holds up:
-                  unlike `visibility`, `opacity` composites the WHOLE
-                  subtree as one flattened layer, so a descendant's own
-                  inline `opacity`/`visibility` can't punch back through a
-                  `0`-opacity ancestor the way it could with `visibility`
-                  alone. `inert` (not just `pointer-events-none`) additionally
-                  drops the entire subtree out of tab order and the
-                  accessibility tree and blocks ALL interaction, not only
-                  pointer events — the same "fully inactive but still really
-                  there, still correctly sized" result `visibility:hidden`
-                  was reaching for, just via a property children genuinely
-                  cannot override.
-
-                  On this page none of the above applies anymore: Phase 1
-                  has no desk tabs (`activeDeskTab` is a constant "home"), so
-                  the always-mounted, invisible Customers table only sat on
-                  top of Home, where the component-highlight overlay labeled
-                  Home as `CustomersListView`/`TableToolbar`/... It's now
-                  rendered only while the Customers tab is active, i.e.
-                  never on Phase 1. The tab-switch handling above still
-                  lives in AgentWorkspace2WithDeskPage.tsx, which has real
-                  desk tabs. The Search panel's own Customers sub-tab
-                  doesn't need this block; it renders its own row panel. */}
-              {activeDeskTab === "customers" && (
-                <CustomersTabBody
-                  table={customerTable}
-                  tabs={AGENT_WORKSPACE_CUSTOMER_PANEL_TABS}
-                  onStartInteraction={(contact, channel, phone, skillId) => handleStartCall({ contact, channel, phone, skillId })}
-                  onAddToast={addToast}
-                  onRowClick={() => {}}
-                  isRowOpen={(row) => interactions.some((i) => i.customerId === row.contactNumber)}
+              {/* Home tabs: shown while any app is placed as "tab" (Settings → Header). */}
+              {showPageHeader && tabApps.length > 0 && (
+                <HomeTabStrip
+                  tabs={homeTabs}
+                  apps={tabApps}
+                  onReorder={(order) => updateHeaderSettings((prev) => tabOrderPatch(prev, order))}
                 />
               )}
-              {activeDeskTab !== "customers" && (activeDeskTab !== "home" ? (
-                // Accounts/Tickets/WEM — no content built yet; same
-                // "Coming soon" placeholder treatment used elsewhere in
-                // this file for in-progress tabs (e.g. the Customer
-                // History tab), rather than silently falling through to
-                // the Dashboard's own queue widgets/summary cards below.
-                // `key={activeDeskTab}` forces a fresh mount on every
-                // switch (including Accounts → Tickets, which would
-                // otherwise reuse this exact same element/position and
-                // never replay `animate-in`) — same reasoning as the
-                // top-level Settings/interaction/dashboard branches' own
-                // `key`s above. "Interactions" no longer has its own
-                // branch here — that content moved to the Search right
-                // panel (see `searchContent`'s own doc comment), so this
-                // page's `activeDeskTab` union no longer offers it at all.
-                <div key={activeDeskTab} className="flex flex-1 items-center justify-center p-4 animate-in fade-in-0 duration-200">
-                  <p className="lyra-body-md text-lyra-fg-disabled text-center">Coming soon</p>
-                </div>
+              {/* Body row: main content + interior panel */}
+              <div className="relative flex flex-1 overflow-hidden">
+              {/* The Customers tab (table + row panel) and the customer tabs
+                  stay mounted while another Home tab shows, so their state
+                  survives switching (`keptMountedClass`). Mounted only while
+                  Customers is a tab: on Phase 1 Home has none of this. */}
+              {tabApps.includes("customers") && (
+                <CustomersTabBody
+                  className={keptMountedClass(activeDeskTab === "customers")}
+                  inert={activeDeskTab !== "customers"}
+                  table={customerTable}
+                  tabs={CUSTOMER_PANEL_TABS}
+                  onStartInteraction={(contact, channel, phone, skillId) => handleStartCall({ contact, channel, phone, skillId })}
+                  onAddToast={addToast}
+                  onRowClick={customerTable.toggleRow}
+                  onOpenFullScreenTab={homeTabs.openCustomer}
+                  isRowOpen={(row) =>
+                    interactions.some((i) => i.customerId === row.contactNumber) ||
+                    homeTabs.customerTabs.some((t) => t.row.contactNumber === row.contactNumber)
+                  }
+                />
+              )}
+              <CustomerTabBodies
+                tabs={homeTabs}
+                onStartInteraction={(contact, channel, phone, skillId) => handleStartCall({ contact, channel, phone, skillId })}
+                onAddToast={addToast}
+              />
+              {activeDeskTab !== "customers" && !isCustomerTab(activeDeskTab) && (activeDeskTab !== "dashboard" ? (
+                // Any other tab-placed app shows its header-panel content.
+                <AppTabBody key={activeDeskTab} content={contentByPanelKey[activeDeskTab]} />
               ) : (
                 <>
                 <HomeDashboard
