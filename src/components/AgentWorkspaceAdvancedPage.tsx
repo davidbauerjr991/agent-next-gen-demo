@@ -623,6 +623,27 @@ function MockLoginCard({
   );
 }
 
+// LeftNav's overlay (responsive) mode expands on hover by cloning
+// `expanded={hoverOpen}` onto the TOP-LEVEL children of its slots
+// (`injectExpanded`, lyra left-nav.tsx); anything nested deeper keeps its own
+// `expanded={navOpen}` and stays collapsed. These two keep the slots in the
+// shape lyra's "Agent Next Gen Left Nav" story uses, so the cards, the rail
+// and the launcher all follow hover together.
+
+/** A top-level `header` child that hands LeftNav's injected `expanded` to a
+ *  render function (e.g. through `ClockTick` to the card). `undefined` when
+ *  nothing was injected (inline mode): the caller falls back to `navOpen`. */
+function LeftNavSlot({ expanded, children }: { expanded?: boolean; children: (expanded: boolean | undefined) => React.ReactNode }) {
+  return <>{children(expanded)}</>;
+}
+
+/** A top-level `footer` child with the rail's spacing above it (Settings →
+ *  "New Outbound at the bottom"); passes LeftNav's injected `expanded` on to
+ *  the launcher. */
+function LeftNavFooterSpacer({ expanded, children }: { expanded?: boolean; children: React.ReactElement<{ expanded?: boolean }> }) {
+  return <div className="w-full pt-2">{expanded === undefined ? children : React.cloneElement(children, { expanded })}</div>;
+}
+
 // Wraps a single `InteractionNavItem` (plus its collapsed-rail-only
 // `CollapsedChannelBadge` overlay) behind ONE stable top-level element,
 // rather than the `.map()` callback below returning two structurally
@@ -6955,11 +6976,13 @@ export function AgentWorkspaceAdvancedPage({
             // under it (v3 f0b13dc).
             // Order: Home, (left-nav apps,) Settings, then New Outbound,
             // full width with the rail's spacing above it.
+            // Top-level children only (no wrapper div), so the overlay
+            // hover's `expanded` reaches the rail and the launcher.
             !navItemsAtTop || newOutboundAtBottom ? (
-              <div className="flex w-full min-w-0 flex-col">
+              <>
                 {!navItemsAtTop && <NavRail expanded={navOpen} items={navRailItems} />}
-                {newOutboundAtBottom && <div className="pt-2">{newOutboundLauncher}</div>}
-              </div>
+                {newOutboundAtBottom && <LeftNavFooterSpacer>{newOutboundLauncher}</LeftNavFooterSpacer>}
+              </>
             ) : undefined
           }
           // "New Outbound" itself has moved several times now: started as
@@ -7053,7 +7076,15 @@ export function AgentWorkspaceAdvancedPage({
                   and not the page. The card body below keeps its old
                   indentation to keep this diff small. */}
               {sortAssignments(interactions, assignmentSort, assignmentSortDirection).map((interaction) => (
-                <ClockTick key={interaction.id}>
+                // `LeftNavSlot` is the top-level element LeftNav's overlay
+                // mode clones its hover `expanded` onto (`injectExpanded`
+                // reaches only top-level children); it hands that value
+                // through `ClockTick` to the card, as lyra's "Agent Next
+                // Gen Left Nav" story wires its cards. Inline mode injects
+                // nothing, so the card falls back to `navOpen`.
+                <LeftNavSlot key={interaction.id}>
+                  {(slotExpanded) => (
+                <ClockTick>
                   {(clockTick) => {
                 const mostRecentId = interaction.threads[interaction.threads.length - 1]?.id;
                 // For the active card specifically, an open channel preview
@@ -7688,7 +7719,7 @@ export function AgentWorkspaceAdvancedPage({
                         ? formatElapsedTime(cardAwaitingWaitSeconds ?? clockTick - earliestStart)
                         : ""
                     }
-                    expanded={navOpen}
+                    expanded={slotExpanded ?? navOpen}
                     channels={channels}
                     onDismiss={() => handleDismissInteraction(interaction.id)}
                     onDismissChannel={(channel) => handleDismissChannel(interaction.id, channel)}
@@ -7747,6 +7778,8 @@ export function AgentWorkspaceAdvancedPage({
                 );
               }}
                 </ClockTick>
+                  )}
+                </LeftNavSlot>
               ))}
             </>
           }
