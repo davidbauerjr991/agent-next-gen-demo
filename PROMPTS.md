@@ -43,6 +43,9 @@ Wrap up this step: run the type-check and the test suite, update PROGRESS.md (do
 - **P0.4** — `SimulatedInteractionProvider` + `SimEngine` + `SimTransport` (`src/adapters/sim`), browser-verified.
 - **P0.8, P0.5.0, P0.5a, P-CHORE-TICK, P0.5b.1, P0.5b.2** — see PROGRESS.md.
 - **P0.5d.1** — provider wiring for voice controls, incoming tile and the inline wrap-up card (see PROGRESS.md); the prompts below for 5d.2 build on it.
+- **P0.7, P0.5c** — scenario script format; the scenario player in the sim engine, all four scripted cases engine-backed on Advanced (see PROGRESS.md).
+
+**One page (decided 2026-10-15):** Advanced is the single workspace; Desk is frozen as a reference and deleted at the end of P0.5d.2. Prompts below that say "both pages" mean Advanced only unless they say otherwise.
 
 **Execution order (revised 2026-10-15):** finish 5d.1 → P0.7 → P0.5c → P-SETTINGS → P0.5d.2 → P0.9.1–9.3 → P0.6 → Phase 1 (incl. P1.4a, P1.4b) → Phase 2 → Phase 3 → Phase 4 (incl. P4.4a, P4.11) → remaining verticals → Phase 5 (incl. P5.6, P5.7) → Phase 6 → Phase 7 → P-ADAPTER sequence.
 
@@ -80,23 +83,27 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 5b.2; 5b.1 is co
 ### P0.5d.1 — Voice controls, incoming tile and wrap-up card (provider wiring)   ✋ (Plan: Opus · Implement: Opus) — done
 The original P0.5d prompt was split (2026-10-14). 5d.1 is done; see PROGRESS.md and PLAN.md Decisions for what it built (controlled voice controls, `IncomingOfferActions`, the inline wrap-up card, per-channel drafts, hold chips, recording dot, one call per customer, inbound skill and pre-contact summary).
 
-### P0.5d.2 — Parity convergence + layout slots   ✋ (Plan: Opus · Implement: Opus)
+### P0.5d.2 — Consolidate Desk into Advanced behind LayoutConfig flags, then delete Desk   ✋ (Plan: Opus · Implement: Opus) — after P-SETTINGS
 ```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 5d.2. 5d.1 is committed. In plan mode, propose, in shared code first:
-- Layout slots: a <LayoutSlot anchor="voice-bar" | "incoming-tile" | "right-panel" | …> component that each page places once; the voice bar, the incoming tile and the right panel mount through it instead of inline JSX, so Phase 7's LayoutConfig can move them without page edits. Phase 1 and Phase 2 pass their current anchors; no visual change from this alone.
-- Row 1 and 6: Desk's persistent voice bar outside the card view (visible on Home too), with the "View Transcript?" confirm.
-- Rows 7, 8, 9, 23: one CONTACT_HANDLING_FLAGS + capabilities replacing the per-page SHOW_* constants (End Call on both pages; Consult/Transfer, kebab and add participant capability-gated; Outcome always visible on voice rows).
-- Row 20: remove Desk's hover-preview Outcome entry point.
-- Row 21: opening a notification expands the left nav on both pages.
-- Row 11: the voice icon in the record header on both pages.
-- Row 14, closing the exception: Phase 1 adopts Phase 2's full New Outbound launcher (groups, search, Favorites) with the Agents, Skills and My Team groups removed on both pages (PLAN.md "Settings and configuration": New Outbound is customers and external numbers only; Skills stays only as the dial's outbound skill picker). "Call previous agent" moves to the Contact History row as a consult action placeholder until P0.9.
-- Scripted scenario cards are on the provider after 5c, so no scenario exceptions remain.
-For every visual change on either page, give a before/after and wait for my approval. Done = both pages behave identically apart from tabs, panels and home; npm test passes; type-check at baseline; list browser checks for me. Don't write code yet.
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 5d.2, re-scoped by the one-page decision (PLAN.md Decisions 2026-10-15): Advanced (AgentWorkspaceAdvancedPage) is the single workspace and Desk (AgentWorkspace2WithDeskPage) is a frozen reference. P-SETTINGS is committed, so LayoutConfig, its flags and the Phase 1 / Phase 2 / Custom presets exist. In plan mode, propose consolidating Desk's pieces into Advanced behind those flags, then deleting Desk:
+- Inventory first (report before proposing): every Desk-only piece — the omnichannel layout (sync channels in the main column, async channels as slide-outs, PLAN.md Phase 2), Home tabs, header apps, desk tabs and the calendar — with where it lives in Desk, what it depends on, and whether it can be lifted as a self-contained component (CLAUDE.md file organization: new self-contained pieces go in their own src/components file) or needs page state.
+- Port each piece into Advanced behind its LayoutConfig flag. With the Phase 1 preset (every Desk flag off) Advanced looks and behaves exactly as today; with the Phase 2 preset (every flag on) it matches Desk's layout. Contact handling stays the shared code it already is; nothing contact-handling is ported from Desk.
+- Layout slots: a <LayoutSlot anchor="voice-bar" | "incoming-tile" | "right-panel" | …> component; the voice bar, the incoming tile and the right panel mount through it instead of inline JSX, so Phase 7's configurable layout moves them without page edits.
+- The remaining shared-flag work: one CONTACT_HANDLING_FLAGS + capabilities replacing the SHOW_* constants (End Call shown; Consult/Transfer, kebab and add participant capability-gated; Outcome always visible on voice rows); opening a notification expands the left nav; the voice icon in the record header; the full New Outbound launcher (groups, search, Favorites) with the Agents, Skills and My Team groups removed (PLAN.md "Settings and configuration"); "Call previous agent" as a Contact History consult placeholder until P0.9; Desk's hover-preview Outcome entry point is not ported.
+- Then delete Desk: the page file, its route ("#/agent-premium" redirects to Advanced with the Phase 2 preset) and its app-menu entry; Desk-only tests move to Advanced under the Phase 2 preset.
+For every visual change in either preset, give a before/after and wait for my approval. Done = the Phase 1 preset is unchanged, the Phase 2 preset reproduces Desk, Desk is deleted, npm test passes, type-check at baseline; list browser checks for me, one per ported piece in each preset. Don't write code yet.
 ```
 
-### P-SETTINGS — Persistent demo settings   (Plan: Opus · Implement: Sonnet) — after P0.5c
+### P-SETTINGS — Settings store, LayoutConfig and presets   (Plan: Opus · Implement: Sonnet) — after P0.5c, before P0.5d.2
 ```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. Chore: persistent demo settings (PLAN.md "Settings and configuration"). In plan mode, propose: (1) inventory the Settings page on both pages: every setting, what it controls, live or placeholder — report before proposing; (2) a shared settings store next to src/provider-context/ with useSetting/useSettings hooks both pages read, no page-local setting state, settings apply immediately; (3) localStorage, keyed per tier, versioned (a changed setting type falls back to its default), surviving reloads and closed tabs, cleared only by "Reset to defaults" on the Settings page, every read/write in try/catch with defaults when storage is unavailable; (4) say which settings belong with profile/database data (P1.4) and keep them out; (5) a Connections section skeleton (one row per seam, "Simulated" status, Test/Save disabled until adapters exist) so later steps have somewhere to land. No visual changes except making dead settings work; before/after for any setting that changes layout. Tests for the store (defaults, persistence, reset, version fallback, unavailable storage). List browser checks. Don't write code yet.
+Read CLAUDE.md, PLAN.md and PROGRESS.md. Chore: settings and the layout presets (PLAN.md "Settings and configuration" and the one-page decision, Decisions 2026-10-15). Advanced (AgentWorkspaceAdvancedPage) is the single workspace; Desk is frozen and gets nothing new. In plan mode, propose:
+(1) Inventory the Settings page: every setting, what it controls, live or placeholder. Report before proposing.
+(2) A settings store next to src/provider-context/ with useSetting/useSettings hooks the page reads; no page-local setting state; settings apply immediately.
+(3) localStorage, versioned (a changed setting type falls back to its default), surviving reloads and closed tabs, cleared only by "Reset to defaults" on the Settings page; every read/write in try/catch, with defaults when storage is unavailable.
+(4) LayoutConfig, owned here: a typed set of flags for Desk's pieces — omnichannel layout, Home tabs, header apps, desk tabs, calendar — read by Advanced. Presets: "Phase 1" is the default (every Desk flag off: Advanced exactly as today); "Phase 2" turns every flag on; changing any single flag away from a preset shows the preset as "Custom". The Settings page shows the preset picker and one toggle per flag. Flags whose piece hasn't been ported yet (5d.2 ports them) are shown but inert and labeled as such. The app menu's "Phase 1"/"Phase 2" entries pick the preset; keep both routes working until 5d.2 deletes Desk.
+(5) Say which settings belong with profile or database data (P1.4) and keep them out of the store.
+(6) A Connections section skeleton (one row per seam, "Simulated" status, Test/Save disabled until adapters exist).
+No visual changes except making dead settings work and the new preset/flag controls; before/after for those. Tests: the store (defaults, persistence, reset, version fallback, unavailable storage) and the presets (Phase 1 default, Phase 2 sets every flag, one flag change reads Custom, choosing a preset again clears Custom). List browser checks for me. Don't write code yet.
 ```
 
 ### P0.9.1 — Transfer/merge contract, directory, messaging, participants   (Plan: Opus · Implement: Opus)
@@ -124,7 +131,8 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 6. In plan mode,
 Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 7, run before 5c so the scenario player is built once against this format. In plan mode, propose a TS/JSON scenario format — customer lines per entity per channel, optional timing hints, expressed as SimCustomerAction-compatible steps — loadable by the engine's scenario player (5c) and the console's canned-lines panel, and port the Marcus Webb scenario into it as data (no player yet). Done = Marcus Webb's script validates against the format type; npm test covers loading it. Don't write code yet.
 ```
 
-### P0.5c — Scenario player; retire page timers   ✋ (Plan: Opus · Implement: Opus)
+### P0.5c — Scenario player; retire page timers   ✋ (Plan: Opus · Implement: Opus) — done
+Done 2026-10-15; see PROGRESS.md and PLAN.md Decisions. The original prompt, for reference:
 ```
 Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 5c. In plan mode, propose a scenario player inside SimEngine that plays P0.7-format scripts as customer actions and transcript/message events on schedule (paused on hold, stopped when the interaction leaves active/held), and migrate the Marcus Webb scenario's inline page timers onto it so pages only render events via the P0.5.0 hooks. Keep scenario content unchanged. The P0.7 scripts in src/scenarios cover Marcus, Lucas, Tom and Maya, so migrate all four. Done = Marcus Webb replay looks identical; launching Marcus, Tom and Maya via the player produces engine-backed calls that behave identically to __simCustomer.startInbound (auto-hold on a second call, one call per customer, hold chip with timer and SLA, wrap-up), proven by a test that starts one each way and compares events and nav cards; no scenario setTimeouts and no hotkey-built cards remain in page components; npm test passes; list browser checks for me. Don't write code yet.
 ```

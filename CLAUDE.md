@@ -14,7 +14,7 @@ Every session working on the Agent Workspace Simulation build follows these:
 - Keep steps narrow: in large page files, grep and make targeted edits rather than reading whole files.
 - Before starting any step, read PLAN.md and PROGRESS.md.
 - Don't add Co-Authored-By, Claude-Session or any other attribution lines to commit messages.
-- Page parity: `AgentWorkspaceAdvancedPage.tsx` (Phase 1) and `AgentWorkspace2WithDeskPage.tsx` (Phase 2) must have identical contact-handling functionality: call controls, dialing, incoming offers, transcript, wrap-up/outcome, agent leg, status, AI assist. They may differ only in layout: Phase 2 keeps its tabs, panels and home page. Contact-handling logic goes in shared hooks/components that both pages use, never duplicated per page. Any change to one page's contact handling is made in the shared code, or in both pages in the same change. (These "Phase 1/2" labels are the two pages, not PLAN.md's phases.)
+- One page; Desk frozen (2026-10-15): `AgentWorkspaceAdvancedPage.tsx` is the single workspace. `AgentWorkspace2WithDeskPage.tsx` (Desk) is a frozen reference: don't add features or fixes to it; it keeps only what the shared hooks already give it, and P0.5d.2 ports its layout pieces into Advanced behind LayoutConfig flags, then deletes it. "Phase 1" and "Phase 2" are now presets of those flags in Settings, not pages. Contact-handling logic still goes in shared hooks/components (`src/contact-handling/`), never inline in the page.
 
 ## lyra-ui usage
 
@@ -131,11 +131,11 @@ The whole outer pill (the bordered `div` wrapping the status `Tag`'s `Button` an
 
 ## AI-led cases (Lucas Thomas / Marcus Webb pattern) — follow these when building any new scripted AI case
 
-Reference implementation: the Lucas Thomas case on the Advanced page (`agent-next-gen-lucas-thomas-scenario.ts`, `agent-next-gen-lucas-thomas-panels.tsx`, `agent-next-gen-transcript.tsx`, `AgentWorkspaceAdvancedPage.tsx`). Marcus Webb's patterns (`MarcusWebbAiChatBubble`, `ActionLogNoteEntry`, `NextBestActionOptionPicker`) are references to reuse, not code to import wholesale.
+Reference implementation: the Lucas Thomas case on the Advanced page (`src/scenarios/scripts/lucas-thomas.ts`, `agent-next-gen-lucas-thomas-panels.tsx`, `agent-next-gen-transcript.tsx`, `src/contact-handling/scenario-cases.ts`, `AgentWorkspaceAdvancedPage.tsx`). Since P0.5c the sim engine plays the script (`src/adapters/sim/sim-scenario-player.ts`): the case arrives as a provider contact, and the page renders it from the store and answers the bot through `takeOver`/`respondToRequest`. No page timers, no page-built cards. Marcus Webb's patterns (`MarcusWebbAiChatBubble`, `ActionLogNoteEntry`, `NextBestActionOptionPicker`) are references to reuse, not code to import wholesale.
 
 **Architecture**
-- Keep each case data-driven: one scenario file (transcript, initial message count, realtime steps with typing times, decision follow-ups, panel keys, chip link/replacement maps) plus a separate panels file for side-panel bodies.
-- Setup messages are already on screen at launch; later messages play live (timeouts + typing indicators). Include a "Chat started" event at the top and hide the mock follow-up messages.
+- Keep each case data-driven: one P0.7 script in `src/scenarios/scripts/` (steps with timing and typing, branches for the agent's decisions, approval/wrap-up content, panel keys, chip links/replacements), registered in `SCENARIOS`, plus a separate panels file for side-panel bodies. Give it a launch hotkey in the script (`launch.hotkey`).
+- Setup messages are already on screen at launch (steps with `at < 0`, written into the transcript before the contact appears); later messages play live from the engine (timers + typing indicators). Include a "Chat started" event at the top and hide the mock follow-up messages.
 - Side panels are native to each customer: panel state is stored per interaction, never carries over to another customer, and the chat is never shown inside a side panel.
 - Use lyra-ui components and type classes (`lyra-body-md`/`-sm`/`-lg-emphasis`, `Accordion`, `Tag`, `Badge`, `Button`, `Spinner`, `ToggleGroup`, `AIInput`) — no oversized custom text.
 - Tailwind `/alpha` on bare lyra color-variable tokens generates no CSS; use `color-mix(in srgb, var(--token) N%, transparent)`.
