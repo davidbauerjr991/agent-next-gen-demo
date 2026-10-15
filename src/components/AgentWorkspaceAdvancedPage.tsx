@@ -201,6 +201,11 @@ import {
   ChannelThreadComposer,
   threadAcceptsReplies,
   type CopilotComposerProps,
+  AsyncChannelSlideOut,
+  channelTempo,
+  omnichannelMainKey,
+  routeChannel,
+  useOmnichannelLayout,
   type Activation,
   type OutcomeDraft,
 } from "@/contact-handling";
@@ -1901,13 +1906,15 @@ export function AgentWorkspaceAdvancedPage({
   // `InteractionTranscript` in the tree. Falls back to the most recently
   // added channel when nothing's been explicitly selected yet, same as
   // everywhere else this "current channel" concept appears.
-  const activeChannel = activeInteraction
-    ? activeInteraction.threads.find(
-        (c) =>
-          (c.id ?? c.type) ===
-          (activeInteraction.currentThreadId ?? activeInteraction.threads[activeInteraction.threads.length - 1]?.id)
-      )
+  // Omnichannel layout: the main column only ever shows a thread that
+  // belongs there (`omnichannelMainKey`); async threads open in the slide-out.
+  const omnichannel = assignmentsSettings.omnichannel;
+  const requestedMainKey = activeInteraction
+    ? activeInteraction.currentThreadId ?? activeInteraction.threads[activeInteraction.threads.length - 1]?.id
     : undefined;
+  const mainKey = omnichannel && activeInteraction ? omnichannelMainKey(activeInteraction.threads, requestedMainKey) : requestedMainKey;
+  const activeChannel = activeInteraction?.threads.find((c) => (c.id ?? c.type) === mainKey);
+  const omni = useOmnichannelLayout(omnichannel ? activeInteraction : null, mainKey);
   const activeChannelType = activeChannel?.type;
   // AI in the panel + a voice contact: the call's transcript fills the main
   // column (its AI rows moved to the panel, so it would otherwise be empty),
@@ -3091,7 +3098,8 @@ export function AgentWorkspaceAdvancedPage({
   // Never the thread already in the main column (dockedPreviewKey): e.g. a
   // row click on an unselected card switches to it and asks for its main
   // thread in the preview too; that request is dropped here.
-  const channelPreviewThreadKey = dockedPreviewKey(requestedChannelPreviewKey, activeChannelKey);
+  // The omnichannel layout retires the docked preview (its slide-out replaces it).
+  const channelPreviewThreadKey = omnichannel ? null : dockedPreviewKey(requestedChannelPreviewKey, activeChannelKey);
   // Looked up once here (rather than inline at the
   // `CustomerInformationSidePanel` render call site) since it now feeds
   // several of that single docked panel's own override props — see each
@@ -4161,15 +4169,28 @@ export function AgentWorkspaceAdvancedPage({
   // preview and leaves the main column on the active contact (rows 12/13).
   const handleContactActivated = ({ journeyId, threadKey, mode, isNewCard }: Activation) => {
     switchActiveInteraction(journeyId);
-    if (mode === "added") {
+    // Omnichannel: an async channel (added or focused) opens in the
+    // slide-out, and a call next to a chat only moves the voice bar; the
+    // main column keeps its thread.
+    const threads = interactions.find((i) => i.id === journeyId)?.threads;
+    const route = omnichannel && threads ? routeChannel(threads, threadKey) : null;
+    if (route === "slideout") {
+      omni.open(journeyId, threadKey);
+      if (isNewCard) setSidePanelOpen(false);
+      return;
+    }
+    if (mode === "added" && !omnichannel) {
       setChannelPreviewThreadKey(threadKey);
       return;
     }
-    setInteractions((prev) =>
-      prev.map((i) => (i.id === journeyId && i.currentThreadId !== threadKey ? { ...i, currentThreadId: threadKey } : i))
-    );
+    if (route !== "bar") {
+      setInteractions((prev) =>
+        prev.map((i) => (i.id === journeyId && i.currentThreadId !== threadKey ? { ...i, currentThreadId: threadKey } : i))
+      );
+    }
     // A restarted call starts with an empty Outcome (row 19).
     if (threadKey.startsWith("voice")) outcomeDrafts.clear(outcomeDraftKeyOf(journeyId, threadKey));
+    if (route === "bar") return;
     // A new card starts with Customer Information closed; an existing one
     // keeps the panel as the agent left it.
     if (isNewCard) setSidePanelOpen(false);
@@ -4669,6 +4690,23 @@ export function AgentWorkspaceAdvancedPage({
    *  `isVoiceChannel` doc comment) — while still switching cards normally
    *  for a click on a non-active card's voice row. */
   const handleChannelSelect = (interactionId: string, channelKey: string) => {
+    if (omnichannel) {
+      // Chat (or a lone call/async thread) → main column; a call next to a
+      // chat → the voice bar only; async → the slide-out (toggles on the
+      // active card). From Home, this also opens the card.
+      const card = interactions.find((i) => i.id === interactionId);
+      const route = card ? routeChannel(card.threads, channelKey) : "main";
+      if (interactionId !== activeInteractionId) switchActiveInteraction(interactionId);
+      if (route === "main") {
+        setInteractions((prev) =>
+          prev.map((i) => (i.id === interactionId && i.currentThreadId !== channelKey ? { ...i, currentThreadId: channelKey } : i))
+        );
+      } else if (route === "slideout") {
+        if (interactionId === activeInteractionId) omni.toggle(interactionId, channelKey);
+        else omni.open(interactionId, channelKey);
+      }
+      return;
+    }
     const channel = interactions
       .find((i) => i.id === interactionId)
       ?.threads.find((c) => (c.id ?? c.type) === channelKey);
@@ -8479,7 +8517,14 @@ export function AgentWorkspaceAdvancedPage({
                           // now that there's no way to add one of them.
                           // Lucas Thomas's chat lives in the main column only — its icon behaves like voice (active, no side-panel preview).
                           const isVoiceChannel = c.type === "voice" || scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID;
-                          const isOpen = isVoiceChannel ? key === activeChannelKey : channelPreviewThreadKey === key;
+                          // Omnichannel: the icons are tabs — open when the thread is in the main column or the slide-out.
+                          const isOpen = omnichannel
+                            ? key === activeChannelKey || key === omni.slideOutKey
+                            : isVoiceChannel ? key === activeChannelKey : channelPreviewThreadKey === key;
+                          const unreadCount =
+                            omnichannel && channelTempo(c.type) === "async"
+                              ? omni.unread(activeInteraction.id, key, activeInteraction.liveMessages?.[key])
+                              : 0;
                           // Whether this icon's own channel is the one
                           // currently showing in the main column — drives
                           // the "{channel} active" `Tooltip` below, same as
@@ -8616,7 +8661,9 @@ export function AgentWorkspaceAdvancedPage({
                                     "ml-0.5 h-8 w-8 px-0 border border-lyra-border-soft bg-lyra-bg-control text-lyra-fg-action hover:bg-lyra-state-hover active:bg-lyra-state-pressed",
                                     isOpen && PANEL_BUTTON_SELECTED_CLASS
                                   )}
+                                  badge={unreadCount > 0 ? unreadCount : undefined}
                                   onClick={() => {
+                                    if (omnichannel) return handleChannelSelect(activeInteraction.id, key);
                                     if (isVoiceChannel) return;
                                     setChannelPreviewThreadKey(channelPreviewThreadKey === key ? null : key);
                                   }}
@@ -9018,7 +9065,20 @@ export function AgentWorkspaceAdvancedPage({
                       `CUSTOMER_PANEL_TABS`), so this is unconditional
                       again.) */}
                   <div className="relative flex flex-1 overflow-hidden">
-                      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
+                      {/* Omnichannel: the async slide-out overlays this row's right side. */}
+                      {omnichannel && (
+                        <AsyncChannelSlideOut
+                          interaction={activeInteraction}
+                          thread={activeInteraction.threads.find((t) => (t.id ?? t.type) === omni.slideOutKey) ?? null}
+                          onClose={() => omni.close(activeInteraction.id)}
+                          hideAiActions={hideAiActions}
+                          onHideAiActionsChange={setHideAiActions}
+                          onStatusChange={(status) => handleInteractionStatusChange(activeInteraction.id, omni.slideOutKey!, status)}
+                          onSend={(text) => handleSendMessage(activeInteraction.id, text, omni.slideOutKey!)}
+                          copilot={copilotComposerProps(activeInteraction.id, omni.slideOutKey ?? "")}
+                        />
+                      )}
+                      <div className="flex flex-1 flex-col min-w-0 overflow-hidden" data-main-thread={activeChannelType}>
                         {isHistoryConversationView && historyConversationForActive ? (
                           /* Past-session conversation, opened as its own tab in
                              this record area (see the history `Tab` in the

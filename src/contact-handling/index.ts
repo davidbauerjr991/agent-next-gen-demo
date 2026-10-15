@@ -44,5 +44,8 @@ export { showsSessionControls } from "./session-controls";
 export { dockedPreviewKey } from "./docked-preview";
 export { ChannelThreadBody, ChannelThreadComposer, type CopilotComposerProps } from "./ChannelThreadPane";
 export { threadAcceptsReplies, threadKeyOf } from "./channel-thread";
+export { channelTempo, routeChannel, mainThreadKey, omnichannelMainKey, type ChannelRoute } from "./omnichannel";
+export { useOmnichannelLayout, type OmnichannelLayout } from "./useOmnichannelLayout";
+export { AsyncChannelSlideOut } from "./AsyncChannelSlideOut";
 export { VoiceBar, type VoiceBarProps } from "./VoiceBar";
 export { useAnswerSla, answerSeverity, offerRowAnswerSeverity } from "./answer-sla";

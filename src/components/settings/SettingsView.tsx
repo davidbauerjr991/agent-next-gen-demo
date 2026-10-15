@@ -340,7 +340,6 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
             label="Omnichannel layout"
             checked={assignments.omnichannel}
             onCheckedChange={(omnichannel) => updateAssignments({ omnichannel })}
-            pending="Arrives in P2.2"
           />
           <SwitchRow
             label="New Outbound at the bottom"

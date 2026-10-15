@@ -3,6 +3,7 @@
 // (the defaults) renders none of them; the Phase 2 profile renders them all.
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
 import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
 import { getSettingsStore, resetSettingsStoreForTests } from "./settings-store";
@@ -115,6 +116,81 @@ describe("Home tabs (apps placed as \"tab\")", () => {
     expect(homeTabLabels()).toEqual(["Dashboard", "Customers", "Accounts", "Tickets"]);
     await setSettings("header", { tabOrder: ["tickets", "customers", "accounts", "wem", "schedule", "screenpop"] });
     expect(homeTabLabels()).toEqual(["Dashboard", "Tickets", "Customers", "Accounts"]);
+  });
+});
+
+describe("Omnichannel layout (assignments.omnichannel)", () => {
+  const priya = CREATE_NEW_CUSTOMERS.find((c) => c.id === "priya-shah-history")!;
+  const slideOut = () => h.container.querySelector("[data-slot=async-slideout]");
+  const mainThread = () => h.container.querySelector("[data-main-thread]")?.getAttribute("data-main-thread");
+  const headerIcon = (label: string) =>
+    h.container.querySelector<HTMLElement>(`[aria-label="Open ${label} preview"], [aria-label="Close ${label} preview"]`);
+
+  /** Priya's card with an inbound call and an email sent into the same
+   *  journey (the sim has no inbound email), the card selected. */
+  async function voiceAndEmail() {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await h.goAvailable();
+    const callId = await h.startInbound("voice", priya.firstPhone, priya.name);
+    await h.accept(callId);
+    await act(async () => {
+      const snapshot = h.provider.getSnapshot();
+      await vi.advanceTimersByTimeAsync(50);
+      const call = (await snapshot).interactions.find((i) => i.id === callId)!;
+      const dialed = h.provider.dial({ channel: "email", address: priya.emailAddress!, skillId: "general", journeyId: call.journeyId });
+      await vi.advanceTimersByTimeAsync(300);
+      await dialed;
+    });
+    await h.click(h.navCard(priya.name));
+  }
+
+  it("voice + email: the email opens in the slide-out, the call stays in the main column", async () => {
+    await voiceAndEmail();
+    await setSettings("assignments", { omnichannel: true });
+    expect(mainThread()).toBe("voice");
+    expect(slideOut()?.getAttribute("data-thread")).toBeFalsy();
+    await h.click(headerIcon("Email")!);
+    expect(slideOut()?.getAttribute("data-thread")).toBe("email");
+    expect(slideOut()?.textContent).toContain("Coming soon");
+    expect(mainThread()).toBe("voice");
+    // The same icon closes it.
+    await h.click(headerIcon("Email")!);
+    expect(slideOut()?.getAttribute("data-thread")).toBeFalsy();
+  });
+
+  it("off: no slide-out; the newest thread (the email) takes the main column, as before", async () => {
+    await voiceAndEmail();
+    expect(slideOut()).toBeNull();
+    expect(mainThread()).toBe("email");
+    // Turning it on moves the email out of the main column.
+    await setSettings("assignments", { omnichannel: true });
+    expect(mainThread()).toBe("voice");
+  });
+
+  it("the slide-out belongs to its card: another card closes it, coming back reopens it", async () => {
+    await voiceAndEmail();
+    await setSettings("assignments", { omnichannel: true });
+    await h.click(headerIcon("Email")!);
+    await h.accept(await h.startInbound("chat", "dan.ortiz@example.com", "Dan Ortiz"));
+    await h.click(h.navCard("Dan Ortiz"));
+    expect(slideOut()?.getAttribute("data-thread")).toBeFalsy();
+    await h.click(h.navCard(priya.name));
+    expect(slideOut()?.getAttribute("data-thread")).toBe("email");
+  });
+
+  it("Phase 2 profile: Home tabs and the omnichannel slide-out together", async () => {
+    await voiceAndEmail();
+    await applyPhase2();
+    expect(homeTabLabels()).toEqual([]); // the card view, not Home
+    const home = [...h.container.querySelectorAll("aside button, aside [role=button]")].find(
+      (el) => el.textContent?.trim() === "Home" || el.getAttribute("aria-label") === "Home",
+    )!;
+    await h.click(home);
+    expect(homeTabLabels()).toEqual(["Dashboard", "Customers", "Accounts", "Tickets"]);
+    await h.click(h.navCard(priya.name));
+    await h.click(headerIcon("Email")!);
+    expect(slideOut()?.getAttribute("data-thread")).toBe("email");
+    expect(mainThread()).toBe("voice");
   });
 });
 
