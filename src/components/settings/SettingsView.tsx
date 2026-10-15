@@ -24,6 +24,10 @@ import { readSimLatency, useProviderKind } from "@/provider-context";
 import {
   EXTRA_HEADER_APPS,
   HOME_QUEUE_CHANNELS,
+  LAUNCHER_TABS,
+  OUTBOUND_CALLING,
+  type LauncherTab,
+  type OutboundCalling,
   PROFILE_LABELS,
   SEAMS,
   useResetSettings,
@@ -86,6 +90,68 @@ const HOME_QUEUE_CHANNEL_LABELS: Record<HomeQueueChannel, string> = {
   outboundVoice: "Outbound Voice",
 };
 
+// CXone's Directory App tabs (Dial Pad is ours).
+const LAUNCHER_TAB_LABELS: Record<LauncherTab, string> = {
+  dialpad: "Dial Pad",
+  search: "Search",
+  all: "All",
+  favorites: "Favorites",
+  agents: "Agents",
+  skills: "Skills",
+  teams: "Teams",
+  addressBook: "Address Book",
+};
+const LAUNCHER_TAB_PENDING: Partial<Record<LauncherTab, string>> = {
+  search: "Built into every tab",
+  agents: "Arrives in P0.9",
+  skills: "Arrives in P0.9",
+  teams: "Arrives in P0.9",
+};
+
+// CXone's Outbound Calling permissions.
+const OUTBOUND_CALLING_LABELS: Record<OutboundCalling, string> = {
+  adHoc: "Ad-hoc",
+  redial: "Redial",
+  agent: "Agent",
+  addressBook: "Address Book",
+  skill: "Skill",
+  elevation: "Elevation",
+  saveAndRedial: "Save and Redial",
+  transfer: "Transfer",
+};
+const OUTBOUND_CALLING_PENDING: Partial<Record<OutboundCalling, string>> = {
+  agent: "Arrives in P0.9",
+  addressBook: "Arrives in P0.9",
+  skill: "Arrives in P0.9",
+  transfer: "Arrives in P0.9",
+  saveAndRedial: "Needs a lyra change",
+};
+
+/** A row of checkboxes under a label, as CXone lays out its agent settings. */
+function CheckboxRow<K extends string>({
+  legend,
+  items,
+  onChange,
+}: {
+  legend: string;
+  items: { key: K; label: string; checked: boolean; pending?: string }[];
+  onChange: (key: K, checked: boolean) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2" data-checkbox-row={legend}>
+      <span className="lyra-body-md text-lyra-fg-default">{legend}</span>
+      <div className="flex flex-wrap gap-x-6 gap-y-2">
+        {items.map((item) => (
+          <div key={item.key} className="flex items-center gap-2">
+            <Checkbox label={item.label} checked={item.checked} onCheckedChange={(c) => onChange(item.key, c === true)} />
+            {item.pending && <Pending>{item.pending}</Pending>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** `items` with the entry at `index` swapped with its neighbor. */
 function moveItem<T>(items: T[], index: number, delta: -1 | 1): T[] {
   const j = index + delta;
@@ -134,6 +200,7 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
   const [header, updateHeader] = useSettings("header");
   const [home, updateHome] = useSettings("home");
   const [assignments, updateAssignments] = useSettings("assignments");
+  const [outbound, updateOutbound] = useSettings("outbound");
   const [voice, updateVoice] = useSettings("voice");
   const [ai, updateAi] = useSettings("ai");
   const [phone, updatePhone] = useSettings("phone");
@@ -355,6 +422,44 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
             label="Don't allow interactions to collapse"
             checked={assignments.noInteractionCollapse}
             onCheckedChange={(noInteractionCollapse) => updateAssignments({ noInteractionCollapse })}
+          />
+          <SwitchRow
+            label="Allow Unassign & Dismiss"
+            checked={assignments.allowUnassignDismiss}
+            onCheckedChange={(allowUnassignDismiss) => updateAssignments({ allowUnassignDismiss })}
+          />
+          <SwitchRow
+            label="Confirm before closing a contact"
+            checked={assignments.confirmClose}
+            onCheckedChange={(confirmClose) => updateAssignments({ confirmClose })}
+          />
+        </Section>
+
+        {/* CXone's agent settings, by their names (the CXone adapter maps them 1:1). */}
+        <Section title="New Outbound">
+          <CheckboxRow
+            legend="Directory App"
+            items={LAUNCHER_TABS.map((tab) => ({
+              key: tab,
+              label: LAUNCHER_TAB_LABELS[tab],
+              checked: outbound.launcher[tab],
+              pending: LAUNCHER_TAB_PENDING[tab],
+            }))}
+            onChange={(tab, checked) =>
+              updateOutbound((prev) => ({ launcher: { ...prev.launcher, [tab]: checked } }))
+            }
+          />
+          <CheckboxRow
+            legend="Outbound Calling"
+            items={OUTBOUND_CALLING.map((behavior) => ({
+              key: behavior,
+              label: OUTBOUND_CALLING_LABELS[behavior],
+              checked: outbound.calling[behavior],
+              pending: OUTBOUND_CALLING_PENDING[behavior],
+            }))}
+            onChange={(behavior, checked) =>
+              updateOutbound((prev) => ({ calling: { ...prev.calling, [behavior]: checked } }))
+            }
           />
         </Section>
 

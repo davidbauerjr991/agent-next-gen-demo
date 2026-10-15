@@ -193,18 +193,66 @@ const home = defineSection<HomeSettings>({
 });
 
 export interface AssignmentsSettings {
-  /** Sync channels in the main column, async in the right slide-out (P2.2). */
+  /** Sync channels in the main column, async in the right slide-out. */
   omnichannel: boolean;
   newOutboundAtBottom: boolean;
   navItemsAtTop: boolean;
   noInteractionCollapse: boolean;
+  /** The Unassign & Dismiss icon shows at all (on top of the outcome-saved rule). */
+  allowUnassignDismiss: boolean;
+  /** Dismissing a contact asks for confirmation first. */
+  confirmClose: boolean;
 }
 
 const assignments = defineSection<AssignmentsSettings>({
   key: "assignments",
   version: 1,
-  defaults: { omnichannel: false, newOutboundAtBottom: false, navItemsAtTop: false, noInteractionCollapse: false },
-  fields: { omnichannel: bool(), newOutboundAtBottom: bool(), navItemsAtTop: bool(), noInteractionCollapse: bool() },
+  defaults: {
+    omnichannel: false,
+    newOutboundAtBottom: false,
+    navItemsAtTop: false,
+    noInteractionCollapse: false,
+    allowUnassignDismiss: true,
+    confirmClose: false,
+  },
+  fields: {
+    omnichannel: bool(),
+    newOutboundAtBottom: bool(),
+    navItemsAtTop: bool(),
+    noInteractionCollapse: bool(),
+    allowUnassignDismiss: bool(),
+    confirmClose: bool(),
+  },
+});
+
+/** The New Outbound launcher's tabs, named after CXone's Directory App so
+ *  the CXone adapter maps them 1:1 (`dialpad` is ours). Agents, Skills and
+ *  Teams need the DirectoryProvider (P0.9); Search is built into every tab. */
+export const LAUNCHER_TABS = ["dialpad", "search", "all", "favorites", "agents", "skills", "teams", "addressBook"] as const;
+export type LauncherTab = (typeof LAUNCHER_TABS)[number];
+
+/** CXone's Outbound Calling permissions. They gate behaviors, not tabs; a
+ *  behavior that's off hides its control. */
+export const OUTBOUND_CALLING = ["adHoc", "redial", "agent", "addressBook", "skill", "elevation", "saveAndRedial", "transfer"] as const;
+export type OutboundCalling = (typeof OUTBOUND_CALLING)[number];
+
+export interface OutboundSettings {
+  launcher: Record<LauncherTab, boolean>;
+  calling: Record<OutboundCalling, boolean>;
+}
+
+const flags = <K extends string>(keys: readonly K[]) =>
+  group<Record<K, boolean>>(Object.fromEntries(keys.map((k) => [k, bool()])) as Fields<Record<K, boolean>>);
+
+const outbound = defineSection<OutboundSettings>({
+  key: "outbound",
+  version: 1,
+  defaults: {
+    // Phase 1: the Dial Pad only.
+    launcher: Object.fromEntries(LAUNCHER_TABS.map((t) => [t, t === "dialpad"])) as Record<LauncherTab, boolean>,
+    calling: Object.fromEntries(OUTBOUND_CALLING.map((c) => [c, true])) as Record<OutboundCalling, boolean>,
+  },
+  fields: { launcher: flags(LAUNCHER_TABS), calling: flags(OUTBOUND_CALLING) },
 });
 
 export const VOICE_CONTROLS_LOCATIONS = ["bottom", "top"] as const;
@@ -298,7 +346,7 @@ const connections = defineSection<ConnectionsSettings>({
   },
 });
 
-export const SECTIONS = { header, home, assignments, voice, ai, phone, appearance, connections };
+export const SECTIONS = { header, home, assignments, outbound, voice, ai, phone, appearance, connections };
 
 export type SectionKey = keyof typeof SECTIONS;
 export type SettingsState = { [K in SectionKey]: (typeof SECTIONS)[K]["defaults"] };

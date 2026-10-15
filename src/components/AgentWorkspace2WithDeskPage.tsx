@@ -115,6 +115,7 @@ import {
   OUTBOUND_AGENTS,
   CONTACT_HISTORY_OUTBOUND_CONTACTS,
   buildContactHistoryOutboundContacts,
+  ADDRESS_BOOKS,
 } from "@/components/agent-next-gen-outbound-data";
 import {
   type Thread,
@@ -5512,7 +5513,9 @@ export function AgentWorkspace2WithDeskPage({
                ordinary dial. */
             <NewOutboundLauncher
               outboundConfig={outboundConfig}
-              scope="full"
+              tabs={{ dialpad: true, search: true, all: false, favorites: true, agents: true, skills: true, teams: true, addressBook: true }}
+              adHoc
+              addressBooks={ADDRESS_BOOKS}
               inCallPolicy="allow"
               onActiveCall={false}
               expanded={navOpen}

@@ -307,7 +307,7 @@ function WrapUpAccordion({ message, onComplete }: { message: TranscriptMessage; 
 }
 
 /** Marcus-style decision flow: pick an option → (optional note) → Perform Task. What happens next (working, events, the AI replying to the customer) plays out in the chat via `onDecide`, not inside this card. */
-function ApprovalDecision({
+export function ApprovalDecision({
   decisions,
   onDecide,
   onLink,
@@ -375,7 +375,8 @@ function ApprovalDecision({
         <>
           <p className="lyra-body-md-emphasis text-lyra-fg-default">How would you like to proceed?</p>
           <div className="flex flex-wrap gap-2" role="radiogroup">
-            {decisions.map((d) => {
+            {/* A call request with no call handler (Outbound Calling → Elevation off) isn't offered. */}
+            {decisions.filter((d) => !d.callRequest || onCallRequest).map((d) => {
               const isSelected = selected === d.value;
               return (
                 <button

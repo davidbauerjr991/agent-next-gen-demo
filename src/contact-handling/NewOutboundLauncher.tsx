@@ -1,21 +1,22 @@
+import { useState } from "react";
 import { CreateNew, type ChannelType, type CreateNewOutboundConfig, type CreateNewOutboundContact } from "@nicecxone/lyra-ui";
-import { HIDDEN_OUTBOUND_GROUP_IDS } from "@/components/agent-next-gen-outbound-data";
+import { addressBookGroup, type AddressBook } from "@/components/agent-next-gen-outbound-data";
+import type { LauncherTab } from "@/settings";
+import { launcherGroups } from "./launcher-groups";
 import type { DialpadRequest } from "./useOutboundDial";
 
-/** The left nav's "New Outbound" launcher, shared by both workspace pages.
- *
- *  Group scope and the in-call rule are per-page options — a deliberate,
- *  temporary parity exception (PROGRESS.md parity rows 14/15): Advanced
- *  passes `scope="dialpad"` and `inCallPolicy="disable"`; Desk passes its
- *  full picker and `inCallPolicy="allow"` (a second call auto-holds the
- *  first, in the provider). Everything a launch does goes through
- *  `useOutboundDial`. */
+/** The left nav's "New Outbound" launcher. Its tabs come from Settings →
+ *  New Outbound (`outbound.launcher`, CXone's Directory App names) and the
+ *  Dial Pad also needs Outbound Calling → Ad-hoc. With one tab it opens
+ *  straight on it (no group list); with none it isn't shown. Everything a
+ *  launch does goes through `useOutboundDial`. */
 export interface NewOutboundLauncherProps {
   /** The page's outbound config (groups tagged with open channels). */
   outboundConfig: CreateNewOutboundConfig;
-  /** "dialpad": Dial Pad only, no group picker. "full": every group except
-   *  `HIDDEN_OUTBOUND_GROUP_IDS`. */
-  scope: "dialpad" | "full";
+  tabs: Record<LauncherTab, boolean>;
+  /** Outbound Calling → Ad-hoc: the Dial Pad accepts a typed number. */
+  adHoc: boolean;
+  addressBooks: readonly AddressBook[];
   inCallPolicy: "disable" | "allow";
   /** The agent is on a live voice call. */
   onActiveCall: boolean;
@@ -28,7 +29,9 @@ export interface NewOutboundLauncherProps {
 
 export function NewOutboundLauncher({
   outboundConfig,
-  scope,
+  tabs,
+  adHoc,
+  addressBooks,
   inCallPolicy,
   onActiveCall,
   expanded,
@@ -37,14 +40,14 @@ export function NewOutboundLauncher({
   dialpadRequest,
   onDialpadRequestHandled,
 }: NewOutboundLauncherProps) {
-  const scoped: Partial<CreateNewOutboundConfig> =
-    scope === "dialpad"
-      ? {
-          groups: outboundConfig.groups.filter((group) => group.id === "dialpad"),
-          defaultGroupId: "dialpad",
-          skipGroupPicker: true,
-        }
-      : { groups: outboundConfig.groups.filter((group) => !HIDDEN_OUTBOUND_GROUP_IDS.includes(group.id)) };
+  const [addressBookId, setAddressBookId] = useState("");
+  const groups = launcherGroups(outboundConfig.groups, tabs, adHoc, addressBookGroup(addressBooks, addressBookId, setAddressBookId));
+  if (groups.length === 0) return null;
+  const scoped: Partial<CreateNewOutboundConfig> = {
+    groups,
+    defaultGroupId: groups.some((g) => g.id === "all") ? "all" : groups[0].id,
+    skipGroupPicker: groups.length === 1,
+  };
   const disabled = inCallPolicy === "disable" && onActiveCall;
   return (
     <CreateNew

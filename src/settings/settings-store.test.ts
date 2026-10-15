@@ -95,6 +95,9 @@ describe("settings store", () => {
       newOutboundAtBottom: true,
       navItemsAtTop: false,
       noInteractionCollapse: true,
+      // Fields added later read as their defaults.
+      allowUnassignDismiss: true,
+      confirmClose: false,
     });
     expect(store.getState().values.voice.controlsLocation).toBe("bottom");
   });

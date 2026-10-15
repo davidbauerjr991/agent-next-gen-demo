@@ -4,7 +4,14 @@
 // profile the current values equal, else "custom", so changing any setting
 // reads Custom and applying a profile clears it. P-PROFILES adds saved
 // profiles and per-section locks on top of this.
-import { defaultSettings, type AppDisplay, type ExtraHeaderApp, type SettingsState } from "./settings-schema";
+import {
+  LAUNCHER_TABS,
+  defaultSettings,
+  type AppDisplay,
+  type ExtraHeaderApp,
+  type LauncherTab,
+  type SettingsState,
+} from "./settings-schema";
 
 export type ProfileId = "phase1" | "phase2";
 export type WorkspaceProfile = ProfileId | "custom";
@@ -33,6 +40,11 @@ function phase2(): SettingsState {
     ...base,
     header: { ...base.header, showAppIcons: true, apps },
     assignments: { ...base.assignments, omnichannel: true },
+    // Every Directory App tab and every Outbound Calling behavior.
+    outbound: {
+      launcher: Object.fromEntries(LAUNCHER_TABS.map((t) => [t, true])) as Record<LauncherTab, boolean>,
+      calling: { ...base.outbound.calling },
+    },
   };
 }
 

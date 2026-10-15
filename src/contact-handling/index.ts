@@ -47,5 +47,7 @@ export { threadAcceptsReplies, threadKeyOf } from "./channel-thread";
 export { channelTempo, routeChannel, mainThreadKey, omnichannelMainKey, type ChannelRoute } from "./omnichannel";
 export { useOmnichannelLayout, type OmnichannelLayout } from "./useOmnichannelLayout";
 export { AsyncChannelSlideOut } from "./AsyncChannelSlideOut";
+export { ConfirmCloseDialog } from "./ConfirmCloseDialog";
+export { launcherGroups, INERT_LAUNCHER_TABS } from "./launcher-groups";
 export { VoiceBar, type VoiceBarProps } from "./VoiceBar";
 export { useAnswerSla, answerSeverity, offerRowAnswerSeverity } from "./answer-sla";

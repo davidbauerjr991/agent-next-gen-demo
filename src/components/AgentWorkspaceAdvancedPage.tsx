@@ -124,6 +124,7 @@ import {
   OUTBOUND_TEAMS,
   OUTBOUND_TEAM_MEMBERS,
   OUTBOUND_CONFIG,
+  ADDRESS_BOOKS,
   OUTBOUND_AGENTS,
   CONTACT_HISTORY_OUTBOUND_CONTACTS,
   buildContactHistoryOutboundContacts,
@@ -202,6 +203,7 @@ import {
   threadAcceptsReplies,
   type CopilotComposerProps,
   AsyncChannelSlideOut,
+  ConfirmCloseDialog,
   channelTempo,
   omnichannelMainKey,
   routeChannel,
@@ -1722,6 +1724,14 @@ export function AgentWorkspaceAdvancedPage({
   // on also expands every card once, so that turning it back off later
   // returns every card expanded rather than restoring stale collapsed ones.
   const [assignmentsSettings] = useSettings("assignments");
+  // New Outbound's tabs and the Outbound Calling behaviors (CXone's names);
+  // a behavior that's off hides its control.
+  const [outboundSettings] = useSettings("outbound");
+  const calling = outboundSettings.calling;
+  // Settings → Assignments → "Confirm before closing": an agent's dismiss
+  // waits for the confirm dialog (ConfirmCloseDialog, mounted with the modals).
+  const [pendingClose, setPendingClose] = useState<(() => void) | null>(null);
+  const confirmDismiss = (dismiss: () => void) => (assignmentsSettings.confirmClose ? setPendingClose(() => dismiss) : dismiss());
   const [voiceSettings] = useSettings("voice");
   // Settings → AI display: "panel" moves the AI content out of the transcript
   // into the docked Contact Details panel (`renderAiPanelFeed`).
@@ -5027,7 +5037,7 @@ export function AgentWorkspaceAdvancedPage({
           c.value ?? c.addressLabel ?? synthesizeChannelAddress("voice", interaction.customerId ?? interaction.id, interaction.customerName),
           anchorEl
         ),
-      onSaveAndDismiss: () => handleOutcomeSaveAndDismissChannel(interaction, c),
+      onSaveAndDismiss: () => confirmDismiss(() => handleOutcomeSaveAndDismissChannel(interaction, c)),
     };
   };
   const incomingOffer = useIncomingOffer({
@@ -6348,7 +6358,7 @@ export function AgentWorkspaceAdvancedPage({
         messages={Object.values(activeInteraction.liveMessages ?? {}).flat()}
         overview={overview}
         onApprovalDecision={isLucas ? handleLucasApprovalDecision : undefined}
-        onApprovalCallRequest={isLucas ? handleLucasCallRequest : undefined}
+        onApprovalCallRequest={isLucas && calling.elevation ? handleLucasCallRequest : undefined}
         onApprovalSuggestionAsk={isLucas ? (text: string) => handleCopilotAsk(activeInteraction.id, activeChannelKey, text) : undefined}
         approvalTakenOver={isLucas && !lucasThomasReviewing}
         onWrapUpComplete={isLucas ? () => scenarioCases.respond(LUCAS_THOMAS_ID, { value: "complete" }) : undefined}
@@ -6392,16 +6402,17 @@ export function AgentWorkspaceAdvancedPage({
     }
   }, [aiInPanel, activeInteractionId]);
 
-  /* The shared New Outbound launcher (P0.5b.2). This page's scope is a
-     temporary parity exception (row 14): Dial Pad only (no group picker,
-     "New Outbound" header, no back button). Like Desk, it stays enabled
-     during a call; a second call holds the first (row 15, revised
+  /* The shared New Outbound launcher (P0.5b.2). Its tabs follow Settings →
+     New Outbound (Phase 1: the Dial Pad only, no group picker). It stays
+     enabled during a call; a second call holds the first (row 15, revised
      2026-10-14). `handleDialpadSubmit` tells a completed redial apart from
      an ordinary dial. */
   const newOutboundLauncher = (
     <NewOutboundLauncher
       outboundConfig={outboundConfig}
-      scope="dialpad"
+      tabs={outboundSettings.launcher}
+      adHoc={outboundSettings.calling.adHoc}
+      addressBooks={ADDRESS_BOOKS}
       inCallPolicy="allow"
       onActiveCall={agentOnActiveVoiceCall}
       expanded={navOpen}
@@ -7341,7 +7352,8 @@ export function AgentWorkspaceAdvancedPage({
                     // dropped; the Marcus Webb pre-hangup exception (a
                     // distinct, unrelated carve-out — see doc comment
                     // above) is preserved unchanged.
-                    showDismissButton:
+                    // Settings → Assignments → "Allow Unassign & Dismiss" off hides it outright.
+                    showDismissButton: assignmentsSettings.allowUnassignDismiss && (
                       c.type === "voice"
                         ? !interaction.closed &&
                           !interaction.voiceCallEnded &&
@@ -7352,7 +7364,7 @@ export function AgentWorkspaceAdvancedPage({
                           // (live while the bot or the agent has it; his wrap-up closes it).
                           isClosed ||
                           ["wrap-up", "ended"].includes(contactStateById.get(c.providerInteractionId ?? "") ?? "") ||
-                          outcomeDrafts.isSaved(outcomeDraftKeyOf(interaction.id, c.id)),
+                          outcomeDrafts.isSaved(outcomeDraftKeyOf(interaction.id, c.id))),
                     // Locks the kebab and Outcome — visibly present but
                     // non-interactive — for as long as the agent is only
                     // reviewing Marcus's still-live AI-agent call
@@ -7670,8 +7682,8 @@ export function AgentWorkspaceAdvancedPage({
                     }
                     expanded={slotExpanded ?? navOpen}
                     channels={channels}
-                    onDismiss={() => handleDismissInteraction(interaction.id)}
-                    onDismissChannel={(channel) => handleDismissChannel(interaction.id, channel)}
+                    onDismiss={() => confirmDismiss(() => handleDismissInteraction(interaction.id))}
+                    onDismissChannel={(channel) => confirmDismiss(() => handleDismissChannel(interaction.id, channel))}
                     footerAction={
                       interaction.offered ? (
                         // A ringing voice offer (P0.5d.1), scripted ones included (Tom, P0.5c).
@@ -9489,7 +9501,9 @@ export function AgentWorkspaceAdvancedPage({
                           }
                           isAiTyping={!!scenarioThreadOf(activeInteraction.id, activeChannelKey)?.aiTyping}
                           onApprovalDecision={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID ? handleLucasApprovalDecision : undefined}
-                          onApprovalCallRequest={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID ? handleLucasCallRequest : undefined}
+                          onApprovalCallRequest={
+                            scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && calling.elevation ? handleLucasCallRequest : undefined
+                          }
                           onWrapUpComplete={
                             scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID
                               ? () => scenarioCases.respond(LUCAS_THOMAS_ID, { value: "complete" })
@@ -9578,6 +9592,7 @@ export function AgentWorkspaceAdvancedPage({
                           // "Remove from Queue", and the live Marcus
                           // exception are both preserved unchanged).
                           onDismissChannel={
+                            assignmentsSettings.allowUnassignDismiss &&
                             activeChannel &&
                             // Same rule as the nav row's icon: a digital channel is removable by hand only once its
                             // contact has ended (or it's Closed) or its outcome is saved.
@@ -9591,13 +9606,14 @@ export function AgentWorkspaceAdvancedPage({
                               (!activeInteraction.voiceCallEnded &&
                                 scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID &&
                                 activeChannelStatus === "Resolved"))
-                              ? () => {
-                                  if (activeInteraction.threads.length > 1) {
-                                    handleDismissChannel(activeInteraction.id, activeChannel);
-                                  } else {
-                                    handleDismissInteraction(activeInteraction.id);
-                                  }
-                                }
+                              ? () =>
+                                  confirmDismiss(() => {
+                                    if (activeInteraction.threads.length > 1) {
+                                      handleDismissChannel(activeInteraction.id, activeChannel);
+                                    } else {
+                                      handleDismissInteraction(activeInteraction.id);
+                                    }
+                                  })
                               : undefined
                           }
                           // Wired for every channel — see
@@ -10176,7 +10192,7 @@ export function AgentWorkspaceAdvancedPage({
                         // Mirrors AgentNextGenPage.tsx's own identical
                         // treatment.
                         actionButton={
-                          selectedContactHistoryEntry.redial ? (
+                          selectedContactHistoryEntry.redial && !calling.redial ? undefined : selectedContactHistoryEntry.redial ? (
                             <Button
                               variant="outline"
                               // Enabled during a call: a second call holds
@@ -11292,6 +11308,15 @@ export function AgentWorkspaceAdvancedPage({
 
       </div>
 
+      <ConfirmCloseDialog
+        open={!!pendingClose}
+        onConfirm={() => {
+          const dismiss = pendingClose;
+          setPendingClose(null);
+          dismiss?.();
+        }}
+        onCancel={() => setPendingClose(null)}
+      />
       {/* ── Welcome modal — shown once on page load. Uses the real lyra-ui
           `Modal` component (variant="light": frosted blur backdrop,
           portal-rendered via Radix Dialog, focus-trapped) rather than a

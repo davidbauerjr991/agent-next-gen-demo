@@ -424,19 +424,9 @@ export const OUTBOUND_GROUPS: CreateNewOutboundConfig["groups"] = [
   // (AgentNextGenPage.tsx et al.) already keys off this exact id; renaming
   // it here would silently break that wiring for a label-only request.
   { id: "teams", label: "My Team", contacts: OUTBOUND_TEAMS, icon: teamCategoryIcon() },
-  // Three brand-new categories from the reference mockup with no real
-  // contact data or action behind them yet (per explicit follow-up
-  // clarification: "empty placeholder groups") — `kind: "empty"` is the
-  // exact mechanism `create-new.tsx` already has for this (see that
-  // `kind`'s own doc comment): the row is fully clickable/real, it just
-  // always shows `emptyMessage` instead of a contact list, no favoriting
-  // concept. Swap in real `contacts`/`icon` later the same way any other
-  // group here already works, once this app has real data to back them —
-  // for now all three share the same generic `directoryCategoryIcon`
-  // (own doc comment above) per explicit request.
-  { id: "partner-network", label: "Partner Network", kind: "empty", emptyMessage: "No partner network contacts yet", icon: directoryCategoryIcon() },
-  { id: "vendor-directory", label: "Vendor Directory", kind: "empty", emptyMessage: "No vendor directory contacts yet", icon: directoryCategoryIcon() },
-  { id: "regional-offices", label: "Regional Offices", kind: "empty", emptyMessage: "No regional offices contacts yet", icon: directoryCategoryIcon() },
+  // Partner Network, Vendor Directory and Regional Offices are address
+  // books now, entries of the one Address Book group (`ADDRESS_BOOKS`,
+  // below; P0.5d.2), not groups of their own.
   // Kept in `OUTBOUND_GROUPS` (not deleted) but hidden from the visible
   // group list via `HIDDEN_OUTBOUND_GROUP_IDS` below — per explicit
   // follow-up request ("keep dial pad but not customers"), Customers no
@@ -476,6 +466,48 @@ export const OUTBOUND_GROUPS: CreateNewOutboundConfig["groups"] = [
 // map every tier's `useAddChannelButton` builds from `outboundConfig`
 // keeps it.
 export const HIDDEN_OUTBOUND_GROUP_IDS: string[] = ["customers"];
+
+/** An address book in the launcher's Address Book group (CXone's Directory
+ *  App "Address Book"). The set is data: the three below are seeded; the
+ *  DirectoryProvider serves them from P0.9, and agents' admins upload their
+ *  own (CSV import in Settings → Connections → Address books, P0.9.2). */
+export interface AddressBook {
+  id: string;
+  name: string;
+  source: "seeded" | "uploaded" | "connected";
+  entries: CreateNewOutboundContact[];
+}
+
+export const ADDRESS_BOOKS: AddressBook[] = [
+  { id: "partner-network", name: "Partner Network", source: "seeded", entries: [] },
+  { id: "vendor-directory", name: "Vendor Directory", source: "seeded", entries: [] },
+  { id: "regional-offices", name: "Regional Offices", source: "seeded", entries: [] },
+];
+
+/** The Address Book group: pick a book (lyra's group `subFilter`), then its
+ *  entries list and search like any group. Renders however many books exist. */
+export function addressBookGroup(
+  books: readonly AddressBook[],
+  selectedId: string,
+  onSelect: (id: string) => void,
+): CreateNewOutboundConfig["groups"][number] {
+  const selected = books.find((b) => b.id === selectedId);
+  return {
+    id: "address-book",
+    label: "Address Book",
+    kind: "contacts",
+    icon: directoryCategoryIcon(),
+    contacts: selected ? selected.entries : books.flatMap((b) => b.entries),
+    emptyMessage: selected ? `No ${selected.name} contacts yet` : "Choose an address book",
+    subFilter: {
+      ariaLabel: "Address book",
+      placeholder: "Choose an address book",
+      value: selectedId,
+      options: books.map((b) => ({ value: b.id, label: `${b.name} (${b.entries.length})` })),
+      onChange: onSelect,
+    },
+  };
+}
 
 export const OUTBOUND_CONFIG: CreateNewOutboundConfig = {
   outboundTitle: "New Outbound",
