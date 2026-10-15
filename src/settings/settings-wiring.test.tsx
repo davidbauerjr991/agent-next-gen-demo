@@ -408,6 +408,9 @@ describe("AI display panel: docked Copilot composer", () => {
     await clickText("Back to Details");
     expect(composer()).not.toBeNull();
 
+    // In panel mode the Journey Summary (with its "View Experience Memory"
+    // link) is on the Session tab.
+    await clickText("Session");
     await clickText("View Experience Memory");
     expect(composer()).toBeNull();
     await clickText("Back to Contact Details");
@@ -446,14 +449,41 @@ describe("Contact Details Overview stack, events, composer fade", () => {
   const EVENTS = ["Chat started", "Launch price held for 24 h", "Payment link sent", "Approval requested"];
   const APPROVAL_PROMPT = "How would you like to proceed?";
 
-  it("(5) every AI card in the panel is a lyra AICard with radius md; Customer Info stays a plain accordion", async () => {
+  const clickTab = async (label: string) => {
+    const tab = [...document.body.querySelectorAll("button, [role=tab]")].find((el) => el.textContent?.trim() === label);
+    if (!tab) throw new Error(`no tab ${label}`);
+    await h.click(tab);
+  };
+
+  it("(5, 10) panel mode: Overview = Customer Info + Autosummary + AI feed; Session = Journey Summary + Artifacts; all AICards radius md", async () => {
     await lucas("panel");
-    for (const title of ["Journey Summary", "Artifacts", "Autosummary", "Approval request"]) {
-      expect(aiCard(title, body()), `${title} AICard`).not.toBeNull();
+    for (const title of ["Autosummary", "Approval request"]) {
+      expect(aiCard(title, body()), `${title} AICard on Overview`).not.toBeNull();
     }
-    // Customer Info: lyra's plain accordion, not an AICard title.
+    for (const title of ["Journey Summary", "Artifacts"]) {
+      expect(aiCard(title, body()), `${title} not on Overview`).toBeNull();
+    }
+    // Customer Info: lyra's plain accordion, not an AICard.
     expect(aiCard("Customer Info", body())).toBeNull();
     expect(body().textContent).toContain("Customer Info");
+
+    await clickTab("Session");
+    for (const title of ["Journey Summary", "Artifacts"]) {
+      expect(aiCard(title, body()), `${title} AICard on Session`).not.toBeNull();
+    }
+    expect(body().textContent).not.toContain("Customer Info");
+  });
+
+  it("(10) inline mode: Overview keeps Customer Info, Journey Summary and Artifacts; Session doesn't get them", async () => {
+    await lucas("inline");
+    // Lucas's case opens the Contact Details panel on its own.
+    expect(body()).toBeTruthy();
+    for (const title of ["Journey Summary", "Artifacts"]) {
+      expect(aiCard(title, body()), `${title} AICard on Overview`).not.toBeNull();
+    }
+    expect(body().textContent).toContain("Customer Info");
+    await clickTab("Session");
+    expect(document.body.querySelector("[data-slot=details-panel-body]")).toBeNull();
   });
 
   it("(5) the stack is spaced only by its gap: no card or wrapper carries its own margin or top padding", async () => {
@@ -467,6 +497,8 @@ describe("Contact Details Overview stack, events, composer fade", () => {
 
   it("(5) says Journey Summary, never Real-Time Summary", async () => {
     await lucas("panel");
+    expect(document.body.textContent).not.toContain("Real-Time Summary");
+    await clickTab("Session");
     expect(document.body.textContent).toContain("Journey Summary");
     expect(document.body.textContent).not.toContain("Real-Time Summary");
   });

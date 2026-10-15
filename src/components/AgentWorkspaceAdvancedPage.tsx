@@ -6418,6 +6418,11 @@ export function AgentWorkspaceAdvancedPage({
   const copilotDockShown =
     aiInPanel && customerPanelActiveTab === "Details" && !channelPreviewThread && !selectedDetailPanelContent;
   const copilotDock = aiInPanel ? { mount: copilotDockShown ? copilotDockEl : null } : undefined;
+  // "AI in panel": Overview holds Customer Info (plus the AI feed: the
+  // Autosummary, approvals, Next Best Action); the Session tab holds the
+  // Journey Summary and Artifacts. Inline mode shows everything on Overview.
+  const PANEL_OVERVIEW_SECTIONS = { customerInfo: true, journeySummary: false, artifacts: false };
+  const PANEL_SESSION_SECTIONS = { customerInfo: false, journeySummary: true, artifacts: true };
   // "AI in panel": the Contact Details panel opens on Details whenever an
   // interaction becomes active. Declared after the interaction-switch panel
   // save/restore effects so it wins (v3).
@@ -11056,9 +11061,32 @@ export function AgentWorkspaceAdvancedPage({
                         showViewDetails={false}
                       />
                     ) : customerPanelActiveTab === "Session Details" ? (
-                      sessionDetailsTabContent.body
+                      aiInPanel ? (
+                        // AI in the panel: the Session tab also holds the
+                        // Journey Summary and Artifacts cards (moved off the
+                        // Overview, which keeps Customer Info and the AI feed).
+                        <>
+                          <DetailsPanelAccordions
+                            show={PANEL_SESSION_SECTIONS}
+                            artifacts={panelArtifacts}
+                            onOpenArtifact={reopenPanelArtifact}
+                            onViewAllArtifacts={() => setCustomerPanelActiveTab("Artifacts")}
+                            onViewExperienceMemory={
+                              scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID || scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID || isColdCallId(activeInteraction.id) ? () => openExperienceMemoryInSidePanel() : undefined
+                            }
+                            customerName={activeInteraction.customerName}
+                            customerContextOverview={customerContextOverviewInfo}
+                            showJourneySummary
+                            journeySummaryUpdatedAtTick={journeySummaryUpdatedAtTick}
+                          />
+                          {sessionDetailsTabContent.body}
+                        </>
+                      ) : (
+                        sessionDetailsTabContent.body
+                      )
                     ) : (
                       <DetailsPanelAccordions
+                        show={aiInPanel ? PANEL_OVERVIEW_SECTIONS : undefined}
  artifacts={panelArtifacts}
  onOpenArtifact={reopenPanelArtifact}
  onViewAllArtifacts={() => setCustomerPanelActiveTab("Artifacts")}

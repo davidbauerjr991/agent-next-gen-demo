@@ -3598,6 +3598,7 @@ export function useSessionDetailsTabContent({
 const AI_FEED_BOTTOM_PADDING_PX = 32;
 /** Within this many px of the bottom counts as "at the bottom". */
 const AI_FEED_NEAR_BOTTOM_PX = 48;
+const DETAILS_SECTIONS_ALL = { customerInfo: true, journeySummary: true, artifacts: true };
 
 /* ── DetailsPanelAccordions ──
    What the "Details" tab of the "Session Details"/"Details"/"Transcript"
@@ -3638,7 +3639,12 @@ export function DetailsPanelAccordions({
   onViewAllArtifacts,
   aiFeed,
   aiFeedCount,
+  show = DETAILS_SECTIONS_ALL,
 }: {
+  /** Which of the panel's own sections render. Default all. With AI display
+   *  "In the Contact Details panel", Overview shows Customer Info (plus the
+   *  AI feed) and the Session tab shows the Journey Summary and Artifacts. */
+  show?: { customerInfo: boolean; journeySummary: boolean; artifacts: boolean };
   /** "AI in panel" mode: the AI cards/interstitials (see `AiActionsFeed`),
    *  shown below the original cards. */
   aiFeed?: React.ReactNode;
@@ -3775,7 +3781,7 @@ export function DetailsPanelAccordions({
           md, compact. Customer Info is shown only when there's a customer
           record ("if a new call is made or the customer does not have any
           information, do not display the customer profile"). */}
-      {showCustomerContextOverview && customerContextOverview?.customerCard && (
+      {show.customerInfo && showCustomerContextOverview && customerContextOverview?.customerCard && (
         <CustomerContextOverview
           customerName={customerName ?? ""}
           customerCard={customerContextOverview.customerCard}
@@ -3791,7 +3797,7 @@ export function DetailsPanelAccordions({
           className="pt-0"
         />
       )}
-      {showCustomerContextOverview && customerContextOverview && (
+      {show.journeySummary && showCustomerContextOverview && customerContextOverview && (
         // Only this card re-renders for the "Updated N seconds ago"
         // caption, and only when the label text changes (every second for
         // the first minute, then every minute) — see
@@ -3828,6 +3834,7 @@ export function DetailsPanelAccordions({
       {/* Artifacts: a blue lyra AICard (as v3 since lyra 71160d3), open by
           default (`DetailsPanelAccordions` is keyed per interaction, so it
           reopens for each new contact). */}
+      {show.artifacts && (
       <AICard
         title="Artifacts"
         color="blue"
@@ -3867,6 +3874,7 @@ export function DetailsPanelAccordions({
                 )}
               </div>
       </AICard>
+      )}
       {/* Settings → AI display "In the Contact Details panel" (P-SETTINGS,
           ported from v3): the AI cards and interstitials sit below the
           original items. */}
