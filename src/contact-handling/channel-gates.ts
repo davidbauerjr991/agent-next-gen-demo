@@ -16,9 +16,12 @@ export function enabledChannelOptions(
   return options.filter((option) => channelOn(channels, option.id));
 }
 
-/** A launcher contact's own channel list, without the channels that are off. */
+/** A launcher contact's own channel list: the channels that are on, and that
+ *  the entry has an address for (Email needs an email on file; the phone
+ *  channels use its number or the outbound lines). */
 export function withEnabledChannels(contact: CreateNewOutboundContact, channels: ChannelsSettings): CreateNewOutboundContact {
-  return contact.channels ? { ...contact, channels: contact.channels.filter((c) => channelOn(channels, c)) } : contact;
+  const reachable = (c: string) => channelOn(channels, c) && (c !== "email" || !!contact.email);
+  return contact.channels ? { ...contact, channels: contact.channels.filter(reachable) } : contact;
 }
 
 /** Contact History rows on the channels that are on (every range). */

@@ -46,6 +46,9 @@ export function NewOutboundLauncher({
   };
   return (
     <CreateNew
+      // CreateNew picks its starting screen (straight to a lone tab, or the
+      // group list) at mount: a changed tab set remounts it.
+      key={groups.map((g) => g.id).join(",")}
       title="New Outbound"
       outbound={{
         ...outboundConfig,

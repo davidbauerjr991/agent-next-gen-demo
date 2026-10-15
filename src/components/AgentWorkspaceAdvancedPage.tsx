@@ -5087,6 +5087,9 @@ export function AgentWorkspaceAdvancedPage({
     return {
       ...OUTBOUND_CONFIG,
       channelOptions: enabledChannelOptions(OUTBOUND_CONFIG.channelOptions, channelSettings),
+      // A typed address is an ad-hoc dial (Outbound Calling → Ad-hoc); lyra
+      // narrows these to the channel options above.
+      adHocChannels: calling.adHoc ? OUTBOUND_CONFIG.adHocChannels : { phone: [], email: [] },
       skillOptions: providerSkills.length > 0 ? providerSkills : OUTBOUND_CONFIG.skillOptions,
       groups: OUTBOUND_CONFIG.groups.map((group) => {
         // Teams' own "Choose team" sub-picker — per explicit request,
@@ -5123,7 +5126,7 @@ export function AgentWorkspaceAdvancedPage({
         };
       }),
     };
-  }, [interactions, selectedOutboundTeamId, allOutboundSkills, channelSettings]);
+  }, [interactions, selectedOutboundTeamId, allOutboundSkills, channelSettings, calling.adHoc]);
 
   // `CONTACT_HISTORY_OUTBOUND_CONTACTS` (the 5 hand-authored rows) PLUS a
   // live-rebuilt contact for every row in `dismissedContactHistory` (see

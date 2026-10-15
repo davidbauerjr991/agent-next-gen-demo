@@ -427,8 +427,14 @@ export const OUTBOUND_CONFIG: CreateNewOutboundConfig = {
     // `WhatsAppChannelRow`/`CHANNEL_TYPE_META.whatsapp` already used
     // everywhere else (the LeftNav's own channel chips, the record-header
     // tabs) for the exact same channel.
-    { id: "whatsapp", label: "WhatsApp",                       icon: <WhatsAppIcon className="h-5 w-5" /> },
+    // WhatsApp reaches a phone number (lyra `addressKind`), so its address
+    // field is "Select Phone" and a typed number works for it.
+    { id: "whatsapp", label: "WhatsApp", addressKind: "phone", icon: <WhatsAppIcon className="h-5 w-5" /> },
   ],
+  // What a typed address offers through "Continue with" (lyra
+  // `adHocChannels`); the page narrows it to Settings → Channels and
+  // Outbound Calling → Ad-hoc.
+  adHocChannels: { phone: ["voice", "sms", "whatsapp"], email: ["email"] },
   phoneOptions: [
     { value: "+14563833329", label: "(456) 383-3329" },
     { value: "+14565559981", label: "(456) 555-9981" },

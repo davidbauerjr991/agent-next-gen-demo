@@ -45,9 +45,13 @@ describe("channel gates (pure)", () => {
   });
 
   it("a contact's own channel list drops the channels that are off", () => {
-    const contact = { id: "c", name: "C", channels: ["voice", "sms", "email"] } as CreateNewOutboundConfig["groups"][number]["contacts"] extends (infer T)[] | undefined ? T : never;
+    type Contact = CreateNewOutboundConfig["groups"][number]["contacts"] extends (infer T)[] | undefined ? T : never;
+    const contact = { id: "c", name: "C", channels: ["voice", "sms", "email"], email: "c@example.com" } as Contact;
     expect(withEnabledChannels(contact, PHASE1).channels).toEqual(["voice"]);
     expect(withEnabledChannels(contact, { ...PHASE1, email: true }).channels).toEqual(["voice", "email"]);
+    // Only the channels the entry has an address for: no email on file, no Email.
+    const noEmail = { id: "d", name: "D", channels: ["voice", "email"] } as Contact;
+    expect(withEnabledChannels(noEmail, ALL).channels).toEqual(["voice"]);
   });
 
   it("Contact History keeps only rows on the channels that are on", () => {
@@ -130,6 +134,79 @@ describe("the Customers table's channel actions", () => {
     await h.click(table()!.querySelector<HTMLElement>('[title="Voice"], [aria-label="Voice"]')!);
     expect(radios()).toEqual([]);
     expect(document.body.textContent).toContain("Outbound Skill");
+  });
+});
+
+describe("New Outbound's Select Channel (lyra CreateNew, the same channel list)", () => {
+  const radios = () =>
+    [...document.body.querySelectorAll('[role="radio"]')].map(
+      (r) =>
+        (r.id && document.querySelector(`label[for="${r.id}"]`)?.textContent?.trim()) ||
+        r.closest("label")?.textContent?.trim() ||
+        r.getAttribute("value"),
+    );
+  const button = (text: string) => [...document.body.querySelectorAll("button")].find((b) => b.textContent?.trim() === text);
+  const startsWith = (text: string) => [...document.body.querySelectorAll("button")].find((b) => b.textContent?.trim().startsWith(text));
+
+  async function typeIn(input: HTMLInputElement, value: string) {
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(50);
+    });
+  }
+
+  /** Phase 2, New Outbound open on Favorites, the search field typed into. */
+  async function search(query: string) {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await act(async () => {
+      getSettingsStore().updateMany(profileValues("phase2"));
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    await h.click([...h.container.querySelectorAll("aside button")].find((b) => b.textContent?.includes("New Outbound"))!);
+    const field = document.getElementById("new-outbound-search") as HTMLInputElement;
+    await typeIn(field, query);
+  }
+
+  it("a typed email (an entry with only an email address) offers only Email", async () => {
+    await search("jane@example.com");
+    await h.click(startsWith("Continue with")!);
+    expect(radios()).toEqual(["Email"]);
+  });
+
+  it("with Email off, a typed email offers none", async () => {
+    await search("jane@example.com");
+    await setSettings("channels", { email: false });
+    await h.click(startsWith("Continue with")!);
+    expect(radios()).not.toContain("Email");
+  });
+
+  it("a typed phone number offers Voice, SMS and WhatsApp; SMS off drops SMS", async () => {
+    await search("(312) 555-0199");
+    await setSettings("channels", { sms: false });
+    await h.click(startsWith("Continue with")!);
+    expect(radios()).toEqual(["Voice", "WhatsApp"]);
+  });
+
+  it("an SMS outbound to a directory customer adds an SMS row to their card", async () => {
+    await search("Priya");
+    // The menu shows a count per group; the All group lists the match.
+    const all = [...document.querySelectorAll<HTMLElement>("[data-radix-popper-content-wrapper] *")].find(
+      (el) => (el.getAttribute("role") === "button" || el.tagName === "BUTTON") && el.textContent?.trim().startsWith("All"),
+    )!;
+    await h.click(all);
+    const row = [...document.querySelectorAll<HTMLElement>("[data-radix-popper-content-wrapper] *")].find(
+      (el) => (el.getAttribute("role") === "button" || el.tagName === "BUTTON") && el.textContent?.includes("Priya Shah"),
+    )!;
+    await h.click(row);
+    const sms = [...document.body.querySelectorAll<HTMLElement>('[role="radio"]')].find(
+      (r) => (r.id && document.querySelector(`label[for="${r.id}"]`)?.textContent?.trim()) === "SMS" || r.getAttribute("value") === "sms",
+    )!;
+    await h.click(sms);
+    await h.click(button("Start Interaction")!);
+    await h.advance(500);
+    const rows = [...h.container.querySelectorAll("aside [aria-label]")].map((el) => el.getAttribute("aria-label")!);
+    expect(rows.some((label) => label.startsWith("SMS channel"))).toBe(true);
   });
 });
 
