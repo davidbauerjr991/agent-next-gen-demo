@@ -315,6 +315,106 @@ describe("AI: display location", () => {
   });
 });
 
+describe("AI display panel: docked Copilot composer", () => {
+  async function lucasInPanelMode() {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await setSettings("ai", { displayLocation: "panel" });
+    await h.play(LUCAS_THOMAS_SCRIPT.id);
+    await h.click(h.navCard("Lucas Thomas"));
+    await h.advance(2_000);
+  }
+  const composer = () => document.body.querySelector("[data-slot=copilot-composer]");
+  const body = () => document.body.querySelector<HTMLElement>("[data-slot=details-panel-body]");
+  /** The panel's scroll container (lyra `PanelContent`) around the Details body. */
+  const scroller = () => body()!.parentElement!.closest<HTMLElement>(".overflow-y-auto")!;
+  const clickText = async (text: string) => {
+    const el = [...document.body.querySelectorAll("button, [role=tab], [role=button], a")].find(
+      (e) => e.textContent?.trim() === text || e.getAttribute("aria-label") === text,
+    );
+    if (!el) throw new Error(`nothing to click labeled ${text}`);
+    await h.click(el);
+  };
+
+  it("is the panel's footer: a sibling of the scroll container, stacked chips → input → Takeover", async () => {
+    await lucasInPanelMode();
+    const c = composer()!;
+    expect(c).not.toBeNull();
+    expect(c.closest("[data-slot=copilot-dock]")).not.toBeNull();
+    expect(scroller().contains(c)).toBe(false);
+    // Same parent column: the composer's footer follows the scroll area.
+    expect(scroller().parentElement!.contains(c)).toBe(true);
+    expect(isBefore(scroller(), c)).toBe(true);
+    // Nothing of the Copilot composer stays in the main column.
+    expect([...document.body.querySelectorAll("[data-slot=copilot-composer]")]).toHaveLength(1);
+
+    const chip = c.querySelector('[role="button"]')!;
+    const input = c.querySelector("textarea")!;
+    const takeover = [...c.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Takeover Chat")!;
+    expect(isBefore(chip, input)).toBe(true);
+    expect(isBefore(input, takeover)).toBe(true);
+    expect(takeover.className).toContain("w-full");
+  });
+
+  it("the body's bottom padding keeps the last card clear of the footer's fade", async () => {
+    await lucasInPanelMode();
+    // lyra ContainerFooter's scrollFade overlays 24px above the footer.
+    expect(parseInt(body()!.style.paddingBottom, 10)).toBeGreaterThanOrEqual(24);
+  });
+
+  it("a new AI item scrolls to the bottom only when the agent is already at the bottom", async () => {
+    await lucasInPanelMode();
+    const el = scroller();
+    let scrollHeight = 2000;
+    let scrollTop = 0;
+    Object.defineProperty(el, "scrollHeight", { configurable: true, get: () => scrollHeight });
+    Object.defineProperty(el, "clientHeight", { configurable: true, get: () => 400 });
+    Object.defineProperty(el, "scrollTop", { configurable: true, get: () => scrollTop, set: (v: number) => (scrollTop = v) });
+    const feedItems = () => document.body.querySelector("[data-slot=ai-feed]")!.querySelectorAll(":scope > div > *").length;
+
+    // Scrolled up: the script's next AI items (the approval request) arrive
+    // and the scroll position is left alone.
+    scrollTop = 100;
+    el.dispatchEvent(new Event("scroll"));
+    const before = feedItems();
+    scrollHeight += 400;
+    await h.advance(14_000);
+    expect(feedItems()).toBeGreaterThan(before);
+    expect(scrollTop).toBe(100);
+
+    // At the bottom: a Copilot ask (a new instruction row) follows to the bottom.
+    scrollTop = scrollHeight - 400;
+    el.dispatchEvent(new Event("scroll"));
+    scrollHeight += 200;
+    const chip = composer()!.querySelector<HTMLElement>('[role="button"]')!;
+    await act(async () => {
+      chip.click();
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(scrollTop).toBe(scrollHeight);
+  });
+
+  it("shows only on the Details overview: not on Session Details, Customer Info or Experience Memory", async () => {
+    await lucasInPanelMode();
+    expect(composer()).not.toBeNull();
+
+    // The tabs read "Overview" / "Session".
+    await clickText("Session");
+    expect(composer()).toBeNull();
+    await clickText("Overview");
+    expect(composer()).not.toBeNull();
+
+    await clickText("View customer info");
+    expect(composer()).toBeNull();
+    await clickText("Back to Details");
+    expect(composer()).not.toBeNull();
+
+    await clickText("View Experience Memory");
+    expect(composer()).toBeNull();
+    await clickText("Back to Contact Details");
+    expect(composer()).not.toBeNull();
+  });
+});
+
 describe("Reset to defaults", () => {
   it("confirms in a lyra alert dialog: Cancel keeps the settings, Reset restores the defaults", async () => {
     await h.show(AgentWorkspaceAdvancedPage);

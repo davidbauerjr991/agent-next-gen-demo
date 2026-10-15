@@ -35,7 +35,16 @@ globalThis.ResizeObserver ??= class {
   unobserve() {}
   disconnect() {}
 } as unknown as typeof ResizeObserver;
-window.matchMedia ??= ((query: string) => ({
+// lyra `ContainerFooter`'s `scrollFade` watches a sentinel.
+globalThis.IntersectionObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+  takeRecords() {
+    return [];
+  }
+} as unknown as typeof IntersectionObserver;
+window.matchMedia ??=((query: string) => ({
   matches: false,
   media: query,
   onchange: null,

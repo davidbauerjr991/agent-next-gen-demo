@@ -5136,7 +5136,14 @@ export function InteractionComposer({
   takeoverDisabledReason,
   hideAiActions,
   onHideAiActionsChange,
+  copilotDock,
 }: {
+  /** Settings → AI display "In the Contact Details panel": the Ask Copilot
+   *  part (chips, input, Takeover) renders as the panel's docked footer
+   *  (portaled into `mount`) instead of here; this composer keeps only the
+   *  chat input. While `mount` is null (the panel isn't showing its Overview)
+   *  the Copilot part isn't rendered anywhere. */
+  copilotDock?: { mount: HTMLElement | null };
   /** Shows a "Hide AI Actions" switch at the right of the mode toggle row. */
   hideAiActions?: boolean;
   onHideAiActionsChange?: (hide: boolean) => void;
@@ -5182,7 +5189,8 @@ export function InteractionComposer({
   onPrefillConsumed?: () => void;
 }) {
   const [composerTabState, setComposerTab] = useState<"chat" | "copilot">("chat");
-  const composerTab = copilotOnly ? "copilot" : composerTabState;
+  const copilotDocked = !!copilotDock;
+  const composerTab = copilotDocked ? "chat" : copilotOnly ? "copilot" : composerTabState;
   const [copilotQuestion, setCopilotQuestion] = useState("");
   const [copilotLoading, setCopilotLoading] = useState<string | null>(null);
   // Switching modes puts the caret straight into that mode's input so the agent can just start typing
@@ -5432,8 +5440,76 @@ export function InteractionComposer({
     setMessage("");
   };
 
+  const submitCopilot = (text: string) => {
+    const q = (text ?? copilotQuestion).trim();
+    if (q) onCopilotAsk?.(q);
+    setCopilotQuestion("");
+  };
+  const renderCopilotChips = (focusable: boolean) =>
+    copilotSuggestions && copilotSuggestions.length > 0 ? (
+      <div className="flex flex-wrap gap-2">
+        {copilotSuggestions
+          .map((sg) => (copilotUsed.includes(sg) ? copilotSuggestionReplacements?.[sg] : sg))
+          .filter((sg): sg is string => !!sg && !copilotUsed.includes(sg))
+          .map((suggestion) => (
+            <Tag
+              key={suggestion}
+              label={suggestion}
+              variant="purple"
+              icon={<Sparkles className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />}
+              shape="pill"
+              role="button"
+              tabIndex={focusable ? 0 : -1}
+              className="cursor-pointer"
+              onClick={() => activateCopilotSuggestion(suggestion)}
+              onKeyDown={(e: React.KeyboardEvent<HTMLSpanElement>) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  activateCopilotSuggestion(suggestion);
+                }
+              }}
+            />
+          ))}
+      </div>
+    ) : null;
+
+  // Docked (AI in the Contact Details panel): stacked for the panel's
+  // width — chips, then the input (text on top, +/mic beneath: `AIInput`'s
+  // own multi-line layout), then Takeover full width.
+  const dockedCopilot = copilotDock?.mount
+    ? createPortal(
+        <div data-slot="copilot-composer" className="flex w-full flex-col gap-3">
+          {renderCopilotChips(true)}
+          <AIInput
+            value={copilotQuestion}
+            onChange={setCopilotQuestion}
+            onSubmit={submitCopilot}
+            placeholder="Ask Copilot about this customer or conversation..."
+            helperText=""
+            className="w-full"
+          />
+          {copilotOnly && onTakeover && (
+            <Button
+              variant="destructive"
+              size="md"
+              className="w-full"
+              onClick={onTakeover}
+              disabled={takeoverDisabled}
+              title={takeoverDisabled ? takeoverDisabledReason : undefined}
+            >
+              {takeoverLabel}
+            </Button>
+          )}
+        </div>,
+        copilotDock.mount,
+      )
+    : null;
+  // Copilot-only and docked: nothing stays inline.
+  if (copilotDocked && copilotOnly) return dockedCopilot;
+
   return (
     <div className="relative shrink-0 bg-lyra-bg-surface-base px-6 py-4">
+      {dockedCopilot}
       {/* Soft fade instead of a hard border-top — reads as the transcript
           scrolling *under* the composer rather than stopping at a line.
           Positioned outside this div's own box (negative top), so it
@@ -5502,7 +5578,8 @@ export function InteractionComposer({
           </div>
         )}
         {/* "Chat with Customer" / "Ask Copilot" tabs: the chat input stays mounted (just hidden) while Copilot is showing so a draft is kept. */}
-        {copilotOnly ? (
+        {/* Docked Copilot: no mode toggle here, the chat input stands alone. */}
+        {copilotDocked ? null : copilotOnly ? (
           // Copilot-only (agent reviewing an AI-led chat): no mode toggle, just the switch at the right.
           onHideAiActionsChange && (
             <div className="mb-3 flex justify-end">
@@ -5536,6 +5613,7 @@ export function InteractionComposer({
         )}
         {/* Both panes share one grid cell so the area keeps the taller (chat) height on either tab. */}
         <div className="grid">
+        {!copilotDocked && (
         <div
           ref={copilotPaneRef}
           className={`col-start-1 row-start-1 ${composerTab === "copilot" ? "animate-in fade-in-0 duration-200" : "invisible pointer-events-none"}`}
@@ -5544,42 +5622,13 @@ export function InteractionComposer({
             <AIInput
               value={copilotQuestion}
               onChange={setCopilotQuestion}
-              onSubmit={(text: string) => {
-                const q = (text ?? copilotQuestion).trim();
-                if (q) onCopilotAsk?.(q);
-                setCopilotQuestion("");
-              }}
+              onSubmit={submitCopilot}
               placeholder="Ask Copilot about this customer or conversation..."
               helperText=""
               className="w-full"
             />
             <div className="mt-3 flex items-start justify-between gap-3">
-            {copilotSuggestions && copilotSuggestions.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {copilotSuggestions
-                  .map((sg) => (copilotUsed.includes(sg) ? copilotSuggestionReplacements?.[sg] : sg))
-                  .filter((sg): sg is string => !!sg && !copilotUsed.includes(sg))
-                  .map((suggestion) => (
-                  <Tag
-                    key={suggestion}
-                    label={suggestion}
-                    variant="purple"
-                    icon={<Sparkles className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />}
-                    shape="pill"
-                    role="button"
-                    tabIndex={composerTab === "copilot" ? 0 : -1}
-                    className="cursor-pointer"
-                    onClick={() => activateCopilotSuggestion(suggestion)}
-                    onKeyDown={(e: React.KeyboardEvent<HTMLSpanElement>) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        activateCopilotSuggestion(suggestion);
-                      }
-                    }}
-                  />
-                ))}
-              </div>
-            ) : <span />}
+            {renderCopilotChips(composerTab === "copilot") ?? <span />}
             {copilotOnly && onTakeover && (
               <Button variant="destructive" size="md" className="shrink-0" onClick={onTakeover} disabled={takeoverDisabled} title={takeoverDisabled ? takeoverDisabledReason : undefined} tabIndex={composerTab === "copilot" ? 0 : -1}>
                 {takeoverLabel}
@@ -5587,6 +5636,7 @@ export function InteractionComposer({
             )}
             </div>
         </div>
+        )}
         <div className={`col-start-1 row-start-1 ${composerTab === "chat" ? "" : "invisible pointer-events-none"}`} aria-hidden={composerTab !== "chat"}>
         <Textarea
           ref={textareaRef}

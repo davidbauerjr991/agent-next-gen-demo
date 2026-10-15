@@ -87,6 +87,7 @@ import {
   InteriorPanel,
   EmptyState,
   CustomerContextOverview,
+  PanelFooter,
 } from "@nicecxone/lyra-ui";
 import { CREATE_NEW_CUSTOMERS, type CreateNewCustomerRecord } from "@nicecxone/lyra-ui/customers-data";
 import { useScheduleContent } from "@nicecxone/lyra-ui";
@@ -1680,6 +1681,9 @@ export function AgentWorkspaceAdvancedPage({
   const aiInPanel = aiSettings.displayLocation === "panel";
   const stripAiInPanel = (messages: TranscriptMessage[]) =>
     aiInPanel ? messages.filter((m) => !isAiActionMessage(m)) : messages;
+  // The docked Copilot composer's slot element (the panel footer); null
+  // while the footer isn't rendered.
+  const [copilotDockEl, setCopilotDockEl] = useState<HTMLDivElement | null>(null);
   const [leftNavVoiceSlot, setLeftNavVoiceSlot] = useState<HTMLDivElement | null>(null);
   const { newOutboundAtBottom, navItemsAtTop, noInteractionCollapse } = assignmentsSettings;
   useEffect(() => {
@@ -6385,6 +6389,18 @@ export function AgentWorkspaceAdvancedPage({
       />
     );
   };
+  // How many AI items the panel feed holds (the overview counts as one); a
+  // change scrolls the panel to the newest when the agent is at the bottom.
+  const aiFeedCount = activeInteraction
+    ? Object.values(activeInteraction.liveMessages ?? {}).flat().filter(isAiActionMessage).length
+    : 0;
+  // "AI in panel": the docked Copilot composer shows only on the Details
+  // overview (the AI feed): not on Session Details, Customer Info,
+  // Experience Memory or Artifacts, not over a channel preview, and not
+  // while a card link's sub-page is open.
+  const copilotDockShown =
+    aiInPanel && customerPanelActiveTab === "Details" && !channelPreviewThread && !selectedDetailPanelContent;
+  const copilotDock = aiInPanel ? { mount: copilotDockShown ? copilotDockEl : null } : undefined;
   // "AI in panel": the Contact Details panel opens on Details whenever an
   // interaction becomes active. Declared after the interaction-switch panel
   // save/restore effects so it wins (v3).
@@ -9746,6 +9762,7 @@ export function AgentWorkspaceAdvancedPage({
                             <InteractionComposer
                               hideAiActions={hideAiActions}
                               onHideAiActionsChange={setHideAiActions}
+                              copilotDock={copilotDock}
                               copilotOnly={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && lucasThomasReviewing}
                               onTakeover={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID ? () => handleLucasTakeover() : undefined}
                               onSend={(text) => handleSendMessage(activeInteraction.id, text, activeChannelKey)}
@@ -9810,6 +9827,7 @@ export function AgentWorkspaceAdvancedPage({
                         {isColdCallId(activeInteraction.id) && !activeInteraction.offered && (
                           <InteractionComposer
                             copilotOnly
+                            copilotDock={copilotDock}
                             onSend={() => {}}
                             copilotSuggestions={scenarioKeyOf(activeInteraction.id) === MAYA_CHEN_CALL_ID ? MAYA_CHEN_CALL_COPILOT_SUGGESTIONS : TOM_LEWIS_CALL_COPILOT_SUGGESTIONS}
                             copilotSuggestionLinks={scenarioKeyOf(activeInteraction.id) === MAYA_CHEN_CALL_ID ? MAYA_CHEN_CALL_COPILOT_LINKS : TOM_LEWIS_CALL_COPILOT_LINKS}
@@ -9823,6 +9841,7 @@ export function AgentWorkspaceAdvancedPage({
                           // Stays after takeover (Ask Copilot only — a voice call has no chat input); the Takeover Call button only while reviewing.
                           <InteractionComposer
                             copilotOnly
+                            copilotDock={copilotDock}
                             takeoverLabel="Takeover Call"
                             takeoverDisabled={!!liveVoiceCallInteraction && scenarioKeyOf(liveVoiceCallInteraction.id) !== MARCUS_WEBB_ID}
                             takeoverDisabledReason="A call is already in progress"
@@ -10906,6 +10925,16 @@ export function AgentWorkspaceAdvancedPage({
                       ? customerInfoOverlayContent.footer
                       : customerPanelActiveTab === "Session Details"
                       ? sessionDetailsTabContent.footer
+                      : copilotDockShown
+                      ? (
+                        // "AI in panel": the docked Copilot composer's slot
+                        // (the main composer portals into it). Only on the
+                        // Details overview; every other tab or sub-page
+                        // gives the body the full height.
+                        <PanelFooter align="full" scrollFade>
+                          <div ref={setCopilotDockEl} data-slot="copilot-dock" className="w-full" />
+                        </PanelFooter>
+                      )
                       : undefined
                   }
                   bodyOverride={
@@ -11019,6 +11048,7 @@ export function AgentWorkspaceAdvancedPage({
                         customerContextOverview={customerContextOverviewInfo}
                         // Settings → AI display "In the Contact Details panel".
                         aiFeed={aiInPanel ? renderAiPanelFeed() : undefined}
+                        aiFeedCount={aiFeedCount}
                         // Per explicit request ("replace the autosummary
                         // card in the contact details with the content
                         // depicted in the screenshot of the real time

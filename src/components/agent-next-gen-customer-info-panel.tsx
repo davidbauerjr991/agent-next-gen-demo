@@ -3591,6 +3591,12 @@ export function useSessionDetailsTabContent({
   };
 }
 
+/** "AI in panel": bottom padding that keeps the last card clear of the
+ *  docked composer's scroll fade (lyra `ContainerFooter` `scrollFade`, 24px). */
+const AI_FEED_BOTTOM_PADDING_PX = 32;
+/** Within this many px of the bottom counts as "at the bottom". */
+const AI_FEED_NEAR_BOTTOM_PX = 48;
+
 /* ── DetailsPanelAccordions ──
    What the "Details" tab of the "Session Details"/"Details"/"Transcript"
    `InteriorPanel` (voice's own header tabs, and the plain non-voice panel —
@@ -3629,10 +3635,14 @@ export function DetailsPanelAccordions({
   onOpenArtifact,
   onViewAllArtifacts,
   aiFeed,
+  aiFeedCount,
 }: {
   /** "AI in panel" mode: the AI cards/interstitials (see `AiActionsFeed`),
    *  shown below the original cards. */
   aiFeed?: React.ReactNode;
+  /** How many items `aiFeed` holds; a change is a new AI item (card,
+   *  approval, instruction row, Copilot result) to follow to the bottom. */
+  aiFeedCount?: number;
   /** Fired by "View All" (only shown when more than 10 artifacts are listed). */
   onViewAllArtifacts?: () => void;
   /** Side panels the agent has opened on this interaction — listed as links in the Artifacts card; clicking re-opens one. */
@@ -3725,8 +3735,43 @@ export function DetailsPanelAccordions({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // "AI in panel" (Settings → AI display): the docked Copilot composer is the
+  // panel's footer, a sibling below the scroll area (lyra `SidePanel`'s
+  // `PanelContent`), so it never covers the cards. The extra bottom padding
+  // keeps the last card clear of the footer's scroll fade. The scroll area
+  // follows the newest AI item, but only while the agent is at or near the
+  // bottom; scrolled up, it's left alone.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const scrollerRef = useRef<HTMLElement | null>(null);
+  const stickToBottom = useRef(true);
+  const aiDocked = !!aiFeed;
+  useLayoutEffect(() => {
+    if (!aiDocked) return;
+    // The panel's own scroll container (`PanelContent`), else this root.
+    const scroller = rootRef.current?.parentElement?.closest<HTMLElement>(".overflow-y-auto") ?? rootRef.current;
+    if (!scroller) return;
+    scrollerRef.current = scroller;
+    scroller.scrollTop = scroller.scrollHeight;
+    stickToBottom.current = true;
+    const onScroll = () => {
+      stickToBottom.current = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight <= AI_FEED_NEAR_BOTTOM_PX;
+    };
+    scroller.addEventListener("scroll", onScroll);
+    return () => scroller.removeEventListener("scroll", onScroll);
+  }, [aiDocked]);
+  useLayoutEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!aiDocked || !scroller || !stickToBottom.current) return;
+    scroller.scrollTop = scroller.scrollHeight;
+  }, [aiDocked, aiFeedCount]);
+
   return (
-    <div className="flex flex-col gap-3 p-4 overflow-y-auto">
+    <div
+      ref={rootRef}
+      data-slot="details-panel-body"
+      className="flex flex-col gap-3 p-4 overflow-y-auto"
+      style={aiDocked ? { paddingBottom: AI_FEED_BOTTOM_PADDING_PX } : undefined}
+    >
       {onLinkCustomer && (
         <Button variant="outline" className="w-full" onClick={onLinkCustomer}>
           Link to existing customer
