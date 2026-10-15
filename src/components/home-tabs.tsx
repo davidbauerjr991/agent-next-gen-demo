@@ -20,6 +20,7 @@ import {
 import type { CustomerTableState } from "@/components/customer-table-state";
 import { HOME_APP_TAB_LABELS, keptMountedClass, type HomeTabs } from "@/components/home-tabs-state";
 import type { ExtraHeaderApp } from "@/settings";
+import { cn } from "@/lib/utils";
 
 /** Dashboard, the tab-placed apps (draggable), then the closable customer
  *  tabs. Dashboard has no `key`, so it can't be dragged and stays first. */
@@ -72,7 +73,10 @@ export function LeftNavAppPage({ title, showHeader, children }: { title: string;
   return (
     <div className="flex flex-1 flex-col min-w-0 overflow-hidden animate-in fade-in-0 duration-200" data-slot="left-nav-page" data-app={title}>
       {showHeader && <PageHeader title={title} />}
-      <div className="relative flex flex-1 overflow-hidden">{children}</div>
+      {/* Positioned, scrolling sideways, and its own stacking context
+          (`isolate`): lyra's table resize handles (z-10) stay inside the
+          page instead of painting over the left nav's hover overlay. */}
+      <div className="relative isolate flex flex-1 overflow-x-auto overflow-y-hidden">{children}</div>
     </div>
   );
 }
@@ -188,7 +192,9 @@ export function CustomersTabBody({
   inert,
 }: CustomersTabBodyProps) {
   return (
-    <div className={className} inert={inert}>
+    // `isolate`: the table's resize handles (lyra, z-10) stack inside this
+    // body, never over the left nav's hover overlay.
+    <div className={cn(className, "isolate")} inert={inert}>
       <CustomersListView
         onStartInteraction={onStartInteraction}
         addedFilterKeys={table.addedFilterKeys}
