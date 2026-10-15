@@ -393,6 +393,44 @@ describe("AI display panel: docked Copilot composer", () => {
     expect(scrollTop).toBe(scrollHeight);
   });
 
+  it("(12) an agent action always scrolls to the bottom; a timed bot item doesn't when scrolled up", async () => {
+    await lucasInPanelMode();
+    const el = scroller();
+    let scrollHeight = 2000;
+    let scrollTop = 0;
+    Object.defineProperty(el, "scrollHeight", { configurable: true, get: () => scrollHeight });
+    Object.defineProperty(el, "clientHeight", { configurable: true, get: () => 400 });
+    Object.defineProperty(el, "scrollTop", { configurable: true, get: () => scrollTop, set: (v: number) => (scrollTop = v) });
+    const scrollToTop = () => {
+      scrollTop = 0;
+      el.dispatchEvent(new Event("scroll"));
+    };
+
+    // Scrolled to the top, the approval request arrives on the bot's timing:
+    // left alone.
+    scrollToTop();
+    scrollHeight += 400;
+    await h.advance(14_000);
+    expect(document.body.textContent).toContain("How would you like to proceed?");
+    expect(scrollTop).toBe(0);
+
+    // Scrolled to the top, the agent clicks Approve: follows to the bottom.
+    scrollToTop();
+    const approve = [...document.body.querySelectorAll("[data-ai-action] button, [data-ai-action] [role=radio]")].find((b) =>
+      /approve/i.test(b.textContent ?? ""),
+    )!;
+    expect(approve).toBeTruthy();
+    scrollHeight += 300;
+    await h.click(approve);
+    expect(scrollTop).toBe(scrollHeight);
+
+    // Scrolled to the top, a Copilot chip in the docked composer: follows too.
+    scrollToTop();
+    scrollHeight += 200;
+    await h.click(composer()!.querySelector('[role="button"]')!);
+    expect(scrollTop).toBe(scrollHeight);
+  });
+
   it("shows only on the Details overview: not on Session Details, Customer Info or Experience Memory", async () => {
     await lucasInPanelMode();
     expect(composer()).not.toBeNull();

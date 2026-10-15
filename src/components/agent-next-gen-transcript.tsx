@@ -278,7 +278,7 @@ function WrapUpAccordion({ message, onComplete }: { message: TranscriptMessage; 
           <div className="flex flex-col gap-3">
             <p className="lyra-body-md text-lyra-fg-default">{wrapUp.summary}</p>
             <p className="lyra-body-sm text-lyra-fg-secondary">{wrapUp.disposition}</p>
-            <div>
+            <div data-ai-action="">
               {completed ? (
                 <span className="inline-flex items-center gap-1.5 lyra-body-md-emphasis text-lyra-status-success-strong">
                   <CheckCircle2 className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
@@ -362,7 +362,9 @@ function ApprovalDecision({
     setSubmitted(true);
   };
   return (
-    <div className="flex flex-col gap-3 border-t border-lyra-border-subtle pt-3">
+    // `data-ai-action`: a click in here is the agent acting on the card; in
+    // AI panel mode the Contact Details body follows it to the bottom.
+    <div data-ai-action="" className="flex flex-col gap-3 border-t border-lyra-border-subtle pt-3">
       {!submitted && takenOver && (
         <div className="flex items-center gap-2 lyra-body-md text-lyra-fg-secondary animate-in fade-in-0 duration-200">
           <UserCheck className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />

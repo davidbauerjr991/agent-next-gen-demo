@@ -3639,8 +3639,12 @@ export function DetailsPanelAccordions({
   onViewAllArtifacts,
   aiFeed,
   aiFeedCount,
+  followSignal,
   show = DETAILS_SECTIONS_ALL,
 }: {
+  /** Bumped by the page on an agent action outside this component (the
+   *  docked Copilot composer): scroll to the bottom and keep following. */
+  followSignal?: number;
   /** Which of the panel's own sections render. Default all. With AI display
    *  "In the Contact Details panel", Overview shows Customer Info (plus the
    *  AI feed) and the Session tab shows the Journey Summary and Artifacts. */
@@ -3760,6 +3764,20 @@ export function DetailsPanelAccordions({
     if (!aiDocked || !scroller || !stickToBottom.current) return;
     scroller.scrollTop = scroller.scrollHeight;
   }, [aiDocked, aiFeedCount]);
+  // An action the agent just took (a card's decision controls, marked
+  // `data-ai-action`, or the docked composer: `followSignal`) always scrolls
+  // to the bottom and keeps following, wherever the agent had scrolled, so
+  // its result (instruction row, reply, new card, Copilot result) is in view.
+  const [agentActionTick, setAgentActionTick] = useState(0);
+  useLayoutEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!aiDocked || !scroller || (agentActionTick === 0 && !followSignal)) return;
+    stickToBottom.current = true;
+    scroller.scrollTop = scroller.scrollHeight;
+  }, [aiDocked, agentActionTick, followSignal]);
+  const onFeedClickCapture = (e: React.MouseEvent) => {
+    if ((e.target as Element).closest("[data-ai-action]")) setAgentActionTick((t) => t + 1);
+  };
 
   return (
     <div
@@ -3878,7 +3896,11 @@ export function DetailsPanelAccordions({
       {/* Settings → AI display "In the Contact Details panel" (P-SETTINGS,
           ported from v3): the AI cards and interstitials sit below the
           original items. */}
-      {aiFeed && <div data-slot="ai-feed">{aiFeed}</div>}
+      {aiFeed && (
+        <div data-slot="ai-feed" onClickCapture={onFeedClickCapture}>
+          {aiFeed}
+        </div>
+      )}
     </div>
   );
 }

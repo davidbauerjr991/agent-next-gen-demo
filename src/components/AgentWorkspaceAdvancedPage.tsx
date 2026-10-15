@@ -1708,6 +1708,28 @@ export function AgentWorkspaceAdvancedPage({
   // The docked Copilot composer's slot element (the panel footer); null
   // while the footer isn't rendered.
   const [copilotDockEl, setCopilotDockEl] = useState<HTMLDivElement | null>(null);
+  // Bumped by an agent action in the docked composer; the Overview body then
+  // scrolls to the bottom whatever its position (`DetailsPanelAccordions`).
+  const [aiFollowSignal, setAiFollowSignal] = useState(0);
+  // An agent action in the docked composer (a chip, Takeover, sending a
+  // question) makes the Overview follow its result. Native listeners: the
+  // composer is portaled into the dock, so React events from it bubble
+  // through the main column's composer, not through the dock element.
+  useEffect(() => {
+    if (!copilotDockEl) return;
+    const onClick = (e: MouseEvent) => {
+      if ((e.target as Element).closest("button, [role=button]")) setAiFollowSignal((s) => s + 1);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Enter" && !e.shiftKey) setAiFollowSignal((s) => s + 1);
+    };
+    copilotDockEl.addEventListener("click", onClick, true);
+    copilotDockEl.addEventListener("keydown", onKeyDown, true);
+    return () => {
+      copilotDockEl.removeEventListener("click", onClick, true);
+      copilotDockEl.removeEventListener("keydown", onKeyDown, true);
+    };
+  }, [copilotDockEl]);
   const [leftNavVoiceSlot, setLeftNavVoiceSlot] = useState<HTMLDivElement | null>(null);
   const { newOutboundAtBottom, navItemsAtTop, noInteractionCollapse } = assignmentsSettings;
   useEffect(() => {
@@ -11131,6 +11153,7 @@ export function AgentWorkspaceAdvancedPage({
                         // Settings → AI display "In the Contact Details panel".
                         aiFeed={aiInPanel ? renderAiPanelFeed() : undefined}
                         aiFeedCount={aiFeedCount}
+                        followSignal={aiFollowSignal}
                         // The "Journey Summary" card: this docked Contact
                         // Details panel is the one place that shows it; the
                         // main transcript column keeps its "Autosummary".
