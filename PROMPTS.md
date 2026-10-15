@@ -45,9 +45,9 @@ Wrap up this step: run the type-check and the test suite, update PROGRESS.md (do
 - **P0.5d.1** — provider wiring for voice controls, incoming tile and the inline wrap-up card (see PROGRESS.md); the prompts below for 5d.2 build on it.
 - **P0.7, P0.5c** — scenario script format; the scenario player in the sim engine, all four scripted cases engine-backed on Advanced (see PROGRESS.md).
 
-**One page (decided 2026-10-15):** Advanced is the single workspace; Desk is frozen as a reference and deleted at the end of P0.5d.2. Prompts below that say "both pages" mean Advanced only unless they say otherwise.
+**One page (decided 2026-10-15; final since P0.5d.2):** Advanced is the agent workspace and Desk is deleted. Its layout varies by settings only; "Phase 1" and "Phase 2" are built-in workspace profiles. Prompts below that say "both pages" mean Advanced.
 
-**Execution order (revised 2026-10-15):** finish 5d.1 → P0.7 → P0.5c → P-SETTINGS → P0.5d.2 → P0.9.1–9.3 → P0.6 → Phase 1 (incl. P1.4a, P1.4b) → Phase 2 → Phase 3 → Phase 4 (incl. P4.4a, P4.11) → remaining verticals → Phase 5 (incl. P5.6, P5.7) → Phase 6 → Phase 7 → P-ADAPTER sequence.
+**Execution order (revised 2026-10-16):** finish 5d.1 → P0.7 → P0.5c → P-SETTINGS → P0.5d.2 → P-PROFILES → P0.5d.3 → P0.9.1–9.3 → P0.6 → Phase 1 (incl. P1.4a, P1.4b) → Phase 2 → Phase 3 → Phase 4 (incl. P4.4a, P4.11) → remaining verticals → Phase 5 (incl. P5.6, P5.7) → Phase 6 → Phase 7 → P-MAPPINGS → P-ADAPTER sequence.
 
 ---
 
@@ -83,7 +83,8 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 5b.2; 5b.1 is co
 ### P0.5d.1 — Voice controls, incoming tile and wrap-up card (provider wiring)   ✋ (Plan: Opus · Implement: Opus) — done
 The original P0.5d prompt was split (2026-10-14). 5d.1 is done; see PROGRESS.md and PLAN.md Decisions for what it built (controlled voice controls, `IncomingOfferActions`, the inline wrap-up card, per-channel drafts, hold chips, recording dot, one call per customer, inbound skill and pre-contact summary).
 
-### P0.5d.2 — Consolidate Desk into Advanced behind LayoutConfig flags, then delete Desk   ✋ (Plan: Opus · Implement: Opus) — after P-SETTINGS
+### P0.5d.2 — Consolidate Desk into Advanced behind settings, then delete Desk   ✋ (Plan: Opus · Implement: Opus) — done
+Done 2026-10-16; see PROGRESS.md and PLAN.md Decisions (P0.5d.2): Home tabs from the apps placed as "tab", left-nav apps as pages, Home v2 (v3's Dashboard settings), the omnichannel layout, New Outbound and Outbound Calling settings under CXone's names, the dismiss flags, presets renamed to workspace profiles, Desk deleted. Layout slots, the contact-handling flags and rows 11/21 moved to P0.5d.3. The original prompt follows for reference.
 ```
 Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 5d.2, re-scoped by the one-page decision (PLAN.md Decisions 2026-10-15): Advanced (AgentWorkspaceAdvancedPage) is the single workspace and Desk (AgentWorkspace2WithDeskPage) is a frozen reference. P-SETTINGS is committed, so LayoutConfig, its flags and the Phase 1 / Phase 2 / Custom presets exist. In plan mode, propose consolidating Desk's pieces into Advanced behind those flags, then deleting Desk:
 - Inventory first (report before proposing): every Desk-only piece — the omnichannel layout (sync channels in the main column, async channels as slide-outs, PLAN.md Phase 2), Home tabs, header apps, desk tabs and the calendar — with where it lives in Desk, what it depends on, and whether it can be lifted as a self-contained component (CLAUDE.md file organization: new self-contained pieces go in their own src/components file) or needs page state.
@@ -93,6 +94,27 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 5d.2, re-scoped 
 - The remaining shared-flag work: one CONTACT_HANDLING_FLAGS + capabilities replacing the SHOW_* constants (End Call shown; Consult/Transfer, kebab and add participant capability-gated; Outcome always visible on voice rows); opening a notification expands the left nav; the voice icon in the record header; the full New Outbound launcher (groups, search, Favorites) with the Agents, Skills and My Team groups removed (PLAN.md "Settings and configuration"); "Call previous agent" as a Contact History consult placeholder until P0.9; Desk's hover-preview Outcome entry point is not ported.
 - Then delete Desk: the page file, its route ("#/agent-premium" redirects to Advanced with the Phase 2 preset) and its app-menu entry; Desk-only tests move to Advanced under the Phase 2 preset.
 For every visual change in either preset, give a before/after and wait for my approval. Done = the Phase 1 preset is unchanged, the Phase 2 preset reproduces Desk, Desk is deleted, npm test passes, type-check at baseline; list browser checks for me, one per ported piece in each preset. Don't write code yet.
+```
+
+### P-PROFILES — Saved workspace profiles and per-section locks   ✋ (Plan: Opus · Implement: Sonnet) — after P0.5d.2, before P0.5d.3
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. Chore: workspace profiles (PLAN.md "Settings and configuration" → Workspace profiles). P0.5d.2 renamed the presets: a profile is a snapshot of every settings section; Phase 1 and Phase 2 are built-in; deriveProfile/applyProfile/useWorkspaceProfile in src/settings/profiles.ts. In plan mode, propose:
+(1) Saved profiles in the settings store (their own versioned section): Save as (from the current values), rename, duplicate, delete (built-ins can't be renamed or deleted), export and import as JSON (validated with the section readers, so an old or hand-edited file falls back field by field). The Settings page's profile picker lists built-in and saved profiles; "Custom" still means "differs from every profile".
+(2) A `locked` flag per section in each profile. Applying a profile with a locked section renders that section read-only on the agent's Settings page with "Set by your team profile" (lyra controls disabled, not hidden — this is the one place a setting greys); the store refuses writes to a locked section (and says so in a dev warning).
+(3) Revisit the consequences P0.5d.2 recorded: applying a profile resets personal settings (theme, phone, Home tab order, left-nav toggles); a launch-screen phone number reads Custom. Propose how a profile's unlocked sections should apply (overwrite vs keep the agent's value), and which sections a built-in profile should leave unlocked.
+(4) The app menu's Phase 1/Phase 2 entries become "the profiles you can apply", saved ones included.
+Assignment to agents, teams and skills is Phase 7 (needs the DirectoryProvider from P0.9); leave a seam for it. Tests: save/rename/duplicate/delete, export/import round trip and a malformed import, a locked section refuses writes and renders read-only, Custom after any change. List browser checks for me. Don't write code yet.
+```
+
+### P0.5d.3 — Layout slots, contact-handling flags, rows 11 and 21   ✋ (Plan: Opus · Implement: Opus) — after P-PROFILES
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 5d.3, the rest of the original 5d.2 (split off 2026-10-16). In plan mode, propose:
+- Layout slots first: check what P-SETTINGS' voice-controls location (bottom / top of the left nav) already does, then a <LayoutSlot anchor="voice-bar" | "incoming-tile" | "right-panel" | …> the voice bar, the incoming tile and the right panel mount through, so Phase 7's configurable layout moves them without page edits. Report what's left before proposing.
+- One CONTACT_HANDLING_FLAGS + capabilities replacing the page's SHOW_* constants: End Call shown; Consult/Transfer, kebab and add participant capability-gated (hide, don't disable); Outcome always visible on voice rows; the add-channel "+" shown (row 10).
+- Opening a notification expands the left nav (row 21). The voice icon in the record header (row 11), routed through the omnichannel rules when that setting is on.
+- "Call previous agent" as a Contact History consult placeholder until P0.9.
+- The page file must not grow; report its line count before and after, and extract first where it would.
+For every visual change in either profile, give a before/after and wait for my approval. Tests per flag; Playwright for anything that depends on layout. List browser checks for me. Don't write code yet.
 ```
 
 ### P-SETTINGS — Settings store, LayoutConfig and presets   (Plan: Opus · Implement: Sonnet) — after P0.5c, before P0.5d.2
@@ -225,7 +247,7 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 2, step 1. In plan mode,
 
 ### P2.2 — Agent-side inbound chat   ✋ (Plan: Opus · Implement: Sonnet)
 ```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 2, step 2. In plan mode, propose rendering inbound chat end to end through the P0.5.0 hooks: incoming offer → accept → messages (useTranscript) in the existing channel-row / interaction-nav flow on both pages; agent replies via sendMessage (appearing only when the message event arrives, with delivery state); setTyping and incoming typing events both ways. Apply PLAN.md's omnichannel layout: a chat row click puts the chat in the main column; a voice row click only moves the voice bar; the record header's channel tabs switch sync channels and open async ones in the slide-out (slide-out shell only; email/SMS content is P-PARKED); from Home, a row click navigates to the assignment and opens that channel. Show a before/after for a card with three channel rows. Done = a full two-way chat works between console and agent app with no page-specific divergence; list browser checks for me. Don't write code yet.
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 2, step 2. In plan mode, propose rendering inbound chat end to end through the P0.5.0 hooks: incoming offer → accept → messages (useTranscript) in the existing channel-row / interaction-nav flow; agent replies via sendMessage (appearing only when the message event arrives, with delivery state); setTyping and incoming typing events both ways. The omnichannel layout already exists behind Settings → Assignments → Omnichannel layout (P0.5d.2: src/contact-handling/omnichannel.ts, useOmnichannelLayout, AsyncChannelSlideOut): verify it with a real inbound chat on a card with three rows (chat main, call in the bar, an async thread in the slide-out), move the slide-out's unread counts from the page's live-message overlay onto real message events, and add PLAN.md's WhatsApp tempo rule (sync while the customer is actively replying, async between replies; it's always async today). Email/SMS content stays P-PARKED. Done = a full two-way chat works between console and agent app, with the setting on and off; list browser checks for me. Don't write code yet.
 ```
 
 ### P2.3 — Unknown-contact state   (Plan: Opus · Implement: Sonnet)
@@ -460,6 +482,16 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 7, step 8 (PLAN.md "Sett
 ---
 
 ## Later
+
+### P-MAPPINGS — Connector mappings and data memorialization   ✋ (Plan: Opus · Implement: Opus) — before P-ADAPTER (Zendesk needs it)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're building PLAN.md "Integration readiness" → Connector mappings and data memorialization. In plan mode, propose:
+(1) Each Connection on Settings gets two sub-tabs. Connector Mappings: for each of our entities (customer, ticket, account, interaction), a field-by-field map to the connected system's object and fields, with a direction (lookup / write / both), a per-field authority (app wins / system wins / newest wins — the authority model from PLAN.md "Customer data"), and the search keys used for identification and screen pop. Data Memorialization: named mappings (name, description, entity type, field set) that run on a trigger (contact accepted, outcome saved, wrap-up complete, transfer) and write interaction data (disposition, notes, duration, transcript link, agent, skill) to the connected system; several per connection; a dry-run preview showing exactly what would be written for a chosen contact.
+(2) The data shape, stored in the settings store under connections.<seam>.mappings (versioned; validated field by field like every section), and how a profile carries it (P-PROFILES).
+(3) The sim adapter logs what it would have written at each trigger (a dev panel or the console), so a demo shows memorialization without a real system.
+(4) How P-ADAPTER's Zendesk step consumes it (the mapping drives the adapter's reads and writes; no vendor field names in the app).
+Tests: mapping validation, the authority rules on a conflicting field, each trigger producing the expected dry-run payload, a malformed stored mapping falling back. List browser checks for me. Don't write code yet.
+```
 
 ### P-ADAPTER — Real adapters, in order   (Plan: Opus · Implement: Opus)
 One step per adapter, run in this order (PLAN.md "Integration readiness"): **Twilio** (InteractionProvider + MediaProvider; free trial) → **Zendesk** (tickets via WorkProvider, KB via KnowledgeProvider; free sandbox) → **CXone** (InteractionProvider, DirectoryProvider, MessagingProvider; needs a tenant) → **a WFM vendor** (WorkProvider/CalendarProvider) → **an AI-agent vendor** (BotAgentProvider). Each needs the proxy/relay for auth and webhooks.
