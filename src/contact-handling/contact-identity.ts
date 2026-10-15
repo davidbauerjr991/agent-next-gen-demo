@@ -1,6 +1,7 @@
 import type { ChannelType } from "@nicecxone/lyra-ui";
 import type { ContactHistoryEntry } from "@/components/agent-next-gen-contact-history";
 import { synthesizeChannelAddress } from "@/components/agent-next-gen-shared-utils";
+import type { NavCard } from "@/adapters/legacy/nav-card-view-model";
 import type { Interaction } from "@/domain";
 
 /** The entity a Contact History row stands for: the directory customer when
@@ -39,6 +40,38 @@ export function directoryDisplayName(findRecord: (entityId: string) => { name: s
     if (presentedName && !interaction.entityMatchedBy) return undefined;
     return findRecord(interaction.entityId)?.name;
   };
+}
+
+/** Who a contact is, for a toast: the name its card shows (else the name it
+ *  presented) and its number or address. A name that's only the raw
+ *  address is left out. */
+export interface CallerLabel {
+  name?: string;
+  number?: string;
+}
+
+export function callerOfCard(card: Pick<NavCard, "customerName" | "threads">, threadKey?: string): CallerLabel {
+  const thread = card.threads.find((t) => t.id === threadKey) ?? card.threads.find((t) => t.type === "voice") ?? card.threads[0];
+  const number = thread?.addressLabel ?? thread?.value;
+  const name = card.customerName && card.customerName !== number && card.customerName !== thread?.value ? card.customerName : undefined;
+  return { ...(name ? { name } : {}), ...(number ? { number } : {}) };
+}
+
+export function callerOfInteraction(interaction: Interaction, cards: readonly NavCard[]): CallerLabel {
+  const card = cards.find((c) => c.threads.some((t) => t.providerInteractionId === interaction.id));
+  if (card) {
+    const thread = card.threads.find((t) => t.providerInteractionId === interaction.id);
+    return callerOfCard(card, thread?.id);
+  }
+  const number = interaction.address?.label ?? interaction.address?.value;
+  const name = interaction.contactName && interaction.contactName !== interaction.address?.value ? interaction.contactName : undefined;
+  return { ...(name ? { name } : {}), ...(number ? { number } : {}) };
+}
+
+/** "Declined call from Tom Lewis (312) 555-0187" — the name when known, the
+ *  number otherwise (or both). */
+export function declinedCallMessage({ name, number }: CallerLabel): string {
+  return `Declined call from ${[name, number].filter(Boolean).join(" ") || "an unknown caller"}`;
 }
 
 export { normalizePhone } from "@/domain";

@@ -162,6 +162,7 @@ import {
   useAgentState,
   useCapability,
   useInteractionProvider,
+  useInteractions,
 } from "@/provider-context";
 import {
   buildOpenChannelTagger,
@@ -192,6 +193,10 @@ import {
   preContactSummaryOf,
   withPreContactSummary,
   ALREADY_ON_CALL_TOOLTIP,
+  alreadyOnCallMessage,
+  callerOfCard,
+  callerOfInteraction,
+  declinedCallMessage,
   VoiceWrapUpCard,
   type Activation,
   type OutcomeDraft,
@@ -257,6 +262,7 @@ import {
   useScenarioCases,
 } from "@/contact-handling/scenario-cases";
 import { useCopilotAsk, useCopilotResultTimer } from "@/contact-handling/useCopilotAsk";
+import { usePresenceSync } from "@/contact-handling/usePresenceSync";
 import { LUCAS_THOMAS_SCRIPT, MAYA_CHEN_SCRIPT, TOM_LEWIS_SCRIPT } from "@/scenarios";
 import {
   MarcusWebbNextBestActionCard,
@@ -1297,6 +1303,10 @@ export function AgentWorkspaceAdvancedPage({
   // the card of a case. Their transcripts come from the store; the page's own
   // rows for the same thread (Ask Copilot interstitials, typed lines) are
   // merged in by time.
+  // Each provider contact's connection state, for rules that depend on
+  // whether a channel's contact has ended (the row's dismiss icon).
+  const storeContacts = useInteractions();
+  const contactStateById = useMemo(() => new Map(storeContacts.map((i) => [i.id as string, i.state])), [storeContacts]);
   const scenarioCases = useScenarioCases(navCards);
   const { keyOf: scenarioKeyOf, cardIdOf: scenarioCardId } = scenarioCases;
   /** The scripted case playing on this card's thread, if any. */
@@ -1313,6 +1323,10 @@ export function AgentWorkspaceAdvancedPage({
         if (!scenario?.threadKey) return card;
         return {
           ...card,
+          // The case's own thread is the card's main thread until the agent
+          // picks another (a channel added later, like Lucas's call, joins
+          // as a second row instead of taking over the main column).
+          currentThreadId: card.currentThreadId ?? scenario.threadKey,
           liveMessages: { ...card.liveMessages, [scenario.threadKey]: mergeRows(scenario.rows, card.liveMessages?.[scenario.threadKey]) },
         };
       }),
@@ -1555,6 +1569,9 @@ export function AgentWorkspaceAdvancedPage({
   // every other not-yet-wired action in this file starts from (e.g. Consult
   // / Transfer — see rule #30's own note in CLAUDE.md).
   const handleOutcomeSave = () => {
+    // Saving an outcome is what makes a live chat dismissable by hand (its
+    // row's Unassign & Dismiss icon, below).
+    outcomeDrafts.markSaved(outcomeDraftKey);
     setOutcomeDraftKey(null);
     setOutcomeDraftSource(null);
   };
@@ -2796,9 +2813,11 @@ export function AgentWorkspaceAdvancedPage({
     // handoff line: Takeover Chat goes away.
     scenarioCases.takeOver(LUCAS_THOMAS_ID, { handoff: false });
     // A real outbound call into Lucas's journey: it connects after the sim's
-    // ring delay, which is what brings up the call controls.
+    // ring delay, which is what brings up the call controls. It joins the
+    // card like any second channel ("none": no preview, no switch) — the chat
+    // stays the card's main thread.
     const card = interactions.find((c) => scenarioKeyOf(c.id) === LUCAS_THOMAS_ID);
-    if (card) outboundDial.addAdHocChannel(card, phoneNumber, "voice", skillId);
+    if (card) outboundDial.addAdHocChannel(card, phoneNumber, "voice", skillId, "none");
   };
   // The agent's decision on one of Lucas's approval cards, or Complete
   // wrap-up ("ship-wrapup"): the engine plays the branch it starts.
@@ -4087,6 +4106,10 @@ export function AgentWorkspaceAdvancedPage({
     setAgentStatus(status);
     setStatusSinceTick(clock.now());
   };
+  // Routing reads the provider's presence: every status change goes there
+  // (the auto-"Working" one included), so a scripted case isn't offered
+  // during Lunch.
+  usePresenceSync(agentStatus);
 
   // Auto "Working" status while on a live voice call, per explicit request
   // ("when an agent is in a call the status should change to 'working'").
@@ -4210,7 +4233,11 @@ export function AgentWorkspaceAdvancedPage({
     secondVoiceCall: "auto-hold",
     // A typed Quick Dial number of a customer the agent is already on a
     // call with (the buttons elsewhere are disabled instead).
-    onAlreadyOnCall: () => addToast({ variant: "info", title: ALREADY_ON_CALL_TOOLTIP, duration: 4000 }),
+    // Names whom: the call's card name, else its presented name or number.
+    onAlreadyOnCall: (call) => {
+      const caller = callerOfInteraction(call, interactions);
+      addToast({ variant: "warning", title: alreadyOnCallMessage(caller.name ?? caller.number), duration: 4000 });
+    },
     // Save & Redial: the ended call's wrap-up completes with its saved
     // outcome once the new call is placed, so the card never empties.
     onCardRedialPlaced: (card) => void contactCommands.completeEndedCalls(card, outcomeFor(card.id)),
@@ -4688,7 +4715,15 @@ export function AgentWorkspaceAdvancedPage({
       .find((i) => i.id === interactionId)
       ?.threads.find((c) => (c.id ?? c.type) === channelKey);
     // Voice and Lucas Thomas's chat both live in the main column only — never open a side-panel preview for them.
-    const isVoiceChannel = channel?.type === "voice" || scenarioKeyOf(interactionId) === LUCAS_THOMAS_ID;
+    const isLucasChat = scenarioKeyOf(interactionId) === LUCAS_THOMAS_ID && channel?.type !== "voice";
+    const isVoiceChannel = channel?.type === "voice" || isLucasChat;
+    if (isLucasChat) {
+      // His chat row always brings his chat back to the main column.
+      setInteractions((prev) =>
+        prev.map((i) => (i.id === interactionId && i.currentThreadId !== channelKey ? { ...i, currentThreadId: channelKey } : i))
+      );
+      setChannelPreviewThreadKey(null);
+    }
     if (interactionId === activeInteractionId) {
       if (isVoiceChannel) return;
       setChannelPreviewThreadKey(channelPreviewThreadKey === channelKey ? null : channelKey);
@@ -5002,7 +5037,15 @@ export function AgentWorkspaceAdvancedPage({
   const incomingOffer = useIncomingOffer({
     findOpenCard,
     activateWhenReady,
-    onDeclined: () => addToast({ variant: "info", title: "Call declined", duration: 4000 }),
+    // Names the caller, and logs the declined call in Contact History.
+    onDeclined: (offer) => {
+      addToast({ variant: "info", title: declinedCallMessage(callerOfCard(offer)), duration: 4000 });
+      const entry = buildDismissedContactHistoryEntry(offer, clock.now());
+      setDismissedContactHistory((prev) => [
+        { ...entry, statusLabel: "Declined", statusVariant: "critical", dispositionLabel: "Declined" },
+        ...prev.filter((e) => e.caseId !== entry.caseId),
+      ]);
+    },
   });
   // The bar's call: Hold/Mute/Record/Mask/Keypad on the provider.
   const liveVoiceCallControls = useVoiceCallControls(liveVoiceCallThread);
@@ -7153,8 +7196,12 @@ export function AgentWorkspaceAdvancedPage({
                           !interaction.voiceCallEnded &&
                           scenarioKeyOf(interaction.id) === MARCUS_WEBB_ID &&
                           interaction.threadStatuses?.[c.id] === "Resolved"
-                        : // Lucas's AI-led chat can't be unassigned/dismissed by hand: its wrap-up closes it.
-                          scenarioKeyOf(interaction.id) !== LUCAS_THOMAS_ID || interaction.threadStatuses?.[c.id] === "Closed" || !lucasThomasReviewing,
+                        : // A chat (or other digital) row's Unassign & Dismiss shows only once its contact has ended or
+                          // its outcome is saved — hidden, not disabled, before that. Covers Lucas's AI-led chat too
+                          // (live while the bot or the agent has it; his wrap-up closes it).
+                          isClosed ||
+                          ["wrap-up", "ended"].includes(contactStateById.get(c.providerInteractionId ?? "") ?? "") ||
+                          outcomeDrafts.isSaved(outcomeDraftKeyOf(interaction.id, c.id)),
                     // Locks the kebab and Outcome — visibly present but
                     // non-interactive — for as long as the agent is only
                     // reviewing Marcus's still-live AI-agent call
@@ -9384,8 +9431,13 @@ export function AgentWorkspaceAdvancedPage({
                           // exception are both preserved unchanged).
                           onDismissChannel={
                             activeChannel &&
-                            // Lucas's chat can only be removed once it is Closed (then the "X" / Remove from Queue shows).
-                            (scenarioKeyOf(activeInteraction.id) !== LUCAS_THOMAS_ID || activeChannelStatus === "Closed" || !lucasThomasReviewing) &&
+                            // Same rule as the nav row's icon: a digital channel is removable by hand only once its
+                            // contact has ended (or it's Closed) or its outcome is saved.
+                            (activeChannelType === "voice" ||
+                              activeChannelStatus === "Closed" ||
+                              !!activeInteraction.closed ||
+                              ["wrap-up", "ended"].includes(contactStateById.get(activeChannel.providerInteractionId ?? "") ?? "") ||
+                              outcomeDrafts.isSaved(outcomeDraftKeyOf(activeInteraction.id, activeChannelKey))) &&
                             (activeChannelType !== "voice" ||
                               activeInteraction.closed ||
                               (!activeInteraction.voiceCallEnded &&

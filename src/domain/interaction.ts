@@ -90,7 +90,9 @@ export interface Interaction {
    *  the agent's call (it's never auto-held and doesn't block a dial), and
    *  customer lines don't start the awaiting-reply clock. */
   review?: { by: string; since: EpochMs };
-  /** The contact was answered without the agent accepting it (auto-answer). */
+  /** The contact is answered without the agent accepting it (auto-answer).
+   *  Set already on the offer, so an offer that's about to be auto-answered
+   *  is never shown as ringing. */
   autoAnswered?: true;
 }
 

@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import type { ChannelType, CreateNewOutboundContact } from "@nicecxone/lyra-ui";
 import type { CreateNewCustomerRecord } from "@nicecxone/lyra-ui/customers-data";
 import { threadKey, type NavCard } from "@/adapters/legacy/nav-card-view-model";
-import type { ChannelKind, EntityId, InteractionId, JourneyId } from "@/domain";
+import type { ChannelKind, EntityId, Interaction, InteractionId, JourneyId } from "@/domain";
 import type { DialRequest } from "@/providers";
 import { isProviderError } from "@/adapters/provider-error";
 import { useAgentState, useInteractionProvider, useInteractions, useProviders } from "@/provider-context";
@@ -45,8 +45,9 @@ export interface UseOutboundDialOptions {
   onVoiceCallRefused?: () => void;
   /** A voice launch was refused because the agent is already on a live or
    *  held call with that customer (`isOnCallWith`). Only reachable where the
-   *  UI can't disable the button first, e.g. a number typed into Quick Dial. */
-  onAlreadyOnCall?: () => void;
+   *  UI can't disable the button first, e.g. a number typed into Quick Dial,
+   *  or a Redial opened anyway. `call` is the call it's on. */
+  onAlreadyOnCall?: (call: Interaction) => void;
   /** Save & Redial's new call was placed on `card`; the page completes the
    *  ended call's wrap-up now (not earlier), so the card never empties. */
   onCardRedialPlaced?: (card: NavCard) => void;
@@ -85,13 +86,27 @@ export function isOnCallWith(
   interactions: readonly { channel: string; state: string; entityId?: string; address?: { value: string } }[],
   target: CallTarget,
 ): boolean {
+  return findCallWith(interactions, target) !== undefined;
+}
+
+/** The call `isOnCallWith` finds, if any. */
+export function findCallWith<T extends { channel: string; state: string; entityId?: string; address?: { value: string } }>(
+  interactions: readonly T[],
+  target: CallTarget,
+): T | undefined {
   const numbers = new Set((target.addresses ?? []).map(normalizePhone).filter((n) => n !== ""));
-  return interactions.some(
+  return interactions.find(
     (i) =>
       i.channel === "voice" &&
       ON_CALL_STATES.has(i.state) &&
       ((!!target.entityId && i.entityId === target.entityId) || (!!i.address && numbers.has(normalizePhone(i.address.value)))),
   );
+}
+
+/** The warning when a dial is refused because the agent is already on a
+ *  call with that customer (Quick Dial, Redial, the dial pad). */
+export function alreadyOnCallMessage(name: string | undefined): string {
+  return name ? `Already on a call with ${name}` : ALREADY_ON_CALL_TOOLTIP;
 }
 
 export function useOutboundDial({
@@ -130,8 +145,10 @@ export function useOutboundDial({
       if (target.channel === "voice" && refuseVoice()) return false;
       // One call per customer, on every path (the buttons are disabled too;
       // this catches a number typed into Quick Dial).
-      if (target.channel === "voice" && isOnCallWith(interactions, { entityId: target.entityId, addresses: [target.address] })) {
-        onAlreadyOnCall?.();
+      const onCallWith =
+        target.channel === "voice" ? findCallWith(interactions, { entityId: target.entityId, addresses: [target.address] }) : undefined;
+      if (onCallWith) {
+        onAlreadyOnCall?.(onCallWith);
         return false;
       }
       if (!outboundChannels.includes(channel)) {
@@ -190,14 +207,15 @@ export function useOutboundDial({
 
   /** Whether Contact History's Redial is disabled for `entry`: the agent is
    *  already on a live or held call with that customer (any of their numbers). */
-  const redialBlocked = useCallback(
+  const redialCallWith = useCallback(
     (entry: ContactHistoryEntry) => {
       const customer = entry.customerId ? findCustomer(entry.customerId) : undefined;
       const addresses = customer ? customer.phones.map((p) => p.value) : [knownOrSynthesizedAddress(entry, "voice")];
-      return isOnCallWith(interactions, { entityId: historyEntityId(entry), addresses });
+      return findCallWith(interactions, { entityId: historyEntityId(entry), addresses });
     },
     [interactions, findCustomer],
   );
+  const redialBlocked = useCallback((entry: ContactHistoryEntry) => redialCallWith(entry) !== undefined, [redialCallWith]);
 
   /** New Outbound's Start Interaction (and the record header's "+", which
    *  passes the card's own contact). */
@@ -272,7 +290,9 @@ export function useOutboundDial({
 
   /** The ad-hoc "+" (a typed address added to the active card). */
   const addAdHocChannel = useCallback(
-    (card: NavCard, query: string, channel: ChannelType, skillId: string) => {
+    /** `mode` "none" adds the channel without showing it (the card's main
+     *  thread and selection stay as they are). */
+    (card: NavCard, query: string, channel: ChannelType, skillId: string, mode: ActivationMode = "added") => {
       void place({
         channel,
         address: query,
@@ -281,7 +301,7 @@ export function useOutboundDial({
         contactName: card.customerName,
         skillId,
         card,
-        mode: "added",
+        mode,
       });
     },
     [place],
@@ -291,7 +311,12 @@ export function useOutboundDial({
    *  customer's numbers (row 16). */
   const openRedialPad = useCallback(
     (entry: ContactHistoryEntry, anchorEl: HTMLElement | null) => {
-      if (refuseVoice() || redialBlocked(entry)) return;
+      if (refuseVoice()) return;
+      const onCallWith = redialCallWith(entry);
+      if (onCallWith) {
+        onAlreadyOnCall?.(onCallWith);
+        return;
+      }
       setRedialEntry(entry);
       const customer = entry.customerId ? findCustomer(entry.customerId) : undefined;
       setDialpadRequest(
@@ -305,7 +330,7 @@ export function useOutboundDial({
           : { phoneNumber: knownOrSynthesizedAddress(entry, "voice"), anchorEl },
       );
     },
-    [findCustomer, refuseVoice, redialBlocked],
+    [findCustomer, refuseVoice, redialCallWith, onAlreadyOnCall],
   );
 
   /** Save & Redial from a card's Outcome popover. */

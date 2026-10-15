@@ -22,8 +22,10 @@ import { useContactActivation, type Activation } from "./useContactActivation";
 import { useContactCommands } from "./useContactCommands";
 import { useContactReopen } from "./useContactReopen";
 import { useNavCards } from "./useNavCards";
-import { useOutboundDial } from "./useOutboundDial";
+import { alreadyOnCallMessage, useOutboundDial } from "./useOutboundDial";
 import { buildOpenChannelTagger } from "./open-channel-tagger";
+import { callerOfInteraction, declinedCallMessage } from "./contact-identity";
+import type { Interaction as DomainInteraction } from "@/domain";
 
 // The shared contact-handling hooks (P0.5b.2) against the sim on the
 // in-memory bus, under StrictMode, wired the way both pages wire them.
@@ -50,6 +52,8 @@ describe("contact handling", () => {
   let legDown: number;
   let refused: number;
   let alreadyOnCall: number;
+  /** The call the last "already on a call" refusal named. */
+  let alreadyOnCallWith: DomainInteraction | undefined;
   /** The page's second-voice-call rule; set before `mount()`. */
   let policy: "refuse" | "auto-hold" = "auto-hold";
   let dbCounter = 0;
@@ -74,8 +78,9 @@ describe("contact handling", () => {
       onVoiceCallRefused: () => {
         refused += 1;
       },
-      onAlreadyOnCall: () => {
+      onAlreadyOnCall: (call) => {
         alreadyOnCall += 1;
+        alreadyOnCallWith = call;
       },
     });
     const reopen = useContactReopen({ findOpenCard: nav.findOpenCard, activateWhenReady, skillIdForName: () => undefined });
@@ -319,9 +324,14 @@ describe("contact handling", () => {
     await until(() => alreadyOnCall === 1, "refused");
     await settle();
     expect(activations).toHaveLength(placed);
-    // Opening the redial pad does nothing either.
+    // The refusal names the customer (the page shows it as a warning toast).
+    expect(alreadyOnCallMessage(callerOfInteraction(alreadyOnCallWith!, api.cards).name)).toBe(`Already on a call with ${customer.name}`);
+    // Redial doesn't open the pad, and says the same.
+    alreadyOnCallWith = undefined;
     act(() => api.dial.openRedialPad(entry, null));
     expect(api.dial.dialpadRequest).toBeNull();
+    expect(alreadyOnCall).toBe(2);
+    expect(alreadyOnCallMessage(callerOfInteraction(alreadyOnCallWith!, api.cards).name)).toBe(`Already on a call with ${customer.name}`);
 
     // Held: still blocked.
     const voice = () => api.cards[0].threads.find((t) => t.type === "voice")!;
@@ -435,5 +445,18 @@ describe("contact handling", () => {
     expect(api.cards).toHaveLength(1);
     expect(api.cards[0].threads).toHaveLength(1);
     expect(api.cards[0].threads[0].reopenedContacts).toHaveLength(1);
+  });
+});
+
+describe("toast wording (P0.5c browser-check fixes)", () => {
+  it("names the customer on the already-on-a-call warning, with a fallback", () => {
+    expect(alreadyOnCallMessage("Tom Lewis")).toBe("Already on a call with Tom Lewis");
+    expect(alreadyOnCallMessage("(312) 555-0187")).toBe("Already on a call with (312) 555-0187");
+    expect(alreadyOnCallMessage(undefined)).toBe("Already on a call with this customer");
+  });
+
+  it("names a declined caller and number, the number alone when the name is unknown", () => {
+    expect(declinedCallMessage({ name: "Tom Lewis", number: "(312) 555-0187" })).toBe("Declined call from Tom Lewis (312) 555-0187");
+    expect(declinedCallMessage({ number: "(312) 555-0187" })).toBe("Declined call from (312) 555-0187");
   });
 });

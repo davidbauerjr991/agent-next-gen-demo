@@ -5,12 +5,29 @@ export { useNavCards, visibleContacts, type NavCards, type UseNavCardsOptions } 
 export type { CardOverlay } from "./nav-card-overlay";
 export { useContactActivation, type Activation, type ActivationMode } from "./useContactActivation";
 export { useOutboundSkills, type SkillOption } from "./useOutboundSkills";
-export { useOutboundDial, isOnCallWith, ALREADY_ON_CALL_TOOLTIP, type CallTarget, type DialpadRequest } from "./useOutboundDial";
+export {
+  useOutboundDial,
+  isOnCallWith,
+  findCallWith,
+  alreadyOnCallMessage,
+  ALREADY_ON_CALL_TOOLTIP,
+  type CallTarget,
+  type DialpadRequest,
+} from "./useOutboundDial";
 export { useContactReopen } from "./useContactReopen";
 export { useContactCommands } from "./useContactCommands";
 export { useNewAssignments } from "./useNewAssignments";
 export { buildOpenChannelTagger, isAddressOnlyCard } from "./open-channel-tagger";
-export { directoryDisplayName, historyEntityId, knownOrSynthesizedAddress, normalizePhone } from "./contact-identity";
+export {
+  directoryDisplayName,
+  historyEntityId,
+  knownOrSynthesizedAddress,
+  normalizePhone,
+  callerOfCard,
+  callerOfInteraction,
+  declinedCallMessage,
+  type CallerLabel,
+} from "./contact-identity";
 export { NewOutboundLauncher, type NewOutboundLauncherProps } from "./NewOutboundLauncher";
 // P0.5d.1: voice bar, wrap-up prompt and incoming offers.
 export { useVoiceCallControls, type VoiceCallControlProps } from "./useVoiceCallControls";

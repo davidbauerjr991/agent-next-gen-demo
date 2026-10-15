@@ -215,12 +215,22 @@ describe.each(PAGES)("%s", (_label, Page) => {
   });
 });
 
-/** Plays a scenario as the customer, the way the dev hotkeys do. Routing
- *  needs the agent available. */
-async function play(scenarioId: string) {
+/** The welcome modal's button with this label, if it's open. */
+const welcomeButton = (label: string) =>
+  [...document.body.querySelectorAll("button")].find((b) => b.textContent?.trim() === label) as HTMLElement | undefined;
+
+/** Goes Available from the welcome modal, the way an agent does; the page
+ *  sends its status to the provider, which routing reads. */
+async function goAvailable() {
+  const button = welcomeButton("Go Available");
+  if (button) await click(button);
+  await advance(100);
+}
+
+/** Plays a scenario as the customer, the way the dev hotkeys do. */
+async function play(scenarioId: string, { available = true }: { available?: boolean } = {}) {
+  if (available) await goAvailable();
   await act(async () => {
-    void provider.setAgentState("available");
-    await vi.advanceTimersByTimeAsync(20);
     customer.playScenario(scenarioId);
     await vi.advanceTimersByTimeAsync(100);
   });
@@ -273,6 +283,109 @@ describe("Advanced: scripted cases from the scenario player (P0.5c)", () => {
     await click(takeover);
     await advance(200);
     expect(container.querySelectorAll("[data-slot=voice-bar]")).toHaveLength(1);
+  });
+});
+
+// Fixes from the commit-2 browser checks (P0.5c).
+describe("Advanced: P0.5c browser-check fixes", () => {
+  const leafTexts = (pattern: RegExp) =>
+    [...document.body.querySelectorAll("*")].filter((el) => el.children.length === 0 && pattern.test(el.textContent ?? "")).map((el) => el.textContent);
+  const navDismissIcons = () => container.querySelectorAll('aside [title="Unassign & Dismiss"], aside [aria-label="Unassign & Dismiss"]');
+
+  it("1. an auto-answered call never renders an offer (no Accept/Decline at any point)", async () => {
+    await show(AgentWorkspaceAdvancedPage);
+    await goAvailable();
+    const offersSeen: string[] = [];
+    const observer = new MutationObserver(() => {
+      for (const button of container.querySelectorAll("aside button")) {
+        if (button.textContent === "Accept" || button.textContent === "Decline") offersSeen.push(button.textContent);
+      }
+    });
+    observer.observe(container, { childList: true, subtree: true, characterData: true });
+    await play(MAYA_CHEN_SCRIPT.id, { available: false });
+    await advance(500);
+    observer.disconnect();
+    expect(navCard("Maya Chen")).toBeDefined();
+    expect(offersSeen).toEqual([]);
+  });
+
+  it("3. declining names the caller and writes a Declined Contact History row", async () => {
+    await show(AgentWorkspaceAdvancedPage);
+    await play(TOM_LEWIS_SCRIPT.id);
+    const decline = [...container.querySelectorAll("aside button")].find((b) => b.textContent === "Decline") as HTMLElement;
+    await click(decline);
+    await advance(200);
+    expect(bodyText()).toContain("Declined call from Tom Lewis (312) 555-0187");
+    expect(() => navCard("Tom Lewis")).toThrow();
+    // Home's Contact History lists the declined call; its detail shows the
+    // Declined status (a voice row's list subtitle shows no status).
+    const row = [...document.body.querySelectorAll("*")].find((el) => el.children.length === 0 && el.textContent === "Tom Lewis") as HTMLElement;
+    expect(row).toBeDefined();
+    await click(row);
+    expect(leafTexts(/^Declined$/).length).toBeGreaterThan(0);
+  });
+
+  it("4. a live chat row has no Unassign & Dismiss icon; it appears once the contact has ended", async () => {
+    await show(AgentWorkspaceAdvancedPage);
+    const id = await startInbound("chat", "priya.shah@example.com", "Priya Shah");
+    await accept(id);
+    await click(navCard("Priya Shah"));
+    expect(navDismissIcons()).toHaveLength(0);
+    await act(async () => {
+      customer.hangUp({ interactionId: id });
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    expect(navDismissIcons()).toHaveLength(1);
+  });
+
+  it("4. a reviewed chat (Lucas) has no Unassign & Dismiss icon", async () => {
+    await show(AgentWorkspaceAdvancedPage);
+    await play(LUCAS_THOMAS_SCRIPT.id);
+    await click(navCard("Lucas Thomas"));
+    expect(navDismissIcons()).toHaveLength(0);
+  });
+
+  it("5. a call into Lucas's journey joins his card: the chat stays the main thread and stays selectable", async () => {
+    await show(AgentWorkspaceAdvancedPage);
+    await play(LUCAS_THOMAS_SCRIPT.id);
+    await click(navCard("Lucas Thomas"));
+    const chatLine = "My card got declined on the Aurora X2 launch order. Is the price gone?";
+    expect(bodyText()).toContain(chatLine);
+    // The same contact "Call now" places: an outbound voice call into his journey.
+    await act(async () => {
+      // Provider calls settle as the fake clock moves (the bus delivers on timers).
+      const snapshot = provider.getSnapshot();
+      await vi.advanceTimersByTimeAsync(50);
+      const lucas = (await snapshot).interactions.find((i) => i.caseId === LUCAS_THOMAS_SCRIPT.entity.caseId)!;
+      const dialed = provider.dial({ channel: "voice", address: "(415) 555-0142", skillId: "general", journeyId: lucas.journeyId });
+      await vi.advanceTimersByTimeAsync(300);
+      await dialed;
+    });
+    expect(container.querySelectorAll("[data-slot=voice-bar]")).toHaveLength(1);
+    expect(bodyText()).toContain(chatLine);
+    const chatRow = [...container.querySelectorAll("aside button[aria-label]")].find((el) =>
+      el.getAttribute("aria-label")!.startsWith("Chat channel"),
+    ) as HTMLElement;
+    await click(chatRow);
+    expect(bodyText()).toContain(chatLine);
+    expect(container.querySelectorAll("[data-slot=voice-bar]")).toHaveLength(1);
+  });
+
+  it("6. the page's own status (Unavailable on load) reaches routing: a scripted call isn't offered", async () => {
+    await show(AgentWorkspaceAdvancedPage);
+    await advance(100);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await play(TOM_LEWIS_SCRIPT.id, { available: false });
+    let contacts: { caseId?: string }[] = [];
+    await act(async () => {
+      const snapshot = provider.getSnapshot();
+      await vi.advanceTimersByTimeAsync(50);
+      contacts = (await snapshot).interactions;
+    });
+    expect(contacts.some((i) => i.caseId === TOM_LEWIS_SCRIPT.entity.caseId)).toBe(false);
+    expect([...container.querySelectorAll("aside button")].some((b) => b.textContent === "Accept")).toBe(false);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("playScenario ignored"), expect.stringContaining("not available or working"));
+    warn.mockRestore();
   });
 });
 

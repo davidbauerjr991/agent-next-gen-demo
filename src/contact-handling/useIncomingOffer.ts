@@ -14,7 +14,8 @@ import type { NavCards } from "./useNavCards";
 export function useIncomingOffer(options: {
   findOpenCard: NavCards["findOpenCard"];
   activateWhenReady: (id: InteractionId, mode: ActivationMode, isNewCard: boolean) => void;
-  onDeclined: () => void;
+  /** The offer was declined (the page names the caller and logs the row). */
+  onDeclined: (offer: NavCard) => void;
 }) {
   const provider = useInteractionProvider();
   const canDecline = useCapability((c) => c.interaction.decline);
@@ -41,7 +42,7 @@ export function useIncomingOffer(options: {
       if (!target) return;
       try {
         await provider.decline(target);
-        onDeclined();
+        onDeclined(offer);
       } catch (error) {
         if (import.meta.env.DEV) console.warn("[contact] decline failed", error);
       }

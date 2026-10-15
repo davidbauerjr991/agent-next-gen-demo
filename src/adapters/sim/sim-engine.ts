@@ -692,11 +692,16 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
       case "agent":
         emit({ name: "incoming", payload: { interaction } });
         break;
-      case "auto":
-        emit({ name: "incoming", payload: { interaction } });
+      case "auto": {
+        // The offer already says it will be auto-answered, so the agent UI
+        // never shows it as a ringing card (it's active one event later).
+        const offer = { ...interaction, autoAnswered: true as const };
+        interactions.set(offer.id, offer);
+        emit({ name: "incoming", payload: { interaction: offer } });
         if (channel === "voice") holdOtherCalls(interaction.id);
-        update(interaction, { state: "active", acceptedAt: now(), autoAnswered: true });
+        update(offer, { state: "active", acceptedAt: now() });
         break;
+      }
       case "delivered": {
         const delivered: Partial<Interaction> = script.start.review
           ? { state: "active", review: { by: script.participants?.bot ?? "Virtual agent", since: now() } }

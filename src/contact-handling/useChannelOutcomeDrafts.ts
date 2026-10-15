@@ -30,6 +30,14 @@ export function toOutcome(draft: OutcomeDraft): InteractionOutcome {
 
 export function useChannelOutcomeDrafts() {
   const [drafts, setDrafts] = useState<Readonly<Record<string, OutcomeDraft>>>({});
+  /** Channels whose Outcome the agent has saved (Outcome's Save). */
+  const [saved, setSaved] = useState<ReadonlySet<string>>(() => new Set());
+
+  const markSaved = useCallback((key: string | null | undefined) => {
+    if (!key) return;
+    setSaved((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
+  }, []);
+  const isSaved = useCallback((key: string) => saved.has(key), [saved]);
 
   const draftFor = useCallback((key: string | null | undefined) => (key ? drafts[key] : undefined) ?? EMPTY, [drafts]);
 
@@ -51,5 +59,8 @@ export function useChannelOutcomeDrafts() {
   /** The outcome to complete one thread's wrap-up with. */
   const outcomeOf = useCallback((key: string) => toOutcome(drafts[key] ?? EMPTY), [drafts]);
 
-  return useMemo(() => ({ drafts, draftFor, update, clear, outcomeOf }), [drafts, draftFor, update, clear, outcomeOf]);
+  return useMemo(
+    () => ({ drafts, draftFor, update, clear, outcomeOf, markSaved, isSaved }),
+    [drafts, draftFor, update, clear, outcomeOf, markSaved, isSaved],
+  );
 }

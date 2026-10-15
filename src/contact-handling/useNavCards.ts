@@ -45,11 +45,13 @@ interface LocalState {
  *  a live thread for reopen folding. Ended contacts leave the store only when
  *  the provider forgets them, so this is what makes a dismissed card stay
  *  gone, including across tier switches. A ringing voice offer is kept (it's
- *  the incoming tile); digital offers are notifications, not cards. */
+ *  the incoming tile) unless it's about to be auto-answered; digital offers
+ *  are notifications, not cards. */
 export function visibleContacts(interactions: readonly DomainInteraction[]): DomainInteraction[] {
   const newest = new Map<string, DomainInteraction>();
   for (const i of interactions) {
-    if (i.state === "offered" && i.channel !== "voice") continue;
+    // An auto-answered offer is active one event later: never a ringing tile.
+    if (i.state === "offered" && (i.channel !== "voice" || i.autoAnswered)) continue;
     const key = `${i.journeyId}|${threadKey(i)}`;
     const current = newest.get(key);
     if (!current || i.startedAt >= current.startedAt) newest.set(key, i);
