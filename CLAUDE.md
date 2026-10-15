@@ -15,6 +15,7 @@ Every session working on the Agent Workspace Simulation build follows these:
 - Before starting any step, read PLAN.md and PROGRESS.md.
 - Don't add Co-Authored-By, Claude-Session or any other attribution lines to commit messages.
 - One page; Desk frozen (2026-10-15): `AgentWorkspaceAdvancedPage.tsx` is the single workspace. `AgentWorkspace2WithDeskPage.tsx` (Desk) is a frozen reference: don't add features or fixes to it; it keeps only what the shared hooks already give it, and P0.5d.2 ports its layout pieces into Advanced behind LayoutConfig flags, then deletes it. "Phase 1" and "Phase 2" are now presets of those flags in Settings, not pages. Contact-handling logic still goes in shared hooks/components (`src/contact-handling/`), never inline in the page.
+- Playwright e2e lives in `e2e/` and runs with `npx playwright test` (the installed Google Chrome, dev server started by `playwright.config.ts`). Add one when a behavior depends on layout or scroll, which jsdom can't see (scroll positions, sizes, what a real browser clamps or reflows).
 - Settings come from the settings store (`src/settings/`: `useSettings`/`useSetting`/`useWorkspacePreset`), never page-local state; they apply immediately (no save button). A new setting is a field in a section (or a new `defineSection`), shown on the Settings page (`src/components/settings/SettingsView.tsx`); bump the section's `version` on an incompatible change. Profile and database data stay out of the store (P1.4).
 
 ## lyra-ui usage
