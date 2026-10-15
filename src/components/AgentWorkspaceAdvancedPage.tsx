@@ -71,7 +71,6 @@ import {
   AccordionHeadlessContent,
   Spinner,
   type SelectOption,
-  type SortDirection,
   type CreateNewOutboundConfig,
   type CreateNewOutboundContact,
   type InteractionChannel,
@@ -100,7 +99,6 @@ import {
   CURRENT_AGENT_FIRST_NAME,
   CURRENT_AGENT_LAST_NAME,
   CURRENT_AGENT_ID,
-  nextCustomerSortDirection,
   synthesizeChannelAddress,
   SHOW_ADD_CHANNEL_HEADER_BUTTON,
   buildCustomerContextOverviewInfo,
@@ -204,17 +202,16 @@ import {
   callerOfInteraction,
   declinedCallMessage,
   VoiceWrapUpCard,
+  ChannelThreadBody,
+  ChannelThreadComposer,
+  threadAcceptsReplies,
+  type CopilotComposerProps,
   type Activation,
   type OutcomeDraft,
 } from "@/contact-handling";
 import { NeedsOutcomeBadge } from "@/components/OnHoldBadge";
-import {
-  type CustomerListRecord,
-  CUSTOMER_LIST_RECORDS,
-  type CustomerColKey,
-  type CustomerFilterKey,
-  CustomersListView,
-} from "@/components/agent-next-gen-customers-table";
+import { CustomersTabBody } from "@/components/home-tabs";
+import { useCustomerTableState } from "@/components/customer-table-state";
 import { useSearchPanelContent, type SearchPanelTabKey } from "@/components/agent-next-gen-search-panel";
 // `InteractionsListView` reimported directly per the "All Contacts"
 // follow-up (`showAllContacts`, below) — the Search panel's own Contacts
@@ -231,7 +228,6 @@ import {
   type CustomerHistorySessionEntry,
   HistoryConversationView,
   CustomerInformationSidePanel,
-  CustomerRowInfoPanel,
   AGENT_WORKSPACE_CUSTOMER_PANEL_TABS,
   type CustomerPanelTabLabel,
   buildCustomerInfoFields,
@@ -1775,102 +1771,9 @@ export function AgentWorkspaceAdvancedPage({
   const isNewAssignment = useNewAssignments(activeInteractionId);
   // The incoming tile's answer SLA thresholds (the active profile's).
   const answerSla = useAnswerSla();
-  // Customers table's "+ Filter" state, lifted up here (not local to
-  // `CustomersListView`) — that component sits inside the Desk dashboard's
-  // own branch of the `showSettings ? ... : activeInteraction ? ... : (
-  // dashboard )` conditional a few thousand lines down, which unmounts the
-  // WHOLE dashboard (including `CustomersListView`) the moment the agent
-  // starts/opens an interaction or Settings, not just when switching desk
-  // tabs. Keeping `CustomersListView` mounted-but-hidden across desk-tab
-  // switches (see its own render call site) only covers THAT narrower case;
-  // it still unmounts for real here, which would reset any state that
-  // lived in its own `useState`. Living up here instead, on a component
-  // that's never unmounted for the lifetime of this page, is what actually
-  // makes the filters survive navigating away to an interaction/Settings
-  // and back to Customers, not just switching between desk tabs.
-  const [customerAddedFilterKeys, setCustomerAddedFilterKeys] = useState<string[]>([]);
-  const [customerFilterValues, setCustomerFilterValues] = useState<Record<string, string[]>>({});
-  // Which Customers-table row (if any) has its Customer Information panel
-  // open — also lifted up here rather than local to `CustomersListView`,
-  // since `CustomerRowInfoPanel` (the panel itself) renders as a SIBLING of
-  // `CustomersListView`, docked to its right, not nested inside it; two
-  // sibling components can only share state through a common parent. Not
-  // reset to `null` on unmount either way, for the same "survives
-  // navigating to an interaction/Settings and back" reason the filter
-  // state above lives here — though `CustomerRowInfoPanel` itself is only
-  // ever rendered while the Customers tab is active, so in practice this
-  // only matters for the "still open on that row" case, not the panel
-  // literally staying visible over other tabs.
-  const [selectedCustomerRow, setSelectedCustomerRow] = useState<CustomerListRecord | null>(null);
-  // Search/sort — also lifted up here, alongside the filter state above,
-  // for a second reason beyond survival-across-unmount: `CustomerRowInfoPanel`'s
-  // next/back chevrons (`handleCustomerRowNav` below) need to step through
-  // the *exact same* filtered+sorted order the table itself is currently
-  // showing, not the raw `CUSTOMER_LIST_RECORDS` order — and since that
-  // panel is a sibling of `CustomersListView`, not a child of it, the only
-  // way both can agree on "the current order" is computing it once here
-  // (`customerSortedRows` below) and having `CustomersListView` render
-  // *that*, instead of each independently deriving its own possibly-
-  // different-by-a-render-cycle copy.
-  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
-  // Per explicit follow-up request ("keep the latest search results after
-  // a search is run if navigated away from the search panel") — lifted
-  // alongside `customerSearchQuery` above for the same reason (see
-  // `searchSubmitted`'s own doc comment, agent-next-gen-search-panel.tsx):
-  // `SimpleCustomerSearchBody`'s results-visibility flag used to be a local
-  // `useState` there, which reset every time the Search panel itself was
-  // unmounted/remounted by navigating away and back.
-  const [customerSearchSubmitted, setCustomerSearchSubmitted] = useState(false);
-  const [customerSortKey, setCustomerSortKey] = useState<CustomerColKey | null>(null);
-  const [customerSortDir, setCustomerSortDir] = useState<SortDirection>(null);
-  const handleCustomerSort = (key: CustomerColKey) => {
-    if (customerSortKey === key) {
-      const next = nextCustomerSortDirection(customerSortDir);
-      setCustomerSortDir(next);
-      if (next === null) setCustomerSortKey(null);
-    } else {
-      setCustomerSortKey(key);
-      setCustomerSortDir("asc");
-    }
-  };
-  // Same filter/search/sort logic `CustomersListView` used to compute this
-  // itself locally — moved up here so `CustomerRowInfoPanel`'s chevrons and
-  // `CustomersListView`'s own render both read the one shared result.
-  const customerSortedRows = useMemo(() => {
-    const filtered = CUSTOMER_LIST_RECORDS.filter((row) => {
-      if (customerSearchQuery) {
-        const q = customerSearchQuery.toLowerCase();
-        const haystack = `${row.firstName} ${row.lastName} ${row.contactNumber} ${row.emailAddress}`.toLowerCase();
-        if (!haystack.includes(q)) return false;
-      }
-      for (const key of customerAddedFilterKeys) {
-        const selected = customerFilterValues[key];
-        if (selected?.length && !selected.includes(row[key as CustomerFilterKey])) return false;
-      }
-      return true;
-    });
-    return [...filtered].sort((a, b) => {
-      if (!customerSortKey || !customerSortDir) return 0;
-      const aVal = String(a[customerSortKey]).toLowerCase();
-      const bVal = String(b[customerSortKey]).toLowerCase();
-      if (aVal < bVal) return customerSortDir === "asc" ? -1 : 1;
-      if (aVal > bVal) return customerSortDir === "asc" ? 1 : -1;
-      return 0;
-    });
-  }, [customerSearchQuery, customerAddedFilterKeys, customerFilterValues, customerSortKey, customerSortDir]);
-  // Index of the row currently open in `CustomerRowInfoPanel`, within that
-  // same shared order — `-1` (nothing selected, or the selected row got
-  // filtered out from under the panel by a search/filter change) disables
-  // both chevrons via `hasPrevious`/`hasNext` below rather than throwing.
-  const selectedCustomerIndex = selectedCustomerRow
-    ? customerSortedRows.findIndex((r) => r.contactNumber === selectedCustomerRow.contactNumber)
-    : -1;
-  const handleCustomerRowNav = (direction: 1 | -1) => {
-    if (selectedCustomerIndex === -1) return;
-    const nextIndex = selectedCustomerIndex + direction;
-    if (nextIndex < 0 || nextIndex >= customerSortedRows.length) return;
-    setSelectedCustomerRow(customerSortedRows[nextIndex]);
-  };
+  // The Customers table's search, filters, sort and selection, shared by the
+  // Home Customers tab and the Search panel's Customers sub-tab.
+  const customerTable = useCustomerTableState();
   // Drives the main content area: whenever an interaction is active, the
   // Desk dashboard is replaced by that interaction's blank detail page (see
   // the PageHeader "record header" mode below) — starting/quick-dialing/
@@ -3253,6 +3156,19 @@ export function AgentWorkspaceAdvancedPage({
       return next;
     });
   };
+  /** A composer's Copilot chips and ask, for one thread (Lucas has his own). */
+  const copilotComposerProps = (interactionId: string, threadKey: string): CopilotComposerProps => {
+    const isLucas = scenarioKeyOf(interactionId) === LUCAS_THOMAS_ID;
+    return {
+      copilotSuggestions: isLucas
+        ? LUCAS_THOMAS_COPILOT_SUGGESTIONS
+        : ["Summarize this conversation", "Suggest a reply", "What is the customer's history?"],
+      copilotSuggestionLinks: isLucas ? LUCAS_THOMAS_COPILOT_SUGGESTION_LINKS : undefined,
+      copilotSuggestionReplacements: isLucas ? LUCAS_THOMAS_COPILOT_SUGGESTION_REPLACEMENTS : undefined,
+      onCopilotSuggestionLink: (key: string) => openDetailPanelContent({ kind: "lucas", panel: key as LucasThomasPanelKey }),
+      onCopilotAsk: (text: string) => handleCopilotAsk(interactionId, threadKey, text),
+    };
+  };
   // The DOM node the Next Best Action card's currently-active question
   // portals into (see `MarcusWebbNextBestActionCard`'s own
   // `questionSlotElement` doc comment) — fixed to the bottom of the
@@ -4258,7 +4174,7 @@ export function AgentWorkspaceAdvancedPage({
     outboundDial.startCall(selection);
     // Closes `CustomerRowInfoPanel` (the Customers table's row flyout, which
     // the persistent Search panel can leave open over the new interaction).
-    setSelectedCustomerRow(null);
+    customerTable.setSelectedRow(null);
   };
 
   // Where a launched contact lands once the provider has it (P0.5b.2,
@@ -5648,11 +5564,8 @@ export function AgentWorkspaceAdvancedPage({
   // `activeTab` state still needs a non-empty array to seed its
   // (unreachable-in-this-mode) `useState` initializer.
   //
-  // Customers' body reuses the EXACT SAME lifted state the desk
-  // dashboard's own "Customers" tab already uses (`customerSortedRows`,
-  // `customerAddedFilterKeys`, `selectedCustomerRow`, etc. — all declared
-  // once, near this component's top, alongside that tab's own
-  // `<CustomersListView>` render call further down) rather than a second,
+  // Customers' body reuses the EXACT SAME lifted state the Home Customers
+  // tab uses (`customerTable`, `useCustomerTableState`) rather than a second,
   // independent copy — it's conceptually the SAME customer list/filters/
   // sort/selection either way, just reachable from two different places
   // in the UI, so both should always agree rather than silently drifting
@@ -5684,37 +5597,11 @@ export function AgentWorkspaceAdvancedPage({
     customers: {
       onStartInteraction: (contact, channel, phone, skillId) =>
         handleStartCall({ contact, channel, phone, skillId }),
-      addedFilterKeys: customerAddedFilterKeys,
-      onAddedFilterKeysChange: setCustomerAddedFilterKeys,
-      filterValues: customerFilterValues,
-      onFilterValuesChange: setCustomerFilterValues,
-      // Per a later explicit follow-up request ("have the customer info
-      // panel open in the right panel when the rows are clicked (like in
-      // premium)"), this no longer no-ops — clicking a row here now opens
-      // `CustomerRowInfoPanel` again, toggle-open/close on the same row
-      // (mirroring Premium's own desk-tab Customers table `onRowClick`
-      // pattern). The desk-tab Customers table's own `onRowClick` just
-      // above stays a no-op — this change is scoped to the Search panel's
-      // Customers sub-tab specifically, per that request's own wording.
-      // The panel's pop-out/full-screen toggle is suppressed separately —
-      // see `hideFullScreenToggle` at this branch's `CustomerRowInfoPanel`
-      // call site (agent-next-gen-search-panel.tsx).
-      onRowClick: (row) =>
-        setSelectedCustomerRow((prev) => (prev?.contactNumber === row.contactNumber ? null : row)),
-      searchQuery: customerSearchQuery,
-      onSearchChange: setCustomerSearchQuery,
-      searchSubmitted: customerSearchSubmitted,
-      onSearchSubmittedChange: setCustomerSearchSubmitted,
-      sortKey: customerSortKey,
-      sortDir: customerSortDir,
-      onSort: handleCustomerSort,
-      sortedRows: customerSortedRows,
-      selectedRow: selectedCustomerRow,
-      onCloseRow: () => setSelectedCustomerRow(null),
-      onPreviousRow: () => handleCustomerRowNav(-1),
-      onNextRow: () => handleCustomerRowNav(1),
-      hasPreviousRow: selectedCustomerIndex > 0,
-      hasNextRow: selectedCustomerIndex !== -1 && selectedCustomerIndex < customerSortedRows.length - 1,
+      ...customerTable,
+      // Clicking a row opens `CustomerRowInfoPanel`, or closes it on the
+      // open row. The panel's full-screen toggle is suppressed separately
+      // (`hideFullScreenToggle`, agent-next-gen-search-panel.tsx).
+      onRowClick: customerTable.toggleRow,
       // Per explicit follow-up ("you didn't add the icon to advanced") —
       // the Search panel's own Customers sub-tab only ever renders from
       // this page (see its own `leadingChannelStack` doc comment), so it
@@ -9868,23 +9755,7 @@ export function AgentWorkspaceAdvancedPage({
                               copilotOnly={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && lucasThomasReviewing}
                               onTakeover={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID ? () => handleLucasTakeover() : undefined}
                               onSend={(text) => handleSendMessage(activeInteraction.id, text, activeChannelKey)}
-                              copilotSuggestions={
-                                scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID
-                                  ? LUCAS_THOMAS_COPILOT_SUGGESTIONS
-                                  : ["Summarize this conversation", "Suggest a reply", "What is the customer's history?"]
-                              }
-                              copilotSuggestionLinks={
-                                scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID ? LUCAS_THOMAS_COPILOT_SUGGESTION_LINKS : undefined
-                              }
-                              copilotSuggestionReplacements={
-                                scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID
-                                  ? LUCAS_THOMAS_COPILOT_SUGGESTION_REPLACEMENTS
-                                  : undefined
-                              }
-                              onCopilotSuggestionLink={(key: string) =>
-                                openDetailPanelContent({ kind: "lucas", panel: key as LucasThomasPanelKey })
-                              }
-                              onCopilotAsk={(text: string) => handleCopilotAsk(activeInteraction.id, activeChannelKey, text)}
+                              {...copilotComposerProps(activeInteraction.id, activeChannelKey)}
                             />
                           )}
                         {/* Per explicit request ("don't add the chat input
@@ -10082,69 +9953,14 @@ export function AgentWorkspaceAdvancedPage({
                   desk tabs. The Search panel's own Customers sub-tab
                   doesn't need this block; it renders its own row panel. */}
               {activeDeskTab === "customers" && (
-              <div className="relative flex flex-1 overflow-hidden animate-in fade-in-0 duration-200">
-                <CustomersListView
-                  onStartInteraction={(contact, channel, phone, skillId) =>
-                    handleStartCall({ contact, channel, phone, skillId })
-                  }
-                  addedFilterKeys={customerAddedFilterKeys}
-                  onAddedFilterKeysChange={setCustomerAddedFilterKeys}
-                  filterValues={customerFilterValues}
-                  onFilterValuesChange={setCustomerFilterValues}
-                  // Per explicit request, clicking a row in this (Agent
-                  // Workspace 2.0's own, non-"With Desk") Customers table no
-                  // longer opens `CustomerRowInfoPanel` — a no-op. The panel
-                  // itself, `selectedCustomerRow`, and `openRowId` below are
-                  // all left in place unchanged (still driven by other
-                  // sources of the same shared state, e.g. the Search
-                  // panel's own Customers sub-tab — see `searchContent`'s
-                  // own `onRowClick` further up) — this only disables the
-                  // click affordance on THIS table's own rows.
+                <CustomersTabBody
+                  table={customerTable}
+                  tabs={AGENT_WORKSPACE_CUSTOMER_PANEL_TABS}
+                  onStartInteraction={(contact, channel, phone, skillId) => handleStartCall({ contact, channel, phone, skillId })}
+                  onAddToast={addToast}
                   onRowClick={() => {}}
-                  searchQuery={customerSearchQuery}
-                  onSearchChange={setCustomerSearchQuery}
-                  sortKey={customerSortKey}
-                  sortDir={customerSortDir}
-                  onSort={handleCustomerSort}
-                  sortedRows={customerSortedRows}
-                  openRowId={selectedCustomerRow?.contactNumber ?? null}
-                  // Per explicit request (with screenshots) — leading
-                  // overlapping channel-icon stack instead of the "Channels"
-                  // column, Premium/Advanced only. See `leadingChannelStack`'s
-                  // own doc comment (agent-next-gen-customers-table.tsx).
-                  leadingChannelStack
-                  // Per explicit request ("add a blank column header and if
-                  // a record is open as an assignment or as a tab add an
-                  // eye icon"), Premium/Advanced only — a row is "open" if
-                  // it has a live left-nav assignment card (`interactions`,
-                  // matched on `Interaction.customerId`, the same id space
-                  // as `row.contactNumber` — see `isRowOpen`'s own doc
-                  // comment, agent-next-gen-customers-table.tsx). This tier
-                  // has no customer full-screen tabs (`openCustomerTabs` is
-                  // a Premium-only feature — see AgentWorkspace2WithDeskPage.
-                  // tsx's own call site), so that half of the check simply
-                  // doesn't apply here.
                   isRowOpen={(row) => interactions.some((i) => i.customerId === row.contactNumber)}
                 />
-                <CustomerRowInfoPanel
-                  row={selectedCustomerRow}
-                  onClose={() => setSelectedCustomerRow(null)}
-                  onPrevious={() => handleCustomerRowNav(-1)}
-                  onNext={() => handleCustomerRowNav(1)}
-                  hasPrevious={selectedCustomerIndex > 0}
-                  hasNext={selectedCustomerIndex !== -1 && selectedCustomerIndex < customerSortedRows.length - 1}
-                  onStartInteraction={(contact, channel, phone, skillId) =>
-                    handleStartCall({ contact, channel, phone, skillId })
-                  }
-                  tabs={AGENT_WORKSPACE_CUSTOMER_PANEL_TABS}
-                  onAddToast={addToast}
-                  // Per explicit request ("hide the next/prev in the
-                  // customer info cards for advanced and premium in the
-                  // customer table view") — see `hidePrevNext`'s own doc
-                  // comment (agent-next-gen-customer-info-panel.tsx).
-                  hidePrevNext
-                />
-              </div>
               )}
               {activeDeskTab !== "customers" && (activeDeskTab !== "home" ? (
                 // Accounts/Tickets/WEM — no content built yet; same
@@ -10992,37 +10808,16 @@ export function AgentWorkspaceAdvancedPage({
                   // closed.
                   footerOverride={
                     channelPreviewThread
-                      ? (channelPreviewThread.type !== "email" &&
-                          channelPreviewThread.type !== "voice" &&
-                          !activeInteraction.closed &&
-                          activeInteraction.threadStatuses?.[channelPreviewThreadStableKey!] !== "Closed" && (
-                            <InteractionComposer
-                              hideAiActions={hideAiActions}
-                              onHideAiActionsChange={setHideAiActions}
-                              onSend={(text) =>
-                                handleSendMessage(activeInteraction.id, text, channelPreviewThreadStableKey!)
-                              }
-                              copilotSuggestions={
-                                scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID
-                                  ? LUCAS_THOMAS_COPILOT_SUGGESTIONS
-                                  : ["Summarize this conversation", "Suggest a reply", "What is the customer's history?"]
-                              }
-                              copilotSuggestionLinks={
-                                scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID ? LUCAS_THOMAS_COPILOT_SUGGESTION_LINKS : undefined
-                              }
-                              copilotSuggestionReplacements={
-                                scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID
-                                  ? LUCAS_THOMAS_COPILOT_SUGGESTION_REPLACEMENTS
-                                  : undefined
-                              }
-                              onCopilotSuggestionLink={(key: string) =>
-                                openDetailPanelContent({ kind: "lucas", panel: key as LucasThomasPanelKey })
-                              }
-                              onCopilotAsk={(text: string) =>
-                                handleCopilotAsk(activeInteraction.id, channelPreviewThreadStableKey!, text)
-                              }
-                            />
-                          )) || undefined
+                      ? threadAcceptsReplies(activeInteraction, channelPreviewThread)
+                        ? (
+                          <ChannelThreadComposer
+                            hideAiActions={hideAiActions}
+                            onHideAiActionsChange={setHideAiActions}
+                            onSend={(text) => handleSendMessage(activeInteraction.id, text, channelPreviewThreadStableKey!)}
+                            copilot={copilotComposerProps(activeInteraction.id, channelPreviewThreadStableKey!)}
+                          />
+                        )
+                        : undefined
                       : customerPanelActiveTab === "Customer Info"
                       ? customerInfoOverlayContent.footer
                       : customerPanelActiveTab === "Session Details"
@@ -11050,35 +10845,15 @@ export function AgentWorkspaceAdvancedPage({
                   }
                   bodyOverride={
                     channelPreviewThread ? (
-                      channelPreviewThread.type === "email" ? (
-                        <div className="flex h-full items-center justify-center px-6 text-center text-sm text-lyra-fg-secondary">
-                          Coming soon
-                        </div>
-                      ) : (
-                        <InteractionTranscript
- hideAiActions={hideAiActions}
-                          hideMockFollowUpMessages={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID}
-                          channelType={channelPreviewThread.type}
-                          direction={channelPreviewThread.direction}
-                          customerName={activeInteraction.customerName}
-                          contactId={channelPreviewThread.contactId ?? activeInteraction.customerId}
-                          // Per explicit request ("display the phone
-                          // number instead of the contact ID in the
-                          // session row") — see `InteractionTranscript`'s
-                          // own `channelAddressLabel` prop doc comment
-                          // (agent-next-gen-transcript.tsx).
-                          channelAddressLabel={channelPreviewThread.addressLabel}
-                          skillLabel={channelPreviewThread.preview}
-                          isFreshLaunch={!!channelPreviewThread.startedFresh}
-                          liveMessages={activeInteraction.liveMessages?.[channelPreviewThreadStableKey!] ?? []}
-                          currentStatus={activeInteraction.threadStatuses?.[channelPreviewThreadStableKey!]}
-                          onCurrentStatusChange={(status) =>
-                            handleInteractionStatusChange(activeInteraction.id, channelPreviewThreadStableKey!, status)
-                          }
-                          showSessionActionCluster={false}
-                          showViewDetails={false}
-                        />
-                      )
+                      <ChannelThreadBody
+                        interaction={activeInteraction}
+                        thread={channelPreviewThread}
+                        hideAiActions={hideAiActions}
+                        hideMockFollowUpMessages={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID}
+                        onStatusChange={(status) =>
+                          handleInteractionStatusChange(activeInteraction.id, channelPreviewThreadStableKey!, status)
+                        }
+                      />
                     ) : customerPanelActiveTab === "Experience Memory" ? (
                       <div className="animate-in fade-in-0 duration-200">
                         {scenarioKeyOf(activeInteraction.id) === MAYA_CHEN_CALL_ID ? (

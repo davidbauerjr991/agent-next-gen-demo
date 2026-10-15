@@ -42,5 +42,7 @@ export { IncomingOfferActions, type IncomingOfferActionsProps } from "./Incoming
 export { navCardAddChannelAction } from "./nav-card-add-channel";
 export { showsSessionControls } from "./session-controls";
 export { dockedPreviewKey } from "./docked-preview";
+export { ChannelThreadBody, ChannelThreadComposer, type CopilotComposerProps } from "./ChannelThreadPane";
+export { threadAcceptsReplies, threadKeyOf } from "./channel-thread";
 export { VoiceBar, type VoiceBarProps } from "./VoiceBar";
 export { useAnswerSla, answerSeverity, offerRowAnswerSeverity } from "./answer-sla";
