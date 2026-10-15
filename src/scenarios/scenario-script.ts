@@ -167,7 +167,8 @@ export interface ScenarioContent {
     subtitle: string;
     tags: string[];
     detailedSummary: string[];
-    realTimeSummary: string;
+    /** The Contact Details "Journey Summary" paragraph. */
+    journeySummary: string;
     snapshot: string[];
     nextBestAction?: string;
   };

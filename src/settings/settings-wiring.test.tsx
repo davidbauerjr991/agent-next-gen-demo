@@ -415,6 +415,98 @@ describe("AI display panel: docked Copilot composer", () => {
   });
 });
 
+describe("Contact Details Overview stack, events, composer fade", () => {
+  async function lucas(display: "inline" | "panel") {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await setSettings("ai", { displayLocation: display });
+    await h.play(LUCAS_THOMAS_SCRIPT.id);
+    await h.click(h.navCard("Lucas Thomas"));
+    // Past "Approval requested" (12.3s) and the approval card.
+    await h.advance(14_000);
+  }
+  const body = () => document.body.querySelector<HTMLElement>("[data-slot=details-panel-body]")!;
+  /** The side panel's column (header, scroll area, footer). */
+  const panel = () => body().parentElement!.closest<HTMLElement>(".overflow-y-auto")!.parentElement!;
+  /** An AICard by title: AICard wraps its title in a `lyra-body-md-emphasis`
+   *  span inside lyra Accordion's compact (40px, `py-2.5`) header row, inside
+   *  the contained accordion's radius-md shell (`shadow-sm`, subtle border).
+   *  Customer Info's plain accordion has a tinted border and no shadow.
+   *  Returns the shell. */
+  const aiCard = (title: string, scope: Element) => {
+    const titleEl = [...scope.querySelectorAll("span.lyra-body-md-emphasis")].find((el) =>
+      el.textContent?.trim().startsWith(title),
+    );
+    const header = titleEl?.closest("button");
+    if (!header || !/(^|\s)py-2\.5(\s|$)/.test(header.className)) return null;
+    const shell = header.closest(".rounded-lyra-md");
+    return shell && /(^|\s)shadow-sm(\s|$)/.test(shell.className) ? shell : null;
+  };
+  const leaves = (text: string) =>
+    [...document.body.querySelectorAll("*")].filter((el) => el.children.length === 0 && el.textContent?.trim() === text);
+  const EVENTS = ["Chat started", "Launch price held for 24 h", "Payment link sent", "Approval requested"];
+  const APPROVAL_PROMPT = "How would you like to proceed?";
+
+  it("(5) every AI card in the panel is a lyra AICard with radius md; Customer Info stays a plain accordion", async () => {
+    await lucas("panel");
+    for (const title of ["Journey Summary", "Artifacts", "Autosummary", "Approval request"]) {
+      expect(aiCard(title, body()), `${title} AICard`).not.toBeNull();
+    }
+    // Customer Info: lyra's plain accordion, not an AICard title.
+    expect(aiCard("Customer Info", body())).toBeNull();
+    expect(body().textContent).toContain("Customer Info");
+  });
+
+  it("(5) the stack is spaced only by its gap: no card or wrapper carries its own margin or top padding", async () => {
+    await lucas("panel");
+    expect(body().className).toContain("gap-3");
+    const ownSpacing = /(^|\s)(-?m[trblxy]?-\S+|pt-[1-9]\S*|space-y-\S+)/;
+    const items = [...body().children, ...(body().querySelector("[data-slot=ai-feed]")?.querySelectorAll(":scope > div > *") ?? [])];
+    const offenders = items.filter((el) => ownSpacing.test(el.getAttribute("class") ?? "")).map((el) => el.getAttribute("class"));
+    expect(offenders).toEqual([]);
+  });
+
+  it("(5) says Journey Summary, never Real-Time Summary", async () => {
+    await lucas("panel");
+    expect(document.body.textContent).toContain("Journey Summary");
+    expect(document.body.textContent).not.toContain("Real-Time Summary");
+  });
+
+  it("(6) panel mode: the event rows stay in the transcript; the approval card moves to the panel", async () => {
+    await lucas("panel");
+    // The approval card's own checklist mentions "Payment link sent"; that's
+    // card content, not an event row.
+    const approval = aiCard("Approval request", body())!;
+    for (const event of EVENTS) {
+      expect(leaves(event).some((el) => !panel().contains(el)), `${event} in the transcript`).toBe(true);
+      expect(
+        leaves(event).some((el) => panel().contains(el) && !approval.contains(el)),
+        `${event} not an event row in the panel`,
+      ).toBe(false);
+    }
+    const prompts = leaves(APPROVAL_PROMPT);
+    expect(prompts).toHaveLength(1);
+    expect(panel().contains(prompts[0])).toBe(true);
+  });
+
+  it("(6) inline mode: the event rows and the approval card are both in the transcript", async () => {
+    await lucas("inline");
+    for (const event of EVENTS) {
+      expect(leaves(event).length, event).toBeGreaterThan(0);
+    }
+    expect(leaves(APPROVAL_PROMPT)).toHaveLength(1);
+    expect(document.body.querySelector("[data-slot=ai-feed]")).toBeNull();
+  });
+
+  it("(7) the docked composer's footer carries the inline composer's fade", async () => {
+    await lucas("panel");
+    const dock = document.body.querySelector("[data-slot=copilot-dock]")!;
+    const fade = dock.parentElement!.querySelector(":scope > [data-slot=composer-fade]");
+    expect(fade).not.toBeNull();
+    expect(fade!.className).toContain("-top-8");
+    expect(fade!.className).toContain("to-lyra-bg-surface-container-subtle");
+  });
+});
+
 describe("Reset to defaults", () => {
   it("confirms in a lyra alert dialog: Cancel keeps the settings, Reset restores the defaults", async () => {
     await h.show(AgentWorkspaceAdvancedPage);

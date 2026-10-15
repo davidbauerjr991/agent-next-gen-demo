@@ -11,12 +11,12 @@ export function preContactSummaryOf(card: Pick<NavCard, "threads"> | null | unde
   return card?.threads.find((t) => t.preContactSummary && t.preContactSummary.length > 0)?.preContactSummary;
 }
 
-/** The overview with its Autosummary lines (and the Real-Time Summary, which
+/** The overview with its Autosummary lines (and the Journey Summary, which
  *  is those lines joined) replaced by the pre-contact summary, when there is
  *  one. */
-export function withPreContactSummary<T extends { snapshot?: string[]; realTimeSummary?: string }>(
+export function withPreContactSummary<T extends { snapshot?: string[]; journeySummary?: string }>(
   overview: T,
   summary: string[] | undefined,
 ): T {
-  return summary ? { ...overview, snapshot: summary, realTimeSummary: summary.join(" ") } : overview;
+  return summary ? { ...overview, snapshot: summary, journeySummary: summary.join(" ") } : overview;
 }

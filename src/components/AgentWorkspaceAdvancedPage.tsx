@@ -88,6 +88,7 @@ import {
   EmptyState,
   CustomerContextOverview,
   PanelFooter,
+  AICard,
 } from "@nicecxone/lyra-ui";
 import { CREATE_NEW_CUSTOMERS, type CreateNewCustomerRecord } from "@nicecxone/lyra-ui/customers-data";
 import { useScheduleContent } from "@nicecxone/lyra-ui";
@@ -119,6 +120,7 @@ import {
   TRANSCRIPT_SESSIONS_VOICE,
   TRANSCRIPT_SESSIONS_EMAIL,
   AiActionsFeed,
+  ComposerFade,
 } from "@/components/agent-next-gen-transcript";
 import { isAiActionMessage } from "@/components/agent-next-gen-ai-messages";
 import {
@@ -353,6 +355,7 @@ import {
   Bell,
   Pin,
   IdCard,
+  Sparkles,
   PanelLeftClose,
   History,
   Maximize2,
@@ -2222,7 +2225,7 @@ export function AgentWorkspaceAdvancedPage({
           "Order for [noise-cancelling headphones](order) placed last Tuesday arrived with a cracked ear cup.",
           "Refund exceeds the AI agent's $100 auto-approval limit — escalated for human approval.",
         ],
-        realTimeSummary:
+        journeySummary:
           "Marcus is on hold while the Cognigy AI Agent waits for sign-off on a $200 refund for order #48213 (noise-cancelling headphones, cracked ear cup). The refund qualifies but exceeds the AI agent's $100 auto-approval limit. Approve or reject the refund, or give the AI agent another instruction.",
         nextBestAction:
           "Review the order and approve the $200 refund so the AI agent can complete the request and take the customer off hold.",
@@ -2239,7 +2242,7 @@ export function AgentWorkspaceAdvancedPage({
           sentiment: { value: "Disappointed" },
         },
         detailedSummary: MAYA_CHEN_CALL_OVERVIEW.detailedSummary,
-        realTimeSummary: MAYA_CHEN_CALL_OVERVIEW.realTimeSummary,
+        journeySummary: MAYA_CHEN_CALL_OVERVIEW.journeySummary,
         snapshot: MAYA_CHEN_CALL_OVERVIEW.snapshot,
         nextBestAction: MAYA_CHEN_CALL_OVERVIEW.nextBestAction,
       };
@@ -2255,7 +2258,7 @@ export function AgentWorkspaceAdvancedPage({
           sentiment: { value: "Annoyed" },
         },
         detailedSummary: TOM_LEWIS_CALL_OVERVIEW.detailedSummary,
-        realTimeSummary: TOM_LEWIS_CALL_OVERVIEW.realTimeSummary,
+        journeySummary: TOM_LEWIS_CALL_OVERVIEW.journeySummary,
         snapshot: TOM_LEWIS_CALL_OVERVIEW.snapshot,
         nextBestAction: TOM_LEWIS_CALL_OVERVIEW.nextBestAction,
       };
@@ -2275,7 +2278,7 @@ export function AgentWorkspaceAdvancedPage({
           "Insider member since 2023 with 14 orders. Pre-orders launch editions and prefers text for updates. Paid by PayPal on 3 of his last 5 orders.",
           "Today he tried to buy the Aurora X2 launch edition at $189.00. Card checkout failed twice during payment incident INC-2207, and the pay-another-way link failed too.",
         ],
-        realTimeSummary:
+        journeySummary:
           "Aurora X2 launch order NR-11056 failed twice during payment incident INC-2207: the card was declined and the pay-another-way link also failed. Checkout AI Agent hit its authorization limit and is requesting an exception. The $189.00 launch price and his unit are held for 24 h. Lucas is frustrated.",
         snapshot: [
           "[Aurora X2 launch](product) order NR-11056 not placed — [card declined twice](payments) during payment incident INC-2207.",
@@ -2543,11 +2546,9 @@ export function AgentWorkspaceAdvancedPage({
   // Same idea for the home tab's live queue widgets (4s random walk):
   // only `<QueueSubItems>` readers re-render (agent-next-gen-queue-sim.ts).
   const queueSim = useQueueSimSource();
-  // Per explicit request ("replace the autosummary card in the contact
-  // details with the content depicted in the screenshot of the real time
-  // summary card") — the "Real-Time Summary" container's own "Updated X
-  // ago" caption (`DetailsPanelAccordions`'/`CustomerContextOverview`'s
-  // own `realTimeSummaryUpdatedLabel` prop) needs a reference point to
+  // The Contact Details "Journey Summary" card's "Updated X ago" caption
+  // (`DetailsPanelAccordions`, through lyra `CustomerContextOverview`'s
+  // `realTimeSummaryUpdatedLabel` prop) needs a reference point to
   // measure elapsed time FROM. Captured once per contact (reset whenever
   // `activeInteractionId` changes, in the effect right below) rather than
   // tracking every individual fact change that actually feeds the summary
@@ -2558,11 +2559,11 @@ export function AgentWorkspaceAdvancedPage({
   // underlying facts). The page clock (just above) is what actually ticks
   // every real second; this only stores WHICH tick to measure from.
   // `DetailsPanelAccordions` turns it into the "Updated 8 seconds ago"
-  // caption itself (`formatRealTimeSummaryUpdatedLabel`, inside a
+  // caption itself (`formatJourneySummaryUpdatedLabel`, inside a
   // `<ClockValue>`), so only that card re-renders as it ticks.
-  const [realTimeSummaryUpdatedAtTick, setRealTimeSummaryUpdatedAtTick] = useState(0);
+  const [journeySummaryUpdatedAtTick, setJourneySummaryUpdatedAtTick] = useState(0);
   useEffect(() => {
-    setRealTimeSummaryUpdatedAtTick(clock.now());
+    setJourneySummaryUpdatedAtTick(clock.now());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeInteractionId]);
   // Whether ANY assignment in the whole Personal Queue has a channel that's
@@ -6359,21 +6360,37 @@ export function AgentWorkspaceAdvancedPage({
     const key = scenarioKeyOf(activeInteraction.id);
     const isMarcus = key === MARCUS_WEBB_ID;
     const isLucas = key === LUCAS_THOMAS_ID;
+    // Every card here is a lyra AICard (radius md, compact), spaced only by
+    // the feed's gap: the Autosummary through lyra's `aiCards` mode, and
+    // Marcus's Next Best Action in an AICard of its own (lyra's `aiCards`
+    // leaves Next Best Action as an accordion).
     const overview =
       (activeInteractionIsRealCustomer || activePreContactSummary) && customerContextOverviewInfo ? (
-        <CustomerContextOverview
-          customerName={activeInteraction.customerName ?? ""}
-          snapshot={customerContextOverviewInfo.snapshot}
-          onSnapshotLink={snapshotLinkHandlerFor(activeInteraction.id)}
-          nextBestAction={customerContextOverviewInfo.nextBestAction}
-          nextBestActionContent={isMarcus ? <PersistentHostSlot host={marcusCardHost} /> : undefined}
-          nextBestActionBare={isMarcus ? true : undefined}
-          autosummaryBlue={isLucas || isMarcus || isColdCallId(activeInteraction.id)}
-          showCustomerProfile={false}
-          showContactSnapshot
-          showNextBestAction={isMarcus}
-          className="pt-0"
-        />
+        <>
+          <CustomerContextOverview
+            aiCards
+            customerName={activeInteraction.customerName ?? ""}
+            snapshot={customerContextOverviewInfo.snapshot}
+            onSnapshotLink={snapshotLinkHandlerFor(activeInteraction.id)}
+            autosummaryBlue={isLucas || isMarcus || isColdCallId(activeInteraction.id)}
+            showCustomerProfile={false}
+            showContactSnapshot
+            showNextBestAction={false}
+            className="pt-0"
+          />
+          {isMarcus && (
+            <AICard
+              title="Next Best Action"
+              color="purple"
+              radius="md"
+              density="compact"
+              icon={<Sparkles className="h-4 w-4" strokeWidth={1.5} />}
+              defaultOpen
+            >
+              <PersistentHostSlot host={marcusCardHost} />
+            </AICard>
+          )}
+        </>
       ) : undefined;
     return (
       <AiActionsFeed
@@ -8958,8 +8975,8 @@ export function AgentWorkspaceAdvancedPage({
                                         // use the exact same content" rule
                                         // this file's own `onLinkCustomer`
                                         // doc comment already documents).
-                                        showRealTimeSummary
-                                        realTimeSummaryUpdatedAtTick={realTimeSummaryUpdatedAtTick}
+                                        showJourneySummary
+                                        journeySummaryUpdatedAtTick={journeySummaryUpdatedAtTick}
                                         onViewCustomerInfo={
                                           activeInteractionIsRealCustomer ? focusCustomerPanelTab : undefined
                                         }
@@ -10931,7 +10948,11 @@ export function AgentWorkspaceAdvancedPage({
                         // (the main composer portals into it). Only on the
                         // Details overview; every other tab or sub-page
                         // gives the body the full height.
-                        <PanelFooter align="full" scrollFade>
+                        // The inline composer's own top fade (`ComposerFade`),
+                        // into the panel's background, so the cards scroll
+                        // under it instead of stopping at a hard edge.
+                        <PanelFooter align="full" scrollShadow={false} className="relative">
+                          <ComposerFade toClassName="to-lyra-bg-surface-container-subtle" />
                           <div ref={setCopilotDockEl} data-slot="copilot-dock" className="w-full" />
                         </PanelFooter>
                       )
@@ -11049,24 +11070,13 @@ export function AgentWorkspaceAdvancedPage({
                         // Settings → AI display "In the Contact Details panel".
                         aiFeed={aiInPanel ? renderAiPanelFeed() : undefined}
                         aiFeedCount={aiFeedCount}
-                        // Per explicit request ("replace the autosummary
-                        // card in the contact details with the content
-                        // depicted in the screenshot of the real time
-                        // summary card ... ignore the edit/pin icons and
-                        // keep it as an accordion"), then a follow-up
-                        // clarification ("do not modify the autosummary
-                        // card that is inline with the conversation -
-                        // create a new card and call it 'Real-Time
-                        // Summary'") — this docked "Contact Details" panel
-                        // is the one place that opts in; the main
-                        // transcript column's own `customerContextOverview`
-                        // render (this page's other call site, further up)
-                        // is untouched, still the original "Autosummary".
-                        // `realTimeSummaryUpdatedAtTick` — see that state's
-                        // own doc comment above (near `clock`) for how
-                        // it's derived.
-                        showRealTimeSummary
-                        realTimeSummaryUpdatedAtTick={realTimeSummaryUpdatedAtTick}
+                        // The "Journey Summary" card: this docked Contact
+                        // Details panel is the one place that shows it; the
+                        // main transcript column keeps its "Autosummary".
+                        // `journeySummaryUpdatedAtTick` — see that state's
+                        // own doc comment above (near `clock`).
+                        showJourneySummary
+                        journeySummaryUpdatedAtTick={journeySummaryUpdatedAtTick}
                         onViewCustomerInfo={
                           activeInteractionIsRealCustomer ? focusCustomerPanelTab : undefined
                         }

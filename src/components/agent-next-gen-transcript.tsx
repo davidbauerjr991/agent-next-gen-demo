@@ -3,6 +3,8 @@ import React, { useState, useRef, useLayoutEffect, useEffect, useMemo } from "re
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import {
+  AICard,
+  Link,
   AccordionHeadless,
   AccordionHeadlessItem,
   AccordionHeadlessContent,
@@ -175,10 +177,10 @@ type ApprovalDecisionDef = NonNullable<TranscriptApprovalSummary["decisions"]>[n
 
 /**
  * Settings → AI display "In the Contact Details panel" (P-SETTINGS, ported
- * from v3): the AI content that normally sits inline in the transcript
- * (instruction interstitials, approval request summaries, wrap-up cards,
- * event lines) rendered as a stacked feed for the Contact Details panel
- * instead. `overview` is the (already built) Autosummary block shown first.
+ * from v3): the AI cards that normally sit inline in the transcript
+ * (instruction interstitials, approval request summaries, wrap-up cards)
+ * rendered as a stacked feed for the Contact Details panel instead. Event
+ * rows stay in the transcript. `overview` is the (already built) Autosummary block shown first.
  * Same components and handlers the inline transcript uses, so behavior
  * matches.
  */
@@ -220,7 +222,7 @@ export function AiActionsFeed({
           />
         ) : message.wrapUp ? (
           <WrapUpAccordion key={message.id} message={message} onComplete={onWrapUpComplete} />
-        ) : message.summary ? (
+        ) : (
           <ApprovalSummaryAccordion
             key={message.id}
             message={message}
@@ -230,13 +232,6 @@ export function AiActionsFeed({
             onSuggestionAsk={onApprovalSuggestionAsk}
             takenOver={approvalTakenOver}
           />
-        ) : (
-          <div key={message.id} className="flex flex-col gap-0.5">
-            <span className="lyra-body-sm text-lyra-fg-secondary">
-              {message.timestamp} · {message.name}
-            </span>
-            <span className="lyra-body-md-emphasis text-lyra-fg-default">{message.text}</span>
-          </div>
         )
       )}
     </div>
@@ -265,33 +260,22 @@ function WrapUpAccordion({ message, onComplete }: { message: TranscriptMessage; 
       )}
     >
     <div className="min-h-0 overflow-hidden">
-    <div className="overflow-hidden rounded-lyra-md border border-lyra-border-subtle">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="group flex w-full cursor-pointer items-center gap-2 bg-lyra-status-success-subtle px-4 py-2.5 text-left transition-colors hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-lyra-border-focus"
-      >
-        <Sparkles className="h-4 w-4 shrink-0 text-lyra-status-success-strong" strokeWidth={1.5} aria-hidden="true" />
-        <span className="min-w-0 flex-1 truncate lyra-body-md-emphasis text-lyra-fg-default">
+    {/* lyra AICard (green), not a hand-built accordion. */}
+    <AICard
+      title={
+        <>
           {wrapUp.title} <span className="lyra-body-md font-normal text-lyra-fg-secondary">{message.timestamp}</span>
-        </span>
-        <span className="shrink-0 lyra-body-sm text-lyra-fg-secondary">Copilot summary</span>
-        <ChevronDown
-          className={cn("h-5 w-5 shrink-0 text-lyra-fg-secondary transition-transform", open && "rotate-180")}
-          strokeWidth={1.5}
-          aria-hidden="true"
-        />
-      </button>
-      <div
-        className={cn(
-          "grid transition-[grid-template-rows,opacity] duration-200 ease-out",
-          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-        )}
-        aria-hidden={!open}
-      >
-        <div className="min-h-0 overflow-hidden">
-          <div className="flex flex-col gap-3 bg-lyra-bg-surface-container-subtle px-4 py-4">
+        </>
+      }
+      color="green"
+      radius="md"
+      density="compact"
+      icon={<Sparkles className="h-4 w-4" strokeWidth={1.5} />}
+      headerEnd={<span className="lyra-body-sm font-normal text-lyra-fg-secondary">Copilot summary</span>}
+      open={open}
+      onOpenChange={setOpen}
+    >
+          <div className="flex flex-col gap-3">
             <p className="lyra-body-md text-lyra-fg-default">{wrapUp.summary}</p>
             <p className="lyra-body-sm text-lyra-fg-secondary">{wrapUp.disposition}</p>
             <div>
@@ -316,9 +300,7 @@ function WrapUpAccordion({ message, onComplete }: { message: TranscriptMessage; 
               )}
             </div>
           </div>
-        </div>
-      </div>
-    </div>
+    </AICard>
     </div>
     </div>
   );
@@ -536,45 +518,35 @@ function ApprovalSummaryAccordion({
   const summary = message.summary!;
   const hasDetails =
     !summary.hideDetails && (summary.checklist.length > 0 || summary.memory.length > 0 || !!summary.sentimentValue);
+  // The decision footer stays visible (options pending) when the summary is
+  // collapsed: AICard's `persistentFooter`.
+  const decisionFooter = footer ?? (summary.decisions && summary.decisions.length > 0 ? (
+    <ApprovalDecision decisions={summary.decisions} onDecide={onDecide} onLink={onLink} onSuggestionAsk={onSuggestionAsk} onCallRequest={onCallRequest} takenOver={takenOver} decided={message.decided} />
+  ) : undefined);
   return (
-    <div className="overflow-hidden rounded-lyra-md border border-lyra-border-subtle">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="group flex w-full cursor-pointer items-center gap-2 bg-lyra-status-info-subtle px-4 py-2.5 text-left transition-colors hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-lyra-border-focus"
-      >
-        <Sparkles className="h-4 w-4 shrink-0 text-lyra-status-info-strong" strokeWidth={1.5} aria-hidden="true" />
-        <span className="min-w-0 flex-1 truncate lyra-body-md-emphasis text-lyra-fg-default">
+    // lyra AICard (blue, as v3 since lyra 71160d3), not a hand-built accordion.
+    <AICard
+      title={
+        <>
           {summary.title} <span className="lyra-body-md font-normal text-lyra-fg-secondary">{message.timestamp}</span>
-        </span>
-        <span className="shrink-0 lyra-body-sm text-lyra-fg-secondary">Copilot summary</span>
-        <ChevronDown
-          className={cn("h-5 w-5 shrink-0 text-lyra-fg-secondary transition-transform", open && "rotate-180")}
-          strokeWidth={1.5}
-          aria-hidden="true"
-        />
-      </button>
-      <div
-        className={cn(
-          "grid transition-[grid-template-rows,opacity] duration-200 ease-out",
-          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-        )}
-        aria-hidden={!open}
-      >
-        <div className="min-h-0 overflow-hidden">
-        <div className="flex flex-col gap-3 bg-lyra-bg-surface-container-subtle px-4 py-4">
+        </>
+      }
+      color="blue"
+      radius="md"
+      density="compact"
+      icon={<Sparkles className="h-4 w-4" strokeWidth={1.5} />}
+      headerEnd={<span className="lyra-body-sm font-normal text-lyra-fg-secondary">Copilot summary</span>}
+      open={open}
+      onOpenChange={setOpen}
+      persistentFooter={decisionFooter}
+    >
+        <div className="flex flex-col gap-3">
           <p className="lyra-body-lg-emphasis text-lyra-fg-default">{summary.headline}</p>
           <p className="lyra-body-md text-lyra-fg-default">{summary.description}</p>
           {hasDetails && (
-            <button
-              type="button"
-              onClick={() => setShowMore((v) => !v)}
-              aria-expanded={showMore}
-              className="self-start lyra-body-md text-lyra-fg-link hover:underline focus-visible:outline-none focus-visible:underline"
-            >
+            <Link onClick={() => setShowMore((v) => !v)} aria-expanded={showMore} className="self-start">
               {showMore ? "Show less" : "Show more"}
-            </button>
+            </Link>
           )}
           {hasDetails && (
           <div
@@ -598,13 +570,9 @@ function ApprovalSummaryAccordion({
                   <div className="flex min-w-0 flex-col">
                     <span className="flex flex-wrap items-center gap-2 lyra-body-md-emphasis text-lyra-fg-default">
                       {item.link && onLink ? (
-                        <button
-                          type="button"
-                          onClick={() => onLink(item.link!)}
-                          className="text-left text-lyra-fg-link hover:underline focus-visible:outline-none focus-visible:underline"
-                        >
+                        <Link onClick={() => onLink(item.link!)} className="text-left">
                           {item.label}
-                        </button>
+                        </Link>
                       ) : (
                         item.label
                       )}
@@ -656,16 +624,7 @@ function ApprovalSummaryAccordion({
           </div>
           )}
         </div>
-        </div>
-      </div>
-      {/* The decision footer sits outside the collapsing region, so it stays visible (options pending) when the summary is collapsed. */}
-      {footer && <div className={cn("bg-lyra-bg-surface-container-subtle px-4 pb-4", !open && "pt-3")}>{footer}</div>}
-      {!footer && summary.decisions && summary.decisions.length > 0 && (
-        <div className={cn("bg-lyra-bg-surface-container-subtle px-4 pb-4", !open && "pt-3")}>
-          <ApprovalDecision decisions={summary.decisions} onDecide={onDecide} onLink={onLink} onSuggestionAsk={onSuggestionAsk} onCallRequest={onCallRequest} takenOver={takenOver} decided={message.decided} />
-        </div>
-      )}
-    </div>
+    </AICard>
   );
 }
 
@@ -5121,6 +5080,24 @@ export function fillQuickReplyTemplate(
    it doesn't know or care what happens to a message once sent. */
 export const QUICK_REPLY_TRIGGER_CHAR = "/";
 export const QUICK_REPLY_TRIGGER_PATTERN = /\/(\w*)$/;
+/**
+ * The composer's soft top fade instead of a hard border-top — reads as the
+ * content scrolling *under* the composer rather than stopping at a line.
+ * Positioned outside its parent's box (negative top, the parent must be
+ * `relative`), so it overlays the last 32px of the scrolling content above.
+ * Used by the inline composer and by the docked panel composer's footer;
+ * `toClassName` is the background it fades into (the surface behind it).
+ */
+export function ComposerFade({ toClassName = "to-lyra-bg-surface-base" }: { toClassName?: string }) {
+  return (
+    <div
+      data-slot="composer-fade"
+      className={cn("pointer-events-none absolute inset-x-0 -top-8 h-8 bg-gradient-to-b from-transparent", toClassName)}
+      aria-hidden="true"
+    />
+  );
+}
+
 /** At most this many Copilot suggestion chips show at once. */
 const COPILOT_CHIPS_MAX = 3;
 /** The row's `gap-2`. */
@@ -5602,18 +5579,7 @@ export function InteractionComposer({
   return (
     <div className="relative shrink-0 bg-lyra-bg-surface-base px-6 py-4">
       {dockedCopilot}
-      {/* Soft fade instead of a hard border-top — reads as the transcript
-          scrolling *under* the composer rather than stopping at a line.
-          Positioned outside this div's own box (negative top), so it
-          overlays the last ~32px of the scrollable transcript sitting
-          directly above it (that sibling isn't `overflow-hidden` on itself
-          from the outside, only its own internal scroll is clipped, so an
-          absolutely-positioned overlay from a neighboring box can still
-          paint over it). */}
-      <div
-        className="pointer-events-none absolute inset-x-0 -top-8 h-8 bg-gradient-to-b from-transparent to-lyra-bg-surface-base"
-        aria-hidden="true"
-      />
+      <ComposerFade />
       {/* `max-w-[768px]` — kept in sync with the message-column wrapper's
           own matching width above (originally narrowed together from
           1200px to 1024px; later narrowed again, together with that

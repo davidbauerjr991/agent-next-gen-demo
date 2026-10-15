@@ -1,4 +1,10 @@
-import type { ChannelType, SortDirection, QuickReplyField, DateRangeFilterValue, DateRange, PhoneValue } from "@nicecxone/lyra-ui";
+import type { ChannelType, SortDirection, QuickReplyField, DateRangeFilterValue, DateRange, PhoneValue, CustomerContextOverviewInfo } from "@nicecxone/lyra-ui";
+
+/** The overview the app builds and passes around: lyra's
+ *  `CustomerContextOverviewInfo`, with the Journey Summary paragraph under
+ *  the app's own key (`journeySummary`). lyra's prop is still named
+ *  `realTimeSummary`; it's mapped at the lyra call site. */
+export type OverviewInfo = Omit<CustomerContextOverviewInfo, "realTimeSummary"> & { journeySummary?: string };
 
 /* ── Shared, dependency-free helpers ──
    Split out of AgentNextGenPage.tsx (which had grown past Babel's 500KB
@@ -86,12 +92,12 @@ function formatElapsedTime(totalSeconds: number): string {
 /** Same idea as `formatElapsedTime` above but "HH:MM:SS", for the home tab's
  *  queue widgets — their wait time can run past an hour (e.g. voicemail),
  *  unlike a just-started interaction's MM:SS elapsed display. */
-/** The Real-Time Summary's `"Updated 8 seconds ago"`/`"Updated 3 minutes
+/** The Journey Summary's `"Updated 8 seconds ago"`/`"Updated 3 minutes
  *  ago"`-style caption, from seconds since it was last "updated" —
  *  deliberately plain seconds/minutes/hours (no relative-time library
  *  pulled in for one caption). Rendered by `DetailsPanelAccordions` inside
  *  a `<ClockValue>`, so it re-renders only when this string changes. */
-function formatRealTimeSummaryUpdatedLabel(elapsedSeconds: number): string {
+function formatJourneySummaryUpdatedLabel(elapsedSeconds: number): string {
   const elapsed = Math.max(0, elapsedSeconds);
   if (elapsed < 60) return `Updated ${elapsed} second${elapsed === 1 ? "" : "s"} ago`;
   const minutes = Math.floor(elapsed / 60);
@@ -925,11 +931,10 @@ function buildCustomerContextOverviewInfo(
    *  when there's no real `priorContact` match), `undefined` only for a
    *  genuinely brand-new/unknown contact (same gate as `customerCard`). */
   detailedSummary?: string[];
-  /** Per explicit request ("replace the autosummary card in the contact
-   *  details with the content depicted in the screenshot of the real time
-   *  summary card") — feeds the Details panel's new "Real-Time Summary"
-   *  container (`CustomerContextOverview`'s own `realTimeSummary` prop,
-   *  lyra-ui/contact-overview.tsx) as one flowing paragraph, grounded in
+  /** Feeds the Details panel's "Journey Summary" card (renamed from
+   *  "Real-Time Summary"; lyra's `CustomerContextOverview` still calls the
+   *  prop `realTimeSummary`, lyra-ui/contact-overview.tsx) as one flowing
+   *  paragraph, grounded in
    *  this SAME contact's real facts — literally this same call's own
    *  `snapshot` lines below, joined with a space, never separately
    *  authored/random copy (per the earlier explicit "tie the autosummary
@@ -938,7 +943,7 @@ function buildCustomerContextOverviewInfo(
    *  empty/omitted), so the two stay in lockstep automatically as the
    *  underlying facts change — one place computes the facts, both
    *  presentations read off it. */
-  realTimeSummary?: string;
+  journeySummary?: string;
 } {
   const hash = hashSeed(seed);
   if (!isKnownCustomer) {
@@ -961,7 +966,7 @@ function buildCustomerContextOverviewInfo(
     return {
       nextBestAction: NEXT_BEST_ACTION_NEW[hash % NEXT_BEST_ACTION_NEW.length],
       snapshot: unknownSnapshot,
-      realTimeSummary: unknownSnapshot.join(" "),
+      journeySummary: unknownSnapshot.join(" "),
     };
   }
   const tier = CUSTOMER_PROFILE_TIERS[hash % CUSTOMER_PROFILE_TIERS.length];
@@ -992,7 +997,7 @@ function buildCustomerContextOverviewInfo(
       snapshot: snapshot.length > 0 ? snapshot : undefined,
       nextBestAction: PRIOR_CONTACT_NEXT_BEST_ACTION[category],
       detailedSummary,
-      realTimeSummary: snapshot.length > 0 ? snapshot.join(" ") : undefined,
+      journeySummary: snapshot.length > 0 ? snapshot.join(" ") : undefined,
     };
   }
 
@@ -1004,7 +1009,7 @@ function buildCustomerContextOverviewInfo(
     detailedSummary: [
       "No prior case history is on file for this contact yet — this summary reflects general account patterns only.",
     ],
-    realTimeSummary: genericSnapshot.join(" "),
+    journeySummary: genericSnapshot.join(" "),
   };
 }
 
@@ -1056,7 +1061,7 @@ export {
   generateContactId,
   formatElapsedTime,
   formatWaitTime,
-  formatRealTimeSummaryUpdatedLabel,
+  formatJourneySummaryUpdatedLabel,
   AWAITING_WARNING_SECONDS,
   AWAITING_CRITICAL_SECONDS,
   getAwaitingSeverity,

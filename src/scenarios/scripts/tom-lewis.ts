@@ -50,7 +50,7 @@ export const TOM_LEWIS_SCRIPT = {
         "Member since 2021 with 3 orders. Prefers voice for support and asked for a person on his last 2 calls. Made Mastercard 9031 his default card on Sep 27.",
         "Today order NR-50877 ($86.40) was charged twice, once on Visa 2210 and once on Mastercard 9031, but only one order was placed. He requested a refund in the app this morning.",
       ],
-      realTimeSummary:
+      journeySummary:
         "Tom is calling to void one of two $86.40 charges on order NR-50877, one on Visa 2210 and one on Mastercard 9031. Only one order was placed. A duplicate-charge review is at stage 3 of 5. He sounds annoyed.",
       snapshot: [
         "Calling to void one of two $86.40 charges on [order NR-50877](order).",

@@ -52,7 +52,7 @@ export const MAYA_CHEN_SCRIPT = {
         "Member since 2022 with 6 orders. Prefers email, rated her last 3 contacts 5 of 5, and paid with Visa 4417 on her last 2 orders. This is her first damage claim in 2 years.",
         "Her espresso machine (order NR-10871, $412.00, Sep 25) arrived with a cracked water tank. She submitted a return request in the app and a refund review is at stage 3 of 5.",
       ],
-      realTimeSummary:
+      journeySummary:
         "Maya is calling for a refund on the espresso machine from order NR-10871 ($412.00), which arrived with a cracked water tank. She wants a refund, not a replacement. The photo check passed and the refund is within your $500 limit. She sounds disappointed.",
       snapshot: [
         "Calling for a $412.00 refund on [order NR-10871](maya-order), an espresso machine that arrived with a cracked water tank.",

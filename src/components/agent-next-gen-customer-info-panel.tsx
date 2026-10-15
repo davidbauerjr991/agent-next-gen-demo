@@ -45,8 +45,9 @@ import {
   InteriorPanel,
   formatPhoneForDisplay,
   CustomerContextOverview,
-  type CustomerContextOverviewInfo,
   Tooltip,
+  AICard,
+  Link,
 } from "@nicecxone/lyra-ui";
 import { CREATE_NEW_CUSTOMERS, type CreateNewCustomerRecord } from "@nicecxone/lyra-ui/customers-data";
 import { type Thread } from "@/components/agent-next-gen-interaction-dashboard";
@@ -62,7 +63,8 @@ import {
   phoneValueFromDisplay,
   phoneDisplayFromValue,
   initialsFor,
-  formatRealTimeSummaryUpdatedLabel,
+  formatJourneySummaryUpdatedLabel,
+  type OverviewInfo,
 } from "@/components/agent-next-gen-shared-utils";
 import { ClockValue } from "@/components/agent-next-gen-clock-tick";
 import { type ContactHistoryStatusVariant } from "@/components/agent-next-gen-contact-history";
@@ -3592,7 +3594,7 @@ export function useSessionDetailsTabContent({
 }
 
 /** "AI in panel": bottom padding that keeps the last card clear of the
- *  docked composer's scroll fade (lyra `ContainerFooter` `scrollFade`, 24px). */
+ *  docked composer's top fade (`ComposerFade`, 32px). */
 const AI_FEED_BOTTOM_PADDING_PX = 32;
 /** Within this many px of the bottom counts as "at the bottom". */
 const AI_FEED_NEAR_BOTTOM_PX = 48;
@@ -3625,8 +3627,8 @@ export function DetailsPanelAccordions({
   customerName,
   customerContextOverview,
   showCustomerContextOverview = true,
-  showRealTimeSummary = false,
-  realTimeSummaryUpdatedAtTick,
+  showJourneySummary = false,
+  journeySummaryUpdatedAtTick,
   onViewExperienceMemory,
   onViewCustomerInfo,
   onViewInteractionHistory,
@@ -3652,30 +3654,18 @@ export function DetailsPanelAccordions({
   /** Same object each page already builds via `buildCustomerContextOverviewInfo`
    *  for its own main-column Contact Overview — passed straight through
    *  rather than recomputed here, so the two never disagree. */
-  customerContextOverview?: CustomerContextOverviewInfo;
-  /** Per explicit request ("replace the autosummary card in the contact
-   *  details with the content depicted in the screenshot of the real time
-   *  summary card"), then a follow-up clarification ("do not modify the
-   *  autosummary card that is inline with the conversation - create a new
-   *  card and call it 'Real-Time Summary'") — swaps this panel's own
-   *  "Contact Snapshot"/"Autosummary" container for `CustomerContextOverview`'s
-   *  own new "Real-Time Summary" one instead (see that prop's own doc
-   *  comment, lyra-ui/contact-overview.tsx, for the full "why"). The main
-   *  transcript column's OWN `customerContextOverview` render (each page's
-   *  own render site) never passes this — that's the "inline with the
-   *  conversation" card the follow-up said to leave untouched. Defaults to
-   *  `false`: every existing `DetailsPanelAccordions` call site keeps
-   *  showing the original "Autosummary" exactly as before. */
-  showRealTimeSummary?: boolean;
-  /** Page-clock tick the Real-Time Summary was last "updated" at. This
+  customerContextOverview?: OverviewInfo;
+  /** Shows the "Journey Summary" card (renamed from "Real-Time Summary")
+   *  instead of the "Autosummary" one. The main transcript column's own
+   *  Autosummary is separate and untouched. Default `false`. */
+  showJourneySummary?: boolean;
+  /** Page-clock tick the Journey Summary was last "updated" at. This
    *  component turns it into the `"Updated 8 seconds ago"`-style caption
-   *  (`formatRealTimeSummaryUpdatedLabel`) passed to
-   *  `CustomerContextOverview`'s `realTimeSummaryUpdatedLabel` (see that
-   *  prop's own doc comment for the full "why"), inside a `<ClockValue>`
-   *  so only that card re-renders as it ticks. Only meaningful alongside
-   *  `showRealTimeSummary`. */
-  realTimeSummaryUpdatedAtTick?: number;
-  /** Adds a "View Experience Memory" link to the Real-Time Summary card. */
+   *  (`formatJourneySummaryUpdatedLabel`) inside a `<ClockValue>`, so only
+   *  that card re-renders as it ticks. Only meaningful alongside
+   *  `showJourneySummary`. */
+  journeySummaryUpdatedAtTick?: number;
+  /** Adds a "View Experience Memory" link to the Journey Summary card. */
   onViewExperienceMemory?: () => void;
   /** Per explicit request ("remove the customer details accordion from
    *  phase 1") — hides the whole Customer Profile/Snapshot section (Phase
@@ -3777,107 +3767,79 @@ export function DetailsPanelAccordions({
           Link to existing customer
         </Button>
       )}
-      {showCustomerContextOverview && customerContextOverview && (
-        // Only this card re-renders for the "Updated N seconds ago"
-        // caption, and only when the label text changes (every second for
-        // the first minute, then every minute) — see
-        // `realTimeSummaryUpdatedAtTick`'s own doc comment.
-        <ClockValue
-          select={(clockTick) =>
-            realTimeSummaryUpdatedAtTick === undefined
-              ? undefined
-              : formatRealTimeSummaryUpdatedLabel(clockTick - realTimeSummaryUpdatedAtTick)
-          }
-        >
-          {(realTimeSummaryUpdatedLabel) => (
+      {/* The Overview stack: one flat column, every card spaced only by
+          this root's `gap-3` (no per-card margin or top padding). Customer
+          Info is a plain accordion (not AI content); every AI-generated card
+          (Journey Summary / Autosummary, Artifacts, and the AI feed's
+          approval, wrap-up and Next Best Action) is a lyra AICard, radius
+          md, compact. Customer Info is shown only when there's a customer
+          record ("if a new call is made or the customer does not have any
+          information, do not display the customer profile"). */}
+      {showCustomerContextOverview && customerContextOverview?.customerCard && (
         <CustomerContextOverview
           customerName={customerName ?? ""}
           customerCard={customerContextOverview.customerCard}
-          snapshot={customerContextOverview.snapshot}
           // Per explicit request ("put the customer summary content inside
           // the customer profile accordion") — see `detailedSummary`'s own
           // doc comment (lyra-ui/contact-overview.tsx) for what this renders.
           detailedSummary={customerContextOverview.detailedSummary}
-          // See `showRealTimeSummary`'s own doc comment above —
-          // `customerContextOverview.realTimeSummary` is the SAME
-          // per-contact facts `snapshot` (just above) already carries,
-          // joined into one paragraph by `buildCustomerContextOverviewInfo`
-          // itself (agent-next-gen-shared-utils.ts), not separately
-          // authored here.
-          showRealTimeSummary={showRealTimeSummary}
-          realTimeSummary={customerContextOverview.realTimeSummary}
-          realTimeSummaryUpdatedLabel={realTimeSummaryUpdatedLabel}
-          onViewExperienceMemory={onViewExperienceMemory}
+          showCustomerProfile
+          showContactSnapshot={false}
           showNextBestAction={false}
-          // Per explicit follow-up request ("if a new call is made or the
-          // customer does not have any information, do not display the
-          // customer profile") — see `renderContactOverviewBlock`'s
-          // identical prop (agent-next-gen-transcript.tsx) for the full
-          // reasoning; `customerCard` is only ever unset for that exact
-          // case.
-          showCustomerProfile={!!customerContextOverview.customerCard}
           onViewCustomerInfo={onViewCustomerInfo}
           onViewInteractionHistory={onViewInteractionHistory}
+          className="pt-0"
+        />
+      )}
+      {showCustomerContextOverview && customerContextOverview && (
+        // Only this card re-renders for the "Updated N seconds ago"
+        // caption, and only when the label text changes (every second for
+        // the first minute, then every minute) — see
+        // `journeySummaryUpdatedAtTick`'s own doc comment.
+        <ClockValue
+          select={(clockTick) =>
+            journeySummaryUpdatedAtTick === undefined
+              ? undefined
+              : formatJourneySummaryUpdatedLabel(clockTick - journeySummaryUpdatedAtTick)
+          }
+        >
+          {(journeySummaryUpdatedLabel) => (
+        // lyra's `aiCards` mode (71160d3): the Journey Summary (or the
+        // Autosummary) as an AICard. `customerContextOverview.journeySummary`
+        // is the same per-contact facts `snapshot` carries, joined into one
+        // paragraph by `buildCustomerContextOverviewInfo`. lyra's own prop
+        // names still say "realTimeSummary".
+        <CustomerContextOverview
+          aiCards
+          customerName={customerName ?? ""}
+          snapshot={customerContextOverview.snapshot}
+          showRealTimeSummary={showJourneySummary}
+          showContactSnapshot={!showJourneySummary}
+          realTimeSummary={customerContextOverview.journeySummary}
+          realTimeSummaryUpdatedLabel={journeySummaryUpdatedLabel}
+          onViewExperienceMemory={onViewExperienceMemory}
+          showNextBestAction={false}
+          showCustomerProfile={false}
           className="pt-0"
         />
           )}
         </ClockValue>
       )}
-      <Accordion
-        // Open by default per explicit request — this is a single-item
-        // `Accordion` (`type="single"`, the component's own default), so
-        // its one item's own `id` ("files", kept from the pre-rename
-        // internal identifier — see that field's own comment below) is
-        // exactly the uncontrolled `defaultValue` that starts it expanded.
-        // Paired with `key={activeInteractionId}` on `DetailsPanelAccordions`
-        // itself (AgentWorkspaceAdvancedPage.tsx's two render sites) — an
-        // uncontrolled `defaultValue` only applies on mount, so without that
-        // key this component (and this prop) would only ever take effect
-        // for the very first contact ever shown, not each new one opened
-        // afterward. See bug report ("the artifacts is not open when I open
-        // a new contact from contact history").
-        defaultValue="files"
+      {/* Artifacts: a blue lyra AICard (as v3 since lyra 71160d3), open by
+          default (`DetailsPanelAccordions` is keyed per interaction, so it
+          reopens for each new contact). */}
+      <AICard
+        title="Artifacts"
+        color="blue"
+        radius="md"
+        density="compact"
+        icon={<Paperclip className="h-4 w-4" strokeWidth={1.5} />}
+        defaultOpen
         className={cn(
-          CUSTOMER_INFO_ACCORDION_CLASSNAME,
-          "transition-all duration-700 ease-out",
+          "transition-[opacity,transform] duration-700 ease-out",
           filesEntered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
         )}
-        items={[
-          {
-            // Per explicit request, renamed "Files" → "Artifacts" in this
-            // Details panel — `id` kept as the old "files" internal
-            // identifier (not user-facing, and nothing keys off the
-            // string elsewhere) rather than churning it for no reason.
-            id: "files",
-            title: "Artifacts",
-            // Per explicit follow-up request ("make the artifacts accordion
-            // background white and the header the same purple as the
-            // autosummary") — originally the same `lyra-accent-purple-
-            // soft`/`-strong` pairing `CustomerContextOverview`'s own
-            // Autosummary header used (lyra-ui/contact-overview.tsx), via
-            // `Accordion`'s `headerClassName`/`contentClassName` props
-            // rather than a bespoke hand-rolled accordion item — this is
-            // still the shared, single-item `Accordion` every other
-            // consumer of this component gets, just with this one item's
-            // header/body tinted. Recolored per a LATER explicit request
-            // ("make all the card headers in the contact details subtle
-            // blue like the customer info card") to the exact same
-            // `bg-lyra-status-info-subtle`/`text-lyra-status-info-strong`
-            // pairing "Customer Info"'s own header now uses (`Customer
-            // ContextOverview`'s "customer-profile" item, lyra-ui/contact-
-            // overview.tsx) — plain `bg-lyra-status-info-subtle`, not a
-            // `-fix` class, since (unlike the purple token this replaces)
-            // its dark-mode value was never reported as an outlier.
-            headerClassName: "bg-lyra-status-info-subtle",
-            contentClassName: "bg-lyra-bg-surface-base",
-            icon: (
-              <Paperclip
-                className="h-4 w-4 text-lyra-status-info-strong"
-                strokeWidth={1.5}
-                aria-hidden="true"
-              />
-            ),
-            content: (
+      >
               <div className="flex flex-col gap-3">
                 {/* lyra-body-md, not -sm — see `viewAllLinkClassName`'s own
                     comment just above for the same request. */}
@@ -3886,13 +3848,9 @@ export function DetailsPanelAccordions({
                     {artifacts.slice(0, 10).map((a) => (
                       <li key={a.id} className="flex min-w-0 items-center gap-2">
                         <Paperclip className="h-3.5 w-3.5 shrink-0 text-lyra-fg-secondary" strokeWidth={1.5} aria-hidden="true" />
-                        <button
-                          type="button"
-                          onClick={() => onOpenArtifact?.(a.id)}
-                          className="min-w-0 truncate text-left lyra-body-md text-lyra-fg-link hover:underline"
-                        >
+                        <Link onClick={() => onOpenArtifact?.(a.id)} className="min-w-0 truncate text-left">
                           {a.label}
-                        </button>
+                        </Link>
                       </li>
                     ))}
                   </ul>
@@ -3901,18 +3859,14 @@ export function DetailsPanelAccordions({
                 )}
                 {/* "View All" sits below the artifact list (here, the empty-
                     state text above) per explicit request, rather than above
-                    it. TODO: no destination defined yet for this link — see
-                    this component's own top doc comment. */}
+                    it. */}
                 {artifacts && artifacts.length > 10 && (
-                  <button type="button" className={viewAllLinkClassName} onClick={onViewAllArtifacts}>
+                  <Link onClick={onViewAllArtifacts} className="self-start">
                     View All
-                  </button>
+                  </Link>
                 )}
               </div>
-            ),
-          },
-        ]}
-      />
+      </AICard>
       {/* Settings → AI display "In the Contact Details panel" (P-SETTINGS,
           ported from v3): the AI cards and interstitials sit below the
           original items. */}
