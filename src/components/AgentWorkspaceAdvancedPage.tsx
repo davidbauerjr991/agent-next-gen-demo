@@ -1983,6 +1983,12 @@ export function AgentWorkspaceAdvancedPage({
       )
     : undefined;
   const activeChannelType = activeChannel?.type;
+  // AI in the panel + a voice contact: the call's transcript fills the main
+  // column (its AI rows moved to the panel, so it would otherwise be empty),
+  // and the panel drops its Transcript tab. Inline mode keeps the AI rows in
+  // the main column and the spoken lines in the Transcript tab. (A call next
+  // to a chat that stays the main thread, Lucas, keeps its Transcript tab.)
+  const voiceTranscriptInMain = aiInPanel && activeChannelType === "voice";
   // The selected card's call in wrap-up, if any (its inline wrap-up card).
   const activeWrapUpThread = voiceWrapUpThread(activeInteraction);
   // The voice thread whose Transcript tab the Contact Details panel offers: the active channel when it's voice, or (Lucas) a live call
@@ -6469,6 +6475,11 @@ export function AgentWorkspaceAdvancedPage({
   // Journey Summary and Artifacts. Inline mode shows everything on Overview.
   const PANEL_OVERVIEW_SECTIONS = { customerInfo: true, journeySummary: false, artifacts: false };
   const PANEL_SESSION_SECTIONS = { customerInfo: false, journeySummary: true, artifacts: true };
+  // With the voice transcript in the main column the panel has no Transcript
+  // tab, so it can't stay selected.
+  useEffect(() => {
+    if (voiceTranscriptInMain && customerPanelActiveTab === "Transcript") setCustomerPanelActiveTab("Details");
+  }, [voiceTranscriptInMain, customerPanelActiveTab]);
   // "AI in panel": the Contact Details panel opens on Details whenever an
   // interaction becomes active. Declared after the interaction-switch panel
   // save/restore effects so it wins (v3).
@@ -9530,7 +9541,10 @@ export function AgentWorkspaceAdvancedPage({
                             (scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && lucasThomasReviewing)
                           }
                           liveMessages={stripAiInPanel(
-                            isColdCallId(activeInteraction.id)
+                            voiceTranscriptInMain
+                              ? // AI in the panel: the main column shows the call's own transcript (utterances, event rows); the AI cards are in the panel.
+                                (activeInteraction.liveMessages?.[activeChannelKey] ?? [])
+                              : isColdCallId(activeInteraction.id)
                               ? // The call transcript lives in the Transcript tab; the main column keeps only AI action rows (interstitials).
                                 (activeInteraction.liveMessages?.[activeChannelKey] ?? []).filter((m) => !!m.instruction)
                               : activeChannelType === "voice"
@@ -10944,7 +10958,7 @@ export function AgentWorkspaceAdvancedPage({
                       )
                       : (
                         <TabList className="px-4">
-                          {(panelVoiceThread
+                          {(panelVoiceThread && !voiceTranscriptInMain
                             ? (["Details", "Transcript", "Session Details"] as const)
                             : (["Details", "Session Details"] as const)
                           ).map((label) => (
@@ -11095,7 +11109,7 @@ export function AgentWorkspaceAdvancedPage({
                       <div className="animate-in fade-in-0 duration-200">
                         {customerInfoOverlayContent.body}
                       </div>
-                    ) : customerPanelActiveTab === "Transcript" && panelVoiceThread ? (
+                    ) : customerPanelActiveTab === "Transcript" && panelVoiceThread && !voiceTranscriptInMain ? (
                       // A fresh `InteractionTranscript` instance, same as
                       // this tab always rendered back when it lived in the
                       // separate "Session Details" overlay — see that

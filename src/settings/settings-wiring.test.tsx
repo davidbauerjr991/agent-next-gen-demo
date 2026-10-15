@@ -8,7 +8,7 @@ import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
 import { LoginPage } from "@/components/LoginPage";
 import { buildAppMenuGroups } from "@/components/agent-next-gen-outbound-data";
-import { LUCAS_THOMAS_SCRIPT } from "@/scenarios";
+import { LUCAS_THOMAS_SCRIPT, MARCUS_WEBB_SCRIPT } from "@/scenarios";
 import { applyStoredTheme, useApplyTheme } from "./hooks";
 import { derivePreset } from "./presets";
 import { getSettingsStore, resetSettingsStoreForTests, sectionStorageKey } from "./settings-store";
@@ -579,6 +579,38 @@ describe("Contact Details Overview stack, events, composer fade", () => {
     expect(fade).not.toBeNull();
     expect(fade!.className).toContain("-top-8");
     expect(fade!.className).toContain("to-lyra-bg-surface-container-subtle");
+  });
+});
+
+describe("(14) voice transcript placement", () => {
+  const LINE = "Sure, it's order number 48213, placed last Tuesday.";
+  async function marcus(display: "inline" | "panel") {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await setSettings("ai", { displayLocation: display });
+    await h.play(MARCUS_WEBB_SCRIPT.id);
+    await h.click(h.navCard("Marcus Webb"));
+    await h.advance(1_000);
+  }
+  /** The side panel's column (header, tabs, scroll area, footer). */
+  const panel = () =>
+    document.body.querySelector("[data-slot=details-panel-body]")!.parentElement!.closest(".overflow-y-auto")!.parentElement!;
+  const transcriptTab = () =>
+    [...panel().querySelectorAll("button, [role=tab]")].find((el) => el.textContent?.trim() === "Transcript");
+  const lineInMain = () =>
+    [...document.body.querySelectorAll("*")].some(
+      (el) => el.children.length === 0 && el.textContent?.includes(LINE) && !panel().contains(el) && !el.closest("aside"),
+    );
+
+  it("panel mode: the call's transcript fills the main column and the panel has no Transcript tab", async () => {
+    await marcus("panel");
+    expect(lineInMain()).toBe(true);
+    expect(transcriptTab()).toBeUndefined();
+  });
+
+  it("inline mode: unchanged, the spoken lines stay in the panel's Transcript tab", async () => {
+    await marcus("inline");
+    expect(lineInMain()).toBe(false);
+    expect(transcriptTab()).toBeTruthy();
   });
 });
 
