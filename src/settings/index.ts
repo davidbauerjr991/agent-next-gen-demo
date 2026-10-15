@@ -12,9 +12,12 @@ export {
   applyStoredTheme,
 } from "./hooks";
 export { PRESET_LABELS, type PresetId, type WorkspacePreset } from "./presets";
-export { pinnedKeysFromHeader, headerPatchForPin, type HeaderPanelKey } from "./header-pins";
+export { pinnedKeysFromHeader, leftNavKeysFromHeader, headerPatchForPin, type HeaderPanelKey } from "./header-pins";
 export {
   EXTRA_HEADER_APPS,
+  type AppDisplay,
+  type AppPlacement,
+  type AgentChatDisplay,
   SEAMS,
   PHONE_SETUPS,
   type ExtraHeaderApp,

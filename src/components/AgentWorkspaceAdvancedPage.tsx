@@ -266,7 +266,7 @@ import {
 } from "@/contact-handling/scenario-cases";
 import { useCopilotAsk, useCopilotResultTimer } from "@/contact-handling/useCopilotAsk";
 import { usePresenceSync } from "@/contact-handling/usePresenceSync";
-import { PRESET_LABELS, headerPatchForPin, pinnedKeysFromHeader, useSettings, useWorkspacePreset } from "@/settings";
+import { PRESET_LABELS, headerPatchForPin, leftNavKeysFromHeader, pinnedKeysFromHeader, useSettings, useWorkspacePreset } from "@/settings";
 import { SettingsView } from "@/components/settings/SettingsView";
 import { LUCAS_THOMAS_SCRIPT, MAYA_CHEN_SCRIPT, TOM_LEWIS_SCRIPT } from "@/scenarios";
 import {
@@ -6275,7 +6275,19 @@ export function AgentWorkspaceAdvancedPage({
   // two `LeftNav` slots, per Settings → Assignments ("Home and Settings at
   // the top" → `items`, else the `footer` rail; "New Outbound at the bottom"
   // → `footer`, else `pinnedHeader`).
-  const navRailItems = buildNavItems(
+  // Apps placed in the left nav (Settings → Header → "<App> display" /
+  // "Agent chat display") sit between Home and Settings, as in v3; each opens
+  // its app in the same shared panel its header icon would.
+  const leftNavAppItems = leftNavKeysFromHeader(headerSettings).map((key) => {
+    const { label, icon: KeyIcon } = PANEL_KEY_METADATA[key];
+    return {
+      icon: <KeyIcon className="h-4 w-4" strokeWidth={1.5} />,
+      label,
+      active: panelOpen && activePanelKey === key,
+      onClick: handlePanelButtonClick(key),
+    };
+  });
+  const [homeNavItem, ...restNavItems] = buildNavItems(
     Boolean(activeInteraction),
     // Per explicit follow-up request, Home no longer resets
     // `showAllContacts`/`selectedAllContactsRecord` — see that state's own
@@ -6290,6 +6302,7 @@ export function AgentWorkspaceAdvancedPage({
     // as left once Settings closes.
     () => { setShowSettings(true); switchActiveInteraction(null); }
   );
+  const navRailItems = [homeNavItem, ...leftNavAppItems, ...restNavItems];
   // The links inside an interaction's AI content (Autosummary links,
   // interstitial rows, approval checklists) open the matching side panel.
   // Shared by the inline transcript and the Contact Details panel's AI feed.
@@ -6902,11 +6915,13 @@ export function AgentWorkspaceAdvancedPage({
             // P-SETTINGS: the rail leaves the footer with "Home and Settings
             // at the top"; "New Outbound at the bottom" puts the launcher
             // under it (v3 f0b13dc).
+            // Order: Home, (left-nav apps,) Settings, then New Outbound,
+            // full width with the rail's spacing above it.
             !navItemsAtTop || newOutboundAtBottom ? (
-              <>
+              <div className="flex w-full min-w-0 flex-col">
                 {!navItemsAtTop && <NavRail expanded={navOpen} items={navRailItems} />}
                 {newOutboundAtBottom && <div className="pt-2">{newOutboundLauncher}</div>}
-              </>
+              </div>
             ) : undefined
           }
           // "New Outbound" itself has moved several times now: started as

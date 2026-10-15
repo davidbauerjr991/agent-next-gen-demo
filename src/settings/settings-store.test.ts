@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { SECTIONS, defaultSettings, defineSection, bool, oneOf, type SectionSchemas } from "./settings-schema";
+import { SECTIONS, defaultSettings, defineSection, oneOf, type SectionSchemas } from "./settings-schema";
 import { SETTINGS_KEY_PREFIX, safeStorage } from "./settings-storage";
 import { createSettingsStore, sectionStorageKey } from "./settings-store";
 
@@ -101,10 +101,20 @@ describe("settings store", () => {
 
   it("nested groups fall back field by field too", () => {
     const backing = memoryStorage({
-      [sectionStorageKey("header")]: stored({ ...SECTIONS.header.defaults, pins: { customers: true, tickets: "on" } }),
+      [sectionStorageKey("header")]: stored(
+        {
+          ...SECTIONS.header.defaults,
+          agentChat: { enabled: false, placement: "tab" },
+          apps: { customers: { enabled: true, placement: "leftnav" }, tickets: { enabled: "on", placement: "sideways" } },
+        },
+        SECTIONS.header.version,
+      ),
     });
     const store = createSettingsStore(safeStorage(() => backing));
-    expect(store.getState().values.header.pins).toEqual({ ...SECTIONS.header.defaults.pins, customers: true });
+    const { apps, agentChat } = store.getState().values.header;
+    expect(apps).toEqual({ ...SECTIONS.header.defaults.apps, customers: { enabled: true, placement: "leftnav" } });
+    // "tab" isn't an Agent chat placement: that field falls back, the other keeps its stored value.
+    expect(agentChat).toEqual({ enabled: false, placement: "header" });
   });
 
   it("corrupt JSON reads as defaults", () => {
@@ -164,21 +174,8 @@ describe("settings store", () => {
     before.update("header", { showAppIcons: true });
     before.update("voice", { controlsLocation: "top" });
 
-    const header2 = defineSection({
-      key: "header",
-      version: 2,
-      defaults: { ...SECTIONS.header.defaults },
-      fields: {
-        showAppIcons: bool(),
-        search: bool(),
-        agentChat: bool(),
-        calendar: bool(),
-        notifications: bool(),
-        appsGrid: bool(),
-        pins: (raw, fallback) => fallback,
-      },
-    });
-    const after = createSettingsStore(safeStorage(() => backing), { ...SECTIONS, header: header2 } as SectionSchemas);
+    const headerBumped = { ...SECTIONS.header, version: SECTIONS.header.version + 1 };
+    const after = createSettingsStore(safeStorage(() => backing), { ...SECTIONS, header: headerBumped } as SectionSchemas);
     expect(after.getState().values.header.showAppIcons).toBe(false);
     expect(after.getState().values.voice.controlsLocation).toBe("top");
   });

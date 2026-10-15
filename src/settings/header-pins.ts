@@ -1,35 +1,45 @@
-// Header app pins come from the `header` section: four apps are named header
-// flags, the rest are extra pins. The page's `PanelKey`s map onto them here.
+// Header apps come from the `header` section. A header icon shows when its
+// app is enabled with placement "header" (Search and Notifications are plain
+// flags); a left-nav placement becomes a rail item next to Home/Settings.
+// The page's `PanelKey`s map onto them here.
 import { EXTRA_HEADER_APPS, type ExtraHeaderApp, type HeaderSettings } from "./settings-schema";
 
-export type HeaderPanelKey =
-  | "notif"
-  | "conversations"
-  | "schedule"
-  | "search"
-  | ExtraHeaderApp;
-
-const FLAG_FOR_KEY = {
-  notif: "notifications",
-  conversations: "agentChat",
-  schedule: "calendar",
-  search: "search",
-} as const satisfies Record<string, keyof HeaderSettings>;
+export type HeaderPanelKey = "notif" | "conversations" | "search" | ExtraHeaderApp;
 
 const isExtra = (key: HeaderPanelKey): key is ExtraHeaderApp => (EXTRA_HEADER_APPS as readonly string[]).includes(key);
 
+/** Which apps show an icon in the header row. */
 export function pinnedKeysFromHeader(header: HeaderSettings): Record<HeaderPanelKey, boolean> {
+  const inHeader = Object.fromEntries(
+    EXTRA_HEADER_APPS.map((app) => [app, header.apps[app].enabled && header.apps[app].placement === "header"]),
+  ) as Record<ExtraHeaderApp, boolean>;
   return {
     notif: header.notifications,
-    conversations: header.agentChat,
-    schedule: header.calendar,
     search: header.search,
-    ...header.pins,
+    conversations: header.agentChat.enabled && header.agentChat.placement === "header",
+    ...inHeader,
   };
 }
 
-/** The `header` patch that pins or unpins one app. */
+/** Apps placed in the left nav, as rail items (in this order). */
+export function leftNavKeysFromHeader(header: HeaderSettings): HeaderPanelKey[] {
+  return [
+    ...(header.agentChat.enabled && header.agentChat.placement === "leftnav" ? (["conversations"] as const) : []),
+    ...EXTRA_HEADER_APPS.filter((app) => header.apps[app].enabled && header.apps[app].placement === "leftnav"),
+  ];
+}
+
+/** The `header` patch that pins (shows in the header) or unpins one app from
+ *  the apps menu. Pinning moves the app to the header placement. */
 export function headerPatchForPin(header: HeaderSettings, key: HeaderPanelKey, pinned: boolean): Partial<HeaderSettings> {
-  if (isExtra(key)) return { pins: { ...header.pins, [key]: pinned } };
-  return { [FLAG_FOR_KEY[key]]: pinned };
+  if (key === "notif") return { notifications: pinned };
+  if (key === "search") return { search: pinned };
+  if (key === "conversations") {
+    return { agentChat: pinned ? { enabled: true, placement: "header" } : { ...header.agentChat, enabled: false } };
+  }
+  if (isExtra(key)) {
+    const next = pinned ? { enabled: true, placement: "header" as const } : { ...header.apps[key], enabled: false };
+    return { apps: { ...header.apps, [key]: next } };
+  }
+  return {};
 }

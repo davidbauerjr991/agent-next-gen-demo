@@ -29,12 +29,18 @@ describe("workspace presets", () => {
     expect(preset(freshStore())).toBe("phase1");
   });
 
-  it("Phase 2 turns on every Header and Home flag, and the omnichannel layout", () => {
+  it("Phase 2 turns on every Header and Home flag, Desk's app placements, and the omnichannel layout", () => {
     const store = freshStore();
     store.updateMany(presetPatches("phase2"));
     const { header, home, assignments } = store.getState().values;
-    const headerFlags = Object.entries(header).filter(([key]) => key !== "pins");
-    expect(headerFlags.every(([, on]) => on === true)).toBe(true);
+    expect([header.showAppIcons, header.search, header.notifications, header.appsGrid].every(Boolean)).toBe(true);
+    expect(header.agentChat).toEqual({ enabled: true, placement: "header" });
+    for (const app of ["customers", "accounts", "tickets"] as const) {
+      expect(header.apps[app]).toEqual({ enabled: true, placement: "tab" });
+    }
+    for (const app of ["schedule", "wem"] as const) {
+      expect(header.apps[app]).toEqual({ enabled: true, placement: "header" });
+    }
     expect(Object.values(home).every(Boolean)).toBe(true);
     expect(assignments.omnichannel).toBe(true);
     expect(preset(store)).toBe("phase2");
@@ -53,12 +59,22 @@ describe("workspace presets", () => {
   });
 
   it.each([
-    ["header", { calendar: false }],
+    ["header", { search: false }],
     ["home", { homeTabs: true }],
     ["assignments", { omnichannel: true }],
   ] as const)("changing one %s flag reads Custom", (section, patch) => {
     const store = freshStore();
     store.update(section, patch);
+    expect(preset(store)).toBe("custom");
+  });
+
+  it("changing one app's display or Agent chat's placement reads Custom", () => {
+    const store = freshStore();
+    store.updateMany(presetPatches("phase2"));
+    store.update("header", (h) => ({ apps: { ...h.apps, tickets: { enabled: true, placement: "leftnav" as const } } }));
+    expect(preset(store)).toBe("custom");
+    store.updateMany(presetPatches("phase2"));
+    store.update("header", { agentChat: { enabled: true, placement: "leftnav" } });
     expect(preset(store)).toBe("custom");
   });
 
@@ -72,13 +88,5 @@ describe("workspace presets", () => {
     store.update("home", { calendarView: false });
     store.updateMany(presetPatches("phase1"));
     expect(preset(store)).toBe("phase1");
-  });
-
-  it("extra app pins don't affect the preset, and a preset pick keeps them", () => {
-    const store = freshStore();
-    store.update("header", (h) => ({ pins: { ...h.pins, tickets: true } }));
-    expect(preset(store)).toBe("phase1");
-    store.updateMany(presetPatches("phase2"));
-    expect(store.getState().values.header.pins.tickets).toBe(true);
   });
 });

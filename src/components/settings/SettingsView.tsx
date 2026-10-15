@@ -25,6 +25,9 @@ import {
   useResetSettings,
   useSettings,
   useWorkspacePreset,
+  type AgentChatDisplay,
+  type AppDisplay,
+  type AppPlacement,
   type ExtraHeaderApp,
   type PhoneSetup,
   type PresetId,
@@ -36,8 +39,17 @@ const EXTRA_APP_LABELS: Record<ExtraHeaderApp, string> = {
   accounts: "Accounts",
   tickets: "Tickets",
   wem: "WEM",
+  schedule: "Schedule",
   screenpop: "Screen Pop",
 };
+
+// v3's per-app display options; Agent chat is a drawer, so it has no tab.
+const APP_DISPLAY_OPTIONS = [
+  { value: "tab", label: "Display in tab" },
+  { value: "leftnav", label: "Display in Left Nav" },
+  { value: "header", label: "Display in App Header" },
+];
+const AGENT_CHAT_DISPLAY_OPTIONS = APP_DISPLAY_OPTIONS.filter((o) => o.value !== "tab");
 
 const SEAM_LABELS: Record<SeamId, string> = {
   phone: "Phone system",
@@ -133,8 +145,8 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
             />
           </div>
           <p className="lyra-body-sm text-lyra-fg-secondary">
-            Phase 2 turns on every Header and Home setting and the omnichannel layout. Changing any one of them shows
-            Custom.
+            Phase 2 turns on the header apps (Customers, Accounts and Tickets as Home tabs; Schedule and WEM in the
+            header), the Home settings and the omnichannel layout. Changing any one of them shows Custom.
           </p>
         </Section>
 
@@ -150,16 +162,25 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
               <div className="flex items-center gap-2">
                 <Checkbox
                   label="Agent chat"
-                  checked={header.agentChat}
-                  onCheckedChange={(c) => updateHeader({ agentChat: !!c })}
+                  checked={header.agentChat.enabled}
+                  onCheckedChange={(c) => updateHeader((prev) => ({ agentChat: { ...prev.agentChat, enabled: !!c } }))}
                 />
                 <Pending>Chat drawer arrives in P0.9.3</Pending>
               </div>
-              <Checkbox
-                label="Calendar"
-                checked={header.calendar}
-                onCheckedChange={(c) => updateHeader({ calendar: !!c })}
-              />
+              {header.agentChat.enabled && (
+                <div className="ml-7 max-w-xs">
+                  <Select
+                    label="Agent chat display"
+                    options={AGENT_CHAT_DISPLAY_OPTIONS}
+                    value={header.agentChat.placement}
+                    onValueChange={(value) =>
+                      updateHeader((prev) => ({
+                        agentChat: { ...prev.agentChat, placement: value as AgentChatDisplay["placement"] },
+                      }))
+                    }
+                  />
+                </div>
+              )}
               <Checkbox
                 label="Notifications"
                 checked={header.notifications}
@@ -173,15 +194,33 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
                 />
                 <Pending>Embedded apps arrive in P7.6</Pending>
               </div>
-              <p className="mt-1 lyra-body-sm-emphasis text-lyra-fg-secondary">Other apps</p>
-              {EXTRA_HEADER_APPS.map((app) => (
-                <Checkbox
-                  key={app}
-                  label={EXTRA_APP_LABELS[app]}
-                  checked={header.pins[app]}
-                  onCheckedChange={(c) => updateHeader((prev) => ({ pins: { ...prev.pins, [app]: !!c } }))}
-                />
-              ))}
+              {EXTRA_HEADER_APPS.map((app) => {
+                const display = header.apps[app];
+                const setDisplay = (patch: Partial<AppDisplay>) =>
+                  updateHeader((prev) => ({ apps: { ...prev.apps, [app]: { ...prev.apps[app], ...patch } } }));
+                return (
+                  <React.Fragment key={app}>
+                    <Checkbox
+                      label={EXTRA_APP_LABELS[app]}
+                      checked={display.enabled}
+                      onCheckedChange={(c) => setDisplay({ enabled: !!c })}
+                    />
+                    {display.enabled && (
+                      <div className="ml-7 flex items-end gap-2">
+                        <div className="w-full max-w-xs">
+                          <Select
+                            label={`${EXTRA_APP_LABELS[app]} display`}
+                            options={APP_DISPLAY_OPTIONS}
+                            value={display.placement}
+                            onValueChange={(value) => setDisplay({ placement: value as AppPlacement })}
+                          />
+                        </div>
+                        {display.placement === "tab" && <Pending>Arrives in P0.5d.2</Pending>}
+                      </div>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </div>
           )}
         </Section>

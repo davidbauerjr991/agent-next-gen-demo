@@ -12,7 +12,7 @@ import { LUCAS_THOMAS_SCRIPT } from "@/scenarios";
 import { applyStoredTheme, useApplyTheme } from "./hooks";
 import { derivePreset } from "./presets";
 import { getSettingsStore, resetSettingsStoreForTests, sectionStorageKey } from "./settings-store";
-import type { SectionKey, SettingsState } from "./settings-schema";
+import type { AppPlacement, SectionKey, SettingsState } from "./settings-schema";
 
 const h = createWorkspaceHarness();
 
@@ -85,6 +85,20 @@ function navItem(label: string): Element {
   return item;
 }
 
+/** Whether the left-nav rail has an item with this label. */
+const railHas = (label: string) =>
+  [...h.container.querySelectorAll("aside button, aside [role=button]")].some(
+    (el) => el.textContent?.trim() === label || el.getAttribute("aria-label") === label,
+  );
+
+/** The checkbox a `<label>` with this exact text points at. */
+function checkboxLabeled(text: string): Element {
+  const label = [...h.container.querySelectorAll("label")].find((el) => el.textContent?.trim() === text);
+  const box = label?.htmlFor ? document.getElementById(label.htmlFor) : label?.querySelector('[role="checkbox"]');
+  if (!box) throw new Error(`no checkbox labeled ${text}`);
+  return box;
+}
+
 async function openSettings() {
   await h.click(navItem("Settings"));
 }
@@ -121,18 +135,71 @@ describe("Header: Show app icons", () => {
     expect(headerHas("Agent Chat")).toBe(true);
     expect(headerHas("Search")).toBe(true);
 
-    await setSettings("header", { agentChat: false, appsGrid: false });
+    await setSettings("header", { agentChat: { enabled: false, placement: "header" }, appsGrid: false });
     expect(headerHas("Agent Chat")).toBe(false);
     expect(headerHas("View All Apps")).toBe(false);
     expect(headerHas("Search")).toBe(true);
   });
 
-  it("an extra pin shows its app", async () => {
+  it("an app's display: header shows its icon, Left Nav shows a rail item, tab is stored without rendering", async () => {
     await h.show(AgentWorkspaceAdvancedPage);
     await setSettings("header", { showAppIcons: true });
-    expect(headerHas("WEM")).toBe(false);
-    await setSettings("header", { pins: { ...store().getState().values.header.pins, wem: true } });
-    expect(headerHas("WEM")).toBe(true);
+    const setCustomers = (enabled: boolean, placement: AppPlacement) =>
+      setSettings("header", { apps: { ...store().getState().values.header.apps, customers: { enabled, placement } } });
+    expect(headerHas("Customers")).toBe(false);
+    expect(railHas("Customers")).toBe(false);
+
+    await setCustomers(true, "header");
+    expect(headerHas("Customers")).toBe(true);
+    expect(railHas("Customers")).toBe(false);
+
+    await setCustomers(true, "leftnav");
+    expect(headerHas("Customers")).toBe(false);
+    expect(railHas("Customers")).toBe(true);
+    // Between Home and Settings, as in v3.
+    expect(isBefore(navItem("Home"), navItem("Customers"))).toBe(true);
+    expect(isBefore(navItem("Customers"), navItem("Settings"))).toBe(true);
+
+    await setCustomers(true, "tab");
+    expect(headerHas("Customers")).toBe(false);
+    expect(railHas("Customers")).toBe(false);
+    expect(store().getState().values.header.apps.customers).toEqual({ enabled: true, placement: "tab" });
+  });
+
+  it("Agent chat's display: header shows its icon, Left Nav shows a rail item that opens its panel", async () => {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await setSettings("header", { showAppIcons: true });
+    expect(headerHas("Agent Chat")).toBe(true);
+    expect(railHas("Agent Chat")).toBe(false);
+
+    await setSettings("header", { agentChat: { enabled: true, placement: "leftnav" } });
+    expect(headerHas("Agent Chat")).toBe(false);
+    expect(railHas("Agent Chat")).toBe(true);
+    // The placeholder panel's title, outside the nav.
+    const panelTitleShown = () =>
+      [...document.body.querySelectorAll("*")].some(
+        (el) => !el.closest("aside") && el.children.length === 0 && el.textContent?.trim() === "Agent Chat",
+      );
+    expect(panelTitleShown()).toBe(false);
+    await h.click(navItem("Agent Chat"));
+    expect(panelTitleShown()).toBe(true);
+  });
+
+  it("each display Select shows only while its app is checked", async () => {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await setSettings("header", { showAppIcons: true });
+    await openSettings();
+    const hasLabel = (text: string) => [...h.container.querySelectorAll("label")].some((l) => l.textContent?.trim() === text);
+
+    // Agent chat starts checked.
+    expect(hasLabel("Agent chat display")).toBe(true);
+    await h.click(checkboxLabeled("Agent chat"));
+    expect(hasLabel("Agent chat display")).toBe(false);
+
+    expect(hasLabel("Customers display")).toBe(false);
+    await h.click(checkboxLabeled("Customers"));
+    expect(hasLabel("Customers display")).toBe(true);
+    expect(store().getState().values.header.apps.customers.enabled).toBe(true);
   });
 });
 
@@ -141,8 +208,15 @@ describe("Assignments: left nav", () => {
     await h.show(AgentWorkspaceAdvancedPage);
     expect(isBefore(newOutbound(), navItem("Home"))).toBe(true);
     await setSettings("assignments", { newOutboundAtBottom: true });
+    // Home, Settings, then New Outbound — one launcher, below the rail.
+    const launchers = [...h.container.querySelectorAll("aside button")].filter((b) => b.textContent?.includes("New Outbound"));
+    expect(launchers).toHaveLength(1);
+    expect(isBefore(navItem("Home"), navItem("Settings"))).toBe(true);
     expect(isBefore(navItem("Settings"), newOutbound())).toBe(true);
-    expect(h.container.querySelectorAll("aside button").length).toBeGreaterThan(0);
+    // Still below the rail with the rail's items at the top: the footer holds only the launcher.
+    await setSettings("assignments", { navItemsAtTop: true });
+    expect(isBefore(navItem("Settings"), newOutbound())).toBe(true);
+    expect(isBefore(assignmentsCaption(), newOutbound())).toBe(true);
   });
 
   it("Home and Settings at the top puts them above the Assignments caption", async () => {

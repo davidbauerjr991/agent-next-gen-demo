@@ -46,52 +46,64 @@ export function defineSection<T extends object>(def: { key: string; version: num
 
 // ── Sections ──
 
-/** Header apps that aren't one of the named header flags; pinned from the
- *  apps menu or the Settings page's "Other apps" list. Not part of a preset. */
-export const EXTRA_HEADER_APPS = ["customers", "accounts", "tickets", "wem", "screenpop"] as const;
+/** Header apps with a display placement (ported from v3's per-app "{App}
+ *  display" selects): a header icon, a left-nav rail item, or a Home tab. */
+export const EXTRA_HEADER_APPS = ["customers", "accounts", "tickets", "wem", "schedule", "screenpop"] as const;
 export type ExtraHeaderApp = (typeof EXTRA_HEADER_APPS)[number];
+
+export const APP_PLACEMENTS = ["tab", "leftnav", "header"] as const;
+export type AppPlacement = (typeof APP_PLACEMENTS)[number];
+export interface AppDisplay {
+  enabled: boolean;
+  /** "tab" is stored but inert until P0.5d.2's Home tabs. */
+  placement: AppPlacement;
+}
+
+/** Agent chat is a drawer, not a page, so it has no tab placement. */
+export const AGENT_CHAT_PLACEMENTS = ["leftnav", "header"] as const;
+export interface AgentChatDisplay {
+  enabled: boolean;
+  placement: (typeof AGENT_CHAT_PLACEMENTS)[number];
+}
 
 export interface HeaderSettings {
   /** Master switch for the header's app icons, Search and View All Apps. */
   showAppIcons: boolean;
   search: boolean;
-  /** Agent chat (messaging drawer, P0.9.3). */
-  agentChat: boolean;
-  calendar: boolean;
+  /** Agent chat (messaging drawer, P0.9.3; a placeholder panel until then). */
+  agentChat: AgentChatDisplay;
   notifications: boolean;
-  /** The View All Apps picker (embedded apps, P7.7). */
+  /** The View All Apps picker (embedded apps, P7.6). */
   appsGrid: boolean;
-  pins: Record<ExtraHeaderApp, boolean>;
+  apps: Record<ExtraHeaderApp, AppDisplay>;
 }
+
+const appDisplay = group<AppDisplay>({ enabled: bool(), placement: oneOf(APP_PLACEMENTS) });
+const HIDDEN_APP: AppDisplay = { enabled: false, placement: "header" };
 
 const header = defineSection<HeaderSettings>({
   key: "header",
-  version: 1,
-  // Phase 1: the icons are hidden by the master switch; the sub-flags keep
-  // the pins the page has always started with.
+  // v2: Agent chat gained a placement; per-app pins became per-app display
+  // (Schedule moved in from the old `calendar` flag).
+  version: 2,
+  // Phase 1: the icons are hidden by the master switch.
   defaults: {
     showAppIcons: false,
     search: true,
-    agentChat: true,
-    calendar: true,
+    agentChat: { enabled: true, placement: "header" },
     notifications: true,
     appsGrid: true,
-    pins: { customers: false, accounts: false, tickets: false, wem: false, screenpop: false },
+    apps: Object.fromEntries(EXTRA_HEADER_APPS.map((app) => [app, HIDDEN_APP])) as Record<ExtraHeaderApp, AppDisplay>,
   },
   fields: {
     showAppIcons: bool(),
     search: bool(),
-    agentChat: bool(),
-    calendar: bool(),
+    agentChat: group<AgentChatDisplay>({ enabled: bool(), placement: oneOf(AGENT_CHAT_PLACEMENTS) }),
     notifications: bool(),
     appsGrid: bool(),
-    pins: group<Record<ExtraHeaderApp, boolean>>({
-      customers: bool(),
-      accounts: bool(),
-      tickets: bool(),
-      wem: bool(),
-      screenpop: bool(),
-    }),
+    apps: group<Record<ExtraHeaderApp, AppDisplay>>(
+      Object.fromEntries(EXTRA_HEADER_APPS.map((app) => [app, appDisplay])) as Fields<Record<ExtraHeaderApp, AppDisplay>>,
+    ),
   },
 });
 
