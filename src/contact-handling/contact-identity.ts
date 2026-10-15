@@ -68,10 +68,10 @@ export function callerOfInteraction(interaction: Interaction, cards: readonly Na
   return { ...(name ? { name } : {}), ...(number ? { number } : {}) };
 }
 
-/** "Declined call from Tom Lewis (312) 555-0187" — the name when known, the
- *  number otherwise (or both). */
+/** The declined-call toast's body under its "Call declined" title: "Tom Lewis
+ *  call declined" — the name when known, the number otherwise. */
 export function declinedCallMessage({ name, number }: CallerLabel): string {
-  return `Declined call from ${[name, number].filter(Boolean).join(" ") || "an unknown caller"}`;
+  return `${name ?? number ?? "Unknown caller"} call declined`;
 }
 
 export { normalizePhone } from "@/domain";

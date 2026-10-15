@@ -5076,7 +5076,7 @@ export function AgentWorkspaceAdvancedPage({
     activateWhenReady,
     // Names the caller, and logs the declined call in Contact History.
     onDeclined: (offer) => {
-      addToast({ variant: "info", title: declinedCallMessage(callerOfCard(offer)), duration: 4000 });
+      addToast({ variant: "info", title: "Call declined", message: declinedCallMessage(callerOfCard(offer)), duration: 4000 });
       const entry = buildDismissedContactHistoryEntry(offer, clock.now());
       setDismissedContactHistory((prev) => [
         { ...entry, statusLabel: "Declined", statusVariant: "critical", dispositionLabel: "Declined" },

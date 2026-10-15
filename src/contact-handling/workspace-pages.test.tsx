@@ -315,7 +315,8 @@ describe("Advanced: P0.5c browser-check fixes", () => {
     const decline = [...container.querySelectorAll("aside button")].find((b) => b.textContent === "Decline") as HTMLElement;
     await click(decline);
     await advance(200);
-    expect(bodyText()).toContain("Declined call from Tom Lewis (312) 555-0187");
+    expect(bodyText()).toContain("Call declined");
+    expect(bodyText()).toContain("Tom Lewis call declined");
     expect(() => navCard("Tom Lewis")).toThrow();
     // Home's Contact History lists the declined call; its detail shows the
     // Declined status (a voice row's list subtitle shows no status).

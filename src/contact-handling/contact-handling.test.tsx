@@ -455,8 +455,9 @@ describe("toast wording (P0.5c browser-check fixes)", () => {
     expect(alreadyOnCallMessage(undefined)).toBe("Already on a call with this customer");
   });
 
-  it("names a declined caller and number, the number alone when the name is unknown", () => {
-    expect(declinedCallMessage({ name: "Tom Lewis", number: "(312) 555-0187" })).toBe("Declined call from Tom Lewis (312) 555-0187");
-    expect(declinedCallMessage({ number: "(312) 555-0187" })).toBe("Declined call from (312) 555-0187");
+  it("names a declined caller, the number when the name is unknown", () => {
+    expect(declinedCallMessage({ name: "Tom Lewis", number: "(312) 555-0187" })).toBe("Tom Lewis call declined");
+    expect(declinedCallMessage({ number: "(312) 555-0187" })).toBe("(312) 555-0187 call declined");
+    expect(declinedCallMessage({})).toBe("Unknown caller call declined");
   });
 });
