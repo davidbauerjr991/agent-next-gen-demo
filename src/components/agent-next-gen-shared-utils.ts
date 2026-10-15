@@ -599,19 +599,8 @@ function phoneDisplayFromValue(value: PhoneValue): string {
   return groups.length ? `+1 ${groups.join(" ")}` : "";
 }
 
-/** Small, self-contained pools `buildContactOverviewInfo` below picks from —
- *  kept local to this file (not `CREATE_NEW_AGENTS`/a real customer-history
- *  dataset) per this file's own "no dependency on any other piece of mock
- *  data" rule at the top — deterministic hashing needs something to index
- *  into either way, and a small fixed pool here is simpler than threading a
- *  real agent roster through a "dependency-free" utils file. */
-const CONTACT_OVERVIEW_PREVIOUS_AGENTS: { name: string; agentId: string }[] = [
-  { name: "Agent Williams", agentId: "AGT-11233" },
-  { name: "Agent Chen", agentId: "AGT-10847" },
-  { name: "Agent Rivera", agentId: "AGT-11590" },
-  { name: "Agent Patel", agentId: "AGT-10412" },
-  { name: "Agent Novak", agentId: "AGT-11078" },
-];
+/** Small, self-contained snapshot pool, kept local to this file per its
+ *  "no dependency on any other piece of mock data" rule. */
 const CONTACT_OVERVIEW_SNAPSHOTS: string[][] = [
   [
     "Asked about upgrading to the Pro tier for additional storage. Walked through the upgrade flow and confirmed the new billing amount.",
@@ -630,40 +619,6 @@ const CONTACT_OVERVIEW_SNAPSHOTS: string[][] = [
     "No prior escalations on file.",
   ],
 ];
-
-/** Deterministic (hashed via `hashSeed`, no `Math.random`) mock "what to
- *  know before you start typing" info for a freshly-launched contact —
- *  feeds `ContactOverview`'s own `previousAgent`/`snapshot` props
- *  (lyra-ui's `ContactOverviewInfo`, not imported here by name per this
- *  file's own dependency-direction rule — the returned shape just happens
- *  to match it structurally). Callers seed this with something stable per
- *  contact (e.g. the Interaction's own id) so the same customer always
- *  reads back the same "previously worked with"/snapshot on every fresh
- *  launch, rather than reshuffling on every render.
- *
- *  `isKnownCustomer` — per explicit request/bug fix: an outbound/inbound
- *  contact with no backing `CREATE_NEW_CUSTOMERS` directory record (a
- *  typed address via lyra-ui's `adhoc:` "Continue with" flow, a
- *  `quickdial:`-dialed number, a `redial:` with no real `customerId`, a
- *  hand-authored Contact History-only entry — see each call site's own
- *  "is this a real customer" check, e.g. `activeInteractionIsRealCustomer`)
- *  has, by definition, no genuine prior-agent/snapshot history to surface
- *  — both fields come back `undefined` rather than a hashed-but-fictional
- *  "already been working with Agent X" that would misrepresent a
- *  genuinely brand-new contact as a returning one. Callers should only
- *  skip passing this at all (defaulting `true`) when they've already
- *  established the contact is real by some other means. */
-function buildContactOverviewInfo(
-  seed: string,
-  isKnownCustomer: boolean = true
-): { previousAgent?: { name: string; agentId: string }; snapshot?: string[] } {
-  if (!isKnownCustomer) return {};
-  const hash = hashSeed(seed);
-  return {
-    previousAgent: CONTACT_OVERVIEW_PREVIOUS_AGENTS[hash % CONTACT_OVERVIEW_PREVIOUS_AGENTS.length],
-    snapshot: CONTACT_OVERVIEW_SNAPSHOTS[hash % CONTACT_OVERVIEW_SNAPSHOTS.length],
-  };
-}
 
 /** Same fixed color `ChatMessage` itself already uses for every customer-
  *  sender avatar (lyra-ui's chat-message.tsx) — per explicit request,
@@ -866,25 +821,18 @@ function buildLocationSnapshotLines(location: CustomerLocation): string[] {
   ];
 }
 
-/** Deterministic (hashed via `hashSeed`, same convention as
- *  `buildContactOverviewInfo` right above) mock "Customer Profile"/
- *  "Customer Snapshot"/"Next Best Action" content — feeds lyra-ui's
+/** Deterministic (hashed via `hashSeed`, no `Math.random`) mock "Customer
+ *  Profile"/"Customer Snapshot"/"Next Best Action" content — feeds lyra-ui's
  *  `CustomerContextOverview` (its own `CustomerContextOverviewInfo`, not
  *  imported here by name per this file's own dependency-direction rule —
- *  the returned shape just happens to match it structurally), the newer
- *  replacement for `ContactOverview`/`buildContactOverviewInfo` above that
- *  only AgentNextGenPage.tsx/AgentWorkspace2WithDeskPage.tsx ("Phase 1"/
- *  "Phase 2") opt into, per explicit request — see that component's own
- *  doc comment, lyra-ui's contact-overview.tsx, for the rest of the
- *  reasoning.
+ *  the returned shape just happens to match it structurally).
  *
- *  `isKnownCustomer` — same real-customer gate `buildContactOverviewInfo`
- *  already uses (see its own doc comment) for the same reasoning: a
- *  genuinely brand-new/ad-hoc contact gets no fabricated profile/snapshot,
- *  only a generic "first contact" Next Best Action. Callers seed this with
- *  the Interaction's own id, same as `buildContactOverviewInfo`, so the
- *  same customer reads back the same profile/snapshot on every fresh
- *  launch instead of reshuffling on every render.
+ *  `isKnownCustomer` — a genuinely brand-new/ad-hoc contact (no backing
+ *  directory record) gets no fabricated profile/snapshot, only a generic
+ *  "first contact" Next Best Action. Callers seed this with the
+ *  Interaction's own id, so the same customer reads back the same
+ *  profile/snapshot on every fresh launch instead of reshuffling on every
+ *  render.
  *
  *  `identified` — same distinction `InteractionTranscript`'s own
  *  `customerIdentified` prop makes (see its own doc comment,
@@ -1013,16 +961,8 @@ function buildCustomerContextOverviewInfo(
   };
 }
 
-/** Which top-level page the app is currently showing. Per explicit request
- *  ("remove phase 1 for now ... completely delete the phase 1 files"): the
- *  plain `"agent"` page (the original `AgentNextGenPage.tsx`, "Phase 1")
- *  has been removed from this union — that file is deleted, and nothing
- *  should be able to construct that page id anymore. `"agent-advanced"`
- *  (`AgentWorkspaceAdvancedPage.tsx`) is now the page labeled "Agent
- *  Workspace 2.0 | Phase 1" in the app menu (was "Phase 1B" — see
- *  `buildAppMenuGroups`, agent-next-gen-outbound-data.tsx); `"agent-with-
- *  desk"` (`AgentWorkspace2WithDeskPage.tsx`) is "Phase 2", untouched. */
-type Page = "agent-workspace" | "agent-with-desk" | "agent-advanced" | "outbound" | "login";
+/** Which top-level page the app is showing (the routes live in app-routes.ts). */
+type Page = import("@/app-routes").Page;
 
 /** Per explicit request ("hide the assignments resolved chip in the home
  *  tab"): gates the green "{n} Assignments resolved today" `Badge` each of
@@ -1082,7 +1022,6 @@ export {
   nextInteractionSortDirection,
   quickReplyFieldDisplayValue,
   hashSeed,
-  buildContactOverviewInfo,
   buildCustomerContextOverviewInfo,
   synthesizePhone,
   splitCustomerName,

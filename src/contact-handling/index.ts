@@ -49,5 +49,6 @@ export { useOmnichannelLayout, type OmnichannelLayout } from "./useOmnichannelLa
 export { AsyncChannelSlideOut } from "./AsyncChannelSlideOut";
 export { ConfirmCloseDialog } from "./ConfirmCloseDialog";
 export { launcherGroups, INERT_LAUNCHER_TABS } from "./launcher-groups";
+export { ADDRESS_BOOKS, addressBookGroup, type AddressBook } from "./address-books";
 export { VoiceBar, type VoiceBarProps } from "./VoiceBar";
 export { useAnswerSla, answerSeverity, offerRowAnswerSeverity } from "./answer-sla";

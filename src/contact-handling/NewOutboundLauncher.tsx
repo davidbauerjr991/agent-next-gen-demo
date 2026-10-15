@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CreateNew, type ChannelType, type CreateNewOutboundConfig, type CreateNewOutboundContact } from "@nicecxone/lyra-ui";
-import { addressBookGroup, type AddressBook } from "@/components/agent-next-gen-outbound-data";
+import { addressBookGroup, type AddressBook } from "./address-books";
 import type { LauncherTab } from "@/settings";
 import { launcherGroups } from "./launcher-groups";
 import type { DialpadRequest } from "./useOutboundDial";
@@ -8,8 +8,9 @@ import type { DialpadRequest } from "./useOutboundDial";
 /** The left nav's "New Outbound" launcher. Its tabs come from Settings →
  *  New Outbound (`outbound.launcher`, CXone's Directory App names) and the
  *  Dial Pad also needs Outbound Calling → Ad-hoc. With one tab it opens
- *  straight on it (no group list); with none it isn't shown. Everything a
- *  launch does goes through `useOutboundDial`. */
+ *  straight on it (no group list); with none it isn't shown. It stays
+ *  enabled during a call: a second call holds the first (the provider's
+ *  auto-hold). Everything a launch does goes through `useOutboundDial`. */
 export interface NewOutboundLauncherProps {
   /** The page's outbound config (groups tagged with open channels). */
   outboundConfig: CreateNewOutboundConfig;
@@ -17,9 +18,6 @@ export interface NewOutboundLauncherProps {
   /** Outbound Calling → Ad-hoc: the Dial Pad accepts a typed number. */
   adHoc: boolean;
   addressBooks: readonly AddressBook[];
-  inCallPolicy: "disable" | "allow";
-  /** The agent is on a live voice call. */
-  onActiveCall: boolean;
   expanded: boolean;
   onStartCall: (selection: { contact: CreateNewOutboundContact; channel: ChannelType; phone: string; skillId: string }) => void;
   onQuickDial: (phoneNumber: string, skillId: string) => void;
@@ -32,8 +30,6 @@ export function NewOutboundLauncher({
   tabs,
   adHoc,
   addressBooks,
-  inCallPolicy,
-  onActiveCall,
   expanded,
   onStartCall,
   onQuickDial,
@@ -48,7 +44,6 @@ export function NewOutboundLauncher({
     defaultGroupId: groups.some((g) => g.id === "all") ? "all" : groups[0].id,
     skipGroupPicker: groups.length === 1,
   };
-  const disabled = inCallPolicy === "disable" && onActiveCall;
   return (
     <CreateNew
       title="New Outbound"
@@ -61,7 +56,6 @@ export function NewOutboundLauncher({
         onDialpadRequestHandled,
       }}
       expanded={expanded}
-      {...(inCallPolicy === "disable" ? { disabled, disabledReason: "A call is already in progress" } : {})}
     />
   );
 }

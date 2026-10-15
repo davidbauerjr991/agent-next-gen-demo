@@ -711,16 +711,33 @@ describe("Launch screen: phone setup and Save Preferences", () => {
 });
 
 describe("Workspace profile", () => {
-  it("app menu: Phase 2 applies the profile and opens Desk; Phase 1 applies it and opens Advanced", () => {
-    const onNavigate = vi.fn();
-    const [phase1, phase2] = buildAppMenuGroups(onNavigate, "agent-advanced")[0].items;
+  it("app menu: each entry applies its profile and stays on the page; the active entry follows the profile", () => {
+    const onPicked = vi.fn();
+    const [phase1, phase2] = buildAppMenuGroups("phase1", onPicked)[0].items;
+    expect([phase1.active, phase2.active]).toEqual([true, false]);
     phase2.onClick?.();
     expect(profile()).toBe("phase2");
     expect(store().getState().values.assignments.omnichannel).toBe(true);
-    expect(onNavigate).toHaveBeenLastCalledWith("agent-with-desk");
+    expect(onPicked).toHaveBeenCalledTimes(1);
+    expect(buildAppMenuGroups("phase2")[0].items.map((i) => i.active)).toEqual([false, true]);
+    expect(buildAppMenuGroups("custom")[0].items.map((i) => i.active)).toEqual([false, false]);
     phase1.onClick?.();
     expect(profile()).toBe("phase1");
-    expect(onNavigate).toHaveBeenLastCalledWith("agent-advanced");
+  });
+
+  it("the app menu's Phase 2 updates the header and Home in place, without a remount", async () => {
+    await h.show(AgentWorkspaceAdvancedPage);
+    const dashboard = h.container.querySelector("[data-home-section]");
+    expect(h.container.querySelector("[data-slot=home-tabs]")).toBeNull();
+    await act(async () => {
+      buildAppMenuGroups(profile())[0].items[1].onClick?.();
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(h.container.textContent).toContain("Agent Workspace 2.0 | Phase 2");
+    expect(h.container.querySelector("[data-slot=home-tabs]")).not.toBeNull();
+    expect(headerHas("Schedule")).toBe(true);
+    // The same Dashboard node: the page re-rendered in place.
+    expect(h.container.querySelector("[data-home-section]")).toBe(dashboard);
   });
 
   it("Advanced's app name follows the profile, and Custom shows when any setting changes", async () => {

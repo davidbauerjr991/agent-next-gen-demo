@@ -2,58 +2,21 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { Header } from "@/components/Header";
 import { Sidebar } from "@/components/Sidebar";
 import { DesktopDesignsPage } from "@/components/DesktopDesignsPage";
-import { AgentWorkspace2WithDeskPage } from "@/components/AgentWorkspace2WithDeskPage";
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
 import { OutboundEngagementPage } from "@/components/OutboundEngagementPage";
 import { LoginPage } from "@/components/LoginPage";
-import { useApplyTheme } from "@/settings";
+import { applyProfile, useApplyTheme } from "@/settings";
+import { PAGE_HASH, resolveHash, type Page } from "@/app-routes";
 
-type Page = "agent-workspace" | "agent-with-desk" | "agent-advanced" | "outbound" | "login";
-
-/* ── Hash-based routing ──
-   "login" is now the home/root page (empty hash). Per explicit request
-   ("remove phase 1 for now - it is old ... completely delete the phase 1
-   files"): the original "Agent Workspace 2.0 | Phase 1" page
-   (`AgentNextGenPage.tsx`, the plain `"agent"` page id, its `#/agent`
-   route) is gone entirely — the file was deleted, its import above removed,
-   its `Page` value and hash mapping/parsing below removed, and its own
-   render branch (further down this file) removed. An old `#/agent`
-   bookmark now just falls through to the same "no hash matched" fallback
-   every other unrecognized hash already hit (`pageFromHash`'s own final
-   `return "login"` below) — there's no redirect to a same-named
-   replacement, since nothing here is actually the old Phase 1 page, just a
-   relabeled `"agent-advanced"`.
-   "agent-with-desk" ("Agent Workspace 2.0 | Phase 2" in the app menu —
-   originally "Agent Workspace 2.0 With Desk", later "Agent Workspace 2.0
-   Premium", renamed per explicit request each time; the internal
-   `"agent-with-desk"` page id/component name were deliberately left as-is,
-   only the user-facing label + route changed) is its own separate route/
-   component (AgentWorkspace2WithDeskPage.tsx — originally a deliberate
-   duplicate of the now-deleted AgentNextGenPage.tsx, see that file's own
-   top-of-file note) rather than reusing the old "agent" page, per explicit
-   request. "agent-advanced" (now "Agent Workspace 2.0 | Phase 1" in the app
-   menu, per the same explicit request that removed the original Phase 1 —
-   was "Agent Workspace 2.0 | Phase 1B" before that) is
-   `AgentWorkspaceAdvancedPage.tsx` — also originally a duplicate of
-   AgentNextGenPage.tsx, and now the only surviving file from that lineage;
-   its own internal `"agent-advanced"` page id/route/component name were
-   deliberately left as-is, only its app-menu label changed (see
-   `buildAppMenuGroups`, agent-next-gen-outbound-data.tsx). */
-const PAGE_HASH: Record<Page, string> = {
-  "agent-with-desk": "#/agent-premium",
-  "agent-advanced":  "#/agent-advanced",
-  "agent-workspace": "#/agentworkspacepremium",
-  "outbound":        "#/outboundengagement",
-  "login":           "",
-};
-
+/** The current hash's page; a legacy route (Desk's) is redirected in place
+ *  (the URL's hash replaced, its profile applied). */
 function pageFromHash(): Page {
-  const hash = window.location.hash;
-  if (hash === "#/agent-premium") return "agent-with-desk";
-  if (hash === "#/agent-advanced") return "agent-advanced";
-  if (hash === "#/agentworkspacepremium") return "agent-workspace";
-  if (hash === "#/outboundengagement") return "outbound";
-  return "login";
+  const route = resolveHash(window.location.hash);
+  if (route.redirectTo !== undefined) {
+    window.history.replaceState(null, "", route.redirectTo);
+    if (route.profile) applyProfile(route.profile);
+  }
+  return route.page;
 }
 
 function useHashRouter(): [Page, (page: Page) => void] {
@@ -163,9 +126,7 @@ function App() {
 
   /* ── Ask AI panel — draggable (dockable/undockable + resizable), same
      state machine as the Agent Workspace pages' own real implementation
-     (AgentWorkspaceAdvancedPage.tsx/AgentWorkspace2WithDeskPage.tsx — the
-     original reference, the now-deleted AgentNextGenPage.tsx, is gone).
-     Opens
+     (AgentWorkspaceAdvancedPage.tsx). Opens
      docked by default. Previously this used a simple width-animated
      SlidingPanel with a non-draggable AiPanel, which is why it couldn't be
      detached or resized. ── */
@@ -245,11 +206,8 @@ function App() {
 
   /* Narrow-viewport hover-to-open overlay mode for the left nav — same
      pattern as the Agent Workspace pages' own `isNavNarrow`/`overlay`
-     wiring (AgentWorkspaceAdvancedPage.tsx/AgentWorkspace2WithDeskPage.tsx —
-     the original reference, the now-deleted AgentNextGenPage.tsx, is gone).
-     This
-     was previously only implemented on the Desk page; the Sidebar used here
-     (Agent Workspace Premium, etc.) never tracked window width or passed
+     wiring (AgentWorkspaceAdvancedPage.tsx). The Sidebar used here
+     (Agent Workspace Premium, etc.) used to never track window width or pass
      `overlay` to LeftNav, so it always stayed in static/pushed mode instead
      of collapsing to a hover-to-open absolute overlay on narrow screens. */
   const [windowWidth, setWindowWidth] = useState(() => window.innerWidth);
@@ -344,10 +302,6 @@ function App() {
       {conversationContent}
     </AiPanel>
   ) : null;
-
-  if (page === "agent-with-desk") {
-    return <AgentWorkspace2WithDeskPage showPageHeader showPanelToggle showInteriorPanel onNavigate={setPage} />;
-  }
 
   if (page === "agent-advanced") {
     return <AgentWorkspaceAdvancedPage showPageHeader showPanelToggle showInteriorPanel onNavigate={setPage} />;

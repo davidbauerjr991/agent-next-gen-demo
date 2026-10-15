@@ -8,8 +8,7 @@ import type { SimCustomerClient } from "./sim-customer-client";
 // decides whether the agent gets it (available or working, one run per
 // script at a time).
 //
-// Desk is frozen (2026-10-15), and its pages have no scenario UI, so the
-// keys only fire on the routes listed here.
+// The keys only fire on the workspace's route (the one agent page).
 
 const SCENARIO_ROUTES = ["#/agent-advanced"];
 

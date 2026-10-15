@@ -124,7 +124,6 @@ import {
   OUTBOUND_TEAMS,
   OUTBOUND_TEAM_MEMBERS,
   OUTBOUND_CONFIG,
-  ADDRESS_BOOKS,
   OUTBOUND_AGENTS,
   CONTACT_HISTORY_OUTBOUND_CONTACTS,
   buildContactHistoryOutboundContacts,
@@ -204,6 +203,7 @@ import {
   type CopilotComposerProps,
   AsyncChannelSlideOut,
   ConfirmCloseDialog,
+  ADDRESS_BOOKS,
   channelTempo,
   omnichannelMainKey,
   routeChannel,
@@ -2700,36 +2700,6 @@ export function AgentWorkspaceAdvancedPage({
   // src/adapters/sim/sim-scenario-hotkeys.ts); routing offers them only
   // while the agent is available or working. They arrive as provider
   // contacts, so this page builds no card and runs no scenario timer.
-  //
-  // Whether the agent themself is genuinely "on a call" right now, for the
-  // purposes of the "we cannot have 2+ calls at once" restrictions below
-  // (disabling "New Outbound" and Contact History's "Redial" button) — per
-  // explicit follow-up bug report ("marcus webb new outbound shouldn't be
-  // disabled until takeover is clicked since the agent is not on the call
-  // yet. Same with the redial from the contact history - only disable when
-  // the agent is on an active call"): `liveVoiceCallInteraction` alone
-  // (a live voice THREAD exists somewhere) isn't the right signal for
-  // this — Marcus's own scripted call is already "live" the moment it's
-  // triggered, well before the agent ever picks up (the AI agent handles
-  // it solo, then the agent can just "Review" without taking over at all),
-  // so gating on `liveVoiceCallInteraction` alone incorrectly treated the
-  // agent as mid-call the instant Marcus was triggered. Reuses the exact
-  // same "is this actually a call the agent is on" exclusion the live-call
-  // controls bar itself already applies (`!(marcusWebbReviewing &&
-  // scenarioKeyOf(liveVoiceCallInteraction.id) === MARCUS_WEBB_ID)`, see that render
-  // site's own doc comment below) — Marcus's call only counts once the
-  // agent has actually clicked "Takeover" (`marcusWebbReviewing` flips to
-  // `false`), matching the same moment the call-controls bar itself
-  // switches from the "Reviewing this conversation" `ActionBar` over to
-  // real `VoiceCallControls`. Since `liveVoiceCallInteraction` itself now
-  // also skips Marcus's own thread whenever a real second call exists
-  // (see its own doc comment/bug-fix note above), this exclusion is only
-  // ever load-bearing for the single-Marcus-only-live case (nothing else
-  // to fall back to there); once a real second call is dialed,
-  // `liveVoiceCallInteraction` already points at THAT call, so this line
-  // needs no further change to correctly flip `true`.
-  const agentOnActiveVoiceCall =
-    !!liveVoiceCallInteraction && !(marcusWebbReviewing && scenarioKeyOf(liveVoiceCallInteraction.id) === MARCUS_WEBB_ID);
   // Whether the Reject flow's customer-provided photo (rendered inline in
   // `MarcusWebbNextBestActionCard`, never in the transcript — see that
   // file's own top doc comment) is taking over the MAIN interaction
@@ -2891,10 +2861,8 @@ export function AgentWorkspaceAdvancedPage({
   const { profile: workspaceProfile } = useWorkspaceProfile();
   const appDisplayName = `Agent Workspace 2.0 | ${PROFILE_LABELS[workspaceProfile]}`;
 
-  const appMenuGroups = buildAppMenuGroups((page) => {
-    setAppMenuOpen(false);
-    onNavigate?.(page);
-  }, "agent-advanced");
+  // Phase 1 / Phase 2 apply a profile; the page stays.
+  const appMenuGroups = buildAppMenuGroups(workspaceProfile, () => setAppMenuOpen(false));
 
   /* Panel animation state machine — see AgentNextGenTemplate.stories.tsx for full comment */
   type PanelState = "closed" | "open" | "closing";
@@ -6432,8 +6400,6 @@ export function AgentWorkspaceAdvancedPage({
       tabs={outboundSettings.launcher}
       adHoc={outboundSettings.calling.adHoc}
       addressBooks={ADDRESS_BOOKS}
-      inCallPolicy="allow"
-      onActiveCall={agentOnActiveVoiceCall}
       expanded={navOpen}
       onStartCall={handleStartCall}
       onQuickDial={handleDialpadSubmit}
@@ -7405,7 +7371,6 @@ export function AgentWorkspaceAdvancedPage({
                     // Per explicit follow-up request ("remove the ability to
                     // hang up from the interactionNavItem overall") — "hide,
                     // don't destroy," same pattern as
-                    // `HIDDEN_OUTBOUND_GROUP_IDS`/
                     // `MARCUS_WEBB_AUTO_DISMISS_ON_CLOSE`/
                     // `SHOW_APPROVE_PROCESSING_STEPS` elsewhere in this file:
                     // `SHOW_END_CALL_IN_INTERACTION_NAV_ROWS` (defined near

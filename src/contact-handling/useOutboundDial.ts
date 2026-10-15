@@ -35,11 +35,11 @@ export interface UseOutboundDialOptions {
   /** A Contact History redial was placed (the page may close that row's
    *  panel). */
   onRedial?: (entry: ContactHistoryEntry) => void;
-  /** What a voice launch does while the agent is already on a call — a
-   *  per-page rule (parity rows 14/15, a temporary exception): "refuse"
-   *  (Advanced: one call at a time, on every path — New Outbound, Redial,
-   *  Save & Redial, a voice "+") or "auto-hold" (Desk: the provider holds the
-   *  first call when the second connects). */
+  /** What a voice launch does while the agent is already on a call:
+   *  "auto-hold" (the provider holds the first call when the second
+   *  connects; what the workspace uses) or "refuse" (one call at a time, on
+   *  every path: New Outbound, Redial, Save & Redial, a voice "+"; tested,
+   *  unused by the page). */
   secondVoiceCall: "refuse" | "auto-hold";
   /** A voice launch was refused by `secondVoiceCall: "refuse"`. */
   onVoiceCallRefused?: () => void;

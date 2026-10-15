@@ -2,14 +2,14 @@
 // agent-next-gen-shared-utils.ts and sibling agent-next-gen-*.ts(x) files
 // for everything AgentNextGenPage.tsx itself no longer declares — split out
 // once that file crossed Babel's 500KB code-generator threshold.
-import { type Page, initialsFor, synthesizePhone, hashSeed, splitCustomerName } from "@/components/agent-next-gen-shared-utils";
+import { initialsFor, synthesizePhone, hashSeed, splitCustomerName } from "@/components/agent-next-gen-shared-utils";
 import { CONTACT_HISTORY, type ContactHistoryEntry } from "@/components/agent-next-gen-contact-history";
 import { type AppMenuGroup, type CreateNewOutboundConfig, type CreateNewOutboundContact, WhatsAppIcon } from "@nicecxone/lyra-ui";
 import { CREATE_NEW_AGENTS } from "@nicecxone/lyra-ui/agents-data";
 import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
 import type { ReactNode } from "react";
-import { applyProfile } from "@/settings";
-import { Phone, Mail, MessageSquare, MessageCircle, User, Headphones, Share2, Users, LayoutGrid, Star, Building2 } from "lucide-react";
+import { applyProfile, type ProfileId, type WorkspaceProfile } from "@/settings";
+import { Phone, Mail, MessageSquare, MessageCircle, User, Headphones, Share2, Users, LayoutGrid, Star } from "lucide-react";
 
 /* ── Category icons ──
    Shared between the "New Outbound" picker's "Choose group" dropdown
@@ -43,15 +43,6 @@ const dialpadCategoryIcon = () => <LayoutGrid className="h-4 w-4" strokeWidth={1
 // this app already uses one (`FavoriteButton`, lyra-ui) — per explicit
 // follow-up request giving every row in the group list a leading icon.
 const favoritesCategoryIcon = () => <Star className="h-4 w-4" strokeWidth={1.5} />;
-// Generic "directory" icon shared by the three placeholder groups below
-// (Partner Network/Vendor Directory/Regional Offices) — per explicit
-// request ("generic directory icons"), not a distinct glyph per group,
-// since none of the three has real data/behavior behind it yet to
-// differentiate visually (see their own `kind: "empty"` doc comment).
-// A generic building glyph reads as "some other organization/location,"
-// which fits all three equally well without implying one has more
-// substance than the others.
-const directoryCategoryIcon = () => <Building2 className="h-4 w-4" strokeWidth={1.5} />;
 
 /** Per explicit follow-up request ("put the initials of the agents/skill
  *  names/etc. inside the avatars and randomize the colors using the
@@ -91,63 +82,23 @@ function randomAvatarClassName(seed: string): string {
   return `bg-lyra-accent-${color}-soft text-lyra-accent-${color}-strong`;
 }
 
-/* ── App menu builder (needs onNavigate so built inside the component) ── */
-
-// Per explicit request ("remove phase 1 for now - it is old ... remove it
-// from the menu - rename the menu item Phase 1B to Phase 1 - completely
-// delete the phase 1 files"): the original "Agent Workspace 2.0 | Phase 1"
-// row (the plain `"agent"` page, `AgentNextGenPage.tsx`) is gone from this
-// menu entirely — not hidden, removed — and its page/component/file are
-// gone too (see App.tsx's own routing doc comment for the full "why").
-// "Agent Workspace 2.0 | Phase 1B" (`AgentWorkspaceAdvancedPage.tsx`, the
-// `"agent-advanced"` page — previously added back to this menu per an
-// earlier explicit request, positioned as the second item between the old
-// Phase 1 and Phase 2 since it was conceptually a variant of Phase 1) is
-// renamed to "Agent Workspace 2.0 | Phase 1" here — same underlying page/
-// component/route as before, only the label changed, and it's now this
-// menu's first/only-remaining "Phase 1" item since the original one is
-// gone. "Agent Workspace 2.0 Premium" (originally "Agent Workspace 2.0
-// With Desk", later renamed per an earlier explicit request — same
-// underlying page/component, just the label + route changed each time) is
-// still labeled "Agent Workspace 2.0 | Phase 2" — its own separate page
-// (`AgentWorkspace2WithDeskPage.tsx`, its own `#/agent-premium` route,
-// App.tsx), untouched by this change.
-//
-// `currentPage` decides which row shows the "active" (blue, non-clickable-
-// looking) treatment — each call site passes its OWN page literal
-// (`AgentWorkspace2WithDeskPage.tsx` passes `"agent-with-desk"`,
-// `AgentWorkspaceAdvancedPage.tsx` passes `"agent-advanced"`), since each
-// page component inherently knows which page it itself is; there's no need
-// to thread that back down from `App.tsx`. Every row still gets an
-// `onClick` (including the currently-active one, which just re-navigates to
-// the same page — harmless) so clicking any row from either of the two
-// remaining pages always works, per an earlier explicit request ("allow
-// the agent to click back to normal Agent Workspace 2.0").
-//
-// P-SETTINGS: each entry also applies its workspace profile. Until P0.5d.2
-// deletes Desk, "Phase 2" still opens Desk (`#/agent-premium`); afterwards
-// both entries stay on the one workspace and only apply the profile.
-export function buildAppMenuGroups(onNavigate: ((page: Page) => void) | undefined, currentPage: Page): AppMenuGroup[] {
+/* ── App menu ──
+   One workspace (P0.5d.2): each entry applies a built-in profile and stays
+   on the page; the header and Home update in place. The entry matching the
+   current profile shows as active (neither does while it's Custom).
+   `onPicked` lets the page close the menu. */
+export function buildAppMenuGroups(profile: WorkspaceProfile, onPicked?: () => void): AppMenuGroup[] {
+  const entry = (id: ProfileId, label: string) => ({
+    label,
+    active: profile === id,
+    onClick: () => {
+      applyProfile(id);
+      onPicked?.();
+    },
+  });
   return [
     {
-      items: [
-        {
-          label: "Agent Workspace 2.0 | Phase 1",
-          active: currentPage === "agent-advanced",
-          onClick: () => {
-            applyProfile("phase1");
-            onNavigate?.("agent-advanced");
-          },
-        },
-        {
-          label: "Agent Workspace 2.0 | Phase 2",
-          active: currentPage === "agent-with-desk",
-          onClick: () => {
-            applyProfile("phase2");
-            onNavigate?.("agent-with-desk");
-          },
-        },
-      ],
+      items: [entry("phase1", "Agent Workspace 2.0 | Phase 1"), entry("phase2", "Agent Workspace 2.0 | Phase 2")],
     },
   ];
 }
@@ -364,17 +315,9 @@ export const OUTBOUND_SKILLS: NonNullable<CreateNewOutboundConfig["groups"][numb
   { id: "s2", name: "Technical Support", initials: "TS", subtitle: "SKL-03", avatarClassName: "bg-lyra-accent-blue-soft text-lyra-accent-blue-strong",   channels: ["voice", "email"], status: "busy",      queueCount: 7, waitTimeSeconds: 95, categoryIcon: initialsAvatar("TS", "bg-lyra-accent-blue-soft text-lyra-accent-blue-strong"), typeIcon: skillCategoryIcon(), quickLaunch: true },
 ];
 
-// Every group the "New Outbound" flow could show — kept as its own named
-// constant, separate from `OUTBOUND_CONFIG.groups` below, so any group can
-// be hidden from the "Choose group" dropdown without deleting it: per
-// explicit request ("hide it don't destroy it"), a hidden group's
-// definition stays fully intact here, just filtered out (by id, via
-// `HIDDEN_OUTBOUND_GROUP_IDS` below) before being handed to `CreateNew`.
-// Restoring one later is a one-line revert (add/remove its id in that
-// array), not re-authoring the group from scratch. "Dial Pad" (below) used
-// to be this mechanism's only example — it's no longer hidden this way
-// (see its own doc comment), but the mechanism itself stays in place for
-// any future group that needs it.
+// Every group the "New Outbound" flow could show ("hide it, don't destroy
+// it"): the launcher picks which ones it renders from its tabs (Settings →
+// New Outbound, `launcherGroups`); the definitions all stay here.
 export const OUTBOUND_GROUPS: CreateNewOutboundConfig["groups"] = [
   // No dedicated "Favorites" entry in the group dropdown, per explicit
   // request — this "all" entry replaces it as the DEFAULT/starting
@@ -427,87 +370,15 @@ export const OUTBOUND_GROUPS: CreateNewOutboundConfig["groups"] = [
   // Partner Network, Vendor Directory and Regional Offices are address
   // books now, entries of the one Address Book group (`ADDRESS_BOOKS`,
   // below; P0.5d.2), not groups of their own.
-  // Kept in `OUTBOUND_GROUPS` (not deleted) but hidden from the visible
-  // group list via `HIDDEN_OUTBOUND_GROUP_IDS` below — per explicit
-  // follow-up request ("keep dial pad but not customers"), Customers no
-  // longer appears as a row. Definition left intact so it can be restored
-  // by simply removing its id from that array, same as any other
-  // hide/restore case that mechanism already supports.
+  // Shown as the launcher's "All" tab (CXone's Directory App "All"), when on.
   { id: "customers", label: "Customers", contacts: OUTBOUND_CUSTOMERS, icon: customerCategoryIcon() },
 ];
 
-// Group ids hidden from the "New Outbound" group list without being
-// removed from `OUTBOUND_GROUPS` above — see that constant's own doc
-// comment for why. Add/remove ids here to hide/restore a group; the
-// group's own definition never needs to change. "customers" is hidden
-// here per explicit request ("keep dial pad but not customers").
-//
-// Deliberately NOT applied to `OUTBOUND_CONFIG.groups` below (a real,
-// confirmed bug this used to have): `OUTBOUND_CONFIG` is the single
-// shared object every tier page spreads into its own `outboundConfig`,
-// which feeds BOTH the New Outbound picker's own browsable group list
-// AND `useAddChannelButton`'s `contactsById` lookup (lyra-ui,
-// create-new.tsx) — the map `getHeaderAction` uses to resolve an
-// already-known customer's "+" (Add Channel) button on the record
-// header/`InteractionNavItem`. Filtering "customers" out of
-// `OUTBOUND_CONFIG.groups` itself hid it from BOTH, so any real,
-// directory-backed customer interaction (started via the Customers
-// desk-tab table or the Search panel's Customers sub-tab — Advanced/
-// Premium tiers, which are supposed to keep the full group list, per
-// each tier's own `outboundConfig` memo doc comment) silently fell back
-// to the plain `AddChannelAdHocButton` instead of `AddChannelButton`,
-// since `contactsById.get(interaction.id)` could never find a match:
-// the confirmed root cause of "both the InteractionNavItem and the
-// header toggle group show the custom [ad-hoc] input" for a known
-// Advanced-tier customer found via Search. Each tier's own `<CreateNew
-// outbound={{...}}>` render call site now applies this exclusion itself
-// (filtering `outboundConfig.groups`, not `OUTBOUND_CONFIG.groups`) so
-// only that picker's own browsable list loses "customers" — the lookup
-// map every tier's `useAddChannelButton` builds from `outboundConfig`
-// keeps it.
-export const HIDDEN_OUTBOUND_GROUP_IDS: string[] = ["customers"];
-
-/** An address book in the launcher's Address Book group (CXone's Directory
- *  App "Address Book"). The set is data: the three below are seeded; the
- *  DirectoryProvider serves them from P0.9, and agents' admins upload their
- *  own (CSV import in Settings → Connections → Address books, P0.9.2). */
-export interface AddressBook {
-  id: string;
-  name: string;
-  source: "seeded" | "uploaded" | "connected";
-  entries: CreateNewOutboundContact[];
-}
-
-export const ADDRESS_BOOKS: AddressBook[] = [
-  { id: "partner-network", name: "Partner Network", source: "seeded", entries: [] },
-  { id: "vendor-directory", name: "Vendor Directory", source: "seeded", entries: [] },
-  { id: "regional-offices", name: "Regional Offices", source: "seeded", entries: [] },
-];
-
-/** The Address Book group: pick a book (lyra's group `subFilter`), then its
- *  entries list and search like any group. Renders however many books exist. */
-export function addressBookGroup(
-  books: readonly AddressBook[],
-  selectedId: string,
-  onSelect: (id: string) => void,
-): CreateNewOutboundConfig["groups"][number] {
-  const selected = books.find((b) => b.id === selectedId);
-  return {
-    id: "address-book",
-    label: "Address Book",
-    kind: "contacts",
-    icon: directoryCategoryIcon(),
-    contacts: selected ? selected.entries : books.flatMap((b) => b.entries),
-    emptyMessage: selected ? `No ${selected.name} contacts yet` : "Choose an address book",
-    subFilter: {
-      ariaLabel: "Address book",
-      placeholder: "Choose an address book",
-      value: selectedId,
-      options: books.map((b) => ({ value: b.id, label: `${b.name} (${b.entries.length})` })),
-      onChange: onSelect,
-    },
-  };
-}
+// Which groups the New Outbound launcher shows is decided by its tabs
+// (Settings → New Outbound, `launcherGroups` in src/contact-handling), not
+// here. `OUTBOUND_CONFIG.groups` keeps every group, Customers included:
+// the add-channel "+" builds its contact lookup from it, and without
+// Customers a known customer's "+" fell back to the ad-hoc input.
 
 export const OUTBOUND_CONFIG: CreateNewOutboundConfig = {
   outboundTitle: "New Outbound",

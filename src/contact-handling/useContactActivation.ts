@@ -8,8 +8,8 @@ import type { CardOverlay } from "./nav-card-overlay";
  *  - "focus": make its card active with this thread in the main column (new
  *    cards, redials, reopens, notifications);
  *  - "added": a channel added to an already-open card. The page decides
- *    (Advanced opens the docked preview; Desk switches the main column until
- *    rows 12/13 converge);
+ *    (the docked preview, or with the omnichannel layout the main column,
+ *    the voice bar or the async slide-out);
  *  - "none": nothing to show (e.g. the other threads of a restored case). */
 export type ActivationMode = "focus" | "added" | "none";
 

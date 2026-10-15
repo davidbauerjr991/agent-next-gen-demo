@@ -1,15 +1,11 @@
 import { describe, expect, it } from "vitest";
 import advancedSource from "@/components/AgentWorkspaceAdvancedPage.tsx?raw";
-import deskSource from "@/components/AgentWorkspace2WithDeskPage.tsx?raw";
 
 // P0.5c's done criterion, as a source check: the workspace pages run no
 // scenario timers and build no scenario cards. Scripted cases come from the
 // sim engine's scenario player and reach the pages only as provider events.
 
-const PAGES: [string, string][] = [
-  ["AgentWorkspaceAdvancedPage.tsx", advancedSource],
-  ["AgentWorkspace2WithDeskPage.tsx", deskSource],
-];
+const PAGES: [string, string][] = [["AgentWorkspaceAdvancedPage.tsx", advancedSource]];
 
 describe("no scenario timers or hotkey-built cards in the pages", () => {
   it.each(PAGES)("%s", (_name, source) => {

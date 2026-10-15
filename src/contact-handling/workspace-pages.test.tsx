@@ -11,16 +11,15 @@ import { createMemoryBus } from "@/adapters/sim/memory-transport";
 import { SIM_DEMO_DIRECTORY } from "@/adapters/sim/sim-demo-directory";
 import { createSimCustomerClient, type SimCustomerClient } from "@/adapters/sim/sim-customer-client";
 import { createSimulatedInteractionProvider, type SimulatedInteractionProvider } from "@/adapters/sim/simulated-interaction-provider";
-import { AgentWorkspace2WithDeskPage } from "@/components/AgentWorkspace2WithDeskPage";
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
 import type { ChannelKind, InteractionId } from "@/domain";
 import { DEFAULT_SLA } from "@/profiles/contact-center-profile";
 import { ProviderRoot } from "@/provider-context";
 import { LUCAS_THOMAS_SCRIPT, MARCUS_WEBB_SCRIPT, MAYA_CHEN_SCRIPT, SCENARIOS, TOM_LEWIS_SCRIPT } from "@/scenarios";
 
-// Both workspace pages, whole, against the sim (5d.1 recheck): the incoming
+// The workspace page, whole, against the sim (5d.1 recheck): the incoming
 // tile's answer SLA, session controls while ringing, the docked voice bar
-// and a tier switch. Parity: every page-level check runs on both pages.
+// and a remount. Desk, the second page, was deleted in P0.5d.2.
 
 // Whole-page renders run several seconds each when the full suite runs in
 // parallel; vitest's 5s default timed the first one out, and the rest of the
@@ -70,10 +69,7 @@ HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement) {
 
 const ZERO = { minMs: 0, maxMs: 0 };
 type PageComponent = ComponentType<{ showPageHeader?: boolean; showPanelToggle?: boolean; showInteriorPanel?: boolean }>;
-const PAGES: [string, PageComponent][] = [
-  ["Advanced (Phase 1)", AgentWorkspaceAdvancedPage],
-  ["Desk (Phase 2)", AgentWorkspace2WithDeskPage],
-];
+const PAGES: [string, PageComponent][] = [["Advanced (Phase 1)", AgentWorkspaceAdvancedPage]];
 
 let container: HTMLElement;
 let root: Root;
@@ -243,8 +239,8 @@ async function play(scenarioId: string, { available = true }: { available?: bool
 
 const bodyText = () => document.body.textContent ?? "";
 
-// The scripted cases are Advanced-only (Desk is frozen, 2026-10-15). They
-// arrive as engine contacts; the page builds no card and runs no timer.
+// The scripted cases arrive as engine contacts; the page builds no card and
+// runs no timer.
 describe("Advanced: scripted cases from the scenario player (P0.5c)", () => {
   it("Lucas: his chat shows the setup lines, then the live ones as they play", async () => {
     await show(AgentWorkspaceAdvancedPage);
@@ -395,8 +391,11 @@ describe("Advanced: P0.5c browser-check fixes", () => {
   });
 });
 
-describe("Advanced: an approval card's decision survives a tier switch (P0.5c)", () => {
-  it("Lucas's approved card is still decided after Advanced → Desk → Advanced", async () => {
+/** Nothing: rendering it unmounts the page, keeping the provider. */
+const NoPage: PageComponent = () => null;
+
+describe("Advanced: an approval card's decision survives a remount (P0.5c)", () => {
+  it("Lucas's approved card is still decided after the page remounts", async () => {
     await show(AgentWorkspaceAdvancedPage);
     await play(LUCAS_THOMAS_SCRIPT.id);
     await advance(14_000);
@@ -412,7 +411,7 @@ describe("Advanced: an approval card's decision survives a tier switch (P0.5c)",
       await vi.advanceTimersByTimeAsync(200);
       await answered;
     });
-    await show(AgentWorkspace2WithDeskPage);
+    await show(NoPage);
     await show(AgentWorkspaceAdvancedPage);
     await click(navCard("Lucas Thomas"));
     expect(bodyText()).toContain("Exception approved");
@@ -420,15 +419,16 @@ describe("Advanced: an approval card's decision survives a tier switch (P0.5c)",
   });
 });
 
-describe("tier switch", () => {
-  it("Desk → Advanced: a carried-over chat shows once, never also in the docked preview", async () => {
-    await show(AgentWorkspace2WithDeskPage);
+describe("remount", () => {
+  it("a carried-over chat shows once, never also in the docked preview", async () => {
+    await show(AgentWorkspaceAdvancedPage);
     const id = await startInbound("chat", "priya.shah@example.com", "Priya Shah");
     await accept(id);
     await click(navCard("Priya Shah"));
 
+    await show(NoPage);
     await show(AgentWorkspaceAdvancedPage);
-    // The carried-over card isn't selected on this page yet; the agent
+    // The carried-over card isn't selected on the remounted page yet; the agent
     // selects it through its chat row. That switches to the card (the chat
     // is its main-column thread) and used to also open the same chat in the
     // docked channel preview.

@@ -61,8 +61,8 @@ export function useResetSettings(): () => void {
 }
 
 /** Writes the stored theme to `<html data-theme>` once at boot, before the
- *  first render, so anything that reads the attribute while rendering (Desk's
- *  own toggle) starts right. */
+ *  first render, so anything that reads the attribute while rendering starts
+ *  right. */
 export function applyStoredTheme() {
   document.documentElement.setAttribute("data-theme", getSettingsStore().getState().values.appearance.theme);
 }
