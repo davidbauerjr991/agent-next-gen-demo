@@ -201,7 +201,6 @@ import {
   ChannelThreadComposer,
   threadAcceptsReplies,
   type CopilotComposerProps,
-  AsyncChannelSlideOut,
   ConfirmCloseDialog,
   useChannelSync,
   enabledChannelOptions,
@@ -3085,7 +3084,9 @@ export function AgentWorkspaceAdvancedPage({
   // row click on an unselected card switches to it and asks for its main
   // thread in the preview too; that request is dropped here.
   // The omnichannel layout retires the docked preview (its slide-out replaces it).
-  const channelPreviewThreadKey = omnichannel ? null : dockedPreviewKey(requestedChannelPreviewKey, activeChannelKey);
+  // The omnichannel layout's async thread shows in this same Contact Details
+  // panel (one panel implementation): its open thread is the slide-out key.
+  const channelPreviewThreadKey = omnichannel ? omni.slideOutKey : dockedPreviewKey(requestedChannelPreviewKey, activeChannelKey);
   // Looked up once here (rather than inline at the
   // `CustomerInformationSidePanel` render call site) since it now feeds
   // several of that single docked panel's own override props — see each
@@ -3774,6 +3775,7 @@ export function AgentWorkspaceAdvancedPage({
     // silently land back on whatever channel was showing instead of the
     // normal Overview tab.
     setChannelPreviewThreadKey(null);
+    if (activeInteractionId) omni.close(activeInteractionId);
     // Per later explicit request ("put the transcript and session tabs
     // into the new customer information side panel"): a closed-then-
     // reopened panel always lands back on "Details" (the accordions),
@@ -3914,6 +3916,7 @@ export function AgentWorkspaceAdvancedPage({
       setSidePanelOpen((v) => !v);
     }
     setChannelPreviewThreadKey(null);
+    if (activeInteractionId) omni.close(activeInteractionId);
     // Clicking this button always OPENS the real panel from here (it only
     // renders while closed — see the render site's own comment), which
     // unmounts the hover-preview `Popover` right along with it. Explicitly
@@ -7038,10 +7041,10 @@ export function AgentWorkspaceAdvancedPage({
                 // `handleChannelSelect`'s own doc comment), so without this
                 // the card's highlight would never move off whichever
                 // channel happened to be current when it was added.
-                const currentId =
-                  interaction.id === activeInteractionId && channelPreviewThreadKey
-                    ? channelPreviewThreadKey
-                    : (interaction.currentThreadId ?? mostRecentId);
+                // The card's current row is its main-column thread; a thread
+                // open in the right panel is highlighted too (`alwaysHighlighted`).
+                const requestedId = interaction.currentThreadId ?? mostRecentId;
+                const currentId = omnichannel ? omnichannelMainKey(interaction.threads, requestedId) ?? requestedId : requestedId;
                 // Seconds since the CUSTOMER last wrote on this channel —
                 // only meaningful (and only ever read) for a channel that's
                 // actually awaiting, which per `hasCustomerResponded` below
@@ -7435,7 +7438,10 @@ export function AgentWorkspaceAdvancedPage({
                     // with it) there.
                     outcome: outcomeConfigFor(interaction, c, "leftnav"),
                     // A live call stays blue-highlighted alongside the open chat (Lucas: John on the call).
-                    alwaysHighlighted: scenarioKeyOf(interaction.id) === LUCAS_THOMAS_ID && c.type === "voice" && !interaction.voiceCallEnded && !interaction.closed,
+                    alwaysHighlighted:
+                      (scenarioKeyOf(interaction.id) === LUCAS_THOMAS_ID && c.type === "voice" && !interaction.voiceCallEnded && !interaction.closed) ||
+                      // The thread open in the right panel is highlighted too, next to the main one.
+                      (interaction.id === activeInteractionId && (c.id ?? c.type) === channelPreviewThreadKey),
                   };
                 });
                 // Closed OR Resolved channels drop out of every card-level
@@ -8536,8 +8542,11 @@ export function AgentWorkspaceAdvancedPage({
                           // Lucas Thomas's chat lives in the main column only — its icon behaves like voice (active, no side-panel preview).
                           const isVoiceChannel = c.type === "voice" || scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID;
                           // Omnichannel: the icons are tabs — open when the thread is in the main column or the slide-out.
+                          // The icons and Contact Details are one toggle group
+                          // for the right panel: an icon is selected while its
+                          // thread is the one the panel shows.
                           const isOpen = omnichannel
-                            ? key === activeChannelKey || key === omni.slideOutKey
+                            ? channelPreviewThreadKey === key
                             : isVoiceChannel ? key === activeChannelKey : channelPreviewThreadKey === key;
                           const unreadCount =
                             omnichannel && channelTempo(c.type) === "async"
@@ -8563,6 +8572,9 @@ export function AgentWorkspaceAdvancedPage({
                           // call indicator. Every other channel keeps
                           // `meta.label` unchanged.
                           const previewLabel = c.type === "voice" ? "Voice Transcript" : meta.label;
+                          // No hover preview for a channel already open in the
+                          // panel: `openChannelHoverPreview` won't open one, and
+                          // clicking the icon closes it.
                           const hoverOpen = scenarioKeyOf(activeInteraction.id) !== LUCAS_THOMAS_ID && channelHoverPreviewKey === key;
                           // Per explicit follow-up request ("on hover for
                           // the voice, chat, sms, email channel icons in
@@ -8831,23 +8843,13 @@ export function AgentWorkspaceAdvancedPage({
                             former render of this used, so the pointer can
                             cross from this button into the popover's own
                             (portaled) content without it flickering shut. */}
-                        {/* Per explicit follow-up request ("go back to
-                            hiding the contact details button when the
-                            panel is open"): reverting the earlier explicit
-                            request ("make the contact details toggle
-                            button not disappear when it's open") this
-                            trigger's outer wrapper got — it's gated behind
-                            `!(sidePanelOpen && !channelPreviewThreadKey)`
-                            again now, same condition the hover-preview
-                            `Popover` just below already uses for its own
-                            `open` prop, so this button unmounts entirely
-                            (rather than merely losing its "selected" look)
-                            once the real Contact Details panel is the
-                            side panel's visible content. A channel preview
-                            being open instead doesn't hide it — Contact
-                            Details isn't what's showing then, so this
-                            trigger (and its own hover peek) still work. */}
-                        {!(sidePanelOpen && !channelPreviewThreadKey) && (
+                        {/* One toggle group with the channel icons for the
+                            right panel (2026-10-16, superseding "hide the
+                            contact details button when the panel is
+                            open"): it stays, shown selected while the panel
+                            shows Contact Details; its hover peek is off
+                            then (the `Popover`'s `open` below). */}
+                        {activeInteraction && (
                         <div onMouseEnter={openCustomerInfoPreview} onMouseLeave={scheduleCloseCustomerInfoPreview}>
                             <Popover
                               open={customerInfoPreviewOpen && !(sidePanelOpen && !channelPreviewThreadKey)}
@@ -9083,19 +9085,6 @@ export function AgentWorkspaceAdvancedPage({
                       `CUSTOMER_PANEL_TABS`), so this is unconditional
                       again.) */}
                   <div className="relative flex flex-1 overflow-hidden">
-                      {/* Omnichannel: the async slide-out overlays this row's right side. */}
-                      {omnichannel && (
-                        <AsyncChannelSlideOut
-                          interaction={activeInteraction}
-                          thread={activeInteraction.threads.find((t) => (t.id ?? t.type) === omni.slideOutKey) ?? null}
-                          onClose={() => omni.close(activeInteraction.id)}
-                          hideAiActions={hideAiActions}
-                          onHideAiActionsChange={setHideAiActions}
-                          onStatusChange={(status) => handleInteractionStatusChange(activeInteraction.id, omni.slideOutKey!, status)}
-                          onSend={(text) => handleSendMessage(activeInteraction.id, text, omni.slideOutKey!)}
-                          copilot={copilotComposerProps(activeInteraction.id, omni.slideOutKey ?? "")}
-                        />
-                      )}
                       <div className="flex flex-1 flex-col min-w-0 overflow-hidden" data-main-thread={activeChannelType}>
                         {isHistoryConversationView && historyConversationForActive ? (
                           /* Past-session conversation, opened as its own tab in
@@ -10428,6 +10417,9 @@ export function AgentWorkspaceAdvancedPage({
                   // `SidePanel`'s own pinned-branch outer div
                   // (side-panel.tsx), which had the identical gap.
                   className="shrink-0 h-full z-[5] animate-in fade-in-0 duration-200 delay-150 fill-mode-backwards"
+                  data-slot="right-panel"
+                  data-open={sidePanelOpen || !!channelPreviewThreadKey}
+                  data-thread={channelPreviewThread?.type ?? "details"}
                 >
                 <CustomerInformationSidePanel
                   open={sidePanelOpen || !!channelPreviewThreadKey}

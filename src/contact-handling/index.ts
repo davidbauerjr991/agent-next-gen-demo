@@ -46,7 +46,6 @@ export { ChannelThreadBody, ChannelThreadComposer, type CopilotComposerProps } f
 export { threadAcceptsReplies, threadKeyOf } from "./channel-thread";
 export { channelTempo, routeChannel, mainThreadKey, omnichannelMainKey, type ChannelRoute } from "./omnichannel";
 export { useOmnichannelLayout, type OmnichannelLayout } from "./useOmnichannelLayout";
-export { AsyncChannelSlideOut } from "./AsyncChannelSlideOut";
 export { ConfirmCloseDialog } from "./ConfirmCloseDialog";
 export { useChannelSync } from "./useChannelSync";
 export { channelOn, enabledChannelOptions, historyOnChannels, withEnabledChannels } from "./channel-gates";

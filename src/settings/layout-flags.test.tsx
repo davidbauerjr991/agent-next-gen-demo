@@ -193,10 +193,26 @@ describe("Apps placed in the left nav open as pages", () => {
 
 describe("Omnichannel layout (assignments.omnichannel)", () => {
   const priya = CREATE_NEW_CUSTOMERS.find((c) => c.id === "priya-shah-history")!;
-  const slideOut = () => h.container.querySelector("[data-slot=async-slideout]");
+  /** What the right panel (Contact Details' panel) shows: a thread type, "details", or null when closed. */
+  const panelShows = () => {
+    const panel = h.container.querySelector("[data-slot=right-panel]");
+    return panel?.getAttribute("data-open") === "true" ? panel.getAttribute("data-thread") : null;
+  };
   const mainThread = () => h.container.querySelector("[data-main-thread]")?.getAttribute("data-main-thread");
   const headerIcon = (label: string) =>
     h.container.querySelector<HTMLElement>(`[aria-label="Open ${label} preview"], [aria-label="Close ${label} preview"]`);
+  const contactDetailsButton = () =>
+    [...h.container.querySelectorAll<HTMLElement>("button[aria-label]")].find((b) => /Contact Details$/.test(b.getAttribute("aria-label")!))!;
+  /** The right panel's toggle group (the channel icons and Contact Details): which are pressed. */
+  const pressed = () =>
+    [headerIcon("Email"), contactDetailsButton()].filter((b) => b?.getAttribute("aria-pressed") === "true").map((b) =>
+      b === contactDetailsButton() ? "Contact Details" : "Email",
+    );
+  /** Highlighted (blue) channel rows in the left nav (only the active card highlights rows). */
+  const highlightedRows = () =>
+    [...h.container.querySelectorAll("aside [aria-label$=' channel'], aside [aria-label*=' channel,']")].filter((row) =>
+      row.closest(".bg-lyra-status-info-subtle"),
+    ).length;
 
   /** Priya's card with an inbound call and an email sent into the same
    *  journey (the sim has no inbound email), the card selected. */
@@ -216,23 +232,48 @@ describe("Omnichannel layout (assignments.omnichannel)", () => {
     await h.click(h.navCard(priya.name));
   }
 
-  it("voice + email: the email opens in the slide-out, the call stays in the main column", async () => {
+  it("voice + email: the email opens in the right panel (Contact Details' panel), the call stays in the main column", async () => {
     await voiceAndEmail();
     await setSettings("assignments", { omnichannel: true });
     expect(mainThread()).toBe("voice");
-    expect(slideOut()?.getAttribute("data-thread")).toBeFalsy();
+    expect(panelShows()).toBeNull();
     await h.click(headerIcon("Email")!);
-    expect(slideOut()?.getAttribute("data-thread")).toBe("email");
-    expect(slideOut()?.textContent).toContain("Coming soon");
+    expect(panelShows()).toBe("email");
+    expect(h.container.querySelector("[data-slot=right-panel]")?.textContent).toContain("Coming soon");
     expect(mainThread()).toBe("voice");
     // The same icon closes it.
     await h.click(headerIcon("Email")!);
-    expect(slideOut()?.getAttribute("data-thread")).toBeFalsy();
+    expect(panelShows()).toBeNull();
   });
 
-  it("off: no slide-out; the newest thread (the email) takes the main column, as before", async () => {
+  it("the channel icons and Contact Details are one toggle group: exactly one pressed, the panel follows", async () => {
     await voiceAndEmail();
-    expect(slideOut()).toBeNull();
+    await setSettings("assignments", { omnichannel: true });
+    expect(pressed()).toEqual([]);
+    await h.click(headerIcon("Email")!);
+    expect(pressed()).toEqual(["Email"]);
+    expect(panelShows()).toBe("email");
+    await h.click(contactDetailsButton());
+    expect(pressed()).toEqual(["Contact Details"]);
+    expect(panelShows()).toBe("details");
+    await h.click(headerIcon("Email")!);
+    expect(pressed()).toEqual(["Email"]);
+    expect(panelShows()).toBe("email");
+  });
+
+  it("the open async thread's nav row is highlighted next to the main row; closing clears it", async () => {
+    await voiceAndEmail();
+    await setSettings("assignments", { omnichannel: true });
+    expect(highlightedRows()).toBe(1);
+    await h.click(headerIcon("Email")!);
+    expect(highlightedRows()).toBe(2);
+    await h.click(headerIcon("Email")!);
+    expect(highlightedRows()).toBe(1);
+  });
+
+  it("off: the newest thread (the email) takes the main column, as before", async () => {
+    await voiceAndEmail();
+    expect(panelShows()).toBeNull();
     expect(mainThread()).toBe("email");
     // Turning it on moves the email out of the main column.
     await setSettings("assignments", { omnichannel: true });
@@ -246,9 +287,9 @@ describe("Omnichannel layout (assignments.omnichannel)", () => {
     await setSettings("channels", { chat: true });
     await h.accept(await h.startInbound("chat", "dan.ortiz@example.com", "Dan Ortiz"));
     await h.click(h.navCard("Dan Ortiz"));
-    expect(slideOut()?.getAttribute("data-thread")).toBeFalsy();
+    expect(panelShows()).not.toBe("email");
     await h.click(h.navCard(priya.name));
-    expect(slideOut()?.getAttribute("data-thread")).toBe("email");
+    expect(panelShows()).toBe("email");
   });
 
   it("Phase 2 profile: Home tabs and the omnichannel slide-out together", async () => {
@@ -262,7 +303,7 @@ describe("Omnichannel layout (assignments.omnichannel)", () => {
     expect(homeTabLabels()).toEqual(["Dashboard", "Customers", "Accounts", "Tickets"]);
     await h.click(h.navCard(priya.name));
     await h.click(headerIcon("Email")!);
-    expect(slideOut()?.getAttribute("data-thread")).toBe("email");
+    expect(panelShows()).toBe("email");
     expect(mainThread()).toBe("voice");
   });
 });
