@@ -315,6 +315,33 @@ describe("AI: display location", () => {
   });
 });
 
+describe("Reset to defaults", () => {
+  it("confirms in a lyra alert dialog: Cancel keeps the settings, Reset restores the defaults", async () => {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await setSettings("voice", { controlsLocation: "top" });
+    await openSettings();
+    const dialog = () => document.body.querySelector('[role="alertdialog"]');
+    expect(dialog()).toBeNull();
+    // The button sits in the Settings page header, before every section.
+    const resetButton = () => h.buttonByText("Reset to defaults", h.container)!;
+    const firstSection = h.container.querySelector("[data-testid=settings-view] fieldset")!;
+    expect(isBefore(resetButton(), firstSection)).toBe(true);
+    expect(h.container.querySelector("[data-testid=settings-view]")!.contains(resetButton())).toBe(false);
+
+    await h.click(resetButton());
+    expect(dialog()!.textContent).toContain("Reset to defaults?");
+    await h.click(h.buttonByText("Cancel", dialog()!)!);
+    expect(dialog()).toBeNull();
+    expect(store().getState().values.voice.controlsLocation).toBe("top");
+
+    await h.click(resetButton());
+    await h.click(h.buttonByText("Reset", dialog()!)!);
+    expect(dialog()).toBeNull();
+    expect(store().getState().values.voice.controlsLocation).toBe("bottom");
+    expect(localStorage.getItem(sectionStorageKey("voice"))).toBeNull();
+  });
+});
+
 describe("Appearance: dark mode", () => {
   it("the Settings page's switch sets <html data-theme>, and a fresh start keeps it", async () => {
     await h.render(<AdvancedWithTheme />);

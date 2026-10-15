@@ -9,13 +9,14 @@ import {
   Checkbox,
   Input,
   PageHeader,
-  Popover,
+  Modal,
   RadioGroup,
   RadioGroupItem,
   Select,
   Switch,
   Tag,
   Tooltip,
+  WarningIcon,
 } from "@nicecxone/lyra-ui";
 import { readSimLatency, useProviderKind } from "@/provider-context";
 import {
@@ -131,7 +132,18 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
 
   return (
     <>
-      {showPageHeader && <PageHeader title="Settings" />}
+      {showPageHeader && (
+        <PageHeader
+          title="Settings"
+          // In the header's action slot, reachable without scrolling; opens
+          // the confirm dialog below.
+          actions={
+            <Button variant="outline" onClick={() => setResetOpen(true)}>
+              Reset to defaults
+            </Button>
+          }
+        />
+      )}
       <div className="flex-1 overflow-y-auto p-6" data-testid="settings-view">
         <Section title="Workspace preset">
           <div className="max-w-xs">
@@ -365,38 +377,45 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
           </div>
         </Section>
 
-        <div className="mt-8 flex justify-end">
-          <Popover
-            open={resetOpen}
-            onOpenChange={setResetOpen}
-            placement="top"
-            align="end"
-            title="Reset to defaults?"
-            content={
-              <p className="lyra-body-md text-lyra-fg-default">
-                Every setting on this page goes back to its default (Phase 1). This can't be undone.
-              </p>
-            }
-            footer={
-              <div className="flex items-center justify-end gap-2">
-                <Button variant="outline" size="md" onClick={() => setResetOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  size="md"
-                  onClick={() => {
-                    resetSettings();
-                    setResetOpen(false);
-                  }}
-                >
-                  Reset
-                </Button>
-              </div>
-            }
-          >
-            <Button variant="outline">Reset to defaults</Button>
-          </Popover>
-        </div>
+        {/* lyra `Modal` as an alert dialog — same shape as its "Alert Dialog
+            (Destructive)" story (Modal.variants.stories.tsx): header title +
+            warning icon, footer buttons through `footerActions` (lyra's
+            `ContainerFooter` spaces them), focus starting on Cancel
+            (`data-modal-cancel`). The body wrapper and the 360px width are
+            the story's own (`ToneContent`, `widths.sm`): `Modal` has no body
+            slot of its own. */}
+        <Modal
+          open={resetOpen}
+          onClose={() => setResetOpen(false)}
+          closeOnBackdropClick
+          alert
+          description="Every setting on this page goes back to its default."
+          headerTitle="Reset to defaults?"
+          headerIcon={<WarningIcon className="h-5 w-5" />}
+          footerActions={
+            <>
+              <Button variant="outline" data-modal-cancel onClick={() => setResetOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  resetSettings();
+                  setResetOpen(false);
+                }}
+              >
+                Reset
+              </Button>
+            </>
+          }
+          className="w-[360px]"
+        >
+          <div className="flex flex-col gap-2 px-5 pb-2">
+            <p className="lyra-body-md text-lyra-fg-default">
+              Every setting on this page goes back to its default (Phase 1). This can't be undone.
+            </p>
+          </div>
+        </Modal>
       </div>
     </>
   );
