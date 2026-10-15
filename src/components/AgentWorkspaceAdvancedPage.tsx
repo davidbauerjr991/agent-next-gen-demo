@@ -640,6 +640,22 @@ function LeftNavFooterSpacer({ expanded, children }: { expanded?: boolean; child
   return <div className="w-full pt-2">{expanded === undefined ? children : React.cloneElement(children, { expanded })}</div>;
 }
 
+/** Stacks the left-nav footer's pieces (the rail, then New Outbound) in a
+ *  column: lyra's footer slot is a centered flex row, so loose siblings sit
+ *  side by side. Forwards the overlay hover's `expanded` to each child, as
+ *  lyra's `injectExpanded` would for top-level children. */
+function LeftNavFooterColumn({ expanded, children }: { expanded?: boolean; children: React.ReactNode }) {
+  return (
+    <div data-slot="left-nav-footer" className="flex w-full flex-col">
+      {expanded === undefined
+        ? children
+        : React.Children.map(children, (child) =>
+            React.isValidElement(child) ? React.cloneElement(child as React.ReactElement<{ expanded?: boolean }>, { expanded }) : child
+          )}
+    </div>
+  );
+}
+
 // Wraps a single `InteractionNavItem` (plus its collapsed-rail-only
 // `CollapsedChannelBadge` overlay) behind ONE stable top-level element,
 // rather than the `.map()` callback below returning two structurally
@@ -6899,13 +6915,16 @@ export function AgentWorkspaceAdvancedPage({
             // under it (v3 f0b13dc).
             // Order: Home, (left-nav apps,) Settings, then New Outbound,
             // full width with the rail's spacing above it.
-            // Top-level children only (no wrapper div), so the overlay
-            // hover's `expanded` reaches the rail and the launcher.
-            !navItemsAtTop || newOutboundAtBottom ? (
-              <>
+            // With the launcher at the bottom, a column wrapper stacks it
+            // under the rail (lyra's footer slot is a row) and forwards the
+            // overlay hover's `expanded` to both.
+            newOutboundAtBottom ? (
+              <LeftNavFooterColumn>
                 {!navItemsAtTop && <NavRail expanded={navOpen} items={navRailItems} />}
-                {newOutboundAtBottom && <LeftNavFooterSpacer>{newOutboundLauncher}</LeftNavFooterSpacer>}
-              </>
+                <LeftNavFooterSpacer>{newOutboundLauncher}</LeftNavFooterSpacer>
+              </LeftNavFooterColumn>
+            ) : !navItemsAtTop ? (
+              <NavRail expanded={navOpen} items={navRailItems} />
             ) : undefined
           }
           // "New Outbound" itself has moved several times now: started as

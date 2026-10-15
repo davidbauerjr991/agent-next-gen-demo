@@ -213,6 +213,13 @@ describe("Assignments: left nav", () => {
     expect(launchers).toHaveLength(1);
     expect(isBefore(navItem("Home"), navItem("Settings"))).toBe(true);
     expect(isBefore(navItem("Settings"), newOutbound())).toBe(true);
+    // Stacked, not side by side: both sit in the footer's own column (lyra's
+    // footer slot is a flex row). The geometry is checked in Chrome
+    // (e2e/left-nav-footer.spec.ts); jsdom has no layout.
+    const column = h.container.querySelector("aside [data-slot=left-nav-footer]");
+    expect(column?.classList.contains("flex-col")).toBe(true);
+    expect(column?.contains(navItem("Settings"))).toBe(true);
+    expect(column?.contains(newOutbound())).toBe(true);
     // Still below the rail with the rail's items at the top: the footer holds only the launcher.
     await setSettings("assignments", { navItemsAtTop: true });
     expect(isBefore(navItem("Settings"), newOutbound())).toBe(true);
