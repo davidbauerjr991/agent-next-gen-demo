@@ -3745,25 +3745,33 @@ export function DetailsPanelAccordions({
   const scrollerRef = useRef<HTMLElement | null>(null);
   const stickToBottom = useRef(true);
   const aiDocked = !!aiFeed;
+  /** Where our own last scroll put the body (see `onScroll` below). */
+  const programmaticTop = useRef<number | null>(null);
+  const followToBottom = () => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    scroller.scrollTop = scroller.scrollHeight;
+    programmaticTop.current = scroller.scrollTop;
+  };
   useLayoutEffect(() => {
     if (!aiDocked) return;
     // The panel's own scroll container (`PanelContent`), else this root.
     const scroller = rootRef.current?.parentElement?.closest<HTMLElement>(".overflow-y-auto") ?? rootRef.current;
     if (!scroller) return;
     scrollerRef.current = scroller;
-    scroller.scrollTop = scroller.scrollHeight;
+    followToBottom();
     stickToBottom.current = true;
-    // Only the agent scrolling UP stops following; reaching the bottom starts
-    // it again. Content growing never lowers scrollTop, and the scroll event
-    // for our own scroll can arrive after the content has already grown
-    // (which used to read as "no longer at the bottom" and stop following).
-    let lastTop = scroller.scrollTop;
+    // A scroll the agent makes sets following to "at the bottom?". The scroll
+    // event of our OWN scroll (`followToBottom`, recognized by the position
+    // it asked for) is ignored: it can arrive after the content has already
+    // grown, and would otherwise read as "no longer at the bottom".
     const onScroll = () => {
       const top = scroller.scrollTop;
-      const atBottom = scroller.scrollHeight - top - scroller.clientHeight <= AI_FEED_NEAR_BOTTOM_PX;
-      if (atBottom) stickToBottom.current = true;
-      else if (top < lastTop - 1) stickToBottom.current = false;
-      lastTop = top;
+      const ours = programmaticTop.current !== null && Math.abs(top - programmaticTop.current) <= 1;
+      // One event per scroll of ours: the next one is the agent's again.
+      programmaticTop.current = null;
+      if (ours) return;
+      stickToBottom.current = scroller.scrollHeight - top - scroller.clientHeight <= AI_FEED_NEAR_BOTTOM_PX;
     };
     scroller.addEventListener("scroll", onScroll);
     // While following, keep following as the content grows after the fact
@@ -3772,7 +3780,7 @@ export function DetailsPanelAccordions({
     // bottom (browser-verified, e2e/ai-panel-follow.spec.ts).
     const content = rootRef.current;
     const ro = new ResizeObserver(() => {
-      if (stickToBottom.current) scroller.scrollTop = scroller.scrollHeight;
+      if (stickToBottom.current) followToBottom();
     });
     if (content) ro.observe(content);
     return () => {
@@ -3783,7 +3791,7 @@ export function DetailsPanelAccordions({
   useLayoutEffect(() => {
     const scroller = scrollerRef.current;
     if (!aiDocked || !scroller || !stickToBottom.current) return;
-    scroller.scrollTop = scroller.scrollHeight;
+    followToBottom();
   }, [aiDocked, aiFeedCount]);
   // An action the agent just took (a card's decision controls, marked
   // `data-ai-action`, or the docked composer: `followSignal`) always scrolls
@@ -3794,7 +3802,7 @@ export function DetailsPanelAccordions({
     const scroller = scrollerRef.current;
     if (!aiDocked || !scroller || (agentActionTick === 0 && !followSignal)) return;
     stickToBottom.current = true;
-    scroller.scrollTop = scroller.scrollHeight;
+    followToBottom();
   }, [aiDocked, agentActionTick, followSignal]);
   const onFeedClickCapture = (e: React.MouseEvent) => {
     if ((e.target as Element).closest("[data-ai-action]")) setAgentActionTick((t) => t + 1);

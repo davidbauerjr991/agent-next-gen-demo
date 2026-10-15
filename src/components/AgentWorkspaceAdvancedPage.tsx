@@ -6458,8 +6458,11 @@ export function AgentWorkspaceAdvancedPage({
   // overview (the AI feed): not on Session Details, Customer Info,
   // Experience Memory or Artifacts, not over a channel preview, and not
   // while a card link's sub-page is open.
-  const copilotDockShown =
-    aiInPanel && customerPanelActiveTab === "Details" && !channelPreviewThread && !selectedDetailPanelContent;
+  const copilotDockShown = aiInPanel && customerPanelActiveTab === "Details" && !channelPreviewThread;
+  // While a card link's slide-over is open over the Overview, the composer is
+  // hidden but keeps its place (`invisible` + `inert`): unmounting it would
+  // grow the body and move its scroll position behind the slide-over.
+  const copilotDockConcealed = !!selectedDetailPanelContent;
   const copilotDock = aiInPanel ? { mount: copilotDockShown ? copilotDockEl : null } : undefined;
   // "AI in panel": Overview holds Customer Info (plus the AI feed: the
   // Autosummary, approvals, Next Best Action); the Session tab holds the
@@ -11019,7 +11022,12 @@ export function AgentWorkspaceAdvancedPage({
                         // The inline composer's own top fade (`ComposerFade`),
                         // into the panel's background, so the cards scroll
                         // under it instead of stopping at a hard edge.
-                        <PanelFooter align="full" scrollShadow={false} className="relative">
+                        <PanelFooter
+                          align="full"
+                          scrollShadow={false}
+                          className={cn("relative", copilotDockConcealed && "invisible")}
+                          inert={copilotDockConcealed || undefined}
+                        >
                           <ComposerFade toClassName="to-lyra-bg-surface-container-subtle" />
                           <div ref={setCopilotDockEl} data-slot="copilot-dock" className="w-full" />
                         </PanelFooter>
