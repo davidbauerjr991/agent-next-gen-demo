@@ -371,8 +371,10 @@ describe("AI display panel: docked Copilot composer", () => {
     Object.defineProperty(el, "scrollTop", { configurable: true, get: () => scrollTop, set: (v: number) => (scrollTop = v) });
     const feedItems = () => document.body.querySelector("[data-slot=ai-feed]")!.querySelectorAll(":scope > div > *").length;
 
-    // Scrolled up: the script's next AI items (the approval request) arrive
-    // and the scroll position is left alone.
+    // Scrolled up (from the bottom, where the panel opens): the script's next
+    // AI items (the approval request) arrive and the position is left alone.
+    scrollTop = scrollHeight - 400;
+    el.dispatchEvent(new Event("scroll"));
     scrollTop = 100;
     el.dispatchEvent(new Event("scroll"));
     const before = feedItems();
@@ -401,7 +403,10 @@ describe("AI display panel: docked Copilot composer", () => {
     Object.defineProperty(el, "scrollHeight", { configurable: true, get: () => scrollHeight });
     Object.defineProperty(el, "clientHeight", { configurable: true, get: () => 400 });
     Object.defineProperty(el, "scrollTop", { configurable: true, get: () => scrollTop, set: (v: number) => (scrollTop = v) });
+    // The agent scrolls up to the top from the bottom.
     const scrollToTop = () => {
+      scrollTop = scrollHeight - 400;
+      el.dispatchEvent(new Event("scroll"));
       scrollTop = 0;
       el.dispatchEvent(new Event("scroll"));
     };

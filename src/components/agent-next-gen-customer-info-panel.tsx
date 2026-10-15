@@ -3753,11 +3753,32 @@ export function DetailsPanelAccordions({
     scrollerRef.current = scroller;
     scroller.scrollTop = scroller.scrollHeight;
     stickToBottom.current = true;
+    // Only the agent scrolling UP stops following; reaching the bottom starts
+    // it again. Content growing never lowers scrollTop, and the scroll event
+    // for our own scroll can arrive after the content has already grown
+    // (which used to read as "no longer at the bottom" and stop following).
+    let lastTop = scroller.scrollTop;
     const onScroll = () => {
-      stickToBottom.current = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight <= AI_FEED_NEAR_BOTTOM_PX;
+      const top = scroller.scrollTop;
+      const atBottom = scroller.scrollHeight - top - scroller.clientHeight <= AI_FEED_NEAR_BOTTOM_PX;
+      if (atBottom) stickToBottom.current = true;
+      else if (top < lastTop - 1) stickToBottom.current = false;
+      lastTop = top;
     };
     scroller.addEventListener("scroll", onScroll);
-    return () => scroller.removeEventListener("scroll", onScroll);
+    // While following, keep following as the content grows after the fact
+    // (an approval option's revealed content animates its height open; cards
+    // expand): scrolling once, when the change commits, lands on the old
+    // bottom (browser-verified, e2e/ai-panel-follow.spec.ts).
+    const content = rootRef.current;
+    const ro = new ResizeObserver(() => {
+      if (stickToBottom.current) scroller.scrollTop = scroller.scrollHeight;
+    });
+    if (content) ro.observe(content);
+    return () => {
+      scroller.removeEventListener("scroll", onScroll);
+      ro.disconnect();
+    };
   }, [aiDocked]);
   useLayoutEffect(() => {
     const scroller = scrollerRef.current;
