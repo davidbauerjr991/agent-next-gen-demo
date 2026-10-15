@@ -5,13 +5,13 @@ export {
   useSettings,
   useSetting,
   useSectionStored,
-  useWorkspacePreset,
-  pickPreset,
+  useWorkspaceProfile,
+  applyProfile,
   useResetSettings,
   useApplyTheme,
   applyStoredTheme,
 } from "./hooks";
-export { PRESET_LABELS, type PresetId, type WorkspacePreset } from "./presets";
+export { PROFILE_LABELS, type ProfileId, type WorkspaceProfile } from "./profiles";
 export { pinnedKeysFromHeader, leftNavKeysFromHeader, headerPatchForPin, type HeaderPanelKey } from "./header-pins";
 export {
   EXTRA_HEADER_APPS,

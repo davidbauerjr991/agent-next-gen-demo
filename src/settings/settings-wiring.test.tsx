@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 // Settings → workspace wiring (P-SETTINGS): one test per ported setting,
-// proving it changes Advanced (or the launch screen), plus the presets as the
+// proving it changes Advanced (or the launch screen), plus the profiles as the
 // app menu and the Settings page pick them.
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,7 +10,7 @@ import { LoginPage } from "@/components/LoginPage";
 import { buildAppMenuGroups } from "@/components/agent-next-gen-outbound-data";
 import { LUCAS_THOMAS_SCRIPT, MARCUS_WEBB_SCRIPT } from "@/scenarios";
 import { applyStoredTheme, useApplyTheme } from "./hooks";
-import { derivePreset } from "./presets";
+import { deriveProfile } from "./profiles";
 import { getSettingsStore, resetSettingsStoreForTests, sectionStorageKey } from "./settings-store";
 import type { AppPlacement, SectionKey, SettingsState } from "./settings-schema";
 
@@ -40,7 +40,7 @@ afterEach(async () => {
 });
 
 const store = () => getSettingsStore();
-const preset = () => derivePreset(store().getState().values);
+const profile = () => deriveProfile(store().getState().values);
 
 async function setSettings<K extends SectionKey>(section: K, patch: Partial<SettingsState[K]>) {
   await act(async () => {
@@ -708,23 +708,28 @@ describe("Launch screen: phone setup and Save Preferences", () => {
   });
 });
 
-describe("Workspace preset", () => {
-  it("app menu: Phase 2 picks the preset and opens Desk; Phase 1 picks it and opens Advanced", () => {
+describe("Workspace profile", () => {
+  it("app menu: Phase 2 applies the profile and opens Desk; Phase 1 applies it and opens Advanced", () => {
     const onNavigate = vi.fn();
     const [phase1, phase2] = buildAppMenuGroups(onNavigate, "agent-advanced")[0].items;
     phase2.onClick?.();
-    expect(preset()).toBe("phase2");
+    expect(profile()).toBe("phase2");
     expect(store().getState().values.assignments.omnichannel).toBe(true);
     expect(onNavigate).toHaveBeenLastCalledWith("agent-with-desk");
     phase1.onClick?.();
-    expect(preset()).toBe("phase1");
+    expect(profile()).toBe("phase1");
     expect(onNavigate).toHaveBeenLastCalledWith("agent-advanced");
   });
 
-  it("Advanced's app name follows the preset, and Custom shows when one flag changes", async () => {
+  it("Advanced's app name follows the profile, and Custom shows when any setting changes", async () => {
     await h.show(AgentWorkspaceAdvancedPage);
     expect(h.container.textContent).toContain("Agent Workspace 2.0 | Phase 1");
     await setSettings("header", { showAppIcons: true });
+    expect(h.container.textContent).toContain("Agent Workspace 2.0 | Custom");
+    await setSettings("header", { showAppIcons: false });
+    expect(h.container.textContent).toContain("Agent Workspace 2.0 | Phase 1");
+    // Every section is part of a profile, personal ones included.
+    await setSettings("appearance", { theme: "dark" });
     expect(h.container.textContent).toContain("Agent Workspace 2.0 | Custom");
   });
 });

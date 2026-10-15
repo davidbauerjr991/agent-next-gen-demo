@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
-import { derivePreset, presetPatches, type PresetId, type WorkspacePreset } from "./presets";
+import { deriveProfile, profileValues, type ProfileId, type WorkspaceProfile } from "./profiles";
 import type { SectionKey, SettingsState } from "./settings-schema";
 import { getSettingsStore, type SectionPatch, type SettingsStoreState, type UpdateOptions } from "./settings-store";
 
@@ -45,14 +45,15 @@ export function useSectionStored(section: SectionKey): boolean {
   return useSettingsSelector(useCallback((state: SettingsStoreState) => state.stored[section], [section]));
 }
 
-export function pickPreset(id: PresetId) {
-  getSettingsStore().updateMany(presetPatches(id));
+/** Writes every section of a built-in profile. */
+export function applyProfile(id: ProfileId) {
+  getSettingsStore().updateMany(profileValues(id));
 }
 
-/** The derived workspace preset and a picker. */
-export function useWorkspacePreset(): { preset: WorkspacePreset; pick: (id: PresetId) => void } {
-  const preset = useSettingsSelector(useCallback((state: SettingsStoreState) => derivePreset(state.values), []));
-  return { preset, pick: pickPreset };
+/** The derived workspace profile and how to apply one. */
+export function useWorkspaceProfile(): { profile: WorkspaceProfile; apply: (id: ProfileId) => void } {
+  const profile = useSettingsSelector(useCallback((state: SettingsStoreState) => deriveProfile(state.values), []));
+  return { profile, apply: applyProfile };
 }
 
 export function useResetSettings(): () => void {

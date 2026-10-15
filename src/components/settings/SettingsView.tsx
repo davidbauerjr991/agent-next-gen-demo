@@ -1,7 +1,7 @@
 // Settings page (P-SETTINGS). Every control reads and writes the settings
 // store through hooks and applies immediately; there's no save button.
 // Settings with no target in the workspace yet stay toggleable (they count
-// toward the preset) and carry a tag saying which step brings them.
+// toward the profile) and carry a tag saying which step brings them.
 import * as React from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import {
@@ -24,11 +24,11 @@ import { readSimLatency, useProviderKind } from "@/provider-context";
 import {
   EXTRA_HEADER_APPS,
   HOME_QUEUE_CHANNELS,
-  PRESET_LABELS,
+  PROFILE_LABELS,
   SEAMS,
   useResetSettings,
   useSettings,
-  useWorkspacePreset,
+  useWorkspaceProfile,
   type AgentChatDisplay,
   type AppDisplay,
   type AppPlacement,
@@ -36,7 +36,7 @@ import {
   type HomeQueueChannel,
   type HomeSectionKey,
   type PhoneSetup,
-  type PresetId,
+  type ProfileId,
   type SeamId,
 } from "@/settings";
 
@@ -139,15 +139,15 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
   const [phone, updatePhone] = useSettings("phone");
   const [appearance, updateAppearance] = useSettings("appearance");
   const [connections] = useSettings("connections");
-  const { preset, pick } = useWorkspacePreset();
+  const { profile, apply } = useWorkspaceProfile();
   const resetSettings = useResetSettings();
   const [resetOpen, setResetOpen] = React.useState(false);
   const providerKind = useProviderKind();
 
-  const presetOptions = [
-    { value: "phase1", label: PRESET_LABELS.phase1 },
-    { value: "phase2", label: PRESET_LABELS.phase2 },
-    ...(preset === "custom" ? [{ value: "custom", label: PRESET_LABELS.custom, disabled: true }] : []),
+  const profileOptions = [
+    { value: "phase1", label: PROFILE_LABELS.phase1 },
+    { value: "phase2", label: PROFILE_LABELS.phase2 },
+    ...(profile === "custom" ? [{ value: "custom", label: PROFILE_LABELS.custom, disabled: true }] : []),
   ];
 
   const phoneDigits = phone.phoneNumber.replace(/\D/g, "").length;
@@ -175,20 +175,21 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
         />
       )}
       <div className="flex-1 overflow-y-auto p-6" data-testid="settings-view">
-        <Section title="Workspace preset">
+        <Section title="Workspace profile">
           <div className="max-w-xs">
             <Select
-              label="Preset"
-              options={presetOptions}
-              value={preset}
+              label="Profile"
+              options={profileOptions}
+              value={profile}
               onValueChange={(value) => {
-                if (value === "phase1" || value === "phase2") pick(value as PresetId);
+                if (value === "phase1" || value === "phase2") apply(value as ProfileId);
               }}
             />
           </div>
           <p className="lyra-body-sm text-lyra-fg-secondary">
-            Phase 2 turns on the header apps (Customers, Accounts and Tickets as Home tabs; Schedule and WEM in the
-            header) and the omnichannel layout. Changing any one of them shows Custom.
+            A profile sets every setting on this page. Phase 1 is the defaults; Phase 2 adds the header apps
+            (Customers, Accounts and Tickets as Home tabs; Schedule and WEM in the header) and the omnichannel layout.
+            Changing any setting shows Custom.
           </p>
         </Section>
 

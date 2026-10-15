@@ -26,7 +26,7 @@ export interface SettingsStore {
   getState(): SettingsStoreState;
   subscribe(listener: () => void): () => void;
   update<K extends SectionKey>(section: K, patch: SectionPatch<K>, options?: UpdateOptions): void;
-  /** Several sections in one notification (a preset pick). */
+  /** Several sections in one notification (applying a profile). */
   updateMany(patches: { [K in SectionKey]?: Partial<SettingsState[K]> }): void;
   /** Removes every stored settings key and restores the defaults. */
   resetAll(): void;

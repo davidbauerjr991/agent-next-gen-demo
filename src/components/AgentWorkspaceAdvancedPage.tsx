@@ -261,7 +261,7 @@ import {
 } from "@/contact-handling/scenario-cases";
 import { useCopilotAsk, useCopilotResultTimer } from "@/contact-handling/useCopilotAsk";
 import { usePresenceSync } from "@/contact-handling/usePresenceSync";
-import { PRESET_LABELS, headerPatchForPin, leftNavKeysFromHeader, pinnedKeysFromHeader, useSettings, useWorkspacePreset } from "@/settings";
+import { PROFILE_LABELS, headerPatchForPin, leftNavKeysFromHeader, pinnedKeysFromHeader, useSettings, useWorkspaceProfile } from "@/settings";
 import { SettingsView } from "@/components/settings/SettingsView";
 import { LUCAS_THOMAS_SCRIPT, MAYA_CHEN_SCRIPT, TOM_LEWIS_SCRIPT } from "@/scenarios";
 import {
@@ -2890,8 +2890,8 @@ export function AgentWorkspaceAdvancedPage({
   const [appearance, updateAppearance] = useSettings("appearance");
   const darkMode = appearance.theme === "dark";
   const handleDarkModeToggle = () => updateAppearance({ theme: darkMode ? "light" : "dark" });
-  const { preset: workspacePreset } = useWorkspacePreset();
-  const appDisplayName = `Agent Workspace 2.0 | ${PRESET_LABELS[workspacePreset]}`;
+  const { profile: workspaceProfile } = useWorkspaceProfile();
+  const appDisplayName = `Agent Workspace 2.0 | ${PROFILE_LABELS[workspaceProfile]}`;
 
   const appMenuGroups = buildAppMenuGroups((page) => {
     setAppMenuOpen(false);

@@ -8,7 +8,7 @@ import { type AppMenuGroup, type CreateNewOutboundConfig, type CreateNewOutbound
 import { CREATE_NEW_AGENTS } from "@nicecxone/lyra-ui/agents-data";
 import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
 import type { ReactNode } from "react";
-import { pickPreset } from "@/settings";
+import { applyProfile } from "@/settings";
 import { Phone, Mail, MessageSquare, MessageCircle, User, Headphones, Share2, Users, LayoutGrid, Star, Building2 } from "lucide-react";
 
 /* ── Category icons ──
@@ -124,9 +124,9 @@ function randomAvatarClassName(seed: string): string {
 // remaining pages always works, per an earlier explicit request ("allow
 // the agent to click back to normal Agent Workspace 2.0").
 //
-// P-SETTINGS: each entry also picks its workspace preset. Until P0.5d.2
+// P-SETTINGS: each entry also applies its workspace profile. Until P0.5d.2
 // deletes Desk, "Phase 2" still opens Desk (`#/agent-premium`); afterwards
-// both entries stay on the one workspace and only pick the preset.
+// both entries stay on the one workspace and only apply the profile.
 export function buildAppMenuGroups(onNavigate: ((page: Page) => void) | undefined, currentPage: Page): AppMenuGroup[] {
   return [
     {
@@ -135,7 +135,7 @@ export function buildAppMenuGroups(onNavigate: ((page: Page) => void) | undefine
           label: "Agent Workspace 2.0 | Phase 1",
           active: currentPage === "agent-advanced",
           onClick: () => {
-            pickPreset("phase1");
+            applyProfile("phase1");
             onNavigate?.("agent-advanced");
           },
         },
@@ -143,7 +143,7 @@ export function buildAppMenuGroups(onNavigate: ((page: Page) => void) | undefine
           label: "Agent Workspace 2.0 | Phase 2",
           active: currentPage === "agent-with-desk",
           onClick: () => {
-            pickPreset("phase2");
+            applyProfile("phase2");
             onNavigate?.("agent-with-desk");
           },
         },
