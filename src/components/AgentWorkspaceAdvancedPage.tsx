@@ -212,7 +212,7 @@ import {
   type OutcomeDraft,
 } from "@/contact-handling";
 import { NeedsOutcomeBadge } from "@/components/OnHoldBadge";
-import { AppTabBody, CustomerTabBodies, CustomersTabBody, HomeTabStrip } from "@/components/home-tabs";
+import { AppTabBody, CustomerTabBodies, CustomersPage, CustomersTabBody, HomeTabStrip, LeftNavAppPage } from "@/components/home-tabs";
 import { isCustomerTab, keptMountedClass, useHomeTabs } from "@/components/home-tabs-state";
 import { HomeDashboard } from "@/components/home-dashboard";
 import { useCustomerTableState } from "@/components/customer-table-state";
@@ -279,6 +279,7 @@ import {
   tabOrderPatch,
   useSettings,
   useWorkspaceProfile,
+  type ExtraHeaderApp,
 } from "@/settings";
 import { SettingsView } from "@/components/settings/SettingsView";
 import { LUCAS_THOMAS_SCRIPT, MAYA_CHEN_SCRIPT, TOM_LEWIS_SCRIPT } from "@/scenarios";
@@ -789,6 +790,7 @@ const SCREEN_POP_APPS: SelectOption[] = [
 // passes its own, shorter list (just Messages/Threads) to the same hook
 // instead of this constant — see that file's own call site.
 const SEARCH_PANEL_TABS: SearchPanelTabKey[] = ["interactions", "customers", "messages", "threads"];
+const CUSTOMERS_ONLY: ExtraHeaderApp[] = ["customers"];
 
 // Per explicit request ("remove longest wait and match sorting (ascending/
 // descending) to the Phase 1 current menu") — this tier now drops "Longest
@@ -2683,8 +2685,13 @@ export function AgentWorkspaceAdvancedPage({
   useEffect(() => {
     if (activeInteractionId) {
       setShowSettings(false);
+      setLeftNavPage(null);
     }
   }, [activeInteractionId]);
+  // An app placed in the left nav opens as a page in the main column, like
+  // Home and Settings (Agent chat stays a drawer). Selecting a card, Home or
+  // Settings leaves it.
+  const [leftNavPage, setLeftNavPage] = useState<ExtraHeaderApp | null>(null);
   const [windowWidth, setWindowWidth] = useState(() => window.innerWidth);
   const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
   const [agentStatus, setAgentStatus] = useState<AgentStatus>("unavailable");
@@ -3468,6 +3475,8 @@ export function AgentWorkspaceAdvancedPage({
   // Home tabs: Dashboard plus the apps placed as "tab" (none on Phase 1, so no tab bar).
   const tabApps = homeTabApps(headerSettings);
   const homeTabs = useHomeTabs(tabApps);
+  // The Customers left-nav page's own customer tabs.
+  const customersPageTabs = useHomeTabs(CUSTOMERS_ONLY);
   const activeDeskTab = homeTabs.activeTab;
   const [appsMenuOpen, setAppsMenuOpen] = useState(false);
 
@@ -6242,15 +6251,25 @@ export function AgentWorkspaceAdvancedPage({
   // the top" → `items`, else the `footer` rail; "New Outbound at the bottom"
   // → `footer`, else `pinnedHeader`).
   // Apps placed in the left nav (Settings → Header → "<App> display" /
-  // "Agent chat display") sit between Home and Settings, as in v3; each opens
-  // its app in the same shared panel its header icon would.
-  const leftNavAppItems = leftNavKeysFromHeader(headerSettings).map((key) => {
+  // "Agent chat display") sit between Home and Settings, as in v3. An app
+  // opens as a page in the main column; Agent chat, a drawer, opens in the
+  // shared panel its header icon would.
+  const leftNavKeys = leftNavKeysFromHeader(headerSettings);
+  const leftNavPageShown = leftNavPage && !activeInteraction && !showSettings && leftNavKeys.includes(leftNavPage) ? leftNavPage : null;
+  const leftNavAppItems = leftNavKeys.map((key) => {
     const { label, icon: KeyIcon } = PANEL_KEY_METADATA[key];
+    const isPage = key !== "conversations";
     return {
       icon: <KeyIcon className="h-4 w-4" strokeWidth={1.5} />,
       label,
-      active: panelOpen && activePanelKey === key,
-      onClick: handlePanelButtonClick(key),
+      active: isPage ? leftNavPageShown === key : panelOpen && activePanelKey === key,
+      onClick: isPage
+        ? () => {
+            setLeftNavPage(key as ExtraHeaderApp);
+            setShowSettings(false);
+            switchActiveInteraction(null);
+          }
+        : handlePanelButtonClick(key),
     };
   });
   const [homeNavItem, ...restNavItems] = buildNavItems(
@@ -6260,15 +6279,15 @@ export function AgentWorkspaceAdvancedPage({
     // doc comment for why "Home" now always resumes whatever was showing
     // there before the agent navigated away (plain dashboard or All
     // Contacts), instead of forcing back to the plain dashboard every time.
-    () => { switchActiveInteraction(null); setShowSettings(false); },
+    () => { switchActiveInteraction(null); setShowSettings(false); setLeftNavPage(null); },
     showSettings,
     // Same follow-up — opening Settings no longer discards All Contacts' own
     // state either; it just takes visual priority while showing (this
     // ternary branch is checked first), and All Contacts reappears exactly
     // as left once Settings closes.
-    () => { setShowSettings(true); switchActiveInteraction(null); }
+    () => { setShowSettings(true); setLeftNavPage(null); switchActiveInteraction(null); }
   );
-  const navRailItems = [homeNavItem, ...leftNavAppItems, ...restNavItems];
+  const navRailItems = [{ ...homeNavItem, active: homeNavItem.active && !leftNavPageShown }, ...leftNavAppItems, ...restNavItems];
   // The links inside an interaction's AI content (Autosummary links,
   // interstitial rows, approval checklists) open the matching side panel.
   // Shared by the inline transcript and the Contact Details panel's AI feed.
@@ -7853,6 +7872,21 @@ export function AgentWorkspaceAdvancedPage({
                 <div key="settings" className="flex flex-1 flex-col min-w-0 overflow-hidden animate-in fade-in-0 duration-200">
                   <SettingsView showPageHeader={showPageHeader} />
                 </div>
+              ) : leftNavPageShown ? (
+                // An app placed in the left nav, as a page.
+                <LeftNavAppPage key={`app-${leftNavPageShown}`} title={PANEL_KEY_METADATA[leftNavPageShown].label} showHeader={showPageHeader}>
+                  {leftNavPageShown === "customers" ? (
+                    <CustomersPage
+                      tabs={customersPageTabs}
+                      table={customerTable}
+                      onStartInteraction={(contact, channel, phone, skillId) => handleStartCall({ contact, channel, phone, skillId })}
+                      onAddToast={addToast}
+                      isRowOpen={(row) => interactions.some((i) => i.customerId === row.contactNumber)}
+                    />
+                  ) : (
+                    <AppTabBody content={contentByPanelKey[leftNavPageShown]} />
+                  )}
+                </LeftNavAppPage>
               ) : showAllContacts && !activeInteraction ? (
                 // ── All Contacts — standalone, detached view. Per explicit
                 // follow-up request ("detach the contacts table from the

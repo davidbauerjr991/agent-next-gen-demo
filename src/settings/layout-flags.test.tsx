@@ -12,6 +12,17 @@ import { SECTIONS, type AppPlacement, type ExtraHeaderApp, type SectionKey, type
 
 const h = createWorkspaceHarness();
 
+// The header hides its app icons one by one while they'd crowd the app name,
+// and jsdom gives every box the same size. As in settings-wiring.test.tsx:
+// the app name ends at 300px and the icon row starts at 1000px.
+const harnessRect = Element.prototype.getBoundingClientRect;
+Element.prototype.getBoundingClientRect = function (this: Element) {
+  const rect = harnessRect.call(this);
+  if (this.querySelector(":scope > [draggable=true]")) return { ...rect, left: 1000, x: 1000 } as DOMRect;
+  if (this.children.length === 1 && this.textContent?.startsWith("Agent Workspace 2.0")) return { ...rect, right: 300 } as DOMRect;
+  return rect;
+};
+
 beforeEach(() => {
   localStorage.clear();
   resetSettingsStoreForTests();
@@ -116,6 +127,66 @@ describe("Home tabs (apps placed as \"tab\")", () => {
     expect(homeTabLabels()).toEqual(["Dashboard", "Customers", "Accounts", "Tickets"]);
     await setSettings("header", { tabOrder: ["tickets", "customers", "accounts", "wem", "schedule", "screenpop"] });
     expect(homeTabLabels()).toEqual(["Dashboard", "Tickets", "Customers", "Accounts"]);
+  });
+});
+
+describe("Apps placed in the left nav open as pages", () => {
+  const railItem = (label: string) =>
+    [...h.container.querySelectorAll("aside button, aside [role=button]")].find(
+      (el) => el.textContent?.trim() === label || el.getAttribute("aria-label") === label,
+    );
+  const page = () => h.container.querySelector("[data-slot=left-nav-page]");
+  /** The header-style floating panel's blank body ("Nothing here yet."), anywhere but a page. */
+  const floatingPanelShown = () =>
+    [...document.body.querySelectorAll("*")].some(
+      (el) => !el.closest("[data-slot=left-nav-page]") && el.children.length === 0 && el.textContent?.trim() === "Nothing here yet.",
+    );
+
+  it("leftnav: the rail item renders the page in the main column, not the floating panel", async () => {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await setSettings("header", { showAppIcons: true });
+    await placeApp("tickets", "leftnav");
+    await h.click(railItem("Tickets")!);
+    expect(page()?.getAttribute("data-app")).toBe("Tickets");
+    expect(page()?.textContent).toContain("Nothing here yet.");
+    expect(floatingPanelShown()).toBe(false);
+    // Home leaves the page.
+    await h.click(railItem("Home")!);
+    expect(page()).toBeNull();
+  });
+
+  it("leftnav Customers: the table and row panel; Open Tab adds a closable customer tab", async () => {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await placeApp("customers", "leftnav");
+    await h.click(railItem("Customers")!);
+    expect(page()?.getAttribute("data-app")).toBe("Customers");
+    expect(customersTableShown()).toBe(true);
+    await h.click(page()!.querySelector("tbody tr")!);
+    await h.click(h.container.querySelector<HTMLElement>('[title="Open Tab"], [aria-label="Open Tab"]')!);
+    const tabs = [...page()!.querySelector('[role="tablist"]')!.querySelectorAll('[role="tab"]')].map((t) => t.textContent?.trim());
+    expect(tabs[0]).toBe("Customers");
+    expect(tabs).toHaveLength(2);
+  });
+
+  it("selecting a card leaves the page", async () => {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await placeApp("tickets", "leftnav");
+    await h.accept(await h.startInbound("chat", "dan.ortiz@example.com", "Dan Ortiz"));
+    await h.click(railItem("Tickets")!);
+    expect(page()).not.toBeNull();
+    await h.click(h.navCard("Dan Ortiz"));
+    expect(page()).toBeNull();
+  });
+
+  it("header: the icon opens the floating panel, no page", async () => {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await setSettings("header", { showAppIcons: true });
+    await placeApp("tickets", "header");
+    const icon = h.container.querySelector<HTMLElement>('header [aria-label="Tickets"], header [title="Tickets"]');
+    expect(icon).not.toBeNull();
+    await h.click(icon!);
+    expect(page()).toBeNull();
+    expect(floatingPanelShown()).toBe(true);
   });
 });
 
