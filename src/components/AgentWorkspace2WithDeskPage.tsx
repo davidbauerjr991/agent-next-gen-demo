@@ -58,8 +58,6 @@ import {
   AgentLegDisconnectedToast,
   Select,
   Tooltip,
-  Checkbox,
-  Accordion,
   type SelectOption,
   type SortDirection,
   type CreateNewOutboundConfig,
@@ -101,7 +99,6 @@ import {
   TRANSCRIPT_SESSION_STATUS_OPTIONS,
   OUTCOME_TAG_OPTIONS,
   OUTCOME_DISPOSITION_OPTIONS,
-  OUTCOME_DEFAULT_SUMMARY,
   resolveCustomerAutoReply,
   InteractionTranscript,
   InteractionComposer,
@@ -162,15 +159,34 @@ import {
 import {
   buildOpenChannelTagger,
   directoryDisplayName,
+  IncomingOfferActions,
+  navCardAddChannelAction,
+  useAnswerSla,
+  answerSeverity,
+  offerRowAnswerSeverity,
+  showsSessionControls,
+  VoiceBar,
   NewOutboundLauncher,
+  outcomeDraftKey as outcomeDraftKeyOf,
+  useChannelOutcomeDrafts,
   useContactActivation,
   useContactCommands,
   useContactReopen,
+  useIncomingOffer,
   useNavCards,
   useNewAssignments,
   useOutboundDial,
   useOutboundSkills,
+  useVoiceBarCall,
+  useVoiceCallControls,
+  VoiceHoldChip,
+  voiceWrapUpThread,
+  preContactSummaryOf,
+  withPreContactSummary,
+  ALREADY_ON_CALL_TOOLTIP,
+  VoiceWrapUpCard,
   type Activation,
+  type OutcomeDraft,
 } from "@/contact-handling";
 import {
   type CustomerListRecord,
@@ -203,7 +219,6 @@ import {
   useCustomerRecordDraft,
   findPossibleCustomerMatches,
   filterCustomersByQuery,
-  CUSTOMER_INFO_ACCORDION_CLASSNAME,
   buildCopilotSummary,
   DetailsPanelAccordions,
   useSessionDetailsTabContent,
@@ -214,27 +229,9 @@ import {
 // this follows (build new things locally, promote to lyra-ui only once
 // explicitly asked).
 import { CollapsedChannelBadge } from "@/components/CollapsedChannelBadge";
-import { OnHoldCornerBadge, OnHoldPill } from "@/components/OnHoldBadge";
+import { NeedsOutcomeBadge, OnHoldCornerBadge } from "@/components/OnHoldBadge";
 import { AddChannelAdHocButton } from "@/components/agent-next-gen-add-channel-button";
-import { VoiceCallControls } from "@/components/agent-next-gen-voice-call-controls";
 import { VideoCallWindow, VideoCallFullScreen } from "@/components/agent-next-gen-video-window";
-import {
-  MARCUS_WEBB_ID,
-  MARCUS_WEBB_CHANNEL_ID,
-  MARCUS_WEBB_ACTION_CONFIG,
-  MARCUS_WEBB_THANKS_MESSAGE,
-  MARCUS_WEBB_REDACTED_SSN,
-  MARCUS_WEBB_RESET_VERIFY_MESSAGE,
-  MARCUS_WEBB_RESET_PASSWORD_GENERATED_MESSAGE,
-  MARCUS_WEBB_RESET_LOGIN_CONFIRM_MESSAGE,
-  buildMarcusWebbInteraction,
-  generateMarcusWebbTempPassword,
-  resetMarcusWebbScenario,
-  saveMarcusWebbScenario,
-  MARCUS_WEBB_RESET_STEP_ORDER,
-  type MarcusWebbAction,
-  type MarcusWebbScenarioState,
-} from "@/components/agent-next-gen-marcus-webb-scenario";
 import appIcon from "@/assets/app-icon.svg";
 import {
   MessageSquare,
@@ -267,14 +264,7 @@ import {
   UserX,
   PhoneOutgoing,
   RotateCcw,
-  ShieldAlert,
-  Info,
-  BookOpen,
-  Meh,
-  Smile,
-  Copy,
   Link2,
-  Plus,
   ChevronRight,
   CircleAlert,
   Inbox,
@@ -543,9 +533,8 @@ interface InteractionNavCardProps extends InteractionNavItemProps {
    * `false` for the active card): `onHold` also feeds `InteractionNavItem`'s
    * own whole-card yellow background/border, a treatment meant for
    * "navigated away from a live call", not "still looking at it, just
-   * paused" — an active, manually-held card already gets its own inline
-   * `OnHoldPill` on the channel row instead (`channelOnHold`, this file's
-   * own channel-row-building `.map()`). This prop exists only so the
+   * paused" — an expanded card shows the call's own hold chip on its
+   * channel row instead (`VoiceHoldChip`, P0.5d.1). This prop exists only so the
    * COLLAPSED rail tile's corner badge — the one visible indicator left once
    * the rail collapses and that inline pill scrolls out of view — still
    * shows for a manually-held ACTIVE call too, per explicit request ("when
@@ -645,7 +634,7 @@ const PHASE2_ASSIGNMENT_SORT_OPTIONS = ASSIGNMENT_SORT_OPTIONS.filter((o) => o.v
 // record-header title, `InteractionNavItem`'s own `customerName` prop) so
 // all four stay in agreement about what this card is currently called.
 function interactionDisplayName(interaction: Pick<Interaction, "id" | "entityId" | "customerName" | "threads">): string {
-  const isAddressOnly = !interaction.entityId && !isDeskScenarioCardId(interaction.id);
+  const isAddressOnly = !interaction.entityId;
   if (isAddressOnly && interaction.threads.length > 1) return "Customer";
   return interaction.customerName ?? "Customer";
 }
@@ -654,11 +643,9 @@ function interactionDisplayName(interaction: Pick<Interaction, "id" | "entityId"
 // "+") moved to src/contact-handling/open-channel-tagger.ts in P0.5b.2,
 // shared with Advanced and keyed by the card's `entityId`.
 
-/** The scripted scenario card — the only card this page still owns
- *  (P0.5b.2); every other card is a provider contact. Until P0.5c. */
-function isDeskScenarioCardId(id: string): boolean {
-  return id === MARCUS_WEBB_ID;
-}
+/** Desk has no scripted scenario cards (its Marcus Webb chat flow was
+ *  dropped per parity row 26), so every card is a provider contact. */
+const isDeskScenarioCardId = (): boolean => false;
 
 /** "7/23/2025 09:32 AM" — same compact numeric date/time style Agent
  *  Workspace 2.0's own identical helper produces (AgentNextGenPage.tsx —
@@ -793,688 +780,6 @@ function resolveInteractionLastCustomerResponseLabel(
   return latest ? formatCompactDateTime(latest) : undefined;
 }
 
-/* ── MarcusWebbCopilotCard ──
-   The Copilot card rendered via `CopilotTabContent`'s own `extra` prop
-   (agent-next-gen-customer-info-panel.tsx) for the Marcus Webb scripted
-   scenario ONLY — every other interaction leaves `copilotExtra` unset, so
-   this never mounts for them. A plain step-machine render, not its own
-   component with local state: every value it needs (`state`) and every
-   action it can trigger (the 4 callback props) live in the parent page
-   component, per this scenario's own persistence needs (see
-   `agent-next-gen-marcus-webb-scenario.ts`'s own top-of-file comment).
-
-   Built entirely from existing lyra-ui atoms (`Button`'s `outline`/`wrap`
-   variants for every clickable option here, including the suggested-reply
-   text — `wrap` was added to `Button` specifically for arbitrary-length
-   button text like a "Continue with {typed search}" label, which is
-   exactly what a canned reply preview also is) rather than any hand-rolled
-   button shape, same "use the real design-system component" correction
-   this session already applied once to the AIInput clear button.
-
-   Per explicit follow-up request ("animate in the [cards] sequentially,
-   all copilot cards should"), every card's own root element gets the same
-   `animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-backwards
-   duration-500` entrance `CopilotTabContent`'s own doc comment already
-   established (that comment has the full "why `fill-mode-backwards`, why
-   this duration/delay pacing" reasoning — reused verbatim here). Critically,
-   each card's root ALSO gets an explicit `key` ("decision", "reset-detail",
-   `detail-${selectedAction}`, `message-options-${selectedAction}`,
-   "wrapup") — without one, switching `copilotStep`/`selectedAction` would
-   just patch the existing DOM node's children in place (same call site,
-   same component instance, no unmount), so the browser would never see a
-   fresh element to replay the CSS entrance on. The `key` forces React to
-   tear down and remount a brand-new node on every step transition instead,
-   which is what makes each new card actually animate in on arrival rather
-   than popping in silently after the first one. (Steps that mutate WITHIN
-   a still-mounted card — e.g. `resetSteps` flags flipping while
-   `copilotStep`/`selectedAction` stay put — correctly do NOT get a new key,
-   so clicking through the reset steps doesn't replay the whole card's
-   entrance each time, only the one-time arrival does.) The two-block
-   "options"/"investigate" detail card additionally staggers its second
-   block (the `recommendation` warning callout, when present) `delay-300`
-   behind the first, same two-element stagger pattern as
-   `CopilotTabContent`'s own info-box/Journey-Summary pair.
-
-   Per a later explicit follow-up ("add a green checkmark and disable the
-   menu item but keep the card (shift the copilot down like a normal
-   chat)"), the decision card (`decisionCard`, built unconditionally near
-   the top of the function body) is no longer one of the mutually-exclusive
-   step branches that gets swapped out — it renders on every step from
-   "decision" onward, with the picked option additionally getting a green
-   `CheckCircle2` (`text-lyra-status-success-strong`, the same "done" color
-   `resetSteps`' own icons already use) ahead of its label. Per a further
-   explicit follow-up ("only disable the clicked option"), ONLY the picked
-   option gets `disabled` — the other two stay clickable, so the agent can
-   still change their mind and pick a different path. Per a still further
-   follow-up ("once an item is completed keep it disabled"), which option(s)
-   read as `completed` is now `state.selectedActions.includes(action)` — a
-   persistent, ever-growing history array (see that field's own doc comment,
-   agent-next-gen-marcus-webb-scenario.ts) — rather than `state.selectedAction
-   === action` (just the current pick): the latter would have silently
-   re-enabled an earlier completed option the instant the agent selected a
-   different one afterward, since `selectedAction` only ever holds ONE value
-   at a time. Per a YET further follow-up ("don't fully disable steps until
-   they are complete (ie. the agent has sent a reply to the customer)"),
-   `onSelectAction`/`handleMarcusWebbSelectAction` does NOT append to
-   `selectedActions` anymore — picking an option only ever sets
-   `selectedAction` (the in-progress pick, still driving which `nextCard`
-   shows below). Per a final correction to that same follow-up ("once the
-   step is completed (ie. the customer responds)"), `selectedActions` gets
-   appended from `handleSendMessage`'s 2500ms simulated-customer-reply
-   `setTimeout` callback (its `isMarcusWebbWrapupSend` branch) — the moment
-   the CUSTOMER's reply actually lands, not the instant the agent sends —
-   so an option stays enabled/re-pickable for as long as it's merely in
-   progress, and only locks in as checked/disabled once the customer has
-   actually responded. Once added, an
-   option's checked/disabled state only ever turns on, never back off, for
-   the rest of the scenario. Whatever the CURRENT step's own card
-   is (`nextCard` — computed by the same `if`/`else if` chain the old
-   mutually-exclusive `return`s used to be, now assigning instead of
-   returning) renders BELOW `decisionCard` in one shared `flex flex-col
-   gap-3` wrapper, rather than replacing it — the same "earlier turn stays
-   put, the next one appends underneath" shape a real chat transcript
-   already has, which is what makes the whole Copilot `extra` slot grow
-   (and everything below it shift down) turn by turn instead of popping
-   between single unrelated cards.
-
-   Per a further explicit follow-up ("scroll to the latest card in
-   copilot"), a zero-height sentinel `<div ref={latestCardRef}>` sits at the
-   very end of the returned stack (after `nextCard`), and a `useEffect`
-   keyed on `state.copilotStep`/`state.selectedAction` — the same two
-   values that determine which card is currently "latest" — calls that
-   sentinel's own `scrollIntoView({ behavior: "smooth", block: "end" })`
-   whenever either changes. `scrollIntoView` finds its own nearest
-   scrollable ancestor automatically (the Copilot tab's `PanelContent`
-   scroll region, agent-next-gen-customer-info-panel.tsx), so this needs no
-   ref/knowledge of that container at all. The hook is called
-   UNCONDITIONALLY before the `copilotStep === "done"` early return below —
-   moving it after would violate the rules of hooks the moment this
-   component stays mounted (same call site, same instance) across a
-   transition INTO "done", since a hook that only sometimes runs changes
-   the hook count between renders. */
-function MarcusWebbCopilotCard({
-  state,
-  onSelectAction,
-  onCompleteActivity,
-  onSelectMessage,
-  onWrapUp,
-  onResetVerifyIdentity,
-  onResetGeneratePassword,
-  onResetRegeneratePassword,
-  onResetConfirmLogin,
-}: {
-  state: MarcusWebbScenarioState;
-  onSelectAction: (action: MarcusWebbAction) => void;
-  onCompleteActivity: () => void;
-  onSelectMessage: (text: string) => void;
-  onWrapUp: (updateStatus: boolean) => void;
-  /** The "reset" action's own 3 independently-clickable steps — see
-   *  `MarcusWebbScenarioState.resetSteps`'s own doc comment. Only ever
-   *  called when `state.selectedAction === "reset"` (the only action with a
-   *  dedicated step-by-step render branch below); every other action still
-   *  goes through the generic `onCompleteActivity` button. */
-  onResetVerifyIdentity: () => void;
-  onResetGeneratePassword: () => void;
-  onResetRegeneratePassword: () => void;
-  onResetConfirmLogin: () => void;
-}) {
-  // Scroll-to-latest-card sentinel — see this function's own top-of-file
-  // doc comment for the full reasoning. Called unconditionally, before the
-  // `copilotStep === "done"` early return just below, per the rules of
-  // hooks.
-  const latestCardRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    latestCardRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [state.copilotStep, state.selectedAction, state.customerRespondedToFirstMessage]);
-
-  if (state.copilotStep === "done") return null;
-
-  // Per explicit request ("add the attached cards to the copilot of marcus
-  // webb (hide the How Would You Like To Help Marcus card)"), later trimmed
-  // by a follow-up ("remove the transfer summary card and update the
-  // Self-Service summary to be about Marcus"): 2 static, read-only summary
-  // cards — Self Service Summary, Customer Sentiment — matching the
-  // reference screenshot's visual shape (icon + bold title on a colored
-  // header band over a plain white body, same two-tone shape
-  // `CopilotTabContent`'s own Journey Summary card already established,
-  // agent-next-gen-customer-info-panel.tsx), but with Self Service
-  // Summary's body copy rewritten to actually describe Marcus's own
-  // scripted scenario (a password reset/lockout — see this file's own
-  // Marcus Webb scenario constants) instead of the screenshot's unrelated
-  // "tablet troubleshooting"/"Emery" placeholder text. The Transfer Summary
-  // card from the original request is gone outright (Marcus's scenario is a
-  // direct inbound chat, never transferred from another tier — that card
-  // never fit the scenario to begin with). Self Service Summary is fully
-  // static; Customer Sentiment is NOT — per explicit follow-up requests
-  // (originally "after the agent responds for the first time, update the
-  // sentiment to be positive," later corrected to "change the sentiment
-  // card after the CUSTOMER responds to the agent's first comment"), it
-  // reads `state.customerRespondedToFirstMessage` (see that field's own doc
-  // comment, agent-next-gen-marcus-webb-scenario.ts) and swaps its icon/
-  // color/title/body from the amber "Neutral" look to a green "Positive"
-  // one (`Smile`, `lyra-status-success-subtle`/`-strong`) once the
-  // customer's simulated reply to the agent's first message lands.
-  // Rendered ahead of `decisionCard` in both this function's return points.
-  const sentimentIsPositive = state.customerRespondedToFirstMessage;
-  const marcusSummaryCards = (
-    <div key="marcus-summary-cards" className="flex flex-col gap-3">
-      <div className="animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-backwards duration-500 overflow-hidden rounded-lyra-md border border-lyra-border-subtle">
-        <div className="flex items-center gap-2 bg-lyra-status-info-subtle px-4 py-2.5">
-          <BookOpen className="h-4 w-4 shrink-0 text-lyra-status-info-strong" strokeWidth={1.5} aria-hidden="true" />
-          <span className="lyra-body-md-emphasis text-lyra-fg-default">Self Service Summary</span>
-        </div>
-        <div className="bg-lyra-bg-surface-base px-4 py-3">
-          <p className="lyra-body-md text-lyra-fg-default">
-            Marcus tried the password reset article and the account recovery guide twice before starting this chat. Neither got him back into his account.
-          </p>
-        </div>
-      </div>
-      <div
-        // `key` here too — same "force a fresh remount so the entrance
-        // animation replays" reasoning as `MarcusWebbCopilotCard`'s own
-        // top-of-file doc comment, so the Neutral→Positive swap itself gets
-        // a visible fade/slide instead of the copy just changing in place.
-        key={sentimentIsPositive ? "sentiment-positive" : "sentiment-neutral"}
-        className="animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-backwards duration-500 overflow-hidden rounded-lyra-md border border-lyra-border-subtle"
-      >
-        {sentimentIsPositive ? (
-          <>
-            <div className="flex items-center gap-2 bg-lyra-status-success-subtle px-4 py-2.5">
-              <Smile className="h-4 w-4 shrink-0 text-lyra-status-success-strong" strokeWidth={1.5} aria-hidden="true" />
-              <span className="lyra-body-md-emphasis text-lyra-fg-default">Customer Sentiment is Positive</span>
-            </div>
-            <div className="bg-lyra-bg-surface-base px-4 py-3">
-              <p className="lyra-body-md text-lyra-fg-default">Sentiment improved after the agent's first response.</p>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="flex items-center gap-2 bg-lyra-status-warning-subtle px-4 py-2.5">
-              <Meh className="h-4 w-4 shrink-0 text-lyra-status-warning-strong" strokeWidth={1.5} aria-hidden="true" />
-              <span className="lyra-body-md-emphasis text-lyra-fg-default">Customer Sentiment is Neutral</span>
-            </div>
-            <div className="bg-lyra-bg-surface-base px-4 py-3">
-              <p className="lyra-body-md text-lyra-fg-default">Sentiment remained the same since the last message.</p>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-
-  // Per explicit request ("create the attached card and display it after the
-  // agent asks if they want them to reset the password - adjust the content
-  // to be about password resetting and based on a knowledge base"): a
-  // knowledge-base-article-style card matching the reference screenshot's
-  // exact shape — a header band (icon + bold title), a body paragraph, and 3
-  // collapsible sections. The reference screenshot itself showed all 3
-  // expanded, but per explicit follow-up request ("keep these accordions
-  // closed initially") none of the 3 `Accordion`s below set a
-  // `defaultValue` — every section starts collapsed, same as any other
-  // single-item `Accordion` in this app that doesn't opt into
-  // pre-expansion. Reuses this app's own established "collapsible section" idiom
-  // (`CUSTOMER_INFO_ACCORDION_CLASSNAME` + single-item `Accordion`s, one per
-  // section — see `CustomerDetailTabContent`, agent-next-gen-customer-info-
-  // panel.tsx, for the identical pattern) rather than a bespoke
-  // implementation, so this stays visually consistent with every other
-  // collapsible container already in this app. Originally gated by its own
-  // keyword-matched `passwordResetOffered` signal; per explicit follow-up
-  // request ("display the steps to reset card... after the CUSTOMER
-  // responds to the agent's first comment (not triggered by reset)"), now
-  // gated by the same `state.customerRespondedToFirstMessage` the Customer
-  // Sentiment card above reads (see that field's own doc comment,
-  // agent-next-gen-marcus-webb-scenario.ts) — both cards share one trigger.
-  // Rendered directly below `marcusSummaryCards` in both this function's
-  // return points, same placement `decisionCard` used to have.
-  const passwordResetKbCard = state.customerRespondedToFirstMessage ? (
-    <div
-      key="password-reset-kb"
-      className="animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-backwards duration-500 overflow-hidden rounded-lyra-md border border-lyra-border-subtle"
-    >
-      <div className="flex items-center gap-2 bg-lyra-status-info-subtle px-4 py-2.5">
-        <BookOpen className="h-4 w-4 shrink-0 text-lyra-status-info-strong" strokeWidth={1.5} aria-hidden="true" />
-        <span className="lyra-body-md-emphasis text-lyra-fg-default">Password Reset Policy</span>
-      </div>
-      <div className="bg-lyra-bg-surface-base px-4 py-3 flex flex-col gap-3">
-        <p className="lyra-body-md text-lyra-fg-default">
-          Standard knowledge-base procedure for resetting a customer's account password after failed self-service
-          attempts, like Marcus's.
-        </p>
-        <Accordion
-          className={CUSTOMER_INFO_ACCORDION_CLASSNAME}
-          items={[
-            {
-              id: "internal-use",
-              title: "Internal Use Only",
-              icon: <ShieldAlert className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />,
-              content: (
-                <p className="lyra-body-sm text-lyra-fg-secondary">
-                  Never share a temporary password over chat, email, or voice. Always confirm identity with two
-                  factors (e.g. SSN on file plus one more) before generating or disclosing a reset link or temporary
-                  credential.
-                </p>
-              ),
-            },
-          ]}
-        />
-        <Accordion
-          className={CUSTOMER_INFO_ACCORDION_CLASSNAME}
-          items={[
-            {
-              id: "web-links",
-              title: "Web Links (2)",
-              icon: <Link2 className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />,
-              content: (
-                <div className="flex flex-col gap-2">
-                  {[
-                    "Password Reset Self-Service Guide",
-                    "Account Recovery & Identity Verification Policy",
-                  ].map((label) => (
-                    <div
-                      key={label}
-                      className="flex items-center justify-between gap-2 rounded-lyra-sm border border-lyra-border-subtle bg-lyra-bg-surface-sunken px-3 py-2"
-                    >
-                      <span className="lyra-body-sm text-lyra-status-info-strong truncate">{label}</span>
-                      <ActionIconButton
-                        aria-label={`Copy ${label} link`}
-                        size="sm"
-                        className="shrink-0 text-lyra-fg-secondary hover:text-lyra-fg-secondary"
-                        onClick={() => {
-                          void navigator.clipboard?.writeText(label).catch(() => {});
-                        }}
-                      >
-                        <Copy className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-                      </ActionIconButton>
-                    </div>
-                  ))}
-                </div>
-              ),
-            },
-          ]}
-        />
-        <Accordion
-          className={CUSTOMER_INFO_ACCORDION_CLASSNAME}
-          items={[
-            {
-              id: "process-steps",
-              title: "Process Steps",
-              icon: <CheckCircle2 className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />,
-              content: (
-                <div className="flex flex-col gap-2">
-                  {[
-                    "Verify the customer's identity (name, DOB, and SSN or security question on file).",
-                    "Send a secure password-reset link to the verified email or phone number on file.",
-                    "Confirm the customer has opened the link and set a new password.",
-                    "Confirm successful login and log the resolution on the case.",
-                  ].map((step, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between gap-2 rounded-lyra-sm border border-lyra-border-subtle bg-lyra-bg-surface-sunken px-3 py-2"
-                    >
-                      <div className="flex items-start gap-2 min-w-0">
-                        <span className="lyra-body-sm text-lyra-fg-default">
-                          {i + 1}. {step}
-                        </span>
-                      </div>
-                      <ActionIconButton
-                        aria-label={`Add step ${i + 1} to reply`}
-                        size="sm"
-                        className="shrink-0 text-lyra-fg-secondary hover:text-lyra-fg-secondary"
-                      >
-                        <Plus className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-                      </ActionIconButton>
-                    </div>
-                  ))}
-                </div>
-              ),
-            },
-          ]}
-        />
-      </div>
-    </div>
-  ) : null;
-
-  // Per explicit follow-up request ("add a green checkmark and disable the
-  // menu item but keep the card (shift the copilot down like a normal
-  // chat)"), this card no longer gets replaced by the next step once an
-  // option is picked — it stays, reading as an answered form (the chosen
-  // option gets a green checkmark and, per a further explicit follow-up,
-  // ONLY that one option is disabled — see this function's own top-of-file
-  // doc comment), and whatever the CURRENT step's own card is (`nextCard`,
-  // below) renders BELOW it instead, same "earlier turn stays put, next one
-  // appends underneath" shape a real chat transcript already has. Built
-  // unconditionally (not just inside the `copilotStep === "decision"`
-  // branch) since it also needs to keep rendering, resolved, for every
-  // LATER step too.
-  // Per explicit request ("hide the How Would You Like To Help Marcus
-  // card"), gates `decisionCard` below off entirely — a `false` here means
-  // the agent never sees or clicks its 3 action options, so nothing ever
-  // advances `state.copilotStep` past "decision" for the rest of this
-  // scenario; that's the deliberate, requested trade-off (this card was the
-  // only entry point into the reset/options/investigate flows), not an
-  // oversight. `marcusSummaryCards` above is unaffected — those 3 cards
-  // still render regardless.
-  const SHOW_MARCUS_DECISION_CARD = false;
-
-  const decisionCard = (
-    <div key="decision" className="animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-backwards duration-500 flex flex-col gap-3 rounded-lyra-md border border-lyra-border-subtle bg-lyra-bg-surface-base p-4">
-      <div className="flex items-center gap-2">
-        <ShieldAlert className="h-4 w-4 shrink-0 text-lyra-status-warning-strong" strokeWidth={1.5} aria-hidden="true" />
-        <span className="lyra-body-md-emphasis text-lyra-fg-default">How would you like to help Marcus?</span>
-      </div>
-      <p className="lyra-body-sm text-lyra-fg-secondary">
-        He's tried resetting his password multiple times and is now locked out of his account.
-      </p>
-      <div className="flex flex-col gap-2">
-        {(Object.keys(MARCUS_WEBB_ACTION_CONFIG) as MarcusWebbAction[]).map((action) => {
-          // `selectedActions`, not `state.selectedAction === action` — see
-          // that field's own doc comment (agent-next-gen-marcus-webb-
-          // scenario.ts) for why this needs to check the whole completed-
-          // action history instead of just the current pick: per explicit
-          // follow-up request, an option stays checked/disabled once
-          // COMPLETED (the customer has actually responded to the agent's
-          // suggested reply — see `handleSendMessage`'s simulated-reply
-          // `setTimeout`, `isMarcusWebbWrapupSend` branch), even after the
-          // agent later selects a different one. Merely
-          // PICKING an option (without finishing it) does NOT add it here —
-          // per a further explicit follow-up ("don't fully disable steps
-          // until they are complete"), an option that's still in progress
-          // stays enabled/re-pickable, same as one never touched at all.
-          const completed = state.selectedActions.includes(action);
-          // Per a further explicit follow-up ("show the active option in an
-          // active state (no checkmark and disabled until completed)"), the
-          // option currently being worked (picked, but not yet sent — see
-          // `completed`'s own comment above for that distinction) gets its
-          // own visual treatment distinct from BOTH the plain untouched
-          // outline buttons and the resolved checkmark+disabled ones — no
-          // checkmark, still fully clickable (re-picking it, or a different
-          // option, remains possible for as long as it's merely in
-          // progress). Per a still further follow-up ("I want the options to
-          // reset to be in an active (pressed) state when the Reset Options
-          // for Marcus are displayed, same for the other buttons when their
-          // options are displayed" — i.e. the first attempt's plain
-          // `bg-lyra-bg-surface-sunken` fill read as barely-there, not
-          // "pressed"), swapped to the design system's own established
-          // selected/pressed-toggle combo — `bg-lyra-bg-active-subtle
-          // border-lyra-border-active text-lyra-fg-active-strong` — the same
-          // 3-class treatment `ToggleGroup`'s own `selected` state uses
-          // (toggle-group.tsx), reused verbatim here rather than inventing a
-          // one-off look, for a clearly "on/pressed" appearance instead of a
-          // subtle background tint.
-          const active = !completed && state.selectedAction === action;
-          return (
-            <Button
-              key={action}
-              variant="outline"
-              disabled={completed}
-              className={cn(
-                "w-full justify-start gap-2",
-                active && "bg-lyra-bg-active-subtle border-lyra-border-active text-lyra-fg-active-strong"
-              )}
-              onClick={() => onSelectAction(action)}
-            >
-              {completed && (
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-lyra-status-success-strong" strokeWidth={1.5} aria-hidden="true" />
-              )}
-              {MARCUS_WEBB_ACTION_CONFIG[action].optionLabel}
-            </Button>
-          );
-        })}
-      </div>
-    </div>
-  );
-
-  if (state.copilotStep === "decision") {
-    return (
-      <div className="flex flex-col gap-3">
-        {marcusSummaryCards}
-        {SHOW_MARCUS_DECISION_CARD && decisionCard}
-        {passwordResetKbCard}
-        {/* Zero-height scroll target — see this function's own top-of-file
-            doc comment for the full "scroll to the latest card" reasoning.
-            Per explicit request ("when the new card appears the copilot
-            should scroll to the bottom"): this early return is the ONE
-            actually reached on every render right now (`copilotStep` never
-            advances past "decision" — see `SHOW_MARCUS_DECISION_CARD`'s own
-            doc comment above), so the sentinel has to live here too, not
-            just in the bottom return below. Without it, `latestCardRef`
-            never attaches to anything and the scroll effect silently
-            no-ops — exactly why marcusSummaryCards/passwordResetKbCard
-            appearing wasn't auto-scrolling. */}
-        <div ref={latestCardRef} />
-      </div>
-    );
-  }
-
-  let nextCard: React.ReactNode = null;
-
-  // "reset" gets its own render branch — per explicit request, each of its
-  // 3 steps is independently actionable and performs a real action, with no
-  // shared "Mark steps complete" button at the bottom; some steps reveal
-  // extra inline content once done (the SSN reference under step 1, the
-  // generated password + Regenerate under step 2). See
-  // `MarcusWebbScenarioState.resetSteps`'s own doc comment for the full
-  // reasoning (including why this used to be 4 steps — a "send the
-  // temporary password to Marcus's verified email on file" step was removed
-  // per explicit request, "remove this step"). "options"/"investigate" fall
-  // through to the generic items-list + button branch further below,
-  // unchanged.
-  //
-  // Per a further explicit follow-up ("the resetting steps do not wrap -
-  // maybe don't have the entire item a button but have a checkbox next to
-  // the item that reveals the content and populates the chat when checked
-  // and once completed it disables"), each step used to be a full-width
-  // ghost `Button` (base `buttonVariants` class includes `whitespace-nowrap`
-  // — see button.tsx — which is why long step text was overflowing/
-  // scrolling horizontally instead of wrapping). Rebuilt as a plain
-  // `Checkbox` + hand-laid-out `<span>` row instead of using `Checkbox`'s
-  // own built-in `label` prop, so the text sits in a `flex-1 min-w-0` span
-  // that's free to wrap within the card's width rather than being sized by
-  // an `inline-flex` label wrapper.
-  //
-  // Per a still further explicit follow-up ("don't set the checked as
-  // completed until after the message is sent"), refined by a further
-  // explicit correction ("once the step is completed (ie. the customer
-  // responds)"), and finally corrected once more by a screenshot showing a
-  // real send/reply exchange for step 1 that still hadn't updated its
-  // checkbox ("it's not updating in the copilot card to checked and
-  // disabled"): the checkbox's fully "completed" look (blue check +
-  // strikethrough text + `disabled`) is now held back until the CUSTOMER
-  // has actually responded to THAT SPECIFIC step's own message —
-  // `state.resetStepsConfirmed` (see that field's own doc comment,
-  // agent-next-gen-marcus-webb-scenario.ts) — NOT the scenario-wide
-  // `state.selectedActions.includes("reset")` flag, which only fires once,
-  // at the very end of the whole flow (the final suggested-reply/wrap-up
-  // exchange), and NOT the instant the step's own one-shot `onReset*`
-  // handler runs either. Each step therefore reads THREE states off
-  // `checkboxState(key)` below, mirroring Radix Checkbox's own `boolean |
-  // "indeterminate"` union: `false` (untouched — box empty, content not yet
-  // revealed), `"indeterminate"` (the step's action has run — SSN/
-  // generated-password reveal box IS showing, composer prefill IS available
-  // — but the customer hasn't responded to it yet, so this renders as a
-  // filled dash rather than a checkmark and stays enabled/re-clickable),
-  // and `true` (the customer responded — full checkmark, strikethrough,
-  // `disabled`). Revealing content (the SSN/password boxes below) still
-  // keys off the raw `steps.*` flag, unaffected by this — only the
-  // checkbox's OWN visual/interactive state waits on the customer's reply.
-  if (state.copilotStep === "detail" && state.selectedAction === "reset") {
-    const config = MARCUS_WEBB_ACTION_CONFIG.reset;
-    const steps = state.resetSteps;
-    const confirmed = state.resetStepsConfirmed;
-    const stepRowClassName = "flex items-start gap-2 px-2 py-1.5";
-    const checkboxState = (key: keyof typeof steps): boolean | "indeterminate" =>
-      !steps[key] ? false : confirmed[key] ? true : "indeterminate";
-    const stepTextClassName = (key: keyof typeof steps) =>
-      `lyra-body-sm flex-1 min-w-0 ${
-        steps[key] && confirmed[key] ? "text-lyra-fg-secondary line-through" : "text-lyra-fg-default"
-      }`;
-    nextCard = (
-      <div key="reset-detail" className="animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-backwards duration-500 flex flex-col gap-3 rounded-lyra-md border border-lyra-border-subtle bg-lyra-bg-surface-base p-4">
-        <span className="lyra-body-md-emphasis text-lyra-fg-default">{config.cardTitle}</span>
-        <div className="flex flex-col gap-1">
-          <div className="flex flex-col gap-1.5">
-            <div className={stepRowClassName}>
-              <Checkbox
-                className="mt-0.5"
-                checked={checkboxState("identityVerified")}
-                disabled={steps.identityVerified && confirmed.identityVerified}
-                onCheckedChange={() => !steps.identityVerified && onResetVerifyIdentity()}
-                aria-label={config.items[0]}
-              />
-              <span className={stepTextClassName("identityVerified")}>{config.items[0]}</span>
-            </div>
-            {steps.identityVerified && (
-              <div className="ml-8 flex items-center gap-2 rounded-lyra-sm border border-lyra-border-subtle bg-lyra-bg-surface-sunken px-3 py-1.5">
-                <span className="lyra-body-xs text-lyra-fg-secondary">SSN on file:</span>
-                <code className="lyra-body-sm-emphasis text-lyra-fg-default">{MARCUS_WEBB_REDACTED_SSN}</code>
-              </div>
-            )}
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <div className={stepRowClassName}>
-              <Checkbox
-                className="mt-0.5"
-                checked={checkboxState("passwordGenerated")}
-                disabled={steps.passwordGenerated && confirmed.passwordGenerated}
-                onCheckedChange={() => !steps.passwordGenerated && onResetGeneratePassword()}
-                aria-label={config.items[1]}
-              />
-              <span className={stepTextClassName("passwordGenerated")}>{config.items[1]}</span>
-            </div>
-            {steps.passwordGenerated && state.resetTempPassword && (
-              <div className="ml-8 flex items-center justify-between gap-2 rounded-lyra-sm border border-lyra-border-subtle bg-lyra-bg-surface-sunken px-3 py-1.5">
-                <code className="lyra-body-sm-emphasis text-lyra-fg-default">{state.resetTempPassword}</code>
-                <Button variant="ghost" size="sm" onClick={onResetRegeneratePassword}>
-                  <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-                  Regenerate
-                </Button>
-              </div>
-            )}
-          </div>
-          <div className={stepRowClassName}>
-            <Checkbox
-              className="mt-0.5"
-              checked={checkboxState("loginConfirmed")}
-              disabled={steps.loginConfirmed && confirmed.loginConfirmed}
-              onCheckedChange={() => !steps.loginConfirmed && onResetConfirmLogin()}
-              aria-label={config.items[2]}
-            />
-            <span className={stepTextClassName("loginConfirmed")}>{config.items[2]}</span>
-          </div>
-        </div>
-      </div>
-    );
-  } else if (state.copilotStep === "detail" && state.selectedAction) {
-    const config = MARCUS_WEBB_ACTION_CONFIG[state.selectedAction];
-    nextCard = (
-      <div key={`detail-${state.selectedAction}`} className="flex flex-col gap-3">
-        <div className="animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-backwards duration-500 flex flex-col gap-3 rounded-lyra-md border border-lyra-border-subtle bg-lyra-bg-surface-base p-4">
-          <span className="lyra-body-md-emphasis text-lyra-fg-default">{config.cardTitle}</span>
-          <ul className="flex flex-col gap-2">
-            {config.items.map((item, i) => (
-              <li key={i} className="flex items-start gap-2 lyra-body-sm text-lyra-fg-default">
-                {config.cardKind === "steps" ? (
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-lyra-fg-secondary" strokeWidth={1.5} aria-hidden="true" />
-                ) : (
-                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-lyra-fg-secondary" strokeWidth={1.5} aria-hidden="true" />
-                )}
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-          {/* No `recommendation` means this card owns its own Continue/Mark
-              Complete button, unchanged from before. When a `recommendation`
-              IS set (currently "investigate" only), the button moves into
-              the standalone warning callout below instead, per explicit
-              request to pull the flagged recommendation line out of this
-              activity summary entirely. */}
-          {!config.recommendation && (
-            <Button className="w-full" onClick={onCompleteActivity}>
-              {config.completeLabel}
-            </Button>
-          )}
-        </div>
-        {/* Reveals second, `delay-300` behind the card above — same
-            two-block stagger `CopilotTabContent`'s own info-box/Journey-
-            Summary pair already established (that component's own doc
-            comment has the full reasoning for `fill-mode-backwards` +
-            `delay-300`/duration-500 pacing, reused verbatim here). Styled to
-            match the "warning-solid" `Container` variant per explicit
-            request (a visible border, not just the borderless subtle fill
-            `InlineNotification`'s "warning" variant uses everywhere else in
-            this file) — scoped to this one call site via `className` rather
-            than changing the shared component's own variant, so the
-            SLA-breach warning banner elsewhere in this file is unaffected. */}
-        {config.recommendation && (
-          <InlineNotification
-            variant="warning"
-            className="animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-backwards duration-500 delay-300 border border-lyra-status-warning-strong"
-            action={
-              <Button className="w-full" onClick={onCompleteActivity}>
-                {config.completeLabel}
-              </Button>
-            }
-          >
-            {config.recommendation}
-          </InlineNotification>
-        )}
-      </div>
-    );
-  } else if (state.copilotStep === "message-options" && state.selectedAction) {
-    const config = MARCUS_WEBB_ACTION_CONFIG[state.selectedAction];
-    nextCard = (
-      <div key={`message-options-${state.selectedAction}`} className="animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-backwards duration-500 flex flex-col gap-3 rounded-lyra-md border border-lyra-border-subtle bg-lyra-bg-surface-base p-4">
-        <span className="lyra-body-md-emphasis text-lyra-fg-default">Suggested replies</span>
-        <p className="lyra-body-sm text-lyra-fg-secondary">
-          Pick one to fill in the message box below — nothing sends until you click Send.
-        </p>
-        <div className="flex flex-col gap-2">
-          {config.messageOptions.map((msg, i) => (
-            <Button key={i} variant="outline" wrap className="w-full" onClick={() => onSelectMessage(msg)}>
-              {msg}
-            </Button>
-          ))}
-        </div>
-      </div>
-    );
-  } else if (state.copilotStep === "wrapup") {
-    nextCard = (
-      <div key="wrapup" className="animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-backwards duration-500 flex flex-col gap-3 rounded-lyra-md border border-lyra-border-subtle bg-lyra-bg-surface-base p-4">
-        <span className="lyra-body-md-emphasis text-lyra-fg-default">Update status and dismiss?</span>
-        <p className="lyra-body-sm text-lyra-fg-secondary">
-          Marcus's issue looks resolved. Mark this interaction Resolved and dismiss it?
-        </p>
-        <div className="flex gap-2">
-          <Button className="flex-1" onClick={() => onWrapUp(true)}>
-            Yes, update &amp; dismiss
-          </Button>
-          <Button variant="outline" className="flex-1" onClick={() => onWrapUp(false)}>
-            Not yet
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  // Decision card first (now permanently resolved/disabled — see above),
-  // whatever the current step's card is appended below it. Plain document
-  // flow, no extra positioning needed: `CopilotTabContent`'s own
-  // `extra` slot (this component's sole call site) just grows taller as
-  // more content renders inside it, "shifting everything below it down"
-  // for free exactly like a normal chat transcript growing with new turns.
-  return (
-    <div className="flex flex-col gap-3">
-      {marcusSummaryCards}
-      {SHOW_MARCUS_DECISION_CARD && decisionCard}
-      {passwordResetKbCard}
-      {nextCard}
-      {/* Zero-height scroll target — see this function's own top-of-file
-          doc comment for the full "scroll to the latest card" reasoning. */}
-      <div ref={latestCardRef} />
-    </div>
-  );
-}
-
 // Per explicit request ("remove the channel toggle group in phase 2 and
 // update it with the channel design in phase 1..."): mirrors Phase 1's own
 // `SHOW_CHANNEL_TOGGLE_GROUP` (AgentWorkspaceAdvancedPage.tsx) — `false`
@@ -1554,9 +859,8 @@ export function AgentWorkspace2WithDeskPage({
     [createdCustomerRecords]
   );
   // Left-nav cards (P0.5b.2): provider contacts come from the interaction
-  // store (one card per journey, `card.id` = `journeyId`); the scripted
-  // Marcus Webb chat stays page-local until P0.5c. `setInteractions` keeps
-  // the old updater shape — see useNavCards for what it keeps and drops.
+  // store (one card per journey, `card.id` = `journeyId`). `setInteractions`
+  // keeps the old updater shape — see useNavCards for what it keeps and drops.
   const {
     cards: interactions,
     setCards: setInteractions,
@@ -1586,152 +890,6 @@ export function AgentWorkspace2WithDeskPage({
   useEffect(() => {
     interactions.forEach((interaction) => saveCaseRecord(interaction));
   }, [interactions]);
-  // ── Marcus Webb scripted scenario (Premium only) ──
-  // `agent-next-gen-marcus-webb-scenario.ts` owns the actual localStorage
-  // read/write and the scenario's static content; this page only owns WHEN
-  // things happen (the trigger, wiring into `interactions`/Copilot/the
-  // composer) and the 4 agent-driven transitions below. Lazy-initialized via
-  // `resetMarcusWebbScenario()` — NOT `loadMarcusWebbScenario()` — so every
-  // fresh page load starts this scenario over from scratch rather than
-  // resuming whatever was left in `localStorage` from a previous load (see
-  // that module's own top-of-file comment for the full reasoning: a plain
-  // reload is now itself the "reset" action, per explicit request, no
-  // DevTools console needed).
-  const [marcusWebbState, setMarcusWebbState] = useState<MarcusWebbScenarioState>(() => resetMarcusWebbScenario());
-  // One-shot value handed to `InteractionComposer`'s own `prefill` prop when
-  // the agent clicks a suggested reply on the "message-options" Copilot
-  // card — populates the composer's text box without sending it (per
-  // explicit request). Reset back to `undefined` via `onPrefillConsumed`
-  // once the composer's effect has consumed it, so clicking the SAME
-  // suggestion again later can still re-trigger it.
-  const [marcusWebbComposerPrefill, setMarcusWebbComposerPrefill] = useState<string | undefined>(undefined);
-
-  // (No mount-time rehydration effect here anymore — `marcusWebbState`
-  // above always starts at `DEFAULT_STATE` now, so there's nothing left in
-  // `interactions` to restore on a fresh load. The trigger effect further
-  // down is what (re-)creates Marcus's interaction every time.)
-
-  // (5-real-seconds-after-"available" trigger effect lives further down,
-  // right after `agentStatus` itself is declared — see that effect's own
-  // doc comment there for why it can't live up here.)
-
-  // Keeps the persisted `marcusWebbState.interaction` in sync with whatever
-  // `interactions` actually holds for Marcus's card right now (new messages
-  // from `handleSendMessage`'s `applyToChannel`, status changes, etc.) — the
-  // same "reflect live state into local storage" role
-  // `saveCaseRecord`/the effect right above plays for every OTHER
-  // interaction, just scoped to this one id and this module's own storage
-  // key instead.
-  useEffect(() => {
-    const live = interactions.find((i) => i.id === MARCUS_WEBB_ID);
-    if (live) {
-      setMarcusWebbState((prev) => (prev.interaction === live ? prev : saveMarcusWebbScenario({ interaction: live })));
-    }
-  }, [interactions]);
-
-  const handleMarcusWebbSelectAction = (action: MarcusWebbAction) => {
-    // Does NOT touch `selectedActions` (the persistent completed-options
-    // history — see that field's own doc comment, agent-next-gen-marcus-
-    // webb-scenario.ts) here anymore. Per a further explicit follow-up
-    // ("don't fully disable steps until they are complete (ie. the agent
-    // has sent a reply to the customer)"), later corrected by a final
-    // explicit follow-up ("once the step is completed (ie. the customer
-    // responds)"), picking an option off the decision card is no longer
-    // what locks it in as checked/disabled — only the CUSTOMER actually
-    // responding to that option's suggested reply is. See
-    // `handleSendMessage`'s own simulated-reply `setTimeout`
-    // (`isMarcusWebbWrapupSend` branch), where `selectedActions` actually
-    // gets appended once that reply lands.
-    setMarcusWebbState(
-      saveMarcusWebbScenario({
-        selectedAction: action,
-        copilotStep: "detail",
-      })
-    );
-  };
-  const handleMarcusWebbCompleteActivity = () => {
-    setMarcusWebbState(saveMarcusWebbScenario({ activityCompleted: true, copilotStep: "message-options" }));
-  };
-  const handleMarcusWebbSelectMessage = (text: string) => {
-    setMarcusWebbComposerPrefill(text);
-  };
-  // ── "reset" action's 4 clickable steps (per explicit request) ──
-  // Each of these is called directly from its own row in
-  // `MarcusWebbCopilotCard`'s dedicated reset-step render branch — no
-  // shared "Mark steps complete" button; the 4th (`handleMarcusWebbResetConfirmLogin`)
-  // checks whether every step is now done and, if so, transitions
-  // `copilotStep` on to `"message-options"` itself — the exact same target
-  // state the old shared button used to set via `onCompleteActivity` above,
-  // just triggered automatically instead of by an explicit extra click.
-  const handleMarcusWebbResetVerifyIdentity = () => {
-    setMarcusWebbComposerPrefill(MARCUS_WEBB_RESET_VERIFY_MESSAGE);
-    setMarcusWebbState(
-      saveMarcusWebbScenario({ resetSteps: { ...marcusWebbState.resetSteps, identityVerified: true } })
-    );
-  };
-  const handleMarcusWebbResetGeneratePassword = () => {
-    setMarcusWebbComposerPrefill(MARCUS_WEBB_RESET_PASSWORD_GENERATED_MESSAGE);
-    setMarcusWebbState(
-      saveMarcusWebbScenario({
-        resetTempPassword: generateMarcusWebbTempPassword(),
-        resetSteps: { ...marcusWebbState.resetSteps, passwordGenerated: true },
-      })
-    );
-  };
-  // Swaps the displayed password for a fresh one without touching the
-  // composer or `resetSteps` — a pure "I don't like that one, give me
-  // another" affordance, not a step transition of its own.
-  const handleMarcusWebbResetRegeneratePassword = () => {
-    setMarcusWebbState(saveMarcusWebbScenario({ resetTempPassword: generateMarcusWebbTempPassword() }));
-  };
-  // This flow used to have a 3rd step here ("send the temporary password to
-  // Marcus's verified email on file") that opened a dedicated email
-  // `Thread` on Marcus's interaction and populated it with an email
-  // template. Removed per explicit request ("remove this step") — step 2's
-  // own composer prefill already tells Marcus the password is on its way to
-  // his email, making a separate agent-facing "send it" click redundant.
-  // `handleMarcusWebbResetConfirmLogin` below (now step 3, was step 4) no
-  // longer needs to switch the active channel back to chat either, since
-  // this step never switched it to email in the first place. Once this
-  // step lands, checks whether all 3 steps are now done and — if so —
-  // transitions `copilotStep` straight to `"message-options"` itself, same
-  // target state `onCompleteActivity`/`handleMarcusWebbCompleteActivity`
-  // sets for every OTHER action's own explicit "Mark Complete" button.
-  const handleMarcusWebbResetConfirmLogin = () => {
-    setMarcusWebbComposerPrefill(MARCUS_WEBB_RESET_LOGIN_CONFIRM_MESSAGE);
-    const nextSteps = { ...marcusWebbState.resetSteps, loginConfirmed: true };
-    const allStepsDone = nextSteps.identityVerified && nextSteps.passwordGenerated && nextSteps.loginConfirmed;
-    setMarcusWebbState(
-      saveMarcusWebbScenario({
-        resetSteps: nextSteps,
-        ...(allStepsDone ? { activityCompleted: true, copilotStep: "message-options" as const } : {}),
-      })
-    );
-  };
-  // "Yes" dismisses for real, reusing the same `handleInteractionStatusChange`
-  // + `handleDismissInteraction` pair every other card's own status-change/
-  // dismiss actions already use (see this file's own doc comments on those
-  // two handlers) — no separate Contact History code needed (per
-  // `handleDismissInteraction`'s own doc comment, it logs any dismissed
-  // interaction with an agent-sent message regardless of customer-directory
-  // identity). "Not yet", per explicit follow-up ("if the user selects not
-  // yet, just dismiss that card do not remove the How would you like to
-  // help Marcus card"), goes to `"idle"` rather than `"done"` — `"done"`
-  // nulls the WHOLE Copilot card (see `MarcusWebbCopilotCard`'s own early
-  // return), which would also take the decision card down with it; `"idle"`
-  // has no matching `nextCard` branch, so only the wrap-up prompt itself
-  // disappears and the (already-resolved) decision card stays put, same as
-  // every other step's card being replaced. Nothing transitions OUT of
-  // `"idle"` afterward — the wrap-up prompt is scripted to fire only once.
-  const handleMarcusWebbWrapUp = (updateStatus: boolean) => {
-    if (updateStatus) {
-      handleInteractionStatusChange(MARCUS_WEBB_ID, MARCUS_WEBB_CHANNEL_ID, "Resolved");
-      handleDismissInteraction(MARCUS_WEBB_ID);
-      setMarcusWebbState(saveMarcusWebbScenario({ dismissed: true, copilotStep: "done" }));
-    } else {
-      setMarcusWebbState(saveMarcusWebbScenario({ copilotStep: "idle" }));
-    }
-  };
   // Real "Today" Contact History rows — starts empty (nothing to show on
   // login, there's no backend here to have loaded anything from) and grows
   // as the agent actually dismisses whole assignments (`handleDismissInteraction`
@@ -1888,12 +1046,14 @@ export function AgentWorkspace2WithDeskPage({
   // interaction (see that const's own doc comment). Mirrors Agent Workspace
   // 2.0's identical `outcomeDraftSource` union (AgentNextGenPage.tsx).
   const [outcomeDraftSource, setOutcomeDraftSource] = useState<"leftnav" | "transcript" | "tab" | "header" | "hover" | null>(null);
-  const buildDefaultOutcomeDraft = () => ({
-    tags: ["Technical", "Account"],
-    dispositionCode: OUTCOME_DISPOSITION_OPTIONS[0].value,
-    summary: OUTCOME_DEFAULT_SUMMARY,
-  });
-  const [outcomeDraft, setOutcomeDraft] = useState(buildDefaultOutcomeDraft);
+  // One Outcome draft per channel (`${cardId}:${threadKey}`, shared hook,
+  // P0.5d.1): every Outcome popover and the inline voice wrap-up card read
+  // and write the same draft for a channel. It starts empty (no prefilled
+  // tags/disposition any more) and is what wrap-up completes with.
+  // `outcomeDraft`/`setOutcomeDraft` are the open popover's draft.
+  const outcomeDrafts = useChannelOutcomeDrafts();
+  const outcomeDraft = outcomeDrafts.draftFor(outcomeDraftKey);
+  const setOutcomeDraft = (change: (draft: OutcomeDraft) => OutcomeDraft) => outcomeDrafts.update(outcomeDraftKey, change);
   /** Per explicit follow-up request (mirrors Agent Workspace 2.0's identical
    *  state — AgentNextGenPage.tsx, see that file's own doc comment for the
    *  full reasoning): the real `Date` a fresh chat/SMS/WhatsApp thread's
@@ -1932,11 +1092,8 @@ export function AgentWorkspace2WithDeskPage({
   const [customerMatchQuery, setCustomerMatchQuery] = useState("");
   const handleOutcomeOpenChange = (key: string, open: boolean, source: "leftnav" | "transcript" | "tab" | "header" | "hover") => {
     if (open) {
-      // Reset to a fresh draft every time a (possibly different) channel's
-      // popover opens — no real backend here to load a previously-saved
-      // outcome from, so every open starts from the same plausible example
-      // rather than carrying over whatever the last channel's draft had.
-      setOutcomeDraft(buildDefaultOutcomeDraft());
+      // The channel's own draft (`outcomeDrafts`) shows as-is: whatever was
+      // already picked for it, or empty the first time.
       setOutcomeDraftKey(key);
       setOutcomeDraftSource(source);
     } else if (outcomeDraftKey === key && outcomeDraftSource === source) {
@@ -2055,6 +1212,8 @@ export function AgentWorkspace2WithDeskPage({
   // The nav cards' "New" badge — a card is new until it has been the active
   // one. Shared with Advanced (`useNewAssignments`, nav card convergence).
   const isNewAssignment = useNewAssignments(activeInteractionId);
+  // The incoming tile's answer SLA thresholds (the active profile's).
+  const answerSla = useAnswerSla();
   // Customers table's "+ Filter" state, lifted up here (not local to
   // `CustomersListView`) — that component sits inside the Desk dashboard's
   // own branch of the `showSettings ? ... : activeInteraction ? ... : (
@@ -2230,6 +1389,8 @@ export function AgentWorkspace2WithDeskPage({
       )
     : undefined;
   const activeChannelType = activeChannel?.type;
+  // The selected card's call in wrap-up, if any (its inline wrap-up card).
+  const activeWrapUpThread = voiceWrapUpThread(activeInteraction);
   // Per explicit follow-up request ("leave the active badge visible if the
   // agent switches between chat/other channels"): whether the interaction
   // has a chat thread open ANYWHERE among its threads, not just whether the
@@ -2287,7 +1448,8 @@ export function AgentWorkspace2WithDeskPage({
   // (agent-next-gen-interaction-dashboard.tsx) for the full reasoning and
   // for where it gets reset on a fresh call.
   const findLiveVoiceThread = (interaction: Interaction) => {
-    if (interaction.closed || interaction.voiceCallEnded) return undefined;
+    // A ringing offer isn't a call yet.
+    if (interaction.closed || interaction.voiceCallEnded || interaction.offered) return undefined;
     return interaction.threads.find((c) => c.type === "voice");
   };
   // This interaction's own voice thread, regardless of `currentThreadId`/
@@ -2332,18 +1494,6 @@ export function AgentWorkspace2WithDeskPage({
   // call has no real Open/Pending/Resolved/Closed disposition to log
   // against a colleague the way a genuine customer contact does).
   const activeInteractionIsAgentCall = !!activeInteraction && OUTBOUND_AGENTS.some((a: CreateNewOutboundContact) => a.id === activeInteraction.entityId);
-  // Per explicit request ("Marcus Webb when initiated should not show
-  // customer information") — the scripted Marcus Webb interaction
-  // (`MARCUS_WEBB_ID`) hides Customer Information the same way
-  // `activeInteractionIsAgentCall` does for an agent-to-agent call (both
-  // the hover-preview toggle and the docked panel itself, below), even
-  // though it otherwise reads as a real customer elsewhere (see the
-  // `showChannelTabRow`/`createdCustomerRecords` doc comment above this
-  // one) — this is scoped narrowly to just those two Customer Information
-  // entry points, not folded into `activeInteractionIsAgentCall` itself,
-  // since Marcus Webb is a real (scripted) customer chat in every other
-  // respect.
-  const activeInteractionIsMarcusWebb = activeInteraction?.id === MARCUS_WEBB_ID;
   // Per explicit request: true when the active interaction is genuinely
   // backed by a real `CREATE_NEW_CUSTOMERS` directory record — every
   // creation path either reuses that real `customer-N` id verbatim
@@ -2365,15 +1515,6 @@ export function AgentWorkspace2WithDeskPage({
   // Information tab set, plain customer-ID subtitle — see
   // `showChannelTabRow` right below) the instant either action resolves,
   // not just at the customer directory's own static, build-time contents.
-  // The scripted Marcus Webb interaction (`MARCUS_WEBB_ID`, see
-  // agent-next-gen-marcus-webb-scenario.ts) reads as a real customer here
-  // too, but no longer via a special-cased third OR clause — per a later
-  // explicit request ("add marcus webb to the customer database"), he's
-  // now a genuine `CREATE_NEW_CUSTOMERS` entry (its own `id` set to
-  // `MARCUS_WEBB_ID`, added in lyra-ui's `create-new-customers-data.ts` —
-  // see that file's own doc comment), so the first `.some(...)` below
-  // already covers him like any other real customer, no different from
-  // how `createdCustomerRecords` promotes a freshly-linked/created card.
   // Per explicit follow-up bug report: a Contact History entry reopened
   // via `handleReopenContactHistoryEntry` falls back to a synthetic
   // `history:${entry.caseId}` id whenever that entry has no `customerId` of
@@ -2440,23 +1581,29 @@ export function AgentWorkspace2WithDeskPage({
     !!activeInteraction &&
     // A known contact (P0.5b.2: an entity, where the old `adhoc:`/
     // `quickdial:`/`redial:` card ids meant an address-only one).
-    (!!activeInteraction.entityId || isDeskScenarioCardId(activeInteraction.id)) &&
+    !!activeInteraction.entityId &&
     activeChannelType === "chat";
   // Computed once so the SAME object feeds both the Customer Context
   // Overview cards AND the new "AI Customer Summary" panel
   // (`aiSummaryPanelOpen` below) — see AgentNextGenPage.tsx's identical
   // memo for the full reasoning.
+  // An inbound call's pre-contact summary (P0.5d.1) replaces the Autosummary
+  // lines, for a known customer or an unknown caller alike.
+  const activePreContactSummary = preContactSummaryOf(activeInteraction);
   const customerContextOverviewInfo = useMemo(
     () =>
       activeInteraction
-        ? buildCustomerContextOverviewInfo(
-            activeInteraction.id,
-            activeInteraction.customerName,
-            activeInteractionIsRealCustomer,
-            activeInteractionCustomerIdentified,
-            extractPriorContactInfo(
-              findContactHistoryMatch(activeInteraction.customerName, activeInteraction.customerId)
-            )
+        ? withPreContactSummary(
+            buildCustomerContextOverviewInfo(
+              activeInteraction.id,
+              activeInteraction.customerName,
+              activeInteractionIsRealCustomer,
+              activeInteractionCustomerIdentified,
+              extractPriorContactInfo(
+                findContactHistoryMatch(activeInteraction.customerName, activeInteraction.customerId)
+              )
+            ),
+            activePreContactSummary
           )
         : undefined,
     [
@@ -2465,6 +1612,7 @@ export function AgentWorkspace2WithDeskPage({
       activeInteraction?.customerId,
       activeInteractionIsRealCustomer,
       activeInteractionCustomerIdentified,
+      activePreContactSummary,
     ]
   );
   // Drives the "AI Customer Summary" content swapped into the SAME
@@ -2756,9 +1904,8 @@ export function AgentWorkspace2WithDeskPage({
     // panel and just replace the current information..."): this file's
     // standalone docked `CustomerInformationSidePanel` no longer renders
     // (see that render site's own doc comment further down) — its
-    // unknown-contact matching flow and the Marcus Webb scripted Copilot
-    // card move here instead, verbatim, so this ONE shared panel loses
-    // neither. `undefined` for a real-customer interaction, same as
+    // unknown-contact matching flow moves here instead, verbatim, so this
+    // ONE shared panel doesn't lose it. `undefined` for a real-customer interaction, same as
     // `CustomerInformationSidePanel` always got.
     matchState:
       activeInteractionIsRealCustomer || !activeInteraction
@@ -2774,20 +1921,6 @@ export function AgentWorkspace2WithDeskPage({
             onBackToSearch: handleBackToCustomerSearch,
             onSaveNewCustomer: handleSaveNewCustomer,
           },
-    copilotExtra:
-      activeInteraction?.id === MARCUS_WEBB_ID ? (
-        <MarcusWebbCopilotCard
-          state={marcusWebbState}
-          onSelectAction={handleMarcusWebbSelectAction}
-          onCompleteActivity={handleMarcusWebbCompleteActivity}
-          onSelectMessage={handleMarcusWebbSelectMessage}
-          onWrapUp={handleMarcusWebbWrapUp}
-          onResetVerifyIdentity={handleMarcusWebbResetVerifyIdentity}
-          onResetGeneratePassword={handleMarcusWebbResetGeneratePassword}
-          onResetRegeneratePassword={handleMarcusWebbResetRegeneratePassword}
-          onResetConfirmLogin={handleMarcusWebbResetConfirmLogin}
-        />
-      ) : undefined,
     // No `focusTabOverride`: this hook owns its own `activeTab` and doesn't
     // take that option (it's `CustomerInformationSidePanel`'s own prop, and
     // passing it here was silently dropped) — same as the Advanced page's
@@ -3045,55 +2178,6 @@ export function AgentWorkspace2WithDeskPage({
   const [windowWidth, setWindowWidth] = useState(() => window.innerWidth);
   const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
   const [agentStatus, setAgentStatus] = useState<AgentStatus>("unavailable");
-  // 5-real-seconds-after-"available" trigger for the Marcus Webb scripted
-  // scenario — no longer time-based (was a 30s, then 5s, real-time delay;
-  // per explicit follow-up request that proved fiddly to test/demo on
-  // command) — now fires the instant the agent presses the "L" key, any
-  // time they're "available" and the scenario hasn't already fired this
-  // page load. Has to live here (after `agentStatus` itself, not up with
-  // the rest of that scenario's own state/effects near the top of this
-  // component) purely because it reads `agentStatus` — a `useEffect`'s
-  // dependency array is evaluated as part of this call, so referencing a
-  // not-yet-declared `const` there is a hard TDZ error, not just a stale
-  // read. Only arms once per PAGE LOAD — `marcusWebbState` itself resets to
-  // its defaults on every mount (see that state's own declaration above),
-  // so `marcusWebbState.triggered` only ever blocks a SECOND trigger within
-  // the SAME load, not across a reload.
-  //
-  // Per explicit report ("it didn't open the interaction, just the left
-  // nav — keep the agent on whatever screen they're on") — deliberately
-  // does NOT call `switchActiveInteraction`/`setSidePanelOpen` the way
-  // `handleOpenAssignmentFromNotification`'s own `isNewInteraction` branch
-  // does for every AGENT-clicked notification: Marcus's arrival should
-  // announce itself (nav opens, `InteractionNavItem` animates in) without
-  // yanking the agent off whatever they're currently looking at — only a
-  // deliberate click on his new nav card should actually open him.
-  //
-  // The keydown listener ignores "L" while the agent is actually typing
-  // (any focused `<input>`/`<textarea>`/`contenteditable`, or with a
-  // modifier held) — this is a real, printable letter the agent needs to
-  // type into the composer/search/etc. constantly, so only a "bare L" press
-  // outside any text field counts as the demo shortcut.
-  useEffect(() => {
-    if (agentStatus !== "available" || marcusWebbState.triggered) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() !== "l" || e.metaKey || e.ctrlKey || e.altKey) return;
-      const target = e.target as HTMLElement | null;
-      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable) return;
-      const interaction = buildMarcusWebbInteraction(clock.now());
-      setInteractions((prev) => (prev.some((i) => i.id === MARCUS_WEBB_ID) ? prev : [...prev, interaction]));
-      setMarcusWebbState(saveMarcusWebbScenario({ triggered: true, interaction, copilotStep: "decision" }));
-      // Used to force the nav open here too ("when a new interaction comes
-      // in - if the left nav is closed, open it") — Marcus's chat is a
-      // genuinely inbound, unprompted arrival, the same category
-      // `handleOpenAssignmentFromNotification` above used to cover.
-      // Dropped per the same newer explicit request as that one: the left
-      // nav defaults open on load now, but an inbound assignment arriving
-      // no longer reopens it if the agent has since closed it.
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [agentStatus, marcusWebbState.triggered, clock, setInteractions]);
   const [showWelcomeModal, setShowWelcomeModal] = useState(true);
   // Flushes whatever `fireAgentLegStatusToast` deferred (further up this
   // component) the moment the welcome modal actually closes (Go Available /
@@ -4175,7 +3259,7 @@ export function AgentWorkspace2WithDeskPage({
   // starting/ending, not something that should re-fire just because
   // `agentStatus` itself changed for some unrelated reason.
   const isOnVoiceCall = interactions.some(
-    (i) => !i.closed && !i.voiceCallEnded && i.threads.some((t) => t.type === "voice")
+    (i) => !i.closed && !i.voiceCallEnded && !i.offered && i.threads.some((t) => t.type === "voice")
   );
   const preCallStatusRef = useRef<AgentStatus | null>(null);
   useEffect(() => {
@@ -4241,9 +3325,10 @@ export function AgentWorkspace2WithDeskPage({
     setInteractions((prev) =>
       prev.map((i) => (i.id === journeyId && i.currentThreadId !== threadKey ? { ...i, currentThreadId: threadKey } : i))
     );
+    // A restarted call starts with an empty Outcome (row 19).
+    if (threadKey.startsWith("voice")) outcomeDrafts.clear(outcomeDraftKeyOf(journeyId, threadKey));
     // A new card starts with Customer Information closed; an existing one
-    // keeps the panel as the agent left it. (Outcome drafts reset on every
-    // open on this page until row 19 converges in 5d.)
+    // keeps the panel as the agent left it.
     if (isNewCard) setSidePanelOpen(false);
   };
   const { activateWhenReady } = useContactActivation(handleContactActivated, seedOverlay);
@@ -4257,10 +3342,13 @@ export function AgentWorkspace2WithDeskPage({
     // A second voice call is allowed on this page; the provider holds the
     // first one when the second connects.
     secondVoiceCall: "auto-hold",
-    // Save & Redial: the ended call's wrap-up completes once the new call is
-    // placed, so the card never empties. (This page's Outcome draft isn't
-    // kept per channel yet — row 19, 5d — so no outcome is recorded.)
-    onCardRedialPlaced: (card) => void contactCommands.completeEndedCalls(card),
+    // A typed Quick Dial number of a customer the agent is already on a
+    // call with (the buttons elsewhere are disabled instead).
+    onAlreadyOnCall: () => addToast({ variant: "info", title: ALREADY_ON_CALL_TOOLTIP, duration: 4000 }),
+    // Save & Redial: the ended call's wrap-up completes with its Outcome
+    // draft once the new call is placed, so the card never empties.
+    onCardRedialPlaced: (card) =>
+      void contactCommands.completeEndedCalls(card, (key) => outcomeDrafts.outcomeOf(outcomeDraftKeyOf(card.id, key))),
   });
   const contactReopen = useContactReopen({ findOpenCard, activateWhenReady, skillIdForName });
 
@@ -4743,19 +3831,6 @@ export function AgentWorkspace2WithDeskPage({
       )
     );
 
-    // Marcus Webb's own "is this the agent's first message on this
-    // interaction" snapshot — read BEFORE `agentHasReplied` itself flips
-    // just below, same "snapshot now, not whenever a later callback happens
-    // to fire" reasoning `isMarcusWebbWrapupSend` (further below) already
-    // follows. See `MarcusWebbScenarioState.customerRespondedToFirstMessage`'s
-    // own doc comment (agent-next-gen-marcus-webb-scenario.ts) for why the
-    // delayed simulated-customer-reply callback needs to know this, not just
-    // whether the agent has EVER replied by the time that callback fires.
-    const isFirstMarcusWebbAgentMessage = interactionId === MARCUS_WEBB_ID && !marcusWebbState.agentHasReplied;
-    if (isFirstMarcusWebbAgentMessage) {
-      setMarcusWebbState(saveMarcusWebbScenario({ agentHasReplied: true }));
-    }
-
     // "Customer is typing" — see `customerTyping`'s own doc comment. Per
     // explicit follow-up request ("do not display the typing indicator
     // until 2s after the agent message is sent"), no longer set the
@@ -4773,42 +3848,14 @@ export function AgentWorkspace2WithDeskPage({
       }, 2000);
     }
 
-    // Marcus Webb's own wrap-up reply — captured once here (send time), not
-    // re-read inside the timeout below, same "snapshot now, not whenever the
-    // callback happens to fire" reasoning `channelKeyAtSend` above already
-    // follows. True exactly when the agent is sending one of the suggested
-    // replies on Marcus's "message-options" Copilot card — i.e. this is the
-    // message that resolves his scenario, per explicit request ("Once sent
-    // continue the conversation and wrap up").
-    const isMarcusWebbWrapupSend =
-      interactionId === MARCUS_WEBB_ID && marcusWebbState.copilotStep === "message-options";
-    // Snapshotted alongside `isMarcusWebbWrapupSend` for the same reason —
-    // read inside the 2500ms timeout below, not re-read live off
-    // `marcusWebbState` when that callback actually fires.
-    const marcusWebbCompletedAction = marcusWebbState.selectedAction;
-    // True for every OTHER message sent during the "reset" flow's own 4
-    // steps — i.e. every send that ISN'T the final wrap-up reply above. See
-    // `resetStepsConfirmed`'s own doc comment (agent-next-gen-marcus-webb-
-    // scenario.ts) for the full reasoning: each step's checkbox needs its
-    // OWN "the customer responded to THIS step" signal, not the single
-    // scenario-wide one `isMarcusWebbWrapupSend` drives.
-    const isMarcusWebbResetStepSend =
-      interactionId === MARCUS_WEBB_ID &&
-      marcusWebbState.selectedAction === "reset" &&
-      marcusWebbState.copilotStep === "detail";
-
     // Simulated customer reply — canned text, not a real conversation
     // engine. "Customer"/"C" here are placeholders: `InteractionTranscript`
     // already swaps every customer-sender message's name/initials for this
     // interaction's real customer at render time (see its own doc comment),
     // so this reads correctly without needing the real name threaded
-    // through here too. Marcus's own scripted wrap-up send still takes
-    // priority (his scripted thanks message, not a random pool pick, and it
-    // advances his Copilot card to "wrapup" once it lands) — every other
-    // send (including his own earlier messages) falls to
-    // `resolveCustomerAutoReply` (agent-next-gen-transcript.tsx), which
-    // itself special-cases the "Acknowledge" quick reply's exact text
-    // before falling back to `CUSTOMER_AUTO_REPLY_POOL`.
+    // through here too. `resolveCustomerAutoReply` (agent-next-gen-
+    // transcript.tsx) special-cases the "Acknowledge" quick reply's exact
+    // text before falling back to `CUSTOMER_AUTO_REPLY_POOL`.
     window.setTimeout(() => {
       if (isTextChannelAtSend) {
         setCustomerTyping((prev) => ({ ...prev, [typingKey]: false }));
@@ -4819,9 +3866,7 @@ export function AgentWorkspace2WithDeskPage({
         name: "Customer",
         initials: "C",
         timestamp: new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
-        text: isMarcusWebbWrapupSend
-          ? MARCUS_WEBB_THANKS_MESSAGE
-          : resolveCustomerAutoReply(trimmed),
+        text: resolveCustomerAutoReply(trimmed),
       };
       setInteractions((prev) =>
         prev.map((interaction) =>
@@ -4833,72 +3878,6 @@ export function AgentWorkspace2WithDeskPage({
             : interaction
         )
       );
-      // Per explicit request, with a screenshot of the agent's first reply
-      // landing without the Copilot card changing yet: "display the steps
-      // to reset card and change the sentiment card after the CUSTOMER
-      // responds to the agent's first comment (not triggered by reset)."
-      // Fires exactly once, the moment THIS simulated customer reply lands,
-      // but only when `isFirstMarcusWebbAgentMessage` (snapshotted above, at
-      // send time) was true for the agent message it's replying to — a
-      // reply following the agent's 2nd+ message does nothing here. See
-      // `MarcusWebbScenarioState.customerRespondedToFirstMessage`'s own doc
-      // comment for the full reasoning, including why this replaces the
-      // two earlier, separate `agentHasReplied`/`passwordResetOffered`
-      // signals with one.
-      if (isFirstMarcusWebbAgentMessage) {
-        setMarcusWebbState(saveMarcusWebbScenario({ customerRespondedToFirstMessage: true }));
-      }
-      // Per explicit follow-up ("don't set the checked as completed until
-      // after the message is sent"), then corrected by a further explicit
-      // follow-up ("once the step is completed (ie. the customer
-      // responds)"): the decision card's chosen option (and, for "reset",
-      // each of its own step checkboxes — see `MarcusWebbCopilotCard`'s own
-      // reset-detail branch) only lock in as checked/disabled once THIS —
-      // the customer's simulated reply actually landing, not the agent's
-      // send moment above — fires. `marcusWebbCompletedAction` was
-      // snapshotted at send time (same reasoning as `isMarcusWebbWrapupSend`
-      // itself); reading `marcusWebbState.selectedActions` live here is
-      // still correct since this callback only ever runs once per send and
-      // nothing else mutates that array in between.
-      if (isMarcusWebbWrapupSend) {
-        setMarcusWebbState(
-          saveMarcusWebbScenario({
-            copilotStep: "wrapup",
-            ...(marcusWebbCompletedAction
-              ? {
-                  selectedActions: marcusWebbState.selectedActions.includes(marcusWebbCompletedAction)
-                    ? marcusWebbState.selectedActions
-                    : [...marcusWebbState.selectedActions, marcusWebbCompletedAction],
-                }
-              : {}),
-          })
-        );
-      }
-      // Per a further explicit follow-up ("it's not updating in the copilot
-      // card to checked and disabled" — a real send/reply round trip for
-      // reset step 1 hadn't flipped that step's checkbox), the scenario-wide
-      // `isMarcusWebbWrapupSend` signal above only ever fires once, at the
-      // very END of the whole flow — it can't be what confirms each of the
-      // 4 reset steps' OWN individual checkboxes along the way. Every OTHER
-      // send during the reset flow (`isMarcusWebbResetStepSend`, snapshotted
-      // above) confirms whichever step is next in line: the first entry in
-      // `MARCUS_WEBB_RESET_STEP_ORDER` that's `true` in `resetSteps` (the
-      // agent clicked it) but still `false` in `resetStepsConfirmed` (the
-      // customer hasn't answered it yet) gets flipped. See
-      // `resetStepsConfirmed`'s own doc comment (agent-next-gen-marcus-webb-
-      // scenario.ts) for the full reasoning.
-      if (isMarcusWebbResetStepSend) {
-        const steps = marcusWebbState.resetSteps;
-        const confirmed = marcusWebbState.resetStepsConfirmed;
-        const nextToConfirm = MARCUS_WEBB_RESET_STEP_ORDER.find((key) => steps[key] && !confirmed[key]);
-        if (nextToConfirm) {
-          setMarcusWebbState(
-            saveMarcusWebbScenario({
-              resetStepsConfirmed: { ...confirmed, [nextToConfirm]: true },
-            })
-          );
-        }
-      }
     }, 2500);
   };
 
@@ -4938,6 +3917,108 @@ export function AgentWorkspace2WithDeskPage({
     const current = interactions.find((i) => i.id === interactionId)?.threadStatuses?.[channelId];
     if (status === "Resolved" && current !== "Resolved") setResolvedTodayCount((n) => n + 1);
     contactCommands.setStatus(interactionId, channelId, status);
+  };
+  const caseStatusCapable = useCapability((c) => c.interaction.caseStatus);
+  /** Outcome's Save & Dismiss for one channel, from the nav row or the
+   *  inline wrap-up card (P0.5d.1): closes only that channel's contact, so
+   *  a card with other channels stays. When it's the card's only channel,
+   *  it's the whole-card dismiss, which also logs Contact History. */
+  const handleOutcomeSaveAndDismissChannel = (interaction: Interaction, c: Interaction["threads"][number]) => {
+    setOutcomeDraftKey(null);
+    setOutcomeDraftSource(null);
+    if (interaction.threads.length <= 1) {
+      handleDismissInteraction(interaction.id, outcomeDrafts.outcomeOf(outcomeDraftKeyOf(interaction.id, c.id ?? c.type)));
+    } else {
+      handleDismissChannel(interaction.id, c);
+    }
+  };
+  /** One channel's Outcome config: the nav row's popover ("leftnav") or the
+   *  inline voice wrap-up card ("card", always open). Both edit the
+   *  channel's own draft (`outcomeDrafts`). */
+  const outcomeConfigFor = (
+    interaction: Interaction,
+    c: Interaction["threads"][number],
+    source: "leftnav" | "card"
+  ): ChannelOutcomeConfig => {
+    const outcomeKey = outcomeDraftKeyOf(interaction.id, c.id ?? c.type);
+    const draft = outcomeDrafts.draftFor(outcomeKey);
+    const edit = (change: (d: OutcomeDraft) => OutcomeDraft) => outcomeDrafts.update(outcomeKey, change);
+    return {
+      open: source === "card" || (outcomeDraftKey === outcomeKey && outcomeDraftSource === source),
+      onOpenChange: (open: boolean) => {
+        if (source === "leftnav") handleOutcomeOpenChange(outcomeKey, open, source);
+      },
+      // Same options list AND same underlying value as the session-status
+      // pill's own dropdown (rule #29), so changing status from either
+      // surface changes it in both, without touching any sibling channel's
+      // status. Fallback is "Open": a channel with no status yet is fresh.
+      resolutionOptions: TRANSCRIPT_SESSION_STATUS_OPTIONS,
+      resolution: interaction.threadStatuses?.[c.id] ?? "Open",
+      onResolutionChange: (value: string) => handleInteractionStatusChange(interaction.id, c.id, value),
+      // Voice has no Open/Pending/Resolved/Closed disposition to log, so
+      // the Status field is hidden for voice — and for a provider that
+      // doesn't store case status (hide, don't disable).
+      voice: c.type === "voice" || !caseStatusCapable,
+      tagOptions: OUTCOME_TAG_OPTIONS,
+      selectedTags: draft.tags,
+      onTagsChange: (tags: string[]) => edit((d) => ({ ...d, tags })),
+      dispositionOptions: OUTCOME_DISPOSITION_OPTIONS,
+      dispositionCode: draft.dispositionCode,
+      onDispositionChange: (value: string) => edit((d) => ({ ...d, dispositionCode: value })),
+      summary: draft.summary,
+      onSummaryChange: (value: string) => edit((d) => ({ ...d, summary: value })),
+      onSave: handleOutcomeSave,
+      onCancel: handleOutcomeCancel,
+      // Once the call has ended the footer becomes Save & Redial / Save &
+      // Dismiss (outcome-panel.tsx). `anchorEl` is the Outcome trigger's own
+      // node (or the wrap-up card), so the Redial pad opens right there.
+      callEnded: c.type === "voice" && !!(interaction.closed || interaction.voiceCallEnded),
+      onSaveAndRedial: (anchorEl) =>
+        handleOutcomeSaveAndRedial(
+          interaction.id,
+          c.value ?? c.addressLabel ?? synthesizeChannelAddress("voice", interaction.customerId ?? interaction.id, interaction.customerName),
+          anchorEl
+        ),
+      onSaveAndDismiss: () => handleOutcomeSaveAndDismissChannel(interaction, c),
+    };
+  };
+  const incomingOffer = useIncomingOffer({
+    findOpenCard,
+    activateWhenReady,
+    onDeclined: () => addToast({ variant: "info", title: "Call declined", duration: 4000 }),
+  });
+  // The bar's call (shared `useVoiceBarCall`, P0.5d.1): the selected card's
+  // call (held or live) in its own state; else the call it last showed;
+  // else the live call, else a held one. Selecting never changes hold state.
+  const voiceBarCall = useVoiceBarCall(interactions, activeInteractionId, findLiveVoiceThread);
+  /** Holds or resumes a call that isn't on the provider, locally. */
+  const setScenarioCallHold = (cardId: string, threadId: string, onHold: boolean) => {
+    setInteractions((prev) =>
+      prev.map((interaction) =>
+        interaction.id === cardId
+          ? {
+              ...interaction,
+              threads: interaction.threads.map((c) =>
+                c.id === threadId ? { ...c, heldByAgent: onHold, heldSinceTick: onHold ? clock.now() : undefined } : c
+              ),
+            }
+          : interaction
+      )
+    );
+  };
+  // The bar's call: Hold/Mute/Record/Mask/Keypad on the provider.
+  const activeVoiceCallControls = useVoiceCallControls(voiceBarCall?.thread, {
+    onScenarioHold: (next) => {
+      if (voiceBarCall) setScenarioCallHold(voiceBarCall.card.id, voiceBarCall.thread.id, next);
+    },
+  });
+  /** The nav row's hold chip (P0.5d.1): resumes a held call (the provider
+   *  holds the live one, and the card is selected so the bar and main column
+   *  land on it) or holds the live call. */
+  const handleCallHoldChip = (card: Interaction, thread: Interaction["threads"][number]) => {
+    const resume = !!thread.heldByAgent;
+    if (!contactCommands.setHold(thread, !resume)) setScenarioCallHold(card.id, thread.id, !resume);
+    if (resume && card.id !== activeInteractionId) switchActiveInteraction(card.id);
   };
 
   /* ── Preventing duplicate channels from the CreateNew picker ──
@@ -6577,8 +5658,7 @@ export function AgentWorkspace2WithDeskPage({
                   // interaction id keeps it unique across DIFFERENT cards
                   // too, since `outcomeDraftKey` is one shared piece of
                   // state for the whole left nav (only one popover open at
-                  // a time), not scoped per-card.
-                  const outcomeKey = `${interaction.id}:${c.id ?? c.type}`;
+                  // a time), not scoped per-card. Built in `outcomeConfigFor`.
                   // Per explicit request: a channel that's been explicitly
                   // closed (via the status popover), OR the whole interaction
                   // this card represents (a reopened-from-history, read-only
@@ -6632,26 +5712,10 @@ export function AgentWorkspace2WithDeskPage({
                   // it's not trying to distinguish those two cases.
                   const slaSuppressed = isClosed || interaction.threadStatuses?.[c.id] === "Resolved";
                   const effectiveAwaitingResponse = !slaSuppressed && (c.awaitingResponse ?? false);
-                  // This specific channel row IS the card's own live
-                  // (not-hung-up) voice thread, and the card itself has been
-                  // navigated away from — same `findLiveVoiceThread`/
-                  // `activeInteractionId` derivation `InteractionNavCard`'s
-                  // own `onHold` prop below already uses (identity-compared
-                  // via `c ===`, not `c.id ===`, since a quickdial/redial
-                  // voice `Thread.id` is the literal constant `"voice"` and
-                  // isn't reliably unique — see `findLiveVoiceThread`'s own
-                  // doc comment). Drives `elapsedOverride` just below —
-                  // per explicit request ("have the on hold chip replace the
-                  // timer in hold calls"), so this row's own running timer
-                  // doesn't keep ticking right next to the header's already-
-                  // shown `OnHoldPill` once the call itself is on hold.
-                  // `|| c.heldByAgent` — per a later explicit request
-                  // ("putting an active call on hold from the call controls
-                  // should ... add an on hold chip to the interactionNavItem")
-                  // — same wiring as Phase 1's identical call site,
-                  // AgentNextGenPage.tsx (see `Thread.heldByAgent`'s own doc
-                  // comment, agent-next-gen-interaction-dashboard.tsx).
-                  const channelOnHold = c.type === "voice" && c === findLiveVoiceThread(interaction) && (interaction.id !== activeInteractionId || !!c.heldByAgent);
+                  const offerSeverity = offerRowAnswerSeverity(interaction, c, clockTick, answerSla);
+                  // This row is the card's current (live or held) call: it
+                  // gets the hold chip below.
+                  const isCallRow = c.type === "voice" && findLiveVoiceThread(interaction)?.id === c.id;
                   return {
                     id: c.id,
                     type: c.type,
@@ -6699,12 +5763,27 @@ export function AgentWorkspace2WithDeskPage({
                       : effectiveAwaitingResponse
                       ? formatElapsedTime(channelAwaitingWaitSeconds(c))
                       : formatElapsedTime(clockTick - c.startTick),
-                    // See `channelOnHold` just above — replaces this row's
-                    // clock+timer with the same `OnHoldPill` chip
-                    // (`OnHoldBadge.tsx`) the card's own header already
-                    // shows, rather than leaving `elapsed` (still computed
-                    // normally above) visibly ticking underneath it.
-                    elapsedOverride: channelOnHold ? <OnHoldPill /> : undefined,
+                    // Recording (the provider's state): the timer's clock
+                    // becomes a pulsing red dot, still counting (P0.5d.1).
+                    recording: c.recording,
+                    // The call's own line below the skill (P0.5d.1), one of:
+                    // in wrap-up → "Needs outcome · mm:ss"; held → an
+                    // "On hold · mm:ss" chip that resumes it (and selects
+                    // this card); live → a "Hold" chip. The call timer stays
+                    // put. (The old "On Hold" pill that replaced the timer
+                    // whenever this card wasn't selected is gone: row 3.)
+                    statusBadge:
+                      c.wrapUpSinceTick !== undefined ? (
+                        <NeedsOutcomeBadge elapsed={formatElapsedTime(clockTick - c.wrapUpSinceTick)} />
+                      ) : isCallRow ? (
+                        <VoiceHoldChip
+                          held={!!c.heldByAgent}
+                          heldSeconds={c.heldSinceTick !== undefined ? clockTick - c.heldSinceTick : 0}
+                          heldLabel={c.heldSinceTick !== undefined ? formatElapsedTime(clockTick - c.heldSinceTick) : undefined}
+                          callerName={interaction.customerName ?? c.addressLabel ?? c.value ?? "caller"}
+                          onClick={() => handleCallHoldChip(interaction, c)}
+                        />
+                      ) : undefined,
                     preview: c.preview,
                     current: c.id === currentId,
                     // See `effectiveAwaitingResponse` above — not read
@@ -6712,7 +5791,9 @@ export function AgentWorkspace2WithDeskPage({
                     // closed channel should never render red/amber/green
                     // just because it happened to be awaiting right before
                     // it was closed.
-                    awaitingResponse: effectiveAwaitingResponse,
+                    // A ringing offer's row is on its answer SLA instead,
+                    // selected or not (offerRowAnswerSeverity).
+                    awaitingResponse: offerSeverity !== undefined || effectiveAwaitingResponse,
                     // Amber-vs-red-vs-green escalation (see
                     // `getAwaitingSeverity`'s own doc comment) — `undefined`
                     // (not computed at all) when this channel isn't
@@ -6721,9 +5802,8 @@ export function AgentWorkspace2WithDeskPage({
                     // back to their own "nothing pending" look rather than a
                     // stray severity value with no `awaitingResponse` to go
                     // with it.
-                    awaitingSeverity: effectiveAwaitingResponse
-                      ? getAwaitingSeverity(channelAwaitingWaitSeconds(c))
-                      : undefined,
+                    awaitingSeverity:
+                      offerSeverity ?? (effectiveAwaitingResponse ? getAwaitingSeverity(channelAwaitingWaitSeconds(c)) : undefined),
                     // Closed (either the whole reopened-from-history
                     // interaction, or just this one channel via the status
                     // popover — same `isClosed` above) is read-only — no
@@ -6757,10 +5837,11 @@ export function AgentWorkspace2WithDeskPage({
                     // flag/state update the record-header's own "End Call"
                     // button sets below (`onHangUp`).
                     onEndCall:
-                      c.type === "voice" && !interaction.closed && !interaction.voiceCallEnded
+                      c.type === "voice" && !interaction.closed && !interaction.voiceCallEnded && !interaction.offered
                         ? () => {
                             // A provider call ends through `end()` (to
-                            // wrap-up, P0.5b.2); a scripted call locally.
+                            // wrap-up, where the card shows its wrap-up card,
+                            // P0.5d.1); a scripted call ends locally.
                             if (!contactCommands.hangUp(c)) {
                               setInteractions((prev) =>
                                 prev.map((i) =>
@@ -6780,66 +5861,9 @@ export function AgentWorkspace2WithDeskPage({
                     // closed/read-only card, since `showMenu={removable !==
                     // false}` already hides the whole button (and this along
                     // with it) there.
-                    outcome: {
-                      open: outcomeDraftKey === outcomeKey && outcomeDraftSource === "leftnav",
-                      onOpenChange: (open: boolean) => handleOutcomeOpenChange(outcomeKey, open, "leftnav"),
-                      // Same options list AND same underlying value as the
-                      // session-status pill's own dropdown
-                      // (`TranscriptSessionSeparator`, fed by THIS channel's
-                      // own `interaction.channelStatuses[c.id]`/
-                      // `handleInteractionStatusChange` — rule #29) — not a
-                      // separate `outcomeDraft` field like Tags/Disposition/
-                      // Summary, so changing status from either surface
-                      // changes it in both, per explicit request, WITHOUT
-                      // touching any sibling channel's own status (see
-                      // `Interaction.channelStatuses`'s own doc
-                      // comment). Fallback here is `"Open"`, not
-                      // `"Resolved"` — a channel with no status set yet is
-                      // a genuinely untouched/fresh thread, not one that's
-                      // already wrapped up (bug fix; this used to read
-                      // `?? "Resolved"`, matching `buildDismissedContact-
-                      // HistoryEntry`'s own fallback for this same field —
-                      // that one intentionally still uses `"Resolved"`,
-                      // since it only ever runs at dismiss time for an
-                      // already-concluded historical entry, so the two no
-                      // longer need to match).
-                      resolutionOptions: TRANSCRIPT_SESSION_STATUS_OPTIONS,
-                      resolution: interaction.threadStatuses?.[c.id] ?? "Open",
-                      onResolutionChange: (value: string) =>
-                        handleInteractionStatusChange(interaction.id, c.id, value),
-                      // Voice has no real Open/Pending/Resolved/Closed
-                      // disposition to log — hide the Status field in the
-                      // Log Outcome popover for voice channels.
-                      voice: c.type === "voice",
-                      tagOptions: OUTCOME_TAG_OPTIONS,
-                      selectedTags: outcomeDraft.tags,
-                      onTagsChange: (tags: string[]) => setOutcomeDraft((d) => ({ ...d, tags })),
-                      dispositionOptions: OUTCOME_DISPOSITION_OPTIONS,
-                      dispositionCode: outcomeDraft.dispositionCode,
-                      onDispositionChange: (value: string) => setOutcomeDraft((d) => ({ ...d, dispositionCode: value })),
-                      summary: outcomeDraft.summary,
-                      onSummaryChange: (value: string) => setOutcomeDraft((d) => ({ ...d, summary: value })),
-                      onSave: handleOutcomeSave,
-                      onCancel: handleOutcomeCancel,
-                      // Per explicit request: once this voice channel's call
-                      // has ended, the footer becomes "Save & Redial"/
-                      // "Save & Dismiss" instead — see `ChannelOutcomeConfig`'s
-                      // own doc comment (outcome-panel.tsx). `anchorEl` here
-                      // is the Outcome trigger's OWN DOM node (threaded
-                      // through by `buildOutcomePopoverSlots`'s `triggerRef`
-                      // param, channel-row.tsx) — anchors the resulting
-                      // "Redial Contact" popover right on this row's own
-                      // Outcome button. Mirrors AgentWorkspaceAdvancedPage.tsx's
-                      // own identical wiring.
-                      callEnded: c.type === "voice" && !!(interaction.closed || interaction.voiceCallEnded),
-                      onSaveAndRedial: (anchorEl) =>
-                        handleOutcomeSaveAndRedial(
-                          interaction.id,
-                          c.value ?? c.addressLabel ?? synthesizeChannelAddress("voice", interaction.customerId ?? interaction.id, interaction.customerName),
-                          anchorEl
-                        ),
-                      onSaveAndDismiss: () => handleOutcomeSaveAndDismiss(interaction.id),
-                    } satisfies ChannelOutcomeConfig,
+                    outcome: outcomeConfigFor(interaction, c, "leftnav"),
+                    // Outcome stays locked on a ringing offer until it's accepted.
+                    controlsDisabled: interaction.offered || undefined,
                   };
                 });
                 // Closed OR Resolved channels drop out of every card-level
@@ -6919,6 +5943,17 @@ export function AgentWorkspace2WithDeskPage({
                     key={interaction.id}
                     currentChannelType={currentChannelType}
                     showChannelBadge={channels.length <= 1}
+                    // A ringing provider voice offer: Accept/Decline, with the
+                    // collapsed tile's hover preview held open (P0.5d.1).
+                    forceHoverOpen={!!interaction.offered}
+                    footerAction={
+                      interaction.offered ? (
+                        <IncomingOfferActions
+                          onAccept={() => void incomingOffer.accept(interaction)}
+                          onDecline={incomingOffer.canDecline ? () => void incomingOffer.decline(interaction) : undefined}
+                        />
+                      ) : undefined
+                    }
                     // Same `cardAwaitingWaitSeconds`/`getAwaitingSeverity`
                     // this card's own `awaitingSeverity` prop below already
                     // resolves — reused, not recomputed, so a single-channel
@@ -6926,16 +5961,10 @@ export function AgentWorkspace2WithDeskPage({
                     // everything else reading this card's severity (the
                     // avatar/border, the elapsed timer, the corner dot).
                     badgeSeverity={cardAwaitingWaitSeconds !== undefined ? getAwaitingSeverity(cardAwaitingWaitSeconds) : undefined}
-                    // "On Hold" pill/corner badge (`OnHoldBadge.tsx`): this
-                    // card has its own live (not hung-up) voice thread, but
-                    // isn't the interaction currently being viewed. Pure
-                    // derivation off existing state — see `findLiveVoiceThread`'s
-                    // own doc comment above for why no extra "on hold" state
-                    // needs to be tracked anywhere. Deliberately UNCHANGED by
-                    // manual hold on the ACTIVE card (`c.heldByAgent`) — see
-                    // `InteractionNavCardProps.manuallyHeld`'s own doc
-                    // comment just below for why that's a separate prop.
-                    onHold={!!findLiveVoiceThread(interaction) && interaction.id !== activeInteractionId}
+                    // On hold only when the call really is (parity row 3,
+                    // pulled forward into P0.5d.1): selecting another card no
+                    // longer shows this card's live call as held.
+                    onHold={!!findLiveVoiceThread(interaction)?.heldByAgent}
                     // Per explicit follow-up request ("when the nav is
                     // collapsed and the call is manually put on hold the
                     // pause chip should appear in the collapsed
@@ -7011,7 +6040,7 @@ export function AgentWorkspace2WithDeskPage({
                     // `chat` covers all of them at once; `history:` non-chat
                     // still lands on `false` exactly as before.
                     customerIdentified={
-                      (!!interaction.entityId || isDeskScenarioCardId(interaction.id)) &&
+                      !!interaction.entityId &&
                       currentChannelType === "chat"
                     }
                     isNewAssignment={isNewAssignment(interaction.id)}
@@ -7029,8 +6058,17 @@ export function AgentWorkspace2WithDeskPage({
                       switchActiveInteraction(interaction.id);
                       setPanelFullScreen(false);
                     }}
-                    awaitingResponse={cardAwaitingChannels.length > 0}
-                    awaitingSeverity={cardAwaitingWaitSeconds !== undefined ? getAwaitingSeverity(cardAwaitingWaitSeconds) : undefined}
+                    // A ringing offer gets the awaiting-reply look on its
+                    // answer SLA (profile thresholds): timer and border turn
+                    // warning, then critical, while it goes unanswered.
+                    awaitingResponse={!!interaction.offered || cardAwaitingChannels.length > 0}
+                    awaitingSeverity={
+                      interaction.offered && earliestStart !== undefined
+                        ? answerSeverity(clockTick - earliestStart, answerSla)
+                        : cardAwaitingWaitSeconds !== undefined
+                          ? getAwaitingSeverity(cardAwaitingWaitSeconds)
+                          : undefined
+                    }
                     // "" (not a fallback duration) once every channel on
                     // this card is closed — see `cardOpenChannels`'s own doc
                     // comment above for why `earliestStart` is `undefined`
@@ -7043,33 +6081,16 @@ export function AgentWorkspace2WithDeskPage({
                     channels={channels}
                     onDismiss={() => handleDismissInteraction(interaction.id)}
                     onDismissChannel={(channel) => handleDismissChannel(interaction.id, channel)}
-                    // Per a later explicit follow-up request ("I want the
-                    // '+' to also be in the interactionNavItem"):
-                    // `getHeaderAction` alone returns `null` for any
-                    // interaction with no matching contact in
-                    // `contactsById` (its own doc comment) — falls back to
-                    // the same directory-independent `AddChannelAdHocButton`
-                    // the record header's own `titleSuffix` uses, but ONLY
-                    // for whichever card is the currently active
-                    // interaction: `handleAddAdHocChannel` (like the record
-                    // header's own call) is only ever wired to
-                    // `activeInteraction`, so a non-active card's "+" still
-                    // only shows when `getHeaderAction` itself resolves a
-                    // real contact for it. `className` shrinks the ad-hoc
-                    // trigger's own default solid-primary "icon-md" look
-                    // down to match `getHeaderAction`'s plain ghost
-                    // `h-6 w-6` "+" exactly, so the two read as the
-                    // identical control regardless of which one happens to
-                    // render for a given card.
+                    // The card's "+" (add channel): on every open card, the
+                    // directory picker or the ad-hoc "+" bound to this card
+                    // (navCardAddChannelAction, shared with Advanced).
                     headerAction={
-                      (interaction.entityId ? getHeaderAction(interaction.entityId) : null) ??
-                      (SHOW_ADD_CHANNEL_HEADER_BUTTON && interaction.id === activeInteractionId && (
-                        <AddChannelAdHocButton
-                          onLaunch={handleAddAdHocChannel}
-                          skillOptions={OUTBOUND_CONFIG.skillOptions}
-                          className="h-6 w-6 px-0 bg-transparent text-lyra-fg-secondary hover:bg-lyra-state-hover active:bg-lyra-state-pressed"
-                        />
-                      ))
+                      SHOW_ADD_CHANNEL_HEADER_BUTTON &&
+                      navCardAddChannelAction(interaction, {
+                        getHeaderAction,
+                        onAddAdHocChannel: outboundDial.addAdHocChannel,
+                        skillOptions: OUTBOUND_CONFIG.skillOptions,
+                      })
                     }
                     // Renders side by side with `collapsible`'s own
                     // expand/collapse chevron, rather than being replaced
@@ -7117,7 +6138,10 @@ export function AgentWorkspace2WithDeskPage({
             further down) so THIS floor never has to fight it for space and
             push the whole row past the viewport. ref used to position
             float panels. */}
-        <div ref={containerRef} className="relative flex flex-1 min-w-[374px] overflow-hidden pr-3 pb-3">
+        {/* A column, as on Advanced: the main container, then the voice
+            bar docked below it. The float/full-screen panel overlays are
+            out of flow either way. */}
+        <div ref={containerRef} className="relative flex flex-col flex-1 min-w-[374px] overflow-hidden pr-3 pb-3">
 
           {/* Main Container — flex column so `isCombinedPanelMode`'s tab row
               can stack above the content instead of sitting beside it. The
@@ -7777,7 +6801,7 @@ export function AgentWorkspace2WithDeskPage({
                               `AddChannelAdHocButton` (directory-independent
                               fallback) pair Phase 1 and every other "+" in
                               this app already use, unchanged. */}
-                          {SHOW_ADD_CHANNEL_HEADER_BUTTON && (getHeaderAction(
+                          {SHOW_ADD_CHANNEL_HEADER_BUTTON && showsSessionControls(activeInteraction) && (getHeaderAction(
                             activeInteraction.entityId ?? "",
                             "ml-0.5 h-8 w-8 px-0 border border-lyra-border-soft bg-lyra-bg-control text-lyra-fg-action hover:bg-lyra-state-hover active:bg-lyra-state-pressed",
                             { label: "Add Channel", showLabel: false }
@@ -8001,7 +7025,7 @@ export function AgentWorkspace2WithDeskPage({
                                                 be open at once, same
                                                 guarantee the rest of the
                                                 app already has. */}
-                                            {!isNewOutboundThreadForHover && !isClosedForHover && (
+                                            {!isNewOutboundThreadForHover && !isClosedForHover && showsSessionControls(activeInteraction) && (
                                               <OutcomePanel
                                                 outcome={{
                                                   open: outcomeDraftKey === outcomeKeyForHover && outcomeDraftSource === "hover",
@@ -8278,7 +7302,7 @@ export function AgentWorkspace2WithDeskPage({
                                       resolution: activeInteraction.threadStatuses?.[c.id] ?? "Open",
                                       onResolutionChange: (value) =>
                                         handleInteractionStatusChange(activeInteraction.id, c.id, value),
-                                      voice: c.type === "voice",
+                                      voice: c.type === "voice" || !caseStatusCapable,
                                       tagOptions: OUTCOME_TAG_OPTIONS,
                                       selectedTags: outcomeDraft.tags,
                                       onTagsChange: (tags) => setOutcomeDraft((d) => ({ ...d, tags })),
@@ -8403,21 +7427,6 @@ export function AgentWorkspace2WithDeskPage({
                                             onSaveNewCustomer: handleSaveNewCustomer,
                                           }
                                     }
-                                    copilotExtra={
-                                      activeInteraction?.id === MARCUS_WEBB_ID ? (
-                                        <MarcusWebbCopilotCard
-                                          state={marcusWebbState}
-                                          onSelectAction={handleMarcusWebbSelectAction}
-                                          onCompleteActivity={handleMarcusWebbCompleteActivity}
-                                          onSelectMessage={handleMarcusWebbSelectMessage}
-                                          onWrapUp={handleMarcusWebbWrapUp}
-                                          onResetVerifyIdentity={handleMarcusWebbResetVerifyIdentity}
-                                          onResetGeneratePassword={handleMarcusWebbResetGeneratePassword}
-                                          onResetRegeneratePassword={handleMarcusWebbResetRegeneratePassword}
-                                          onResetConfirmLogin={handleMarcusWebbResetConfirmLogin}
-                                        />
-                                      ) : undefined
-                                    }
                                     onStartInteraction={(contact, channel, phone, skillId) =>
                                       handleStartCall({ contact, channel, phone, skillId })
                                     }
@@ -8461,152 +7470,9 @@ export function AgentWorkspace2WithDeskPage({
                         `PageHeader` above stays `bordered={false}` for
                         exactly that reason — see its own comment). */}
                     <div ref={sessionRowHeaderRef} />
-                    {/* Call controls — per explicit follow-up request/bug
-                        report ("in phase 2 when the container shrinks to
-                        wrap the call controls to the next line do not hide
-                        the customer name and make the call controls stretch
-                        the width of the container"): `VoiceCallControls`
-                        used to render inline in the `PageHeader` above's own
-                        `titleSuffix` (see that prop's own doc comment,
-                        further up, for why that squeezed the customer name
-                        to nothing once space ran out) — it then got its own
-                        full-width row directly below the WHOLE header (name
-                        + channel toggles/actions) and above the session row.
-                        Per a further explicit follow-up request ("move the
-                        call controls below the session row and reduce the
-                        padding-top to 8px"), it now renders directly BELOW
-                        the session row portal target just above instead —
-                        same placement Phase 1 (`AgentNextGenPage.tsx`)
-                        already uses for the exact same reason.
-                        Per a still-later explicit follow-up request/
-                        reference screenshot ("for both 1 and 2 have the call
-                        controls look like this"): `stretch` (see that
-                        prop's own doc comment, agent-next-gen-voice-call-
-                        controls.tsx) renders the WIDE (icon+label) button
-                        set on one row that fills this row's own full width,
-                        rather than the icon-only compact rendering a
-                        `max-w-[420px]` cap used to force here. */}
-                    {activeInteractionVoiceThread && (
-                      /* `px-6` (24px) — per explicit request, matches the
-                         record header row's own horizontal padding above
-                         (avatar/name on the left, channel toggle/"+" on the
-                         right) so this bar's left/right edges line up with
-                         those instead of sitting slightly indented (was
-                         `px-4`/16px). Same fix as Phase 1's identical call
-                         site, AgentNextGenPage.tsx. `pt-2` (8px, was
-                         `pt-4`/16px) — per the same further explicit
-                         follow-up request that moved this row below the
-                         session row. */
-                      <div className="shrink-0 bg-lyra-bg-surface-base px-6 pt-2 pb-0">
-                        {/* No more separate "dialing" bar here — per
-                            explicit request ("instead of using the call
-                            controls strip for the dialing animation, just
-                            transition the start interaction or dial number
-                            buttons to a connecting and then when the call
-                            is connected open the assignment"), same fix as
-                            Phase 1's identical call site, AgentNextGenPage.tsx
-                            — that window now happens entirely on the button
-                            that started the call (create-new.tsx's
-                            `ConnectingButtonContent`/`CONNECTING_DURATION_MS`),
-                            so this interaction/bar doesn't even open/mount
-                            until AFTER the call has already connected. */}
-                        <VoiceCallControls
-                          stretch
-                          className="px-0 py-0 bg-transparent"
-                          // Per explicit request ("hide the video button in
-                          // v3 for now - keep it in phase 2"): same
-                          // `showAddVideo` gate Agent Workspace 2.0 Phase 1
-                          // already established (see that prop's own doc
-                          // comment, agent-next-gen-voice-call-controls.tsx).
-                          showAddVideo={false}
-                          // Per explicit request ("putting an active call on
-                          // hold from the call controls should turn the on
-                          // hold button warning color and add an on hold
-                          // chip to the interactionNavItem") — same wiring
-                          // as Phase 1's identical call site,
-                          // AgentNextGenPage.tsx (see `Thread.heldByAgent`'s
-                          // own doc comment for the full reasoning).
-                          onHold={activeInteractionVoiceThread.heldByAgent}
-                          onHoldChange={(next) => {
-                            // A provider call holds/resumes through `hold()`
-                            // (P0.5b.2); resuming one call holds any other.
-                            // Only a scripted call is held locally.
-                            if (contactCommands.setHold(activeInteractionVoiceThread, next)) return;
-                            setInteractions((prev) =>
-                              prev.map((interaction) =>
-                                interaction.id === activeInteraction.id
-                                  ? {
-                                      ...interaction,
-                                      threads: interaction.threads.map((c) =>
-                                        c.id === activeInteractionVoiceThread.id
-                                          ? { ...c, heldByAgent: next }
-                                          : c
-                                      ),
-                                    }
-                                  : interaction
-                              )
-                            );
-                          }}
-                          onHangUp={() => {
-                            // Per explicit request ("when a call is ended
-                            // do not set the status to closed - keep it at
-                            // whatever status it currently is - there may
-                            // be after call work to do"): this used to
-                            // call `handleInteractionStatusChange(...,
-                            // "Closed")` — a real disposition change, same
-                            // as the agent picking "Closed" from the status
-                            // popover themselves. That's no longer right:
-                            // ending the call shouldn't ALSO silently
-                            // finalize the channel's disposition before
-                            // after-call work has happened. This now sets
-                            // the dedicated `voiceCallEnded` flag instead
-                            // (see that field's own doc comment,
-                            // agent-next-gen-interaction-dashboard.tsx) —
-                            // it still hides this call-controls bar/clears
-                            // the auto-"Working" status exactly like before
-                            // (see `findLiveVoiceThread`/`isOnVoiceCall`
-                            // above), just without touching
-                            // `threadStatuses` at all, so whatever status
-                            // this channel already had (typically "Open")
-                            // is exactly what's still there for the agent
-                            // to actually disposition afterward.
-                            // A provider call ends through `end()` and goes
-                            // to wrap-up (P0.5b.2), which the card shows as
-                            // ended; only a scripted call is marked locally.
-                            if (activeInteractionVoiceThread && !contactCommands.hangUp(activeInteractionVoiceThread)) {
-                              setInteractions((prev) =>
-                                prev.map((interaction) =>
-                                  interaction.id === activeInteraction.id
-                                    ? { ...interaction, voiceCallEnded: true }
-                                    : interaction
-                                )
-                              );
-                            }
-                            setVoiceVideoWindowOpen(false);
-                            setVoiceVideoFullScreen(false);
-                          }}
-                          callStartTick={activeInteractionVoiceThread.startTick}
-                          onAddToast={addToast}
-                          onToggleTranscript={() => {
-                            if (detailsPanelOpen && voiceDetailsPanelTab === "Transcript") {
-                              setDetailsPanelOpen(false);
-                            } else {
-                              setVoiceDetailsPanelTab("Transcript");
-                              setDetailsPanelOpen(true);
-                            }
-                          }}
-                          transcriptOpen={detailsPanelOpen && voiceDetailsPanelTab === "Transcript"}
-                          onToggleVideo={() =>
-                            setVoiceVideoWindowOpen((v) => {
-                              const next = !v;
-                              if (!next) setVoiceVideoFullScreen(false);
-                              return next;
-                            })
-                          }
-                          videoOpen={voiceVideoWindowOpen}
-                        />
-                      </div>
-                    )}
+                    {/* The voice bar isn't here: it's docked below the main
+                        container, the same as Advanced (VoiceBar, parity
+                        row 1). */}
                     </>
                   )}
                   {/* Body row: transcript+composer column. Customer
@@ -8701,6 +7567,22 @@ export function AgentWorkspace2WithDeskPage({
                           </div>
                         )}
                         <InteractionTranscript
+                          // Voice wrap-up (P0.5d.1): while this card's call is
+                          // in wrap-up (agent or customer hang-up), its
+                          // wrap-up card is the last item in the scrolling
+                          // content, whichever channel is selected; it
+                          // scrolls into view once, then scrolls with the
+                          // conversation. It leaves once the outcome is saved.
+                          trailingContent={
+                            activeWrapUpThread ? (
+                              <VoiceWrapUpCard outcome={outcomeConfigFor(activeInteraction, activeWrapUpThread, "card")} />
+                            ) : undefined
+                          }
+                          trailingContentKey={
+                            activeWrapUpThread
+                              ? `wrap-up:${activeInteraction.id}:${activeWrapUpThread.providerInteractionId ?? activeWrapUpThread.id}`
+                              : undefined
+                          }
                           channelType={activeChannelType}
                           // Feeds `TranscriptSessionSeparator`'s
                           // direction-aware voice/SMS icon — see
@@ -8739,57 +7621,15 @@ export function AgentWorkspace2WithDeskPage({
                           // Per-Thread — see `Thread.startedFresh`'s own doc
                           // comment for why this reads the ACTIVE channel's
                           // own flag, not `activeInteraction.startedFresh`.
-                          // Marcus Webb's own scripted channel is OR'd in
-                          // here specifically (not via `Thread.startedFresh`
-                          // itself, which would also flip the record-header
-                          // subtitle to "Draft" and other `startedFresh`-
-                          // gated behavior meant for a genuinely blank
-                          // agent-launched draft — see those other call
-                          // sites' own doc comments) — per explicit report
-                          // ("do not have the previous messages, just have
-                          // the latest one"), this scenario's own single
-                          // real opening message (`liveMessages`) was
-                          // rendering ON TOP of the shared canned
-                          // `TRANSCRIPT_SESSIONS` mock log, since Marcus's
-                          // channel isn't `startedFresh` and so fell through
-                          // to that shared log same as any other pre-
-                          // existing chat. `isFreshLaunch=true` here swaps
-                          // that shared log for a single synthesized Session
-                          // Details separator instead (same as any other
-                          // brand-new outbound text launch), leaving only
-                          // Marcus's own real message visible underneath —
-                          // `liveMessages` itself renders in its own
-                          // trailing block regardless of this flag either
-                          // way (see `InteractionTranscript`'s own doc
-                          // comment), so his opening message is unaffected.
-                          isFreshLaunch={!!activeChannel?.startedFresh || activeInteraction.id === MARCUS_WEBB_ID}
-                          // Per explicit follow-up bug report ("Marcus
-                          // webb's contact overview should be below his
-                          // first message"): `isFreshLaunch` above reads
-                          // `true` for him purely for the empty "Session
-                          // Details" separator it also drives — but his
-                          // opening message is already seeded into
-                          // `liveMessages` the moment his interaction is
-                          // created (`buildMarcusWebbInteraction`), not
-                          // genuinely absent the way a real fresh launch's
-                          // is. Overriding to `"bottom"` here (see
-                          // `contactOverviewPosition`'s own doc comment)
-                          // puts his Contact Overview after that opening
-                          // message instead of before it.
-                          contactOverviewPosition={activeInteraction.id === MARCUS_WEBB_ID ? "bottom" : undefined}
+                          isFreshLaunch={!!activeChannel?.startedFresh}
                           // Per explicit request: mirrors `isFreshLaunch`'s
-                          // own gating just above (including the
-                          // MARCUS_WEBB_ID demo case) — see
+                          // own gating just above — see
                           // AgentNextGenPage.tsx's identical wiring for the
                           // full reasoning. Per explicit follow-up bug fix:
                           // gated a second time on `activeInteractionIsRealCustomer`
                           // (above) so a contact with no backing
                           // `CREATE_NEW_CUSTOMERS`/`createdCustomerRecords`
-                          // entry — including Marcus Webb himself, whose
-                          // whole scenario is deliberately "separate from
-                          // the customer database" (see MARCUS_WEBB_ID's own
-                          // doc comment, agent-next-gen-marcus-webb-
-                          // scenario.ts) — never gets a fabricated "already
+                          // entry never gets a fabricated "already
                           // been working with Agent X"; a genuinely
                           // brand-new contact reads as a plain first contact
                           // instead. Per a later explicit request, the same
@@ -8806,18 +7646,7 @@ export function AgentWorkspace2WithDeskPage({
                           // customer association"), the WHOLE block below —
                           // not just the fabricated `previousAgent`/
                           // `snapshot` fields — is now gated purely on
-                          // `activeInteractionIsRealCustomer`. This removes
-                          // the Marcus Webb carve-out this doc comment used
-                          // to describe (his own hand-authored
-                          // `buildCopilotSummary` Journey Summary used to
-                          // show anyway, deliberately, even though his
-                          // scenario is "separate from the customer
-                          // database" — see MARCUS_WEBB_ID's own doc
-                          // comment, agent-next-gen-marcus-webb-scenario.ts)
-                          // — he has no backing customer record either, so
-                          // the newer, broader instruction wins and his
-                          // Contact Overview (Journey Summary included) no
-                          // longer shows.
+                          // `activeInteractionIsRealCustomer`.
                           // Per a later explicit request, no longer ALSO
                           // gated on `activeChannel?.startedFresh` — see
                           // AgentNextGenPage.tsx's identical follow-up gate
@@ -8918,7 +7747,8 @@ export function AgentWorkspace2WithDeskPage({
                           // these controls regardless of channel count; the
                           // header's own now-removed copy is gone (see the
                           // record-header `actions` call site above).
-                          showSessionActionCluster
+                          // Hidden while the call is still ringing.
+                          showSessionActionCluster={showsSessionControls(activeInteraction)}
                           reopenedContacts={activeChannel?.reopenedContacts}
                           liveMessages={activeInteraction.liveMessages?.[activeChannelKey] ?? []}
                           // See `customerTyping`'s own doc comment above —
@@ -9091,36 +7921,11 @@ export function AgentWorkspace2WithDeskPage({
                           activeChannelType !== "voice" && (
                             <InteractionComposer
                               onSend={(text) => handleSendMessage(activeInteraction.id, text)}
-                              // Marcus Webb's suggested-reply Copilot card
-                              // populates this (see `handleMarcusWebbSelect
-                              // Message` above) — `undefined` for every other
-                              // interaction, so this is a no-op elsewhere.
-                              prefill={
-                                activeInteraction.id === MARCUS_WEBB_ID ? marcusWebbComposerPrefill : undefined
-                              }
-                              onPrefillConsumed={() => setMarcusWebbComposerPrefill(undefined)}
                             />
                           )}
-                        {/* Voice call controls — per explicit follow-up
-                            request ("move [the call controls] to the top
-                            next to the customer name and use the compact
-                            call controls ... keep the controls visible if
-                            the user moves to a different channel for that
-                            customer"): the full-width `VoiceCallControls`
-                            bar that used to render fixed to the bottom of
-                            the content area here (gated on
-                            `activeChannelType === "voice"`, so it vanished
-                            the instant the agent switched to a different
-                            channel tab on the same call) is gone — replaced
-                            by a compact `VoiceCallControls` inline next to
-                            the customer name instead (record header's own
-                            `titleSuffix`, above), gated on
-                            `activeInteractionVoiceThread` (the
-                            interaction's OWN live voice thread, independent
-                            of whichever tab is selected) rather than
-                            `activeChannelType`, so it survives a channel
-                            switch. See that render site's own doc comment
-                            for the full reasoning. */}
+                        {/* Voice call controls aren't in this column: the
+                            shared VoiceBar is docked below the main
+                            container, as on Advanced. */}
                         </>
                         )}
                       </div>
@@ -9666,6 +8471,10 @@ export function AgentWorkspace2WithDeskPage({
                         selectedContactHistoryEntry.redial ? (
                           <Button
                             variant="outline"
+                            // Disabled only while already on a live or held
+                            // call with this customer (shared rule).
+                            disabled={outboundDial.redialBlocked(selectedContactHistoryEntry)}
+                            title={outboundDial.redialBlocked(selectedContactHistoryEntry) ? ALREADY_ON_CALL_TOOLTIP : undefined}
                             onClick={(e) => {
                               handleRedialButtonClick(selectedContactHistoryEntry, e.currentTarget);
                             }}
@@ -10261,14 +9070,64 @@ export function AgentWorkspace2WithDeskPage({
                   (see `customerDetailsOpen`/`aiSummaryPanelOpen` and this
                   file's own `customerDetailsPanel`/`aiSummaryPanelContent`
                   declarations) — the same single overlay Session Details
-                  already used. The unknown-contact matching flow and the
-                  Marcus Webb scripted Copilot card this standalone panel
-                  used to own (`matchState`/`copilotExtra`) moved onto
+                  already used. The unknown-contact matching flow this
+                  standalone panel used to own (`matchState`) moved onto
                   `useCustomerDetailsInteriorPanel` itself (agent-next-gen-
-                  customer-info-panel.tsx) so this file loses neither. */}
+                  customer-info-panel.tsx). */}
             </div>
 
           </Container>
+
+          {/* The persistent voice bar, docked below the main container
+              across the content column, the same as Advanced (VoiceBar,
+              parity row 1): it follows the selected card's call
+              (useVoiceBarCall) and stays put on any tab or card. */}
+          {voiceBarCall && (
+            <VoiceBar
+              call={voiceBarCall}
+              controls={activeVoiceCallControls}
+              onHangUp={() => {
+                // A provider call ends through `end()`; once it's in
+                // wrap-up its card shows the wrap-up card (P0.5d.1). Only
+                // a scripted call is marked ended locally. Ending a call
+                // never changes the channel's status: after-call work
+                // still sets it.
+                if (!contactCommands.hangUp(voiceBarCall.thread)) {
+                  setInteractions((prev) =>
+                    prev.map((interaction) =>
+                      interaction.id === voiceBarCall.card.id ? { ...interaction, voiceCallEnded: true } : interaction
+                    )
+                  );
+                }
+                setVoiceVideoWindowOpen(false);
+                setVoiceVideoFullScreen(false);
+              }}
+              onAddToast={addToast}
+              // The transcript acts on the selected card, so it's offered
+              // only when the bar shows that card's own call.
+              onToggleTranscript={
+                voiceBarCall.card.id === activeInteraction?.id
+                  ? () => {
+                      if (detailsPanelOpen && voiceDetailsPanelTab === "Transcript") {
+                        setDetailsPanelOpen(false);
+                      } else {
+                        setVoiceDetailsPanelTab("Transcript");
+                        setDetailsPanelOpen(true);
+                      }
+                    }
+                  : undefined
+              }
+              transcriptOpen={voiceBarCall.card.id === activeInteraction?.id && detailsPanelOpen && voiceDetailsPanelTab === "Transcript"}
+              onToggleVideo={() =>
+                setVoiceVideoWindowOpen((v) => {
+                  const next = !v;
+                  if (!next) setVoiceVideoFullScreen(false);
+                  return next;
+                })
+              }
+              videoOpen={voiceVideoWindowOpen}
+            />
+          )}
 
           {/* Shared single-container panel — float (CSS transitions, not
               keyframe animations — avoids compositor fill-mode flash).

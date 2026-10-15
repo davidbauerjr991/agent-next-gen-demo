@@ -25,6 +25,10 @@ export interface InteractionContractHarness {
   /** Extra quiet time for "nothing else happens" checks, for adapters with
    *  slower paths than a zero-latency in-memory bus. Default 0. */
   settleMs?: number;
+  /** A customer the adapter's backend knows by phone number, with `address`
+   *  formatted differently from how the record stores it, so the routing
+   *  match has to normalize. Omitted: the known-caller test is skipped. */
+  knownCaller?: { address: string; entityId: EntityId };
 }
 
 export type InteractionContractFactory = () => InteractionContractHarness | Promise<InteractionContractHarness>;
@@ -134,6 +138,30 @@ export function describeInteractionProviderContract(label: string, factory: Inte
     // ── Lifecycles ────────────────────────────────────────────────────────
 
     describe("lifecycle", () => {
+      it("an incoming offer always carries the skill it was routed to, on every inbound channel", async (ctx) => {
+        ctx.skip(caps().channels.inbound.length === 0, "provider offers no inbound channels");
+        for (const channel of caps().channels.inbound) {
+          const id = await startInbound(channel);
+          const incoming = rec.events("incoming").find((e) => e.interaction.id === id)!.interaction;
+          expect(incoming.skill, `${channel} offer`).toEqual({ id: expect.any(String), name: expect.any(String) });
+        }
+      });
+
+      it("an inbound call from a known number carries the customer's entityId; an unknown one none", async (ctx) => {
+        requireInbound(ctx, "voice");
+        ctx.skip(!h.knownCaller, "harness names no known caller");
+        const { address, entityId } = h.knownCaller!;
+        const known = await h.customer.startInbound({ channel: "voice", address, displayName: "Caller ID Name" });
+        await waitFor(() => rec.events("incoming").some((e) => e.interaction.id === known), "known caller offered");
+        const offer = rec.events("incoming").find((e) => e.interaction.id === known)!.interaction;
+        expect(offer).toMatchObject({ entityId, entityMatchedBy: "routing" });
+
+        const unknown = await startInbound("voice");
+        const unknownOffer = rec.events("incoming").find((e) => e.interaction.id === unknown)!.interaction;
+        expect(unknownOffer.entityId).toBeUndefined();
+        expect(unknownOffer.entityMatchedBy).toBeUndefined();
+      });
+
       it("chat: incoming → accept → message → hold → end → completeWrapUp", async (ctx) => {
         requireInbound(ctx, "chat");
         const { provider } = h;
@@ -583,6 +611,7 @@ export function describeInteractionProviderContract(label: string, factory: Inte
         const entityId = "entity-1" as EntityId;
         await h.provider.associateEntity(id, entityId);
         await waitFor(() => latest(id)?.entityId === entityId, "entity linked");
+        expect(latest(id)?.entityMatchedBy).toBe("agent");
         await expectNoEvents(() => h.provider.associateEntity(id, entityId));
       });
 

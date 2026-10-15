@@ -1,7 +1,7 @@
 import type { InteractionCapabilities, InteractionEvents, InteractionProvider, ProviderError } from "../../providers";
 import { providerError } from "../provider-error";
 import { createSimEngine, type SimEngine } from "./sim-engine";
-import { DEFAULT_SIM_TIMINGS, SIM_CAPABILITIES, type SimSeedContact, type SimTimings } from "./sim-fixtures";
+import { DEFAULT_SIM_TIMINGS, SIM_CAPABILITIES, type SimDirectoryEntry, type SimSeedContact, type SimTimings } from "./sim-fixtures";
 import {
   SIM_PROTOCOL_VERSION,
   type SimCommand,
@@ -36,6 +36,9 @@ export interface SimOptions {
   /** Contacts the engine starts with (e.g. `SIM_DEMO_SEED`). Default none,
    *  so the contract suite starts from an empty engine. */
   seed?: readonly SimSeedContact[];
+  /** Customers routing recognizes an inbound address by (e.g.
+   *  `SIM_DEMO_DIRECTORY`). Default none: every inbound contact is unknown. */
+  directory?: readonly SimDirectoryEntry[];
 }
 
 /** The sim provider plus its session id, which the customer side (the P0.6
@@ -67,6 +70,7 @@ export function createSimulatedInteractionProvider(options: SimOptions = {}): Si
           capabilities,
           timings: { ...DEFAULT_SIM_TIMINGS, ...options.timings },
           seed: options.seed ?? [],
+          directory: options.directory ?? [],
         });
   const transport = withLatency(createTransport(), options.latency ?? DEFAULT_LATENCY);
 

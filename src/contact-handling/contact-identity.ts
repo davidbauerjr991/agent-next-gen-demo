@@ -24,22 +24,21 @@ export function knownOrSynthesizedAddress(entry: ContactHistoryEntry, channelTyp
   return known ?? synthesizeChannelAddress(channelType, entry.caseId, entry.name);
 }
 
-/** `useNavCards`' `displayName`: the directory name for a contact linked to a
- *  record after it started (Link/Create customer, via `associateEntity`),
- *  whose `contactName` is still the raw address it presented. A contact that
- *  presented a real name keeps it — e.g. the notification seeds, whose names
- *  differ from their linked records (a kept quirk, PLAN.md P0.5b.1). */
+/** `useNavCards`' `displayName`: the record's name wins for a contact matched
+ *  to it after arriving (routing's address match, or the agent's Link /
+ *  Create customer, `entityMatchedBy`) and for one that presented only its
+ *  raw address. The name it presented stays its `contactName`, shown as
+ *  "Calling as" when it differs (`NavCard.presentedName`). A contact that
+ *  arrived already linked keeps its presented name: the notification seeds,
+ *  whose names differ from their linked records (a kept quirk, PLAN.md
+ *  P0.5b.1). */
 export function directoryDisplayName(findRecord: (entityId: string) => { name: string } | undefined) {
   return (interaction: Interaction): string | undefined => {
     if (!interaction.entityId) return undefined;
     const presentedName = interaction.contactName && interaction.contactName !== interaction.address?.value;
-    if (presentedName) return undefined;
+    if (presentedName && !interaction.entityMatchedBy) return undefined;
     return findRecord(interaction.entityId)?.name;
   };
 }
 
-/** Digits only, without a leading US country code. */
-export function normalizePhone(raw: string): string {
-  const digits = raw.replace(/\D/g, "");
-  return digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
-}
+export { normalizePhone } from "@/domain";

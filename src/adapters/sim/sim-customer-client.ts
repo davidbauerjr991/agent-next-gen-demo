@@ -9,8 +9,17 @@ import { simId } from "./sim-util";
 
 export interface SimCustomerClient {
   readonly sessionId: string;
-  /** Offers a routed inbound contact to the agent; returns its id. */
-  startInbound(request: { channel: ChannelKind; address: string; displayName: string; entityId?: EntityId }): InteractionId;
+  /** Offers a routed inbound contact to the agent; returns its id. `skillId`
+   *  routes it to a skill (default "general", General Support); `summary`
+   *  replaces the pre-contact summary the engine builds for a voice call. */
+  startInbound(request: {
+    channel: ChannelKind;
+    address: string;
+    displayName: string;
+    entityId?: EntityId;
+    skillId?: string;
+    summary?: string[];
+  }): InteractionId;
   message(request: { interactionId: InteractionId; text: string }): void;
   typing(request: { interactionId: InteractionId; isTyping: boolean }): void;
   /** The customer hangs up / leaves. Goes to wrap-up like the agent's `end`. */

@@ -110,7 +110,6 @@ import {
   TRANSCRIPT_SESSION_STATUS_OPTIONS,
   OUTCOME_TAG_OPTIONS,
   OUTCOME_DISPOSITION_OPTIONS,
-  OUTCOME_DEFAULT_SUMMARY,
   resolveCustomerAutoReply,
   InteractionTranscript,
   InteractionComposer,
@@ -168,16 +167,37 @@ import {
 import {
   buildOpenChannelTagger,
   directoryDisplayName,
+  IncomingOfferActions,
+  navCardAddChannelAction,
+  useAnswerSla,
+  answerSeverity,
+  offerRowAnswerSeverity,
+  showsSessionControls,
+  dockedPreviewKey,
+  VoiceBar,
   NewOutboundLauncher,
+  outcomeDraftKey as outcomeDraftKeyOf,
+  useChannelOutcomeDrafts,
   useContactActivation,
   useContactCommands,
   useContactReopen,
+  useIncomingOffer,
   useNavCards,
   useNewAssignments,
   useOutboundDial,
   useOutboundSkills,
+  useVoiceBarCall,
+  useVoiceCallControls,
+  VoiceHoldChip,
+  voiceWrapUpThread,
+  preContactSummaryOf,
+  withPreContactSummary,
+  ALREADY_ON_CALL_TOOLTIP,
+  VoiceWrapUpCard,
   type Activation,
+  type OutcomeDraft,
 } from "@/contact-handling";
+import { NeedsOutcomeBadge } from "@/components/OnHoldBadge";
 import {
   type CustomerListRecord,
   CUSTOMER_LIST_RECORDS,
@@ -225,19 +245,8 @@ import {
 // explicitly asked).
 import { CollapsedChannelBadge } from "@/components/CollapsedChannelBadge";
 import { AddChannelAdHocButton } from "@/components/agent-next-gen-add-channel-button";
-import { VoiceCallControls } from "@/components/agent-next-gen-voice-call-controls";
-// Per explicit request ("if I push the L button on the keyboard it
-// launches Marcus Webb's contact [in Premium] - do this for both Phase 1
-// and 1B"): only this scenario's fixed identity is needed here — see the
-// "L" trigger effect (below, right after `agentStatus`) for why this page
-// doesn't also import the rest of this module's exports
-// (`MarcusWebbScenarioState`, `saveMarcusWebbScenario`, etc.) the way
-// `AgentWorkspace2WithDeskPage.tsx` ("Premium") does. Per a later explicit
-// follow-up ("update the marcus webb assignment to be voice not chat"),
-// this page builds its own voice `Thread`/`Interaction` directly (below)
-// rather than importing `buildMarcusWebbInteraction` — that function is
-// still chat-only, unchanged, since Premium's own "L" trigger and its
-// whole scripted Copilot walkthrough still depend on it being a chat.
+// The Marcus Webb scenario's fixed identity; this page builds his voice
+// card itself in the "L" trigger effect (below, right after `agentStatus`).
 import { MARCUS_WEBB_ID, MARCUS_WEBB_CUSTOMER_ID, MARCUS_WEBB_CUSTOMER_NAME } from "@/components/agent-next-gen-marcus-webb-scenario";
 import {
   LUCAS_THOMAS_ID,
@@ -365,7 +374,6 @@ import {
   Check,
   X,
   Phone,
-  PhoneOff,
   ChevronDown,
   type LucideIcon,
   ArrowLeft,
@@ -1551,44 +1559,14 @@ export function AgentWorkspaceAdvancedPage({
   // interaction (see that const's own doc comment). Mirrors Agent Workspace
   // 2.0's identical `outcomeDraftSource` union (AgentNextGenPage.tsx).
   const [outcomeDraftSource, setOutcomeDraftSource] = useState<"leftnav" | "transcript" | "tab" | "header" | null>(null);
-  // Per explicit request ("tags should also persist if selected, just
-  // don't have tags selected when the outcome is first opened on a new
-  // contact" / "if the agent selects a disposition code that code should
-  // be populated if they click end call or if they go back to the
-  // outcome"): neither Tags nor Disposition code auto-select anymore
-  // (`OUTCOME_DISPOSITION_OPTIONS[0].value`/`["Technical", "Account"]` are
-  // gone), but once the agent actually picks either for a given channel,
-  // that pick now survives reopening the popover (from either the LeftNav
-  // `ChannelRow` or the transcript's own session row — see `outcomeKey`/
-  // `activeChannelOutcomeKey`'s shared `${interactionId}:${channelKey}`
-  // scheme) or ending the call (`onHangUp`'s own
-  // `handleOutcomeOpenChange(..., "transcript")` reopen, below). Keyed the
-  // same way those two already are, so `buildDefaultOutcomeDraft` just
-  // looks up whatever's already there for this exact channel instead of
-  // starting fresh every time. One combined entry per channel (not two
-  // separate maps) since both fields are "what's been decided so far for
-  // this channel's outcome" — `summary` stays OUT of this; it's still
-  // unconditionally reset to `OUTCOME_DEFAULT_SUMMARY` below, unaffected
-  // by this. Same never-cleaned-up, "no real backend" convention this
-  // file already uses for other ephemeral per-channel maps
-  // (`threadLaunchTimestamps`, `customerTyping`) — EXCEPT a fresh redial
-  // (`handleQuickDial`/`handleRedial`/`handleRedialActiveInteraction`)
-  // explicitly clears this channel's own entry, per explicit follow-up
-  // request — a brand-new call to the same contact shouldn't inherit the
-  // previous call's already-decided tags/disposition just because voice
-  // threads all reuse the same literal `"voice"` channel id.
-  const [channelOutcomeSelections, setChannelOutcomeSelections] = useState<
-    Record<string, { tags: string[]; dispositionCode: string }>
-  >({});
-  const buildDefaultOutcomeDraft = (key: string = "") => {
-    const persisted = channelOutcomeSelections[key];
-    return {
-      tags: persisted?.tags ?? [],
-      dispositionCode: persisted?.dispositionCode ?? "",
-      summary: OUTCOME_DEFAULT_SUMMARY,
-    };
-  };
-  const [outcomeDraft, setOutcomeDraft] = useState(() => buildDefaultOutcomeDraft());
+  // One Outcome draft per channel (`${cardId}:${threadKey}`, shared hook,
+  // P0.5d.1): every Outcome popover and the inline voice wrap-up card read
+  // and write the same draft for a channel. It starts empty, is kept across
+  // reopenings, and is what wrap-up completes with (`outcomeFor`, Contact
+  // History). `outcomeDraft`/`setOutcomeDraft` are the open popover's draft.
+  const outcomeDrafts = useChannelOutcomeDrafts();
+  const outcomeDraft = outcomeDrafts.draftFor(outcomeDraftKey);
+  const setOutcomeDraft = (change: (draft: OutcomeDraft) => OutcomeDraft) => outcomeDrafts.update(outcomeDraftKey, change);
   // Duplicated verbatim from AgentNextGenPage.tsx (Agent Workspace 2.0) per
   // this codebase's "no shared sync" convention — records, per
   // `${interactionId}:${channelKey}`, the real wall-clock moment a
@@ -1628,14 +1606,8 @@ export function AgentWorkspaceAdvancedPage({
   const [customerMatchQuery, setCustomerMatchQuery] = useState("");
   const handleOutcomeOpenChange = (key: string, open: boolean, source: "leftnav" | "transcript" | "tab" | "header") => {
     if (open) {
-      // Per explicit request: no longer a flat reset to the same example
-      // every time — `buildDefaultOutcomeDraft(key)` looks up whatever
-      // tags/disposition were already picked for THIS channel
-      // (`channelOutcomeSelections`, its own doc comment above), falling
-      // back to empty only the first time this channel's popover is ever
-      // opened. `summary` still has no real backend to load from, so it
-      // stays the same plausible example every time, unaffected.
-      setOutcomeDraft(buildDefaultOutcomeDraft(key));
+      // The channel's own draft (`outcomeDrafts`) shows as-is: whatever was
+      // already picked for it, or empty the first time.
       setOutcomeDraftKey(key);
       setOutcomeDraftSource(source);
     } else if (outcomeDraftKey === key && outcomeDraftSource === source) {
@@ -1643,34 +1615,9 @@ export function AgentWorkspaceAdvancedPage({
       setOutcomeDraftSource(null);
     }
   };
-  // Shared `onTagsChange`/`onDispositionChange` handlers — replaces what
-  // used to be a near-identical inline closure duplicated at each of the
-  // two live Outcome triggers (LeftNav `ChannelRow`, the transcript's own
-  // session row). Each updates the live `outcomeDraft` (so the popover
-  // reflects the change immediately) AND persists the FULL pair into
-  // `channelOutcomeSelections` under whichever channel's popover is
-  // currently open (`outcomeDraftKey`, guaranteed to already equal it
-  // while either of these can fire) — reading the OTHER, unchanged field
-  // off the current `outcomeDraft` so neither handler clobbers what the
-  // other already persisted.
-  const handleOutcomeTagsChange = (tags: string[]) => {
-    setOutcomeDraft((d) => ({ ...d, tags }));
-    if (outcomeDraftKey) {
-      setChannelOutcomeSelections((prev) => ({
-        ...prev,
-        [outcomeDraftKey]: { tags, dispositionCode: outcomeDraft.dispositionCode },
-      }));
-    }
-  };
-  const handleOutcomeDispositionChange = (value: string) => {
-    setOutcomeDraft((d) => ({ ...d, dispositionCode: value }));
-    if (outcomeDraftKey) {
-      setChannelOutcomeSelections((prev) => ({
-        ...prev,
-        [outcomeDraftKey]: { tags: outcomeDraft.tags, dispositionCode: value },
-      }));
-    }
-  };
+  // The open popover's Tags/Disposition handlers (session row, record tab).
+  const handleOutcomeTagsChange = (tags: string[]) => setOutcomeDraft((d) => ({ ...d, tags }));
+  const handleOutcomeDispositionChange = (value: string) => setOutcomeDraft((d) => ({ ...d, dispositionCode: value }));
   // "Approve & Save"/"Cancel" both just close the popover — there's no real
   // backend here to persist an outcome to, same no-op placeholder state
   // every other not-yet-wired action in this file starts from (e.g. Consult
@@ -1803,6 +1750,8 @@ export function AgentWorkspaceAdvancedPage({
    *  Webb toast's Review/Takeover, a launched call landing on itself, ...).
    *  Shared with Desk since P0.5b.2 (`useNewAssignments`). */
   const isNewAssignment = useNewAssignments(activeInteractionId);
+  // The incoming tile's answer SLA thresholds (the active profile's).
+  const answerSla = useAnswerSla();
   // Customers table's "+ Filter" state, lifted up here (not local to
   // `CustomersListView`) — that component sits inside the Desk dashboard's
   // own branch of the `showSettings ? ... : activeInteraction ? ... : (
@@ -2009,6 +1958,8 @@ export function AgentWorkspaceAdvancedPage({
       )
     : undefined;
   const activeChannelType = activeChannel?.type;
+  // The selected card's call in wrap-up, if any (its inline wrap-up card).
+  const activeWrapUpThread = voiceWrapUpThread(activeInteraction);
   // The voice thread whose Transcript tab the Contact Details panel offers: the active channel when it's voice, or (Lucas) a live call
   // John placed from the escalation card while the chat stays on screen.
   const panelVoiceThread: Thread | undefined =
@@ -2074,7 +2025,8 @@ export function AgentWorkspaceAdvancedPage({
   // Cold inbound calls with no AI agent (Tom rings and needs Accept; Maya is answered automatically).
   const isColdCallId = (id: string | undefined) => id === TOM_LEWIS_CALL_ID || id === MAYA_CHEN_CALL_ID;
   const findLiveVoiceThread = (interaction: Interaction) => {
-    if (interaction.closed || interaction.voiceCallEnded) return undefined;
+    // A ringing offer (provider or Tom's) isn't a call yet.
+    if (interaction.closed || interaction.voiceCallEnded || interaction.offered) return undefined;
     if (interaction.id === TOM_LEWIS_CALL_ID && tomLewisCallRinging) return undefined;
     return interaction.threads.find((c) => c.type === "voice");
   };
@@ -2133,11 +2085,16 @@ export function AgentWorkspaceAdvancedPage({
   // in; the general "auto hold and call display when multiple calls are
   // visible" redesign remains the separate, explicitly deferred project
   // this comment originally called out.
-  const liveVoiceCallInteraction =
-    interactions.find((i) => !!findLiveVoiceThread(i) && !(marcusWebbReviewing && i.id === MARCUS_WEBB_ID)) ??
-    interactions.find((i) => !!findLiveVoiceThread(i)) ??
-    null;
-  const liveVoiceCallThread = liveVoiceCallInteraction ? findLiveVoiceThread(liveVoiceCallInteraction) : undefined;
+  // The bar's call (shared `useVoiceBarCall`, P0.5d.1): the selected card's
+  // call (held or live) in its own state; else the call it last showed;
+  // else the live call, else a held one. Selecting never changes hold state.
+  // Marcus's call under AI review only counts when his card is selected
+  // (the review bar replaces the voice bar there).
+  const voiceBarCall = useVoiceBarCall(interactions, activeInteractionId, (card) =>
+    marcusWebbReviewing && card.id === MARCUS_WEBB_ID && card.id !== activeInteractionId ? undefined : findLiveVoiceThread(card)
+  );
+  const liveVoiceCallInteraction = voiceBarCall?.card ?? null;
+  const liveVoiceCallThread = voiceBarCall?.thread;
   /** Same "real, matched customer vs. a raw unidentified address" gate
    *  `activeInteractionIsRealCustomer` (above) already establishes, scoped
    *  to `liveVoiceCallInteraction` instead of `activeInteraction` since a
@@ -2252,7 +2209,7 @@ export function AgentWorkspaceAdvancedPage({
   // has no separate chat-only "identified" nuance; this is already the one
   // signal this file uses elsewhere (e.g. `customerIdentified`, below) to
   // distinguish a real customer from an unknown one.
-  const customerContextOverviewInfo = useMemo(() => {
+  const customerContextOverviewBase = useMemo(() => {
     if (!activeInteraction) return undefined;
     const base = buildCustomerContextOverviewInfo(
       activeInteraction.id,
@@ -2347,6 +2304,13 @@ export function AgentWorkspaceAdvancedPage({
     }
     return base;
   }, [activeInteraction?.id, activeInteraction?.customerName, activeInteraction?.customerId, activeInteractionIsRealCustomer]);
+  // An inbound call's pre-contact summary (P0.5d.1) replaces the Autosummary
+  // lines, for a known customer or an unknown caller alike.
+  const activePreContactSummary = preContactSummaryOf(activeInteraction);
+  const customerContextOverviewInfo = useMemo(
+    () => (customerContextOverviewBase ? withPreContactSummary(customerContextOverviewBase, activePreContactSummary) : undefined),
+    [customerContextOverviewBase, activePreContactSummary],
+  );
   // Per explicit follow-up request (superseding the customer-identity
   // version this used to be — see git history for that prior condition):
   // now keyed purely on how many channels/threads this interaction
@@ -3639,7 +3603,11 @@ export function AgentWorkspaceAdvancedPage({
   // Overview/Session tabs as usual. Set on add (`handleAddAdHocChannel`/
   // `handleStartCall`, above) for anything but voice, and toggled by the
   // header icon row (own render site) the rest of the time.
-  const [channelPreviewThreadKey, setChannelPreviewThreadKey] = useState<string | null>(null);
+  const [requestedChannelPreviewKey, setChannelPreviewThreadKey] = useState<string | null>(null);
+  // Never the thread already in the main column (dockedPreviewKey): e.g. a
+  // row click on an unselected card switches to it and asks for its main
+  // thread in the preview too; that request is dropped here.
+  const channelPreviewThreadKey = dockedPreviewKey(requestedChannelPreviewKey, activeChannelKey);
   // Looked up once here (rather than inline at the
   // `CustomerInformationSidePanel` render call site) since it now feeds
   // several of that single docked panel's own override props — see each
@@ -4744,7 +4712,7 @@ export function AgentWorkspaceAdvancedPage({
   // would otherwise have kept reading as "still on a call" forever after
   // hanging up, never letting the agent's auto-"Working" status revert.
   const isOnVoiceCall = interactions.some(
-    (i) => !i.closed && !i.voiceCallEnded && !(i.id === TOM_LEWIS_CALL_ID && tomLewisCallRinging) && i.threads.some((t) => t.type === "voice")
+    (i) => !i.closed && !i.voiceCallEnded && !i.offered && !(i.id === TOM_LEWIS_CALL_ID && tomLewisCallRinging) && i.threads.some((t) => t.type === "voice")
   );
   const preCallStatusRef = useRef<AgentStatus | null>(null);
   useEffect(() => {
@@ -4816,15 +4784,7 @@ export function AgentWorkspaceAdvancedPage({
       prev.map((i) => (i.id === journeyId && i.currentThreadId !== threadKey ? { ...i, currentThreadId: threadKey } : i))
     );
     // A restarted call starts with an empty Outcome (row 19).
-    if (threadKey.startsWith("voice")) {
-      setChannelOutcomeSelections((prev) => {
-        const key = `${journeyId}:${threadKey}`;
-        if (!(key in prev)) return prev;
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
-    }
+    if (threadKey.startsWith("voice")) outcomeDrafts.clear(outcomeDraftKeyOf(journeyId, threadKey));
     // A new card starts with Customer Information closed; an existing one
     // keeps the panel as the agent left it.
     if (isNewCard) setSidePanelOpen(false);
@@ -4840,13 +4800,13 @@ export function AgentWorkspaceAdvancedPage({
     // A redial from the Home tab's Contact History panel closes that panel,
     // so it isn't still open when the agent goes back.
     onRedial: () => setSelectedContactHistoryEntry(null),
-    // One call at a time on this page, on every launch path (New Outbound
-    // is also disabled during a call; Redial, Save & Redial and a voice "+"
-    // are refused here). A scripted scenario call counts too.
-    secondVoiceCall: "refuse",
-    isOnScenarioCall: () => agentOnActiveVoiceCall,
-    onVoiceCallRefused: () =>
-      addToast({ variant: "info", title: "Call in progress", message: "A call is already in progress", duration: 4000 }),
+    // A second voice call during a call is allowed, as on Desk: the provider
+    // holds the first when the second connects (parity row 15, revised
+    // 2026-10-14 for the demo).
+    secondVoiceCall: "auto-hold",
+    // A typed Quick Dial number of a customer the agent is already on a
+    // call with (the buttons elsewhere are disabled instead).
+    onAlreadyOnCall: () => addToast({ variant: "info", title: ALREADY_ON_CALL_TOOLTIP, duration: 4000 }),
     // Save & Redial: the ended call's wrap-up completes with its saved
     // outcome once the new call is placed, so the card never empties.
     onCardRedialPlaced: (card) => void contactCommands.completeEndedCalls(card, outcomeFor(card.id)),
@@ -5170,7 +5130,7 @@ export function AgentWorkspaceAdvancedPage({
         // — see that effect's own doc comment in AgentNextGenPage.tsx for why
         // this exact moment can't rely on the effect alone.
         saveCaseRecord(dismissed);
-        const entry = buildDismissedContactHistoryEntry(dismissed, clock.now(), channelOutcomeSelections);
+        const entry = buildDismissedContactHistoryEntry(dismissed, clock.now(), outcomeDrafts.drafts);
         // Upsert by `caseId`, not a plain prepend — per explicit bug report:
         // reopening a dismissed case (from Contact History or otherwise),
         // touching it, and dismissing it again used to log a SECOND row for
@@ -5327,7 +5287,7 @@ export function AgentWorkspaceAdvancedPage({
     const isVoiceChannel = channel?.type === "voice" || interactionId === LUCAS_THOMAS_ID;
     if (interactionId === activeInteractionId) {
       if (isVoiceChannel) return;
-      setChannelPreviewThreadKey((prev) => (prev === channelKey ? null : channelKey));
+      setChannelPreviewThreadKey(channelPreviewThreadKey === channelKey ? null : channelKey);
       return;
     }
     switchActiveInteraction(interactionId);
@@ -5666,18 +5626,111 @@ export function AgentWorkspaceAdvancedPage({
     );
   };
   const contactCommands = useContactCommands({ cards: interactions, setLocalStatus: setLocalThreadStatus });
-  /** The outcome a channel's wrap-up completes with: the tags and
-   *  disposition the agent saved for it in Outcome (row 19). */
-  const outcomeFor = (cardId: string) => (threadKey: string) => {
-    const saved = channelOutcomeSelections[`${cardId}:${threadKey}`];
-    return saved ? { tags: saved.tags, ...(saved.dispositionCode ? { dispositionCode: saved.dispositionCode } : {}) } : {};
-  };
+  /** The outcome a channel's wrap-up completes with: its Outcome draft
+   *  (tags, disposition, summary notes; row 19). */
+  const outcomeFor = (cardId: string) => (threadKey: string) => outcomeDrafts.outcomeOf(outcomeDraftKeyOf(cardId, threadKey));
   const handleInteractionStatusChange = (interactionId: string, channelId: string, status: string) => {
     // Live "Assignments resolved today" count — increments only on the actual
     // whatever→Resolved transition, not on re-selecting Resolved.
     const current = interactions.find((i) => i.id === interactionId)?.threadStatuses?.[channelId];
     if (status === "Resolved" && current !== "Resolved") setResolvedTodayCount((n) => n + 1);
     contactCommands.setStatus(interactionId, channelId, status);
+  };
+  const caseStatusCapable = useCapability((c) => c.interaction.caseStatus);
+  /** Outcome's Save & Dismiss for one channel, from the nav row or the
+   *  inline wrap-up card (P0.5d.1): closes only that channel's contact, so
+   *  a card with other channels stays. When it's the card's only channel,
+   *  it's the whole-card dismiss, which also logs Contact History. */
+  const handleOutcomeSaveAndDismissChannel = (interaction: Interaction, c: Interaction["threads"][number]) => {
+    setOutcomeDraftKey(null);
+    setOutcomeDraftSource(null);
+    if (interaction.threads.length <= 1) handleDismissInteraction(interaction.id);
+    else handleDismissChannel(interaction.id, c);
+  };
+  /** One channel's Outcome config: the nav row's popover ("leftnav") or the
+   *  inline voice wrap-up card ("card", always open). Both edit the
+   *  channel's own draft (`outcomeDrafts`). */
+  const outcomeConfigFor = (
+    interaction: Interaction,
+    c: Interaction["threads"][number],
+    source: "leftnav" | "card"
+  ): ChannelOutcomeConfig => {
+    const outcomeKey = outcomeDraftKeyOf(interaction.id, c.id ?? c.type);
+    const draft = outcomeDrafts.draftFor(outcomeKey);
+    const edit = (change: (d: OutcomeDraft) => OutcomeDraft) => outcomeDrafts.update(outcomeKey, change);
+    return {
+      open: source === "card" || (outcomeDraftKey === outcomeKey && outcomeDraftSource === source),
+      onOpenChange: (open: boolean) => {
+        if (source === "leftnav") handleOutcomeOpenChange(outcomeKey, open, source);
+      },
+      // Same options list AND same underlying value as the session-status
+      // pill's own dropdown (rule #29), so changing status from either
+      // surface changes it in both, without touching any sibling channel's
+      // status. Fallback is "Open": a channel with no status yet is fresh.
+      resolutionOptions: TRANSCRIPT_SESSION_STATUS_OPTIONS,
+      resolution: interaction.threadStatuses?.[c.id] ?? "Open",
+      onResolutionChange: (value: string) => handleInteractionStatusChange(interaction.id, c.id, value),
+      // Voice has no Open/Pending/Resolved/Closed disposition to log, so
+      // the Status field is hidden for voice — and for a provider that
+      // doesn't store case status (hide, don't disable).
+      voice: c.type === "voice" || !caseStatusCapable,
+      tagOptions: OUTCOME_TAG_OPTIONS,
+      selectedTags: draft.tags,
+      onTagsChange: (tags: string[]) => edit((d) => ({ ...d, tags })),
+      dispositionOptions: OUTCOME_DISPOSITION_OPTIONS,
+      dispositionCode: draft.dispositionCode,
+      onDispositionChange: (value: string) => edit((d) => ({ ...d, dispositionCode: value })),
+      summary: draft.summary,
+      onSummaryChange: (value: string) => edit((d) => ({ ...d, summary: value })),
+      onSave: handleOutcomeSave,
+      onCancel: handleOutcomeCancel,
+      // Once the call has ended the footer becomes Save & Redial / Save &
+      // Dismiss (outcome-panel.tsx). `anchorEl` is the Outcome trigger's own
+      // node (or the wrap-up card), so the Redial pad opens right there.
+      callEnded: c.type === "voice" && !!(interaction.closed || interaction.voiceCallEnded),
+      onSaveAndRedial: (anchorEl) =>
+        handleOutcomeSaveAndRedial(
+          interaction.id,
+          c.value ?? c.addressLabel ?? synthesizeChannelAddress("voice", interaction.customerId ?? interaction.id, interaction.customerName),
+          anchorEl
+        ),
+      onSaveAndDismiss: () => handleOutcomeSaveAndDismissChannel(interaction, c),
+    };
+  };
+  const incomingOffer = useIncomingOffer({
+    findOpenCard,
+    activateWhenReady,
+    onDeclined: () => addToast({ variant: "info", title: "Call declined", duration: 4000 }),
+  });
+  /** Holds or resumes a scripted scenario call locally (until P0.5c). */
+  const setScenarioCallHold = (cardId: string, threadId: string, onHold: boolean) => {
+    setInteractions((prev) =>
+      prev.map((interaction) =>
+        interaction.id === cardId
+          ? {
+              ...interaction,
+              threads: interaction.threads.map((c) =>
+                c.id === threadId ? { ...c, heldByAgent: onHold, heldSinceTick: onHold ? clock.now() : undefined } : c
+              ),
+            }
+          : interaction
+      )
+    );
+  };
+  // The bar's call: Hold/Mute/Record/Mask/Keypad on the provider; only a
+  // scripted scenario call holds locally.
+  const liveVoiceCallControls = useVoiceCallControls(liveVoiceCallThread, {
+    onScenarioHold: (next) => {
+      if (liveVoiceCallInteraction && liveVoiceCallThread) setScenarioCallHold(liveVoiceCallInteraction.id, liveVoiceCallThread.id, next);
+    },
+  });
+  /** The nav row's hold chip (P0.5d.1): resumes a held call (the provider
+   *  holds the live one, and the card is selected so the bar and main column
+   *  land on it) or holds the live call. */
+  const handleCallHoldChip = (card: Interaction, thread: Interaction["threads"][number]) => {
+    const resume = !!thread.heldByAgent;
+    if (!contactCommands.setHold(thread, !resume)) setScenarioCallHold(card.id, thread.id, !resume);
+    if (resume && card.id !== activeInteractionId) switchActiveInteraction(card.id);
   };
 
   /* ── Preventing duplicate channels from the CreateNew picker ──
@@ -7440,17 +7493,16 @@ export function AgentWorkspaceAdvancedPage({
           // `pinnedHeader` covers this exact spot on its own.
           pinnedHeader={
             /* The shared New Outbound launcher (P0.5b.2). This page's scope
-               and in-call rule are a temporary parity exception (rows
-               14/15): Dial Pad only (no group picker, "New Outbound" header,
-               no back button), and disabled while the agent is on a live
-               call (`agentOnActiveVoiceCall` — not merely while a scripted
-               AI call like Marcus's runs before Takeover).
+               is a temporary parity exception (row 14): Dial Pad only (no
+               group picker, "New Outbound" header, no back button). Like
+               Desk, it stays enabled during a call; a second call holds the
+               first (row 15, revised 2026-10-14).
                `handleDialpadSubmit` tells a completed redial apart from an
                ordinary dial. */
             <NewOutboundLauncher
               outboundConfig={outboundConfig}
               scope="dialpad"
-              inCallPolicy="disable"
+              inCallPolicy="allow"
               onActiveCall={agentOnActiveVoiceCall}
               expanded={navOpen}
               onStartCall={handleStartCall}
@@ -7565,15 +7617,6 @@ export function AgentWorkspaceAdvancedPage({
                 // these readings resumes exactly as before.
                 const hasCustomerResponded = (c: Thread) => c.lastCustomerMessageTick !== undefined;
                 const channels: InteractionChannel[] = interaction.threads.map((c) => {
-                  // Identifies this specific channel's own Outcome popover —
-                  // `c.id ?? c.type` is the same fallback `InteractionChannel
-                  // .id`'s own doc comment establishes for "no id supplied,
-                  // type alone is unique enough on this card"; prefixing the
-                  // interaction id keeps it unique across DIFFERENT cards
-                  // too, since `outcomeDraftKey` is one shared piece of
-                  // state for the whole left nav (only one popover open at
-                  // a time), not scoped per-card.
-                  const outcomeKey = `${interaction.id}:${c.id ?? c.type}`;
                   // Per explicit request: a channel that's been explicitly
                   // closed (via the status popover), OR the whole interaction
                   // this card represents (a reopened-from-history, read-only
@@ -7627,6 +7670,7 @@ export function AgentWorkspaceAdvancedPage({
                   // it's not trying to distinguish those two cases.
                   const slaSuppressed = isClosed || interaction.threadStatuses?.[c.id] === "Resolved";
                   const effectiveAwaitingResponse = !slaSuppressed && (c.awaitingResponse ?? false);
+                  const offerSeverity = offerRowAnswerSeverity(interaction, c, clockTick, answerSla);
                   return {
                     id: c.id,
                     type: c.type,
@@ -7670,24 +7714,29 @@ export function AgentWorkspaceAdvancedPage({
                       : effectiveAwaitingResponse
                       ? formatElapsedTime(channelAwaitingWaitSeconds(c))
                       : formatElapsedTime(clockTick - c.startTick),
-                    // Per explicit request ("when a call is placed on hold,
-                    // add an on hold timer below the call timer in the call
-                    // controls and in the interaction nav item") — a NEW
-                    // line below `elapsed` above (`ChannelRowProps.
-                    // onHoldElapsed`, channel-row.tsx — deliberately not
-                    // `elapsedOverride`, which SWAPS that line instead; see
-                    // that prop's own doc comment for why this request gets
-                    // its own separate field), driven by the same
-                    // `heldByAgent`/`heldSinceTick` pair the call controls
-                    // bar's own `onHoldChange` handler sets above. Only
-                    // meaningful for the live voice thread itself, so
-                    // `c.heldSinceTick` (rather than any card-level state)
-                    // is checked directly — every other channel/thread never
-                    // has this field set at all.
-                    onHoldElapsed:
-                      c.heldByAgent && c.heldSinceTick !== undefined
-                        ? formatElapsedTime(clockTick - c.heldSinceTick)
-                        : undefined,
+                    // Recording (the provider's state): the timer's clock
+                    // becomes a pulsing red dot, still counting (P0.5d.1).
+                    recording: c.recording,
+                    // The call's own line below the skill (P0.5d.1), one of:
+                    // in wrap-up → "Needs outcome · mm:ss"; held → an
+                    // "On hold · mm:ss" chip that resumes it (and selects
+                    // this card); live → a "Hold" chip. The call timer
+                    // stays put. Not while Marcus's call is under AI review
+                    // (his controls are locked).
+                    statusBadge:
+                      c.wrapUpSinceTick !== undefined ? (
+                        <NeedsOutcomeBadge elapsed={formatElapsedTime(clockTick - c.wrapUpSinceTick)} />
+                      ) : c.type === "voice" &&
+                        findLiveVoiceThread(interaction)?.id === c.id &&
+                        !(interaction.id === MARCUS_WEBB_ID && marcusWebbReviewing) ? (
+                        <VoiceHoldChip
+                          held={!!c.heldByAgent}
+                          heldSeconds={c.heldSinceTick !== undefined ? clockTick - c.heldSinceTick : 0}
+                          heldLabel={c.heldSinceTick !== undefined ? formatElapsedTime(clockTick - c.heldSinceTick) : undefined}
+                          callerName={interaction.customerName ?? c.addressLabel ?? c.value ?? "caller"}
+                          onClick={() => handleCallHoldChip(interaction, c)}
+                        />
+                      ) : undefined,
                     preview: c.preview,
                     current: c.id === currentId,
                     // See `effectiveAwaitingResponse` above — not read
@@ -7695,7 +7744,9 @@ export function AgentWorkspaceAdvancedPage({
                     // closed channel should never render red/amber/green
                     // just because it happened to be awaiting right before
                     // it was closed.
-                    awaitingResponse: effectiveAwaitingResponse,
+                    // A ringing offer's row is on its answer SLA instead,
+                    // selected or not (offerRowAnswerSeverity).
+                    awaitingResponse: offerSeverity !== undefined || effectiveAwaitingResponse,
                     // Amber-vs-red-vs-green escalation (see
                     // `getAwaitingSeverity`'s own doc comment) — `undefined`
                     // (not computed at all) when this channel isn't
@@ -7704,9 +7755,8 @@ export function AgentWorkspaceAdvancedPage({
                     // back to their own "nothing pending" look rather than a
                     // stray severity value with no `awaitingResponse` to go
                     // with it.
-                    awaitingSeverity: effectiveAwaitingResponse
-                      ? getAwaitingSeverity(channelAwaitingWaitSeconds(c))
-                      : undefined,
+                    awaitingSeverity:
+                      offerSeverity ?? (effectiveAwaitingResponse ? getAwaitingSeverity(channelAwaitingWaitSeconds(c)) : undefined),
                     // Closed (either the whole reopened-from-history
                     // interaction, or just this one channel via the status
                     // popover — same `isClosed` above) is read-only — no
@@ -7873,7 +7923,7 @@ export function AgentWorkspaceAdvancedPage({
                         : // Outcome stays locked on an incoming call until it is accepted.
                         interaction.id === TOM_LEWIS_CALL_ID
                         ? tomLewisCallRinging
-                        : undefined,
+                        : interaction.offered || undefined,
                     // Per explicit follow-up request ("remove the ability to
                     // hang up from the interactionNavItem overall") — "hide,
                     // don't destroy," same pattern as
@@ -7894,14 +7944,23 @@ export function AgentWorkspaceAdvancedPage({
                       c.type === "voice" &&
                       !interaction.closed &&
                       !interaction.voiceCallEnded &&
+                      !interaction.offered &&
                       !(interaction.id === MARCUS_WEBB_ID && marcusWebbReviewing)
                         ? () => {
                             // A provider call ends through `end()` (to
-                            // wrap-up); a scripted scenario call locally.
+                            // wrap-up, where the card shows its wrap-up card);
+                            // a scripted scenario call ends locally.
                             if (!contactCommands.hangUp(c)) {
+                              const endedAt = clock.now();
                               setInteractions((prev) =>
                                 prev.map((i) =>
-                                  i.id === interaction.id ? { ...i, voiceCallEnded: true } : i
+                                  i.id === interaction.id
+                                    ? {
+                                        ...i,
+                                        voiceCallEnded: true,
+                                        threads: i.threads.map((t) => (t.id === c.id ? { ...t, wrapUpSinceTick: endedAt } : t)),
+                                      }
+                                    : i
                                 )
                               );
                             }
@@ -7924,66 +7983,7 @@ export function AgentWorkspaceAdvancedPage({
                     // closed/read-only card, since `showMenu={removable !==
                     // false}` already hides the whole button (and this along
                     // with it) there.
-                    outcome: {
-                      open: outcomeDraftKey === outcomeKey && outcomeDraftSource === "leftnav",
-                      onOpenChange: (open: boolean) => handleOutcomeOpenChange(outcomeKey, open, "leftnav"),
-                      // Same options list AND same underlying value as the
-                      // session-status pill's own dropdown
-                      // (`TranscriptSessionSeparator`, fed by THIS channel's
-                      // own `interaction.channelStatuses[c.id]`/
-                      // `handleInteractionStatusChange` — rule #29) — not a
-                      // separate `outcomeDraft` field like Tags/Disposition/
-                      // Summary, so changing status from either surface
-                      // changes it in both, per explicit request, WITHOUT
-                      // touching any sibling channel's own status (see
-                      // `Interaction.channelStatuses`'s own doc
-                      // comment). Fallback here is `"Open"`, not
-                      // `"Resolved"` — a channel with no status set yet is
-                      // a genuinely untouched/fresh thread, not one that's
-                      // already wrapped up (bug fix; this used to read
-                      // `?? "Resolved"`, matching `buildDismissedContact-
-                      // HistoryEntry`'s own fallback for this same field —
-                      // that one intentionally still uses `"Resolved"`,
-                      // since it only ever runs at dismiss time for an
-                      // already-concluded historical entry, so the two no
-                      // longer need to match).
-                      resolutionOptions: TRANSCRIPT_SESSION_STATUS_OPTIONS,
-                      resolution: interaction.threadStatuses?.[c.id] ?? "Open",
-                      onResolutionChange: (value: string) =>
-                        handleInteractionStatusChange(interaction.id, c.id, value),
-                      // Voice has no real Open/Pending/Resolved/Closed
-                      // disposition to log — hide the Status field in the
-                      // Log Outcome popover for voice channels.
-                      voice: c.type === "voice",
-                      tagOptions: OUTCOME_TAG_OPTIONS,
-                      selectedTags: outcomeDraft.tags,
-                      onTagsChange: handleOutcomeTagsChange,
-                      dispositionOptions: OUTCOME_DISPOSITION_OPTIONS,
-                      dispositionCode: outcomeDraft.dispositionCode,
-                      onDispositionChange: handleOutcomeDispositionChange,
-                      summary: outcomeDraft.summary,
-                      onSummaryChange: (value: string) => setOutcomeDraft((d) => ({ ...d, summary: value })),
-                      onSave: handleOutcomeSave,
-                      onCancel: handleOutcomeCancel,
-                      // Per explicit request: once this voice channel's call
-                      // has ended, the footer becomes "Save & Redial"/
-                      // "Save & Dismiss" instead — see `ChannelOutcomeConfig`'s
-                      // own doc comment (outcome-panel.tsx). `anchorEl` here
-                      // is the Outcome trigger's OWN DOM node (threaded
-                      // through by `buildOutcomePopoverSlots`'s `triggerRef`
-                      // param, channel-row.tsx) — anchors the resulting
-                      // "Redial Contact" popover right on this row's own
-                      // Outcome button, same as Contact History's own Redial
-                      // button anchors its identical popover on itself.
-                      callEnded: c.type === "voice" && !!(interaction.closed || interaction.voiceCallEnded),
-                      onSaveAndRedial: (anchorEl) =>
-                        handleOutcomeSaveAndRedial(
-                          interaction.id,
-                          c.value ?? c.addressLabel ?? synthesizeChannelAddress("voice", interaction.customerId ?? interaction.id, interaction.customerName),
-                          anchorEl
-                        ),
-                      onSaveAndDismiss: () => handleOutcomeSaveAndDismiss(interaction.id),
-                    } satisfies ChannelOutcomeConfig,
+                    outcome: outcomeConfigFor(interaction, c, "leftnav"),
                     // A live call stays blue-highlighted alongside the open chat (Lucas: John on the call).
                     alwaysHighlighted: interaction.id === LUCAS_THOMAS_ID && c.type === "voice" && !interaction.voiceCallEnded && !interaction.closed,
                   };
@@ -8123,7 +8123,9 @@ export function AgentWorkspaceAdvancedPage({
                   <InteractionNavCard
                     leaving={interaction.id === TOM_LEWIS_CALL_ID && tomLewisCallLeaving}
                     // While the call is unanswered and the nav is collapsed, show the hover preview automatically.
-                    forceHoverOpen={interaction.id === TOM_LEWIS_CALL_ID && tomLewisCallRinging && !tomLewisCallLeaving}
+                    forceHoverOpen={
+                      (interaction.id === TOM_LEWIS_CALL_ID && tomLewisCallRinging && !tomLewisCallLeaving) || !!interaction.offered
+                    }
                     key={interaction.id}
                     currentChannelType={currentChannelType}
                     showChannelBadge={channels.length <= 1}
@@ -8179,8 +8181,17 @@ export function AgentWorkspaceAdvancedPage({
                       switchActiveInteraction(interaction.id);
                       setPanelFullScreen(false);
                     }}
-                    awaitingResponse={cardAwaitingChannels.length > 0}
-                    awaitingSeverity={cardAwaitingWaitSeconds !== undefined ? getAwaitingSeverity(cardAwaitingWaitSeconds) : undefined}
+                    // A ringing offer gets the awaiting-reply look on its
+                    // answer SLA (profile thresholds): timer and border turn
+                    // warning, then critical, while it goes unanswered.
+                    awaitingResponse={!!interaction.offered || cardAwaitingChannels.length > 0}
+                    awaitingSeverity={
+                      interaction.offered && earliestStart !== undefined
+                        ? answerSeverity(clockTick - earliestStart, answerSla)
+                        : cardAwaitingWaitSeconds !== undefined
+                          ? getAwaitingSeverity(cardAwaitingWaitSeconds)
+                          : undefined
+                    }
                     // "" (not a fallback duration) once every channel on
                     // this card is closed — see `cardOpenChannels`'s own doc
                     // comment above for why `earliestStart` is `undefined`
@@ -8209,65 +8220,27 @@ export function AgentWorkspaceAdvancedPage({
                     channels={channels}
                     onDismiss={() => handleDismissInteraction(interaction.id)}
                     onDismissChannel={(channel) => handleDismissChannel(interaction.id, channel)}
-                    // Per a later explicit follow-up request ("I want the
-                    // '+' to also be in the interactionNavItem"):
-                    // `getHeaderAction` alone returns `null` for any
-                    // interaction with no matching contact in
-                    // `contactsById` (its own doc comment) — falls back to
-                    // the same directory-independent `AddChannelAdHocButton`
-                    // the record header's own `titleSuffix` uses, but ONLY
-                    // for whichever card is the currently active
-                    // interaction: `handleAddAdHocChannel` (like the record
-                    // header's own call) is only ever wired to
-                    // `activeInteraction`, so a non-active card's "+" still
-                    // only shows when `getHeaderAction` itself resolves a
-                    // real contact for it. `className` shrinks the ad-hoc
-                    // trigger's own default solid-primary "icon-md" look
-                    // down to match `getHeaderAction`'s plain ghost
-                    // `h-6 w-6` "+" exactly, so the two read as the
-                    // identical control regardless of which one happens to
-                    // render for a given card.
                     footerAction={
                       interaction.id === TOM_LEWIS_CALL_ID && tomLewisCallRinging ? (
-                        <div className="flex flex-row-reverse gap-2">
-                          <Button
-                            variant="default"
-                            size="md"
-                            className="flex-1"
-                            onClick={(e: React.MouseEvent) => {
-                              e.stopPropagation();
-                              handleAcceptTomLewisCall();
-                            }}
-                          >
-                            <Phone className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-                            Accept
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="md"
-                            className="flex-1"
-                            onClick={(e: React.MouseEvent) => {
-                              e.stopPropagation();
-                              handleDeclineTomLewisCall();
-                            }}
-                          >
-                            <PhoneOff className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-                            Decline
-                          </Button>
-                        </div>
+                        <IncomingOfferActions onAccept={handleAcceptTomLewisCall} onDecline={handleDeclineTomLewisCall} />
+                      ) : interaction.offered ? (
+                        // A ringing provider voice offer (P0.5d.1).
+                        <IncomingOfferActions
+                          onAccept={() => void incomingOffer.accept(interaction)}
+                          onDecline={incomingOffer.canDecline ? () => void incomingOffer.decline(interaction) : undefined}
+                        />
                       ) : undefined
                     }
+                    // The card's "+" (add channel), shared with Desk
+                    // (navCardAddChannelAction); off on this page until 5d.2.
                     headerAction={
                       SHOW_ADD_CHANNEL_HEADER_BUTTONS &&
-                      ((interaction.entityId ? getHeaderAction(interaction.entityId) : null) ??
-                        (SHOW_ADD_CHANNEL_HEADER_BUTTON &&
-                          interaction.id === activeInteractionId && (
-                            <AddChannelAdHocButton
-                              onLaunch={handleAddAdHocChannel}
-                              skillOptions={OUTBOUND_CONFIG.skillOptions}
-                              className="h-6 w-6 px-0 bg-transparent text-lyra-fg-secondary hover:bg-lyra-state-hover active:bg-lyra-state-pressed"
-                            />
-                          )))
+                      SHOW_ADD_CHANNEL_HEADER_BUTTON &&
+                      navCardAddChannelAction(interaction, {
+                        getHeaderAction,
+                        onAddAdHocChannel: outboundDial.addAdHocChannel,
+                        skillOptions: OUTBOUND_CONFIG.skillOptions,
+                      })
                     }
                     // Renders side by side with `collapsible`'s own
                     // expand/collapse chevron, rather than being replaced
@@ -9000,7 +8973,7 @@ export function AgentWorkspaceAdvancedPage({
                             Same `getHeaderAction` (stock picker) ??
                             `AddChannelAdHocButton` (directory-independent
                             fallback) pair, unchanged. */}
-                        {SHOW_ADD_CHANNEL_HEADER_BUTTONS && SHOW_ADD_CHANNEL_HEADER_BUTTON && (getHeaderAction(
+                        {SHOW_ADD_CHANNEL_HEADER_BUTTONS && SHOW_ADD_CHANNEL_HEADER_BUTTON && showsSessionControls(activeInteraction) && (getHeaderAction(
                           activeInteraction.entityId ?? "",
                           "ml-0.5 h-8 w-8 px-0 border border-lyra-border-soft bg-lyra-bg-control text-lyra-fg-action hover:bg-lyra-state-hover active:bg-lyra-state-pressed",
                           { label: "Add Channel", showLabel: false }
@@ -9233,7 +9206,7 @@ export function AgentWorkspaceAdvancedPage({
                                   )}
                                   onClick={() => {
                                     if (isVoiceChannel) return;
-                                    setChannelPreviewThreadKey((prev) => (prev === key ? null : key));
+                                    setChannelPreviewThreadKey(channelPreviewThreadKey === key ? null : key);
                                   }}
                                 >
                                   {meta.icon}
@@ -9313,7 +9286,7 @@ export function AgentWorkspaceAdvancedPage({
                                     resolution: activeInteraction.threadStatuses?.[c.id] ?? "Open",
                                     onResolutionChange: (value) =>
                                       handleInteractionStatusChange(activeInteraction.id, c.id, value),
-                                    voice: c.type === "voice",
+                                    voice: c.type === "voice" || !caseStatusCapable,
                                     tagOptions: OUTCOME_TAG_OPTIONS,
                                     selectedTags: outcomeDraft.tags,
                                     onTagsChange: (tags) => setOutcomeDraft((d) => ({ ...d, tags })),
@@ -9728,6 +9701,22 @@ export function AgentWorkspaceAdvancedPage({
                         <InteractionTranscript
  hideAiActions={hideAiActions}
                           hideMockFollowUpMessages={activeInteraction.id === LUCAS_THOMAS_ID}
+                          // Voice wrap-up (P0.5d.1): while this card's call is
+                          // in wrap-up (agent or customer hang-up), its
+                          // wrap-up card is the last item in the scrolling
+                          // content, whichever channel is selected; it
+                          // scrolls into view once, then scrolls with the
+                          // conversation. It leaves once the outcome is saved.
+                          trailingContent={
+                            activeWrapUpThread ? (
+                              <VoiceWrapUpCard outcome={outcomeConfigFor(activeInteraction, activeWrapUpThread, "card")} />
+                            ) : undefined
+                          }
+                          trailingContentKey={
+                            activeWrapUpThread
+                              ? `wrap-up:${activeInteraction.id}:${activeWrapUpThread.providerInteractionId ?? activeWrapUpThread.id}`
+                              : undefined
+                          }
                           channelType={activeChannelType}
                           // Feeds `TranscriptSessionSeparator`'s
                           // direction-aware voice/SMS icon. Per explicit
@@ -9809,7 +9798,9 @@ export function AgentWorkspaceAdvancedPage({
                           // Phase 1 (as explicitly requested) means this
                           // content no longer renders here.
                           customerContextOverview={
-                            activeInteractionIsRealCustomer
+                            // An unknown caller still gets the overview when
+                            // the call carried a pre-contact summary (P0.5d.1).
+                            activeInteractionIsRealCustomer || activePreContactSummary
                               ? // Per explicit request ("i want the next best
                                 // action content ... to populate like the way
                                 // claude asks questions"), Marcus Webb's own
@@ -9935,7 +9926,8 @@ export function AgentWorkspaceAdvancedPage({
                           // these controls regardless of channel count; the
                           // header's own now-removed copy is gone (see the
                           // record-header `actions` call site above).
-                          showSessionActionCluster
+                          // Hidden while the call is still ringing.
+                          showSessionActionCluster={showsSessionControls(activeInteraction)}
                           // Per explicit follow-up request ("hide the add
                           // participant icon button and for all interactions
                           // move the transfer inside the 3 dots menu - move
@@ -11003,26 +10995,13 @@ export function AgentWorkspaceAdvancedPage({
                           selectedContactHistoryEntry.redial ? (
                             <Button
                               variant="outline"
-                              // Per explicit request ("in phase 1, we cannot
-                              // have 2 or more calls at the same time, so if
-                              // an agent is on an active call then disable
-                              // the ... redial buttons in the contact
-                              // history"), then a follow-up bug report ("only
-                              // disable when the agent is on an active
-                              // call") — same `agentOnActiveVoiceCall` signal
-                              // the "New Outbound" trigger's own identical
-                              // `disabled` wiring uses (see that render
-                              // site's own doc comment, and
-                              // `agentOnActiveVoiceCall`'s own doc comment,
-                              // for why this isn't the plain
-                              // `liveVoiceCallInteraction` it originally
-                              // read). `title` (native `Button` prop,
-                              // button.tsx) renders as a plain browser
-                              // tooltip on this non-icon variant, same as
-                              // every other `title` this file already passes
-                              // to a non-icon `Button`.
-                              disabled={agentOnActiveVoiceCall}
-                              title={agentOnActiveVoiceCall ? "A call is already in progress" : undefined}
+                              // Enabled during a call: a second call holds
+                              // the first (row 15, revised 2026-10-14; this
+                              // used to be disabled while on a call).
+                              // Disabled only while already on a live or
+                              // held call with this customer (shared rule).
+                              disabled={outboundDial.redialBlocked(selectedContactHistoryEntry)}
+                              title={outboundDial.redialBlocked(selectedContactHistoryEntry) ? ALREADY_ON_CALL_TOOLTIP : undefined}
                               onClick={(e) => {
                                 handleRedialButtonClick(selectedContactHistoryEntry, e.currentTarget);
                               }}
@@ -11938,126 +11917,50 @@ export function AgentWorkspaceAdvancedPage({
               sit for a chat channel — see that composer's own doc comment
               for the "why nothing renders there for voice today" this
               reuses). */}
-          {liveVoiceCallInteraction &&
+          {voiceBarCall &&
+          liveVoiceCallInteraction &&
           liveVoiceCallThread &&
           !(marcusWebbReviewing && liveVoiceCallInteraction.id === MARCUS_WEBB_ID) ? (
-            <VoiceCallControls
-              // Per explicit follow-up request/reference screenshot, now
-              // that this bar sits directly on the page background instead
-              // of at the bottom of the transcript column: overrides this
-              // component's own default `bg-lyra-bg-surface-base px-4
-              // py-2` (wide) / `px-2 py-2` (compact) — both branches share
-              // one root node (see that node's own doc comment,
-              // agent-next-gen-voice-call-controls.tsx), so this one
-              // `className` reaches whichever is currently showing. No
-              // white card background, no left/right inset (flush with
-              // `Container`'s own edges), 8px top padding only (was 8px on
-              // every side) — `pt-2 pb-0` (not `py-0`) so top and bottom
-              // can differ; `cn`'s own tailwind-merge cleanly drops the
-              // conflicting defaults for all four (background + all three
-              // padding axes) rather than fighting them. `animate-in
-              // slide-in-from-bottom-4 fade-in-0 duration-200` per explicit
-              // follow-up request ("animate up the call controls / action
-              // bar when they are instantiated") — tailwindcss-animate's own
-              // entrance utilities, replaying on their own every time this
-              // mounts fresh (a real call starting, or `marcusWebbReviewing`
-              // switching back to `false`) without needing a `key`.
-              className="bg-transparent px-0 pt-2 pb-0 animate-in slide-in-from-bottom-4 fade-in-0 duration-200"
-              // Per explicit request ("hide the video button in v3 for now
-              // - keep it in phase 2"): re-using the same `showAddVideo`
-              // flag Agent Workspace 2.0 Phase 1 already established (see
-              // that prop's own doc comment, agent-next-gen-voice-call-
-              // controls.tsx) rather than a new one, since it's the exact
-              // same "not ready yet, coming back later" gate.
-              showAddVideo={false}
-              // Per explicit request ("when a call is placed on hold, add
-              // an on hold timer below the call timer in the call controls
-              // and in the interaction nav item") — same `Thread.
-              // heldByAgent`/`onHoldChange` wiring Agent Workspace 2.0's
-              // own identical call site already established (see that
-              // field's own doc comment, agent-next-gen-interaction-
-              // dashboard.tsx), plus the new `heldSinceTick` companion
-              // field (same file) this request adds, set/cleared in
-              // lockstep with `heldByAgent` right here so
-              // `holdStartTick` below always has a real start point
-              // for the bar to diff the page clock against whenever
-              // `onHold` is true.
-              onHold={liveVoiceCallThread.heldByAgent}
-              onHoldChange={(next) => {
-                // A provider call holds/resumes through `hold()` and the
-                // held state comes back as an event (P0.5b.2); only a
-                // scripted scenario call is held locally.
-                if (contactCommands.setHold(liveVoiceCallThread, next)) return;
-                setInteractions((prev) =>
-                  prev.map((interaction) =>
-                    interaction.id === liveVoiceCallInteraction.id
-                      ? {
-                          ...interaction,
-                          threads: interaction.threads.map((c) =>
-                            c.id === liveVoiceCallThread.id
-                              ? { ...c, heldByAgent: next, heldSinceTick: next ? clock.now() : undefined }
-                              : c
-                          ),
-                        }
-                      : interaction
-                  )
-                );
-              }}
-              holdStartTick={liveVoiceCallThread.heldSinceTick}
+            // The shared voice bar (VoiceBar, same as Desk): placement,
+            // look, which call, and the provider's Hold/Mute/Record/Mask/
+            // Keypad come from it; this page passes its own panels.
+            <VoiceBar
+              call={voiceBarCall}
+              controls={liveVoiceCallControls}
               onHangUp={() => {
                 const endedInteractionId = liveVoiceCallInteraction.id;
-                const endedThreadKey = liveVoiceCallThread.id ?? liveVoiceCallThread.type ?? "channel";
-                // Lucas's call is placed from his chat: the chat stays the main content (and the outcome is logged against it) until the assignment is dismissed.
-                const lucasChatThread =
-                  endedInteractionId === LUCAS_THOMAS_ID
-                    ? liveVoiceCallInteraction.threads.find((t) => t.type === "chat")
-                    : undefined;
-                const outcomeThreadKey = lucasChatThread ? (lucasChatThread.id ?? lucasChatThread.type) : endedThreadKey;
-                // A provider call ends through `end()`: it goes to wrap-up,
-                // which the card shows as ended (P0.5b.2). Only a scripted
-                // scenario call is marked ended locally.
-                const endedByProvider = contactCommands.hangUp(liveVoiceCallThread);
+                setVoiceVideoWindowOpen(false);
+                setVoiceVideoFullScreen(false);
+                // A provider call ends through `end()`. Once it's in wrap-up
+                // the call's card shows its inline wrap-up card, and the main
+                // column stays on whatever the agent is viewing (P0.5d.1).
+                if (contactCommands.hangUp(liveVoiceCallThread)) return;
+                // Scripted scenario calls end locally until P0.5c, but follow
+                // the same rule (P0.5d.1): the call goes to wrap-up in place
+                // (its card shows the wrap-up card and its row the "Needs
+                // outcome" chip); no page switch, no Outcome popover.
+                // Lucas's call is placed from his chat: its row leaves the
+                // card and the chat stays; his own wrap-up card closes him.
+                const isLucas = endedInteractionId === LUCAS_THOMAS_ID;
+                const endedAt = clock.now();
                 setInteractions((prev) =>
                   prev.map((i) =>
                     i.id === endedInteractionId
                       ? {
                           ...i,
-                          ...(endedByProvider ? {} : { voiceCallEnded: true }),
-                          // Per explicit request ("when a call is ended,
-                          // open the outcome menu ... for the active
-                          // contact"): force the tab bar onto the voice
-                          // channel that just ended, regardless of
-                          // whichever channel tab happened to be selected
-                          // — otherwise `activeChannelOutcomeKey` below
-                          // (built from whatever tab IS selected) wouldn't
-                          // match the outcome popover this opens for the
-                          // voice channel specifically, and it would
-                          // silently fail to show.
-                          currentThreadId: outcomeThreadKey,
-                          // Lucas's call row leaves the nav card on hang-up; only the chat remains.
-                          ...(lucasChatThread ? { threads: i.threads.filter((t) => t.type !== "voice") } : {}),
+                          voiceCallEnded: true,
+                          threads: isLucas
+                            ? i.threads.filter((t) => t.type !== "voice")
+                            : i.threads.map((t) => (t.type === "voice" ? { ...t, wrapUpSinceTick: endedAt } : t)),
                         }
                       : i
                   )
                 );
-                setVoiceVideoWindowOpen(false);
-                setVoiceVideoFullScreen(false);
                 // A call that's ended should never leave `marcusWebbReviewing`
                 // stuck `true` for next time — see that state's own doc
                 // comment (above, with the rest of the Marcus Webb state).
                 if (endedInteractionId === MARCUS_WEBB_ID) setMarcusWebbReviewing(false);
-                // Per explicit request: ending a call opens the Log
-                // Outcome popover for that call's session row — navigating
-                // back to it first (same `switchActiveInteraction` every
-                // other navigation path uses) if the agent isn't already
-                // on it, rather than opening a popover on a row that isn't
-                // even visible.
-                if (endedInteractionId !== activeInteractionId) {
-                  switchActiveInteraction(endedInteractionId);
-                }
-                handleOutcomeOpenChange(`${endedInteractionId}:${outcomeThreadKey}`, true, "transcript");
               }}
-              callStartTick={liveVoiceCallThread.startTick}
               onAddToast={addToast}
               onToggleTranscript={
                 isViewingLiveVoiceCallInteraction
@@ -12126,12 +12029,6 @@ export function AgentWorkspaceAdvancedPage({
               // unidentified/ad-hoc caller's raw dialed number still falls
               // back to the generic glyph instead of nonsense initials
               // derived from digits.
-              customerLabel={
-                liveVoiceCallInteraction.customerName ??
-                liveVoiceCallThread.addressLabel ??
-                liveVoiceCallThread.value ??
-                liveVoiceCallInteraction.id
-              }
               customerInitials={
                 liveVoiceCallInteractionIsRealCustomer && liveVoiceCallInteraction.customerName
                   ? initialsFor(liveVoiceCallInteraction.customerName)
@@ -12139,7 +12036,6 @@ export function AgentWorkspaceAdvancedPage({
               }
             />
           ) : null}
-
           {/* Shared single-container panel — float (CSS transitions, not
               keyframe animations — avoids compositor fill-mode flash).
               Was five near-identical blocks (one per panel); with only one

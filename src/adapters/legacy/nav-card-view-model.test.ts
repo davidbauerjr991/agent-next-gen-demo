@@ -4,6 +4,7 @@ import type { EntityId, Interaction, InteractionId, JourneyId } from "../../doma
 import { createMemoryBus } from "../sim/memory-transport";
 import { createSimCustomerClient } from "../sim/sim-customer-client";
 import { createSimulatedInteractionProvider } from "../sim/simulated-interaction-provider";
+import { directoryDisplayName } from "@/contact-handling/contact-identity";
 import { buildNavCards, tickClock } from "./nav-card-view-model";
 
 // Domain Interactions → left-nav card view model (P0.5.0).
@@ -63,6 +64,16 @@ describe("buildNavCards — grouping", () => {
     const cards = buildNavCards([offered, contact("a", "journey-o", { channel: "email", startedAt: at(1) })], { toTick });
     expect(cards).toHaveLength(1);
     expect(cards[0].threads.map((t) => t.id)).toEqual(["email"]);
+  });
+
+  it("with voiceOffers, makes a ringing voice offer its own offered card; digital offers stay out (P0.5d.1)", () => {
+    const ringing = contact("v", "journey-v", { state: "offered", origin: "routed", direction: "inbound", channel: "voice", address: { value: "+1555" } });
+    const chatOffer = contact("c", "journey-c", { state: "offered", origin: "routed", direction: "inbound" });
+    const cards = buildNavCards([ringing, chatOffer], { toTick, voiceOffers: true });
+    expect(cards).toHaveLength(1);
+    expect(cards[0]).toMatchObject({ id: "journey-v", offered: true });
+    expect(cards[0].threads.map((t) => t.providerInteractionId)).toEqual(["v"]);
+    expect(buildNavCards([{ ...ringing, state: "active" }], { toTick, voiceOffers: true })[0].offered).toBeUndefined();
   });
 
   it("keeps two concurrent journeys with the same entity as separate cards", () => {
@@ -161,6 +172,21 @@ describe("buildNavCards — field mapping", () => {
     expect(chatOnly.voiceCallEnded).toBeUndefined();
   });
 
+  it("marks a live or held voice thread as recording from the provider, and nothing once it's in wrap-up (P0.5d.1)", () => {
+    const voice = contact("v", "j", { channel: "voice", state: "active", recording: true });
+    expect(buildNavCards([voice], { toTick })[0].threads[0].recording).toBe(true);
+    expect(buildNavCards([{ ...voice, state: "held" }], { toTick })[0].threads[0].recording).toBe(true);
+    expect(buildNavCards([{ ...voice, recording: false }], { toTick })[0].threads[0].recording).toBeUndefined();
+    expect(buildNavCards([{ ...voice, state: "wrap-up" }], { toTick })[0].threads[0].recording).toBeUndefined();
+  });
+
+  it("gives a voice thread in wrap-up its wrapUpSinceTick from endedAt, and none once it's ended (P0.5d.1)", () => {
+    const voice = contact("v", "j", { channel: "voice", state: "wrap-up", endedAt: at(42) });
+    expect(buildNavCards([voice], { toTick })[0].threads[0].wrapUpSinceTick).toBe(42);
+    expect(buildNavCards([{ ...voice, state: "ended" }], { toTick })[0].threads[0].wrapUpSinceTick).toBeUndefined();
+    expect(buildNavCards([{ ...voice, state: "active", endedAt: undefined }], { toTick })[0].threads[0].wrapUpSinceTick).toBeUndefined();
+  });
+
   it("resolves the customer name from displayName, then contactName, then address label, then address value", () => {
     const named = contact("a", "j1", { entityId: "e1" as EntityId, address: { value: "+1555", label: "Mobile" } });
     const presented = contact("d", "j4", { contactName: "Noah Patel", address: { value: "+1777", label: "Work" }, startedAt: at(3) });
@@ -173,6 +199,24 @@ describe("buildNavCards — field mapping", () => {
     expect(cards.map((c) => c.customerName)).toEqual(["Marcus Webb", "Home", "visitor@example.com", "Noah Patel"]);
     expect(cards.map((c) => c.customerId)).toEqual(["e1", "+1666", "visitor@example.com", "+1777"]);
     expect(cards.every((c) => c.currentThreadId === undefined && c.liveMessages === undefined)).toBe(true);
+  });
+
+  it("after a link, names the card from the record and keeps the presented name as presentedName", () => {
+    const records: Record<string, { name: string }> = { lauren: { name: "Lauren Briggs" }, noah: { name: "Ava Thompson" } };
+    const displayName = directoryDisplayName((id) => records[id]);
+    const voice = { channel: "voice" as const, address: { value: "+13125550164" } };
+    const linked = contact("a", "j1", { ...voice, contactName: "Jordan Reyes", entityId: "lauren" as EntityId, entityMatchedBy: "agent" });
+    const routed = contact("b", "j2", { ...voice, contactName: "Lauren Briggs", entityId: "lauren" as EntityId, entityMatchedBy: "routing", startedAt: at(1) });
+    const rawAddress = contact("c", "j3", { ...voice, contactName: "+13125550164", entityId: "lauren" as EntityId, entityMatchedBy: "agent", startedAt: at(2) });
+    // Arrived already linked (a seed): its presented name stays the card name.
+    const seeded = contact("d", "j4", { contactName: "Noah Patel", entityId: "noah" as EntityId, startedAt: at(3) });
+    const cards = buildNavCards([linked, routed, rawAddress, seeded], { toTick, displayName });
+    expect(cards.map((c) => [c.customerName, c.presentedName])).toEqual([
+      ["Lauren Briggs", "Jordan Reyes"],
+      ["Lauren Briggs", undefined],
+      ["Lauren Briggs", undefined],
+      ["Noah Patel", undefined],
+    ]);
   });
 });
 

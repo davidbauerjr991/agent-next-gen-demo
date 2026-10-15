@@ -2,6 +2,7 @@ import type { DatabaseHandle } from "../data/database-handle";
 import type { ContactCenterProfile } from "../profiles/contact-center-profile";
 import type { ProviderSet } from "../providers";
 import { createPlaceholderProviderSet } from "../adapters/placeholder/placeholder-providers";
+import { SIM_DEMO_DIRECTORY } from "../adapters/sim/sim-demo-directory";
 import { SIM_DEMO_SEED } from "../adapters/sim/sim-fixtures";
 import { SIM_LATENCY_PRESETS, type SimLatencyPreset } from "../adapters/sim/sim-latency";
 import { createSimProviderSet } from "../adapters/sim/sim-provider-set";
@@ -30,7 +31,12 @@ function placeholderFor(kind: ProviderKind): ProviderFactory {
 export const PROVIDER_FACTORIES: Record<ProviderKind, ProviderFactory> = {
   sim: ({ simLatency = "realistic" }) => {
     const preset = SIM_LATENCY_PRESETS[simLatency];
-    return createSimProviderSet({ seed: SIM_DEMO_SEED, latency: preset.latency, timings: { ring: preset.ring } });
+    return createSimProviderSet({
+      seed: SIM_DEMO_SEED,
+      directory: SIM_DEMO_DIRECTORY,
+      latency: preset.latency,
+      timings: { ring: preset.ring },
+    });
   },
   twilio: placeholderFor("twilio"),
   cxone: placeholderFor("cxone"),

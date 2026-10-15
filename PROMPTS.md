@@ -41,6 +41,10 @@ Wrap up this step: run the type-check and the test suite, update PROGRESS.md (do
 - **P0.2** — provider contracts (`src/providers`), incl. extra commands, `ProviderError`, `listOutboundSkills`.
 - **P0.3** — provider context, StrictMode-safe provider cache, `IfCapable`, `window.__providers`.
 - **P0.4** — `SimulatedInteractionProvider` + `SimEngine` + `SimTransport` (`src/adapters/sim`), browser-verified.
+- **P0.8, P0.5.0, P0.5a, P-CHORE-TICK, P0.5b.1, P0.5b.2** — see PROGRESS.md.
+- **P0.5d.1** — provider wiring for voice controls, incoming tile and the inline wrap-up card (see PROGRESS.md); the prompts below for 5d.2 build on it.
+
+**Execution order (revised 2026-10-15):** finish 5d.1 → P0.7 → P0.5c → P-SETTINGS → P0.5d.2 → P0.9.1–9.3 → P0.6 → Phase 1 (incl. P1.4a, P1.4b) → Phase 2 → Phase 3 → Phase 4 (incl. P4.4a, P4.11) → remaining verticals → Phase 5 (incl. P5.6, P5.7) → Phase 6 → Phase 7 → P-ADAPTER sequence.
 
 ---
 
@@ -83,43 +87,41 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 5b.1. No page ch
 Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 5b.2; 5b.1 is committed. In plan mode, propose moving both AgentWorkspace2WithDeskPage and AgentWorkspaceAdvancedPage onto store-backed nav cards, following PLAN.md's "P0.5b.2 design" decision: a shared useNavCards (store cards + UI overlay + page-local scenario cards, patchCard in place of setInteractions), a shared useOutboundDial for every dial and redial path, accept/reopen/associateEntity for notifications, Contact History, Search and customer linking, and the journeyId re-key inventory done in one change. Hold, hang-up and Unassign & Dismiss move onto hold/end/completeWrapUp because the store owns state; if the plan gets too large to review comfortably, split those three into a 5b.3. Also make the sim latency adjustable for demos. List Desk's visual before/after (rows 12 and 13) for approval. Grep; targeted edits; both pages share one path. Done = every card behaves as today, driven entirely by provider events (no optimistic local state); npm test passes; list browser checks for me, including: seed contacts appear once after Advanced ↔ Desk switches, carried-over timers keep their elapsed time, a second call auto-holds the first, and a reopen folds into the existing thread. Don't write code yet.
 ```
 
-### P0.5d — Voice bar, incoming tile and wrap-up onto the provider   ✋ (Plan: Opus · Implement: Opus)
+### P0.5d.1 — Voice controls, incoming tile and wrap-up card (provider wiring)   ✋ (Plan: Opus · Implement: Opus) — done
+The original P0.5d prompt was split (2026-10-14). 5d.1 is done; see PROGRESS.md and PLAN.md Decisions for what it built (controlled voice controls, `IncomingOfferActions`, the inline wrap-up card, per-channel drafts, hold chips, recording dot, one call per customer, inbound skill and pre-contact summary).
+
+### P0.5d.2 — Parity convergence + layout slots   ✋ (Plan: Opus · Implement: Opus)
 ```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 5d. 5b.2 is done and already moved these onto the provider, in src/contact-handling/useContactCommands.ts (shared by both pages):
-- hold/resume → hold();
-- hang-up and the nav End Call → end() (wrap-up shows as voiceCallEnded);
-- Unassign & Dismiss, Save & Dismiss and Save & Redial → end + completeWrapUp;
-- the session status pill → setCaseStatus().
-Build on those; don't redo them.
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 5d.2. 5d.1 is committed. In plan mode, propose, in shared code first:
+- Layout slots: a <LayoutSlot anchor="voice-bar" | "incoming-tile" | "right-panel" | …> component that each page places once; the voice bar, the incoming tile and the right panel mount through it instead of inline JSX, so Phase 7's LayoutConfig can move them without page edits. Phase 1 and Phase 2 pass their current anchors; no visual change from this alone.
+- Row 1 and 6: Desk's persistent voice bar outside the card view (visible on Home too), with the "View Transcript?" confirm.
+- Rows 7, 8, 9, 23: one CONTACT_HANDLING_FLAGS + capabilities replacing the per-page SHOW_* constants (End Call on both pages; Consult/Transfer, kebab and add participant capability-gated; Outcome always visible on voice rows).
+- Row 20: remove Desk's hover-preview Outcome entry point.
+- Row 21: opening a notification expands the left nav on both pages.
+- Row 11: the voice icon in the record header on both pages.
+- Row 14, closing the exception: Phase 1 adopts Phase 2's full New Outbound launcher (groups, search, Favorites) with the Agents, Skills and My Team groups removed on both pages (PLAN.md "Settings and configuration": New Outbound is customers and external numbers only; Skills stays only as the dial's outbound skill picker). "Call previous agent" moves to the Contact History row as a consult action placeholder until P0.9.
+- Scripted scenario cards are on the provider after 5c, so no scenario exceptions remain.
+For every visual change on either page, give a before/after and wait for my approval. Done = both pages behave identically apart from tabs, panels and home; npm test passes; type-check at baseline; list browser checks for me. Don't write code yet.
+```
 
-In plan mode, propose the rest, in shared code first (no logic added to one page and ported later):
-- Voice bar mute/record/mask/keypad via mute()/setRecording()/setMasked()/sendDtmf(). Add controlled muted/onMuteChange to the app's local agent-next-gen-voice-call-controls.tsx, per the voice-controls decision.
-- The persistent voice bar on both pages (parity rows 1–6). A shared useLiveVoiceCall() + <LiveVoiceCallBar> replaces findLiveVoiceThread:
-  - hold timer and label/avatar on Desk;
-  - hang-up opens Outcome on Desk;
-  - the "View Transcript?" confirm;
-  - Desk's implicit "on hold while not the active card" indicator (row 3) goes away.
-- Accept/Decline: generalize Advanced's ringing tile into <IncomingOfferTile> on both pages via accept()/decline(), with an optional origin badge and reason line (unused for now), so P6.4's "Escalated from virtual agent" is a data change, not a rework.
-- Outcome (rows 19, 20): a shared useOutcomeDraft with per-channel persistence on both pages, feeding completeWrapUp. Desk today records an outcome only on Save & Dismiss. Remove the hover-preview Outcome on Desk.
-- Wrap-up card: via completeWrapUp().
-- Nav card convergence (rows 7, 8, 9, 23):
-  - End Call shown on both pages, using the hang-up path;
-  - Consult/Transfer, kebab and add participant gated by capabilities;
-  - Outcome always visible on voice rows.
-  Fold these into one CONTACT_HANDLING_FLAGS + capabilities, replacing the per-page SHOW_* constants.
-- Opening a notification expands the left nav on both pages (row 21).
-- Rows that are still open and need decisions:
-  - Desk's docked channel preview (rows 12/13) stays deferred unless I say otherwise.
-  - Row 11 (the voice icon in the record header) rides along if you edit the record header.
-- Known 5b.2 gaps to fix here:
-  - Advanced's Outcome briefly shows Cancel / Save & Close after hang-up until the wrap-up event arrives. Open it in its ended state, or wait for the event.
-  - The seen-cards and read-notification state reset on a tier switch. Consider deriving "unread" from the seed offer still waiting.
+### P-SETTINGS — Persistent demo settings   (Plan: Opus · Implement: Sonnet) — after P0.5c
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. Chore: persistent demo settings (PLAN.md "Settings and configuration"). In plan mode, propose: (1) inventory the Settings page on both pages: every setting, what it controls, live or placeholder — report before proposing; (2) a shared settings store next to src/provider-context/ with useSetting/useSettings hooks both pages read, no page-local setting state, settings apply immediately; (3) localStorage, keyed per tier, versioned (a changed setting type falls back to its default), surviving reloads and closed tabs, cleared only by "Reset to defaults" on the Settings page, every read/write in try/catch with defaults when storage is unavailable; (4) say which settings belong with profile/database data (P1.4) and keep them out; (5) a Connections section skeleton (one row per seam, "Simulated" status, Test/Save disabled until adapters exist) so later steps have somewhere to land. No visual changes except making dead settings work; before/after for any setting that changes layout. Tests for the store (defaults, persistence, reset, version fallback, unavailable storage). List browser checks. Don't write code yet.
+```
 
-Gate every control with IfCapable/useCapability (hide, don't disable). Transfer stays unwired unless trivially mappable to blind transfer. Scripted scenario cards keep their local handling until 5c.
+### P0.9.1 — Transfer/merge contract, directory, messaging, participants   (Plan: Opus · Implement: Opus)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 9.1 (PLAN.md Phase 0 §9). No page changes. In plan mode, propose: capabilities transfer.consult, conference.merge, conference.split, assist.monitor/whisper/barge; Interaction.participants[] with role/state/joinedAt and participant events; the engine's consult (customer holds, target rings, complete/merge/cancel), merge of two calls into one conference interaction (originals end with reason "merged"; split restores them), transfer ending with reason "transferred" and the target; a DirectoryProvider contract (listAgents, listQueues, listSupervisors, getPresence, presenceChanged) with a sim that serves the New Outbound fixtures and changes presence on its own; a MessagingProvider contract (threads, messages, presence; hand-raise threads carry contact context) with a sim that has a simulated supervisor replying after a delay; placeholders for both; the virtual agent listed in the directory as a transfer target (stub until Phase 6). Contract suites for both new providers; the interaction suite gains consult/merge/split cases gated on capabilities. Done = npm test passes; tsc at baseline. Don't write code yet.
+```
 
-For every visual change on either page, give a before/after and wait for my approval.
+### P0.9.2 — Consult strip, hand raise, messaging drawer, participants UI   ✋ (Plan: Opus · Implement: Opus)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 9.2; 9.1 is committed. In plan mode, propose, in shared code for both pages: the consult strip under the voice bar ("Consulting <name> · mm:ss", Complete transfer / Merge / Cancel) and a target picker over DirectoryProvider; "Merge with <other call>" from a held card's chip menu and the bar; hand raise on the voice bar and the chat composer row (hand chip on the nav row; opens the messaging drawer on a supervisor thread prefilled with contact context; supervisor monitor/whisper/barge/take-over gated by capability); the messaging drawer (top-bar toggle, available without assignments, tabs per thread, unread badge, pop-out, never changes the active assignment); the nav card's participant-count badge (try the statusBadge slot first); the record header's participant avatar switcher driving the right-hand panels (agent participant → presence card); the transcript labeled by speaker; the wrap-up card taking one disposition per customer participant. Before/afters for every visual change; lyra changes only with my authorization. Done = blind transfer, consult→complete, consult→merge, merge of two held calls, split, hand raise and a teammate chat all work against the sim on both pages; npm test passes; list browser checks for me. Don't write code yet.
+```
 
-Done = each control behaves as today on both pages, with state from events (no optimistic local state); npm test passes; type-check at baseline. List browser checks for me, including a customer hang-up via __simCustomer landing in wrap-up. Don't write code yet.
+### P0.9.3 — Agent console window   (Plan: Opus · Implement: Sonnet) — after P0.6
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 9.3. In plan mode, propose #/agent-console?as=<agentId>: a second agent desktop (same Vite app) attached to the agent window's sim session through the P0.6 discovery handshake, acting as that directory agent or supervisor. A transfer rings there and accepting removes it here; a consult or merge shows the participants in both windows; a hand raise opens there as the supervisor with the context card. Done = the two-window demo runs end to end; list browser checks for me. Don't write code yet.
 ```
 
 ### P0.6 — Customer console route   (Plan: Opus · Implement: Sonnet)
@@ -154,6 +156,16 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 1, step 3. In plan mode,
 ### P1.4 — Named databases + SimulatedCustomerDataProvider   (Plan: Opus · Implement: Sonnet)
 ```
 Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 1, step 4. In plan mode, propose IndexedDB (Dexie) named databases behind the DatabaseHandle in src/data/, each tagged with its profile id, and SimulatedCustomerDataProvider in src/adapters/sim/ implementing the full CustomerDataProvider contract — including findNearMatches, getContactHistory, and getCollection(name, query) with status/limit/sort/since/until/minAmount — emitting entityChanged/collectionChanged. Wire it into the sim provider set via the factory's database dep; create, switch, export/import JSON, reset-to-demo. Add a CustomerDataProvider contract suite alongside P0.8's. Done = a telecom database generates, persists across reload, and the provider answers queries; npm test passes. Don't write code yet.
+```
+
+### P1.4a — Interaction history persistence   (Plan: Opus · Implement: Sonnet)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 1, step 4a (PLAN.md Phase 1 §4a). In plan mode, propose: CustomerDataProvider.recordInteraction, called by the engine on completeWrapUp with the finished interaction (participants, duration, outcome, disposition, tags, summary, transcript, end reason), emitting collectionChanged("interactions"); Home's Contact History, the customer panel's history accordion and the Details-panel transcript tab for earlier journey contacts read from getContactHistory; the page-side "Today" row goes away; reopen pulls the real prior transcript; unknown callers get a provisional record until linked; export/import JSON includes history. Contract test: a completed wrap-up appears in getContactHistory(entityId). Done = a dialed, wrapped-up call shows in Home history with its outcome and transcript after a reload; list browser checks for me. Don't write code yet.
+```
+
+### P1.4b — Native tickets   (Plan: Opus · Implement: Sonnet)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 1, step 4b (PLAN.md Phase 1 §4b). In plan mode, propose tickets as a related collection on every profile's schema (id, title, status, priority, owner, the contact that opened it, notes), linked to the interaction that opened them and every contact that touches them; "Create ticket" on the wrap-up card carrying summary and disposition; the ticket visible on history rows and the customer panel; getCollection("tickets", …) answering P4-style queries. Mapping to a vendor ticketing system is a later connection under the sync rules; here just keep externalId free for it. Done = a ticket created from wrap-up shows on the customer and in Contact History; list browser checks for me. Don't write code yet.
 ```
 
 ### P1.8 — Route existing screens through the data provider   ✋ (Plan: Opus · Implement: Opus)
@@ -200,6 +212,8 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 1, step 2b. Propose and 
 
 ## Phase 2 — Realtime chat simulation
 
+Every Phase 2 step follows PLAN.md's **Omnichannel layout** (2026-10-15): sync channels in the main column, async channels in a right-side slide-out from the record header tabs, voice with no content view, assignment-based cards with one row per channel.
+
 ### P2.0 — Render performance pass   (Plan: Opus · Implement: Sonnet) — before 2.1
 ```
 Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 2, step 0. Known gaps records that the 550–1180ms renders seen on the dev server are dev-mode overhead; the production build is fast, but it still logs occasional slow handlers (~230–270ms) and forced reflows (up to ~120ms). Live chat and voice will deliver events every second or two, so in plan mode, propose how to find which components re-render on a single provider event and why, then the smallest fixes (memoized selectors in the P0.5.0 hooks, React.memo on heavy subtrees, splitting state so one interaction's update doesn't re-render the whole page). The React Profiler can be used on the dev server to find what re-renders, but **all timings, before and after, are measured against a production build**: build with `npx vite build` and run `npm run preview`, not `npm run build`, until the type-check chore in PROGRESS.md is done. No visual changes. Done = a stateChanged or message event causes a render under ~50ms in the production build, measured before and after; list browser checks for me. Don't write code yet.
@@ -212,7 +226,7 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 2, step 1. In plan mode,
 
 ### P2.2 — Agent-side inbound chat   ✋ (Plan: Opus · Implement: Sonnet)
 ```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 2, step 2. In plan mode, propose rendering inbound chat end to end through the P0.5.0 hooks: incoming offer → accept → messages (useTranscript) in the existing channel-row / interaction-nav flow on both pages; agent replies via sendMessage (appearing only when the message event arrives, with delivery state); setTyping and incoming typing events both ways. Done = a full two-way chat works between console and agent app with no page-specific divergence; list browser checks for me. Don't write code yet.
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 2, step 2. In plan mode, propose rendering inbound chat end to end through the P0.5.0 hooks: incoming offer → accept → messages (useTranscript) in the existing channel-row / interaction-nav flow on both pages; agent replies via sendMessage (appearing only when the message event arrives, with delivery state); setTyping and incoming typing events both ways. Apply PLAN.md's omnichannel layout: a chat row click puts the chat in the main column; a voice row click only moves the voice bar; the record header's channel tabs switch sync channels and open async ones in the slide-out (slide-out shell only; email/SMS content is P-PARKED); from Home, a row click navigates to the assignment and opens that channel. Show a before/after for a card with three channel rows. Done = a full two-way chat works between console and agent app with no page-specific divergence; list browser checks for me. Don't write code yet.
 ```
 
 ### P2.3 — Unknown-contact state   (Plan: Opus · Implement: Sonnet)
@@ -288,6 +302,11 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 4, step 3. In plan mode,
 Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 4, step 4. In plan mode, propose components rendering the AssistCard union ("records", "text", "hint"): title restating the interpreted query, body as a table/list from the schema, provenance line from card.provenance, actions row — built on lyra-ui and the Details-panel Accordion/card treatment, updating as card events upsert (pending → streaming → complete). Done = cards render for payments, cases, balance, and last-contact results; list browser checks for me. Don't write code yet.
 ```
 
+### P4.4a — Card-type registry and configurable placement   (Plan: Opus · Implement: Opus)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 4, step 4a (PLAN.md Phase 4 §4a). In plan mode, propose: a card-type registry (lyra component + typed content schema per type: account overview, interstitial, records, text, hint, and the types in lyra's AI card set) with AssistCard gaining type and content; the registry picks the renderer, so new lyra types register without page edits; per-profile templates (which fields, order, labels, referencing the profile schema); placement per configured card — pinned (a Contact Details tab/accordion) or auto (the assist slot, on triggers: contact start, intent match, Tier 1 hit, escalation handoff, wrap-up), auto cards dismissible, interstitials holding the slot until acknowledged; a Settings section per profile to enable types, edit templates, set placement and triggers, with preview-as-agent. Lyra components take a typed content object, never fetch, and bubble onAction. Done = the account overview renders pinned in Details and an interstitial appears at call start from config alone; tests cover the registry and placement; list browser checks for me. Don't write code yet.
+```
+
 ### P4.5 — Compliance gates   (Plan: Opus · Implement: Sonnet)
 ```
 Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 4, step 5. In plan mode, propose adding compliance gating to the AssistCard contract (deferred from P0.2) and enforcing the profiles' declared behaviors: healthcare — PHI-bearing cards render "Verify identity to view" until the agent marks identity verified; collections — right-party verification prompt and a mini-Miranda reminder card at call start, promise-to-pay capture; banking — masked card numbers tied to setMasked / the Mask control. Done = switching databases switches the gates; tests cover each; list browser checks for me. Don't write code yet.
@@ -318,6 +337,11 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 4, step 9. In plan mode,
 Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 4, step 10. Propose and implement the no-match behavior: nothing for voice; a "hint" card for chat listing the active profile's collections. Leave a clearly marked hook where Phase 5 replaces it.
 ```
 
+### P4.11 — Knowledge base, Tier 1   (Plan: Opus · Implement: Sonnet)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 4, step 11 (PLAN.md Phase 4 §11). In plan mode, propose a profile-level "knowledge" collection (title, body, tags, product/skill scope, source, last updated) imported from Markdown/HTML/PDF/CSV through the wizard's import path, a KnowledgeProvider contract with a sim and a placeholder (vendor KBs come later under the sync rules), Tier 1 retrieval by tag and keyword surfacing a records card with provenance, article open in the Details panel or the draggable panel, and Settings for which sources are active per skill and whether the AI may quote or only link. Contract test: an imported article is retrievable by tag; a disabled source never surfaces. Done = "how do I void a charge?" surfaces the right article; list browser checks for me. Don't write code yet.
+```
+
 ---
 
 ## Phase 5 — AI assist, Tier 2 (real model with tools)
@@ -345,6 +369,16 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 5, step 4. Propose and i
 ### P5.5 — Replace the no-match fallback   (Sonnet · Sonnet)
 ```
 Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 5, step 5. Replace Phase 4's no-match hook with a Tier 2 call, keeping the Tier 1 path untouched and falling back to the hint card when no backend is configured.
+```
+
+### P5.6 — Knowledge base, Tier 2   (Plan: Opus · Implement: Opus)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 5, step 6 (PLAN.md Phase 5 §6). In plan mode, propose chunking and embedding knowledge articles (in-browser model or the proxy), cited answers under the hybrid rule (the model never answers from its own head; every answer cites the chunks used), and guided flows: an article with steps renders as a checklist card that follows the conversation. Done = a Tier 2 answer cites a chunk; a stepped article walks the agent through it; tests cover both. Don't write code yet.
+```
+
+### P5.7 — Setup assistant and configuration templates   (Plan: Opus · Implement: Opus)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 5, step 7 (PLAN.md Phase 5 §7). In plan mode, propose: (1) each vertical profile ships a full configuration bundle (layout preset, Contact Details tabs/fields, AI card templates and placements, dispositions, compliance gates, KB sources, suggested connections), applied when the wizard picks the vertical; (2) a conversational setup assistant on Settings and first run that asks a few questions and proposes a configuration diff over the nearest template, shown item by item for accept/edit/reject, applying nothing without review; (3) safety rails: it emits only the typed configuration schema the hand editors use, can't remove compliance gates, and every applied change is versioned with rollback. Done = answering the assistant's questions for a healthcare center yields a reviewable proposal that, when accepted, changes the Details tabs, cards and gates accordingly; tests cover the schema constraint and rollback. Don't write code yet.
 ```
 
 ---
@@ -380,14 +414,61 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 6, step 5. In plan mode,
 
 ---
 
+## Phase 7 — Work items, schedule, apps and configuration
+
+Runs after Phase 6 (needs P1.4, P1.4a/4b and the settings store). 7.3 can be pulled earlier for demos.
+
+### P7.1 — WorkItem + WorkProvider   (Plan: Opus · Implement: Opus)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 7, step 1 (PLAN.md Phase 7 §1). In plan mode, propose WorkItem { kind: contact | ticket | coaching | meeting | task } above Interaction (a journey is the contact kind; tickets are the P1.4b records; coaching references a P1.4a interaction and a scorecard; meeting has time/attendees/join link; task has due date/checklist), a WorkProvider contract (listWorkItems, create, update, events) with a sim serving fixtures and a placeholder, a contract suite, and CalendarProvider as a read seam for schedules. No page changes. Done = npm test passes with the new suite; tsc at baseline. Don't write code yet.
+```
+
+### P7.2 — Nav cards and main-column views per kind   ✋ (Plan: Opus · Implement: Opus)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 7, step 2. In plan mode, propose non-contact work items in the nav's card shell (kind icon, title, status chip, due/scheduled time; live contacts first, then by time), filter chips (All / Contacts / Tickets / Sessions / Meetings), and main-column views per kind (ticket detail with notes; coaching session with the recorded interaction, transcript and scorecard; meeting agenda; task checklist), through the layout slots. Before/afters for every visual change. Done = an agent's tickets, a coaching session and a meeting show in Assignments on both pages and open their views; list browser checks for me. Don't write code yet.
+```
+
+### P7.3 — Calendar wiring   (Plan: Opus · Implement: Sonnet)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 7, step 3. Phase 2 already has a calendar view that isn't functional. In plan mode, propose wiring it to WorkProvider (read meetings, coaching sessions, breaks and shift segments; create/edit saves back), persisted locally through the versioned settings-style store until P1.4's IndexedDB takes over, with calendar items being the same work items the nav shows. Phase 1 gets no calendar unless it's shared as a panel. Done = a meeting created on the calendar appears in Assignments at its time; list browser checks for me. Don't write code yet.
+```
+
+### P7.4 — Schedule-driven presence   (Sonnet · Sonnet)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 7, step 4. Propose and implement: a meeting or coaching session starting sets the agent's presence through setAgentState, and ending restores the previous status, with a toast; tests cover start/end and an agent who changes status manually mid-meeting (manual wins). List browser checks for me.
+```
+
+### P7.5 — Reporting sink   (Plan: Opus · Implement: Sonnet)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 7, step 5. In plan mode, propose a ReportingSink seam that receives interaction and work-item events (offer, accept, hold, resume, end, wrap-up complete with outcome, transfer, merge, hand raise, work-item status changes) with handle/hold/after-call durations, a sim sink that logs locally with a dev panel and JSON/CSV export, a placeholder, and a contract suite. Real sinks (CXone Reporting, Genesys analytics, a warehouse) are adapters later. Done = a full call shows as the right sequence of events in the dev panel; tests cover durations. Don't write code yet.
+```
+
+### P7.6 — Embedded apps in the draggable panel   ✋ (Plan: Opus · Implement: Opus)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 7, step 6 (PLAN.md Phase 7 §6). In plan mode, propose an AppProvider seam (listApps, openApp(appId, context), app events; each app declares id, name, icon, URL template, accepted contexts, and an iframe-allowed capability), an "app" content type for the draggable panel (iframe sized to the panel, float/dock, reload, one panel per app, size/position persisted in settings), deep links from the record header's app icons, a "View in <app>" link in Customer Profile, and rules (a case created in wrap-up), postMessage events back ("record saved" refreshes the profile; "click-to-dial" goes through useOutboundDial), a new-window fallback when iframing is blocked, and a sim CRM app in this repo (#/sim-app/crm) proving the round trip plus a placeholder app with an unreachable URL for the error state. Before/afters. Done = opening the sim CRM from the profile, saving there, and seeing the Snapshot update; list browser checks for me. Don't write code yet.
+```
+
+### P7.7 — Configurable layout   ✋ (Plan: Opus · Implement: Opus)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 7, step 7 (PLAN.md Phase 7 §7). The layout slots from 5d.2 exist. In plan mode, propose a LayoutConfig type (regions, their contents, the voice bar anchor), Phase 1 and Phase 2 as built-in presets the pages render from, a user diff over the preset in the settings store per tier (Reset drops it), a "Customize layout" editor on Settings using toggles and reorder lists with live preview, a locked flag per region, and the Contact Details configuration layer (per-profile tabs, field visibility/order, accordions, read-only fields; compliance gates not configurable). Behavior, capability gating, hold/wrap-up rules and dialing are never configurable. Done = moving the voice bar anchor, hiding a nav entry and reordering Details tabs are data changes that survive reload; tests cover the diff/merge/reset; list browser checks for me. Don't write code yet.
+```
+
+### P7.8 — Connections, sync modes and outbound policy   (Plan: Opus · Implement: Opus)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 7, step 8 (PLAN.md "Settings and configuration" and "Customer data: the app is the source of truth"). In plan mode, propose: the Connections section (one per seam, endpoint/credentials, Test/Save, status and last-event time, the "Simulated" badge in the chrome, a first-run step after the wizard; secrets go to the proxy, never localStorage); CustomerDataProvider sync modes (manual/interval/realtime) with a CRM adapter interface, saved mappings, write-back queue (idempotent change ids, retries, visible failures), per-field authority (app | crm | newest), conflict notes, never-delete-on-sync, unknown fields preserved, a Sync section listing conflicts and pending/failed writes, and sim "simulate sync" and "simulate conflict" controls; outbound policy (channels, who, reason code) filtering the launcher; address books (Outlook, Google) as a DirectoryProvider source. Contract tests per PLAN.md. Done = a simulated sync conflict shows on the record and resolves from Settings; an agent edit is visible to suggest() before sync; list browser checks for me. Don't write code yet.
+```
+
+---
+
 ## Later
 
-### P-ADAPTER — First real adapter   (Plan: Opus · Implement: Opus)
+### P-ADAPTER — Real adapters, in order   (Plan: Opus · Implement: Opus)
+One step per adapter, run in this order (PLAN.md "Integration readiness"): **Twilio** (InteractionProvider + MediaProvider; free trial) → **Zendesk** (tickets via WorkProvider, KB via KnowledgeProvider; free sandbox) → **CXone** (InteractionProvider, DirectoryProvider, MessagingProvider; needs a tenant) → **a WFM vendor** (WorkProvider/CalendarProvider) → **an AI-agent vendor** (BotAgentProvider). Each needs the proxy/relay for auth and webhooks.
 ```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. We're building the first real InteractionProvider adapter in src/adapters/<cxone|twilio>/ for <CXone Agent API | Twilio TaskRouter + Voice>. In plan mode, propose the adapter mapping vendor events and actions onto the domain model and contract, auth/token handling inside the adapter (with the minimal server piece it needs), and an honest capabilities map. It must pass the P0.8 contract suite with no changes to any page; point the matching entry in factories.ts at it. Don't write code yet.
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're building the <vendor> adapter for <seam(s)> in src/adapters/<vendor>/. In plan mode, propose: the vendor mapping checklist first (each contract method and event against the vendor API, with gaps as capability flags); the adapter; auth/token handling and webhooks through the proxy/relay (the minimal server piece); an honest capabilities map; recorded vendor traffic saved as JSON fixtures and replayed in tests; a Connections entry. It must pass the seam's contract suite with no page changes; point the matching factory entry at it. Don't write code yet.
 ```
 
 ### P-PARKED — Email and SMS   (Plan: Opus · Implement: Sonnet)
 ```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. We're picking up the deferred email and SMS simulation. In plan mode, propose, for each: agent-side composer via sendMessage, delivery states in the sim engine (SMS with segment counting), and a console tab where the customer reads and replies via SimCustomerAction — all over the existing contracts. Don't write code yet.
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're picking up the deferred email and SMS simulation. In plan mode, propose, for each: agent-side composer via sendMessage, delivery states in the sim engine (SMS with segment counting), and a console tab where the customer reads and replies via SimCustomerAction — all over the existing contracts. On the agent side both render into the async slide-out from PLAN.md's omnichannel layout, with an "awaiting reply" chip on the nav row. Don't write code yet.
 ```

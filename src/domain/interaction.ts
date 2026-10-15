@@ -43,6 +43,12 @@ export interface Interaction {
   journeyId: JourneyId;
   /** Undefined while the contact is unknown (no match on the handshake identifier). */
   entityId?: EntityId;
+  /** How `entityId` was found once the contact arrived: routing matched its
+   *  address against the directory, or the agent linked it
+   *  (`associateEntity`). Either way the entity's own name is the contact's
+   *  name. Undefined when the contact arrived already linked (a dial to a
+   *  known customer, a seed). */
+  entityMatchedBy?: "routing" | "agent";
   channel: ChannelKind;
   direction: Direction;
   state: InteractionState;
@@ -74,6 +80,11 @@ export interface Interaction {
   /** Voice only. Audio is masked (e.g. while payment details are read out); recording pauses. */
   masked?: boolean;
   outcome?: InteractionOutcome;
+  /** Pre-contact context the routing layer (IVR/ACD) hands over with an
+   *  inbound call, one line each: the reason for contact, the customer's last
+   *  contact (known callers), the case status. Shown as the contact's
+   *  Autosummary; the P2.4 handoff snapshot will be seeded from it. */
+  preContactSummary?: string[];
 }
 
 /** A discrete text unit on a digital channel (chat, SMS, WhatsApp, email). */

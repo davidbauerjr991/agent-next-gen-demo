@@ -466,8 +466,7 @@ export const COPILOT_SUMMARY_POOL: Array<{ reason: string; journey: string }> = 
  *  scripted scenario is a password-reset chat, but his `recordId` happened
  *  to hash into the shared `COPILOT_SUMMARY_POOL`'s "reschedule an upcoming
  *  service appointment" entry, which doesn't match what he's actually
- *  messaging in about (or the reset-password-specific detail card
- *  `MarcusWebbCopilotCard` shows once his interaction opens). Hand-authored
+ *  messaging in about. Hand-authored
  *  instead of a new pool entry, since a pool entry is shared by whichever
  *  OTHER customer happens to hash to the same index — Marcus's wording needs
  *  to stay pinned to him alone.
@@ -476,8 +475,8 @@ export const COPILOT_SUMMARY_POOL: Array<{ reason: string; journey: string }> = 
  *  ("marcus-webb-scenario") — an earlier version of this check compared
  *  against `MARCUS_WEBB_ID`, which never matched (per explicit follow-up
  *  report, "this hasn't been updated") because every call site here passes
- *  `activeInteraction.customerId` as `recordId`, and `buildMarcusWebbInteraction`
- *  (agent-next-gen-marcus-webb-scenario.ts) sets that field to
+ *  `activeInteraction.customerId` as `recordId`, and the Marcus scenario
+ *  card sets that field to
  *  `MARCUS_WEBB_CUSTOMER_ID`, not `MARCUS_WEBB_ID` — `MARCUS_WEBB_ID` is only
  *  ever the `Interaction.id`/left-nav key, never the customer identity. */
 export function buildCopilotSummary(customerName: string | undefined, recordId: string): CopilotSummary {

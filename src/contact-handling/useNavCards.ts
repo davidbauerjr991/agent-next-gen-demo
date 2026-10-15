@@ -49,11 +49,12 @@ interface LocalState {
  *  abandoned) — and so any card left empty — keeping earlier ended contacts of
  *  a live thread for reopen folding. Ended contacts leave the store only when
  *  the provider forgets them, so this is what makes a dismissed card stay
- *  gone, including across tier switches. */
+ *  gone, including across tier switches. A ringing voice offer is kept (it's
+ *  the incoming tile); digital offers are notifications, not cards. */
 export function visibleContacts(interactions: readonly DomainInteraction[]): DomainInteraction[] {
   const newest = new Map<string, DomainInteraction>();
   for (const i of interactions) {
-    if (i.state === "offered") continue;
+    if (i.state === "offered" && i.channel !== "voice") continue;
     const key = `${i.journeyId}|${threadKey(i)}`;
     const current = newest.get(key);
     if (!current || i.startedAt >= current.startedAt) newest.set(key, i);
@@ -91,6 +92,7 @@ export function useNavCards({ anchorMs, displayName, isScenarioCardId }: UseNavC
     return buildNavCards(visible, {
       toTick: tickClock(anchorMs),
       displayName,
+      voiceOffers: true,
       messagesBeforeReopen: (c) => {
         let mark = reopenMarks.current.get(c.id);
         if (mark === undefined) {
@@ -170,6 +172,7 @@ export function useNavCards({ anchorMs, displayName, isScenarioCardId }: UseNavC
       storeCardsRef.current.find(
         (card) =>
           !card.closed &&
+          !card.offered &&
           (target.entityId !== undefined
             ? card.entityId === target.entityId
             : !card.entityId && target.address !== undefined && card.threads.some((t) => t.value === target.address)),

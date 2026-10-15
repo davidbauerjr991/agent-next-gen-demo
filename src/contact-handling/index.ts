@@ -5,10 +5,25 @@ export { useNavCards, visibleContacts, type NavCards, type UseNavCardsOptions } 
 export type { CardOverlay } from "./nav-card-overlay";
 export { useContactActivation, type Activation, type ActivationMode } from "./useContactActivation";
 export { useOutboundSkills, type SkillOption } from "./useOutboundSkills";
-export { useOutboundDial, type DialpadRequest } from "./useOutboundDial";
+export { useOutboundDial, isOnCallWith, ALREADY_ON_CALL_TOOLTIP, type CallTarget, type DialpadRequest } from "./useOutboundDial";
 export { useContactReopen } from "./useContactReopen";
 export { useContactCommands } from "./useContactCommands";
 export { useNewAssignments } from "./useNewAssignments";
 export { buildOpenChannelTagger, isAddressOnlyCard } from "./open-channel-tagger";
 export { directoryDisplayName, historyEntityId, knownOrSynthesizedAddress, normalizePhone } from "./contact-identity";
 export { NewOutboundLauncher, type NewOutboundLauncherProps } from "./NewOutboundLauncher";
+// P0.5d.1: voice bar, wrap-up prompt and incoming offers.
+export { useVoiceCallControls, type VoiceCallControlProps } from "./useVoiceCallControls";
+export { voiceWrapUpThread } from "./wrap-up";
+export { preContactSummaryOf, withPreContactSummary } from "./pre-contact";
+export { useVoiceBarCall, pickVoiceBarCall, type VoiceBarCall } from "./useVoiceBarCall";
+export { VoiceHoldChip, type VoiceHoldChipProps } from "./VoiceHoldChip";
+export { VoiceWrapUpCard } from "./VoiceWrapUpCard";
+export { useChannelOutcomeDrafts, outcomeDraftKey, toOutcome, type OutcomeDraft } from "./useChannelOutcomeDrafts";
+export { useIncomingOffer } from "./useIncomingOffer";
+export { IncomingOfferActions, type IncomingOfferActionsProps } from "./IncomingOfferActions";
+export { navCardAddChannelAction } from "./nav-card-add-channel";
+export { showsSessionControls } from "./session-controls";
+export { dockedPreviewKey } from "./docked-preview";
+export { VoiceBar, type VoiceBarProps } from "./VoiceBar";
+export { useAnswerSla, answerSeverity, offerRowAnswerSeverity } from "./answer-sla";

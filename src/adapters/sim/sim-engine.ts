@@ -9,9 +9,21 @@ import type {
   Participant,
   Utterance,
 } from "../../domain";
+import { normalizePhone } from "../../domain";
 import type { EndReason, InteractionCapabilities, ProviderError } from "../../providers";
 import { isProviderError, providerError } from "../provider-error";
-import { SIM_AGENT, SIM_OUTBOUND_SKILLS, SIM_PRESENCE_OPTIONS, type SimSeedContact, type SimTimings } from "./sim-fixtures";
+import {
+  DEFAULT_INBOUND_SKILL_ID,
+  SIM_AGENT,
+  SIM_CONTACT_REASONS,
+  SIM_OUTBOUND_SKILLS,
+  SIM_PRESENCE_OPTIONS,
+  type SimDirectoryEntry,
+  type SimSeedContact,
+  type SimTimings,
+} from "./sim-fixtures";
+
+const CHANNEL_LABEL: Record<Interaction["channel"], string> = { voice: "Voice", chat: "Chat", sms: "SMS", whatsapp: "WhatsApp", email: "Email" };
 import {
   SIM_PROTOCOL_VERSION,
   type SimCommand,
@@ -38,6 +50,8 @@ export interface SimEngineOptions {
   /** Contacts present from the start (offered, routed). Loaded once, when
    *  the engine is created. */
   seed?: readonly SimSeedContact[];
+  /** Customers an inbound contact is matched against by address. */
+  directory?: readonly SimDirectoryEntry[];
   now?: () => number;
 }
 
@@ -54,6 +68,7 @@ type Transcript = { messages: Message[]; utterances: Utterance[] };
 export function createSimEngine(options: SimEngineOptions): SimEngine {
   const { transport, sessionId, capabilities, timings } = options;
   const now = options.now ?? Date.now;
+  const directory = options.directory ?? [];
 
   const firstPresence = SIM_PRESENCE_OPTIONS[0];
   let agent: AgentState = {
@@ -138,6 +153,58 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
   function add(interaction: Interaction) {
     interactions.set(interaction.id, interaction);
     transcripts.set(interaction.id, { messages: [], utterances: [] });
+  }
+
+  /** The skill an inbound contact is routed to (default General Support). */
+  function routedSkill(skillId: string | undefined): { id: string; name: string } {
+    const id = skillId ?? DEFAULT_INBOUND_SKILL_ID;
+    const skill = SIM_OUTBOUND_SKILLS.find((s) => s.id === id);
+    if (!skill) throw providerError("not-found", `startInbound: unknown skill "${id}"`);
+    return { id: skill.id, name: skill.name };
+  }
+
+  /** The directory customer an inbound address belongs to: a phone number
+   *  compared digits-only (formatting and a leading +1 ignored), an email
+   *  case-insensitively. Chat handles never match. */
+  function matchDirectory(channel: Interaction["channel"], address: string): SimDirectoryEntry | undefined {
+    if (channel === "chat") return undefined;
+    if (channel === "email") {
+      const email = address.trim().toLowerCase();
+      return directory.find((entry) => entry.emails.some((e) => e.toLowerCase() === email));
+    }
+    const number = normalizePhone(address);
+    if (number === "") return undefined;
+    return directory.find((entry) => entry.phones.some((p) => normalizePhone(p) === number));
+  }
+
+  /** The pre-contact summary the routing layer hands over with an inbound
+   *  call. An unknown caller gets one generic line, or the customer side's
+   *  own lines instead. A known caller always gets the record's facts (last
+   *  contact, case status): after the IVR's reason line, or after the
+   *  customer side's own lines when it passes some. The record is the sim's
+   *  contacts this session, then the directory's last contact, until a real
+   *  customer database arrives (P1). */
+  function preContactSummary(call: Interaction, custom: string[] | undefined): string[] {
+    if (!call.entityId) return custom ?? [`Inbound call from ${call.address?.value ?? "an unknown number"}, no prior history.`];
+    const date = (atMs: number) => new Date(atMs).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    const previous = [...interactions.values()]
+      .filter((i) => i.entityId === call.entityId && i.id !== call.id && i.state !== "offered")
+      .sort((a, b) => b.startedAt - a.startedAt)[0];
+    const onRecord = directory.find((entry) => entry.entityId === call.entityId)?.lastContact;
+    const last = previous
+      ? { channel: previous.channel, atMs: previous.startedAt, caseId: previous.caseId, caseStatus: previous.caseStatus, topic: undefined }
+      : onRecord
+        ? { ...onRecord, atMs: now() - onRecord.ageMinutes * 60_000 }
+        : undefined;
+    const lastContact = last
+      ? `Last contact: ${CHANNEL_LABEL[last.channel]}, ${date(last.atMs)}${last.caseStatus ? `, case ${last.caseStatus}` : ""}${last.topic ? ` (${last.topic})` : ""}.`
+      : "No previous contact on record.";
+    const openCase = last?.caseId && last.caseStatus && !["Resolved", "Closed"].includes(last.caseStatus);
+    const caseStatus = openCase ? `Case status: ${last.caseId} is ${last.caseStatus}, still open.` : `Case status: ${call.caseStatus ?? "New"}.`;
+    if (custom) return [...custom, lastContact, caseStatus];
+    const skillName = call.skill?.name ?? "General Support";
+    const reason = SIM_CONTACT_REASONS[call.skill?.id ?? DEFAULT_INBOUND_SKILL_ID] ?? skillName;
+    return [`Reason for contact: ${reason} (IVR, routed to ${skillName}).`, lastContact, caseStatus];
   }
 
   function newJourney(): JourneyId {
@@ -469,7 +536,7 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
 
       case "associateEntity": {
         const interaction = get(command.interactionId);
-        if (interaction.entityId !== command.entityId) update(interaction, { entityId: command.entityId });
+        if (interaction.entityId !== command.entityId) update(interaction, { entityId: command.entityId, entityMatchedBy: "agent" });
         return undefined;
       }
     }
@@ -501,20 +568,30 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
         if (!capabilities.channels.inbound.includes(action.channel)) throw new Error(`inbound ${action.channel} is not supported`);
         if (interactions.has(action.interactionId)) return;
         const startedAt = now();
+        // Routing recognizes a known caller by address unless the customer
+        // side already named the entity.
+        const match = action.entityId ? undefined : matchDirectory(action.channel, action.address);
         const interaction: Interaction = {
           id: action.interactionId,
           externalId: externalRef(startedAt),
           journeyId: newJourney(),
           caseId: caseNumber(),
           ...(action.entityId ? { entityId: action.entityId } : {}),
+          ...(match ? { entityId: match.entityId, entityMatchedBy: "routing" as const } : {}),
           contactName: action.displayName,
           channel: action.channel,
           direction: "inbound",
           state: "offered",
           origin: "routed",
           address: { value: action.address },
+          // Every routed contact carries the skill it was routed to, like a
+          // real ACD; General Support unless the customer side picked one.
+          skill: routedSkill(action.skillId),
           startedAt,
         };
+        if (action.channel === "voice") {
+          interaction.preContactSummary = preContactSummary(interaction, action.summary);
+        }
         add(interaction);
         customerNames.set(interaction.id, action.displayName);
         emit({ name: "incoming", payload: { interaction } });
@@ -586,6 +663,7 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
       state: "offered",
       origin: "routed",
       ...(seed.address !== undefined ? { address: { value: seed.address } } : {}),
+      skill: routedSkill(seed.skillId),
       startedAt,
     });
     customerNames.set(seed.id, seed.contactName);

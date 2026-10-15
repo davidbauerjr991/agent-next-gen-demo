@@ -81,6 +81,34 @@ export const SIM_CAPABILITIES: InteractionCapabilities = {
 
 /** A contact the engine starts with: a routed offer already waiting for the
  *  agent. It arrives through `getSnapshot`, never as an `incoming` event. */
+/** The skill an inbound contact is routed to when none is given (General
+ *  Support, the same "general" skill New Outbound uses). */
+export const DEFAULT_INBOUND_SKILL_ID = "general";
+
+/** The IVR's reason-for-contact line per skill (pre-contact summary). */
+export const SIM_CONTACT_REASONS: Readonly<Record<string, string>> = {
+  general: "General question about the account",
+  technical: "Technical issue with a service or device",
+  billing: "Question about a bill or payment",
+  sales: "Interested in plans or upgrades",
+  escalations: "Escalated issue that needs follow-up",
+  vip: "Priority request from a VIP customer",
+};
+
+/** A customer the sim's routing recognizes by an inbound address (the
+ *  caller-ID / email match a real ACD does before offering the contact).
+ *  P1's generated database replaces it. */
+export interface SimDirectoryEntry {
+  entityId: EntityId;
+  name: string;
+  /** In any format; matched digits-only (`normalizePhone`). */
+  phones: readonly string[];
+  /** Matched case-insensitively. */
+  emails: readonly string[];
+  /** The customer's most recent contact before this session, if any. */
+  lastContact?: { channel: ChannelKind; ageMinutes: number; caseId: string; caseStatus: string; topic: string };
+}
+
 export interface SimSeedContact {
   /** Fixed, so the UI can link a notification to it. */
   id: InteractionId;
@@ -91,6 +119,8 @@ export interface SimSeedContact {
   address?: string;
   /** How long ago the contact arrived (sets `startedAt`). */
   ageMinutes: number;
+  /** The skill it was routed to (default General Support). */
+  skillId?: string;
 }
 
 /** The demo's waiting assignments, matching the agent UI's notifications

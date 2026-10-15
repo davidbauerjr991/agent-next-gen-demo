@@ -12,6 +12,16 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.{ts,tsx}"],
+    // lyra-ui is live source from ../lyra-ui, whose own node_modules has a
+    // second React; tests that render whole pages need the app's one copy
+    // (the dev server's dependency prebundling does this for the app).
+    // lyra-ui's own dependencies (Radix etc.) are inlined so they get it too.
+    alias: {
+      react: path.resolve(__dirname, "node_modules/react"),
+      "react-dom": path.resolve(__dirname, "node_modules/react-dom"),
+    },
+    server: { deps: { inline: [/lyra-ui\/node_modules/] } },
+    deps: { optimizer: { web: { enabled: true, include: ["react-remove-scroll", "react-style-singleton", "use-sidecar", "use-callback-ref"] } } },
   },
   resolve: {
     alias: {

@@ -89,7 +89,18 @@ export type SimEvent = {
 
 /** The customer side's inputs (the console in P0.6, `__simCustomer` until then). */
 export type SimCustomerAction =
-  | { kind: "startInbound"; interactionId: InteractionId; channel: ChannelKind; address: string; displayName: string; entityId?: EntityId }
+  | {
+      kind: "startInbound";
+      interactionId: InteractionId;
+      channel: ChannelKind;
+      address: string;
+      displayName: string;
+      entityId?: EntityId;
+      /** The skill the call is routed to; default General Support. */
+      skillId?: string;
+      /** Custom pre-contact summary lines (voice); default built by the engine. */
+      summary?: string[];
+    }
   | { kind: "message"; interactionId: InteractionId; text: string }
   | { kind: "typing"; interactionId: InteractionId; isTyping: boolean }
   | { kind: "hangUp"; interactionId: InteractionId };

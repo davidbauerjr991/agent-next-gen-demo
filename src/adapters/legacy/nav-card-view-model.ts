@@ -26,6 +26,9 @@ export interface NavCardOptions {
   /** `reopenedContacts[].messagesBeforeReopen` for a reopening contact (the
    *  page's live-message count for the thread at that moment). Default 0. */
   messagesBeforeReopen?: (reopening: Interaction) => number;
+  /** Include ringing voice offers, each as a card with `offered: true` (the
+   *  incoming tile). Digital offers are always left out. Default false. */
+  voiceOffers?: boolean;
 }
 
 /** Ticks on the page's shared clock (a seconds counter starting at 0 when
@@ -44,7 +47,9 @@ export function threadKey(interaction: Interaction): string {
 /**
  * One card per `journeyId`, ordered by each journey's earliest `startedAt`.
  * Offered contacts are left out: offers render as the ringing tile (voice)
- * or as notifications (digital), and become cards once accepted.
+ * or as notifications (digital), and become cards once accepted. With
+ * `voiceOffers`, a ringing voice offer is its own card marked `offered`,
+ * which the page renders as the ringing tile.
  *
  * Within a journey, contacts on the same thread key fold into one Thread:
  * the newest drives its state, `contactId` stays the first contact's, and
@@ -58,7 +63,9 @@ export function threadKey(interaction: Interaction): string {
  */
 export function buildNavCards(interactions: readonly Interaction[], options: NavCardOptions): NavCard[] {
   const journeys = new Map<string, Interaction[]>();
-  const sorted = interactions.filter((i) => i.state !== "offered").sort((a, b) => a.startedAt - b.startedAt);
+  const sorted = interactions
+    .filter((i) => i.state !== "offered" || (options.voiceOffers && i.channel === "voice"))
+    .sort((a, b) => a.startedAt - b.startedAt);
   for (const interaction of sorted) {
     const group = journeys.get(interaction.journeyId);
     if (group) group.push(interaction);
@@ -98,9 +105,14 @@ function toCard(group: Interaction[], options: NavCardOptions): NavCard {
     threads,
   };
   if (named.entityId) card.entityId = named.entityId;
+  // The presented name, when the record's name replaced it (a raw address
+  // isn't a name, so it never shows as one).
+  const presented = named.contactName;
+  if (presented && presented !== card.customerName && presented !== named.address?.value) card.presentedName = presented;
   if (Object.keys(threadStatuses).length > 0) card.threadStatuses = threadStatuses;
   if (newest.some((i) => i.channel === "voice" && (i.state === "wrap-up" || i.state === "ended"))) card.voiceCallEnded = true;
   if (newest.every((i) => i.state === "ended")) card.closed = true;
+  if (newest.every((i) => i.state === "offered")) card.offered = true;
   return card;
 }
 
@@ -134,6 +146,12 @@ function toThread(key: string, contacts: Interaction[], options: NavCardOptions)
   if (i.state === "held") {
     thread.heldByAgent = true;
     if (i.heldSince !== undefined) thread.heldSinceTick = toTick(i.heldSince);
+  }
+  if (i.channel === "voice" && i.recording && (i.state === "active" || i.state === "held")) thread.recording = true;
+  if (i.channel === "voice" && (i.state === "connecting" || i.state === "active" || i.state === "held")) thread.onCall = true;
+  if (i.preContactSummary && i.preContactSummary.length > 0) thread.preContactSummary = i.preContactSummary;
+  if (i.channel === "voice" && i.state === "wrap-up" && i.endedAt !== undefined) {
+    thread.wrapUpSinceTick = toTick(i.endedAt);
   }
 
   const reopened = contacts.slice(1).filter((c, index) => {

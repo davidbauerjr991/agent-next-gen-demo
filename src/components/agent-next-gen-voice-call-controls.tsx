@@ -312,7 +312,7 @@ CompactCallControlButton.displayName = "CompactCallControlButton";
  *  own local display (no real DTMF tone/signal to send in this prototype);
  *  `Clear` resets it. Closes on outside click/Escape like any other plain,
  *  uncontrolled `Popover`. */
-function DialPad() {
+function DialPad({ onDigit }: { onDigit?: (digit: string) => void }) {
   const [digits, setDigits] = useState("");
   const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
   return (
@@ -326,7 +326,10 @@ function DialPad() {
             key={key}
             variant="outline"
             className="h-10 w-full lyra-body-md-emphasis"
-            onClick={() => setDigits((d) => d + key)}
+            onClick={() => {
+              setDigits((d) => d + key);
+              onDigit?.(key);
+            }}
           >
             {key}
           </Button>
@@ -513,6 +516,25 @@ export interface VoiceCallControlsProps {
    *  "Closed" from the status popover). The only real, non-decorative
    *  action in this whole bar — see this file's own top doc comment. */
   onHangUp: () => void;
+  /** Controlled mute, same "controlled once the handler is wired, else local
+   *  state" split as `onHold`/`onHoldChange` (P0.5d.1). */
+  muted?: boolean;
+  onMuteChange?: (muted: boolean) => void;
+  /** Controlled recording; same split. */
+  recording?: boolean;
+  onRecordingChange?: (recording: boolean) => void;
+  /** Controlled masking; same split. Turning masking on also turns
+   *  recording off through `onRecordingChange`. */
+  masked?: boolean;
+  onMaskedChange?: (masked: boolean) => void;
+  /** Each keypad press, for sending a tone into the call. */
+  onSendDtmf?: (digit: string) => void;
+  /** Hide (not disable) a control the provider can't do. Default `true`. */
+  showHold?: boolean;
+  showMute?: boolean;
+  showRecord?: boolean;
+  showMask?: boolean;
+  showKeypad?: boolean;
   /** Page-clock tick this call started at (`Thread.startTick`, same tick
    *  source every other timer in this app reads off). The duration
    *  (page clock now − this) ticks inside its own `<ClockTick>`, so only
@@ -658,6 +680,18 @@ export interface VoiceCallControlsProps {
 
 export function VoiceCallControls({
   onHangUp,
+  muted: mutedControlled,
+  onMuteChange,
+  recording: recordingControlled,
+  onRecordingChange,
+  masked: maskedControlled,
+  onMaskedChange,
+  onSendDtmf,
+  showHold = true,
+  showMute = true,
+  showRecord = true,
+  showMask = true,
+  showKeypad = true,
   callStartTick,
   onAddToast,
   onToggleTranscript,
@@ -681,9 +715,17 @@ export function VoiceCallControls({
   const [localOnHold, setLocalOnHold] = useState(false);
   const onHold = onHoldChange ? !!onHoldControlled : localOnHold;
   const setOnHold = onHoldChange ?? setLocalOnHold;
-  const [muted, setMuted] = useState(false);
-  const [masked, setMasked] = useState(false);
-  const [recording, setRecording] = useState(false);
+  // Mute/Mask/Record: controlled once the caller wires the handler (the
+  // provider's state, arriving as events), else local decorative state.
+  const [localMuted, setLocalMuted] = useState(false);
+  const muted = onMuteChange ? !!mutedControlled : localMuted;
+  const setMuted = onMuteChange ?? setLocalMuted;
+  const [localMasked, setLocalMasked] = useState(false);
+  const masked = onMaskedChange ? !!maskedControlled : localMasked;
+  const setMasked = onMaskedChange ?? setLocalMasked;
+  const [localRecording, setLocalRecording] = useState(false);
+  const recording = onRecordingChange ? !!recordingControlled : localRecording;
+  const setRecording = onRecordingChange ?? setLocalRecording;
   // Decorative-only fallback for a caller that hasn't wired a real video
   // window through `onToggleVideo` yet — see that prop's own doc comment.
   const [localVideoAdded, setLocalVideoAdded] = useState(false);
@@ -851,7 +893,7 @@ export function VoiceCallControls({
   // pinned lucide-react actually has `AudioLinesOff` available. `useMemo`
   // isn't used here -- this array is cheap to rebuild and only matters
   // while `controlsMenu` is actually true.
-  const overflowMenuItems: MenuEntry[] = [
+  const allOverflowMenuItems: MenuEntry[] = [
     {
       id: "mask",
       label: "Mask",
@@ -893,7 +935,7 @@ export function VoiceCallControls({
       icon: <Grid3x3 className="h-4 w-4" strokeWidth={1.5} />,
       active: keypadOpen,
       disabled: isEnding,
-      submenuContent: <DialPad />,
+      submenuContent: <DialPad onDigit={onSendDtmf} />,
     },
     ...(onToggleTranscript
       ? [
@@ -908,6 +950,11 @@ export function VoiceCallControls({
         ]
       : []),
   ];
+  // Capability-hidden controls leave the menu too (hide, don't disable).
+  const hiddenMenuIds = new Set([!showMask && "mask", !showRecord && "record", !showKeypad && "keypad"]);
+  const overflowMenuItems = allOverflowMenuItems.filter(
+    (item) => typeof item === "string" || !("id" in item) || !hiddenMenuIds.has(item.id)
+  );
 
   const handleHangUp = () => {
     // Guards against a double-fire (e.g. a stray extra click before the
@@ -1197,7 +1244,7 @@ export function VoiceCallControls({
               Record just below, which still wraps a `Tooltip` — its hover
               content is genuinely EXTRA information ("why is this
               disabled") beyond what a two-word label can hold. */}
-          {controlsCompact ? (
+          {showHold && (controlsCompact ? (
             <Tooltip content={onHold ? "Resume" : "Hold"} placement="top">
               <CompactCallControlButton
                 icon={onHold ? <Play className="h-5 w-5" strokeWidth={1.5} /> : <Pause className="h-5 w-5" strokeWidth={1.5} />}
@@ -1231,7 +1278,7 @@ export function VoiceCallControls({
               }}
               disabled={isEnding}
             />
-          )}
+          ))}
           {/* Below 600px (`controlsMenu`, this file's own top doc
               comment): Mask/Record/Keypad/Transcript disappear from the
               row entirely and move into a single `KebabMenuButton`
@@ -1239,6 +1286,7 @@ export function VoiceCallControls({
               their own icon-only buttons either side of it. Ported from
               lyra-ui's identical fix (voice-call-controls.tsx). */}
           {controlsMenu ? (
+            overflowMenuItems.length > 0 && (
             <KebabMenuButton
               items={overflowMenuItems}
               ariaLabel="More call controls"
@@ -1246,9 +1294,10 @@ export function VoiceCallControls({
               className="h-10 w-10 rounded-lyra-sm text-lyra-fg-secondary hover:text-lyra-fg-default"
               disabled={isEnding}
             />
+            )
           ) : (
             <>
-            {controlsCompact ? (
+            {showMask && (controlsCompact ? (
             <Tooltip content="Mask" placement="top">
               <CompactCallControlButton
                 icon={
@@ -1308,7 +1357,7 @@ export function VoiceCallControls({
               // See `isEnding`'s own doc comment above.
               disabled={isEnding}
             />
-          )}
+          ))}
           {/* Record — `Tooltip`'s `content` now covers two reasons to
               show it: the existing masked-explanation text (unchanged), OR,
               once icon-only below 991px (`controlsCompact`), the button's
@@ -1318,6 +1367,7 @@ export function VoiceCallControls({
               above) drives BOTH renderings' actual disabled behavior now,
               via `aria-disabled` rather than native `disabled` — the ADA
               fix this whole block exists for. */}
+          {showRecord && (
           <Tooltip
             content={masked ? "Recording disabled while masking is on" : recording ? "Stop" : "Record"}
             placement="top"
@@ -1371,6 +1421,7 @@ export function VoiceCallControls({
               />
             )}
           </Tooltip>
+          )}
           {/* Keypad — no more wrapping `Tooltip` (see the block comment a
               few controls up for why) — `Popover`'s own Radix trigger
               still clones its click/ref/aria props straight onto its
@@ -1379,6 +1430,7 @@ export function VoiceCallControls({
               doc comment). `aria-label` set directly on it (flows through
               its own `...rest` spread) is now redundant with its own
               visible label text, but harmless to leave. */}
+          {showKeypad && (
           <Popover
             open={keypadOpen && !isEnding}
             onOpenChange={(next: boolean) => {
@@ -1386,7 +1438,7 @@ export function VoiceCallControls({
             }}
             placement="top"
             bodyPadding={false}
-            content={<DialPad />}
+            content={<DialPad onDigit={onSendDtmf} />}
           >
             {controlsCompact ? (
               // Native `title` (not `Tooltip`) — `Tooltip`'s own
@@ -1418,6 +1470,7 @@ export function VoiceCallControls({
               />
             )}
           </Popover>
+          )}
           {/* Transcript — per an earlier explicit follow-up request ("take
               the transcript button out of the volume dropdown and put it to
               the left of the volume button"): its own plain
@@ -1517,7 +1570,7 @@ export function VoiceCallControls({
               this icon visibly darker than the rest of the bar. Behavior
               unchanged; no more wrapping `Tooltip` (see the block comment
               a few controls up for why). */}
-          {controlsIconOnly ? (
+          {showMute && (controlsIconOnly ? (
             <Tooltip content={muted ? "Unmute" : "Mute"} placement="top">
               <CompactCallControlButton
                 icon={muted ? <MicOff className="h-5 w-5" strokeWidth={1.5} /> : <Mic className="h-5 w-5" strokeWidth={1.5} />}
@@ -1525,7 +1578,7 @@ export function VoiceCallControls({
                 strong
                 variant="outline"
                 aria-label={muted ? "Unmute" : "Mute"}
-                onClick={() => setMuted((m) => !m)}
+                onClick={() => setMuted(!muted)}
                 disabled={isEnding}
               />
             </Tooltip>
@@ -1539,11 +1592,11 @@ export function VoiceCallControls({
               // outline icon buttons") — see `WideCallControlButton`'s own
               // `variant` doc comment.
               variant="outline"
-              onClick={() => setMuted((m) => !m)}
+              onClick={() => setMuted(!muted)}
               // See `isEnding`'s own doc comment above.
               disabled={isEnding}
             />
-          )}
+          ))}
           {/* Add video — same `strong` darkening as Mute per the reference
               screenshot (only visible in practice where `showAddVideo` is
               true, i.e. Phase 2 — Phase 1 hides this button entirely, see

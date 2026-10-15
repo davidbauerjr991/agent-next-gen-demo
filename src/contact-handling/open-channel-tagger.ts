@@ -6,8 +6,9 @@ type OutboundContact = NonNullable<CreateNewOutboundConfig["groups"][number]["co
 /** Builds a `tagOpenChannels` closure from the open cards. Each outbound
  *  contact gets the channel types and addresses it already has open
  *  (`openChannelTypes`/`openChannelAddresses`), so New Outbound and "+"
- *  disable them (CLAUDE.md rule #1). Channels the agent closed are skipped,
- *  since reselecting one is how it reopens. Keyed by the card's `entityId`
+ *  disable them (CLAUDE.md rule #1). Voice counts only while on a call.
+ *  Channels the agent closed are skipped, since reselecting one is how it
+ *  reopens. Keyed by the card's `entityId`
  *  (the card id is a journey since P0.5b.2); one entity may have several
  *  open cards, so their channels are merged. Shared by both pages. */
 export function buildOpenChannelTagger(cards: readonly NavCard[]) {
@@ -19,6 +20,11 @@ export function buildOpenChannelTagger(cards: readonly NavCard[]) {
     const types = typesByEntity.get(key) ?? new Set<ChannelType>();
     for (const c of card.threads) {
       if (card.threadStatuses?.[c.id] === "Closed") continue;
+      // Voice counts only while the agent is on the call (ringing out, live
+      // or held): a call in wrap-up doesn't stop a new call to the customer.
+      // Leaving its number out too keeps lyra's "every address already
+      // open" rule from blocking it instead.
+      if (c.type === "voice" && !isOnCall(c)) continue;
       types.add(c.type);
       if (!c.value) continue;
       (byType[c.type] ??= []).push(c.value);
@@ -36,6 +42,12 @@ export function buildOpenChannelTagger(cards: readonly NavCard[]) {
       openChannelTypes: [...openChannelTypes],
     };
   };
+}
+
+/** A store-built voice thread is on a call per its `onCall`; a scripted
+ *  scenario call (no provider contact) until its wrap-up starts. */
+function isOnCall(thread: NavCard["threads"][number]): boolean {
+  return thread.providerInteractionId ? !!thread.onCall : thread.wrapUpSinceTick === undefined;
 }
 
 /** A card known only by an address (a typed number/email, no directory

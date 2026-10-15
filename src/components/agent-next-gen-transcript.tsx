@@ -83,6 +83,7 @@ import {
   initialsFor,
   quickReplyFieldDisplayValue,
 } from "@/components/agent-next-gen-shared-utils";
+import { useCapability } from "@/provider-context";
 
 /* ── Transcript + Composer ──
    Split out of AgentNextGenPage.tsx (which had grown past Babel's 500KB
@@ -1678,6 +1679,7 @@ export function TranscriptSessionSeparator({
   transferInKebabMenu = false,
   statusAndKebabBeforeOutcome = false,
   controlsReadOnly = false,
+  showStatus = true,
   channelType,
   direction,
   isNewThread = false,
@@ -1937,6 +1939,9 @@ showViewDetails = true,
    *  conversation before deciding whether to take it over. Per explicit
    *  request. Default `false` (every other call site is unaffected). */
   controlsReadOnly?: boolean;
+  /** Hides the status pill when the provider doesn't store case status
+   *  (hide, don't disable — P0.5d.1). Default `true`. */
+  showStatus?: boolean;
   /** This channel's real, typed channel — passed straight through from
    *  `InteractionTranscript`'s own `channelType` prop (one instance renders
    *  every historical session for a single channel, so this is the same
@@ -2556,7 +2561,7 @@ showViewDetails?: boolean;
                 the one piece of the cluster that stayed visible regardless
                 of `isNewThread` — a real, confirmed bug fixed here
                 alongside the header's own identical fix. */}
-            {!isNewThread && channelType !== "voice" && (
+            {showStatus && !isNewThread && channelType !== "voice" && (
               <ChannelStatusTag
                 status={session.status}
                 menuOpen={statusMenuOpen}
@@ -2850,6 +2855,9 @@ export function InteractionTranscript({
   sessionTransferInKebabMenu = false,
   sessionStatusAndKebabBeforeOutcome = false,
   sessionControlsReadOnly = false,
+  showSessionStatus: showSessionStatusProp,
+  trailingContent,
+  trailingContentKey,
   isNewThread = false,
   isCustomerTyping = false,
   isAiTyping = false,
@@ -3215,6 +3223,16 @@ export function InteractionTranscript({
    *  `controlsReadOnly` — see that prop's own doc comment. Default `false`
    *  (every other call site is unaffected). */
   sessionControlsReadOnly?: boolean;
+  /** Passed to every `TranscriptSessionSeparator` as `showStatus`. Defaults
+   *  to whether the provider stores case status (hide, don't disable). */
+  showSessionStatus?: boolean;
+  /** Rendered as the last item inside the scrolling content, after the
+   *  conversation and Autosummary, so it scrolls with them (the voice
+   *  wrap-up card, P0.5d.1). */
+  trailingContent?: React.ReactNode;
+  /** Identifies `trailingContent`: it scrolls into view (smoothly) the first
+   *  time each key appears in this transcript, then never again. */
+  trailingContentKey?: string;
   /** True for a brand-new, agent-initiated OUTBOUND thread with no real
    *  activity yet — the caller resolves this the same way as
    *  `isFreshLaunch` (`Interaction.startedFresh`), AND-ed with "the
@@ -3351,6 +3369,8 @@ export function InteractionTranscript({
    *  site is unaffected. */
   hideSessionSeparatorFade?: boolean;
 }) {
+  const caseStatusCapable = useCapability((c) => c.interaction.caseStatus);
+  const showSessionStatus = showSessionStatusProp ?? caseStatusCapable;
   const contactOverview = contactOverviewIn;
   const customerContextOverview = customerContextOverviewIn;
   const liveMessages = liveMessagesIn;
@@ -3835,6 +3855,16 @@ export function InteractionTranscript({
   // scroll-to-latest-on-open/on-channel-switch behavior. Declared up here
   // since the `ResizeObserver` effect right below also needs it.
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  // `trailingContent` scrolls into view once per `trailingContentKey` (the
+  // first time this transcript shows it), smoothly; after that the agent's
+  // own scroll position is left alone, so they can scroll back up.
+  const trailingContentRef = useRef<HTMLDivElement>(null);
+  const scrolledTrailingKeysRef = useRef(new Set<string>());
+  useEffect(() => {
+    if (!trailingContentKey || scrolledTrailingKeysRef.current.has(trailingContentKey)) return;
+    scrolledTrailingKeysRef.current.add(trailingContentKey);
+    trailingContentRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [trailingContentKey]);
   // Marks the true bottom of the rendered transcript content — see the
   // mount/open scroll-to-bottom effect below (`[contactId]`) for why this
   // exists: an invisible target for `scrollIntoView()` rather than relying
@@ -4317,6 +4347,7 @@ export function InteractionTranscript({
                   transferInKebabMenu={sessionTransferInKebabMenu}
                   statusAndKebabBeforeOutcome={sessionStatusAndKebabBeforeOutcome}
                   controlsReadOnly={sessionControlsReadOnly}
+                  showStatus={showSessionStatus}
                   // Voice/SMS direction-aware icon — see this component's
                   // own doc comment above for the `direction`/`channelType`
                   // props feeding it.
@@ -4694,6 +4725,13 @@ export function InteractionTranscript({
               </div>
             );
           })}
+          {/* Content after the conversation, scrolling with it (e.g. the
+              voice wrap-up card, P0.5d.1) — see `trailingContent`. */}
+          {trailingContent && (
+            <div ref={trailingContentRef} className="w-full max-w-[768px] mx-auto px-6 pt-2 pb-4">
+              {trailingContent}
+            </div>
+          )}
           {/* See `bottomSentinelRef`'s own declaration (above) — the
               scroll-to-bottom-on-open effect's `scrollIntoView` target.
               Zero-size, purely a scroll anchor — must stay the LAST node

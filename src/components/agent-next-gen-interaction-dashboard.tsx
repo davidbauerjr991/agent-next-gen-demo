@@ -334,6 +334,22 @@ export interface Thread {
    *  built from the interaction store (`buildNavCards`); `id` stays the
    *  stable `${type}:${value}` thread key across reopens. */
   providerInteractionId?: InteractionId;
+  /** Voice: the agent is on this call (ringing out, live or held), so "+"
+   *  can't place another call to the same customer. Store-built cards only;
+   *  a scripted call without `providerInteractionId` counts as on a call
+   *  until its wrap-up. */
+  onCall?: boolean;
+  /** Voice in wrap-up: the `clockTick` the call ended at (the provider's
+   *  `endedAt`), so the "Needs outcome" pill can count after-call work time.
+   *  Set only on store-built cards (P0.5d.1). */
+  wrapUpSinceTick?: number;
+  /** Voice: the call is being recorded (the provider's `recording`), shown
+   *  as a red dot on the nav row's timer. Store-built cards only (P0.5d.1). */
+  recording?: boolean;
+  /** The pre-contact summary routing handed over with an inbound call (the
+   *  provider's `preContactSummary`), shown as the card's Autosummary.
+   *  Store-built cards only (P0.5d.1). */
+  preContactSummary?: string[];
 }
 
 /** One live interaction in the left nav — an agent/customer/team/skill
@@ -543,6 +559,13 @@ export interface Interaction {
    *  Set only on store-built cards, whose `id` is the journey rather than
    *  the customer record. */
   entityId?: string;
+  /** A routed voice offer still ringing: the card shows Accept/Decline and
+   *  isn't a live call yet. Set only on store-built cards (P0.5d.1). */
+  offered?: boolean;
+  /** The name the contact presented (caller ID, chat name) when it differs
+   *  from `customerName`, the record's name: shown as "Calling as …". Set
+   *  only on store-built cards. */
+  presentedName?: string;
 }
 
 /** Whether ANY currently-open channel on this Interaction is actually

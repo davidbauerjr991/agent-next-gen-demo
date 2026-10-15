@@ -23,6 +23,7 @@ import { useContactCommands } from "./useContactCommands";
 import { useContactReopen } from "./useContactReopen";
 import { useNavCards } from "./useNavCards";
 import { useOutboundDial } from "./useOutboundDial";
+import { buildOpenChannelTagger } from "./open-channel-tagger";
 
 // The shared contact-handling hooks (P0.5b.2) against the sim on the
 // in-memory bus, under StrictMode, wired the way both pages wire them.
@@ -48,6 +49,7 @@ describe("contact handling", () => {
   let cardIdsAtActivation: string[][];
   let legDown: number;
   let refused: number;
+  let alreadyOnCall: number;
   /** The page's second-voice-call rule; set before `mount()`. */
   let policy: "refuse" | "auto-hold" = "auto-hold";
   let dbCounter = 0;
@@ -71,6 +73,9 @@ describe("contact handling", () => {
       secondVoiceCall: policy,
       onVoiceCallRefused: () => {
         refused += 1;
+      },
+      onAlreadyOnCall: () => {
+        alreadyOnCall += 1;
       },
     });
     const reopen = useContactReopen({ findOpenCard: nav.findOpenCard, activateWhenReady, skillIdForName: () => undefined });
@@ -127,6 +132,7 @@ describe("contact handling", () => {
     cardIdsAtActivation = [];
     legDown = 0;
     refused = 0;
+    alreadyOnCall = 0;
     policy = "auto-hold";
     dbCounter += 1;
     container = document.createElement("div");
@@ -285,6 +291,54 @@ describe("contact handling", () => {
     await until(() => api.cards.some((c) => c.threads.some((t) => t.heldByAgent)), "first call held");
     expect(api.cards).toHaveLength(2);
     expect(refused).toBe(3);
+  });
+
+  it("one call per customer: Redial, Quick Dial and the '+' voice option are blocked only while that customer's call is live or held", async () => {
+    const entry = { id: "h1", name: customer.name, caseId: "CASE-H1", customerId: customer.id, channelType: "voice", direction: "outbound", statusLabel: "Resolved" } as ContactHistoryEntry;
+    const other = CREATE_NEW_CUSTOMERS.find((c) => c.id !== customer.id)!;
+    const otherEntry = { ...entry, id: "h2", name: other.name, customerId: other.id };
+    const plusVoiceBlocked = () =>
+      !!buildOpenChannelTagger(api.cards)({ id: customer.id, name: customer.name, channels: ["voice", "sms"] } as never).openChannelTypes?.includes("voice");
+
+    // Digital only: nothing blocked.
+    act(() => api.dial.startCall({ contact, channel: "sms", phone: "+15550001111", skillId: "general" }));
+    await until(() => activations.length === 1, "sms");
+    expect(api.dial.redialBlocked(entry)).toBe(false);
+    expect(plusVoiceBlocked()).toBe(false);
+
+    // Live call: blocked for this customer only.
+    const number = customer.phones[0].value;
+    act(() => api.dial.startCall({ contact, channel: "voice", phone: number, skillId: "general" }));
+    await until(() => !!api.cards[0]?.threads.find((t) => t.type === "voice")?.onCall, "on call");
+    expect(api.dial.redialBlocked(entry)).toBe(true);
+    expect(api.dial.redialBlocked(otherEntry)).toBe(false);
+    expect(plusVoiceBlocked()).toBe(true);
+    // A typed Quick Dial of the same number is refused, with no new call.
+    const placed = activations.length;
+    act(() => api.dial.quickDial(number, "general"));
+    await until(() => alreadyOnCall === 1, "refused");
+    await settle();
+    expect(activations).toHaveLength(placed);
+    // Opening the redial pad does nothing either.
+    act(() => api.dial.openRedialPad(entry, null));
+    expect(api.dial.dialpadRequest).toBeNull();
+
+    // Held: still blocked.
+    const voice = () => api.cards[0].threads.find((t) => t.type === "voice")!;
+    act(() => {
+      api.commands.setHold(voice(), true);
+    });
+    await until(() => !!voice().heldByAgent, "held");
+    expect(api.dial.redialBlocked(entry)).toBe(true);
+    expect(plusVoiceBlocked()).toBe(true);
+
+    // Wrap-up: free again.
+    act(() => {
+      api.commands.hangUp(voice());
+    });
+    await until(() => !!api.cards[0]?.voiceCallEnded, "wrap-up");
+    expect(api.dial.redialBlocked(entry)).toBe(false);
+    expect(plusVoiceBlocked()).toBe(false);
   });
 
   it("holds and resumes a call, and hang-up takes it to wrap-up (shown as ended)", async () => {
