@@ -90,6 +90,49 @@ describe("routing (the sim's startInbound)", () => {
   });
 });
 
+describe("the Customers table's channel actions", () => {
+  const table = () => h.container.querySelector("table");
+  const iconsTitled = (label: string) => table()?.querySelectorAll(`[title="${label}"], [aria-label="${label}"]`).length ?? 0;
+  /** Select Channel's options, by label (a radio's name lives in its <label>). */
+  const radios = () =>
+    [...document.body.querySelectorAll('[role="radio"]')].map(
+      (r) =>
+        (r.id && document.querySelector(`label[for="${r.id}"]`)?.textContent?.trim()) ||
+        r.closest("label")?.textContent?.trim() ||
+        r.getAttribute("value"),
+    );
+
+  async function customersTab() {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await act(async () => {
+      getSettingsStore().updateMany(profileValues("phase2"));
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    const tab = [...h.container.querySelectorAll('[data-slot=home-tabs] [role="tab"]')].find((t) => t.textContent?.trim() === "Customers")!;
+    await h.click(tab);
+  }
+
+  it("email off: no email icon on any row and no Email in Select Channel", async () => {
+    await customersTab();
+    expect(iconsTitled("Email")).toBeGreaterThan(0);
+    await setSettings("channels", { email: false });
+    expect(iconsTitled("Email")).toBe(0);
+    const voice = table()!.querySelector<HTMLElement>('[title="Voice"], [aria-label="Voice"]')!;
+    await h.click(voice);
+    expect(radios()).toContain("Voice");
+    expect(radios()).not.toContain("Email");
+  });
+
+  it("voice only: one icon per row, and the popover skips the channel step", async () => {
+    await customersTab();
+    await setSettings("channels", { voice: true, chat: false, email: false, sms: false, whatsapp: false });
+    for (const label of ["Email", "SMS", "WhatsApp", "Chat"]) expect(iconsTitled(label)).toBe(0);
+    await h.click(table()!.querySelector<HTMLElement>('[title="Voice"], [aria-label="Voice"]')!);
+    expect(radios()).toEqual([]);
+    expect(document.body.textContent).toContain("Outbound Skill");
+  });
+});
+
 describe("the workspace", () => {
   const launcher = () => [...h.container.querySelectorAll("aside button")].find((b) => b.textContent?.includes("New Outbound"));
   const historySection = () => h.container.querySelector('[data-home-section="contactHistory"]');

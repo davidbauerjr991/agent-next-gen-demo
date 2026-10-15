@@ -35,6 +35,7 @@ import { type ContactInteraction } from "@/components/agent-next-gen-interaction
 import { CURRENT_AGENT_NAME, nextInteractionSortDirection } from "@/components/agent-next-gen-shared-utils";
 import { CHANNEL_TYPE_ICON_COLOR_CLASS } from "@/components/agent-next-gen-contact-history";
 import { cn } from "@/lib/utils";
+import { useSettings, type ContactChannel } from "@/settings";
 import {
   Plus,
   RefreshCw,
@@ -230,6 +231,14 @@ export function addressOptionsForChannel(row: CustomerListRecord, channel: Chann
  *  `placement="bottom"` is only a preferred side — `Popover`'s underlying
  *  Radix collision detection (`avoidCollisions`, see popover.tsx) flips it
  *  above the trigger automatically when there isn't room below. */
+/** A row's channels in display order, only the ones Settings → Channels has
+ *  on (hidden, not disabled). Every channel action on a customer (the table's
+ *  hover icons, the row panel's and full-screen tab's "+") reads this. */
+function useRowChannels(row: CustomerListRecord | null): ChannelType[] {
+  const [channels] = useSettings("channels");
+  return row ? CUSTOMER_CHANNEL_ORDER.filter((c) => row.channels.includes(c) && (channels[c as ContactChannel] ?? true)) : [];
+}
+
 export function CustomerChannelPicker({
   row,
   defaultChannel,
@@ -355,6 +364,8 @@ export function CustomerChannelPicker({
         // only covers the click that opens the popover, not clicks made
         // once it's open.
         <div className="w-64 p-3 space-y-3" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+          {/* One channel available (Settings → Channels): no channel step. */}
+          {available.length > 1 && (
           <RadioButtonGroup
             label="Select Channel"
             // Disables (rather than hides) whichever channel options have
@@ -375,6 +386,7 @@ export function CustomerChannelPicker({
             value={selectedChannel}
             onValueChange={(v: string) => setSelectedChannel(v as ChannelType)}
           />
+          )}
           <Select
             label={fieldMeta.label}
             value={hasAddress ? address || undefined : undefined}
@@ -560,7 +572,7 @@ export function CustomerAddChannelButton({
   onStartInteraction: (contact: CreateNewOutboundContact, channel: ChannelType, phone: string, skillId: string) => void;
 }) {
   const [openChannel, setOpenChannel] = useState<ChannelType | null>(null);
-  const available = row ? CUSTOMER_CHANNEL_ORDER.filter((c) => row.channels.includes(c)) : [];
+  const available = useRowChannels(row);
   if (!row || available.length === 0) {
     return (
       <ActionIconButton title="Add channel" disabled>
@@ -678,7 +690,7 @@ export function CustomerChannelCell({
   row: CustomerListRecord;
   onStartInteraction: (contact: CreateNewOutboundContact, channel: ChannelType, phone: string, skillId: string) => void;
 }) {
-  const available = CUSTOMER_CHANNEL_ORDER.filter((c) => row.channels.includes(c));
+  const available = useRowChannels(row);
   if (available.length === 0) {
     return <span className="lyra-body-sm text-lyra-fg-disabled">—</span>;
   }
@@ -745,7 +757,7 @@ export function CustomerChannelStack({
   row: CustomerListRecord;
   onStartInteraction: (contact: CreateNewOutboundContact, channel: ChannelType, phone: string, skillId: string) => void;
 }) {
-  const available = CUSTOMER_CHANNEL_ORDER.filter((c) => row.channels.includes(c));
+  const available = useRowChannels(row);
   if (available.length === 0) {
     return null;
   }
