@@ -67,7 +67,10 @@ import {
 import { ClockValue } from "@/components/agent-next-gen-clock-tick";
 import { type ContactHistoryStatusVariant } from "@/components/agent-next-gen-contact-history";
 import { OUTBOUND_AGENTS } from "@/components/agent-next-gen-outbound-data";
-import { MARCUS_WEBB_CUSTOMER_ID } from "@/components/agent-next-gen-marcus-webb-scenario";
+import { MARCUS_WEBB_SCRIPT } from "@/scenarios";
+
+/** Marcus Webb's case id (his card's customer record id), from his script. */
+const MARCUS_WEBB_CUSTOMER_ID = MARCUS_WEBB_SCRIPT.entity.caseId;
 import {
   OUTCOME_TAG_OPTIONS,
   type Contact,

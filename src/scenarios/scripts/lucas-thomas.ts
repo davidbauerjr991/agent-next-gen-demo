@@ -4,10 +4,9 @@ import type { ScenarioScript } from "../scenario-script";
 // Checkout AI agent has handled so far. Card payments are failing during
 // INC-2207; the bot asks a person to approve an exception. The setup (6
 // lines) is already on screen at launch, the rest plays live, and the agent's
-// decisions start the branches below. Ported from
-// agent-next-gen-lucas-thomas-scenario.ts (and the takeover handoff lines in
-// AgentWorkspaceAdvancedPage.tsx); the page still reads those until P0.5c.
-// Display times ("2:05 PM") are dropped: the engine's clock supplies them.
+// decisions start the branches below. Ported in P0.7 from the page's old
+// scenario module (and its takeover handoff lines); the sim engine plays it
+// since P0.5c. Display times ("2:05 PM") come from the engine's clock.
 export const LUCAS_THOMAS_SCRIPT = {
   version: 1,
   id: "lucas-thomas",

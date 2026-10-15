@@ -3,9 +3,8 @@ import type { ScenarioScript } from "../scenario-script";
 // Maya Chen: a cold inbound voice call, answered automatically (no accept or
 // decline), about a refund for a damaged espresso machine. Customer and case
 // details are from the Agentic Workspace demo (CASE-30402: cracked water tank
-// on NR-10871, $412.00). Ported from
-// agent-next-gen-maya-chen-refund-call-scenario.ts; the page still reads that
-// module until P0.5c moves the scenario onto the engine.
+// on NR-10871, $412.00). Ported in P0.7 from the page's old scenario module;
+// the sim engine plays it since P0.5c.
 export const MAYA_CHEN_SCRIPT = {
   version: 1,
   id: "maya-chen-refund-call",

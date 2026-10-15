@@ -2,9 +2,8 @@ import type { ScenarioScript } from "../scenario-script";
 
 // Tom Lewis: a cold inbound voice call (no AI agent) about voiding a duplicate
 // charge. Customer and case details are from the Agentic Workspace demo
-// (CASE-30409: charged twice on two cards). Ported from
-// agent-next-gen-tom-lewis-void-call-scenario.ts; the page still reads that
-// module until P0.5c moves the scenario onto the engine.
+// (CASE-30409: charged twice on two cards). Ported in P0.7 from the page's
+// old scenario module; the sim engine plays it since P0.5c.
 export const TOM_LEWIS_SCRIPT = {
   version: 1,
   id: "tom-lewis-void-call",
