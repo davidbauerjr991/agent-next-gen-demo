@@ -947,7 +947,11 @@ export function AssignmentsSectionCaption({
   // request.
   sortDirection,
   onSortDirectionChange,
+  hideExpandCollapseAll = false,
 }: {
+  /** Hides the "Collapse all / Expand all" button (Settings → "Don't allow
+   *  interactions to collapse"; v3 f0b13dc). */
+  hideExpandCollapseAll?: boolean;
   expanded?: boolean;
   count: number;
   sort: AssignmentSortValue;
@@ -1038,7 +1042,9 @@ export function AssignmentsSectionCaption({
         </div>
         {showSort && (
           <div className="flex items-center gap-1">
-            <AssignmentsExpandCollapseAllButton allExpanded={allExpanded} onToggle={onToggleAllExpanded} />
+            {!hideExpandCollapseAll && (
+              <AssignmentsExpandCollapseAllButton allExpanded={allExpanded} onToggle={onToggleAllExpanded} />
+            )}
             <AssignmentsSortButton
               value={sort}
               onValueChange={onSortChange}

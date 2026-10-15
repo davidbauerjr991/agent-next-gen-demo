@@ -1665,6 +1665,19 @@ export function AgentWorkspaceAdvancedPage({
     setChannelsAllExpanded((v) => !v);
     setChannelsExpandedOverrideVersion((v) => v + 1);
   };
+  // Settings → Assignments (P-SETTINGS, ported from v3 f0b13dc): the
+  // left-nav layout toggles. Turning "Don't allow interactions to collapse"
+  // on also expands every card once, so that turning it back off later
+  // returns every card expanded rather than restoring stale collapsed ones.
+  const [assignmentsSettings] = useSettings("assignments");
+  const [voiceSettings] = useSettings("voice");
+  const [leftNavVoiceSlot, setLeftNavVoiceSlot] = useState<HTMLDivElement | null>(null);
+  const { newOutboundAtBottom, navItemsAtTop, noInteractionCollapse } = assignmentsSettings;
+  useEffect(() => {
+    if (!noInteractionCollapse) return;
+    setChannelsAllExpanded(true);
+    setChannelsExpandedOverrideVersion((v) => v + 1);
+  }, [noInteractionCollapse]);
   // Each card's own current channel-list expanded/collapsed state, reported
   // via `InteractionNavItem`'s `onChannelsExpandedChange` (its own doc
   // comment explains why — the card owns that state internally, this is
@@ -6249,6 +6262,45 @@ export function AgentWorkspaceAdvancedPage({
     </div>
   ) : null;
 
+  // Home + Settings, and the New Outbound launcher: each renders in one of
+  // two `LeftNav` slots, per Settings → Assignments ("Home and Settings at
+  // the top" → `items`, else the `footer` rail; "New Outbound at the bottom"
+  // → `footer`, else `pinnedHeader`).
+  const navRailItems = buildNavItems(
+    Boolean(activeInteraction),
+    // Per explicit follow-up request, Home no longer resets
+    // `showAllContacts`/`selectedAllContactsRecord` — see that state's own
+    // doc comment for why "Home" now always resumes whatever was showing
+    // there before the agent navigated away (plain dashboard or All
+    // Contacts), instead of forcing back to the plain dashboard every time.
+    () => { switchActiveInteraction(null); setShowSettings(false); },
+    showSettings,
+    // Same follow-up — opening Settings no longer discards All Contacts' own
+    // state either; it just takes visual priority while showing (this
+    // ternary branch is checked first), and All Contacts reappears exactly
+    // as left once Settings closes.
+    () => { setShowSettings(true); switchActiveInteraction(null); }
+  );
+  /* The shared New Outbound launcher (P0.5b.2). This page's scope is a
+     temporary parity exception (row 14): Dial Pad only (no group picker,
+     "New Outbound" header, no back button). Like Desk, it stays enabled
+     during a call; a second call holds the first (row 15, revised
+     2026-10-14). `handleDialpadSubmit` tells a completed redial apart from
+     an ordinary dial. */
+  const newOutboundLauncher = (
+    <NewOutboundLauncher
+      outboundConfig={outboundConfig}
+      scope="dialpad"
+      inCallPolicy="allow"
+      onActiveCall={agentOnActiveVoiceCall}
+      expanded={navOpen}
+      onStartCall={handleStartCall}
+      onQuickDial={handleDialpadSubmit}
+      dialpadRequest={outboundDial.dialpadRequest}
+      onDialpadRequestHandled={outboundDial.clearDialpadRequest}
+    />
+  );
+
   return (
     <PageClockContext.Provider value={clock}>
     <QueueSimContext.Provider value={queueSim}>
@@ -6677,7 +6729,8 @@ export function AgentWorkspaceAdvancedPage({
           // (`homeNavItem` here, `settingsNavItem` there) — that was itself
           // mirroring an EARLIER shape of 2.0's own left nav, since
           // superseded there by this "both together in footer" arrangement.
-          items={[]}
+          // P-SETTINGS: "Home and Settings at the top" moves them here.
+          items={navItemsAtTop ? navRailItems : []}
           open={navOpen}
           onToggle={() => setNavOpen((v) => !v)}
           overlay={isNavNarrow}
@@ -6716,6 +6769,7 @@ export function AgentWorkspaceAdvancedPage({
               onSortDirectionChange={setAssignmentSortDirection}
               allExpanded={channelsAllExpanded}
               onToggleAllExpanded={handleToggleAllChannelsExpanded}
+              hideExpandCollapseAll={noInteractionCollapse}
               // See `AssignmentsSectionCaption`'s own doc comment on
               // `compact` — see 2.0's own copy for the full reasoning.
               compact
@@ -6744,31 +6798,15 @@ export function AgentWorkspaceAdvancedPage({
             // icon-only collapsed button, even with the nav wide open.
             // Same reason `AssignmentsSectionCaption`/`EmptyState` below
             // (in `header`) already take `expanded={navOpen}` explicitly.
-            <NavRail
-              expanded={navOpen}
-              // Passed straight through as the full `buildNavItems(...)`
-              // pair (Home first, then Settings) rather than destructuring
-              // just one element out of it, now that both live here
-              // together — same shape `AgentNextGenPage.tsx`'s own `footer`
-              // already passes.
-              items={buildNavItems(
-                Boolean(activeInteraction),
-                // Per explicit follow-up request, Home no longer resets
-                // `showAllContacts`/`selectedAllContactsRecord` — see that
-                // state's own doc comment for why "Home" now always resumes
-                // whatever was showing there before the agent navigated
-                // away (plain dashboard or All Contacts), instead of
-                // forcing back to the plain dashboard every time.
-                () => { switchActiveInteraction(null); setShowSettings(false); },
-                showSettings,
-                // Same follow-up — opening Settings no longer discards All
-                // Contacts' own state either; it just takes visual priority
-                // while showing (this ternary branch is checked first), and
-                // All Contacts reappears exactly as left once Settings
-                // closes.
-                () => { setShowSettings(true); switchActiveInteraction(null); }
-              )}
-            />
+            // P-SETTINGS: the rail leaves the footer with "Home and Settings
+            // at the top"; "New Outbound at the bottom" puts the launcher
+            // under it (v3 f0b13dc).
+            !navItemsAtTop || newOutboundAtBottom ? (
+              <>
+                {!navItemsAtTop && <NavRail expanded={navOpen} items={navRailItems} />}
+                {newOutboundAtBottom && <div className="pt-2">{newOutboundLauncher}</div>}
+              </>
+            ) : undefined
           }
           // "New Outbound" itself has moved several times now: started as
           // this exact `pinnedHeader` (fixed at the very TOP of the whole
@@ -6782,28 +6820,18 @@ export function AgentWorkspaceAdvancedPage({
           // for the middle arrangement) was already removed entirely once
           // nothing used it — not re-added for this reversion since
           // `pinnedHeader` covers this exact spot on its own.
-          pinnedHeader={
-            /* The shared New Outbound launcher (P0.5b.2). This page's scope
-               is a temporary parity exception (row 14): Dial Pad only (no
-               group picker, "New Outbound" header, no back button). Like
-               Desk, it stays enabled during a call; a second call holds the
-               first (row 15, revised 2026-10-14).
-               `handleDialpadSubmit` tells a completed redial apart from an
-               ordinary dial. */
-            <NewOutboundLauncher
-              outboundConfig={outboundConfig}
-              scope="dialpad"
-              inCallPolicy="allow"
-              onActiveCall={agentOnActiveVoiceCall}
-              expanded={navOpen}
-              onStartCall={handleStartCall}
-              onQuickDial={handleDialpadSubmit}
-              dialpadRequest={outboundDial.dialpadRequest}
-              onDialpadRequestHandled={outboundDial.clearDialpadRequest}
-            />
-          }
+          // The New Outbound launcher (`newOutboundLauncher`, above the
+          // return), unless Settings moves it to the footer.
+          pinnedHeader={newOutboundAtBottom ? undefined : newOutboundLauncher}
           header={
             <>
+              {/* Settings → Voice controls location "Top of left nav": the
+                  voice bar portals in here (v3's `LeftNavVoiceSlot`). Only
+                  while the nav is open; collapsed, the bar falls back to
+                  the bottom. */}
+              {navOpen && voiceSettings.controlsLocation === "top" && (
+                <div ref={setLeftNavVoiceSlot} data-slot="left-nav-voice" className="empty:hidden" />
+              )}
               {/* Per explicit request ("add a message and icon into the left
                   nav when there are no assignments indicating that the
                   agent's assignment queue is empty") — only while expanded;
@@ -7534,8 +7562,9 @@ export function AgentWorkspaceAdvancedPage({
                     // expand/collapse chevron, rather than being replaced
                     // by it — see `InteractionNavItem`'s own `collapsible`
                     // doc comment (interaction-nav-item.tsx) for the shared
-                    // slot's current behavior.
-                    collapsible
+                    // slot's current behavior. Off with Settings →
+                    // "Don't allow interactions to collapse".
+                    collapsible={!noInteractionCollapse}
                     // "Collapse all"/"Expand all" (`AssignmentsExpandCollapseAllButton`
                     // above) — see `channelsAllExpanded`'s own doc comment
                     // near its declaration for why this is a one-shot
@@ -11212,6 +11241,10 @@ export function AgentWorkspaceAdvancedPage({
             <VoiceBar
               call={voiceBarCall}
               controls={liveVoiceCallControls}
+              // Settings → Voice controls location; the slot at the top of
+              // the left nav exists only while the nav is open.
+              placement={voiceSettings.controlsLocation}
+              topSlot={leftNavVoiceSlot}
               onHangUp={() => {
                 setVoiceVideoWindowOpen(false);
                 setVoiceVideoFullScreen(false);

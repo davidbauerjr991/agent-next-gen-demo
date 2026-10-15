@@ -675,6 +675,12 @@ export interface VoiceCallControlsProps {
    *  screenshot's unmatched-quickdial-number case (see this file's own top
    *  doc comment). */
   customerInitials?: string;
+  /** Vertical layout for a narrow column such as the left nav (Settings →
+   *  Voice controls location "Top of left nav"; ported from v3): identity +
+   *  timer on top, an icon-only strip of Hold/Mask/Record/Keypad/Transcript/
+   *  Volume, then Mute and End Call side by side. Ignores the width
+   *  breakpoints. */
+  stacked?: boolean;
   className?: string;
 }
 
@@ -707,6 +713,7 @@ export function VoiceCallControls({
   stretch = false,
   customerLabel,
   customerInitials,
+  stacked = false,
   className,
 }: VoiceCallControlsProps) {
   // Decorative-only fallback for a caller that hasn't wired `onHoldChange`
@@ -860,9 +867,14 @@ export function VoiceCallControls({
   const CONTROLS_ICON_ONLY_BREAKPOINT = 768;
   const CONTROLS_MENU_BREAKPOINT = 600;
   const cardRef = useRef<HTMLDivElement>(null);
-  const [controlsCompact, setControlsCompact] = useState(false);
-  const [controlsIconOnly, setControlsIconOnly] = useState(false);
-  const [controlsMenu, setControlsMenu] = useState(false);
+  const [measuredCompact, setControlsCompact] = useState(false);
+  const [measuredIconOnly, setControlsIconOnly] = useState(false);
+  const [measuredMenu, setControlsMenu] = useState(false);
+  // Stacked (left nav): the strip is always icon-only, never collapses into
+  // the overflow menu, and Mute/End Call keep their labels.
+  const controlsCompact = stacked || measuredCompact;
+  const controlsIconOnly = stacked ? false : measuredIconOnly;
+  const controlsMenu = stacked ? false : measuredMenu;
   useEffect(() => {
     const el = cardRef.current;
     if (!el) return;
@@ -1059,7 +1071,9 @@ export function VoiceCallControls({
           // icon+label `WideCallControlButton`s (each roughly h-16 now,
           // was h-8) so they don't sit flush against this card's own
           // border.
-          "w-full grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-lg px-3 py-2"
+          stacked
+            ? "flex w-full flex-col items-stretch gap-3 rounded-lg !bg-lyra-bg-surface-base px-3 py-3"
+            : "w-full grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-lg px-3 py-2"
         )}
       >
         {/* Three real slots (customer identity+timer / main buttons+
@@ -1200,7 +1214,12 @@ export function VoiceCallControls({
           )}
           </div>
         </div>
-        <div className="flex min-w-0 items-stretch justify-center gap-1">
+        <div
+          className={cn(
+            "flex min-w-0 items-stretch gap-1",
+            stacked ? "justify-between rounded-lyra-sm bg-lyra-bg-surface-container-subtle px-1" : "justify-center"
+          )}
+        >
           {/* Decorative cluster — Hold/Mask/Record/Keypad/Transcript/Volume,
               unchanged in behavior/styling from before, just relocated out
               of the old leading `justify-start` slot into this slot
@@ -1235,7 +1254,7 @@ export function VoiceCallControls({
           {/* Left separator — see this slot's own doc comment just above
               for why it lives here (inside the centered flex item) rather
               than at the slot boundary. */}
-          <span aria-hidden="true" className="h-4 w-px shrink-0 self-center bg-lyra-border-subtle" />
+          <span aria-hidden="true" className={cn("h-4 w-px shrink-0 self-center bg-lyra-border-subtle", stacked && "hidden")} />
           {/* No more wrapping `Tooltip` on this or the next several
               controls — per later explicit follow-up request ("label the
               buttons again"), `WideCallControlButton`'s own label is now
@@ -1561,16 +1580,28 @@ export function VoiceCallControls({
               (this slot's opening `<div>`, above) for why this lives here,
               right after `CompactVolumeButton`, rather than at this slot's
               trailing boundary. */}
-          <span aria-hidden="true" className="h-4 w-px shrink-0 self-center bg-lyra-border-subtle" />
+          <span aria-hidden="true" className={cn("h-4 w-px shrink-0 self-center bg-lyra-border-subtle", stacked && "hidden")} />
         </div>
-        <div className="flex min-w-0 items-stretch justify-end gap-2">
+        <div className={cn("flex min-w-0 items-stretch gap-2", stacked ? "justify-stretch" : "justify-end")}>
           {/* Mute — moved out of the centered cluster above and given
               `strong` (see `WideCallControlButton`'s own doc comment for
               what that darkens) per the reference screenshot, which shows
               this icon visibly darker than the rest of the bar. Behavior
               unchanged; no more wrapping `Tooltip` (see the block comment
               a few controls up for why). */}
-          {showMute && (controlsIconOnly ? (
+          {showMute && (stacked ? (
+            <Button
+              variant="outline"
+              size="md"
+              className="min-w-0 flex-1 gap-1.5"
+              onClick={() => setMuted(!muted)}
+              disabled={isEnding}
+              aria-pressed={muted}
+            >
+              {muted ? <MicOff className="h-5 w-5" strokeWidth={1.5} aria-hidden="true" /> : <Mic className="h-5 w-5" strokeWidth={1.5} aria-hidden="true" />}
+              {muted ? "Unmute" : "Mute"}
+            </Button>
+          ) : controlsIconOnly ? (
             <Tooltip content={muted ? "Unmute" : "Mute"} placement="top">
               <CompactCallControlButton
                 icon={muted ? <MicOff className="h-5 w-5" strokeWidth={1.5} /> : <Mic className="h-5 w-5" strokeWidth={1.5} />}
@@ -1738,8 +1769,8 @@ export function VoiceCallControls({
           ) : (
             <Button
               variant="destructive"
-              size="lg"
-              className="h-auto shrink-0 gap-1.5"
+              size={stacked ? "md" : "lg"}
+              className={cn("shrink-0 gap-1.5", stacked ? "min-w-0 flex-1" : "h-auto")}
               onClick={handleHangUp}
               disabled={isEnding}
             >

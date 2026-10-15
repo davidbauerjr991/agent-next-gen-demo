@@ -75,13 +75,36 @@ function fieldLabeled(text: string): HTMLInputElement {
   return input;
 }
 
-async function openSettings() {
-  const settings = [...h.container.querySelectorAll("aside button, aside [role=button]")].find(
-    (el) => el.textContent?.trim() === "Settings" || el.getAttribute("aria-label") === "Settings",
+/** A left-nav rail item (Home, Settings). */
+function navItem(label: string): Element {
+  const item = [...h.container.querySelectorAll("aside button, aside [role=button]")].find(
+    (el) => el.textContent?.trim() === label || el.getAttribute("aria-label") === label,
   );
-  if (!settings) throw new Error("no Settings nav item");
-  await h.click(settings);
+  if (!item) throw new Error(`no ${label} nav item`);
+  return item;
 }
+
+async function openSettings() {
+  await h.click(navItem("Settings"));
+}
+
+/** The New Outbound launcher's trigger in the left nav. */
+function newOutbound(): Element {
+  const el = [...h.container.querySelectorAll("aside button")].find((b) => b.textContent?.includes("New Outbound"));
+  if (!el) throw new Error("no New Outbound launcher");
+  return el;
+}
+
+/** The "Assignments (N)" caption. */
+function assignmentsCaption(): Element {
+  const el = [...h.container.querySelectorAll("aside *")].find(
+    (e) => e.children.length === 0 && /^Assignments/.test(e.textContent ?? ""),
+  );
+  if (!el) throw new Error("no Assignments caption");
+  return el;
+}
+
+const isBefore = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 
 describe("Header: Show app icons", () => {
   it("is off by default (Phase 1): no app icons and no View All Apps", async () => {
@@ -109,6 +132,79 @@ describe("Header: Show app icons", () => {
     expect(headerHas("WEM")).toBe(false);
     await setSettings("header", { pins: { ...store().getState().values.header.pins, wem: true } });
     expect(headerHas("WEM")).toBe(true);
+  });
+});
+
+describe("Assignments: left nav", () => {
+  it("New Outbound at the bottom moves the launcher below Home/Settings", async () => {
+    await h.show(AgentWorkspaceAdvancedPage);
+    expect(isBefore(newOutbound(), navItem("Home"))).toBe(true);
+    await setSettings("assignments", { newOutboundAtBottom: true });
+    expect(isBefore(navItem("Settings"), newOutbound())).toBe(true);
+    expect(h.container.querySelectorAll("aside button").length).toBeGreaterThan(0);
+  });
+
+  it("Home and Settings at the top puts them above the Assignments caption", async () => {
+    await h.show(AgentWorkspaceAdvancedPage);
+    expect(isBefore(assignmentsCaption(), navItem("Home"))).toBe(true);
+    await setSettings("assignments", { navItemsAtTop: true });
+    expect(isBefore(navItem("Home"), assignmentsCaption())).toBe(true);
+    expect(isBefore(navItem("Settings"), assignmentsCaption())).toBe(true);
+  });
+
+  it("Don't allow interactions to collapse removes the card chevrons and Collapse all, and expands collapsed cards", async () => {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await h.accept(await h.startInbound("chat", "priya.shah@example.com", "Priya Shah"));
+    await h.accept(await h.startInbound("chat", "dan.ortiz@example.com", "Dan Ortiz"));
+    const labeled = (...labels: string[]) =>
+      h.container.querySelectorAll(labels.flatMap((l) => [`aside [title="${l}"]`, `aside [aria-label="${l}"]`]).join(", "));
+    const chevrons = () => labeled("Collapse channels", "Expand channels");
+    const collapseAll = () => h.container.querySelector('aside [aria-label="Collapse all"], aside [aria-label="Expand all"]');
+    expect(chevrons().length).toBe(2);
+    expect(collapseAll()).not.toBeNull();
+    // Collapse every card first.
+    await h.click(collapseAll()!);
+    expect(labeled("Expand channels").length).toBe(2);
+
+    await setSettings("assignments", { noInteractionCollapse: true });
+    expect(chevrons().length).toBe(0);
+    expect(collapseAll()).toBeNull();
+    // Both cards show their channel rows again.
+    const chatRows = [...h.container.querySelectorAll("aside button[aria-label]")].filter((el) =>
+      el.getAttribute("aria-label")!.startsWith("Chat channel"),
+    );
+    expect(chatRows.length).toBe(2);
+    expect(chatRows.every((row) => !row.closest(".grid-rows-\\[0fr\\]"))).toBe(true);
+
+    // Turned back off, the cards come back collapsible and expanded.
+    await setSettings("assignments", { noInteractionCollapse: false });
+    expect(labeled("Collapse channels").length).toBe(2);
+  });
+});
+
+describe("Voice: controls location", () => {
+  it("Top of left nav moves the bar into the nav, stacked; a collapsed nav falls back to the bottom", async () => {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await h.accept(await h.startInbound("voice", "(312) 555-0164", "Lauren Briggs"));
+    await h.click(h.navCard("Lauren Briggs"));
+    const bar = () => {
+      const bars = h.container.querySelectorAll("[data-slot=voice-bar]");
+      expect(bars).toHaveLength(1);
+      return bars[0];
+    };
+    expect(bar().closest("aside")).toBeNull();
+    expect(bar().getAttribute("data-placement")).toBe("bottom");
+
+    await setSettings("voice", { controlsLocation: "top" });
+    expect(bar().closest("aside")).not.toBeNull();
+    expect(bar().getAttribute("data-placement")).toBe("top");
+    // Stacked: Mute and End Call keep their labels.
+    expect(bar().textContent).toContain("Mute");
+    expect(bar().textContent).toContain("End Call");
+
+    await h.click(h.container.querySelector('[aria-label="Collapse sidebar"]')!);
+    expect(bar().closest("aside")).toBeNull();
+    expect(bar().getAttribute("data-placement")).toBe("bottom");
   });
 });
 
