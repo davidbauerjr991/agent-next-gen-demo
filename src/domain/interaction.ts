@@ -95,6 +95,10 @@ export interface Message {
   author: Participant;
   /** "event" = a system line in the thread (e.g. "Chat started"). */
   kind: "text" | "event";
+  /** A non-text row a scripted scenario puts in the thread: an interstitial
+   *  line, an approval-request card or a wrap-up card. `ref` names the
+   *  payload in the scenario's content (src/scenarios), never on the wire. */
+  annotation?: { kind: "instruction" | "approval" | "wrap-up"; ref: string; by?: string; link?: string };
   text: string;
   sentAt: EpochMs;
   delivery?: "sending" | "sent" | "delivered" | "read" | "failed";
