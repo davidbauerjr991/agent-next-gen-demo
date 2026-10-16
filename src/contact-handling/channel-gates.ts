@@ -1,8 +1,8 @@
 // Settings → Channels gates (the channels agents contact customers on). A
-// channel that's off is hidden everywhere a contact on it could start or
-// show up; contacts already open on it stay until they end.
+// channel that's off is hidden everywhere the agent could start or receive
+// a contact on it; contacts already open on it stay until they end. It never
+// filters Contact History, which shows every contact on every channel.
 import type { CreateNewOutboundConfig, CreateNewOutboundContact } from "@nicecxone/lyra-ui";
-import type { ContactHistoryEntry } from "@/components/agent-next-gen-contact-history";
 import type { ChannelsSettings, ContactChannel } from "@/settings";
 
 /** Whether a channel is on. A channel the setting doesn't know (video) isn't gated. */
@@ -22,16 +22,4 @@ export function enabledChannelOptions(
 export function withEnabledChannels(contact: CreateNewOutboundContact, channels: ChannelsSettings): CreateNewOutboundContact {
   const reachable = (c: string) => channelOn(channels, c) && (c !== "email" || !!contact.email);
   return contact.channels ? { ...contact, channels: contact.channels.filter(reachable) } : contact;
-}
-
-/** Contact History rows on the channels that are on (every range). */
-export function historyOnChannels<K extends string>(
-  byRange: Record<K, ContactHistoryEntry[]>,
-  channels: ChannelsSettings,
-): Record<K, ContactHistoryEntry[]> {
-  const shown = (entry: ContactHistoryEntry) => channels[entry.channelType as ContactChannel] ?? false;
-  return Object.fromEntries(Object.entries<ContactHistoryEntry[]>(byRange).map(([range, rows]) => [range, rows.filter(shown)])) as Record<
-    K,
-    ContactHistoryEntry[]
-  >;
 }

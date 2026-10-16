@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // Settings → Channels: the channels agents contact customers on. Each gate
 // with the channel on and off; the sim refusing an inbound on a channel
-// that's off; Contact History per profile.
+// that's off; Contact History never filtered by it.
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CreateNewOutboundConfig } from "@nicecxone/lyra-ui";
@@ -9,7 +9,7 @@ import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
 import { OUTBOUND_CONFIG } from "@/components/agent-next-gen-outbound-data";
 import { buildContactHistoryByRange } from "@/components/agent-next-gen-contact-history";
-import { enabledChannelOptions, historyOnChannels, withEnabledChannels } from "@/contact-handling/channel-gates";
+import { enabledChannelOptions, withEnabledChannels } from "@/contact-handling/channel-gates";
 import { getSettingsStore, resetSettingsStoreForTests } from "./settings-store";
 import { profileValues } from "./profiles";
 import { SECTIONS, type ChannelsSettings, type SectionKey, type SettingsState } from "./settings-schema";
@@ -54,12 +54,10 @@ describe("channel gates (pure)", () => {
     expect(withEnabledChannels(noEmail, ALL).channels).toEqual(["voice"]);
   });
 
-  it("Contact History keeps only rows on the channels that are on", () => {
-    const byRange = buildContactHistoryByRange([]);
-    const channelsIn = (r: ReturnType<typeof historyOnChannels>) => new Set(Object.values(r).flat().map((e) => e.channelType));
-    expect([...channelsIn(historyOnChannels(byRange, PHASE1))]).toEqual(["voice"]);
-    expect(channelsIn(historyOnChannels(byRange, ALL)).size).toBeGreaterThan(1);
-    expect(Object.values(historyOnChannels(byRange, { ...ALL, voice: false })).flat().some((e) => e.channelType === "voice")).toBe(false);
+  it("the Contact History fixtures span several channels (so the page tests below mean something)", () => {
+    const channels = new Set(Object.values(buildContactHistoryByRange([])).flat().map((e) => e.channelType));
+    expect(channels.has("voice")).toBe(true);
+    expect(channels.size).toBeGreaterThan(1);
   });
 
   it("Phase 1 is voice only; Phase 2 turns every channel on", () => {
@@ -220,18 +218,24 @@ describe("the workspace", () => {
       ),
     );
 
-  it("Phase 1: Contact History is voice only, with no channel chips; Phase 2: mixed, with chips", async () => {
+  it("Contact History shows every contact on every channel, a chip on each row, whatever Settings → Channels says", async () => {
     await h.show(AgentWorkspaceAdvancedPage);
     const rows = () => historySection()?.querySelectorAll('[role="button"]').length ?? 0;
-    expect(rows()).toBeGreaterThan(0);
-    expect(historyTags()).toEqual([]);
+    const snapshot = () => ({ rows: rows(), tags: historyTags() });
+    // Phase 1 (voice only): mixed rows, with chips.
+    const phase1 = snapshot();
+    expect(phase1.rows).toBeGreaterThan(0);
+    expect(phase1.tags).toHaveLength(phase1.rows);
+    expect(new Set(phase1.tags).has("Voice")).toBe(true);
+    expect(new Set(phase1.tags).size).toBeGreaterThan(1);
+    // Phase 2 (every channel) and every channel off but chat: the same rows.
     await act(async () => {
       getSettingsStore().updateMany(profileValues("phase2"));
       await vi.advanceTimersByTimeAsync(50);
     });
-    const tags = new Set(historyTags());
-    expect(tags.has("Voice")).toBe(true);
-    expect(tags.size).toBeGreaterThan(1);
+    expect(snapshot()).toEqual(phase1);
+    await setSettings("channels", { voice: false, chat: true, email: false, sms: false, whatsapp: false });
+    expect(snapshot()).toEqual(phase1);
   });
 
   it("voice off hides the Dial Pad (and with it, Phase 1's whole launcher)", async () => {

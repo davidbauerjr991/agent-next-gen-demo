@@ -1208,11 +1208,7 @@ export function ContactHistoryCard({
   hideCustomerNames,
   onOpenAllContacts,
   defaultDateFilter,
-  showChannelTags = true,
 }: {
-  /** Each row's channel pill. Off when the agent works a single channel
-   *  (Settings → Channels), where it would say the same thing on every row. */
-  showChannelTags?: boolean;
   /** Fired by clicking anywhere on a row — opens this entry's summary in
    *  `AgentNextGenPage`'s shared right-docked `InteriorPanel` slot (main
    *  component's own `selectedContactHistoryEntry` state), rather than
@@ -1512,16 +1508,14 @@ export function ContactHistoryCard({
                       Email), matching the same three `lyra-accent-*`
                       hues CONTRIBUTING.md's "Channel type colors"
                       convention documents, not a one-off tint. */}
-                  {showChannelTags && (
-                    <Tooltip content={contactHistoryChannelTooltipLabel(entry)} placement="top">
-                      <Tag
-                        label={entry.channelLabel}
-                        variant={CONTACT_HISTORY_CHANNEL_TAG_VARIANT[entry.channelType]}
-                        shape="pill"
-                        icon={contactHistoryChannelIcon(entry)}
-                      />
-                    </Tooltip>
-                  )}
+                  <Tooltip content={contactHistoryChannelTooltipLabel(entry)} placement="top">
+                    <Tag
+                      label={entry.channelLabel}
+                      variant={CONTACT_HISTORY_CHANNEL_TAG_VARIANT[entry.channelType]}
+                      shape="pill"
+                      icon={contactHistoryChannelIcon(entry)}
+                    />
+                  </Tooltip>
                   <span className="lyra-body-sm text-lyra-fg-secondary whitespace-nowrap">{entry.timeAgo}</span>
                 </div>
               </div>

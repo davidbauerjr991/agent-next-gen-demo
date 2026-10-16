@@ -68,6 +68,19 @@ function openResult(): HTMLElement | null {
   return result && shell?.style.visibility === "visible" ? result : null;
 }
 
+/** Inline: a child of the content card itself (not inside the main column or
+ *  the panel), so it covers the card from its top. Panel: inside the panel. */
+function expectSlideOverPlacement(displayLocation: AiSettings["displayLocation"]) {
+  const result = openResult()!;
+  if (displayLocation === "inline") {
+    expect(result.closest("[data-slot=content-card]")).not.toBeNull();
+    expect(result.closest("[data-main-thread]")).toBeNull();
+    expect(result.closest("[data-slot=right-panel]")).toBeNull();
+  } else {
+    expect(result.closest("[data-slot=right-panel]")).not.toBeNull();
+  }
+}
+
 describe("a Copilot result row toggles the interior slide-over (email contact)", () => {
   for (const displayLocation of AI_DISPLAY_LOCATIONS) {
     it(`AI display ${displayLocation}: open, close by the row and by its X, swap to another row`, async () => {
@@ -75,14 +88,15 @@ describe("a Copilot result row toggles the interior slide-over (email contact)",
       const first = await ask();
       const second = await ask(true);
       expect(first).not.toBe(second);
-      const container = displayLocation === "inline" ? "[data-main-thread]" : "[data-slot=right-panel]";
-      expect(row(first).closest(container)).not.toBeNull();
+      const rowContainer = displayLocation === "inline" ? "[data-main-thread]" : "[data-slot=right-panel]";
+      expect(row(first).closest(rowContainer)).not.toBeNull();
       expect(openResult()).toBeNull();
 
-      // Click → open, inside the row's container, with that result.
+      // Click → open, with that result: over the whole content card inline,
+      // inside the Contact Details panel in panel mode.
       await h.click(row(first));
       expect(openResult()).not.toBeNull();
-      expect(openResult()!.closest(container)).not.toBeNull();
+      expectSlideOverPlacement(displayLocation);
       expect(openResult()!.textContent).toContain(first);
 
       // The same row again → closed.
@@ -99,6 +113,50 @@ describe("a Copilot result row toggles the interior slide-over (email contact)",
       const shell = openResult()!.closest<HTMLElement>('[style*="visibility"]')!;
       const close = [...shell.querySelectorAll<HTMLElement>("button")].find((b) => /close/i.test(b.getAttribute("aria-label") ?? ""))!;
       await h.click(close);
+      expect(openResult()).toBeNull();
+    });
+  }
+});
+
+describe("an unscripted voice call has an AI feed for its Copilot rows", () => {
+  /** An outbound call to an unknown number (no script, no utterances), its card selected. */
+  async function unscriptedCall(displayLocation: AiSettings["displayLocation"]) {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await act(async () => {
+      getSettingsStore().update("ai", { displayLocation });
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    await h.goAvailable();
+    await act(async () => {
+      const dialed = h.provider.dial({ channel: "voice", address: "(161) 474-9179", skillId: "general" });
+      await vi.advanceTimersByTimeAsync(500);
+      await dialed;
+    });
+    await h.click(h.navCard("(161) 474-9179"));
+  }
+
+  for (const displayLocation of AI_DISPLAY_LOCATIONS) {
+    it(`AI display ${displayLocation}: "Summarize this call" adds a row in the feed, and the row toggles the slide-over`, async () => {
+      await unscriptedCall(displayLocation);
+      const chip = [...composer().querySelectorAll<HTMLElement>("[data-slot=copilot-chips] [role=button]")].find(
+        (c) => c.textContent?.trim() === "Summarize this call",
+      )!;
+      expect(chip).toBeTruthy();
+      await h.click(chip);
+      await h.click(composer().querySelector('button[aria-label="Submit"]')!);
+      await h.advance(2_500);
+
+      // The interstitial row, in the feed: the main column inline, the panel in panel mode.
+      const feed = displayLocation === "inline" ? "[data-main-thread]" : "[data-slot=right-panel]";
+      const summarize = row("Summarize this call");
+      expect(summarize).toBeTruthy();
+      expect(summarize.closest(feed)).not.toBeNull();
+
+      // Its result (the unscripted placeholder) opens, then closes, by the row.
+      await h.click(summarize);
+      expect(openResult()?.textContent).toContain("Summarize this call");
+      expectSlideOverPlacement(displayLocation);
+      await h.click(row("Summarize this call"));
       expect(openResult()).toBeNull();
     });
   }

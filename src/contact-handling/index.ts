@@ -49,7 +49,7 @@ export { useOmnichannelLayout, type OmnichannelLayout } from "./useOmnichannelLa
 export { ConfirmCloseDialog } from "./ConfirmCloseDialog";
 export { useChannelSync } from "./useChannelSync";
 export { copilotSuggestionsFor } from "./copilot-suggestions";
-export { channelOn, enabledChannelOptions, historyOnChannels, withEnabledChannels } from "./channel-gates";
+export { channelOn, enabledChannelOptions, withEnabledChannels } from "./channel-gates";
 export { launcherGroups, INERT_LAUNCHER_TABS } from "./launcher-groups";
 export { ADDRESS_BOOKS, addressBookGroup, type AddressBook } from "./address-books";
 export { VoiceBar, type VoiceBarProps } from "./VoiceBar";

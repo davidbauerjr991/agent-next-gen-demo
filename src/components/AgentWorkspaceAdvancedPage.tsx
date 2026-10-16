@@ -205,7 +205,6 @@ import {
   copilotSuggestionsFor,
   useChannelSync,
   enabledChannelOptions,
-  historyOnChannels,
   withEnabledChannels,
   ADDRESS_BOOKS,
   channelTempo,
@@ -1675,16 +1674,11 @@ export function AgentWorkspaceAdvancedPage({
   // rather than left unused. `InteractionTranscript`'s own session-row
   // status popover (`statusMenuOpenId`/`statusMenuView`) is the only copy
   // of this left.
-  // Per explicit request ("hide all non-voice contacts from the contact
-  // Settings → Channels: the channels agents contact customers on.
+  // Settings → Channels: the channels agents contact customers on. It gates
+  // only what the agent can start or receive, never Contact History.
   const [channelSettings] = useSettings("channels");
-  // Contact History shows only the channels that are on (Phase 1: voice).
-  // Every range is filtered, since the builder mixes in the shared mock
-  // fixtures for the 48/72-hour ranges.
-  const contactHistoryByRange = useMemo(
-    () => historyOnChannels(buildContactHistoryByRange(dismissedContactHistory), channelSettings),
-    [dismissedContactHistory, channelSettings]
-  );
+  // Contact History shows every contact on every channel, always.
+  const contactHistoryByRange = useMemo(() => buildContactHistoryByRange(dismissedContactHistory), [dismissedContactHistory]);
   // Drives `AssignmentsSortButton`'s `RadioGroup` — "Last Updated" (default,
   // matching a typical inbox's own default order) or "Create Date". Actual
   // ordering happens where the cards render (`sortAssignments`), leaving
@@ -1743,8 +1737,7 @@ export function AgentWorkspaceAdvancedPage({
   // into the docked Contact Details panel (`renderAiPanelFeed`).
   const [aiSettings] = useSettings("ai");
   const aiInPanel = aiSettings.displayLocation === "panel";
-  // Where the interior slide-over mounts: the container the AI rows live in.
-  const [mainThreadMount, setMainThreadMount] = useState<HTMLElement | null>(null);
+  // AI display "panel": the interior slide-over mounts in the Contact Details panel.
   const [rightPanelMount, setRightPanelMount] = useState<HTMLElement | null>(null);
   const portalInto = (mount: HTMLElement | null, node: React.ReactElement) => (mount ? createPortal(node, mount) : node);
   const stripAiInPanel = (messages: TranscriptMessage[]) =>
@@ -7776,7 +7769,7 @@ export function AgentWorkspaceAdvancedPage({
               `AgentNextGenTemplate.stories.tsx`'s reference layout, just
               with `isCombinedPanelMode`'s own stacking preserved unchanged
               one level in. */}
-          <Container className="flex flex-col flex-1 overflow-hidden relative">
+          <Container className="flex flex-col flex-1 overflow-hidden relative" data-slot="content-card">
 
             {/* Row: Customer Information panel (left) + everything else
                 (tab row + content column, stacked). Not flattened into
@@ -9087,7 +9080,7 @@ export function AgentWorkspaceAdvancedPage({
                       `CUSTOMER_PANEL_TABS`), so this is unconditional
                       again.) */}
                   <div className="relative flex flex-1 overflow-hidden">
-                      <div ref={setMainThreadMount} className="relative flex flex-1 flex-col min-w-0 overflow-hidden" data-main-thread={activeChannelType}>
+                      <div className="relative flex flex-1 flex-col min-w-0 overflow-hidden" data-main-thread={activeChannelType}>
                         {isHistoryConversationView && historyConversationForActive ? (
                           /* Past-session conversation, opened as its own tab in
                              this record area (see the history `Tab` in the
@@ -9480,12 +9473,10 @@ export function AgentWorkspaceAdvancedPage({
                             voiceTranscriptInMain
                               ? // AI in the panel: the main column shows the call's own transcript (utterances, event rows); the AI cards are in the panel.
                                 (activeInteraction.liveMessages?.[activeChannelKey] ?? [])
-                              : isColdCallId(activeInteraction.id)
-                              ? // The call transcript lives in the Transcript tab; the main column keeps only AI action rows (interstitials).
-                                (activeInteraction.liveMessages?.[activeChannelKey] ?? []).filter((m) => !!m.instruction)
                               : activeChannelType === "voice"
-                                ? []
-                                : (activeInteraction.liveMessages?.[activeChannelKey] ?? [])
+                              ? // Every call, scripted or not: the spoken lines live in the Transcript tab; the main column is the call's AI feed, its Copilot interstitial and result rows.
+                                (activeInteraction.liveMessages?.[activeChannelKey] ?? []).filter((m) => !!m.instruction)
+                              : (activeInteraction.liveMessages?.[activeChannelKey] ?? [])
                           )}
                           // See `customerTyping`'s own doc comment above —
                           // scoped to whichever channel is ACTIVE right now,
@@ -10015,8 +10006,6 @@ export function AgentWorkspaceAdvancedPage({
                         // doc comment (agent-next-gen-contact-history.tsx)
                         // for why this tier alone passes it.
                         defaultDateFilter="last72h"
-                        // Channel chips only when the agent works more than one channel.
-                        showChannelTags={enabledChannels.length > 1}
                         // `onOpenAllContacts` intentionally omitted — per
                         // explicit request ("remove all contacts button from
                         // the contact history in the home dashboard"). This
@@ -10907,10 +10896,11 @@ export function AgentWorkspaceAdvancedPage({
                 interaction's whole lifetime; `lastDetailPanelContent`
                 (never nulled) keeps its content from going blank
                 mid-close.
-                It slides over the container the AI rows live in: the main
-                column (AI display inline) or the Contact Details panel
-                (panel), portaled there; the card only while neither is up. */}
-            {activeInteraction && portalInto(aiInPanel ? rightPanelMount : mainThreadMount,
+                AI display inline: it covers this whole content card, from
+                its top (over the record header) to its bottom edge. Panel:
+                it's portaled into the Contact Details panel, where the AI
+                rows live (the card while the panel isn't up). */}
+            {activeInteraction && portalInto(aiInPanel ? rightPanelMount : null,
               <InContactInteriorPanel
                 open={!!selectedDetailPanelContent}
                 onClose={() => setSelectedDetailPanelContent(null)}
