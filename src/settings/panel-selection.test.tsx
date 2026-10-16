@@ -173,27 +173,34 @@ describe("header highlight rule", () => {
     expect(panelShows()).toBe("details");
     const [email, whatsApp, details] = [headerIcon("Email")!, headerIcon("WhatsApp")!, contactDetailsButton()!];
     expect([active(email), active(details), anyActive(whatsApp)]).toEqual([true, true, false]);
-    expect([pressed(email), pressed(details)]).toEqual([false, true]);
+    // Omnichannel off, so the icons are tabs (P-AIFIRST (k)): the main tab is the pressed one.
+    expect([pressed(email), pressed(details)]).toEqual([true, true]);
     const whatsAppOff = classes(whatsApp);
+    const emailOn = classes(email);
     const detailsOn = classes(details);
 
-    // WhatsApp into the panel: it and the email are active, Contact Details default.
+    // The WhatsApp tab swaps the main column: it's the one active tab; Contact Details stays.
     await h.click(whatsApp);
-    expect(panelShows()).toBe("whatsapp");
-    const [email2, whatsApp2, details2] = [headerIcon("Email")!, headerIcon("WhatsApp")!, contactDetailsButton()!];
-    expect([active(email2), active(whatsApp2), anyActive(details2)]).toEqual([true, true, false]);
-    for (const el of [whatsApp2, details2]) expect(el.getAttribute("data-preview-open")).toBeNull();
+    expect(h.container.querySelector("[data-main-thread]")?.getAttribute("data-main-thread")).toBe("whatsapp");
+    expect(panelShows()).toBe("details");
+    const [email2, whatsApp2] = [headerIcon("Email")!, headerIcon("WhatsApp")!];
+    expect([active(whatsApp2), anyActive(email2), active(contactDetailsButton()!)]).toEqual([true, false, true]);
+    for (const el of [whatsApp2, email2]) expect(el.getAttribute("data-preview-open")).toBeNull();
+    const whatsAppOn = classes(whatsApp2);
+    // Clicking the active tab changes nothing.
+    await h.click(whatsApp2);
+    expect(h.container.querySelector("[data-main-thread]")?.getAttribute("data-main-thread")).toBe("whatsapp");
+
+    // Contact Details off: the panel closes.
+    await h.click(contactDetailsButton()!);
+    expect(panelShows()).toBeNull();
+    const detailsOff = classes(contactDetailsButton()!);
 
     // Becoming active adds and removes the same classes on an icon and on Contact Details,
-    // and two active icons (one in main, one in the panel) carry the same classes.
-    const whatsAppOn = classes(whatsApp2);
-    const detailsOff = classes(details2);
+    // and the two tabs carry the same classes when active.
     expect(minus(whatsAppOn, whatsAppOff)).toEqual(minus(detailsOn, detailsOff));
     expect(minus(whatsAppOff, whatsAppOn)).toEqual(minus(detailsOff, detailsOn));
-    expect([...classes(email2)].sort()).toEqual([...whatsAppOn].sort());
-    // Clicking the in-main member changes nothing.
-    await h.click(email2);
-    expect(panelShows()).toBe("whatsapp");
+    expect([...emailOn].sort()).toEqual([...whatsAppOn].sort());
   });
 
   it("selected = what the panel shows (single); inline/panel also mark the main column's thread 'in main'; main: no in-main mark", async () => {

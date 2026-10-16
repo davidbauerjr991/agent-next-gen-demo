@@ -156,7 +156,7 @@ import {
   answerSeverity,
   offerRowAnswerSeverity,
   showsSessionControls,
-  dockedPreviewKey,
+  tabMainKey,
   VoiceBar,
   NewOutboundLauncher,
   outcomeDraftKey as outcomeDraftKeyOf,
@@ -1732,7 +1732,9 @@ export function AgentWorkspaceAdvancedPage({
   // into the docked Contact Details panel (`renderAiPanelFeed`). AI display
   // "main" (AI-first) makes it the main column instead (`AiWorkspaceColumn`),
   // every thread opens in the panel, and it implies the omnichannel routing.
-  const { panelPlacement, placement, omnichannel, aiInPanel } = useConversationPlacement();
+  const { panelPlacement, placement, omnichannel, aiInPanel, asyncPlacement } = useConversationPlacement();
+  // Omnichannel off: the header channel icons are tabs for the main column (P-AIFIRST (k)).
+  const tabs = asyncPlacement === "tabs";
   // AI display "panel": the interior slide-over mounts in the Contact Details panel.
   const [rightPanelMount, setRightPanelMount] = useState<HTMLElement | null>(null);
   const portalInto = (mount: HTMLElement | null, node: React.ReactElement) => (mount ? createPortal(node, mount) : node);
@@ -1928,10 +1930,11 @@ export function AgentWorkspaceAdvancedPage({
     ? activeInteraction.currentThreadId ?? activeInteraction.threads[activeInteraction.threads.length - 1]?.id
     : undefined;
   const mainPins = useMainPins();
-  const mainKey =
-    omnichannel && activeInteraction
+  const mainKey = !activeInteraction
+    ? undefined
+    : omnichannel
       ? omnichannelMainKey(activeInteraction.threads, requestedMainKey, mainPins.pinned(activeInteraction.id))
-      : requestedMainKey;
+      : tabMainKey(activeInteraction.threads, requestedMainKey);
   const activeChannel = activeInteraction?.threads.find((c) => (c.id ?? c.type) === mainKey);
   const omni = useOmnichannelLayout(omnichannel ? activeInteraction : null, panelPlacement ? undefined : mainKey, {
     defaultKey: panelPlacement && activeInteraction ? panelDefaultKey(activeInteraction.threads) : undefined,
@@ -1946,11 +1949,11 @@ export function AgentWorkspaceAdvancedPage({
   // The selected card's call in wrap-up, if any (its inline wrap-up card).
   const activeWrapUpThread = voiceWrapUpThread(activeInteraction);
   // The voice thread whose Transcript tab the Contact Details panel offers: the active channel when it's voice, or (Lucas) a live call
-  // John placed from the escalation card while the chat stays on screen.
+  // John placed from the escalation card while the chat stays on screen; with tabs, any call beside the main tab (voice has none).
   const panelVoiceThread: Thread | undefined =
     activeChannelType === "voice"
       ? activeChannel
-      : activeInteraction && scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && !activeInteraction.closed && !activeInteraction.voiceCallEnded
+      : activeInteraction && (tabs || scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID) && !activeInteraction.closed && !activeInteraction.voiceCallEnded
         ? activeInteraction.threads.find((t) => t.type === "voice")
         : undefined;
   // Per explicit follow-up request ("leave the active badge visible if the
@@ -3077,27 +3080,11 @@ export function AgentWorkspaceAdvancedPage({
   useEffect(() => {
     if (selectedDetailPanelContent) setLastDetailPanelContent(selectedDetailPanelContent);
   }, [selectedDetailPanelContent]);
-  // Per explicit request ("when a new interaction is added, instead of
-  // changing the main content ... add an icon representing the channel
-  // ... and open a side panel (like contact details) with the channel
-  // content"), refined by a later explicit follow-up ("put the content of
-  // the channels IN the side panel (where the contact details content is
-  // now)" / "so a chat opens in that side panel"): which non-active
-  // Thread (by its own `id ?? type` key, same scheme every other
-  // per-channel lookup in this file uses) is currently taking over the
-  // docked Contact Details panel's own content — `null` when nothing's
-  // being previewed, in which case that panel (if open) shows its normal
-  // Overview/Session tabs as usual. Set on add (`handleAddAdHocChannel`/
-  // `handleStartCall`, above) for anything but voice, and toggled by the
-  // header icon row (own render site) the rest of the time.
-  const [requestedChannelPreviewKey, setChannelPreviewThreadKey] = useState<string | null>(null);
-  // Never the thread already in the main column (dockedPreviewKey): e.g. a
-  // row click on an unselected card switches to it and asks for its main
-  // thread in the preview too; that request is dropped here.
-  // The omnichannel layout retires the docked preview (its slide-out replaces it).
-  // The omnichannel layout's async thread shows in this same Contact Details
-  // panel (one panel implementation): its open thread is the slide-out key.
-  const channelPreviewThreadKey = omnichannel ? omni.slideOutKey : dockedPreviewKey(requestedChannelPreviewKey, activeChannelKey);
+  // The thread the docked Contact Details panel shows instead of Contact
+  // Details: the omnichannel slide-out's (one panel implementation). With
+  // tabs (omnichannel off, P-AIFIRST (k)) the panel never shows a thread:
+  // the header icons swap the main column instead, so this is always null.
+  const channelPreviewThreadKey = omnichannel ? omni.slideOutKey : null;
   // Looked up once here (rather than inline at the
   // `CustomerInformationSidePanel` render call site) since it now feeds
   // several of that single docked panel's own override props — see each
@@ -3764,13 +3751,8 @@ export function AgentWorkspaceAdvancedPage({
   const handleSidePanelClose = () => {
     setSidePanelOpen(false);
     setSidePanelFullScreen(false);
-    // Per explicit follow-up request ("put the content of the channels IN
-    // the side panel"): a channel preview now lives INSIDE this same
-    // panel (see `channelPreviewThreadKey`'s own doc comment), so closing
-    // the panel itself must clear it too — otherwise the next open would
-    // silently land back on whatever channel was showing instead of the
-    // normal Overview tab.
-    setChannelPreviewThreadKey(null);
+    // The slide-out's thread lives in this same panel, so closing the panel
+    // clears it too: the next open lands on Contact Details.
     if (activeInteractionId) omni.close(activeInteractionId);
     // Per later explicit request ("put the transcript and session tabs
     // into the new customer information side panel"): a closed-then-
@@ -3906,7 +3888,6 @@ export function AgentWorkspaceAdvancedPage({
   const contactDetailsShowing = sidePanelOpen && !channelPreviewThreadKey;
   function showContactDetails() {
     setSidePanelOpen(true);
-    setChannelPreviewThreadKey(null);
     if (activeInteractionId) omni.close(activeInteractionId);
     clearTimeout(customerInfoPreviewTimer.current);
     setCustomerInfoPreviewOpen(false);
@@ -4175,8 +4156,8 @@ export function AgentWorkspaceAdvancedPage({
   // Where a launched contact lands once the provider has it (P0.5b.2,
   // useContactActivation). "focus" (a new card, a redial, a reopen, a
   // notification) makes its card active with that thread in the main column;
-  // "added" (a channel added to an open card) opens it in the docked channel
-  // preview and leaves the main column on the active contact (rows 12/13).
+  // "added" (a channel added to an open card) does too with tabs, and opens
+  // in the slide-out with omnichannel when its tempo says so.
   const handleContactActivated = ({ journeyId, threadKey, mode, isNewCard }: Activation) => {
     switchActiveInteraction(journeyId);
     // Omnichannel: an async channel (added or focused) opens in the
@@ -4192,11 +4173,11 @@ export function AgentWorkspaceAdvancedPage({
       if (isNewCard) setSidePanelOpen(false);
       return;
     }
-    if (mode === "added" && !omnichannel) {
-      setChannelPreviewThreadKey(threadKey);
-      return;
-    }
-    if (route !== "bar") {
+    // Tabs (omnichannel off): an added thread selects its tab like any other
+    // (rows 12/13's docked preview is superseded); a call beside a tab only
+    // brings the voice bar (voice has no tab), so the main tab stays.
+    const callBesideTabs = tabs && threadKey.startsWith("voice") && !!threads?.some((t) => t.type !== "voice");
+    if (route !== "bar" && !callBesideTabs) {
       setInteractions((prev) =>
         prev.map((i) => (i.id === journeyId && i.currentThreadId !== threadKey ? { ...i, currentThreadId: threadKey } : i))
       );
@@ -4242,10 +4223,9 @@ export function AgentWorkspaceAdvancedPage({
     onJoin: (cardId) => {
       const card = interactions.find((i) => i.id === cardId);
       const current = card?.currentThreadId ?? card?.threads[card.threads.length - 1]?.id;
-      if (!card || !current || panelPlacement) return;
-      if (omnichannel) mainPins.pin(cardId, omnichannelMainKey(card.threads, current, mainPins.pinned(cardId)) ?? current);
-      // Without omnichannel the newest thread would become the main one: record the current one.
-      else if (!card.currentThreadId) setInteractions((prev) => prev.map((i) => (i.id === cardId ? { ...i, currentThreadId: current } : i)));
+      // Omnichannel holds the main thread; with tabs the accepted thread selects its tab (onJoined → "added").
+      if (!card || !current || panelPlacement || !omnichannel) return;
+      mainPins.pin(cardId, omnichannelMainKey(card.threads, current, mainPins.pinned(cardId)) ?? current);
     },
     onJoined: (cardId, id) => {
       if (cardId === activeInteractionId) activateWhenReady(id, "added", false);
@@ -4740,26 +4720,16 @@ export function AgentWorkspaceAdvancedPage({
       }
       return;
     }
-    const channel = interactions
-      .find((i) => i.id === interactionId)
-      ?.threads.find((c) => (c.id ?? c.type) === channelKey);
-    // Voice and Lucas Thomas's chat both live in the main column only — never open a side-panel preview for them.
-    const isLucasChat = scenarioKeyOf(interactionId) === LUCAS_THOMAS_ID && channel?.type !== "voice";
-    const isVoiceChannel = channel?.type === "voice" || isLucasChat;
-    if (isLucasChat) {
-      // His chat row always brings his chat back to the main column.
-      setInteractions((prev) =>
-        prev.map((i) => (i.id === interactionId && i.currentThreadId !== channelKey ? { ...i, currentThreadId: channelKey } : i))
-      );
-      setChannelPreviewThreadKey(null);
-    }
-    if (interactionId === activeInteractionId) {
-      if (isVoiceChannel) return;
-      setChannelPreviewThreadKey(channelPreviewThreadKey === channelKey ? null : channelKey);
-      return;
-    }
-    switchActiveInteraction(interactionId);
-    if (!isVoiceChannel) setChannelPreviewThreadKey(channelKey);
+    // Tabs (omnichannel off, P-AIFIRST (k)): a header tab or a nav row swaps
+    // the main column to that thread (from Home it opens the card too). Voice
+    // has no tab: its row leaves the main tab as it is (the voice bar shows).
+    const card = interactions.find((i) => i.id === interactionId);
+    const thread = card?.threads.find((c) => (c.id ?? c.type) === channelKey);
+    if (interactionId !== activeInteractionId) switchActiveInteraction(interactionId);
+    if (!card || (thread?.type === "voice" && card.threads.some((t) => t.type !== "voice"))) return;
+    setInteractions((prev) =>
+      prev.map((i) => (i.id === interactionId && i.currentThreadId !== channelKey ? { ...i, currentThreadId: channelKey } : i))
+    );
   };
 
   /** Marcus's call continues as his Next Best Action card's steps land: each
@@ -7128,7 +7098,7 @@ export function AgentWorkspaceAdvancedPage({
                 // Placement "panel": the current row is the thread in the panel.
                 const currentId = panelPlacement
                   ? (interaction.id === activeInteractionId && channelPreviewThreadKey) || panelDefaultKey(interaction.threads) || requestedId
-                  : omnichannel ? omnichannelMainKey(interaction.threads, requestedId, mainPins.pinned(interaction.id)) ?? requestedId : requestedId;
+                  : (omnichannel ? omnichannelMainKey(interaction.threads, requestedId, mainPins.pinned(interaction.id)) : tabMainKey(interaction.threads, requestedId)) ?? requestedId;
                 // Seconds since the CUSTOMER last wrote on this channel —
                 // only meaningful (and only ever read) for a channel that's
                 // actually awaiting, which per `hasCustomerResponded` below
@@ -8599,7 +8569,8 @@ export function AgentWorkspaceAdvancedPage({
                             moment this early return comes back out. */}
                         {/* One icon per channel (its most recent thread), never one per thread. */}
                         {channelHeaderEntries(activeInteraction.threads).map(({ thread: c, count: threadCount, keys: channelKeys }) => {
-                          if (!SHOW_VOICE_CHANNEL_HEADER_ICON && c.type === "voice") return null;
+                          // Tabs (omnichannel off): the icons are tabs for the main column, shown while the card has more than one thread.
+                          if ((!SHOW_VOICE_CHANNEL_HEADER_ICON && c.type === "voice") || (tabs && activeInteraction.threads.length < 2)) return null;
                           // Lucas Thomas's chat lives in the main column — no header channel icon.
                           // AI display "main": every thread, scripted ones included, is in the panel and gets its icon.
                           const lucasInMain = !panelPlacement && scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID;
@@ -8610,13 +8581,9 @@ export function AgentWorkspaceAdvancedPage({
                           // "main") reads as active and doesn't toggle the panel:
                           // that thread is already the main column's content.
                           const isVoiceChannel = c.type === "voice" || lucasInMain;
-                          // Omnichannel: the icons are tabs — open when the thread is in the main column or the slide-out.
-                          // The icons and Contact Details are one toggle group
-                          // for the right panel: an icon is selected while its
-                          // thread is the one the panel shows.
-                          // Pressed = what the panel shows (single, with Contact Details). Active (the
-                          // selected look, `panelToggleClass`) = on screen: the panel's thread, and the
-                          // main column's outside AI display "main"; clicking that one is a no-op.
+                          // Active (the selected look, `panelToggleClass`) = on screen: the panel's thread,
+                          // and the main column's outside AI display "main" (clicking that one is a no-op).
+                          // Pressed = what the panel shows; with tabs, the main tab (exactly one).
                           const isOpen = channelKeys.includes(channelPreviewThreadKey ?? "");
                           const inMain = !isOpen && !panelPlacement && channelKeys.includes(activeChannelKey);
                           const unreadCount =
@@ -8732,7 +8699,7 @@ export function AgentWorkspaceAdvancedPage({
                                 <Button
                                   variant="outline"
                                   size="icon-sm"
-                                  aria-pressed={isOpen}
+                                  aria-pressed={tabs ? inMain : isOpen}
                                   aria-label={
                                     isVoiceChannel
                                       ? `${previewLabel} active`

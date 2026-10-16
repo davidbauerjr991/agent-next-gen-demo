@@ -44,10 +44,12 @@ describe("digital offers load as cards", () => {
 
   // Browser check round 2, item 1: the email card is selected (the sim has no
   // inbound email, so it's an outbound one), then a chat arrives for the same
-  // address. It joins the card as a second row and activates "added": the
-  // panel opens with the chat, the main column stays on the email.
+  // address. It joins the card as a second row and activates "added".
+  // Omnichannel on: the panel opens with the chat, the main column stays on
+  // the email. Off (tabs, P-AIFIRST (k)): accepting the chat selects its tab
+  // (the main column), and the panel never shows a thread.
   for (const omnichannel of [true, false]) {
-    it(`a chat arriving for the selected email card joins it and opens beside it (omnichannel ${omnichannel ? "on" : "off"})`, async () => {
+    it(`a chat arriving for the selected email card joins it (omnichannel ${omnichannel ? "on: opens beside it" : "off: selects its tab"})`, async () => {
       await act(async () => {
         getSettingsStore().update("channels", { chat: true, email: true });
         getSettingsStore().update("assignments", { omnichannel });
@@ -69,9 +71,14 @@ describe("digital offers load as cards", () => {
       const rows = [...h.navCard("Lauren Briggs").closest("li, [data-slot=nav-card], div")!.parentElement!.querySelectorAll("[aria-label$=' channel'], [aria-label*=' channel,']")]
         .map((row) => row.getAttribute("aria-label")!.split(" ")[0]);
       expect(rows).toEqual(expect.arrayContaining(["Email", "Chat"]));
-      expect(main()).toBe("email");
-      expect(panel()?.getAttribute("data-open")).toBe("true");
-      expect(panel()?.getAttribute("data-thread")).toBe("chat");
+      if (omnichannel) {
+        expect(main()).toBe("email");
+        expect(panel()?.getAttribute("data-open")).toBe("true");
+        expect(panel()?.getAttribute("data-thread")).toBe("chat");
+      } else {
+        expect(main()).toBe("chat");
+        expect(["chat", "email"]).not.toContain(panel()?.getAttribute("data-thread"));
+      }
     });
   }
 

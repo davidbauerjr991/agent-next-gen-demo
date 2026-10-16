@@ -125,13 +125,17 @@ describe("header hover previews", () => {
     expect(previews()).toHaveLength(1);
     await h.click(headerIcon("WhatsApp")!);
     expect(previews()).toHaveLength(0);
+    // Omnichannel off: the icons are tabs (P-AIFIRST (k)); WhatsApp is now the main tab.
+    const main = () => h.container.querySelector("[data-main-thread]")?.getAttribute("data-main-thread");
+    expect(main()).toBe("whatsapp");
     expect(headerIcon("WhatsApp")!.getAttribute("aria-pressed")).toBe("true");
-    // Inline: the main column's thread is marked in-main (not selected); clicking it is a no-op.
     expect(headerIcon("Email")!.getAttribute("aria-pressed")).toBe("false");
-    expect(headerIcon("Email")!.getAttribute("data-in-main")).toBe("true");
+    // Clicking the active tab is a no-op; the other tab swaps back.
+    await h.click(headerIcon("WhatsApp")!);
+    expect(main()).toBe("whatsapp");
     await h.click(headerIcon("Email")!);
-    expect(headerIcon("WhatsApp")!.getAttribute("aria-pressed")).toBe("true");
-    expect(h.container.querySelector("[data-main-thread]")?.getAttribute("data-main-thread")).toBe("email");
+    expect(main()).toBe("email");
+    expect(headerIcon("Email")!.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("unread: a preview that opened counts as reading (the badge clears on hover-off); a glancing hover doesn't", async () => {
