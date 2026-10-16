@@ -68,7 +68,7 @@ Status values: `todo` / `in progress` / `done` / `deferred`. Rows follow PROMPTS
 | P4.8 | Agent ask box | 4 | todo | |
 | P4.9 | Progressive entity creation (deterministic) | 4 | todo | |
 | P4.10 | No-match fallback | 4 | todo | |
-| P4.11 | Knowledge base, Tier 1 | 4 | todo | Added 2026-10-15. |
+| P4.11 | Knowledge base, Tier 1 | 4 | todo | Added 2026-10-15. Quick replies (PLAN §11a, 2026-10-16) are in scope: a native library served by `KnowledgeProvider.listQuickReplies`, vendor libraries as sync sources, canonical `{customer.firstName}` variables translated at the adapter edge, render-time unresolved-variable safety, per-channel formatting, vendor-only features recorded `unsupported`. |
 | P5.1 | Model access | 5 | todo | |
 | P5.2 | Tools and persona from the profile | 5 | todo | |
 | P5.3 | Hybrid rule | 5 | todo | |
@@ -89,7 +89,7 @@ Status values: `todo` / `in progress` / `done` / `deferred`. Rows follow PROMPTS
 | P7.6 | Embedded apps in the draggable panel | 7 | todo | |
 | P7.7 | Configurable layout + Contact Details configuration | 7 | todo | Needs the layout slots from P0.5d.2. |
 | P7.8 | Connections, sync modes, conflict handling, outbound policy, address books | 7 | todo | |
-| P-MAPPINGS | Connector mappings and data memorialization | Later | todo | Added 2026-10-16; before P-ADAPTER (Zendesk needs it). Per connection: field-by-field entity mappings (direction, per-field authority, search keys) and named memorialization mappings on triggers, with dry-run; `connections.<seam>.mappings`; the sim logs what it would write. |
+| P-MAPPINGS | Connector mappings and data memorialization | Later | todo | Added 2026-10-16; before P-ADAPTER (Zendesk needs it). Per connection: field-by-field entity mappings (customer, ticket, account, interaction, quick reply with its `variableMap`; direction, per-field authority, search keys) and named memorialization mappings on triggers, with dry-run; `connections.<seam>.mappings`; the sim logs what it would write. |
 | P-ADAPTER | Real adapters: Twilio → Zendesk → CXone → WFM → AI vendor | Later | todo | One step per adapter (PLAN.md "Integration readiness"); after P-MAPPINGS. |
 | P-PARKED | Email and SMS | Later | deferred | See Deferred items. |
 
