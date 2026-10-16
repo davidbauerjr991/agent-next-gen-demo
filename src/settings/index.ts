@@ -10,7 +10,9 @@ export {
   useResetSettings,
   useApplyTheme,
   applyStoredTheme,
+  useBrand,
 } from "./hooks";
+export { readLogoFile, sanitizeSvg, LOGO_ERROR_MESSAGES, type LogoReadResult } from "./brand";
 export { PROFILE_LABELS, PROFILE_IDS, type ProfileId, type WorkspaceProfile } from "./profiles";
 export {
   pinnedKeysFromHeader,
@@ -53,5 +55,8 @@ export {
   type AiSettings,
   type PhoneSettings,
   type AppearanceSettings,
+  type BrandSettings,
+  DEFAULT_APP_NAME,
+  LOGO_MAX_BYTES,
   type ConnectionsSettings,
 } from "./settings-schema";

@@ -1,22 +1,7 @@
-// AgentWorkspaceAdvancedPage — labeled "Agent Workspace 2.0 | Phase 1" in
-// the top-left app menu (agent-next-gen-outbound-data.tsx's
-// `buildAppMenuGroups`) — was "Agent Workspace 2.0 | Phase 1B" (and, before
-// that, "Agent Workspace 2.0 Advanced") until the original "Phase 1" page
-// (`AgentNextGenPage.tsx`, the plain `"agent"` page) was removed per
-// explicit request ("remove phase 1 for now - it is old ... rename the
-// menu item Phase 1B to Phase 1 - completely delete the phase 1 files") —
-// only this file's own display strings/app-menu label changed for that;
-// its component/file name and internal `"agent-advanced"` page id/route
-// (its own route at #/agent-advanced, App.tsx) were deliberately left
-// as-is. This file was originally created as a duplicate of
-// AgentNextGenPage.tsx (only the exported component's own name + this
-// page's own display strings/page id were changed) — a genuinely separate
-// file/component so edits to it never affected the original "Phase 1"
-// page, and vice versa. That original is now deleted entirely, so this
-// file (and AgentWorkspace2WithDeskPage.tsx, "Phase 2" — see that file's
-// own top-of-file note, also originally duplicated from it) are the only
-// two survivors of that lineage; the two are still NOT kept in sync with
-// each other automatically.
+// AgentWorkspaceAdvancedPage — the agent workspace (#/agent-advanced). Its
+// title is the white-label app name (Settings → Appearance, P-AIFIRST); its
+// layout varies by settings and workspace profiles only (P0.5d.2 deleted
+// Desk, the "Phase 2" page this file was once duplicated alongside).
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
@@ -120,6 +105,7 @@ import {
 } from "@/components/agent-next-gen-transcript";
 import { isAiActionMessage } from "@/components/agent-next-gen-ai-messages";
 import {
+  APP_MENU_ITEMS,
   buildAppMenuGroups,
   OUTBOUND_TEAMS,
   OUTBOUND_TEAM_MEMBERS,
@@ -277,14 +263,13 @@ import {
 import { useCopilotAsk, useCopilotResultTimer } from "@/contact-handling/useCopilotAsk";
 import { usePresenceSync } from "@/contact-handling/usePresenceSync";
 import {
-  PROFILE_LABELS,
   headerPatchForPin,
   homeTabApps,
   leftNavKeysFromHeader,
   pinnedKeysFromHeader,
   tabOrderPatch,
+  useBrand,
   useSettings,
-  useWorkspaceProfile,
   type ExtraHeaderApp,
   CONTACT_CHANNELS,
 } from "@/settings";
@@ -354,7 +339,7 @@ type DetailPanelContent =
   | { kind: "tom-call"; panel: TomLewisCallPanelKey }
   | { kind: "lucas-order"; orderId: LucasThomasOrderId; from?: "memory" | "purchases" }
   | { kind: "transactions"; id: string; note: string; timestamp: string; date: string; showFullTransactions: boolean };
-import appIcon from "@/assets/app-icon.svg";
+import { BrandMark } from "@/components/BrandMark";
 import damagedHeadphonesImg from "@/assets/headphones.jpg";
 import {
   MessageSquare,
@@ -2869,11 +2854,9 @@ export function AgentWorkspaceAdvancedPage({
   const [appearance, updateAppearance] = useSettings("appearance");
   const darkMode = appearance.theme === "dark";
   const handleDarkModeToggle = () => updateAppearance({ theme: darkMode ? "light" : "dark" });
-  const { profile: workspaceProfile } = useWorkspaceProfile();
-  const appDisplayName = `Agent Workspace 2.0 | ${PROFILE_LABELS[workspaceProfile]}`;
-
-  // Phase 1 / Phase 2 apply a profile; the page stays.
-  const appMenuGroups = buildAppMenuGroups(workspaceProfile, () => setAppMenuOpen(false));
+  // White-label brand (Settings → Appearance); profiles are picked in Settings.
+  const { appName: appDisplayName, logoSrc } = useBrand();
+  const appMenuGroups = buildAppMenuGroups(APP_MENU_ITEMS, () => setAppMenuOpen(false));
 
   /* Panel animation state machine — see AgentNextGenTemplate.stories.tsx for full comment */
   type PanelState = "closed" | "open" | "closing";
@@ -6558,26 +6541,21 @@ export function AgentWorkspaceAdvancedPage({
           // is crowding it, so icons only hide once there's a real
           // overlap risk instead of a fixed viewport-width guess.
           <div ref={appNameMeasureRef} className="flex items-center">
-            {/* Per explicit follow-up request ("rename the page Agent
-                Workspace 2.0 | Phase 1"): this is the page's own displayed
-                title (top-left of the header), separate from the app-menu
-                dropdown label (`buildAppMenuGroups`, agent-next-gen-
-                outbound-data.tsx) — that one was already renamed from
-                "Phase 1B" to "Phase 1" earlier; this on-page title still
-                read the older "Agent Workspace 2.0 Advanced" (itself
-                predating "Phase 1B") until now. Matches the naming
-                convention `AgentWorkspace2WithDeskPage.tsx`'s own identical
-                `AppNameMenu` call site already uses for its title ("Agent
-                Workspace 2.0 | Phase 2"). */}
-            <AppNameMenu
-              icon={<img src={appIcon} alt={appDisplayName} className="h-6 w-6" />}
-              name={appDisplayName}
-              compact={isCompactHeader}
-              groups={appMenuGroups}
-              menuFooter={<CXoneLogo />}
-              open={appMenuOpen}
-              onOpenChange={setAppMenuOpen}
-            />
+            {/* The white-label brand (Settings → Appearance). The app-name
+                menu shows only while it has items (`APP_MENU_ITEMS`). */}
+            {appMenuGroups.length > 0 ? (
+              <AppNameMenu
+                icon={<img src={logoSrc} alt={appDisplayName} className="h-6 w-6 object-contain" />}
+                name={appDisplayName}
+                compact={isCompactHeader}
+                groups={appMenuGroups}
+                menuFooter={<CXoneLogo />}
+                open={appMenuOpen}
+                onOpenChange={setAppMenuOpen}
+              />
+            ) : (
+              <BrandMark compact={isCompactHeader} />
+            )}
           </div>
         }
         actions={
@@ -11359,7 +11337,7 @@ export function AgentWorkspaceAdvancedPage({
             later. */}
         <AgentWelcomeMessage
           bare
-          icon={<img src={appIcon} alt="" className="h-8 w-8 shrink-0" />}
+          icon={<img src={logoSrc} alt={appDisplayName} title={appDisplayName} className="h-8 w-8 shrink-0 object-contain" />}
           title={`Good morning, ${CURRENT_AGENT_FIRST_NAME} ${CURRENT_AGENT_LAST_NAME}`}
           lastLogin={WELCOME_MODAL_LAST_LOGIN}
           onPrimaryClick={handleGoAvailable}

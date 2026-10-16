@@ -21,6 +21,7 @@ import {
   WarningIcon,
 } from "@nicecxone/lyra-ui";
 import { readSimLatency, useInteractions, useProviderKind } from "@/provider-context";
+import { BrandSettings } from "./BrandSettings";
 import {
   CONTACT_CHANNELS,
   type ContactChannel,
@@ -578,6 +579,7 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
             checked={appearance.theme === "dark"}
             onCheckedChange={(dark) => updateAppearance({ theme: dark ? "dark" : "light" })}
           />
+          <BrandSettings />
         </Section>
 
         <Section title="Connections">

@@ -1,5 +1,5 @@
 import { LoginCard, type LoginCardPreferences } from "@nicecxone/lyra-ui";
-import { useSectionStored, useSettings } from "@/settings";
+import { useBrand, useSectionStored, useSettings } from "@/settings";
 
 type Page = "agent-workspace" | "agent-advanced" | "outbound" | "login";
 
@@ -14,6 +14,7 @@ export function LoginPage({ onNavigate }: LoginPageProps) {
   const [phone, updatePhone] = useSettings("phone");
   const [appearance, updateAppearance] = useSettings("appearance");
   const phoneStored = useSectionStored("phone");
+  const { appName, logoSrc } = useBrand();
 
   const handleLaunch = (preferences: LoginCardPreferences) => {
     // "Save Preferences" persists the phone section; unchecked, the choice
@@ -27,17 +28,12 @@ export function LoginPage({ onNavigate }: LoginPageProps) {
 
   return (
     <div className="flex h-screen w-screen items-center justify-center bg-lyra-bg-surface-shell p-6 animate-in fade-in-0 duration-500">
-      {/* Per explicit request: the modal header reads "Agent Workspace"
-          (not lyra-ui's own default "Agent Next Gen" — that default is
-          left untouched, since other consumers of `LoginCard` may still
-          rely on it), and the idle-state launch button reads a plain
-          "Launch" instead of repeating the app name a second time right
-          below the header (`launchButtonLabel`, LoginCard's own new opt-in
-          prop — see that prop's doc comment, login-card.tsx). The
-          in-progress "Launching Agent Workspace…" status text is
-          untouched. */}
+      {/* The header reads the white-label app name and logo (Settings →
+          Appearance, P-AIFIRST); the idle launch button reads a plain
+          "Launch" rather than repeating the name (`launchButtonLabel`). */}
       <LoginCard
-        appName="Agent Workspace"
+        appName={appName}
+        appIcon={<img src={logoSrc} alt="" className="h-5 w-5 object-contain" />}
         launchButtonLabel="Launch"
         defaultPhoneSetup={phone.setup}
         defaultPhoneNumber={phone.phoneNumber}
@@ -45,8 +41,7 @@ export function LoginPage({ onNavigate }: LoginPageProps) {
         defaultSavePreferences={phoneStored}
         isDarkMode={appearance.theme === "dark"}
         onDarkModeToggle={() => updateAppearance({ theme: appearance.theme === "dark" ? "light" : "dark" })}
-        // Launches into Advanced ("Agent Workspace 2.0 | Phase 1" by
-        // default; the workspace preset decides its layout).
+        // Launches into the workspace (its profile decides the layout).
         onLaunch={handleLaunch}
       />
     </div>

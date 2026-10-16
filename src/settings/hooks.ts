@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { deriveProfile, profileValues, type ProfileId, type WorkspaceProfile } from "./profiles";
+import defaultAppIcon from "@/assets/app-icon.svg";
 import { withAgentSettings } from "./scope";
-import type { SectionKey, SettingsState } from "./settings-schema";
+import { DEFAULT_APP_NAME, type SectionKey, type SettingsState } from "./settings-schema";
 import { getSettingsStore, type SectionPatch, type SettingsStoreState, type UpdateOptions } from "./settings-store";
 
 function useSettingsSelector<T>(select: (state: SettingsStoreState) => T): T {
@@ -70,10 +71,26 @@ export function applyStoredTheme() {
   document.documentElement.setAttribute("data-theme", getSettingsStore().getState().values.appearance.theme);
 }
 
-/** Applies the stored theme to `<html data-theme>`; mounted once at the app root. */
+/** Applies the stored theme to `<html data-theme>` and the brand's app name
+ *  to the tab title; mounted once at the app root. */
 export function useApplyTheme() {
   const [{ theme }] = useSettings("appearance");
+  const { appName } = useBrand();
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
+  useEffect(() => {
+    document.title = appName;
+  }, [appName]);
+}
+
+/** The white-label brand (Settings → Appearance): the app name (the default
+ *  when left empty) and the logo's src (the default app icon when none). */
+export function useBrand(): { appName: string; logoSrc: string; customLogo: boolean } {
+  const [{ brand }] = useSettings("appearance");
+  return {
+    appName: brand.appName.trim() || DEFAULT_APP_NAME,
+    logoSrc: brand.logo ?? defaultAppIcon,
+    customLogo: brand.logo !== null,
+  };
 }

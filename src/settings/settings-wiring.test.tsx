@@ -7,9 +7,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
 import { LoginPage } from "@/components/LoginPage";
-import { buildAppMenuGroups } from "@/components/agent-next-gen-outbound-data";
+import { APP_MENU_ITEMS, buildAppMenuGroups } from "@/components/agent-next-gen-outbound-data";
+import { SettingsView } from "@/components/settings/SettingsView";
 import { LUCAS_THOMAS_SCRIPT, MARCUS_WEBB_SCRIPT } from "@/scenarios";
-import { applyStoredTheme, useApplyTheme } from "./hooks";
+import { applyProfile, applyStoredTheme, useApplyTheme } from "./hooks";
 import { deriveProfile } from "./profiles";
 import { getSettingsStore, resetSettingsStoreForTests, sectionStorageKey } from "./settings-store";
 import type { AppPlacement, SectionKey, SettingsState } from "./settings-schema";
@@ -24,7 +25,7 @@ const harnessRect = Element.prototype.getBoundingClientRect;
 Element.prototype.getBoundingClientRect = function (this: Element) {
   const rect = harnessRect.call(this);
   if (this.querySelector(":scope > [draggable=true]")) return { ...rect, left: 1000, x: 1000 } as DOMRect;
-  if (this.children.length === 1 && this.textContent?.startsWith("Agent Workspace 2.0")) return { ...rect, right: 300 } as DOMRect;
+  if (this.children.length === 1 && this.querySelector(":scope > [data-slot=brand-mark]")) return { ...rect, right: 300 } as DOMRect;
   return rect;
 };
 
@@ -732,44 +733,92 @@ describe("Launch screen: phone setup and Save Preferences", () => {
 });
 
 describe("Workspace profile", () => {
-  it("app menu: each entry applies its profile and stays on the page; the active entry follows the profile", () => {
+  it("the app menu has no profile entries: with no items it's empty, and the header shows a plain brand mark", async () => {
+    expect(APP_MENU_ITEMS.some((item) => /phase|profile|ai-first/i.test(item.label))).toBe(false);
+    expect(buildAppMenuGroups([])).toEqual([]);
+    // Data-driven for later items: picking one runs it, then closes the menu.
+    const run = vi.fn();
     const onPicked = vi.fn();
-    const [phase1, phase2] = buildAppMenuGroups("phase1", onPicked)[0].items;
-    expect([phase1.active, phase2.active]).toEqual([true, false]);
-    phase2.onClick?.();
-    expect(profile()).toBe("phase2");
-    expect(store().getState().values.assignments.omnichannel).toBe(true);
-    expect(onPicked).toHaveBeenCalledTimes(1);
-    expect(buildAppMenuGroups("phase2")[0].items.map((i) => i.active)).toEqual([false, true]);
-    expect(buildAppMenuGroups("custom")[0].items.map((i) => i.active)).toEqual([false, false]);
-    phase1.onClick?.();
-    expect(profile()).toBe("phase1");
+    buildAppMenuGroups([{ label: "Customer console", run }], onPicked)[0].items[0].onClick?.();
+    expect([run.mock.calls.length, onPicked.mock.calls.length]).toEqual([1, 1]);
+    await h.show(AgentWorkspaceAdvancedPage);
+    expect(h.container.querySelector("[data-slot=brand-mark]")).not.toBeNull();
+    expect(h.container.querySelector('[aria-label$="open application menu"]')).toBeNull();
   });
 
-  it("the app menu's Phase 2 updates the header and Home in place, without a remount", async () => {
+  it("applying Phase 2 updates the header and Home in place, without a remount; the title has no profile suffix", async () => {
     await h.show(AgentWorkspaceAdvancedPage);
     const dashboard = h.container.querySelector("[data-home-section]");
     expect(h.container.querySelector("[data-slot=home-tabs]")).toBeNull();
     await act(async () => {
-      buildAppMenuGroups(profile())[0].items[1].onClick?.();
+      applyProfile("phase2");
       await vi.advanceTimersByTimeAsync(50);
     });
-    expect(h.container.textContent).toContain("Agent Workspace 2.0 | Phase 2");
+    expect(profile()).toBe("phase2");
+    expect(h.container.querySelector("[data-slot=brand-mark]")?.textContent).toBe("Workspace");
+    expect(h.container.textContent).not.toMatch(/Phase 2|2\.0/);
     expect(h.container.querySelector("[data-slot=home-tabs]")).not.toBeNull();
     expect(headerHas("Schedule")).toBe(true);
     // The same Dashboard node: the page re-rendered in place.
     expect(h.container.querySelector("[data-home-section]")).toBe(dashboard);
   });
 
-  it("Advanced's app name follows the profile, and Custom shows when any setting changes", async () => {
-    await h.show(AgentWorkspaceAdvancedPage);
-    expect(h.container.textContent).toContain("Agent Workspace 2.0 | Phase 1");
+  it("Custom shows when any agent setting changes", async () => {
     await setSettings("header", { showAppIcons: true });
-    expect(h.container.textContent).toContain("Agent Workspace 2.0 | Custom");
+    expect(profile()).toBe("custom");
     await setSettings("header", { showAppIcons: false });
-    expect(h.container.textContent).toContain("Agent Workspace 2.0 | Phase 1");
-    // Every section is part of a profile, personal ones included.
+    expect(profile()).toBe("phase1");
     await setSettings("appearance", { theme: "dark" });
-    expect(h.container.textContent).toContain("Agent Workspace 2.0 | Custom");
+    expect(profile()).toBe("custom");
+  });
+});
+
+describe("White-labeling: app name and logo (appearance.brand)", () => {
+  const PNG = "data:image/png;base64,iVBORw0KGgo=";
+
+  it("the name and logo render in the header, the welcome modal, the launch screen and the tab title", async () => {
+    await setSettings("appearance", { brand: { appName: "Acme Care", logo: PNG } });
+    await h.show(AdvancedWithTheme);
+    const mark = h.container.querySelector("[data-slot=brand-mark]")!;
+    expect(mark.textContent).toBe("Acme Care");
+    expect(mark.querySelector("img")!.getAttribute("src")).toBe(PNG);
+    // The welcome modal (open on load) shows the logo, named.
+    expect(document.body.querySelector(`[role=dialog] img[alt="Acme Care"]`)?.getAttribute("src")).toBe(PNG);
+    expect(document.title).toBe("Acme Care");
+
+    await h.render(<LoginPage />);
+    expect(h.container.textContent).toContain("Acme Care");
+    expect([...h.container.querySelectorAll("img")].some((img) => img.getAttribute("src") === PNG)).toBe(true);
+  });
+
+  it("an empty name reads as the default", async () => {
+    await setSettings("appearance", { brand: { appName: "  ", logo: null } });
+    await h.show(AgentWorkspaceAdvancedPage);
+    expect(h.container.querySelector("[data-slot=brand-mark]")?.textContent).toBe("Workspace");
+  });
+
+  it("Settings: an oversize upload is refused with a message and keeps the logo; Remove restores the default", async () => {
+    await setSettings("appearance", { brand: { appName: "Acme Care", logo: PNG } });
+    await h.render(<SettingsView />);
+    const input = h.container.querySelector<HTMLInputElement>("[data-slot=logo-input]")!;
+    const big = new File([new Uint8Array(300 * 1024)], "logo.png", { type: "image/png" });
+    await act(async () => {
+      Object.defineProperty(input, "files", { value: [big], configurable: true });
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(h.container.textContent).toContain("256 KB or smaller");
+    expect(store().getState().values.appearance.brand.logo).toBe(PNG);
+    await h.click(h.buttonByText("Remove", h.container)!);
+    expect(store().getState().values.appearance.brand.logo).toBeNull();
+    expect(h.container.textContent).not.toContain("256 KB or smaller");
+  });
+
+  it("is admin-scope: applying a profile leaves the brand as it is, and it doesn't make the profile Custom", async () => {
+    await setSettings("appearance", { brand: { appName: "Acme Care", logo: PNG } });
+    expect(profile()).toBe("phase1");
+    await act(async () => applyProfile("phase2"));
+    expect(store().getState().values.appearance.brand).toEqual({ appName: "Acme Care", logo: PNG });
+    expect(profile()).toBe("phase2");
   });
 });

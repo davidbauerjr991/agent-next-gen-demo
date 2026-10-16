@@ -8,7 +8,6 @@ import { type AppMenuGroup, type CreateNewOutboundConfig, type CreateNewOutbound
 import { CREATE_NEW_AGENTS } from "@nicecxone/lyra-ui/agents-data";
 import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
 import type { ReactNode } from "react";
-import { applyProfile, type ProfileId, type WorkspaceProfile } from "@/settings";
 import { Phone, Mail, MessageSquare, MessageCircle, User, Headphones, Share2, Users, LayoutGrid, Star } from "lucide-react";
 
 /* ── Category icons ──
@@ -83,22 +82,30 @@ function randomAvatarClassName(seed: string): string {
 }
 
 /* ── App menu ──
-   One workspace (P0.5d.2): each entry applies a built-in profile and stays
-   on the page; the header and Home update in place. The entry matching the
-   current profile shows as active (neither does while it's Custom).
-   `onPicked` lets the page close the menu. */
-export function buildAppMenuGroups(profile: WorkspaceProfile, onPicked?: () => void): AppMenuGroup[] {
-  const entry = (id: ProfileId, label: string) => ({
-    label,
-    active: profile === id,
-    onClick: () => {
-      applyProfile(id);
-      onPicked?.();
-    },
-  });
+   The app-name menu's items, as data (P-AIFIRST): profiles are picked in
+   Settings, so the Phase 1 / Phase 2 entries are gone; the menu is the place
+   for other items (the customer console, the agent console window, dev
+   tools) as they arrive. With none, the header shows a plain `BrandMark`. */
+export interface AppMenuItemDef {
+  label: string;
+  run: () => void;
+}
+
+export const APP_MENU_ITEMS: AppMenuItemDef[] = [];
+
+/** One group of `items`; picking one runs it, then `onPicked` (the page
+ *  closes the menu). Empty when there are no items. */
+export function buildAppMenuGroups(items: readonly AppMenuItemDef[], onPicked?: () => void): AppMenuGroup[] {
+  if (items.length === 0) return [];
   return [
     {
-      items: [entry("phase1", "Agent Workspace 2.0 | Phase 1"), entry("phase2", "Agent Workspace 2.0 | Phase 2")],
+      items: items.map((item) => ({
+        label: item.label,
+        onClick: () => {
+          item.run();
+          onPicked?.();
+        },
+      })),
     },
   ];
 }

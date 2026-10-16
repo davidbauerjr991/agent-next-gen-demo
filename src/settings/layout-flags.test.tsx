@@ -20,7 +20,7 @@ const harnessRect = Element.prototype.getBoundingClientRect;
 Element.prototype.getBoundingClientRect = function (this: Element) {
   const rect = harnessRect.call(this);
   if (this.querySelector(":scope > [draggable=true]")) return { ...rect, left: 1000, x: 1000 } as DOMRect;
-  if (this.children.length === 1 && this.textContent?.startsWith("Agent Workspace 2.0")) return { ...rect, right: 300 } as DOMRect;
+  if (this.children.length === 1 && this.querySelector(":scope > [data-slot=brand-mark]")) return { ...rect, right: 300 } as DOMRect;
   return rect;
 };
 

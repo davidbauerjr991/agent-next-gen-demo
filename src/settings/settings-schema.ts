@@ -333,15 +333,43 @@ const phone = defineSection<PhoneSettings>({
 });
 
 export const THEMES = ["light", "dark"] as const;
+
+/** The largest logo Settings accepts (P-AIFIRST). */
+export const LOGO_MAX_BYTES = 256 * 1024;
+export const DEFAULT_APP_NAME = "Workspace";
+
+/** A logo stored as a data URL: PNG, JPEG or SVG, within the size limit
+ *  (base64 is 4/3 of the bytes), else null (the default mark). */
+export const dataUrlOrNull = (): Field<string | null> => (raw) =>
+  typeof raw === "string" &&
+  /^data:image\/(png|jpeg|svg\+xml);base64,[A-Za-z0-9+/=]+$/.test(raw) &&
+  raw.length <= Math.ceil((LOGO_MAX_BYTES * 4) / 3) + 64
+    ? raw
+    : null;
+
+/** White-labeling (P-AIFIRST; admin-scope, never in a profile). */
+export interface BrandSettings {
+  /** The header, launch screen and tab title. Empty reads as the default. */
+  appName: string;
+  /** The top-left mark; null is the default app icon. */
+  logo: string | null;
+}
+
 export interface AppearanceSettings {
   theme: (typeof THEMES)[number];
+  brand: BrandSettings;
 }
 
 const appearance = defineSection<AppearanceSettings>({
   key: "appearance",
+  // Still v1: `brand` is a nested group, so a stored v1 value reads with the
+  // brand's defaults and keeps its theme.
   version: 1,
-  defaults: { theme: "light" },
-  fields: { theme: oneOf(THEMES) },
+  defaults: { theme: "light", brand: { appName: DEFAULT_APP_NAME, logo: null } },
+  fields: {
+    theme: oneOf(THEMES),
+    brand: group<BrandSettings>({ appName: str(), logo: dataUrlOrNull() }, { scope: "admin" }),
+  },
 });
 
 /** One integration per seam (PLAN.md "Settings and configuration"). */
