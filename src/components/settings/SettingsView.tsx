@@ -46,6 +46,7 @@ import {
   type ProfileId,
   PROFILE_IDS,
   type AiDisplayLocation,
+  AUTO_ACCEPT_CHANNELS,
   SOCIAL_CHANNELS,
   type SocialChannel,
   type SeamId,
@@ -446,6 +447,16 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
               onCheckedChange={(omnichannel) => updateAssignments({ omnichannel })}
             />
           )}
+          {/* Off: that channel's contacts arrive as offers with Accept / Decline, like a call. */}
+          <CheckboxRow
+            legend="Auto-accept"
+            items={AUTO_ACCEPT_CHANNELS.map((channel) => ({
+              key: channel,
+              label: CHANNEL_LABELS[channel],
+              checked: assignments.autoAccept[channel],
+            }))}
+            onChange={(channel, checked) => updateAssignments((prev) => ({ autoAccept: { ...prev.autoAccept, [channel]: checked } }))}
+          />
           <SwitchRow
             label="New Outbound at the bottom"
             checked={assignments.newOutboundAtBottom}

@@ -68,10 +68,22 @@ export function callerOfInteraction(interaction: Interaction, cards: readonly Na
   return { ...(name ? { name } : {}), ...(number ? { number } : {}) };
 }
 
-/** The declined-call toast's body under its "Call declined" title: "Tom Lewis
- *  call declined" — the name when known, the number otherwise. */
-export function declinedCallMessage({ name, number }: CallerLabel): string {
-  return `${name ?? number ?? "Unknown caller"} call declined`;
+/** The declined-offer toast's body under its "Call declined" (or "Chat
+ *  declined", …) title: "Tom Lewis call declined" — the name when known, the
+ *  number otherwise; `noun` names the channel (a digital offer when its
+ *  Auto-accept is off). */
+export function declinedCallMessage({ name, number }: CallerLabel, noun = "call"): string {
+  return `${name ?? number ?? "Unknown caller"} ${noun} declined`;
+}
+
+/** The noun for an offer's channel in its declined toast ("call", "chat", "email", "SMS", "WhatsApp"). */
+export const offerNoun = (channel: string | undefined): string =>
+  !channel || channel === "voice" ? "call" : channel === "sms" ? "SMS" : channel === "whatsapp" ? "WhatsApp" : channel;
+
+/** A declined offer's toast title and body: "Chat declined" / "Dan Ortiz chat declined". */
+export function declinedOfferToast(caller: CallerLabel, channel: string | undefined): { title: string; message: string } {
+  const noun = offerNoun(channel);
+  return { title: `${noun[0].toUpperCase()}${noun.slice(1)} declined`, message: declinedCallMessage(caller, noun) };
 }
 
 export { normalizePhone } from "@/domain";

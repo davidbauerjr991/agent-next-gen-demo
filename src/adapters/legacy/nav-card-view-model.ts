@@ -27,8 +27,11 @@ export interface NavCardOptions {
    *  page's live-message count for the thread at that moment). Default 0. */
   messagesBeforeReopen?: (reopening: Interaction) => number;
   /** Include ringing voice offers, each as a card with `offered: true` (the
-   *  incoming tile). Digital offers are always left out. Default false. */
+   *  incoming tile). Default false. */
   voiceOffers?: boolean;
+  /** Digital channels whose offers also show as offer cards (Settings →
+   *  Assignments → Auto-accept off for them). Default none. */
+  digitalOfferChannels?: readonly string[];
 }
 
 /** Ticks on the page's shared clock (a seconds counter starting at 0 when
@@ -64,7 +67,12 @@ export function threadKey(interaction: Interaction): string {
 export function buildNavCards(interactions: readonly Interaction[], options: NavCardOptions): NavCard[] {
   const journeys = new Map<string, Interaction[]>();
   const sorted = interactions
-    .filter((i) => i.state !== "offered" || (options.voiceOffers && i.channel === "voice"))
+    .filter(
+      (i) =>
+        i.state !== "offered" ||
+        (options.voiceOffers && i.channel === "voice") ||
+        !!options.digitalOfferChannels?.includes(i.channel),
+    )
     .sort((a, b) => a.startedAt - b.startedAt);
   for (const interaction of sorted) {
     const group = journeys.get(interaction.journeyId);

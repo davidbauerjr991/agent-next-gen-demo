@@ -179,7 +179,7 @@ import {
   alreadyOnCallMessage,
   callerOfCard,
   callerOfInteraction,
-  declinedCallMessage,
+  declinedOfferToast,
   VoiceWrapUpCard,
   ChannelThreadBody,
   ChannelThreadComposer,
@@ -5065,7 +5065,7 @@ export function AgentWorkspaceAdvancedPage({
     activateWhenReady,
     // Names the caller, and logs the declined call in Contact History.
     onDeclined: (offer) => {
-      addToast({ variant: "info", title: "Call declined", message: declinedCallMessage(callerOfCard(offer)), duration: 4000 });
+      addToast({ variant: "info", ...declinedOfferToast(callerOfCard(offer), offer.threads[0]?.type), duration: 4000 });
       const entry = buildDismissedContactHistoryEntry(offer, clock.now());
       setDismissedContactHistory((prev) => [
         { ...entry, statusLabel: "Declined", statusVariant: "critical", dispositionLabel: "Declined" },
@@ -7762,7 +7762,7 @@ export function AgentWorkspaceAdvancedPage({
                     onDismissChannel={(channel) => confirmDismiss(() => handleDismissChannel(interaction.id, channel))}
                     footerAction={
                       interaction.offered ? (
-                        // A ringing voice offer (P0.5d.1), scripted ones included (Tom, P0.5c).
+                        // A ringing offer: a call (P0.5d.1, P0.5c's Tom) or a digital one with Auto-accept off.
                         <IncomingOfferActions
                           onAccept={() => void incomingOffer.accept(interaction)}
                           onDecline={incomingOffer.canDecline ? () => void incomingOffer.decline(interaction) : undefined}

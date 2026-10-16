@@ -98,6 +98,7 @@ describe("settings store", () => {
       // Fields added later read as their defaults.
       allowUnassignDismiss: true,
       confirmClose: false,
+      autoAccept: { chat: true, email: true, sms: true, whatsapp: true },
     });
     expect(store.getState().values.voice.controlsLocation).toBe("bottom");
   });

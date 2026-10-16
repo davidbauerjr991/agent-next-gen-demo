@@ -209,9 +209,17 @@ const home = defineSection<HomeSettings>({
   },
 });
 
+/** Digital channels a contact can be auto-accepted on (calls always ring). */
+export const AUTO_ACCEPT_CHANNELS = ["chat", "email", "sms", "whatsapp"] as const;
+export type AutoAcceptChannel = (typeof AUTO_ACCEPT_CHANNELS)[number];
+
 export interface AssignmentsSettings {
   /** Sync channels in the main column, async in the right slide-out. */
   omnichannel: boolean;
+  /** Per digital channel: on, an offer is accepted at once and loads as a
+   *  card; off, it arrives as an offer card with Accept / Decline, like a
+   *  call. (CXone's per-agent Auto Accept.) */
+  autoAccept: Record<AutoAcceptChannel, boolean>;
   newOutboundAtBottom: boolean;
   navItemsAtTop: boolean;
   noInteractionCollapse: boolean;
@@ -226,6 +234,7 @@ const assignments = defineSection<AssignmentsSettings>({
   version: 1,
   defaults: {
     omnichannel: false,
+    autoAccept: Object.fromEntries(AUTO_ACCEPT_CHANNELS.map((c) => [c, true])) as Record<AutoAcceptChannel, boolean>,
     newOutboundAtBottom: false,
     navItemsAtTop: false,
     noInteractionCollapse: false,
@@ -234,6 +243,9 @@ const assignments = defineSection<AssignmentsSettings>({
   },
   fields: {
     omnichannel: bool(),
+    autoAccept: group<Record<AutoAcceptChannel, boolean>>(
+      Object.fromEntries(AUTO_ACCEPT_CHANNELS.map((c) => [c, bool()])) as Fields<Record<AutoAcceptChannel, boolean>>,
+    ),
     newOutboundAtBottom: bool(),
     navItemsAtTop: bool(),
     noInteractionCollapse: bool(),

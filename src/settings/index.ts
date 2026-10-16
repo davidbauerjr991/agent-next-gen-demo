@@ -43,6 +43,8 @@ export {
   type HomeSectionKey,
   type HomeQueueChannel,
   type AssignmentsSettings,
+  AUTO_ACCEPT_CHANNELS,
+  type AutoAcceptChannel,
   type AiDisplayLocation,
   CONTACT_CHANNELS,
   type ContactChannel,

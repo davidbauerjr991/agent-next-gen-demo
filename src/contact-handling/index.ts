@@ -26,6 +26,8 @@ export {
   callerOfCard,
   callerOfInteraction,
   declinedCallMessage,
+  offerNoun,
+  declinedOfferToast,
   type CallerLabel,
 } from "./contact-identity";
 export { NewOutboundLauncher, type NewOutboundLauncherProps } from "./NewOutboundLauncher";
@@ -47,7 +49,7 @@ export { threadAcceptsReplies, threadKeyOf } from "./channel-thread";
 export { channelTempo, routeChannel, mainThreadKey, omnichannelMainKey, panelDefaultKey, channelHeaderEntries, type ChannelRoute, type ConversationPlacement } from "./omnichannel";
 export { useOmnichannelLayout, type OmnichannelLayout } from "./useOmnichannelLayout";
 export { useConversationPlacement } from "./useConversationPlacement";
-export { useAutoAcceptDigital } from "./useAutoAcceptDigital";
+export { useAutoAcceptDigital, useDigitalOfferChannels } from "./useAutoAcceptDigital";
 export { useMainPins } from "./useMainPins";
 export { HoverPreviewFrame } from "./HoverPreviewFrame";
 export { AutosummaryCard } from "./AutosummaryCard";

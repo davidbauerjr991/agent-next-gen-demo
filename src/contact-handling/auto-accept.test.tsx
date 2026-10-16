@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
 import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
+import { PROFILES } from "@/settings/profiles";
+import { SettingsView } from "@/components/settings/SettingsView";
 
 const h = createWorkspaceHarness();
 
@@ -72,6 +74,56 @@ describe("digital offers load as cards", () => {
       expect(panel()?.getAttribute("data-thread")).toBe("chat");
     });
   }
+
+  describe("Settings → Assignments → Auto-accept off for a channel", () => {
+    const offerButton = (label: string) =>
+      [...h.navCard("Dan Ortiz").closest("aside")!.querySelectorAll<HTMLElement>("button")].find((b) => b.textContent?.trim() === label);
+
+    async function chatOfferWithAutoAcceptOff() {
+      await act(async () => {
+        getSettingsStore().update("channels", { chat: true });
+        getSettingsStore().update("assignments", { autoAccept: { chat: false, email: true, sms: true, whatsapp: true } });
+      });
+      await h.show(AgentWorkspaceAdvancedPage);
+      await h.goAvailable();
+      const id = await h.startInbound("chat", "dan.ortiz@example.com", "Dan Ortiz");
+      await h.advance(500);
+      return id;
+    }
+
+    it("the chat stays offered and shows as a card with Accept / Decline; Accept puts it live", async () => {
+      const id = await chatOfferWithAutoAcceptOff();
+      expect(await stateOf(id)).toBe("offered");
+      expect(h.navCard("Dan Ortiz")).toBeTruthy();
+      expect(offerButton("Accept")).toBeDefined();
+      await h.click(offerButton("Accept")!);
+      await h.advance(500);
+      expect(await stateOf(id)).toBe("active");
+    });
+
+    it("Decline: the offer ends and its card goes", async () => {
+      const id = await chatOfferWithAutoAcceptOff();
+      await h.click(offerButton("Decline")!);
+      await h.advance(500);
+      expect(await stateOf(id)).not.toBe("offered");
+      expect(h.container.querySelector("aside")?.textContent).not.toContain("Dan Ortiz");
+      // The toast names the channel: a chat, not a call.
+      expect(document.body.textContent).toContain("Dan Ortiz chat declined");
+    });
+
+    it("Settings: one checkbox per digital channel writes it; every built-in profile leaves auto-accept on", async () => {
+      await h.render(<SettingsView />);
+      const row = h.container.querySelector('[data-checkbox-row="Auto-accept"]')!;
+      const boxes = [...row.querySelectorAll<HTMLElement>('button[role="checkbox"]')];
+      expect(boxes).toHaveLength(4);
+      expect(boxes.every((b) => b.getAttribute("aria-checked") === "true")).toBe(true);
+      await h.click(boxes[0]);
+      expect(getSettingsStore().getState().values.assignments.autoAccept).toEqual({ chat: false, email: true, sms: true, whatsapp: true });
+      for (const id of ["phase1", "phase2", "aifirst"] as const) {
+        expect(Object.values(PROFILES[id].assignments.autoAccept).every(Boolean)).toBe(true);
+      }
+    });
+  });
 
   it("an inbound call still rings: it stays offered until the agent accepts", async () => {
     await h.show(AgentWorkspaceAdvancedPage);

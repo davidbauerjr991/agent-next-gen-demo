@@ -3,6 +3,7 @@ import { buildNavCards, threadKey, tickClock, type NavCard } from "@/adapters/le
 import type { Interaction as DomainInteraction, InteractionId } from "@/domain";
 import { useInteractions } from "@/provider-context";
 import { diffCardOverlay, mergeCardOverlay, type CardOverlay } from "./nav-card-overlay";
+import { useDigitalOfferChannels } from "./useAutoAcceptDigital";
 
 // The left nav's cards (P0.5b.2). Every contact the provider knows about comes
 // from the interaction store through `buildNavCards`, scripted scenario cases
@@ -45,13 +46,18 @@ interface LocalState {
  *  a live thread for reopen folding. Ended contacts leave the store only when
  *  the provider forgets them, so this is what makes a dismissed card stay
  *  gone, including across tier switches. A ringing voice offer is kept (it's
- *  the incoming tile) unless it's about to be auto-answered; digital offers
- *  are notifications, not cards. */
-export function visibleContacts(interactions: readonly DomainInteraction[]): DomainInteraction[] {
+ *  the incoming tile) unless it's about to be auto-answered; a digital offer
+ *  is a card only on a channel in `digitalOfferChannels` (auto-accept off;
+ *  otherwise the workspace accepts it at once). */
+export function visibleContacts(
+  interactions: readonly DomainInteraction[],
+  digitalOfferChannels: readonly string[] = [],
+): DomainInteraction[] {
   const newest = new Map<string, DomainInteraction>();
   for (const i of interactions) {
     // An auto-answered offer is active one event later: never a ringing tile.
-    if (i.state === "offered" && (i.channel !== "voice" || i.autoAnswered)) continue;
+    const offerCard = i.channel === "voice" ? !i.autoAnswered : digitalOfferChannels.includes(i.channel);
+    if (i.state === "offered" && !offerCard) continue;
     const key = `${i.journeyId}|${threadKey(i)}`;
     const current = newest.get(key);
     if (!current || i.startedAt >= current.startedAt) newest.set(key, i);
@@ -64,6 +70,8 @@ export function visibleContacts(interactions: readonly DomainInteraction[]): Dom
 
 export function useNavCards({ anchorMs, displayName }: UseNavCardsOptions): NavCards {
   const interactions = useInteractions();
+  // Settings → Assignments → Auto-accept off: those channels' offers are cards with Accept / Decline.
+  const digitalOfferChannels = useDigitalOfferChannels();
   const [local, setLocal] = useState<LocalState>({ overlay: {} });
 
   // First-seen order, so new cards append like they did when the page owned
@@ -85,11 +93,12 @@ export function useNavCards({ anchorMs, displayName }: UseNavCardsOptions): NavC
   overlayRef.current = local.overlay;
 
   const storeCards = useMemo(() => {
-    const visible = visibleContacts(interactions);
+    const visible = visibleContacts(interactions, digitalOfferChannels);
     return buildNavCards(visible, {
       toTick: tickClock(anchorMs),
       displayName,
       voiceOffers: true,
+      digitalOfferChannels,
       messagesBeforeReopen: (c) => {
         let mark = reopenMarks.current.get(c.id);
         if (mark === undefined) {
@@ -99,7 +108,7 @@ export function useNavCards({ anchorMs, displayName }: UseNavCardsOptions): NavC
         return mark;
       },
     });
-  }, [interactions, anchorMs, displayName]);
+  }, [interactions, anchorMs, displayName, digitalOfferChannels]);
 
   const storeIdsRef = useRef(new Set<string>());
   storeIdsRef.current = new Set(storeCards.map((c) => c.id));
