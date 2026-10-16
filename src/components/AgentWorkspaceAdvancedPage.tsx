@@ -8847,15 +8847,18 @@ export function AgentWorkspaceAdvancedPage({
                             cross from this button into the popover's own
                             (portaled) content without it flickering shut. */}
                         {/* One toggle group with the channel icons for the
-                            right panel (2026-10-16, superseding "hide the
-                            contact details button when the panel is
-                            open"): it stays, shown selected while the panel
-                            shows Contact Details; its hover peek is off
-                            then (the `Popover`'s `open` below). */}
-                        {activeInteraction && (
+                            right panel, but (as before 5d.2) this button
+                            hides while the panel shows Contact Details: the
+                            panel's own close/collapse controls take over,
+                            and it returns when the panel closes. While a
+                            channel thread is in the panel it shows, so the
+                            agent can swap back. (The channel icons stay
+                            visible when selected: they're also the hover-
+                            preview targets.) */}
+                        {activeInteraction && !(sidePanelOpen && !channelPreviewThreadKey) && (
                         <div onMouseEnter={openCustomerInfoPreview} onMouseLeave={scheduleCloseCustomerInfoPreview}>
                             <Popover
-                              open={customerInfoPreviewOpen && !(sidePanelOpen && !channelPreviewThreadKey)}
+                              open={customerInfoPreviewOpen}
                               placement="bottom"
                               align="end"
                               showArrow={false}
@@ -9046,16 +9049,12 @@ export function AgentWorkspaceAdvancedPage({
                                 size="md"
                                 className={cn(
                                   "shrink-0 animate-in fade-in-0 duration-200",
-                                  recordHeaderWidth < 768 && "w-8 gap-0 px-0",
-                                  sidePanelOpen && !channelPreviewThreadKey && PANEL_BUTTON_SELECTED_CLASS
+                                  recordHeaderWidth < 768 && "w-8 gap-0 px-0"
                                 )}
-                                aria-pressed={sidePanelOpen && !channelPreviewThreadKey}
+                                // Only shown while Contact Details isn't the panel's content.
+                                aria-pressed={false}
                                 onClick={handleSidePanelIconToggle}
-                                aria-label={
-                                  sidePanelOpen && !channelPreviewThreadKey
-                                    ? "Close Contact Details"
-                                    : sidePanelToggleLabel ?? "Open Contact Details"
-                                }
+                                aria-label={sidePanelToggleLabel ?? "Open Contact Details"}
                               >
                                 <IdCard className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
                                 {recordHeaderWidth >= 768 && <span>Contact Details</span>}

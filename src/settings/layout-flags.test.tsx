@@ -201,8 +201,11 @@ describe("Omnichannel layout (assignments.omnichannel)", () => {
   const mainThread = () => h.container.querySelector("[data-main-thread]")?.getAttribute("data-main-thread");
   const headerIcon = (label: string) =>
     h.container.querySelector<HTMLElement>(`[aria-label="Open ${label} preview"], [aria-label="Close ${label} preview"]`);
+  /** The record header's Contact Details button (absent while the panel shows Contact Details). */
   const contactDetailsButton = () =>
-    [...h.container.querySelectorAll<HTMLElement>("button[aria-label]")].find((b) => /Contact Details$/.test(b.getAttribute("aria-label")!))!;
+    [...h.container.querySelectorAll<HTMLElement>("button[aria-label]")].find(
+      (b) => /Contact Details$/.test(b.getAttribute("aria-label")!) && !b.closest("[data-slot=right-panel]"),
+    );
   /** The right panel's toggle group (the channel icons and Contact Details): which are pressed. */
   const pressed = () =>
     [headerIcon("Email"), contactDetailsButton()].filter((b) => b?.getAttribute("aria-pressed") === "true").map((b) =>
@@ -246,19 +249,43 @@ describe("Omnichannel layout (assignments.omnichannel)", () => {
     expect(panelShows()).toBeNull();
   });
 
-  it("the channel icons and Contact Details are one toggle group: exactly one pressed, the panel follows", async () => {
+  it("the channel icons and Contact Details are one toggle group: the panel follows the last one clicked", async () => {
     await voiceAndEmail();
     await setSettings("assignments", { omnichannel: true });
     expect(pressed()).toEqual([]);
     await h.click(headerIcon("Email")!);
     expect(pressed()).toEqual(["Email"]);
     expect(panelShows()).toBe("email");
-    await h.click(contactDetailsButton());
-    expect(pressed()).toEqual(["Contact Details"]);
+    await h.click(contactDetailsButton()!);
     expect(panelShows()).toBe("details");
+    expect(pressed()).toEqual([]); // the email icon is released; the Contact Details button is hidden (below)
     await h.click(headerIcon("Email")!);
     expect(pressed()).toEqual(["Email"]);
     expect(panelShows()).toBe("email");
+  });
+
+  it("the Contact Details button hides while its panel is open and returns when it closes; a thread in the panel shows it", async () => {
+    await voiceAndEmail();
+    await setSettings("assignments", { omnichannel: true });
+    expect(contactDetailsButton()).toBeTruthy();
+
+    // Panel open on Contact Details → no button (the panel's own controls take over).
+    await h.click(contactDetailsButton()!);
+    expect(panelShows()).toBe("details");
+    expect(contactDetailsButton()).toBeUndefined();
+
+    // The panel's close → the button is back.
+    const panel = h.container.querySelector("[data-slot=right-panel]")!;
+    const close = [...panel.querySelectorAll<HTMLElement>("button[aria-label]")].find((b) => /^close/i.test(b.getAttribute("aria-label")!))!;
+    await h.click(close);
+    expect(panelShows()).toBeNull();
+    expect(contactDetailsButton()).toBeTruthy();
+
+    // The email thread in the panel → the button shows (to swap back), the email icon selected.
+    await h.click(headerIcon("Email")!);
+    expect(panelShows()).toBe("email");
+    expect(contactDetailsButton()).toBeTruthy();
+    expect(headerIcon("Email")!.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("the open async thread's nav row is highlighted next to the main row; closing clears it", async () => {
