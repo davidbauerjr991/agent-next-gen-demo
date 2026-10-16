@@ -13,6 +13,7 @@ export {
   useBrand,
 } from "./hooks";
 export { readLogoFile, sanitizeSvg, LOGO_ERROR_MESSAGES, type LogoReadResult } from "./brand";
+export { primaryContrastFailures, type Theme as BrandTheme } from "./brand-colors";
 export { PROFILE_LABELS, PROFILE_IDS, type ProfileId, type WorkspaceProfile } from "./profiles";
 export {
   pinnedKeysFromHeader,

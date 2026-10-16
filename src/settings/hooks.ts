@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { deriveProfile, profileValues, type ProfileId, type WorkspaceProfile } from "./profiles";
 import defaultAppIcon from "@/assets/app-icon.svg";
+import { applyBrandColors } from "./brand-colors";
 import { withAgentSettings } from "./scope";
 import { DEFAULT_APP_NAME, type SectionKey, type SettingsState } from "./settings-schema";
 import { getSettingsStore, type SectionPatch, type SettingsStoreState, type UpdateOptions } from "./settings-store";
@@ -68,17 +69,24 @@ export function useResetSettings(): () => void {
  *  first render, so anything that reads the attribute while rendering starts
  *  right. */
 export function applyStoredTheme() {
-  document.documentElement.setAttribute("data-theme", getSettingsStore().getState().values.appearance.theme);
+  const { theme, brand } = getSettingsStore().getState().values.appearance;
+  document.documentElement.setAttribute("data-theme", theme);
+  applyBrandColors(brand.colors);
 }
 
-/** Applies the stored theme to `<html data-theme>` and the brand's app name
- *  to the tab title; mounted once at the app root. */
+/** Applies the stored theme to `<html data-theme>`, the brand colors as
+ *  overrides on lyra's tokens, and the brand's app name to the tab title;
+ *  mounted once at the app root. */
 export function useApplyTheme() {
-  const [{ theme }] = useSettings("appearance");
+  const [{ theme, brand }] = useSettings("appearance");
   const { appName } = useBrand();
+  const { primary, accent } = brand.colors;
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
+  useEffect(() => {
+    applyBrandColors({ primary, accent });
+  }, [primary, accent]);
   useEffect(() => {
     document.title = appName;
   }, [appName]);

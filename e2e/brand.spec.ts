@@ -1,7 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 
 // White-labeling (P-AIFIRST): Settings → Appearance. An uploaded logo and a
-// new app name show in the header (and the tab title).
+// new app name show in the header (and the tab title); a brand primary
+// recolors lyra's primary through its CSS variables (computed styles, so
+// Chrome, not jsdom).
 
 // A 1×1 PNG.
 const PNG = Buffer.from(
@@ -25,6 +27,33 @@ test("an uploaded logo and a new app name appear in the header", async ({ page }
   await expect(mark).toHaveText("Acme Care");
   await expect(mark.locator("img")).toHaveAttribute("src", /^data:image\/png;base64,/);
   await expect(page).toHaveTitle("Acme Care");
+});
+
+for (const theme of ["light", "dark"] as const) {
+  test(`a brand primary changes a primary Button's computed background (${theme})`, async ({ page }) => {
+    await page.addInitScript((theme) => {
+      localStorage.setItem(
+        "agent-next-gen:settings:appearance",
+        JSON.stringify({ v: 1, value: { theme, brand: { appName: "", logo: null, colors: { primary: "#c2185b", accent: null } } } }),
+      );
+    }, theme);
+    await page.goto("?provider=sim&latency=off#/agent-advanced");
+    // The welcome modal's "Go Available" is a primary (default) Button.
+    const button = page.getByRole("button", { name: "Go Available" });
+    await expect(button).toBeVisible();
+    await expect(button).toHaveCSS("background-color", "rgb(194, 24, 91)");
+    await expect(button).toHaveCSS("color", "rgb(255, 255, 255)");
+  });
+}
+
+test("a primary typed in Settings reaches the header; Reset colors restores lyra's", async ({ page }) => {
+  await openAppearance(page);
+  await page.getByLabel("Primary (hex)").fill("#c2185b");
+  const headerPrimary = () =>
+    page.locator("header").first().evaluate((el) => getComputedStyle(el).getPropertyValue("--lyra-color-bg-primary").trim().toLowerCase());
+  await expect.poll(headerPrimary).toBe("#c2185b");
+  await page.getByRole("button", { name: "Reset colors" }).click();
+  await expect.poll(headerPrimary).toBe("#166cca");
 });
 
 test("an oversize logo is refused with a message", async ({ page }) => {

@@ -924,26 +924,11 @@ function MarcusWebbAiChatBubble({
 }) {
   return (
     <div className="flex items-start gap-2 animate-in slide-in-from-bottom-4 fade-in-0 duration-200">
-      {/* Per explicit request ("update the color of the ai avatar
-          background to be Purple strong #6149C1 to differentiate from the
-          other primary colors on the page"): a literal hex value rather
-          than the closest lyra-ui token (`bg-lyra-accent-purple-strong`,
-          #634DBD) — the ask was for this exact shade, not that shared
-          token (which would also repaint every OTHER purple-strong
-          consumer app-wide, not just this one AI avatar). `text-white`
-          replaces `text-lyra-fg-on-primary` for the same reason — that
-          token is defined relative to `bg-lyra-bg-primary`'s own blue, not
-          this one-off purple. Same arbitrary-hex-class pattern this file's
-          login screen already uses (`bg-[#f4f6f9]` etc.) for a one-off
-          color with no matching semantic token. */}
-      {/* Per explicit follow-up request ("extend avatar size/color to
-          cover those"): now built on lyra-ui's shared `Avatar`
-          (avatar.tsx) — same one-off hex purple/white (still not a
-          semantic color token, per this file's own doc comment just
-          above; `Avatar`'s `className` merges over its `color` variant
-          via `cn`/tailwind-merge, so this override still works cleanly)
-          and same `Bot` glyph/28px circle, just the shared component now. */}
-      <Avatar icon={Bot} size="xs" className="bg-[#6149C1] text-white" />
+      {/* The AI avatar: lyra's AI accent fill (`bg-accent`, #6149C1 by
+          default — the exact shade requested, distinct from
+          `accent-purple-strong`'s #634DBD) and the text on it; a brand
+          accent (Settings → Appearance) overrides both. */}
+      <Avatar icon={Bot} size="xs" className="bg-lyra-bg-accent text-lyra-fg-on-accent" />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="lyra-body-sm text-lyra-fg-secondary px-1">{timestamp} · Cognigy AI Agent</span>
         <div className="flex min-w-0 flex-col gap-3 rounded-lyra-lg rounded-tl-none bg-lyra-accent-purple-soft px-4 py-3">
@@ -978,26 +963,11 @@ function MarcusWebbAiTypingIndicator() {
       aria-live="polite"
       aria-label="AI agent is typing"
     >
-      {/* Per explicit request ("update the color of the ai avatar
-          background to be Purple strong #6149C1 to differentiate from the
-          other primary colors on the page"): a literal hex value rather
-          than the closest lyra-ui token (`bg-lyra-accent-purple-strong`,
-          #634DBD) — the ask was for this exact shade, not that shared
-          token (which would also repaint every OTHER purple-strong
-          consumer app-wide, not just this one AI avatar). `text-white`
-          replaces `text-lyra-fg-on-primary` for the same reason — that
-          token is defined relative to `bg-lyra-bg-primary`'s own blue, not
-          this one-off purple. Same arbitrary-hex-class pattern this file's
-          login screen already uses (`bg-[#f4f6f9]` etc.) for a one-off
-          color with no matching semantic token. */}
-      {/* Per explicit follow-up request ("extend avatar size/color to
-          cover those"): now built on lyra-ui's shared `Avatar`
-          (avatar.tsx) — same one-off hex purple/white (still not a
-          semantic color token, per this file's own doc comment just
-          above; `Avatar`'s `className` merges over its `color` variant
-          via `cn`/tailwind-merge, so this override still works cleanly)
-          and same `Bot` glyph/28px circle, just the shared component now. */}
-      <Avatar icon={Bot} size="xs" className="bg-[#6149C1] text-white" />
+      {/* The AI avatar: lyra's AI accent fill (`bg-accent`, #6149C1 by
+          default — the exact shade requested, distinct from
+          `accent-purple-strong`'s #634DBD) and the text on it; a brand
+          accent (Settings → Appearance) overrides both. */}
+      <Avatar icon={Bot} size="xs" className="bg-lyra-bg-accent text-lyra-fg-on-accent" />
       <div className="rounded-lyra-lg rounded-tl-none bg-lyra-accent-purple-soft px-4 py-3.5">
         <div className="flex items-center gap-1">
           {[0, 150, 300].map((delayMs) => (

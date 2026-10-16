@@ -347,12 +347,18 @@ export const dataUrlOrNull = (): Field<string | null> => (raw) =>
     ? raw
     : null;
 
+/** A `#rrggbb` color, else null. */
+export const hexOrNull = (): Field<string | null> => (raw) =>
+  typeof raw === "string" && /^#[0-9a-f]{6}$/i.test(raw) ? raw.toLowerCase() : null;
+
 /** White-labeling (P-AIFIRST; admin-scope, never in a profile). */
 export interface BrandSettings {
   /** The header, launch screen and tab title. Empty reads as the default. */
   appName: string;
   /** The top-left mark; null is the default app icon. */
   logo: string | null;
+  /** Overrides on lyra's primary and AI-accent tokens; null keeps lyra's. */
+  colors: { primary: string | null; accent: string | null };
 }
 
 export interface AppearanceSettings {
@@ -365,10 +371,17 @@ const appearance = defineSection<AppearanceSettings>({
   // Still v1: `brand` is a nested group, so a stored v1 value reads with the
   // brand's defaults and keeps its theme.
   version: 1,
-  defaults: { theme: "light", brand: { appName: DEFAULT_APP_NAME, logo: null } },
+  defaults: { theme: "light", brand: { appName: DEFAULT_APP_NAME, logo: null, colors: { primary: null, accent: null } } },
   fields: {
     theme: oneOf(THEMES),
-    brand: group<BrandSettings>({ appName: str(), logo: dataUrlOrNull() }, { scope: "admin" }),
+    brand: group<BrandSettings>(
+      {
+        appName: str(),
+        logo: dataUrlOrNull(),
+        colors: group<BrandSettings["colors"]>({ primary: hexOrNull(), accent: hexOrNull() }),
+      },
+      { scope: "admin" },
+    ),
   },
 });
 

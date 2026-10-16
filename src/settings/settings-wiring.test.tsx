@@ -33,6 +33,7 @@ beforeEach(() => {
   localStorage.clear();
   resetSettingsStoreForTests();
   document.documentElement.removeAttribute("data-theme");
+  document.getElementById("brand-overrides")?.remove();
   h.setUp();
 });
 
@@ -775,9 +776,10 @@ describe("Workspace profile", () => {
 
 describe("White-labeling: app name and logo (appearance.brand)", () => {
   const PNG = "data:image/png;base64,iVBORw0KGgo=";
+  const colors = { primary: null, accent: null };
 
   it("the name and logo render in the header, the welcome modal, the launch screen and the tab title", async () => {
-    await setSettings("appearance", { brand: { appName: "Acme Care", logo: PNG } });
+    await setSettings("appearance", { brand: { appName: "Acme Care", logo: PNG, colors } });
     await h.show(AdvancedWithTheme);
     const mark = h.container.querySelector("[data-slot=brand-mark]")!;
     expect(mark.textContent).toBe("Acme Care");
@@ -792,13 +794,13 @@ describe("White-labeling: app name and logo (appearance.brand)", () => {
   });
 
   it("an empty name reads as the default", async () => {
-    await setSettings("appearance", { brand: { appName: "  ", logo: null } });
+    await setSettings("appearance", { brand: { appName: "  ", logo: null, colors } });
     await h.show(AgentWorkspaceAdvancedPage);
     expect(h.container.querySelector("[data-slot=brand-mark]")?.textContent).toBe("Workspace");
   });
 
   it("Settings: an oversize upload is refused with a message and keeps the logo; Remove restores the default", async () => {
-    await setSettings("appearance", { brand: { appName: "Acme Care", logo: PNG } });
+    await setSettings("appearance", { brand: { appName: "Acme Care", logo: PNG, colors } });
     await h.render(<SettingsView />);
     const input = h.container.querySelector<HTMLInputElement>("[data-slot=logo-input]")!;
     const big = new File([new Uint8Array(300 * 1024)], "logo.png", { type: "image/png" });
@@ -815,10 +817,50 @@ describe("White-labeling: app name and logo (appearance.brand)", () => {
   });
 
   it("is admin-scope: applying a profile leaves the brand as it is, and it doesn't make the profile Custom", async () => {
-    await setSettings("appearance", { brand: { appName: "Acme Care", logo: PNG } });
+    const brand = { appName: "Acme Care", logo: PNG, colors: { primary: "#c2185b", accent: null } };
+    await setSettings("appearance", { brand });
     expect(profile()).toBe("phase1");
     await act(async () => applyProfile("phase2"));
-    expect(store().getState().values.appearance.brand).toEqual({ appName: "Acme Care", logo: PNG });
+    expect(store().getState().values.appearance.brand).toEqual(brand);
     expect(profile()).toBe("phase2");
+  });
+});
+
+describe("White-labeling: brand colors (appearance.brand.colors)", () => {
+  const overrides = () => document.getElementById("brand-overrides")?.textContent ?? "";
+  const hexField = (label: string) => fieldLabeled(`${label} (hex)`);
+
+  function SettingsWithTheme() {
+    useApplyTheme();
+    return <SettingsView />;
+  }
+
+  it("a picked primary overrides lyra's primary family in light and dark; Reset colors restores lyra's", async () => {
+    await h.render(<SettingsWithTheme />);
+    await type(hexField("Primary"), "#c2185b");
+    expect(store().getState().values.appearance.brand.colors.primary).toBe("#c2185b");
+    expect(overrides()).toMatch(/:root:not\(\[data-theme="dark"\]\) \{[^}]*--lyra-color-bg-primary: #c2185b;/);
+    expect(overrides()).toMatch(/:root\[data-theme="dark"\] \{[^}]*--lyra-color-bg-primary: #c2185b;/);
+    expect(overrides()).toContain("--lyra-color-fg-on-primary: #ffffff;");
+    await h.click(h.buttonByText("Reset colors", h.container)!);
+    expect(document.getElementById("brand-overrides")).toBeNull();
+  });
+
+  it("a primary that fails WCAG AA shows the warning; a passing one doesn't", async () => {
+    await h.render(<SettingsWithTheme />);
+    await type(hexField("Primary"), "#ffee58");
+    expect(h.container.textContent).toContain("doesn't meet WCAG AA");
+    // Text on it switches to dark for contrast.
+    expect(overrides()).toContain("--lyra-color-fg-on-primary: #0b0f14;");
+    await type(hexField("Primary"), "#166cca");
+    expect(h.container.textContent).not.toContain("doesn't meet WCAG AA");
+  });
+
+  it("an accent overrides the AI chrome (avatar fill, purple pair, AI field border)", async () => {
+    await h.render(<SettingsWithTheme />);
+    await type(hexField("Accent"), "#00897b");
+    expect(overrides()).toContain("--lyra-color-bg-accent: #00897b;");
+    expect(overrides()).toContain("--lyra-color-accent-purple-strong:");
+    expect(overrides()).toContain("--lyra-color-border-field-ai:");
   });
 });

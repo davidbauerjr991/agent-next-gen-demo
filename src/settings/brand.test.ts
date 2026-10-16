@@ -52,7 +52,7 @@ describe("appearance.brand storage", () => {
   const read = (brand: unknown) => SECTIONS.appearance.read({ theme: "dark", brand }, SECTIONS.appearance.defaults).brand;
 
   it("keeps a valid logo data URL and drops anything else", () => {
-    expect(read({ appName: "Acme", logo: "data:image/png;base64,AAAA" })).toEqual({ appName: "Acme", logo: "data:image/png;base64,AAAA" });
+    expect(read({ appName: "Acme", logo: "data:image/png;base64,AAAA" })).toMatchObject({ appName: "Acme", logo: "data:image/png;base64,AAAA" });
     expect(read({ appName: "Acme", logo: "https://evil.example/x.png" }).logo).toBeNull();
     expect(read({ appName: "Acme", logo: "data:text/html;base64,AAAA" }).logo).toBeNull();
     expect(read({ appName: "Acme", logo: `data:image/png;base64,${"A".repeat(400_000)}` }).logo).toBeNull();
@@ -60,6 +60,11 @@ describe("appearance.brand storage", () => {
 
   it("a stored v1 appearance without a brand keeps its theme and reads the default brand", () => {
     const value = SECTIONS.appearance.read({ theme: "dark" }, SECTIONS.appearance.defaults);
-    expect(value).toEqual({ theme: "dark", brand: { appName: "Workspace", logo: null } });
+    expect(value).toEqual({ theme: "dark", brand: { appName: "Workspace", logo: null, colors: { primary: null, accent: null } } });
+  });
+
+  it("keeps #rrggbb colors (lowercased) and drops anything else", () => {
+    expect(read({ colors: { primary: "#C2185B", accent: "red" } }).colors).toEqual({ primary: "#c2185b", accent: null });
+    expect(read({ colors: { primary: "#c2185b; } body { x", accent: "#00897b" } }).colors).toEqual({ primary: null, accent: "#00897b" });
   });
 });

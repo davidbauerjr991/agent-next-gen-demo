@@ -1309,7 +1309,7 @@ function TypingIndicator({
     return (
       <div className="flex flex-col items-start" aria-live="polite" aria-label="AI agent is typing">
         <div className={cn("flex items-start gap-2", bubbleFullWidth ? "max-w-full" : "max-w-[80%]")}>
-          {!narrow && <Avatar icon={Bot} size="xs" className="bg-[#6149C1] text-white" />}
+          {!narrow && <Avatar icon={Bot} size="xs" className="bg-lyra-bg-accent text-lyra-fg-on-accent" />}
           <div className="rounded-lyra-lg rounded-tl-none border border-transparent bg-lyra-accent-purple-soft px-4 py-3.5">
             <div className="flex items-center gap-1">
               {[0, 150, 300].map((delayMs) => (
