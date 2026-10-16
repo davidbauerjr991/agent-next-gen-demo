@@ -756,7 +756,7 @@ describe("Workspace profile", () => {
       await vi.advanceTimersByTimeAsync(50);
     });
     expect(profile()).toBe("phase2");
-    expect(h.container.querySelector("[data-slot=brand-mark]")?.textContent).toBe("Workspace");
+    expect(h.container.querySelector("[data-slot=brand-mark]")?.textContent).toBe("Agent Workspace");
     expect(h.container.textContent).not.toMatch(/Phase 2|2\.0/);
     expect(h.container.querySelector("[data-slot=home-tabs]")).not.toBeNull();
     expect(headerHas("Schedule")).toBe(true);
@@ -796,7 +796,7 @@ describe("White-labeling: app name and logo (appearance.brand)", () => {
   it("an empty name reads as the default", async () => {
     await setSettings("appearance", { brand: { appName: "  ", logo: null, colors } });
     await h.show(AgentWorkspaceAdvancedPage);
-    expect(h.container.querySelector("[data-slot=brand-mark]")?.textContent).toBe("Workspace");
+    expect(h.container.querySelector("[data-slot=brand-mark]")?.textContent).toBe("Agent Workspace");
   });
 
   it("Settings: an oversize upload is refused with a message and keeps the logo; Remove restores the default", async () => {

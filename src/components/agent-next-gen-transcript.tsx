@@ -2861,6 +2861,7 @@ export function InteractionTranscript({
   customerIdentified = true,
   hideMockFollowUpMessages = false,
   hideAllMessages = false,
+  sessionRowOnly = false,
   contactId,
   channelAddressLabel,
   skillLabel,
@@ -2967,6 +2968,11 @@ export function InteractionTranscript({
   hideMockFollowUpMessages?: boolean;
   /** Hides every message bubble (mock history + live) — used while an AI-led chat is only being reviewed, before the agent takes over. */
   hideAllMessages?: boolean;
+  /** Only the current session's row (status, Session Details, Outcome, the
+   *  action cluster), no conversation and no scroller: AI display "main"
+   *  (P-AIFIRST), where the thread itself is in the panel and the AI
+   *  workspace fills the column below this row. */
+  sessionRowOnly?: boolean;
   customerIdentified?: boolean;
   /** The active channel's own BASE Contact id (`Thread.contactId`) — used
    *  as the synthetic "just launched" session's Contact ID (see
@@ -4193,10 +4199,10 @@ export function InteractionTranscript({
     // chasing a reported width-collapse regression; a real, independent
     // correctness fix kept regardless of how `transcriptNarrow` below
     // ended up being measured.
-    <div className="relative flex-1 min-h-0 min-w-0">
+    <div className={sessionRowOnly ? "relative shrink-0 min-w-0" : "relative flex-1 min-h-0 min-w-0"}>
       <div
         ref={scrollContainerRef}
-        className="h-full overflow-y-auto"
+        className={sessionRowOnly ? undefined : "h-full overflow-y-auto"}
       >
         {/* Per explicit follow-up request, un-reverting the max-width-back
             change just above it ("dang - revert that last change - go back
@@ -4501,7 +4507,7 @@ export function InteractionTranscript({
                 <AccordionHeadless
                   type="single"
                   collapsible
-                  value={collapsedSessionIds.has(session.id) ? "" : session.id}
+                  value={sessionRowOnly || collapsedSessionIds.has(session.id) ? "" : session.id}
                   onValueChange={() => {}}
                 >
                 <AccordionHeadlessItem value={session.id} className="border-none">
@@ -4778,7 +4784,7 @@ export function InteractionTranscript({
           })}
           {/* Content after the conversation, scrolling with it (e.g. the
               voice wrap-up card, P0.5d.1) — see `trailingContent`. */}
-          {trailingContent && (
+          {trailingContent && !sessionRowOnly && (
             <div ref={trailingContentRef} className="w-full max-w-[768px] mx-auto px-6 pt-2 pb-4">
               {trailingContent}
             </div>

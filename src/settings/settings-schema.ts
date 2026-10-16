@@ -357,7 +357,8 @@ export const THEMES = ["light", "dark"] as const;
 
 /** The largest logo Settings accepts (P-AIFIRST). */
 export const LOGO_MAX_BYTES = 256 * 1024;
-export const DEFAULT_APP_NAME = "Workspace";
+/** "Workspace" arrives with P-ADMIN's area switcher (PLAN Administration). */
+export const DEFAULT_APP_NAME = "Agent Workspace";
 
 /** A logo stored as a data URL: PNG, JPEG or SVG, within the size limit
  *  (base64 is 4/3 of the bytes), else null (the default mark). */

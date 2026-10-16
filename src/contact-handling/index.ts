@@ -47,6 +47,7 @@ export { threadAcceptsReplies, threadKeyOf } from "./channel-thread";
 export { channelTempo, routeChannel, mainThreadKey, omnichannelMainKey, panelDefaultKey, type ChannelRoute, type ConversationPlacement } from "./omnichannel";
 export { useOmnichannelLayout, type OmnichannelLayout } from "./useOmnichannelLayout";
 export { useConversationPlacement } from "./useConversationPlacement";
+export { useAutoAcceptDigital } from "./useAutoAcceptDigital";
 export { AiWorkspaceColumn, type AiWorkspaceColumnProps } from "./AiWorkspaceColumn";
 export { ConfirmCloseDialog } from "./ConfirmCloseDialog";
 export { useChannelSync } from "./useChannelSync";

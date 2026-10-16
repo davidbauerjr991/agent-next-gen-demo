@@ -7,6 +7,7 @@ import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
 import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
 import { SettingsView } from "@/components/settings/SettingsView";
+import { LUCAS_THOMAS_SCRIPT } from "@/scenarios";
 import { getSettingsStore, resetSettingsStoreForTests } from "./settings-store";
 import { deriveProfile, profileValues } from "./profiles";
 import { SECTIONS, type AppPlacement, type ExtraHeaderApp, type SectionKey, type SettingsState } from "./settings-schema";
@@ -416,6 +417,69 @@ describe("AI display \"main\": the AI-first layout (ai.displayLocation)", () => 
     expect(mainThread()).toBe("ai");
     // No thread besides the call: the panel stays closed.
     expect(panelShows()).toBeNull();
+  });
+
+  // The record header under "main": the session row as in every mode, and an
+  // icon per thread (scripted ones included) in one toggle group with
+  // Contact Details; a hover preview only while the thread isn't in the panel.
+  const chatIcon = () => h.container.querySelector<HTMLElement>('[aria-label="Open Chat preview"], [aria-label="Close Chat preview"]');
+  const contactDetailsButton = () =>
+    [...h.container.querySelectorAll<HTMLElement>("button[aria-label]")].find(
+      (b) => /Contact Details$/.test(b.getAttribute("aria-label")!) && !b.closest("[data-slot=right-panel]"),
+    );
+  const hover = async (el: HTMLElement) => {
+    await act(async () => {
+      el.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(50);
+    });
+  };
+  const unhover = async (el: HTMLElement) => {
+    await act(async () => {
+      el.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(300);
+    });
+  };
+  const preview = () =>
+    [...document.body.querySelectorAll("[data-radix-popper-content-wrapper]")].find((w) => /Messages/.test(w.textContent ?? ""));
+
+  async function expectMainHeader() {
+    // Session row: status, Session Details, Outcome — above the AI workspace.
+    const main = h.container.querySelector("[data-main-thread=ai]")!;
+    expect(main.textContent).toContain("Session Details");
+    expect(main.textContent).toContain("Outcome");
+    // The chat's icon is there and selected: the chat is in the panel.
+    expect(chatIcon()).not.toBeNull();
+    expect(panelShows()).toBe("chat");
+    expect(chatIcon()!.getAttribute("aria-pressed")).toBe("true");
+    await hover(chatIcon()!);
+    expect(preview()).toBeUndefined();
+    await unhover(chatIcon()!);
+    // Contact Details takes the panel; the chat icon is released and previews.
+    await h.click(contactDetailsButton()!);
+    expect(panelShows()).toBe("details");
+    expect(chatIcon()!.getAttribute("aria-pressed")).toBe("false");
+    await hover(chatIcon()!);
+    expect(preview()).toBeDefined();
+    await unhover(chatIcon()!);
+    // The chat icon swaps the panel back.
+    await h.click(chatIcon()!);
+    expect(panelShows()).toBe("chat");
+    expect(chatIcon()!.getAttribute("aria-pressed")).toBe("true");
+  }
+
+  it("a sim chat: the session row, the chat icon beside Contact Details, the swap, and the hover-preview rule", async () => {
+    await acceptedChat();
+    await h.click(h.navCard(priya.name));
+    await expectMainHeader();
+  });
+
+  it("Lucas (scripted): his chat gets its header icon too, with the same swap and preview rule", async () => {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await aiFirst();
+    await h.play(LUCAS_THOMAS_SCRIPT.id);
+    await h.click(h.navCard("Lucas Thomas"));
+    await h.advance(2_000);
+    await expectMainHeader();
   });
 
   it("Settings: with AI display \"main\" the Omnichannel switch shows on, \"Set by AI display\"", async () => {

@@ -28,27 +28,25 @@ async function chatAndEmailCard(page: Page) {
   });
   await page.goto("?provider=sim&latency=off#/agent-advanced");
   await page.getByRole("button", { name: "Go Available" }).click();
-  // A chat offer is a notification, not a nav card: accept it directly. The
-  // offer is refused until the agent's Available state reaches the sim, so
-  // offer again until one can be accepted.
+  // A digital offer is accepted by the workspace itself (it loads as a card).
+  // The sim refuses the offer until the agent's Available state reaches it,
+  // so offer again until one goes live.
   const failure = await page.evaluate(async () => {
     const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-    let last: unknown = null;
     for (let attempt = 0; attempt < 20; attempt++) {
       const id = window.__simCustomer!.startInbound({ channel: "chat", address: "lauren@example.com", displayName: "Lauren Briggs" });
       await wait(500);
+      const { interactions } = await window.__providers!.interaction.getSnapshot();
+      const chat = interactions.find((i) => i.id === id && (i as { state?: string }).state === "active");
+      if (!chat) continue;
       try {
-        await window.__providers!.interaction.accept(id);
-        await wait(300);
-        const { interactions } = await window.__providers!.interaction.getSnapshot();
-        const chat = interactions.find((i) => i.id === id)!;
         await window.__providers!.interaction.dial({ channel: "email", address: "lauren@example.com", skillId: "general", journeyId: chat.journeyId });
         return null;
       } catch (error) {
-        last = error;
+        return JSON.stringify(error);
       }
     }
-    return JSON.stringify(last);
+    return "the chat never went live";
   });
   expect(failure).toBeNull();
   await expect(page.locator("aside [aria-label^='Lauren Briggs']").first()).toBeVisible();
@@ -85,4 +83,28 @@ test("chat in the panel, AI in the main column; a nav row swaps the panel's thre
   await navRow(page, "Email").click({ force: true });
   await expect(panel(page, "email")).toBeVisible();
   await expect(page.locator("[data-main-thread=ai]")).toBeVisible();
+});
+
+test("digital assignments load as cards: the demo's seeded email and SMS offers are cards on load", async ({ page }) => {
+  await page.goto("?provider=sim&latency=off#/agent-advanced");
+  await page.getByRole("button", { name: "Go Available" }).click();
+  for (const name of ["Noah Patel", "Lauren Kim", "Ethan Zhang"]) {
+    await expect(page.locator(`aside [aria-label^='${name}']`).first()).toBeVisible();
+  }
+});
+
+test("the record header: the session row, and the chat icon and Contact Details swap the panel", async ({ page }) => {
+  await chatAndEmailCard(page);
+  const main = page.locator("[data-main-thread=ai]");
+  await expect(main.getByText("Session Details", { exact: true })).toBeVisible();
+  const chatIcon = page.locator("[aria-label='Open Chat preview'], [aria-label='Close Chat preview']").first();
+  const contactDetails = page.getByRole("button", { name: /Contact Details$/ }).first();
+  await contactDetails.click();
+  await expect(panel(page, "details")).toBeVisible();
+  await expect(chatIcon).toHaveAttribute("aria-pressed", "false");
+  await chatIcon.click();
+  await expect(panel(page, "chat")).toBeVisible();
+  await expect(chatIcon).toHaveAttribute("aria-pressed", "true");
+  await contactDetails.click();
+  await expect(panel(page, "details")).toBeVisible();
 });

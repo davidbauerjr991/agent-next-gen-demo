@@ -132,9 +132,11 @@ async function startInbound(channel: ChannelKind, address: string, displayName: 
   return id;
 }
 
+/** Accepts an offer; a digital one the workspace already auto-accepted
+ *  (`useAutoAcceptDigital`) refuses a second accept, which is fine here. */
 async function accept(id: InteractionId) {
   await act(async () => {
-    void provider.accept(id);
+    provider.accept(id).catch(() => {});
     await vi.advanceTimersByTimeAsync(200);
   });
 }

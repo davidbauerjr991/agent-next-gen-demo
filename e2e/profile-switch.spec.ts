@@ -17,14 +17,14 @@ async function pickProfile(page: Page, label: string) {
 test("the Settings picker applies Phase 2 and AI-first, and Phase 1 again; the title stays the brand name", async ({ page }) => {
   await page.goto("?provider=sim&latency=off#/agent-advanced");
   await page.getByRole("button", { name: "Go Available" }).click();
-  await expect(page.locator("[data-slot=brand-mark]")).toHaveText("Workspace");
+  await expect(page.locator("[data-slot=brand-mark]")).toHaveText("Agent Workspace");
   await expect(page.locator("[data-slot=home-tabs]")).toHaveCount(0);
 
   await pickProfile(page, "Phase 2");
   await expect(page).toHaveURL(/#\/agent-advanced$/);
   const tabs = page.locator("[data-slot=home-tabs] [role=tab]");
   await expect(tabs).toHaveText(["Dashboard", "Customers", "Accounts", "Tickets"]);
-  await expect(page.locator("[data-slot=brand-mark]")).toHaveText("Workspace");
+  await expect(page.locator("[data-slot=brand-mark]")).toHaveText("Agent Workspace");
 
   await pickProfile(page, "AI-first");
   await expect(tabs).toHaveText(["Dashboard", "Customers", "Accounts", "Tickets"]);
@@ -38,5 +38,5 @@ test("Desk's old route lands on Advanced with the Phase 2 profile", async ({ pag
   await expect(page).toHaveURL(/#\/agent-advanced$/);
   await page.getByRole("button", { name: "Go Available" }).click();
   await expect(page.locator("[data-slot=home-tabs]")).toBeVisible();
-  await expect(page.locator("[data-slot=brand-mark]")).toHaveText("Workspace");
+  await expect(page.locator("[data-slot=brand-mark]")).toHaveText("Agent Workspace");
 });

@@ -199,6 +199,7 @@ import {
   routeChannel,
   useOmnichannelLayout,
   useConversationPlacement,
+  useAutoAcceptDigital,
   AiWorkspaceColumn,
   type Activation,
   type OutcomeDraft,
@@ -4001,7 +4002,9 @@ export function AgentWorkspaceAdvancedPage({
     // separately by `openCustomerInfoPreview`) still offers its own hover
     // peek regardless of whether some other channel or Contact Details
     // happens to be open already.
-    if (channelPreviewThreadKey === key || key === activeChannelKey) return;
+    // AI display "main": no thread is in the main column, so only the one in
+    // the panel goes without a preview.
+    if (channelPreviewThreadKey === key || (!panelPlacement && key === activeChannelKey)) return;
     clearTimeout(channelHoverPreviewTimer.current);
     setChannelHoverPreviewKey(key);
   };
@@ -4213,6 +4216,7 @@ export function AgentWorkspaceAdvancedPage({
     onCardRedialPlaced: (card) => void contactCommands.completeEndedCalls(card, outcomeFor(card.id)),
   });
   const contactReopen = useContactReopen({ findOpenCard, activateWhenReady, skillIdForName });
+  useAutoAcceptDigital(findOpenCard);
 
   // Per explicit follow-up request ("the content should be the Contact
   // Info stuff (Overview, Details, Notes)"): the "View customer info"
@@ -8504,31 +8508,15 @@ export function AgentWorkspaceAdvancedPage({
                         {activeInteraction.threads.map((c) => {
                           if (!SHOW_VOICE_CHANNEL_HEADER_ICON && c.type === "voice") return null;
                           // Lucas Thomas's chat lives in the main column — no header channel icon.
-                          if (scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID) return null;
+                          // AI display "main": every thread, scripted ones included, is in the panel and gets its icon.
+                          const lucasInMain = !panelPlacement && scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID;
+                          if (lucasInMain) return null;
                           const key = c.id ?? c.type;
                           const meta = CHANNEL_TYPE_META[c.type];
-                          // Per explicit request ("update the functionality
-                          // of the top right channel buttons in phase 1 to
-                          // match phase 2 ... you just need to address the
-                          // voice icon button - it should be active and not
-                          // toggle the side panel"): this deployment is
-                          // voice-only now (see `SHOW_RECORD_HEADER_ADD_
-                          // CHANNEL_BUTTON`'s own doc comment above — no way
-                          // to launch a second, non-voice channel anymore),
-                          // so voice is always both the only channel AND
-                          // this interaction's own main content
-                          // (`activeChannelKey`) — there's nothing left for
-                          // its icon to "preview" in a side panel; clicking
-                          // it used to toggle `channelPreviewThreadKey`
-                          // open, popping the exact same transcript already
-                          // showing in the main column into a redundant
-                          // side-panel copy of itself. Every OTHER channel
-                          // type keeps the original `channelPreviewThreadKey`
-                          // toggle behavior untouched — out of scope per the
-                          // request's own wording, and effectively unreached
-                          // now that there's no way to add one of them.
-                          // Lucas Thomas's chat lives in the main column only — its icon behaves like voice (active, no side-panel preview).
-                          const isVoiceChannel = c.type === "voice" || scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID;
+                          // Voice's icon (and Lucas's chat, outside AI display
+                          // "main") reads as active and doesn't toggle the panel:
+                          // that thread is already the main column's content.
+                          const isVoiceChannel = c.type === "voice" || lucasInMain;
                           // Omnichannel: the icons are tabs — open when the thread is in the main column or the slide-out.
                           // The icons and Contact Details are one toggle group
                           // for the right panel: an icon is selected while its
@@ -8549,7 +8537,7 @@ export function AgentWorkspaceAdvancedPage({
                           // generic rather than voice-specific so another
                           // channel type picks it up for free if the
                           // voice-only restriction is ever lifted.
-                          const isActiveChannel = key === activeChannelKey;
+                          const isActiveChannel = !panelPlacement && key === activeChannelKey;
                           // Per explicit follow-up request: the voice
                           // icon's own hover label reads "Voice
                           // Transcript" (this preview IS just the
@@ -8563,7 +8551,7 @@ export function AgentWorkspaceAdvancedPage({
                           // No hover preview for a channel already open in the
                           // panel: `openChannelHoverPreview` won't open one, and
                           // clicking the icon closes it.
-                          const hoverOpen = scenarioKeyOf(activeInteraction.id) !== LUCAS_THOMAS_ID && channelHoverPreviewKey === key;
+                          const hoverOpen = !lucasInMain && channelHoverPreviewKey === key;
                           // Per explicit follow-up request ("on hover for
                           // the voice, chat, sms, email channel icons in
                           // the top right, display the content of the
@@ -9163,20 +9151,11 @@ export function AgentWorkspaceAdvancedPage({
                             </InlineNotification>
                           </div>
                         )}
-                        {panelPlacement ? (
-                          // AI display "main" (AI-first): the AI
-                          // workspace; the thread itself is in the panel.
-                          <AiWorkspaceColumn
-                            feed={renderAiPanelFeed()}
-                            feedCount={aiFeedCount}
-                            followSignal={aiFollowSignal}
-                            customerName={activeInteraction.customerName}
-                            customerContextOverview={customerContextOverviewInfo}
-                            trailing={activeWrapUpThread && <VoiceWrapUpCard outcome={outcomeConfigFor(activeInteraction, activeWrapUpThread, "card")} />}
-                            dockRef={setMainDockEl}
-                          />
-                        ) : (
                         <InteractionTranscript
+                          // AI display "main" (AI-first): only the session row
+                          // here, the same as every mode; the AI workspace
+                          // fills the column below and the thread is in the panel.
+                          sessionRowOnly={panelPlacement}
  hideAiActions={hideAiActions}
                           hideMockFollowUpMessages={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID}
                           // Voice wrap-up (P0.5d.1): while this card's call is
@@ -9671,6 +9650,16 @@ export function AgentWorkspaceAdvancedPage({
                           // passed here at all; see that `actions` block's
                           // own doc comment for the full history/reasoning.
                         />
+                        {panelPlacement && (
+                          <AiWorkspaceColumn
+                            feed={renderAiPanelFeed()}
+                            feedCount={aiFeedCount}
+                            followSignal={aiFollowSignal}
+                            customerName={activeInteraction.customerName}
+                            customerContextOverview={customerContextOverviewInfo}
+                            trailing={activeWrapUpThread && <VoiceWrapUpCard outcome={outcomeConfigFor(activeInteraction, activeWrapUpThread, "card")} />}
+                            dockRef={setMainDockEl}
+                          />
                         )}
                         {/* Full-screen video — see AgentNextGenPage.tsx's
                             identical render site for the full rationale. */}

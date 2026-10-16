@@ -60,7 +60,7 @@ describe("appearance.brand storage", () => {
 
   it("a stored v1 appearance without a brand keeps its theme and reads the default brand", () => {
     const value = SECTIONS.appearance.read({ theme: "dark" }, SECTIONS.appearance.defaults);
-    expect(value).toEqual({ theme: "dark", brand: { appName: "Workspace", logo: null, colors: { primary: null, accent: null } } });
+    expect(value).toEqual({ theme: "dark", brand: { appName: "Agent Workspace", logo: null, colors: { primary: null, accent: null } } });
   });
 
   it("keeps #rrggbb colors (lowercased) and drops anything else", () => {

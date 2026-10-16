@@ -178,9 +178,11 @@ export function createWorkspaceHarness() {
       return id;
     },
 
+    /** Accepts an offer. A digital offer the workspace already accepted
+     *  (`useAutoAcceptDigital`) refuses a second accept; that's fine here. */
     async accept(id: InteractionId) {
       await act(async () => {
-        void provider.accept(id);
+        provider.accept(id).catch(() => {});
         await vi.advanceTimersByTimeAsync(200);
       });
     },
