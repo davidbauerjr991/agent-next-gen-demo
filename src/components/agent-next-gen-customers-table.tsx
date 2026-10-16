@@ -36,6 +36,8 @@ import { CURRENT_AGENT_NAME, nextInteractionSortDirection } from "@/components/a
 import { CHANNEL_TYPE_ICON_COLOR_CLASS } from "@/components/agent-next-gen-contact-history";
 import { cn } from "@/lib/utils";
 import { useSettings, type ContactChannel } from "@/settings";
+import { useChannelDisabledReasons } from "@/contact-handling/presence-gates";
+import { DisabledReason } from "@/contact-handling/DisabledReason";
 import {
   Plus,
   RefreshCw,
@@ -282,6 +284,9 @@ export function CustomerChannelPicker({
   // follow-up request. `?? ""` only matters if `skillOptions` were ever
   // empty, which preserves the existing disabled-button guard below.
   const [skillId, setSkillId] = useState(OUTBOUND_CONFIG.skillOptions[0]?.value ?? "");
+  // Presence (voice while Unavailable): listed, disabled, with the reason.
+  const disabledReasons = useChannelDisabledReasons();
+  const selectedChannelReason = disabledReasons?.[selectedChannel];
 
   // Every real address for a channel MINUS whichever of those are already
   // open on this interaction — see `openAddresses`'s own doc comment above.
@@ -324,7 +329,7 @@ export function CustomerChannelPicker({
   const hasAddress = remainingOptions.length > 0;
 
   const handleStartInteraction = () => {
-    if (!skillId || !hasAddress) return;
+    if (!skillId || !hasAddress || selectedChannelReason) return;
     // `OUTBOUND_CUSTOMERS` is built 1:1 (same order, same underlying
     // record) from the exact same `CREATE_NEW_CUSTOMERS` fixture
     // `CUSTOMER_LIST_RECORDS` maps into `row` from — its `subtitle` field
@@ -381,7 +386,8 @@ export function CustomerChannelPicker({
             options={available.map((c) => ({
               value: c,
               label: CHANNEL_ICON_META[c].label,
-              disabled: remainingOptionsFor(c).length === 0,
+              disabled: remainingOptionsFor(c).length === 0 || !!disabledReasons?.[c],
+              disabledReason: disabledReasons?.[c],
             }))}
             value={selectedChannel}
             onValueChange={(v: string) => setSelectedChannel(v as ChannelType)}
@@ -412,15 +418,17 @@ export function CustomerChannelPicker({
             onValueChange={setSkillId}
             options={OUTBOUND_CONFIG.skillOptions}
           />
-          <Button
-            variant="default"
-            size="lg"
-            className="w-full"
-            disabled={!skillId || !hasAddress}
-            onClick={handleStartInteraction}
-          >
-            Start Interaction
-          </Button>
+          <DisabledReason reason={selectedChannelReason} className="flex w-full">
+            <Button
+              variant="default"
+              size="lg"
+              className="w-full"
+              disabled={!skillId || !hasAddress || !!selectedChannelReason}
+              onClick={handleStartInteraction}
+            >
+              Start Interaction
+            </Button>
+          </DisabledReason>
         </div>
       }
     >

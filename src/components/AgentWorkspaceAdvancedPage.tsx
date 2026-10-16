@@ -203,6 +203,7 @@ import {
   HoverPreviewFrame,
   panelToggleClass,
   useReplyBlockedReason,
+  useChannelDisabledReasons,
   AutosummaryCard,
   AiWorkspaceColumn,
   type Activation,
@@ -5117,9 +5118,9 @@ export function AgentWorkspaceAdvancedPage({
      these same records, so it inherits the tagging automatically).
      Recomputed whenever `interactions` changes so an address/channel
      re-enables the moment its interaction is dismissed. */
+  const presenceChannelReasons = useChannelDisabledReasons();
   const outboundConfig = useMemo<CreateNewOutboundConfig>(() => {
-    // Settings → Channels: New Outbound and the add-channel "+" offer only
-    // the channels that are on (hidden, not disabled), on every contact.
+    // Settings → Channels hides what's off; presence disables voice, with its reason (New Outbound and the "+").
     const tagChannels = buildOpenChannelTagger(interactions);
     const tagOpenChannels = (contact: CreateNewOutboundContact) => withEnabledChannels(tagChannels(contact), channelSettings);
     // Skills come from the provider (`listOutboundSkills`, P0.5b.2); the
@@ -5128,8 +5129,8 @@ export function AgentWorkspaceAdvancedPage({
     return {
       ...OUTBOUND_CONFIG,
       channelOptions: enabledChannelOptions(OUTBOUND_CONFIG.channelOptions, channelSettings),
-      // A typed address is an ad-hoc dial (Outbound Calling → Ad-hoc); lyra
-      // narrows these to the channel options above.
+      channelDisabledReasons: presenceChannelReasons,
+      // A typed address is an ad-hoc dial (Outbound Calling → Ad-hoc); lyra narrows these to the channel options above.
       adHocChannels: calling.adHoc ? OUTBOUND_CONFIG.adHocChannels : { phone: [], email: [] },
       skillOptions: providerSkills.length > 0 ? providerSkills : OUTBOUND_CONFIG.skillOptions,
       groups: OUTBOUND_CONFIG.groups.map((group) => {
@@ -5167,7 +5168,7 @@ export function AgentWorkspaceAdvancedPage({
         };
       }),
     };
-  }, [interactions, selectedOutboundTeamId, allOutboundSkills, channelSettings, calling.adHoc]);
+  }, [interactions, selectedOutboundTeamId, allOutboundSkills, channelSettings, calling.adHoc, presenceChannelReasons]);
 
   // `CONTACT_HISTORY_OUTBOUND_CONTACTS` (the 5 hand-authored rows) PLUS a
   // live-rebuilt contact for every row in `dismissedContactHistory` (see
@@ -10036,8 +10037,7 @@ export function AgentWorkspaceAdvancedPage({
                         // treatment.
                         actionButton={
                           selectedContactHistoryEntry.redial && !calling.redial ? undefined : selectedContactHistoryEntry.redial ? (
-                            // Disabled, saying why, while Unavailable or already on a call with this
-                            // customer; another call is fine (it holds the first, row 15).
+                            // Disabled with the reason while Unavailable or on a call with this customer (another call holds, row 15).
                             <DisabledReason reason={outboundDial.redialBlockedReason(selectedContactHistoryEntry)}>
                             <Button
                               variant="outline"

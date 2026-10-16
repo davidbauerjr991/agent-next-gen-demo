@@ -41,6 +41,7 @@ import {
   looksLikePhoneNumber,
   type ChannelType,
 } from "@nicecxone/lyra-ui";
+import { useChannelDisabledReasons } from "@/contact-handling/presence-gates";
 
 export interface AddChannelAdHocButtonProps {
   /** Fires once the agent finishes the popup's flow — `query` is the
@@ -116,6 +117,9 @@ function AddChannelAdHocButton({ onLaunch, skillOptions, className }: AddChannel
   // case of an empty list — both launch buttons below stay disabled via
   // their own `!skillId` check in that case, same as `create-new.tsx`.
   const [skillId, setSkillId] = useState(skillOptions[0]?.value ?? "");
+  const disabledReasons = useChannelDisabledReasons();
+  // A choice that became disabled (the agent went Unavailable on step 2) can't launch.
+  const phoneChannelBlocked = !!phoneChannel && !!disabledReasons?.[phoneChannel];
 
   const trimmed = value.trim();
   const isEmail = looksLikeEmail(trimmed);
@@ -135,7 +139,7 @@ function AddChannelAdHocButton({ onLaunch, skillOptions, className }: AddChannel
   const handleContinue = () => {
     // Step 2 (phone only): confirm the SMS/Voice choice and launch.
     if (choosingPhoneChannel) {
-      if (!phoneChannel || !skillId) return;
+      if (!phoneChannel || !skillId || phoneChannelBlocked) return;
       onLaunch(trimmed, phoneChannel, skillId);
       closeAndReset();
       return;
@@ -201,7 +205,7 @@ function AddChannelAdHocButton({ onLaunch, skillOptions, className }: AddChannel
         // first option).
         choosingPhoneChannel ? (
           <div className="px-5 pb-4 pt-1">
-            <Button variant="outline" size="lg" wrap className="w-full" disabled={!canContinue || !phoneChannel || !skillId} onClick={handleContinue}>
+            <Button variant="outline" size="lg" wrap className="w-full" disabled={!canContinue || !phoneChannel || !skillId || phoneChannelBlocked} onClick={handleContinue}>
               Start Interaction
             </Button>
           </div>
@@ -238,9 +242,10 @@ function AddChannelAdHocButton({ onLaunch, skillOptions, className }: AddChannel
             />
             <RadioButtonGroup
               label="Select Channel"
+              // Presence: Voice stays listed, disabled with its reason.
               options={[
-                { value: "sms", label: "SMS" },
-                { value: "voice", label: "Voice" },
+                { value: "sms", label: "SMS", disabled: !!disabledReasons?.sms, disabledReason: disabledReasons?.sms },
+                { value: "voice", label: "Voice", disabled: !!disabledReasons?.voice, disabledReason: disabledReasons?.voice },
               ]}
               value={phoneChannel}
               onValueChange={(v) => setPhoneChannel(v as "sms" | "voice")}

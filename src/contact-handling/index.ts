@@ -54,7 +54,7 @@ export { useMainPins } from "./useMainPins";
 export { HoverPreviewFrame } from "./HoverPreviewFrame";
 export { panelToggleClass, PANEL_TOGGLE_ACTIVE } from "./panel-toggle";
 export { DisabledReason } from "./DisabledReason";
-export { useAgentAvailable, useReplyBlockedReason, UNAVAILABLE_REPLY_REASON, UNAVAILABLE_CALL_TOOLTIP } from "./presence-gates";
+export { useAgentAvailable, useChannelDisabledReasons, useReplyBlockedReason, UNAVAILABLE_REPLY_REASON, UNAVAILABLE_CALL_TOOLTIP } from "./presence-gates";
 export { AutosummaryCard } from "./AutosummaryCard";
 export { AiWorkspaceColumn, type AiWorkspaceColumnProps } from "./AiWorkspaceColumn";
 export { ConfirmCloseDialog } from "./ConfirmCloseDialog";

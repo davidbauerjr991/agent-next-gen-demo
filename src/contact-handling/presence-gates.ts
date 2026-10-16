@@ -1,4 +1,5 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
+import type { CreateNewChannelDisabledReasons } from "@nicecxone/lyra-ui";
 import { useAgentState } from "@/provider-context";
 
 // What the agent's own presence blocks (PLAN.md Decisions, P-AIFIRST (i)):
@@ -16,6 +17,14 @@ export const UNAVAILABLE_CALL_TOOLTIP = "Go Available to call";
 export function useAgentAvailable(): boolean {
   const presence = useAgentState()?.presence;
   return !presence || presence.category !== "unavailable";
+}
+
+/** The channels presence disables for every outbound launch, with the reason
+ *  (lyra `CreateNew`'s `channelDisabledReasons`, the Customers picker, the
+ *  ad-hoc "+"): voice while Unavailable. Email, SMS and WhatsApp stay open. */
+export function useChannelDisabledReasons(): CreateNewChannelDisabledReasons | undefined {
+  const available = useAgentAvailable();
+  return useMemo(() => (available ? undefined : { voice: UNAVAILABLE_CALL_TOOLTIP }), [available]);
 }
 
 /** The reason a thread's composer is disabled, if presence blocks it: a
