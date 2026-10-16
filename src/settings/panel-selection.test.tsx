@@ -11,6 +11,8 @@ import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedP
 import { getSettingsStore, resetSettingsStoreForTests } from "./settings-store";
 import { profileValues } from "./profiles";
 import type { AiDisplayLocation } from "./settings-schema";
+import { PANEL_TOGGLE_ACTIVE } from "@/contact-handling";
+import type { JourneyId } from "@/domain";
 
 const h = createWorkspaceHarness();
 
@@ -108,7 +110,8 @@ describe("one selection path for the right panel", () => {
 });
 
 describe("header highlight rule", () => {
-  it("selected = what the panel shows (single); inline/panel also mark the main column's thread 'in main'; main: no in-main mark", async () => {
+  /** Phase 2 (inline): Dan Ortiz's card with a chat (the main column's thread) and an email. */
+  async function chatAndEmailCard() {
     await act(async () => getSettingsStore().update("channels", { chat: true, email: true }));
     await h.show(AgentWorkspaceAdvancedPage);
     await h.goAvailable();
@@ -127,6 +130,74 @@ describe("header highlight rule", () => {
       await vi.advanceTimersByTimeAsync(300);
       await dialed;
     });
+  }
+
+  // Item 4, revised: active = on screen (the main column's thread, the panel's
+  // content), one look for every member; inline/panel can have two at once.
+  it("active looks the same on every member; inline with the email in main and Contact Details in the panel, both are active", async () => {
+    await act(async () => {
+      getSettingsStore().update("channels", { chat: true, email: true, whatsapp: true });
+      getSettingsStore().update("assignments", { omnichannel: false });
+      getSettingsStore().update("ai", { displayLocation: "inline" });
+    });
+    await h.show(AgentWorkspaceAdvancedPage);
+    await h.goAvailable();
+    // A WhatsApp, then an email on the same card: omnichannel off, so the email is the main thread.
+    let journeyId = "";
+    for (const channel of ["whatsapp", "email"] as const) {
+      await act(async () => {
+        const dialed = h.provider.dial({
+          channel,
+          address: channel === "email" ? "dan.ortiz@example.com" : "+13125550199",
+          skillId: "general",
+          contactName: "Dan Ortiz",
+          ...(journeyId ? { journeyId: journeyId as JourneyId } : {}),
+        });
+        await vi.advanceTimersByTimeAsync(300);
+        const id = await dialed;
+        const snapshot = h.provider.getSnapshot();
+        await vi.advanceTimersByTimeAsync(50);
+        journeyId = (await snapshot).interactions.find((i) => i.id === id)!.journeyId;
+      });
+    }
+    await h.click(h.navCard("Dan Ortiz"));
+    expect(h.container.querySelector("[data-main-thread]")?.getAttribute("data-main-thread")).toBe("email");
+
+    const active = (el: HTMLElement) => PANEL_TOGGLE_ACTIVE.split(" ").every((c) => el.classList.contains(c));
+    const anyActive = (el: HTMLElement) => PANEL_TOGGLE_ACTIVE.split(" ").some((c) => el.classList.contains(c));
+    const classes = (el: HTMLElement) => new Set(el.classList);
+    const minus = (a: Set<string>, b: Set<string>) => [...a].filter((c) => !b.has(c)).sort();
+
+    // Contact Details in the panel, the email in main: both active; WhatsApp default.
+    if (panelShows() !== "details") await h.click(contactDetailsButton()!);
+    expect(panelShows()).toBe("details");
+    const [email, whatsApp, details] = [headerIcon("Email")!, headerIcon("WhatsApp")!, contactDetailsButton()!];
+    expect([active(email), active(details), anyActive(whatsApp)]).toEqual([true, true, false]);
+    expect([pressed(email), pressed(details)]).toEqual([false, true]);
+    const whatsAppOff = classes(whatsApp);
+    const detailsOn = classes(details);
+
+    // WhatsApp into the panel: it and the email are active, Contact Details default.
+    await h.click(whatsApp);
+    expect(panelShows()).toBe("whatsapp");
+    const [email2, whatsApp2, details2] = [headerIcon("Email")!, headerIcon("WhatsApp")!, contactDetailsButton()!];
+    expect([active(email2), active(whatsApp2), anyActive(details2)]).toEqual([true, true, false]);
+    for (const el of [whatsApp2, details2]) expect(el.getAttribute("data-preview-open")).toBeNull();
+
+    // Becoming active adds and removes the same classes on an icon and on Contact Details,
+    // and two active icons (one in main, one in the panel) carry the same classes.
+    const whatsAppOn = classes(whatsApp2);
+    const detailsOff = classes(details2);
+    expect(minus(whatsAppOn, whatsAppOff)).toEqual(minus(detailsOn, detailsOff));
+    expect(minus(whatsAppOff, whatsAppOn)).toEqual(minus(detailsOff, detailsOn));
+    expect([...classes(email2)].sort()).toEqual([...whatsAppOn].sort());
+    // Clicking the in-main member changes nothing.
+    await h.click(email2);
+    expect(panelShows()).toBe("whatsapp");
+  });
+
+  it("selected = what the panel shows (single); inline/panel also mark the main column's thread 'in main'; main: no in-main mark", async () => {
+    await chatAndEmailCard();
     const inMain = (label: string) => headerIcon(label)!.getAttribute("data-in-main") === "true";
     // Inline (Phase 2): the chat is in the main column → marked in-main, not selected.
     expect([pressed(headerIcon("Chat")), inMain("Chat")]).toEqual([false, true]);
@@ -153,5 +224,8 @@ describe("header highlight rule", () => {
     expect([inMain("Chat"), inMain("Email")]).toEqual([false, false]);
     expect(pressed(headerIcon("Chat"))).toBe(inPanel === "chat");
     expect(pressed(headerIcon("Email"))).toBe(inPanel === "email");
+    // …and so exactly one member has the active look.
+    const members = [headerIcon("Chat")!, headerIcon("Email")!, contactDetailsButton()!];
+    expect(members.filter((el) => PANEL_TOGGLE_ACTIVE.split(" ").every((c) => el.classList.contains(c)))).toHaveLength(1);
   });
 });

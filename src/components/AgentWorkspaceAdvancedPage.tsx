@@ -201,6 +201,7 @@ import {
   useAutoAcceptDigital,
   useMainPins,
   HoverPreviewFrame,
+  panelToggleClass,
   AutosummaryCard,
   AiWorkspaceColumn,
   type Activation,
@@ -8609,11 +8610,9 @@ export function AgentWorkspaceAdvancedPage({
                           // The icons and Contact Details are one toggle group
                           // for the right panel: an icon is selected while its
                           // thread is the one the panel shows.
-                          // Selected (the nav card's two-row rule): the panel's thread, plus the
-                          // main column's outside AI display "main" (where no thread is main).
-                          // Selected = what the panel shows (single-select with Contact Details). The
-                          // main column's thread gets the nav card's "in main column" mark instead
-                          // (inline and panel modes; nothing is in the main column under "main").
+                          // Pressed = what the panel shows (single, with Contact Details). Active (the
+                          // selected look, `panelToggleClass`) = on screen: the panel's thread, and the
+                          // main column's outside AI display "main"; clicking that one is a no-op.
                           const isOpen = channelKeys.includes(channelPreviewThreadKey ?? "");
                           const inMain = !isOpen && !panelPlacement && channelKeys.includes(activeChannelKey);
                           const unreadCount =
@@ -8735,14 +8734,7 @@ export function AgentWorkspaceAdvancedPage({
                                       ? `${previewLabel} active`
                                       : `${isOpen ? "Close" : "Open"} ${previewLabel} preview`
                                   }
-                                  className={cn(
-                                    "ml-0.5 h-8 w-8 px-0 border border-lyra-border-soft bg-lyra-bg-control text-lyra-fg-action hover:bg-lyra-state-hover active:bg-lyra-state-pressed",
-                                    isOpen && PANEL_BUTTON_SELECTED_CLASS,
-                                    inMain && "bg-lyra-status-info-subtle text-lyra-status-info-strong",
-                                    // Its preview open: the button keeps its hover look while the
-                                    // pointer is in the popover, so they read as one unit.
-                                    hoverOpen && !isOpen && "bg-lyra-state-hover"
-                                  )}
+                                  className={cn("ml-0.5 h-8 w-8 px-0", panelToggleClass({ active: isOpen || inMain, previewOpen: hoverOpen }))}
                                   data-preview-open={hoverOpen || undefined}
                                   data-in-main={inMain || undefined}
                                   // Several threads on the channel: their count; else its unread count.
@@ -9009,8 +9001,7 @@ export function AgentWorkspaceAdvancedPage({
                                 className={cn(
                                   "shrink-0 animate-in fade-in-0 duration-200",
                                   recordHeaderWidth < 768 && "w-8 gap-0 px-0",
-                                  contactDetailsShowing && PANEL_BUTTON_SELECTED_CLASS,
-                                  customerInfoPreviewOpen && !contactDetailsShowing && "bg-lyra-state-hover"
+                                  panelToggleClass({ active: contactDetailsShowing, previewOpen: customerInfoPreviewOpen })
                                 )}
                                 data-preview-open={(customerInfoPreviewOpen && !contactDetailsShowing) || undefined}
                                 aria-pressed={contactDetailsShowing}

@@ -52,6 +52,7 @@ export { useConversationPlacement } from "./useConversationPlacement";
 export { useAutoAcceptDigital, useDigitalOfferChannels } from "./useAutoAcceptDigital";
 export { useMainPins } from "./useMainPins";
 export { HoverPreviewFrame } from "./HoverPreviewFrame";
+export { panelToggleClass, PANEL_TOGGLE_ACTIVE } from "./panel-toggle";
 export { AutosummaryCard } from "./AutosummaryCard";
 export { AiWorkspaceColumn, type AiWorkspaceColumnProps } from "./AiWorkspaceColumn";
 export { ConfirmCloseDialog } from "./ConfirmCloseDialog";
