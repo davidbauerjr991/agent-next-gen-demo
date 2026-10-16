@@ -9,6 +9,7 @@ import { useAgentState, useInteractionProvider, useInteractions, useProviders } 
 import { OUTBOUND_CONFIG } from "@/components/agent-next-gen-outbound-data";
 import type { ContactHistoryEntry } from "@/components/agent-next-gen-contact-history";
 import { knownOrSynthesizedAddress, normalizePhone, historyEntityId } from "./contact-identity";
+import { useAgentAvailable, UNAVAILABLE_CALL_TOOLTIP } from "./presence-gates";
 import type { ActivationMode } from "./useContactActivation";
 
 // Every outbound launch on both workspace pages (P0.5b.2): New Outbound, Quick
@@ -123,6 +124,7 @@ export function useOutboundDial({
   const provider = useInteractionProvider();
   const interactions = useInteractions();
   const agentState = useAgentState();
+  const available = useAgentAvailable();
   const outboundChannels = useProviders().capabilities.interaction.channels.outbound;
 
   const [dialpadRequest, setDialpadRequest] = useState<DialpadRequest | null>(null);
@@ -142,6 +144,11 @@ export function useOutboundDial({
   const place = useCallback(
     async (target: DialTarget) => {
       const channel = target.channel as ChannelKind;
+      // Presence blocks calls on every path (the buttons say so; this catches the rest).
+      if (target.channel === "voice" && !available) {
+        if (import.meta.env.DEV) console.warn("[outbound] a call needs the agent Available");
+        return false;
+      }
       if (target.channel === "voice" && refuseVoice()) return false;
       // One call per customer, on every path (the buttons are disabled too;
       // this catches a number typed into Quick Dial).
@@ -202,7 +209,7 @@ export function useOutboundDial({
         return false;
       }
     },
-    [provider, interactions, agentState, outboundChannels, activateWhenReady, onLegDisconnected, refuseVoice, onAlreadyOnCall],
+    [provider, interactions, agentState, available, outboundChannels, activateWhenReady, onLegDisconnected, refuseVoice, onAlreadyOnCall],
   );
 
   /** Whether Contact History's Redial is disabled for `entry`: the agent is
@@ -216,6 +223,12 @@ export function useOutboundDial({
     [interactions, findCustomer],
   );
   const redialBlocked = useCallback((entry: ContactHistoryEntry) => redialCallWith(entry) !== undefined, [redialCallWith]);
+  /** Why Contact History's Redial is disabled, if it is: presence (not
+   *  Available), or already on a call with that customer. */
+  const redialBlockedReason = useCallback(
+    (entry: ContactHistoryEntry) => (!available ? UNAVAILABLE_CALL_TOOLTIP : redialBlocked(entry) ? ALREADY_ON_CALL_TOOLTIP : undefined),
+    [available, redialBlocked],
+  );
 
   /** New Outbound's Start Interaction (and the record header's "+", which
    *  passes the card's own contact). */
@@ -374,6 +387,7 @@ export function useOutboundDial({
 
   return {
     redialBlocked,
+    redialBlockedReason,
     startCall,
     quickDial,
     redial,

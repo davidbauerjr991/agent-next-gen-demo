@@ -149,6 +149,7 @@ describe("Assignments: Unassign & Dismiss", () => {
 
   async function endedChat() {
     await h.show(AgentWorkspaceAdvancedPage);
+    await h.goAvailable();
     await setSettings("channels", { chat: true });
     const id = await h.startInbound("chat", "priya.shah@example.com", "Priya Shah");
     await h.accept(id);

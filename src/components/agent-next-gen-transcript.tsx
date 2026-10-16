@@ -14,6 +14,7 @@ import {
   type ContactOverviewInfo,
   ChatMessage,
   ActionIconButton,
+  InlineNotification,
   TagPicker,
   Tag,
   Button,
@@ -5074,7 +5075,12 @@ export function InteractionComposer({
   onHideAiActionsChange,
   copilotDock,
   floatingMenus = false,
+  replyBlockedReason,
 }: {
+  /** Set while the agent's own state blocks replying (presence): the chat
+   *  input, Send and the quick-reply trigger stay visible but disabled, under
+   *  an InlineNotification reading this. The transcript stays readable. */
+  replyBlockedReason?: string;
   /** The quick-reply menu (and its variable form) float on the document's
    *  top layer, anchored above the composer, instead of in its flow: for a
    *  composer inside a size-limited surface (a header hover preview) that
@@ -5408,7 +5414,7 @@ export function InteractionComposer({
   };
 
   const handleSend = () => {
-    if (!canSend) return;
+    if (!canSend || replyBlockedReason) return;
     onSend(message);
     setMessage("");
   };
@@ -5555,6 +5561,11 @@ export function InteractionComposer({
         <div className="grid grid-cols-[minmax(0,1fr)]">
         {!copilotDocked && copilotComposer("inline")}
         <div className={`col-start-1 row-start-1 ${composerTab === "chat" ? "" : "invisible pointer-events-none"}`} aria-hidden={composerTab !== "chat"}>
+        {replyBlockedReason && (
+          <InlineNotification variant="warning" className="mb-2" data-slot="reply-blocked">
+            {replyBlockedReason}
+          </InlineNotification>
+        )}
         <Textarea
           ref={textareaRef}
           placeholder="Type a message... or / for quick replies"
@@ -5562,6 +5573,7 @@ export function InteractionComposer({
           value={message}
           onChange={handleMessageChange}
           onKeyDown={handleComposerKeyDown}
+          disabled={!!replyBlockedReason}
         />
         <div className="mt-2 flex items-center justify-between">
           <div className="flex items-center gap-0.5">
@@ -5577,7 +5589,7 @@ export function InteractionComposer({
             <ActionIconButton size="sm" title="Emoji">
               <Smile className="h-4 w-4" strokeWidth={1.5} />
             </ActionIconButton>
-            <ActionIconButton size="sm" title="Quick replies" onClick={openQuickReplyMenuAtCaret}>
+            <ActionIconButton size="sm" title="Quick replies" onClick={openQuickReplyMenuAtCaret} disabled={!!replyBlockedReason}>
               <Zap className="h-4 w-4" strokeWidth={1.5} />
             </ActionIconButton>
             <ActionIconButton size="sm" title="Templates">
@@ -5590,7 +5602,7 @@ export function InteractionComposer({
               variant="default"
               size="lg"
               className="gap-1.5 rounded-r-none"
-              disabled={!canSend}
+              disabled={!canSend || !!replyBlockedReason}
               onClick={handleSend}
             >
               <Send className="h-4 w-4" strokeWidth={1.5} />
@@ -5600,7 +5612,7 @@ export function InteractionComposer({
               variant="default"
               size="icon-lg"
               className="rounded-l-none border-l border-white/25"
-              disabled={!canSend}
+              disabled={!canSend || !!replyBlockedReason}
               title="More send options"
             >
               <ChevronDown className="h-4 w-4" strokeWidth={1.5} />

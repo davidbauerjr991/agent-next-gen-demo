@@ -70,7 +70,8 @@ interface Run {
   pending: Set<Pending>;
 }
 
-const LIVE_PRESENCE = ["available", "working"];
+/** Presence codes routing offers contacts to (every inbound, `routeInbound`). */
+export const LIVE_PRESENCE = ["available", "working"];
 
 export function createScenarioPlayer(
   host: ScenarioHost,

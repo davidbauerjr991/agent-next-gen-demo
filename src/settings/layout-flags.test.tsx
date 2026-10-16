@@ -172,6 +172,7 @@ describe("Apps placed in the left nav open as pages", () => {
 
   it("selecting a card leaves the page", async () => {
     await h.show(AgentWorkspaceAdvancedPage);
+    await h.goAvailable();
     await placeApp("tickets", "leftnav");
     await setSettings("channels", { chat: true });
     await h.accept(await h.startInbound("chat", "dan.ortiz@example.com", "Dan Ortiz"));

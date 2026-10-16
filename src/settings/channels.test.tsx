@@ -118,6 +118,7 @@ describe("routing (the sim's startInbound)", () => {
   it("refuses an inbound on a channel that's off, with a dev warning; on, it's offered", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     await h.show(AgentWorkspaceAdvancedPage);
+    await h.goAvailable();
     // Off: refused, so accepting finds nothing to accept.
     const refusedId = await h.startInbound("chat", "priya.shah@example.com", "Priya Shah");
     await h.accept(refusedId);
@@ -130,8 +131,25 @@ describe("routing (the sim's startInbound)", () => {
     warn.mockRestore();
   });
 
+  it("refuses every inbound while the agent isn't Available or Working, with a dev warning", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await h.show(AgentWorkspaceAdvancedPage);
+    await setSettings("channels", { chat: true });
+    // Not yet Available: neither a chat nor a call reaches the agent.
+    for (const [channel, address] of [["chat", "priya.shah@example.com"], ["voice", "(312) 555-0164"]] as const) {
+      await h.accept(await h.startInbound(channel, address, "Priya Shah"));
+      expect(() => h.navCard("Priya Shah")).toThrow();
+    }
+    expect(warn.mock.calls.filter((args) => args.some((a) => String(a).includes("not available or working")))).toHaveLength(2);
+    await h.goAvailable();
+    await h.accept(await h.startInbound("chat", "priya.shah@example.com", "Priya Shah"));
+    expect(() => h.navCard("Priya Shah")).not.toThrow();
+    warn.mockRestore();
+  });
+
   it("a contact open on a channel that's turned off stays until it ends", async () => {
     await h.show(AgentWorkspaceAdvancedPage);
+    await h.goAvailable();
     await setSettings("channels", { chat: true });
     await h.accept(await h.startInbound("chat", "priya.shah@example.com", "Priya Shah"));
     await setSettings("channels", { chat: false });

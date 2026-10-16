@@ -343,6 +343,7 @@ describe("Advanced: P0.5c browser-check fixes", () => {
   it("4. a live chat row has no Unassign & Dismiss icon; it appears once the contact has ended", async () => {
     await show(AgentWorkspaceAdvancedPage);
     await withChat();
+    await goAvailable();
     const id = await startInbound("chat", "priya.shah@example.com", "Priya Shah");
     await accept(id);
     await click(navCard("Priya Shah"));
@@ -437,6 +438,7 @@ describe("remount", () => {
   it("a carried-over chat shows once, never also in the docked preview", async () => {
     await show(AgentWorkspaceAdvancedPage);
     await withChat();
+    await goAvailable();
     const id = await startInbound("chat", "priya.shah@example.com", "Priya Shah");
     await accept(id);
     await click(navCard("Priya Shah"));

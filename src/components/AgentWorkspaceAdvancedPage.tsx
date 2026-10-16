@@ -175,7 +175,7 @@ import {
   voiceWrapUpThread,
   preContactSummaryOf,
   withPreContactSummary,
-  ALREADY_ON_CALL_TOOLTIP,
+  DisabledReason,
   alreadyOnCallMessage,
   callerOfCard,
   callerOfInteraction,
@@ -202,6 +202,7 @@ import {
   useMainPins,
   HoverPreviewFrame,
   panelToggleClass,
+  useReplyBlockedReason,
   AutosummaryCard,
   AiWorkspaceColumn,
   type Activation,
@@ -3148,6 +3149,7 @@ export function AgentWorkspaceAdvancedPage({
   };
   /** A composer's Copilot chips and ask, for one thread: the chips follow the
    *  thread's channel (Lucas has his own). */
+  const replyBlockedReason = useReplyBlockedReason();
   const copilotComposerProps = (interactionId: string, threadKey: string): CopilotComposerProps => {
     const isLucas = scenarioKeyOf(interactionId) === LUCAS_THOMAS_ID;
     const channel = interactions.find((i) => i.id === interactionId)?.threads.find((t) => (t.id ?? t.type) === threadKey)?.type;
@@ -3157,6 +3159,7 @@ export function AgentWorkspaceAdvancedPage({
       copilotSuggestionReplacements: isLucas ? LUCAS_THOMAS_COPILOT_SUGGESTION_REPLACEMENTS : undefined,
       onCopilotSuggestionLink: (key: string) => openDetailPanelContent({ kind: "lucas", panel: key as LucasThomasPanelKey }),
       onCopilotAsk: (text: string) => handleCopilotAsk(interactionId, threadKey, text),
+      replyBlockedReason: replyBlockedReason(channel),
     };
   };
   // The DOM node the Next Best Action card's currently-active question
@@ -8704,7 +8707,7 @@ export function AgentWorkspaceAdvancedPage({
                                         <ChannelThreadComposer
                                           hideAiActions={hideAiActions}
                                           onSend={(text) => handleSendMessage(activeInteraction.id, text, key)}
-                                          copilot={{}}
+                                          copilot={{ replyBlockedReason: replyBlockedReason(c.type) }}
                                           chatOnly
                                           floatingMenus
                                         />
@@ -10033,22 +10036,18 @@ export function AgentWorkspaceAdvancedPage({
                         // treatment.
                         actionButton={
                           selectedContactHistoryEntry.redial && !calling.redial ? undefined : selectedContactHistoryEntry.redial ? (
+                            // Disabled, saying why, while Unavailable or already on a call with this
+                            // customer; another call is fine (it holds the first, row 15).
+                            <DisabledReason reason={outboundDial.redialBlockedReason(selectedContactHistoryEntry)}>
                             <Button
                               variant="outline"
-                              // Enabled during a call: a second call holds
-                              // the first (row 15, revised 2026-10-14; this
-                              // used to be disabled while on a call).
-                              // Disabled only while already on a live or
-                              // held call with this customer (shared rule).
-                              disabled={outboundDial.redialBlocked(selectedContactHistoryEntry)}
-                              title={outboundDial.redialBlocked(selectedContactHistoryEntry) ? ALREADY_ON_CALL_TOOLTIP : undefined}
-                              onClick={(e) => {
-                                handleRedialButtonClick(selectedContactHistoryEntry, e.currentTarget);
-                              }}
+                              disabled={!!outboundDial.redialBlockedReason(selectedContactHistoryEntry)}
+                              onClick={(e) => handleRedialButtonClick(selectedContactHistoryEntry, e.currentTarget)}
                             >
                               <PhoneOutgoing className="h-3.5 w-3.5" strokeWidth={1.5} />
                               Redial
                             </Button>
+                            </DisabledReason>
                           ) : (
                             <Button
                               onClick={() => {

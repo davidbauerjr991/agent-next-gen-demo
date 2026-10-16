@@ -39,7 +39,7 @@ import type { SimTransport } from "./sim-transport";
 import { caseNumber, contactNumber, journeyNumber, sampleMs, simId, unsupportedReason } from "./sim-util";
 import type { ScenarioScript } from "../../scenarios/scenario-script";
 import { startRequest } from "../../scenarios/validate";
-import { createScenarioPlayer } from "./sim-scenario-player";
+import { createScenarioPlayer, LIVE_PRESENCE } from "./sim-scenario-player";
 
 // The simulated contact-center "switch" (P0.4). It owns all interaction and
 // agent state, answers commands from its session's provider over the bus,
@@ -645,6 +645,9 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
    *  shared path of `startInbound` and the scenario player. */
   function routeInbound(request: InboundRequest): Interaction {
     if (!capabilities.channels.inbound.includes(request.channel)) throw new Error(`inbound ${request.channel} is not supported`);
+    // Routing offers nothing to an agent who isn't Available or Working,
+    // scripted or not: refused, logged in dev (`handleCustomer`).
+    if (!LIVE_PRESENCE.includes(agent.presence.code)) throw new Error(`the agent is ${agent.presence.code}, not available or working`);
     const startedAt = request.startedAt ?? now();
     // Routing recognizes a known caller by address unless the customer
     // side already named the entity.

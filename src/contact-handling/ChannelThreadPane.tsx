@@ -4,10 +4,11 @@ import type { Interaction, Thread } from "@/components/agent-next-gen-interactio
 import { isAiActionMessage } from "@/components/agent-next-gen-ai-messages";
 import { threadKeyOf } from "./channel-thread";
 
-/** The composer's Copilot props (chips, chip links, ask). */
+/** The composer's per-thread props: Copilot's (chips, chip links, ask) and
+ *  the presence block on replying (`useReplyBlockedReason`). */
 export type CopilotComposerProps = Pick<
   ComponentProps<typeof InteractionComposer>,
-  "copilotSuggestions" | "copilotSuggestionLinks" | "copilotSuggestionReplacements" | "onCopilotSuggestionLink" | "onCopilotAsk"
+  "copilotSuggestions" | "copilotSuggestionLinks" | "copilotSuggestionReplacements" | "onCopilotSuggestionLink" | "onCopilotAsk" | "replyBlockedReason"
 >;
 
 export interface ChannelThreadBodyProps {
