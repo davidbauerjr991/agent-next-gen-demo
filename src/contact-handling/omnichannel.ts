@@ -43,7 +43,10 @@ export function routeChannel(threads: readonly Thread[], key: string, placement:
  *  card's main thread. (With placement "panel" the main column is the AI
  *  workspace, and this is only the card's context thread: the one the record
  *  header, Outcome and Copilot follow.) */
-export function omnichannelMainKey(threads: readonly Thread[], requested: string | undefined): string | undefined {
+export function omnichannelMainKey(threads: readonly Thread[], requested: string | undefined, pinned?: string): string | undefined {
+  // A pinned main thread (`useMainPins`: an auto-accepted chat joined the
+  // card) stays main while the card still has it.
+  if (pinned !== undefined && threads.some((t) => threadKeyOf(t) === pinned)) return pinned;
   return requested !== undefined && routeChannel(threads, requested) === "main" ? requested : mainThreadKey(threads);
 }
 
@@ -52,6 +55,22 @@ export function omnichannelMainKey(threads: readonly Thread[], requested: string
 export function panelDefaultKey(threads: readonly Thread[]): string | undefined {
   const pick = threads.find((t) => t.type === "chat") ?? threads.find((t) => t.type !== "voice");
   return pick ? threadKeyOf(pick) : undefined;
+}
+
+/** The record header's toggle group: one entry per channel on the card, in
+ *  order of first appearance, never one per thread. `thread` is the
+ *  channel's most recent thread (what the icon selects); `count` how many
+ *  threads the channel has (a badge when more than one; the nav rows switch
+ *  between them, and a thread picker arrives with P2.2/P-PARKED); `keys`
+ *  every thread of the channel (any selected selects the icon). */
+export function channelHeaderEntries(threads: readonly Thread[]): { thread: Thread; count: number; keys: string[] }[] {
+  const byType = new Map<Thread["type"], Thread[]>();
+  for (const t of threads) byType.set(t.type, [...(byType.get(t.type) ?? []), t]);
+  return [...byType.values()].map((group) => ({
+    thread: group.reduce((latest, t) => ((t.startTick ?? 0) >= (latest.startTick ?? 0) ? t : latest)),
+    count: group.length,
+    keys: group.map(threadKeyOf),
+  }));
 }
 
 /** Customer messages on a thread (its live messages until P2.2). */

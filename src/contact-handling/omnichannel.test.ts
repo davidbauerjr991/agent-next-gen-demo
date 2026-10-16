@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { Thread } from "@/components/agent-next-gen-interaction-dashboard";
-import { channelTempo, customerMessageCount, mainThreadKey, omnichannelMainKey, panelDefaultKey, routeChannel } from "./omnichannel";
+import {
+  channelHeaderEntries,
+  channelTempo,
+  customerMessageCount,
+  mainThreadKey,
+  omnichannelMainKey,
+  panelDefaultKey,
+  routeChannel,
+} from "./omnichannel";
 
 const thread = (type: Thread["type"]): Thread => ({ id: type, type, startTick: 0 }) as Thread;
 
@@ -49,6 +57,15 @@ describe("omnichannel routing", () => {
     expect(panelDefaultKey([thread("voice"), thread("email"), thread("chat")])).toBe("chat");
     expect(panelDefaultKey([thread("voice"), thread("sms"), thread("email")])).toBe("sms");
     expect(panelDefaultKey([thread("voice")])).toBeUndefined();
+  });
+
+  it("the header has one entry per channel: its most recent thread, a count, every key", () => {
+    const t = (id: string, type: Thread["type"], startTick: number) => ({ id, type, startTick }) as Thread;
+    const entries = channelHeaderEntries([t("email:a", "email", 1), t("chat:a", "chat", 2), t("email:b", "email", 3)]);
+    expect(entries.map((e) => [e.thread.id, e.count, e.keys])).toEqual([
+      ["email:b", 2, ["email:a", "email:b"]],
+      ["chat:a", 1, ["chat:a"]],
+    ]);
   });
 
   it("counts only customer messages", () => {

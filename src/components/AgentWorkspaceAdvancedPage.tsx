@@ -102,6 +102,7 @@ import {
   TRANSCRIPT_SESSIONS_EMAIL,
   AiActionsFeed,
   ComposerFade,
+  AI_CARD_ENTER,
 } from "@/components/agent-next-gen-transcript";
 import { isAiActionMessage } from "@/components/agent-next-gen-ai-messages";
 import {
@@ -196,10 +197,14 @@ import {
   channelTempo,
   omnichannelMainKey,
   panelDefaultKey,
+  channelHeaderEntries,
   routeChannel,
   useOmnichannelLayout,
   useConversationPlacement,
   useAutoAcceptDigital,
+  useMainPins,
+  useNewRowGuard,
+  HoverPreviewFrame,
   AiWorkspaceColumn,
   type Activation,
   type OutcomeDraft,
@@ -497,6 +502,8 @@ const SHOW_ADD_CHANNEL_HEADER_BUTTONS = false;
 // restore is now this one-word flip. Annotated `boolean` (not a bare
 // `false`) so the guard doesn't narrow on a literal.
 const SHOW_VOICE_CHANNEL_HEADER_ICON: boolean = false;
+/** How long a pointer rests on a header channel icon before its preview opens. */
+const HOVER_PREVIEW_OPEN_DELAY_MS = 250;
 
 const SHARED_PANEL_DEFAULT_WIDTH = 360;
 
@@ -1737,6 +1744,8 @@ export function AgentWorkspaceAdvancedPage({
   const [copilotDockEl, setCopilotDockEl] = useState<HTMLDivElement | null>(null);
   // Placement "panel": the same slot at the bottom of the main column.
   const [mainDockEl, setMainDockEl] = useState<HTMLDivElement | null>(null);
+  // AI display "panel": the Contact Details hover preview's footer slot.
+  const [hoverDockEl, setHoverDockEl] = useState<HTMLDivElement | null>(null);
   const dockEl = panelPlacement ? mainDockEl : copilotDockEl;
   // Bumped by an agent action in the docked composer; the Overview body then
   // scrolls to the bottom whatever its position (`DetailsPanelAccordions`).
@@ -1919,7 +1928,12 @@ export function AgentWorkspaceAdvancedPage({
   const requestedMainKey = activeInteraction
     ? activeInteraction.currentThreadId ?? activeInteraction.threads[activeInteraction.threads.length - 1]?.id
     : undefined;
-  const mainKey = omnichannel && activeInteraction ? omnichannelMainKey(activeInteraction.threads, requestedMainKey) : requestedMainKey;
+  const mainPins = useMainPins();
+  const isNewRow = useNewRowGuard(interactions);
+  const mainKey =
+    omnichannel && activeInteraction
+      ? omnichannelMainKey(activeInteraction.threads, requestedMainKey, mainPins.pinned(activeInteraction.id))
+      : requestedMainKey;
   const activeChannel = activeInteraction?.threads.find((c) => (c.id ?? c.type) === mainKey);
   const omni = useOmnichannelLayout(omnichannel ? activeInteraction : null, panelPlacement ? undefined : mainKey, {
     defaultKey: panelPlacement && activeInteraction ? panelDefaultKey(activeInteraction.threads) : undefined,
@@ -3525,6 +3539,7 @@ export function AgentWorkspaceAdvancedPage({
   // no channel is currently being hover-previewed.
   const [channelHoverPreviewKey, setChannelHoverPreviewKey] = useState<string | null>(null);
   const channelHoverPreviewTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const channelHoverOpenTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // Backstop for `customerInfoPreviewOpen` — per explicit bug report ("when
   // the session details panel is closed the hover panel is displayed even
   // if I don't hover on the panel icon... doesn't go away until I hover
@@ -3592,33 +3607,15 @@ export function AgentWorkspaceAdvancedPage({
   const openExperienceMemoryInSidePanel = (focus: LucasThomasMemoryFocus = "card-declined") => {
     setExperienceMemoryFocus(focus);
     setCustomerPanelActiveTab("Experience Memory");
-    setSidePanelOpen(true);
-    clearTimeout(customerInfoPreviewTimer.current);
-    setCustomerInfoPreviewOpen(false);
+    showContactDetails();
   };
   const focusCustomerPanelTab = () => {
     customerPanelFocusTabVersionRef.current += 1;
     setCustomerPanelFocusTab({ tab: "Overview", version: customerPanelFocusTabVersionRef.current });
     setCustomerPanelActiveTab("Customer Info");
-    setSidePanelOpen(true);
-    // Per explicit request ("if an interior panel is opened from a hover
-    // popover, close the hover when the panel opens so they don't
-    // overlap") — this handler's own doc comment above already notes
-    // "View customer info" can be clicked from inside the "Contact
-    // Details" hover preview's own body (`customerInfoPreviewOpen`,
-    // `openCustomerInfoPreview`'s own doc comment). That popover doesn't
-    // auto-close on click — only on mouse-leave — so without this, the
-    // freshly-focused docked panel could render right on top of (or
-    // behind) the still-open hover popover for as long as the pointer
-    // stays over either one. `clearTimeout` guards against a close
-    // already scheduled by a mouse-leave racing this same click (harmless
-    // either way, since both just want it closed, but avoids a redundant
-    // pending timer). Immediate, not the same 150ms debounce
-    // `scheduleCloseCustomerInfoPreview` uses elsewhere — a panel opening
-    // is a definite, deliberate close, not a "might the pointer come
-    // back" hover case.
-    clearTimeout(customerInfoPreviewTimer.current);
-    setCustomerInfoPreviewOpen(false);
+    // Through the panel's one selection path (`showContactDetails`): the
+    // thread is released, the hover preview closes.
+    showContactDetails();
   };
   // No setter — always pinned. `onPinToggle` is deliberately left unset on
   // the real `SidePanel` below (see its own doc comment), so there's no
@@ -3899,33 +3896,41 @@ export function AgentWorkspaceAdvancedPage({
   // session row to the right of the voice + button group" — see that
   // `actions` block's own doc comment for the full history/reasoning).
   // This function's click half has stayed the same throughout every move.
-  const handleSidePanelIconToggle = () => {
-    // Per explicit follow-up request ("toggle between the channels and
-    // contact details when they are clicked - don't allow multiple to be
-    // active at the same time"): while a channel preview is showing, this
-    // button always SWITCHES to actual Contact Details (open, channel
-    // cleared) rather than toggling `sidePanelOpen` — which may already
-    // be `true` underneath an active channel preview, so a plain toggle
-    // would close the whole panel instead of just switching its content.
-    // Only when NO channel preview is active does this fall back to the
-    // original open/closed toggle.
-    if (channelPreviewThreadKey) {
-      setSidePanelOpen(true);
-    } else {
-      setSidePanelOpen((v) => !v);
-    }
+  // The right panel's one selection path (browser check, 2026-10-16). The
+  // header toggle group (Contact Details and the thread icons), the hover
+  // previews' actions (View customer info, Link to existing customer,
+  // Experience Memory) and the nav rows all choose what the panel shows
+  // here, so its header, selected toggle and body change together, in every
+  // AI display mode. One selected at a time: Contact Details releases the
+  // thread; picking a thread is `handleChannelSelect`.
+  const contactDetailsShowing = sidePanelOpen && !channelPreviewThreadKey;
+  function showContactDetails() {
+    setSidePanelOpen(true);
     setChannelPreviewThreadKey(null);
     if (activeInteractionId) omni.close(activeInteractionId);
-    // Clicking this button always OPENS the real panel from here (it only
-    // renders while closed — see the render site's own comment), which
-    // unmounts the hover-preview `Popover` right along with it. Explicitly
-    // closing the preview's own state too, same as `AgentNextGenPage.tsx`'s
-    // identical click handler, so it doesn't reopen stale the next time
-    // this icon happens to render again (see the `[activeInteractionId,
-    // sidePanelOpen]` backstop effect above for the full "why" — this just
-    // avoids waiting a render for that effect to catch it).
     clearTimeout(customerInfoPreviewTimer.current);
     setCustomerInfoPreviewOpen(false);
+  }
+  const selectPanel = (target: { kind: "details" } | { kind: "thread"; cardId: string; key: string }) => {
+    // Any toggle closes any open hover preview at once.
+    clearTimeout(channelHoverPreviewTimer.current);
+    setChannelHoverPreviewKey(null);
+    if (target.kind === "thread") {
+      clearTimeout(customerInfoPreviewTimer.current);
+      setCustomerInfoPreviewOpen(false);
+      // The main column's own thread is already on screen: not a selection.
+      if (!panelPlacement && target.cardId === activeInteractionId && target.key === activeChannelKey) return;
+      return handleChannelSelect(target.cardId, target.key);
+    }
+    // Contact Details already showing: the toggle closes the panel.
+    if (contactDetailsShowing) {
+      setSidePanelOpen(false);
+      clearTimeout(customerInfoPreviewTimer.current);
+      setCustomerInfoPreviewOpen(false);
+      return;
+    }
+    if (customerPanelActiveTab === "Customer Info") setCustomerPanelActiveTab("Details");
+    showContactDetails();
   };
   // Per explicit request ("the link to existing customer button should
   // also appear in the popover of the contact details - you should use
@@ -3940,10 +3945,7 @@ export function AgentWorkspaceAdvancedPage({
   // then arms `linkCustomerPanelOpen` the same way the docked panel's own
   // button does, so the agent lands on the real, docked overlay.
   const handleLinkCustomerFromPreview = () => {
-    setSidePanelOpen(true);
-    setChannelPreviewThreadKey(null);
-    clearTimeout(customerInfoPreviewTimer.current);
-    setCustomerInfoPreviewOpen(false);
+    showContactDetails();
     setLinkCustomerPanelOpen(true);
   };
   // Opens the restored hover-preview (`customerInfoPreviewOpen`, see that
@@ -3977,7 +3979,7 @@ export function AgentWorkspaceAdvancedPage({
   // (its tab list, if it ever grows one) doesn't close it either.
   const scheduleCloseCustomerInfoPreview = (e?: React.MouseEvent<Element> | React.FocusEvent<Element>) => {
     const related = e?.relatedTarget as Element | null | undefined;
-    if (related?.closest?.("[data-radix-popper-content-wrapper]")) return;
+    if (related?.closest?.("[data-radix-popper-content-wrapper], [data-floating-layer]")) return;
     clearTimeout(customerInfoPreviewTimer.current);
     customerInfoPreviewTimer.current = setTimeout(() => setCustomerInfoPreviewOpen(false), 150);
   };
@@ -4006,14 +4008,28 @@ export function AgentWorkspaceAdvancedPage({
     // the panel goes without a preview.
     if (channelPreviewThreadKey === key || (!panelPlacement && key === activeChannelKey)) return;
     clearTimeout(channelHoverPreviewTimer.current);
-    setChannelHoverPreviewKey(key);
+    if (channelHoverPreviewKey === key) return;
+    // A short open delay: a glancing hover never opens it (or counts as reading it).
+    clearTimeout(channelHoverOpenTimer.current);
+    channelHoverOpenTimer.current = setTimeout(() => setChannelHoverPreviewKey(key), HOVER_PREVIEW_OPEN_DELAY_MS);
   };
   const scheduleCloseChannelHoverPreview = (e?: React.MouseEvent<Element> | React.FocusEvent<Element>) => {
     const related = e?.relatedTarget as Element | null | undefined;
-    if (related?.closest?.("[data-radix-popper-content-wrapper]")) return;
+    if (related?.closest?.("[data-radix-popper-content-wrapper], [data-floating-layer]")) return;
+    clearTimeout(channelHoverOpenTimer.current);
     clearTimeout(channelHoverPreviewTimer.current);
     channelHoverPreviewTimer.current = setTimeout(() => setChannelHoverPreviewKey(null), 150);
   };
+  // A preview that was open counts as reading its thread: closing it clears
+  // the thread's unread count (the page's live-message overlay until P2.2).
+  const lastPreviewKey = useRef<string | null>(null);
+  useEffect(() => {
+    const closed = lastPreviewKey.current;
+    lastPreviewKey.current = channelHoverPreviewKey;
+    if (closed && closed !== channelHoverPreviewKey && activeInteraction)
+      omni.markSeen(activeInteraction.id, closed, activeInteraction.liveMessages?.[closed]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelHoverPreviewKey]);
 
   // Track window width — still drives `isCompactHeader` below.
   useEffect(() => {
@@ -4168,7 +4184,10 @@ export function AgentWorkspaceAdvancedPage({
     // main column keeps its thread.
     const threads = interactions.find((i) => i.id === journeyId)?.threads;
     const route = omnichannel && threads ? routeChannel(threads, threadKey, placement) : null;
-    if (route === "slideout") {
+    // A thread added beside a held main thread (an auto-accepted chat) opens
+    // in the panel; the main column stays.
+    const pinned = mainPins.pinned(journeyId);
+    if (route === "slideout" || (route === "main" && mode === "added" && pinned && pinned !== threadKey)) {
       omni.open(journeyId, threadKey);
       if (isNewCard) setSidePanelOpen(false);
       return;
@@ -4216,7 +4235,22 @@ export function AgentWorkspaceAdvancedPage({
     onCardRedialPlaced: (card) => void contactCommands.completeEndedCalls(card, outcomeFor(card.id)),
   });
   const contactReopen = useContactReopen({ findOpenCard, activateWhenReady, skillIdForName });
-  useAutoAcceptDigital(findOpenCard);
+  // A digital contact auto-accepted onto an open card: the card's main thread
+  // holds (omnichannel) and, on the card the agent is on, the new contact
+  // activates "added" — the docked preview or the panel opens with it.
+  useAutoAcceptDigital(findOpenCard, {
+    onJoin: (cardId) => {
+      const card = interactions.find((i) => i.id === cardId);
+      const current = card?.currentThreadId ?? card?.threads[card.threads.length - 1]?.id;
+      if (!card || !current || panelPlacement) return;
+      if (omnichannel) mainPins.pin(cardId, omnichannelMainKey(card.threads, current, mainPins.pinned(cardId)) ?? current);
+      // Without omnichannel the newest thread would become the main one: record the current one.
+      else if (!card.currentThreadId) setInteractions((prev) => prev.map((i) => (i.id === cardId ? { ...i, currentThreadId: current } : i)));
+    },
+    onJoined: (cardId, id) => {
+      if (cardId === activeInteractionId) activateWhenReady(id, "added", false);
+    },
+  });
 
   // Per explicit follow-up request ("the content should be the Contact
   // Info stuff (Overview, Details, Notes)"): the "View customer info"
@@ -4692,7 +4726,11 @@ export function AgentWorkspaceAdvancedPage({
       const card = interactions.find((i) => i.id === interactionId);
       const route = card ? routeChannel(card.threads, channelKey, placement) : "main";
       if (interactionId !== activeInteractionId) switchActiveInteraction(interactionId);
+      // A held main thread (`mainPins`) stays put on its own row; picking a
+      // main-column thread is the agent's own move, so the hold ends.
+      if (mainPins.pinned(interactionId) === channelKey) return;
       if (route === "main") {
+        mainPins.unpin(interactionId);
         setInteractions((prev) =>
           prev.map((i) => (i.id === interactionId && i.currentThreadId !== channelKey ? { ...i, currentThreadId: channelKey } : i))
         );
@@ -6313,35 +6351,27 @@ export function AgentWorkspaceAdvancedPage({
     const isMarcus = key === MARCUS_WEBB_ID;
     const isLucas = key === LUCAS_THOMAS_ID;
     // Every card here is a lyra AICard (radius md, compact), spaced only by
-    // the feed's gap: the Autosummary through lyra's `aiCards` mode, and
-    // Marcus's Next Best Action in an AICard of its own (lyra's `aiCards`
-    // leaves Next Best Action as an accordion).
+    // the feed's gap: the Autosummary through lyra's `aiCards` mode. Marcus's
+    // card renders directly: its approval request is its own card (the same
+    // `ApprovalRequestAccordion` Lucas's uses), with no Next Best Action
+    // wrapper (browser check, 2026-10-16), as inline mode already shows it.
     const overview =
       (activeInteractionIsRealCustomer || activePreContactSummary) && customerContextOverviewInfo ? (
         <>
-          <CustomerContextOverview
-            aiCards
-            customerName={activeInteraction.customerName ?? ""}
-            snapshot={customerContextOverviewInfo.snapshot}
-            onSnapshotLink={snapshotLinkHandlerFor(activeInteraction.id)}
-            autosummaryBlue={isLucas || isMarcus || isColdCallId(activeInteraction.id)}
-            showCustomerProfile={false}
-            showContactSnapshot
-            showNextBestAction={false}
-            className="pt-0"
-          />
-          {isMarcus && (
-            <AICard
-              title="Next Best Action"
-              color="purple"
-              radius="md"
-              density="compact"
-              icon={<Sparkles className="h-4 w-4" strokeWidth={1.5} />}
-              defaultOpen
-            >
-              <PersistentHostSlot host={marcusCardHost} />
-            </AICard>
-          )}
+          <div key={activeInteraction.id} className={AI_CARD_ENTER}>
+            <CustomerContextOverview
+              aiCards
+              customerName={activeInteraction.customerName ?? ""}
+              snapshot={customerContextOverviewInfo.snapshot}
+              onSnapshotLink={snapshotLinkHandlerFor(activeInteraction.id)}
+              autosummaryBlue
+              showCustomerProfile={false}
+              showContactSnapshot
+              showNextBestAction={false}
+              className="pt-0"
+            />
+          </div>
+          {isMarcus && <PersistentHostSlot host={marcusCardHost} />}
         </>
       ) : undefined;
     return (
@@ -6355,6 +6385,55 @@ export function AgentWorkspaceAdvancedPage({
         onWrapUpComplete={isLucas ? () => scenarioCases.respond(LUCAS_THOMAS_ID, { value: "complete" }) : undefined}
         onSnapshotLink={snapshotLinkHandlerFor(activeInteraction.id)}
         activeSnapshotLink={lucasActiveLinkKey}
+      />
+    );
+  };
+  // Contact Details' Overview and Session tab, one render each: the docked
+  // panel and its hover preview mount the same thing (the preview only also
+  // closes itself when it hands off to the panel).
+  const renderContactDetailsTab = (tab: "Overview" | "Session", inPreview = false) => {
+    if (!activeInteraction) return null;
+    const closePreview = () => {
+      clearTimeout(customerInfoPreviewTimer.current);
+      setCustomerInfoPreviewOpen(false);
+    };
+    const shared = {
+      artifacts: panelArtifacts,
+      onOpenArtifact: (id: string) => {
+        if (inPreview) closePreview();
+        reopenPanelArtifact(id);
+      },
+      onViewAllArtifacts: () => setCustomerPanelActiveTab("Artifacts"),
+      onViewExperienceMemory:
+        scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID || scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID || isColdCallId(activeInteraction.id)
+          ? () => openExperienceMemoryInSidePanel()
+          : undefined,
+      customerName: activeInteraction.customerName,
+      customerContextOverview: customerContextOverviewInfo,
+      showJourneySummary: true,
+      journeySummaryUpdatedAtTick,
+    };
+    if (tab === "Session") {
+      // AI display "panel": the Session tab also holds the Journey Summary and Artifacts.
+      return aiInPanel ? (
+        <>
+          <DetailsPanelAccordions show={PANEL_SESSION_SECTIONS} {...shared} />
+          {sessionDetailsTabContent.body}
+        </>
+      ) : (
+        sessionDetailsTabContent.body
+      );
+    }
+    return (
+      <DetailsPanelAccordions
+        {...shared}
+        show={aiInPanel ? PANEL_OVERVIEW_SECTIONS : undefined}
+        aiFeed={aiInPanel ? renderAiPanelFeed() : undefined}
+        aiFeedCount={aiFeedCount}
+        followSignal={inPreview ? undefined : aiFollowSignal}
+        onViewCustomerInfo={activeInteractionIsRealCustomer ? focusCustomerPanelTab : undefined}
+        // The on-demand search/create-new overlay (`linkCustomerPanelOpen`); nothing to link once matched.
+        onLinkCustomer={activeInteractionIsRealCustomer ? undefined : inPreview ? handleLinkCustomerFromPreview : () => setLinkCustomerPanelOpen(true)}
       />
     );
   };
@@ -6372,7 +6451,24 @@ export function AgentWorkspaceAdvancedPage({
   // hidden but keeps its place (`invisible` + `inert`): unmounting it would
   // grow the body and move its scroll position behind the slide-over.
   const copilotDockConcealed = !!selectedDetailPanelContent;
-  const copilotDock = panelPlacement ? { mount: mainDockEl } : aiInPanel ? { mount: copilotDockShown ? copilotDockEl : null } : undefined;
+  // One Copilot composer on screen: the main column ("main"), the docked
+  // panel's footer, or the Contact Details hover preview's footer while it's
+  // open (panel mode; the preview only opens while the panel isn't showing
+  // Contact Details).
+  const copilotDock = panelPlacement
+    ? { mount: mainDockEl }
+    : aiInPanel
+      ? { mount: customerInfoPreviewOpen && hoverDockEl ? hoverDockEl : copilotDockShown ? copilotDockEl : null }
+      : undefined;
+  // A thread outside the main column (the panel, the header icon's hover
+  // preview) is the thread view only: its transcript with the Autosummary
+  // (AI display inline; elsewhere the AI feed holds it) and its composer.
+  // Customer Info, the Next Best Action text and the rest of Contact Details
+  // belong to the Contact Details preview alone.
+  const threadOverview =
+    !aiInPanel && !panelPlacement && (activeInteractionIsRealCustomer || activePreContactSummary) && customerContextOverviewInfo
+      ? { ...customerContextOverviewInfo, customerCard: undefined, detailedSummary: undefined, nextBestAction: undefined }
+      : undefined;
   // "AI in panel": Overview holds Customer Info (plus the AI feed: the
   // Autosummary, approvals, Next Best Action); the Session tab holds the
   // Journey Summary and Artifacts. Inline mode shows everything on Overview.
@@ -7036,7 +7132,7 @@ export function AgentWorkspaceAdvancedPage({
                 // Placement "panel": the current row is the thread in the panel.
                 const currentId = panelPlacement
                   ? (interaction.id === activeInteractionId && channelPreviewThreadKey) || panelDefaultKey(interaction.threads) || requestedId
-                  : omnichannel ? omnichannelMainKey(interaction.threads, requestedId) ?? requestedId : requestedId;
+                  : omnichannel ? omnichannelMainKey(interaction.threads, requestedId, mainPins.pinned(interaction.id)) ?? requestedId : requestedId;
                 // Seconds since the CUSTOMER last wrote on this channel —
                 // only meaningful (and only ever read) for a channel that's
                 // actually awaiting, which per `hasCustomerResponded` below
@@ -7723,7 +7819,7 @@ export function AgentWorkspaceAdvancedPage({
                     // interaction's record-header PageHeader — see
                     // Interaction.currentChannelId's own doc comment.
                     currentChannelKey={currentId}
-                    onCurrentChannelChange={(key) => handleChannelSelect(interaction.id, key)}
+                    onCurrentChannelChange={(key) => !isNewRow(interaction.id, key) && selectPanel({ kind: "thread", cardId: interaction.id, key })}
                   />
                 );
               }}
@@ -8505,7 +8601,8 @@ export function AgentWorkspaceAdvancedPage({
                             code for now, but exactly what a future
                             multi-channel deployment would need again the
                             moment this early return comes back out. */}
-                        {activeInteraction.threads.map((c) => {
+                        {/* One icon per channel (its most recent thread), never one per thread. */}
+                        {channelHeaderEntries(activeInteraction.threads).map(({ thread: c, count: threadCount, keys: channelKeys }) => {
                           if (!SHOW_VOICE_CHANNEL_HEADER_ICON && c.type === "voice") return null;
                           // Lucas Thomas's chat lives in the main column — no header channel icon.
                           // AI display "main": every thread, scripted ones included, is in the panel and gets its icon.
@@ -8521,9 +8618,13 @@ export function AgentWorkspaceAdvancedPage({
                           // The icons and Contact Details are one toggle group
                           // for the right panel: an icon is selected while its
                           // thread is the one the panel shows.
-                          const isOpen = omnichannel
-                            ? channelPreviewThreadKey === key
-                            : isVoiceChannel ? key === activeChannelKey : channelPreviewThreadKey === key;
+                          // Selected (the nav card's two-row rule): the panel's thread, plus the
+                          // main column's outside AI display "main" (where no thread is main).
+                          // Selected = what the panel shows (single-select with Contact Details). The
+                          // main column's thread gets the nav card's "in main column" mark instead
+                          // (inline and panel modes; nothing is in the main column under "main").
+                          const isOpen = channelKeys.includes(channelPreviewThreadKey ?? "");
+                          const inMain = !isOpen && !panelPlacement && channelKeys.includes(activeChannelKey);
                           const unreadCount =
                             omnichannel && channelTempo(c.type) === "async"
                               ? omni.unread(activeInteraction.id, key, activeInteraction.liveMessages?.[key])
@@ -8595,62 +8696,43 @@ export function AgentWorkspaceAdvancedPage({
                                 onOpenAutoFocus={(e: Event) => e.preventDefault()}
                                 onCloseAutoFocus={(e: Event) => e.preventDefault()}
                                 onInteractOutside={(e: Event) => {
-                                  if ((e.target as Element)?.closest?.("[data-radix-popper-content-wrapper]")) {
+                                  if ((e.target as Element)?.closest?.("[data-radix-popper-content-wrapper], [data-floating-layer]")) {
                                     e.preventDefault();
                                   }
                                 }}
                                 content={
-                                  <div
+                                  // The panel's own thread body and composer (read-mostly: the
+                                  // chat input only), so the preview shows what selecting this
+                                  // icon puts in the panel, in the shared preview frame.
+                                  <HoverPreviewFrame
                                     onMouseEnter={() => openChannelHoverPreview(key)}
                                     onMouseLeave={scheduleCloseChannelHoverPreview}
-                                    className="flex max-h-[70vh] w-[340px] flex-col overflow-hidden rounded-lyra-lg border border-lyra-border-soft bg-lyra-bg-surface-container-subtle shadow-lg"
-                                  >
-                                    <PanelHeader title={previewLabel} subhead={activeInteraction.customerName} />
-                                    <div className="flex-1 overflow-y-auto">
-                                      {c.type === "email" ? (
-                                        <div className="flex h-full items-center justify-center px-6 py-10 text-center text-sm text-lyra-fg-secondary">
-                                          Coming soon
-                                        </div>
-                                      ) : (
-                                        <InteractionTranscript
- hideAiActions={hideAiActions}
-                                          hideMockFollowUpMessages={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID}
-                                          channelType={c.type}
-                                          direction={c.direction}
-                                          customerName={activeInteraction.customerName}
-                                          contactId={c.contactId ?? activeInteraction.customerId}
-                                          // Per explicit request ("display
-                                          // the phone number instead of the
-                                          // contact ID in the session row")
-                                          // — see `InteractionTranscript`'s
-                                          // own `channelAddressLabel` prop
-                                          // doc comment (agent-next-gen-
-                                          // transcript.tsx) and
-                                          // AgentWorkspace2WithDeskPage.tsx's
-                                          // identical wiring.
-                                          channelAddressLabel={c.addressLabel}
-                                          skillLabel={c.preview}
-                                          isFreshLaunch={!!c.startedFresh}
-                                          liveMessages={activeInteraction.liveMessages?.[key] ?? []}
-                                          currentStatus={activeInteraction.threadStatuses?.[key]}
-                                          onCurrentStatusChange={(status) =>
-                                            handleInteractionStatusChange(activeInteraction.id, key, status)
-                                          }
-                                          showSessionActionCluster={false}
-                                          showViewDetails={false}
-                                        />
-                                      )}
-                                    </div>
-                                    {c.type !== "email" &&
-                                      c.type !== "voice" &&
-                                      !activeInteraction.closed &&
-                                      activeInteraction.threadStatuses?.[key] !== "Closed" && (
-                                        <InteractionComposer
-                                          onSend={(text) => handleSendMessage(activeInteraction.id, text, key)}
+                                    header={<PanelHeader title={previewLabel} subhead={activeInteraction.customerName} />}
+                                    footer={
+                                      threadAcceptsReplies(activeInteraction, c) &&
+                                      !(scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && lucasThomasReviewing) && (
+                                        <ChannelThreadComposer
                                           hideAiActions={hideAiActions}
+                                          onSend={(text) => handleSendMessage(activeInteraction.id, text, key)}
+                                          copilot={{}}
+                                          chatOnly
+                                          floatingMenus
                                         />
-                                      )}
-                                  </div>
+                                      )
+                                    }
+                                  >
+                                    <div className="flex min-h-0 flex-1 flex-col" data-slot="thread-preview">
+                                      <ChannelThreadBody
+                                        interaction={activeInteraction}
+                                        thread={c}
+                                        hideAiActions={hideAiActions}
+                                        withoutAiActions={panelPlacement}
+                                        overview={threadOverview}
+                                        hideMockFollowUpMessages={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID}
+                                        onStatusChange={(status) => handleInteractionStatusChange(activeInteraction.id, key, status)}
+                                      />
+                                    </div>
+                                  </HoverPreviewFrame>
                                 }
                               >
                                 <Button
@@ -8664,13 +8746,18 @@ export function AgentWorkspaceAdvancedPage({
                                   }
                                   className={cn(
                                     "ml-0.5 h-8 w-8 px-0 border border-lyra-border-soft bg-lyra-bg-control text-lyra-fg-action hover:bg-lyra-state-hover active:bg-lyra-state-pressed",
-                                    isOpen && PANEL_BUTTON_SELECTED_CLASS
+                                    isOpen && PANEL_BUTTON_SELECTED_CLASS,
+                                    inMain && "bg-lyra-status-info-subtle text-lyra-status-info-strong",
+                                    // Its preview open: the button keeps its hover look while the
+                                    // pointer is in the popover, so they read as one unit.
+                                    hoverOpen && !isOpen && "bg-lyra-state-hover"
                                   )}
-                                  badge={unreadCount > 0 ? unreadCount : undefined}
+                                  data-preview-open={hoverOpen || undefined}
+                                  data-in-main={inMain || undefined}
+                                  // Several threads on the channel: their count; else its unread count.
+                                  badge={threadCount > 1 ? threadCount : unreadCount > 0 ? unreadCount : undefined}
                                   onClick={() => {
-                                    if (omnichannel) return handleChannelSelect(activeInteraction.id, key);
-                                    if (isVoiceChannel) return;
-                                    setChannelPreviewThreadKey(channelPreviewThreadKey === key ? null : key);
+                                    if (omnichannel || !isVoiceChannel) selectPanel({ kind: "thread", cardId: activeInteraction.id, key });
                                   }}
                                 >
                                   {meta.icon}
@@ -8787,47 +8874,16 @@ export function AgentWorkspaceAdvancedPage({
                             )}
                           </ChannelToggleGroup>
                         )}
-                        {/* "Open Details Panel" — see this `actions` block's
-                            own top doc comment for the full history of where
-                            this button has lived. Per explicit follow-up
-                            request ("make the contact details toggle button
-                            not disappear when it's open"), this trigger
-                            stays visible/clickable at all times now — it no
-                            longer unmounts once the real panel is open, so
-                            it still works to close the panel again (or, per
-                            the earlier explicit request behind
-                            `handleSidePanelIconToggle`'s own doc comment,
-                            to switch a channel preview back to actual
-                            Contact Details). The hover-preview `Popover`
-                            itself only shows while Contact Details ISN'T
-                            already the panel's own visible content —
-                            `sidePanelOpen && !channelPreviewThreadKey`, the
-                            same condition `openCustomerInfoPreview`'s own
-                            guard now uses (not whenever the panel is merely
-                            open at all): per explicit follow-up request ("if
-                            a panel is open the inactive channel icon and
-                            contact details should retain their hover
-                            actions so agents can preview other channels
-                            while on a current channel"), a CHANNEL preview
-                            being open doesn't block this hover peek at
-                            Contact Details, since Contact Details isn't
-                            what's actually showing in that case. The
-                            wrapping div's hover handlers (not the
-                            `Popover`'s own trigger) are what open/close the
-                            preview — same split `TranscriptSessionSeparator`'s
-                            former render of this used, so the pointer can
-                            cross from this button into the popover's own
-                            (portaled) content without it flickering shut. */}
+                        {/* Its hover preview shows only while Contact Details isn't the
+                            panel's content (`openCustomerInfoPreview`). The wrapping div's
+                            hover handlers open/close it, so the pointer can cross into the
+                            portaled popover without it flickering shut. */}
                         {/* One toggle group with the channel icons for the
-                            right panel, but (as before 5d.2) this button
-                            hides while the panel shows Contact Details: the
-                            panel's own close/collapse controls take over,
-                            and it returns when the panel closes. While a
-                            channel thread is in the panel it shows, so the
-                            agent can swap back. (The channel icons stay
-                            visible when selected: they're also the hover-
-                            preview targets.) */}
-                        {activeInteraction && !(sidePanelOpen && !channelPreviewThreadKey) && (
+                            right panel (browser check, 2026-10-16): always
+                            visible, in every AI display mode, selected while
+                            the panel shows Contact Details (clicking it then
+                            closes the panel). */}
+                        {activeInteraction && (
                         <div onMouseEnter={openCustomerInfoPreview} onMouseLeave={scheduleCloseCustomerInfoPreview}>
                             <Popover
                               open={customerInfoPreviewOpen}
@@ -8839,17 +8895,15 @@ export function AgentWorkspaceAdvancedPage({
                               onOpenAutoFocus={(e: Event) => e.preventDefault()}
                               onCloseAutoFocus={(e: Event) => e.preventDefault()}
                               onInteractOutside={(e: Event) => {
-                                if ((e.target as Element)?.closest?.("[data-radix-popper-content-wrapper]")) {
+                                if ((e.target as Element)?.closest?.("[data-radix-popper-content-wrapper], [data-floating-layer]")) {
                                   e.preventDefault();
                                 }
                               }}
                               content={
-                                <div
+                                <HoverPreviewFrame
                                   onMouseEnter={openCustomerInfoPreview}
                                   onMouseLeave={scheduleCloseCustomerInfoPreview}
-                                  className="flex max-h-[70vh] w-[340px] flex-col overflow-hidden rounded-lyra-lg border border-lyra-border-soft bg-lyra-bg-surface-container-subtle shadow-lg"
-                                >
-                                  <PanelHeader
+                                  header={<PanelHeader
                                     title="Contact Details"
                                     // Per explicit follow-up request: same
                                     // clickable-name treatment the docked
@@ -8903,8 +8957,9 @@ export function AgentWorkspaceAdvancedPage({
                                         ))}
                                       </TabList>
                                     }
-                                  />
-                                  <div className="flex-1 overflow-y-auto">
+                                  />}
+                                >
+                                  <div className="min-h-0 flex-1 overflow-y-auto">
                                     {customerPanelActiveTab === "Transcript" && panelVoiceThread ? (
                                       <InteractionTranscript
  hideAiActions={hideAiActions}
@@ -8940,93 +8995,36 @@ export function AgentWorkspaceAdvancedPage({
                                         }}
                                         showViewDetails={false}
                                       />
-                                    ) : customerPanelActiveTab === "Session Details" ? (
-                                      sessionDetailsTabContent.body
                                     ) : (
-                                      <DetailsPanelAccordions
- artifacts={panelArtifacts}
- onOpenArtifact={(id: string) => {
- // Opening an artifact from the hover preview closes the popover to make room for the side panel.
- clearTimeout(customerInfoPreviewTimer.current);
- setCustomerInfoPreviewOpen(false);
- reopenPanelArtifact(id);
- }}
- onViewAllArtifacts={() => setCustomerPanelActiveTab("Artifacts")}
- onViewExperienceMemory={
- scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID || scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID || isColdCallId(activeInteraction.id) ? () => openExperienceMemoryInSidePanel() : undefined
- }
-                                        customerName={activeInteraction.customerName}
-                                        customerContextOverview={customerContextOverviewInfo}
-                                        // Per explicit request ("replace the
-                                        // autosummary card in the contact
-                                        // details with the content depicted
-                                        // in the screenshot of the real
-                                        // time summary card") — same
-                                        // content the docked panel's own
-                                        // `DetailsPanelAccordions` call
-                                        // shows just below (per that same
-                                        // "hover preview and docked panel
-                                        // use the exact same content" rule
-                                        // this file's own `onLinkCustomer`
-                                        // doc comment already documents).
-                                        showJourneySummary
-                                        journeySummaryUpdatedAtTick={journeySummaryUpdatedAtTick}
-                                        onViewCustomerInfo={
-                                          activeInteractionIsRealCustomer ? focusCustomerPanelTab : undefined
-                                        }
-                                        // Same button/content the docked panel's own
-                                        // `DetailsPanelAccordions` call shows (see
-                                        // `linkCustomerPanelOpen`'s own doc comment) —
-                                        // per explicit request, the hover preview and
-                                        // the docked panel use the exact same content,
-                                        // this button included. Opens the real, docked
-                                        // panel's own overlay (`handleLinkCustomerFromPreview`
-                                        // just above) since this preview itself is only
-                                        // ever a transient hover popover.
-                                        onLinkCustomer={
-                                          activeInteractionIsRealCustomer ? undefined : handleLinkCustomerFromPreview
-                                        }
-                                      />
+                                      // The docked panel's own tab renders (`renderContactDetailsTab`).
+                                      renderContactDetailsTab(customerPanelActiveTab === "Session Details" ? "Session" : "Overview", true)
                                     )}
                                   </div>
-                                </div>
+                                  {/* AI display "panel": the Copilot composer docks here while the
+                                      preview is open, as in the docked panel's footer (one on screen). */}
+                                  {aiInPanel && customerPanelActiveTab === "Details" && (
+                                    <div className="relative shrink-0 px-4 pb-3 pt-2">
+                                      <div ref={setHoverDockEl} data-slot="copilot-dock" className="w-full" />
+                                    </div>
+                                  )}
+                                </HoverPreviewFrame>
                               }
                             >
-                              {/* Ported from Agent Workspace 2.0/v2's own
-                                  identical toggle (`AgentWorkspaceAdvancedPage.tsx`,
-                                  that project's copy) per explicit request
-                                  ("replace the current toggle icon ... with
-                                  the customer information button from v2
-                                  ... keep the hover state, etc. - just
-                                  update the button"): same `Button`
-                                  variant/size, `IdCard` icon + responsive
-                                  "Contact Details" label (collapses to
-                                  icon-only below 768px, measured off this
-                                  record header itself via
-                                  `recordHeaderWidth`), and the same
-                                  "selected" treatment
-                                  (`PANEL_BUTTON_SELECTED_CLASS`) the header's
-                                  other panel-toggle buttons already use
-                                  while their own panel is open — this one
-                                  simply never had it. `aria-pressed`/a
-                                  dynamic `aria-label` (open vs close) swap
-                                  in too. The hover-preview wiring around
-                                  this button (the wrapping `div`'s
-                                  `onMouseEnter`/`onMouseLeave`, and the
-                                  `Popover`'s own `open`/placement props,
-                                  just above) is untouched — only the
-                                  trigger `Button` itself changes. */}
+                              {/* `IdCard` + "Contact Details" (icon-only under 768px of the
+                                  record header); selected while the panel shows Contact Details. */}
                               <Button
                                 variant="outline"
                                 size="md"
                                 className={cn(
                                   "shrink-0 animate-in fade-in-0 duration-200",
-                                  recordHeaderWidth < 768 && "w-8 gap-0 px-0"
+                                  recordHeaderWidth < 768 && "w-8 gap-0 px-0",
+                                  contactDetailsShowing && PANEL_BUTTON_SELECTED_CLASS,
+                                  customerInfoPreviewOpen && !contactDetailsShowing && "bg-lyra-state-hover"
                                 )}
-                                // Only shown while Contact Details isn't the panel's content.
-                                aria-pressed={false}
-                                onClick={handleSidePanelIconToggle}
-                                aria-label={sidePanelToggleLabel ?? "Open Contact Details"}
+                                data-preview-open={(customerInfoPreviewOpen && !contactDetailsShowing) || undefined}
+                                aria-pressed={contactDetailsShowing}
+                                onClick={() => selectPanel({ kind: "details" })}
+                                aria-label={contactDetailsShowing ? "Close Contact Details" : sidePanelToggleLabel ?? "Open Contact Details"}
                               >
                                 <IdCard className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
                                 {recordHeaderWidth >= 768 && <span>Contact Details</span>}
@@ -9486,7 +9484,6 @@ export function AgentWorkspaceAdvancedPage({
                               ? (text: string) => handleCopilotAsk(activeInteraction.id, activeChannelKey, text)
                               : undefined
                           }
-                          autosummaryBlue={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID || scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID || isColdCallId(activeInteraction.id)}
                           // AI-led cases always keep the Autosummary above the conversation, even when the transcript remounts with messages already present.
                           contactOverviewPosition={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID || scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID || isColdCallId(activeInteraction.id) ? "top" : undefined}
                           activeSnapshotLink={lucasActiveLinkKey}
@@ -9787,7 +9784,8 @@ export function AgentWorkspaceAdvancedPage({
                             <InteractionComposer
                               hideAiActions={hideAiActions}
                               // Only where AI rows interleave with a chat transcript.
-                              onHideAiActionsChange={activeChannelType === "chat" && !aiInPanel && !panelPlacement ? setHideAiActions : undefined}
+                              // Every digital thread in the main column with AI display inline; not voice, panel or "main".
+                              onHideAiActionsChange={activeChannelType !== "voice" && !aiInPanel && !panelPlacement ? setHideAiActions : undefined}
                               copilotDock={copilotDock}
                               copilotOnly={
                                 // Placement "panel": the chat input lives with the thread in the panel.
@@ -9796,7 +9794,8 @@ export function AgentWorkspaceAdvancedPage({
                                 activeChannelType === "email" ||
                                 (scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && lucasThomasReviewing)
                               }
-                              onTakeover={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID ? () => handleLucasTakeover() : undefined}
+                              // Only while the AI holds the chat (gone once taken over, in every mode).
+                              onTakeover={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && lucasThomasReviewing ? () => handleLucasTakeover() : undefined}
                               onSend={(text) => handleSendMessage(activeInteraction.id, text, activeChannelKey)}
                               {...copilotComposerProps(activeInteraction.id, activeChannelKey)}
                             />
@@ -10630,7 +10629,9 @@ export function AgentWorkspaceAdvancedPage({
                   // closed.
                   footerOverride={
                     channelPreviewThread
-                      ? threadAcceptsReplies(activeInteraction, channelPreviewThread)
+                      ? threadAcceptsReplies(activeInteraction, channelPreviewThread) &&
+                        // An AI-led chat under review has no chat input until the agent takes over.
+                        !(scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && lucasThomasReviewing)
                         ? (
                           <ChannelThreadComposer
                             hideAiActions={hideAiActions}
@@ -10672,6 +10673,7 @@ export function AgentWorkspaceAdvancedPage({
                         thread={channelPreviewThread}
                         hideAiActions={hideAiActions}
                         withoutAiActions={panelPlacement}
+                        overview={threadOverview}
                         hideMockFollowUpMessages={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID}
                         onStatusChange={(status) =>
                           handleInteractionStatusChange(activeInteraction.id, channelPreviewThreadStableKey!, status)
@@ -10744,64 +10746,9 @@ export function AgentWorkspaceAdvancedPage({
                         showViewDetails={false}
                       />
                     ) : customerPanelActiveTab === "Session Details" ? (
-                      aiInPanel ? (
-                        // AI in the panel: the Session tab also holds the
-                        // Journey Summary and Artifacts cards (moved off the
-                        // Overview, which keeps Customer Info and the AI feed).
-                        <>
-                          <DetailsPanelAccordions
-                            show={PANEL_SESSION_SECTIONS}
-                            artifacts={panelArtifacts}
-                            onOpenArtifact={reopenPanelArtifact}
-                            onViewAllArtifacts={() => setCustomerPanelActiveTab("Artifacts")}
-                            onViewExperienceMemory={
-                              scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID || scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID || isColdCallId(activeInteraction.id) ? () => openExperienceMemoryInSidePanel() : undefined
-                            }
-                            customerName={activeInteraction.customerName}
-                            customerContextOverview={customerContextOverviewInfo}
-                            showJourneySummary
-                            journeySummaryUpdatedAtTick={journeySummaryUpdatedAtTick}
-                          />
-                          {sessionDetailsTabContent.body}
-                        </>
-                      ) : (
-                        sessionDetailsTabContent.body
-                      )
+                      renderContactDetailsTab("Session")
                     ) : (
-                      <DetailsPanelAccordions
-                        show={aiInPanel ? PANEL_OVERVIEW_SECTIONS : undefined}
- artifacts={panelArtifacts}
- onOpenArtifact={reopenPanelArtifact}
- onViewAllArtifacts={() => setCustomerPanelActiveTab("Artifacts")}
- onViewExperienceMemory={
- scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID || scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID || isColdCallId(activeInteraction.id) ? () => openExperienceMemoryInSidePanel() : undefined
- }
-                        customerName={activeInteraction.customerName}
-                        customerContextOverview={customerContextOverviewInfo}
-                        // Settings → AI display "In the Contact Details panel".
-                        aiFeed={aiInPanel ? renderAiPanelFeed() : undefined}
-                        aiFeedCount={aiFeedCount}
-                        followSignal={aiFollowSignal}
-                        // The "Journey Summary" card: this docked Contact
-                        // Details panel is the one place that shows it; the
-                        // main transcript column keeps its "Autosummary".
-                        // `journeySummaryUpdatedAtTick` — see that state's
-                        // own doc comment above (near `clock`).
-                        showJourneySummary
-                        journeySummaryUpdatedAtTick={journeySummaryUpdatedAtTick}
-                        onViewCustomerInfo={
-                          activeInteractionIsRealCustomer ? focusCustomerPanelTab : undefined
-                        }
-                        // Opens the on-demand search/create-new overlay
-                        // above (`matchState`/`matchStateOnBack`) — see
-                        // `linkCustomerPanelOpen`'s own doc comment for the
-                        // fuller "why". `undefined` for a real-customer
-                        // interaction, same as `onViewCustomerInfo` right
-                        // above (there's nothing to link once matched).
-                        onLinkCustomer={
-                          activeInteractionIsRealCustomer ? undefined : () => setLinkCustomerPanelOpen(true)
-                        }
-                      />
+                      renderContactDetailsTab("Overview")
                     )
                   }
                 />

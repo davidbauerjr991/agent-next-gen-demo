@@ -206,34 +206,61 @@ export function AiActionsFeed({
 }) {
   const aiMessages = messages.filter(isAiActionMessage);
   if (!overview && aiMessages.length === 0) return null;
+  const handlers = { onApprovalDecision, onApprovalCallRequest, onApprovalSuggestionAsk, approvalTakenOver, onWrapUpComplete, onSnapshotLink, activeSnapshotLink };
   return (
     <div className="flex flex-col gap-3">
       {overview}
-      {aiMessages.map((message) =>
-        message.instruction ? (
-          <InstructionInterstitial
-            key={message.id}
-            id={message.id}
-            instruction={message.instruction}
-            timestamp={message.timestamp}
-            onOpen={(link) => onSnapshotLink?.(link)}
-            active={activeSnapshotLink === message.instruction.link}
-          />
-        ) : message.wrapUp ? (
-          <WrapUpAccordion key={message.id} message={message} onComplete={onWrapUpComplete} />
-        ) : (
-          <ApprovalSummaryAccordion
-            key={message.id}
-            message={message}
-            onDecide={onApprovalDecision}
-            onCallRequest={onApprovalCallRequest}
-            onLink={onSnapshotLink}
-            onSuggestionAsk={onApprovalSuggestionAsk}
-            takenOver={approvalTakenOver}
-          />
-        )
-      )}
+      {aiMessages.map((message) => (
+        <AiActionCard key={message.id} message={message} {...handlers} />
+      ))}
     </div>
+  );
+}
+
+export interface AiActionCardHandlers {
+  onApprovalDecision?: (value: string, note: string) => void;
+  onApprovalCallRequest?: (req: { value: string; anchorEl: HTMLElement; confirm: () => void }) => void;
+  onApprovalSuggestionAsk?: (text: string) => void;
+  approvalTakenOver?: boolean;
+  onWrapUpComplete?: () => void;
+  onSnapshotLink?: (key: string) => void;
+  activeSnapshotLink?: string;
+}
+
+/** One AI action (an instruction row, the wrap-up card or an approval
+ *  request), the same in every placement: interleaved with the transcript
+ *  (AI display inline) or in the AI feed (panel and "main"). */
+export function AiActionCard({
+  message,
+  onApprovalDecision,
+  onApprovalCallRequest,
+  onApprovalSuggestionAsk,
+  approvalTakenOver,
+  onWrapUpComplete,
+  onSnapshotLink,
+  activeSnapshotLink,
+}: { message: TranscriptMessage } & AiActionCardHandlers) {
+  if (message.instruction) {
+    return (
+      <InstructionInterstitial
+        id={message.id}
+        instruction={message.instruction}
+        timestamp={message.timestamp}
+        onOpen={(link) => onSnapshotLink?.(link)}
+        active={activeSnapshotLink === message.instruction.link}
+      />
+    );
+  }
+  if (message.wrapUp) return <WrapUpAccordion message={message} onComplete={onWrapUpComplete} />;
+  return (
+    <ApprovalSummaryAccordion
+      message={message}
+      onDecide={onApprovalDecision}
+      onCallRequest={onApprovalCallRequest}
+      onLink={onSnapshotLink}
+      onSuggestionAsk={onApprovalSuggestionAsk}
+      takenOver={approvalTakenOver}
+    />
   );
 }
 
@@ -2917,7 +2944,9 @@ export function InteractionTranscript({
   activeSnapshotLink,
   onWrapUpComplete,
   onSnapshotLink,
-  autosummaryBlue = false,
+  // Blue (the Customer Info / Approval cards' header token) in every
+  // placement (browser check, 2026-10-16); a caller can still opt out.
+  autosummaryBlue = true,
   onViewSessionDetails,
   onToggleDetailsPanel,
   detailsPanelOpen = false,
@@ -3645,8 +3674,13 @@ export function InteractionTranscript({
   // — shared by both of the two render spots below so neither has to
   // duplicate this branch.
   // Hiding AI actions collapses (fade + slide up) rather than unmounting, mirroring the entrance animation.
+  // Keyed by contact so the AI cards' shared enter animation replays on a card switch.
   const renderContactOverviewBlock = () => (
-    <AiActionCollapse hidden={hideAiActions}>{renderContactOverviewBlockInner()}</AiActionCollapse>
+    <AiActionCollapse hidden={hideAiActions}>
+      <div key={`${contactId ?? ""}:${displayName}`} className={AI_CARD_ENTER}>
+        {renderContactOverviewBlockInner()}
+      </div>
+    </AiActionCollapse>
   );
   const renderContactOverviewBlockInner = () =>
     customerContextOverview ? (
@@ -4199,10 +4233,13 @@ export function InteractionTranscript({
     // chasing a reported width-collapse regression; a real, independent
     // correctness fix kept regardless of how `transcriptNarrow` below
     // ended up being measured.
-    <div className={sessionRowOnly ? "relative shrink-0 min-w-0" : "relative flex-1 min-h-0 min-w-0"}>
+    // A flex column with the scroller as its `min-h-0 flex-1` child (not
+    // `h-full`), so it's the scroller wherever it sits: the main column
+    // (a definite height) or a hover preview (only a max height).
+    <div className={sessionRowOnly ? "relative shrink-0 min-w-0" : "relative flex min-h-0 min-w-0 flex-1 flex-col"}>
       <div
         ref={scrollContainerRef}
-        className={sessionRowOnly ? undefined : "h-full overflow-y-auto"}
+        className={sessionRowOnly ? undefined : "min-h-0 flex-1 overflow-y-auto"}
       >
         {/* Per explicit follow-up request, un-reverting the max-width-back
             change just above it ("dang - revert that last change - go back
@@ -4695,21 +4732,13 @@ export function InteractionTranscript({
                     />
                   );
                   const renderLiveMessage = (message: TranscriptMessage) => {
-                    const rendered = message.instruction ? (
-                      <InstructionInterstitial
-                        key={message.id}
-                        id={message.id}
-                        instruction={message.instruction}
-                        timestamp={message.timestamp}
-                        onOpen={(link) => onSnapshotLink?.(link)}
-                        active={activeSnapshotLink === message.instruction.link}
-                      />
-) : message.wrapUp ? (
-                      <WrapUpAccordion key={message.id} message={message} onComplete={onWrapUpComplete} />
+                    const aiCardHandlers = { onApprovalDecision, onApprovalCallRequest, onApprovalSuggestionAsk, approvalTakenOver, onWrapUpComplete, onSnapshotLink, activeSnapshotLink };
+                    const rendered = message.instruction || message.wrapUp ? (
+                      <AiActionCard key={message.id} message={message} {...aiCardHandlers} />
                     ) : message.summary ? (
                       <div key={message.id} className="flex flex-col gap-5">
                         {overviewBeforeApproval && session.id === lastSessionId && liveMessages.find((m) => !!m.summary)?.id === message.id && renderContactOverviewBlock()}
-                        <ApprovalSummaryAccordion message={message} onDecide={onApprovalDecision} onCallRequest={onApprovalCallRequest} onLink={onSnapshotLink} onSuggestionAsk={onApprovalSuggestionAsk} takenOver={approvalTakenOver} />
+                        <AiActionCard message={message} {...aiCardHandlers} />
                       </div>
                     ) : message.event ? (
                       <div key={message.id} className="flex flex-col gap-0.5">
@@ -5100,6 +5129,10 @@ export const QUICK_REPLY_TRIGGER_PATTERN = /\/(\w*)$/;
  * Used by the inline composer and by the docked panel composer's footer;
  * `toClassName` is the background it fades into (the surface behind it).
  */
+/** The AI cards' shared enter animation (AI messages, approvals, the
+ *  Autosummary): on mount, and on a card switch where the caller keys it. */
+export const AI_CARD_ENTER = "animate-in slide-in-from-bottom-4 fade-in-0 duration-200";
+
 export function ComposerFade({ toClassName = "to-lyra-bg-surface-base" }: { toClassName?: string }) {
   return (
     <div
@@ -5127,7 +5160,13 @@ export function InteractionComposer({
   hideAiActions,
   onHideAiActionsChange,
   copilotDock,
+  floatingMenus = false,
 }: {
+  /** The quick-reply menu (and its variable form) float on the document's
+   *  top layer, anchored above the composer, instead of in its flow: for a
+   *  composer inside a size-limited surface (a header hover preview) that
+   *  would clip it. The layer is tagged `data-floating-layer`. */
+  floatingMenus?: boolean;
   /** Settings → AI display "In the Contact Details panel": the Ask Copilot
    *  part (chips, input, Takeover) renders as the panel's docked footer
    *  (portaled into `mount`) instead of here; this composer keeps only the
@@ -5304,12 +5343,43 @@ export function InteractionComposer({
     const handlePointerDown = (e: MouseEvent) => {
       const target = e.target as Node;
       if (quickReplyContainerRef.current?.contains(target)) return;
-      if (target instanceof Element && target.closest("[data-radix-popper-content-wrapper]")) return;
+      if (target instanceof Element && target.closest("[data-radix-popper-content-wrapper], [data-floating-layer]")) return;
       closeQuickReplyMenu();
     };
     document.addEventListener("mousedown", handlePointerDown);
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, [quickReplyOpen]);
+  // `floatingMenus`: where the floating menu sits (above the composer, as
+  // wide as it or wider, up to the viewport's top).
+  const composerRootRef = useRef<HTMLDivElement>(null);
+  const [floatingMenuBox, setFloatingMenuBox] = useState<React.CSSProperties | null>(null);
+  useLayoutEffect(() => {
+    if (!floatingMenus || !quickReplyOpen || !composerRootRef.current) {
+      setFloatingMenuBox(null);
+      return;
+    }
+    const rect = composerRootRef.current.getBoundingClientRect();
+    const width = Math.max(rect.width, 440);
+    setFloatingMenuBox({
+      position: "fixed",
+      left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)),
+      bottom: window.innerHeight - rect.top + 8,
+      width,
+      maxHeight: Math.max(160, rect.top - 16),
+      overflowY: "auto",
+      zIndex: 60,
+    });
+  }, [floatingMenus, quickReplyOpen]);
+  const placeMenu = (menu: React.ReactElement) =>
+    floatingMenus
+      ? floatingMenuBox &&
+        createPortal(
+          <div data-floating-layer="" style={floatingMenuBox} className="rounded-lyra-lg shadow-lg">
+            {menu}
+          </div>,
+          document.body,
+        )
+      : menu;
 
   // Replaces `[quickReplyTriggerStart, caret)` — the typed "/query" (or,
   // for the toolbar-button path, a zero-length range right at the caret)
@@ -5475,7 +5545,7 @@ export function InteractionComposer({
   if (copilotDocked && copilotOnly) return dockedCopilot;
 
   return (
-    <div className="relative shrink-0 bg-lyra-bg-surface-base px-6 py-4">
+    <div ref={composerRootRef} className="relative shrink-0 bg-lyra-bg-surface-base px-6 py-4">
       {dockedCopilot}
       <ComposerFade />
       {/* `max-w-[768px]` — kept in sync with the message-column wrapper's
@@ -5498,7 +5568,7 @@ export function InteractionComposer({
           // to make room rather than covering any of it, so its own
           // scrolling keeps working exactly as before, just over a
           // shorter viewport while this is open.
-          <div ref={quickReplyContainerRef} className="mb-2">
+          placeMenu(<div ref={quickReplyContainerRef} className={floatingMenus ? undefined : "mb-2"}>
             {quickReplyConfiguring ? (
               <QuickReplyVariableForm
                 title={quickReplyConfiguring.title}
@@ -5531,7 +5601,7 @@ export function InteractionComposer({
                 onClose={closeQuickReplyMenu}
               />
             )}
-          </div>
+          </div>)
         )}
         {/* "Chat with Customer" / "Ask Copilot" tabs: the chat input stays mounted (just hidden) while Copilot is showing so a draft is kept. */}
         {/* Docked Copilot: no mode toggle here, the chat input stands alone. */}

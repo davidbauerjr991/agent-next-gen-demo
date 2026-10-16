@@ -18,6 +18,9 @@ export interface ChannelThreadBodyProps {
   onStatusChange: (status: string) => void;
   /** Leave the AI rows out (AI display "main": they're the main column's). */
   withoutAiActions?: boolean;
+  /** The Autosummary above the transcript (AI display inline: the panel and
+   *  the header icon's hover preview show the same body). */
+  overview?: ComponentProps<typeof InteractionTranscript>["customerContextOverview"];
 }
 
 /** One thread's transcript outside the main column (the docked channel
@@ -30,10 +33,12 @@ export function ChannelThreadBody({
   hideMockFollowUpMessages,
   onStatusChange,
   withoutAiActions,
+  overview,
 }: ChannelThreadBodyProps) {
   if (thread.type === "email") {
     return (
-      <div className="flex h-full items-center justify-center px-6 text-center text-sm text-lyra-fg-secondary">Coming soon</div>
+      // `flex-1`: centered in whatever body it fills (the panel, or a preview at its min height).
+      <div className="flex min-h-full flex-1 items-center justify-center px-6 text-center text-sm text-lyra-fg-secondary">Coming soon</div>
     );
   }
   const key = threadKeyOf(thread);
@@ -51,6 +56,11 @@ export function ChannelThreadBody({
       skillLabel={thread.preview}
       isFreshLaunch={!!thread.startedFresh}
       liveMessages={withoutAiActions ? messages.filter((m) => !isAiActionMessage(m)) : messages}
+      customerContextOverview={overview}
+      // The thread view: the Autosummary only (Customer Info and the Next
+      // Best Action belong to Contact Details).
+      showCustomerContextProfile={false}
+      showCustomerContextNextBestAction={false}
       currentStatus={interaction.threadStatuses?.[key]}
       onCurrentStatusChange={onStatusChange}
       showSessionActionCluster={false}
@@ -66,13 +76,21 @@ export interface ChannelThreadComposerProps {
   /** Only the chat input (AI display "main": Copilot is the
    *  main column's). A dock with no mount renders no Copilot part. */
   chatOnly?: boolean;
+  /** Its menus float above everything (a hover preview would clip them). */
+  floatingMenus?: boolean;
 }
 
 /** The composer under a thread shown outside the main column. Render it only
  *  when `threadAcceptsReplies`. No "Hide AI Actions" switch: that's only for
  *  the main column's chat. */
-export function ChannelThreadComposer({ hideAiActions, onSend, copilot, chatOnly }: ChannelThreadComposerProps) {
+export function ChannelThreadComposer({ hideAiActions, onSend, copilot, chatOnly, floatingMenus }: ChannelThreadComposerProps) {
   return (
-    <InteractionComposer hideAiActions={hideAiActions} onSend={onSend} copilotDock={chatOnly ? { mount: null } : undefined} {...copilot} />
+    <InteractionComposer
+      hideAiActions={hideAiActions}
+      onSend={onSend}
+      copilotDock={chatOnly ? { mount: null } : undefined}
+      floatingMenus={floatingMenus}
+      {...copilot}
+    />
   );
 }

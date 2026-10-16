@@ -52,10 +52,8 @@ async function voiceAndEmailCard(page: Page) {
   // `force`: the new-assignment card animates, so it never reads as "stable".
   await page.locator("aside [aria-label^='Lauren Briggs']").first().click({ force: true });
   await expect(page.locator("[data-main-thread=voice]")).toBeVisible();
-  // A newly added channel opens where it routes (the email: the panel).
-  // Start each test from a closed panel.
-  await expect(page.locator("[data-slot=right-panel][data-thread=email][data-open=true]")).toBeVisible();
-  await page.locator("[aria-label='Close Email preview']").click();
+  // A row appearing (this email was dialed through the provider, not
+  // launched from the UI) doesn't move anything: the panel starts closed.
   await expect(page.locator("[data-slot=right-panel][data-open=false]")).toHaveCount(1);
   await page.mouse.move(5, 5);
   await page.waitForTimeout(400); // the panel's width transition

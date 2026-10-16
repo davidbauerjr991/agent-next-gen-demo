@@ -101,17 +101,24 @@ describe("the Copilot composer on every live assignment", () => {
   }
 });
 
-describe("the Hide AI Actions switch: only on a chat in the main column, AI display inline", () => {
+describe("the Hide AI Actions switch: every digital thread in the main column, AI display inline", () => {
   const hasSwitch = () => [...document.body.querySelectorAll("label")].some((l) => l.textContent?.trim() === "Hide AI Actions");
 
-  it("present on a chat in inline mode", async () => {
-    await liveAssignment("chat", "inline");
-    expect(hasSwitch()).toBe(true);
+  for (const channel of ["chat", "sms", "whatsapp", "email"] as const) {
+    it(`present on ${channel} in inline mode`, async () => {
+      await liveAssignment(channel, "inline");
+      expect(hasSwitch()).toBe(true);
+    });
+  }
+
+  it("absent on voice", async () => {
+    await liveAssignment("voice", "inline");
+    expect(hasSwitch()).toBe(false);
   });
 
-  for (const channel of ["voice", "email", "sms", "whatsapp"] as const) {
-    it(`absent on ${channel}`, async () => {
-      await liveAssignment(channel, "inline");
+  for (const mode of ["panel", "main"] as const) {
+    it(`absent on SMS in ${mode} mode`, async () => {
+      await liveAssignment("sms", mode);
       expect(hasSwitch()).toBe(false);
     });
   }

@@ -40,6 +40,39 @@ describe("digital offers load as cards", () => {
     expect(h.navCard("Dan Ortiz")).toBeTruthy();
   });
 
+  // Browser check round 2, item 1: the email card is selected (the sim has no
+  // inbound email, so it's an outbound one), then a chat arrives for the same
+  // address. It joins the card as a second row and activates "added": the
+  // panel opens with the chat, the main column stays on the email.
+  for (const omnichannel of [true, false]) {
+    it(`a chat arriving for the selected email card joins it and opens beside it (omnichannel ${omnichannel ? "on" : "off"})`, async () => {
+      await act(async () => {
+        getSettingsStore().update("channels", { chat: true, email: true });
+        getSettingsStore().update("assignments", { omnichannel });
+      });
+      await h.show(AgentWorkspaceAdvancedPage);
+      await h.goAvailable();
+      await act(async () => {
+        const dialed = h.provider.dial({ channel: "email", address: "lauren@example.com", skillId: "general", contactName: "Lauren Briggs" });
+        await vi.advanceTimersByTimeAsync(300);
+        await dialed;
+      });
+      await h.click(h.navCard("Lauren Briggs"));
+      const main = () => h.container.querySelector("[data-main-thread]")?.getAttribute("data-main-thread");
+      const panel = () => h.container.querySelector("[data-slot=right-panel]");
+      expect(main()).toBe("email");
+
+      await h.startInbound("chat", "lauren@example.com", "Lauren Briggs");
+      await h.advance(1_000);
+      const rows = [...h.navCard("Lauren Briggs").closest("li, [data-slot=nav-card], div")!.parentElement!.querySelectorAll("[aria-label$=' channel'], [aria-label*=' channel,']")]
+        .map((row) => row.getAttribute("aria-label")!.split(" ")[0]);
+      expect(rows).toEqual(expect.arrayContaining(["Email", "Chat"]));
+      expect(main()).toBe("email");
+      expect(panel()?.getAttribute("data-open")).toBe("true");
+      expect(panel()?.getAttribute("data-thread")).toBe("chat");
+    });
+  }
+
   it("an inbound call still rings: it stays offered until the agent accepts", async () => {
     await h.show(AgentWorkspaceAdvancedPage);
     await h.goAvailable();

@@ -57,13 +57,20 @@ export function useOmnichannelLayout(card: Interaction | null, mainKey: string |
     });
   }, [cardId, liveMessages, mainKey, slideOutKey]);
 
+  // A thread read elsewhere (its header icon's hover preview): what's there now counts as seen.
+  const markSeen = useCallback((forCardId: string, key: string, messages: readonly TranscriptMessage[] | undefined) => {
+    const id = `${forCardId}:${key}`;
+    const count = customerMessageCount(messages);
+    setSeen((prev) => (prev[id] === count ? prev : { ...prev, [id]: count }));
+  }, []);
+
   const unread = useCallback(
     (forCardId: string, key: string, messages: readonly TranscriptMessage[] | undefined) =>
       Math.max(0, customerMessageCount(messages) - (seen[`${forCardId}:${key}`] ?? 0)),
     [seen]
   );
 
-  return { slideOutKey, open, close, toggle, unread };
+  return { slideOutKey, open, close, toggle, unread, markSeen };
 }
 
 export type OmnichannelLayout = ReturnType<typeof useOmnichannelLayout>;
