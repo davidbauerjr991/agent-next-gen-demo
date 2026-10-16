@@ -1,4 +1,5 @@
 import { KnowledgeArticleSummaryRow } from "@/components/agent-next-gen-knowledge-article-card";
+import { CopilotComposer } from "@/components/copilot-composer";
 import React, { useState, useRef, useLayoutEffect, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
@@ -27,7 +28,6 @@ import {
   KebabMenuButton,
   Textarea,
   ToggleGroup,
-  AIInput,
   Spinner,
   Interstitial,
   Switch,
@@ -78,7 +78,6 @@ import {
   CheckCircle2,
   AlertCircle,
   History,
-  RefreshCw,
 } from "lucide-react";
 import {
   CURRENT_AGENT_FIRST_NAME,
@@ -5101,116 +5100,6 @@ export function ComposerFade({ toClassName = "to-lyra-bg-surface-base" }: { toCl
   );
 }
 
-/** At most this many Copilot suggestion chips show at once. */
-const COPILOT_CHIPS_MAX = 3;
-/** The row's `gap-2`. */
-const COPILOT_CHIPS_GAP_PX = 8;
-
-/**
- * Copilot suggestion chips on one line that never wraps: as many as fit
- * beside the refresh button (up to 3, at least 1), measured from the row's
- * own width with a ResizeObserver (not a breakpoint), so the same row works
- * inline and in the docked 425px panel. The refresh button is always there
- * and rotates to the next suggestion(s). An invisible copy of every chip
- * gives their natural widths.
- */
-function CopilotChipRow({
-  suggestions,
-  focusable,
-  onActivate,
-}: {
-  suggestions: string[];
-  focusable: boolean;
-  onActivate: (suggestion: string) => void;
-}) {
-  const rowRef = useRef<HTMLDivElement>(null);
-  const measureRef = useRef<HTMLDivElement>(null);
-  const refreshRef = useRef<HTMLDivElement>(null);
-  const [offset, setOffset] = useState(0);
-  const [count, setCount] = useState(Math.min(COPILOT_CHIPS_MAX, suggestions.length));
-  const n = suggestions.length;
-  const start = n > 0 ? offset % n : 0;
-
-  useLayoutEffect(() => {
-    const row = rowRef.current;
-    if (!row) return;
-    const measure = () => {
-      const available =
-        row.getBoundingClientRect().width -
-        (refreshRef.current?.getBoundingClientRect().width ?? 0) -
-        COPILOT_CHIPS_GAP_PX;
-      const widths = [...(measureRef.current?.children ?? [])].map((el) => el.getBoundingClientRect().width);
-      let used = 0;
-      let fit = 0;
-      for (let i = 0; i < Math.min(COPILOT_CHIPS_MAX, n); i += 1) {
-        const w = widths[(start + i) % n] ?? 0;
-        const next = used + (fit > 0 ? COPILOT_CHIPS_GAP_PX : 0) + w;
-        if (next > available) break;
-        used = next;
-        fit += 1;
-      }
-      setCount(Math.max(1, fit));
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(row);
-    return () => ro.disconnect();
-    // Keyed on the suggestions' text, not the array (a new one each render).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [n, start, suggestions.join("\n")]);
-
-  if (n === 0) return null;
-  const visible = Array.from({ length: Math.min(count, n) }, (_, i) => suggestions[(start + i) % n]);
-
-  return (
-    <div ref={rowRef} data-slot="copilot-chips" className="relative flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-hidden">
-      {visible.map((suggestion) => (
-        <Tag
-          key={suggestion}
-          label={suggestion}
-          variant="purple"
-          icon={<Sparkles className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />}
-          shape="pill"
-          role="button"
-          tabIndex={focusable ? 0 : -1}
-          className="shrink-0 cursor-pointer"
-          onClick={() => onActivate(suggestion)}
-          onKeyDown={(e: React.KeyboardEvent<HTMLSpanElement>) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              onActivate(suggestion);
-            }
-          }}
-        />
-      ))}
-      <div ref={refreshRef} data-slot="copilot-chips-refresh" className="shrink-0">
-        <ActionIconButton
-          size="xs"
-          title="More suggestions"
-          tabIndex={focusable ? 0 : -1}
-          onClick={() => setOffset((o) => (o + Math.max(1, Math.min(count, n - 1))) % n)}
-        >
-          <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.5} />
-        </ActionIconButton>
-      </div>
-      {/* Natural widths of every chip, for the fit above. */}
-      <div ref={measureRef} aria-hidden="true" className="pointer-events-none invisible absolute left-0 top-0 flex gap-2 whitespace-nowrap">
-        {suggestions.map((suggestion) => (
-          <Tag
-            key={suggestion}
-            label={suggestion}
-            variant="purple"
-            icon={<Sparkles className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />}
-            shape="pill"
-            data-chip-measure=""
-            className="shrink-0"
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export function InteractionComposer({
   onSend,
   prefill,
@@ -5540,39 +5429,35 @@ export function InteractionComposer({
   const activeCopilotSuggestions = (copilotSuggestions ?? [])
     .map((sg) => (copilotUsed.includes(sg) ? copilotSuggestionReplacements?.[sg] : sg))
     .filter((sg): sg is string => !!sg && !copilotUsed.includes(sg));
-  const renderCopilotChips = (focusable: boolean) =>
-    activeCopilotSuggestions.length > 0 ? (
-      <CopilotChipRow suggestions={activeCopilotSuggestions} focusable={focusable} onActivate={activateCopilotSuggestion} />
-    ) : null;
+  const takeover =
+    copilotOnly && onTakeover
+      ? { label: takeoverLabel, onClick: onTakeover, disabled: takeoverDisabled, disabledReason: takeoverDisabledReason }
+      : undefined;
+  const copilotComposer = (placement: "inline" | "panel") => (
+    <CopilotComposer
+      placement={placement}
+      value={copilotQuestion}
+      onChange={setCopilotQuestion}
+      onSubmit={submitCopilot}
+      suggestions={activeCopilotSuggestions}
+      onActivateSuggestion={activateCopilotSuggestion}
+      takeover={takeover}
+      focusable={placement === "panel" || composerTab === "copilot"}
+      paneRef={placement === "inline" ? copilotPaneRef : undefined}
+      className={
+        placement === "inline"
+          ? `col-start-1 row-start-1 ${composerTab === "copilot" ? "animate-in fade-in-0 duration-200" : "invisible pointer-events-none"}`
+          : undefined
+      }
+      aria-hidden={placement === "inline" ? composerTab !== "copilot" : undefined}
+    />
+  );
 
-  // Docked (AI in the Contact Details panel): stacked for the panel's
-  // width — chips, then the input (text on top, +/mic beneath: `AIInput`'s
-  // own multi-line layout), then Takeover full width.
+  // Docked (AI in the Contact Details panel): the same composer, portaled
+  // into the panel's footer.
   const dockedCopilot = copilotDock?.mount
     ? createPortal(
-        <div data-slot="copilot-composer" data-placement="panel" className="flex w-full flex-col gap-3">
-          {renderCopilotChips(true)}
-          <AIInput
-            value={copilotQuestion}
-            onChange={setCopilotQuestion}
-            onSubmit={submitCopilot}
-            placeholder="Ask Copilot about this customer or conversation..."
-            helperText=""
-            className="w-full"
-          />
-          {copilotOnly && onTakeover && (
-            <Button
-              variant="destructive"
-              size="md"
-              className="w-full"
-              onClick={onTakeover}
-              disabled={takeoverDisabled}
-              title={takeoverDisabled ? takeoverDisabledReason : undefined}
-            >
-              {takeoverLabel}
-            </Button>
-          )}
-        </div>,
+        copilotComposer("panel"),
         copilotDock.mount,
       )
     : null;
@@ -5672,35 +5557,10 @@ export function InteractionComposer({
         )}
         </div>
         )}
-        {/* Both panes share one grid cell so the area keeps the taller (chat) height on either tab. */}
-        <div className="grid">
-        {!copilotDocked && (
-        <div
-          ref={copilotPaneRef}
-          data-slot="copilot-composer"
-          data-placement="inline"
-          className={`col-start-1 row-start-1 ${composerTab === "copilot" ? "animate-in fade-in-0 duration-200" : "invisible pointer-events-none"}`}
-          aria-hidden={composerTab !== "copilot"}
-        >
-            {/* Chips above the input, as in the docked composer. */}
-            <div className="mb-3 flex items-start justify-between gap-3">
-            {renderCopilotChips(composerTab === "copilot") ?? <span />}
-            {copilotOnly && onTakeover && (
-              <Button variant="destructive" size="md" className="shrink-0" onClick={onTakeover} disabled={takeoverDisabled} title={takeoverDisabled ? takeoverDisabledReason : undefined} tabIndex={composerTab === "copilot" ? 0 : -1}>
-                {takeoverLabel}
-              </Button>
-            )}
-            </div>
-            <AIInput
-              value={copilotQuestion}
-              onChange={setCopilotQuestion}
-              onSubmit={submitCopilot}
-              placeholder="Ask Copilot about this customer or conversation..."
-              helperText=""
-              className="w-full"
-            />
-        </div>
-        )}
+        {/* Both panes share one grid cell so the area keeps the taller (chat) height on either tab.
+            `minmax(0,1fr)`: the cell is the column's width, never a pane's min-content. */}
+        <div className="grid grid-cols-[minmax(0,1fr)]">
+        {!copilotDocked && copilotComposer("inline")}
         <div className={`col-start-1 row-start-1 ${composerTab === "chat" ? "" : "invisible pointer-events-none"}`} aria-hidden={composerTab !== "chat"}>
         <Textarea
           ref={textareaRef}

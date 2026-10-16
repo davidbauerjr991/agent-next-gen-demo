@@ -345,7 +345,7 @@ describe("AI display panel: docked Copilot composer", () => {
     await h.click(el);
   };
 
-  it("is the panel's footer: a sibling of the scroll container, stacked chips → input → Takeover", async () => {
+  it("is the panel's footer: a sibling of the scroll container, input → chips → Takeover", async () => {
     await lucasInPanelMode();
     const c = composer()!;
     expect(c).not.toBeNull();
@@ -359,10 +359,12 @@ describe("AI display panel: docked Copilot composer", () => {
 
     const chip = c.querySelector('[role="button"]')!;
     const input = c.querySelector("textarea")!;
-    const takeover = [...c.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Takeover Chat")!;
-    expect(isBefore(chip, input)).toBe(true);
-    expect(isBefore(input, takeover)).toBe(true);
-    expect(takeover.className).toContain("w-full");
+    const takeover = c.querySelector("[data-slot=copilot-takeover]")!;
+    expect(isBefore(input, chip)).toBe(true);
+    expect(isBefore(chip, takeover)).toBe(true);
+    // Wide vs narrow (Takeover full width below the chips) is measured, so
+    // jsdom can't see it: copilot-composer.test.tsx stubs the widths and
+    // e2e/copilot-composer.spec.ts checks the 425px panel in Chrome.
   });
 
   it("the body's bottom padding keeps the last card clear of the footer's fade", async () => {

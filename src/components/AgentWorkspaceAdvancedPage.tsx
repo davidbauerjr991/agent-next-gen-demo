@@ -330,6 +330,7 @@ import {
   MarcusWebbCopilotPanelBody,
 } from "@/components/agent-next-gen-lucas-thomas-panels";
 import { InContactInteriorPanel } from "@/components/agent-next-gen-in-contact-panel";
+import { CopilotResultPanelBody } from "@/components/copilot-result-panel";
 import { VideoCallWindow, VideoCallFullScreen } from "@/components/agent-next-gen-video-window";
 // The Marcus Webb action-log detail panel and the "Do Something"
 // knowledge-article panel share ONE floating `InteriorPanel` overlay
@@ -346,6 +347,7 @@ type DetailPanelContent =
   | { kind: "lucas"; panel: LucasThomasPanelKey }
   | { kind: "lucas-memory"; focus: LucasThomasMemoryFocus }
   | { kind: "lucas-instruction"; decision: string; text: string; time: string }
+  | { kind: "copilot-result"; text: string; time: string }
   | { kind: "marcus-copilot"; id: string; text: string; time: string }
   | { kind: "tom-call"; panel: TomLewisCallPanelKey }
   | { kind: "lucas-order"; orderId: LucasThomasOrderId; from?: "memory" | "purchases" }
@@ -1740,6 +1742,10 @@ export function AgentWorkspaceAdvancedPage({
   // into the docked Contact Details panel (`renderAiPanelFeed`).
   const [aiSettings] = useSettings("ai");
   const aiInPanel = aiSettings.displayLocation === "panel";
+  // Where the interior slide-over mounts: the container the AI rows live in.
+  const [mainThreadMount, setMainThreadMount] = useState<HTMLElement | null>(null);
+  const [rightPanelMount, setRightPanelMount] = useState<HTMLElement | null>(null);
+  const portalInto = (mount: HTMLElement | null, node: React.ReactElement) => (mount ? createPortal(node, mount) : node);
   const stripAiInPanel = (messages: TranscriptMessage[]) =>
     aiInPanel ? messages.filter((m) => !isAiActionMessage(m)) : messages;
   // The docked Copilot composer's slot element (the panel footer); null
@@ -3005,6 +3011,7 @@ export function AgentWorkspaceAdvancedPage({
       case "lucas": return `lucas:${c.panel}`;
       case "lucas-memory": return "lucas-memory";
       case "lucas-instruction": return `lucas-instruction:${c.text}`;
+      case "copilot-result": return `copilot-result:${c.text}:${c.time}`;
       case "marcus-copilot": return `marcus-copilot:${c.id}`;
       case "tom-call": return `tom-call:${c.panel}`;
       case "lucas-order": return `lucas-order:${c.orderId}`;
@@ -3020,6 +3027,7 @@ export function AgentWorkspaceAdvancedPage({
       case "lucas": return LUCAS_THOMAS_PANEL_TITLES[c.panel].title;
       case "lucas-memory": return "Experience Memory";
       case "lucas-instruction": return c.text;
+      case "copilot-result": return c.text;
       case "marcus-copilot": return c.text;
       case "tom-call": return TOM_LEWIS_CALL_PANEL_TITLES[c.panel].title;
       case "lucas-order": return `Order ${LUCAS_THOMAS_ORDER_DETAILS[c.orderId].item}`;
@@ -3049,6 +3057,8 @@ export function AgentWorkspaceAdvancedPage({
       ? selectedDetailPanelContent.panel
       : selectedDetailPanelContent?.kind === "lucas-instruction"
       ? `instruction:${selectedDetailPanelContent.decision}:${encodeURIComponent(selectedDetailPanelContent.text)}:${encodeURIComponent(selectedDetailPanelContent.time)}`
+      : selectedDetailPanelContent?.kind === "copilot-result"
+      ? `instruction:copilot:${encodeURIComponent(selectedDetailPanelContent.text)}:${encodeURIComponent(selectedDetailPanelContent.time)}`
       : selectedDetailPanelContent?.kind === "tom-call"
       ? selectedDetailPanelContent.panel
       : undefined;
@@ -6273,44 +6283,31 @@ export function AgentWorkspaceAdvancedPage({
   // The links inside an interaction's AI content (Autosummary links,
   // interstitial rows, approval checklists) open the matching side panel.
   // Shared by the inline transcript and the Contact Details panel's AI feed.
-  const snapshotLinkHandlerFor = (interactionId: string): ((key: string) => void) | undefined =>
-    isColdCallId(interactionId)
-      ? (key) => {
-          if (key === "order" || key === "card" || key === "void-steps" || key === "maya-order" || key === "maya-card" || key === "maya-refund-steps") {
-            openDetailPanelContent({ kind: "tom-call", panel: key });
-          } else if (key.startsWith("instruction:")) {
-            const [, decision, text, time] = key.split(":");
-            openDetailPanelContent({
-              kind: "lucas-instruction",
-              decision,
-              text: decodeURIComponent(text ?? ""),
-              time: decodeURIComponent(time ?? ""),
-            });
-          }
+  // Every contact, every channel: the row/link whose slide-over is open
+  // closes it (toggle); any other swaps the content. A Copilot result row
+  // (`instruction:` key) opens the scripted case's instruction panel, or,
+  // on a contact with no script, the generic Copilot result.
+  const snapshotLinkHandlerFor = (interactionId: string): ((key: string) => void) => {
+    const scripted = isColdCallId(interactionId) || scenarioKeyOf(interactionId) === LUCAS_THOMAS_ID;
+    return (key) => {
+      if (key === lucasActiveLinkKey) return setSelectedDetailPanelContent(null);
+      if (key.startsWith("instruction:")) {
+        const [, decision, text, time] = key.split(":");
+        const request = { text: decodeURIComponent(text ?? ""), time: decodeURIComponent(time ?? "") };
+        return openDetailPanelContent(scripted ? { kind: "lucas-instruction", decision, ...request } : { kind: "copilot-result", ...request });
+      }
+      if (isColdCallId(interactionId)) {
+        if (key === "order" || key === "card" || key === "void-steps" || key === "maya-order" || key === "maya-card" || key === "maya-refund-steps") {
+          openDetailPanelContent({ kind: "tom-call", panel: key });
         }
-      : scenarioKeyOf(interactionId) === MARCUS_WEBB_ID
-      ? (key) => {
-          if (key === "order") openDetailPanelContent({ kind: "order", order: MARCUS_WEBB_ORDER });
-        }
-      : scenarioKeyOf(interactionId) === LUCAS_THOMAS_ID
-      ? (key) =>
-          key === lucasActiveLinkKey
-            // Clicking the row/link whose panel is already open closes it (toggle).
-            ? setSelectedDetailPanelContent(null)
-            : key.startsWith("instruction:")
-            ? (() => {
-                const [, decision, text, time] = key.split(":");
-                openDetailPanelContent({
-                  kind: "lucas-instruction",
-                  decision,
-                  text: decodeURIComponent(text ?? ""),
-                  time: decodeURIComponent(time ?? ""),
-                });
-              })()
-            : key.startsWith("memory:")
-            ? openExperienceMemoryInSidePanel(key.slice("memory:".length) as LucasThomasMemoryFocus)
-            : openDetailPanelContent({ kind: "lucas", panel: key as LucasThomasPanelKey })
-      : undefined;
+      } else if (scenarioKeyOf(interactionId) === MARCUS_WEBB_ID) {
+        if (key === "order") openDetailPanelContent({ kind: "order", order: MARCUS_WEBB_ORDER });
+      } else if (scenarioKeyOf(interactionId) === LUCAS_THOMAS_ID) {
+        if (key.startsWith("memory:")) openExperienceMemoryInSidePanel(key.slice("memory:".length) as LucasThomasMemoryFocus);
+        else openDetailPanelContent({ kind: "lucas", panel: key as LucasThomasPanelKey });
+      }
+    };
+  };
 
   // Settings → AI display "In the Contact Details panel" (P-SETTINGS, ported
   // from v3): the Autosummary and the AI rows (interstitials, approval
@@ -6364,7 +6361,7 @@ export function AgentWorkspaceAdvancedPage({
         approvalTakenOver={isLucas && !lucasThomasReviewing}
         onWrapUpComplete={isLucas ? () => scenarioCases.respond(LUCAS_THOMAS_ID, { value: "complete" }) : undefined}
         onSnapshotLink={snapshotLinkHandlerFor(activeInteraction.id)}
-        activeSnapshotLink={isLucas || isColdCallId(activeInteraction.id) ? lucasActiveLinkKey : undefined}
+        activeSnapshotLink={lucasActiveLinkKey}
       />
     );
   };
@@ -8676,7 +8673,6 @@ export function AgentWorkspaceAdvancedPage({
                                         <InteractionComposer
                                           onSend={(text) => handleSendMessage(activeInteraction.id, text, key)}
                                           hideAiActions={hideAiActions}
-                                          onHideAiActionsChange={setHideAiActions}
                                         />
                                       )}
                                   </div>
@@ -9089,7 +9085,7 @@ export function AgentWorkspaceAdvancedPage({
                       `CUSTOMER_PANEL_TABS`), so this is unconditional
                       again.) */}
                   <div className="relative flex flex-1 overflow-hidden">
-                      <div className="flex flex-1 flex-col min-w-0 overflow-hidden" data-main-thread={activeChannelType}>
+                      <div ref={setMainThreadMount} className="relative flex flex-1 flex-col min-w-0 overflow-hidden" data-main-thread={activeChannelType}>
                         {isHistoryConversationView && historyConversationForActive ? (
                           /* Past-session conversation, opened as its own tab in
                              this record area (see the history `Tab` in the
@@ -9517,7 +9513,7 @@ export function AgentWorkspaceAdvancedPage({
                           autosummaryBlue={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID || scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID || isColdCallId(activeInteraction.id)}
                           // AI-led cases always keep the Autosummary above the conversation, even when the transcript remounts with messages already present.
                           contactOverviewPosition={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID || scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID || isColdCallId(activeInteraction.id) ? "top" : undefined}
-                          activeSnapshotLink={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID || isColdCallId(activeInteraction.id) ? lucasActiveLinkKey : undefined}
+                          activeSnapshotLink={lucasActiveLinkKey}
                           onSnapshotLink={snapshotLinkHandlerFor(activeInteraction.id)}
                           // Same union of conditions the "closed
                           // interaction"/"channel closed" banners just above
@@ -9791,21 +9787,24 @@ export function AgentWorkspaceAdvancedPage({
                             column, or (AI display "panel") its Copilot part in
                             the Contact Details footer. Voice and email have no
                             customer chat here, so they get Copilot only. Hidden
-                            once the interaction or this thread is closed. */}
+                            once the interaction or this thread is closed. The
+                            cold calls and Marcus Webb render their own below. */}
                         {activeInteraction &&
                           activeChannelType &&
+                          !isColdCallId(activeInteraction.id) &&
+                          scenarioKeyOf(activeInteraction.id) !== MARCUS_WEBB_ID &&
                           !activeInteraction.closed &&
                           activeInteraction.threadStatuses?.[activeChannelKey] !== "Closed" &&
                           (
                             <InteractionComposer
                               hideAiActions={hideAiActions}
-                              onHideAiActionsChange={setHideAiActions}
+                              // Only where AI rows interleave with a chat transcript.
+                              onHideAiActionsChange={activeChannelType === "chat" && !aiInPanel ? setHideAiActions : undefined}
                               copilotDock={copilotDock}
                               copilotOnly={
                                 activeChannelType === "voice" ||
                                 activeChannelType === "email" ||
-                                (scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && lucasThomasReviewing) ||
-                                (scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID && marcusWebbReviewing)
+                                (scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && lucasThomasReviewing)
                               }
                               onTakeover={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID ? () => handleLucasTakeover() : undefined}
                               onSend={(text) => handleSendMessage(activeInteraction.id, text, activeChannelKey)}
@@ -10419,7 +10418,8 @@ export function AgentWorkspaceAdvancedPage({
                   // the whole time). Mirrored one level down on
                   // `SidePanel`'s own pinned-branch outer div
                   // (side-panel.tsx), which had the identical gap.
-                  className="shrink-0 h-full z-[5] animate-in fade-in-0 duration-200 delay-150 fill-mode-backwards"
+                  ref={setRightPanelMount}
+                  className="relative shrink-0 h-full z-[5] animate-in fade-in-0 duration-200 delay-150 fill-mode-backwards"
                   data-slot="right-panel"
                   data-open={sidePanelOpen || !!channelPreviewThreadKey}
                   data-thread={channelPreviewThread?.type ?? "details"}
@@ -10684,7 +10684,6 @@ export function AgentWorkspaceAdvancedPage({
                         ? (
                           <ChannelThreadComposer
                             hideAiActions={hideAiActions}
-                            onHideAiActionsChange={setHideAiActions}
                             onSend={(text) => handleSendMessage(activeInteraction.id, text, channelPreviewThreadStableKey!)}
                             copilot={copilotComposerProps(activeInteraction.id, channelPreviewThreadStableKey!)}
                           />
@@ -10904,8 +10903,11 @@ export function AgentWorkspaceAdvancedPage({
                 `activeInteraction` instead keeps it mounted for the
                 interaction's whole lifetime; `lastDetailPanelContent`
                 (never nulled) keeps its content from going blank
-                mid-close. */}
-            {activeInteraction && (
+                mid-close.
+                It slides over the container the AI rows live in: the main
+                column (AI display inline) or the Contact Details panel
+                (panel), portaled there; the card only while neither is up. */}
+            {activeInteraction && portalInto(aiInPanel ? rightPanelMount : mainThreadMount,
               <InContactInteriorPanel
                 open={!!selectedDetailPanelContent}
                 onClose={() => setSelectedDetailPanelContent(null)}
@@ -10924,7 +10926,7 @@ export function AgentWorkspaceAdvancedPage({
                           ? TOM_LEWIS_CALL_PANEL_TITLES[lastDetailPanelContent.panel].title
                           : lastDetailPanelContent?.kind === "lucas-memory"
                           ? "Lucas Thomas"
-                          : lastDetailPanelContent?.kind === "lucas-instruction" || lastDetailPanelContent?.kind === "marcus-copilot"
+                          : lastDetailPanelContent?.kind === "lucas-instruction" || lastDetailPanelContent?.kind === "marcus-copilot" || lastDetailPanelContent?.kind === "copilot-result"
                           ? lastDetailPanelContent.text
                           : lastDetailPanelContent?.kind === "lucas-order"
                           ? LUCAS_THOMAS_ORDER_DETAILS[lastDetailPanelContent.orderId].item
@@ -10943,7 +10945,7 @@ export function AgentWorkspaceAdvancedPage({
                       ? TOM_LEWIS_CALL_PANEL_TITLES[lastDetailPanelContent.panel].subhead
                       : lastDetailPanelContent?.kind === "lucas-memory"
                       ? "Experience Memory"
-                      : lastDetailPanelContent?.kind === "lucas-instruction" || lastDetailPanelContent?.kind === "marcus-copilot"
+                      : lastDetailPanelContent?.kind === "lucas-instruction" || lastDetailPanelContent?.kind === "marcus-copilot" || lastDetailPanelContent?.kind === "copilot-result"
                       ? `${lastDetailPanelContent.time} · John Smith`
                       : lastDetailPanelContent?.kind === "lucas-order"
                       ? `${LUCAS_THOMAS_ORDER_DETAILS[lastDetailPanelContent.orderId].orderId} · ${LUCAS_THOMAS_ORDER_DETAILS[lastDetailPanelContent.orderId].ordered}`
@@ -10996,6 +10998,9 @@ export function AgentWorkspaceAdvancedPage({
                     text={lastDetailPanelContent.text}
                     time={lastDetailPanelContent.time}
                   />
+                )}
+                {lastDetailPanelContent?.kind === "copilot-result" && (
+                  <CopilotResultPanelBody text={lastDetailPanelContent.text} time={lastDetailPanelContent.time} />
                 )}
                 {lastDetailPanelContent?.kind === "lucas-order" && (
                   <LucasThomasOrderPanelBody orderId={lastDetailPanelContent.orderId} />

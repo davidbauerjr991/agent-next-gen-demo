@@ -50,13 +50,13 @@ export function ChannelThreadBody({ interaction, thread, hideAiActions, hideMock
 
 export interface ChannelThreadComposerProps {
   hideAiActions: boolean;
-  onHideAiActionsChange: (hide: boolean) => void;
   onSend: (text: string) => void;
   copilot: CopilotComposerProps;
 }
 
 /** The composer under a thread shown outside the main column. Render it only
- *  when `threadAcceptsReplies`. */
-export function ChannelThreadComposer({ hideAiActions, onHideAiActionsChange, onSend, copilot }: ChannelThreadComposerProps) {
-  return <InteractionComposer hideAiActions={hideAiActions} onHideAiActionsChange={onHideAiActionsChange} onSend={onSend} {...copilot} />;
+ *  when `threadAcceptsReplies`. No "Hide AI Actions" switch: that's only for
+ *  the main column's chat. */
+export function ChannelThreadComposer({ hideAiActions, onSend, copilot }: ChannelThreadComposerProps) {
+  return <InteractionComposer hideAiActions={hideAiActions} onSend={onSend} {...copilot} />;
 }
