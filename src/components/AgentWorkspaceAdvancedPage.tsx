@@ -4159,6 +4159,8 @@ export function AgentWorkspaceAdvancedPage({
   // "added" (a channel added to an open card) does too with tabs, and opens
   // in the slide-out with omnichannel when its tempo says so.
   const handleContactActivated = ({ journeyId, threadKey, mode, isNewCard }: Activation) => {
+    const selectThread = () => setInteractions((prev) => prev.map((i) => (i.id === journeyId && i.currentThreadId !== threadKey ? { ...i, currentThreadId: threadKey } : i)));
+    if (mode === "select") return selectThread(); // its card's main thread; the selected card stays
     switchActiveInteraction(journeyId);
     // Omnichannel: an async channel (added or focused) opens in the
     // slide-out, and a call next to a chat only moves the voice bar; the
@@ -4173,15 +4175,9 @@ export function AgentWorkspaceAdvancedPage({
       if (isNewCard) setSidePanelOpen(false);
       return;
     }
-    // Tabs (omnichannel off): an added thread selects its tab like any other
-    // (rows 12/13's docked preview is superseded); a call beside a tab only
-    // brings the voice bar (voice has no tab), so the main tab stays.
+    // Tabs: an added thread selects its tab; a call beside a tab only brings the voice bar (voice has no tab).
     const callBesideTabs = tabs && threadKey.startsWith("voice") && !!threads?.some((t) => t.type !== "voice");
-    if (route !== "bar" && !callBesideTabs) {
-      setInteractions((prev) =>
-        prev.map((i) => (i.id === journeyId && i.currentThreadId !== threadKey ? { ...i, currentThreadId: threadKey } : i))
-      );
-    }
+    if (route !== "bar" && !callBesideTabs) selectThread();
     // A restarted call starts with an empty Outcome (row 19).
     if (threadKey.startsWith("voice")) outcomeDrafts.clear(outcomeDraftKeyOf(journeyId, threadKey));
     if (route === "bar") return;
@@ -4227,8 +4223,10 @@ export function AgentWorkspaceAdvancedPage({
       if (!card || !current || panelPlacement || !omnichannel) return;
       mainPins.pin(cardId, omnichannelMainKey(card.threads, current, mainPins.pinned(cardId)) ?? current);
     },
-    onJoined: (cardId, id) => {
-      if (cardId === activeInteractionId) activateWhenReady(id, "added", false);
+    // Tabs (k2): an accepted chat always becomes its card's tab; an async thread never overrides a picked tab.
+    onJoined: (cardId, id, channel) => {
+      if (tabs && channel === "chat") activateWhenReady(id, cardId === activeInteractionId ? "added" : "select", false);
+      else if (!tabs && cardId === activeInteractionId) activateWhenReady(id, "added", false);
     },
   });
 

@@ -23,7 +23,7 @@ export function useDigitalOfferChannels(): readonly string[] {
  *  thread in place and activates the new contact "added". */
 export function useAutoAcceptDigital(
   findOpenCard: (target: { entityId?: string; address?: string }) => { id: string } | undefined,
-  hooks?: { onJoin?: (cardId: string) => void; onJoined?: (cardId: string, id: InteractionId) => void },
+  hooks?: { onJoin?: (cardId: string) => void; onJoined?: (cardId: string, id: InteractionId, channel: string) => void },
 ) {
   const provider = useInteractionProvider();
   const interactions = useInteractions();
@@ -39,7 +39,7 @@ export function useAutoAcceptDigital(
       provider
         .accept(offer.id, openCard ? { journeyId: openCard.id as JourneyId } : undefined)
         .then(() => {
-          if (openCard) hooksRef.current?.onJoined?.(openCard.id, offer.id);
+          if (openCard) hooksRef.current?.onJoined?.(openCard.id, offer.id, offer.channel);
         })
         .catch((error) => {
           if (import.meta.env.DEV) console.warn("[assignments] auto-accept failed", error);

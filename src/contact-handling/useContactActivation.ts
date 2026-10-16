@@ -10,8 +10,11 @@ import type { CardOverlay } from "./nav-card-overlay";
  *  - "added": a channel added to an already-open card. The page decides
  *    (the docked preview, or with the omnichannel layout the main column,
  *    the voice bar or the async slide-out);
+ *  - "select": this thread becomes its card's main thread (its tab, with
+ *    omnichannel off) and the selected card stays as it is (an accepted
+ *    chat joining a card that isn't selected, P-AIFIRST (k2));
  *  - "none": nothing to show (e.g. the other threads of a restored case). */
-export type ActivationMode = "focus" | "added" | "none";
+export type ActivationMode = "focus" | "added" | "select" | "none";
 
 export interface Activation {
   journeyId: string;

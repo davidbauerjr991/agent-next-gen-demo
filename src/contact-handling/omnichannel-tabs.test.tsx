@@ -139,6 +139,62 @@ describe("omnichannel off: tabs", () => {
     expect(contactDetailsButton()).toBeTruthy();
   });
 
+  // k2: an accepted chat always becomes its card's tab, over a tab the agent
+  // picked, whether or not the card is selected (the selected card stays).
+  for (const selected of [true, false]) {
+    it(`an accepted chat becomes its card's tab over a picked tab (card ${selected ? "selected" : "not selected"})`, async () => {
+      await setUp("inline", false);
+      // Lauren (no directory record, so the chat finds her card by address): a WhatsApp, then an email.
+      let journey = "";
+      for (const channel of ["whatsapp", "email"] as const) {
+        await act(async () => {
+          const dialed = h.provider.dial({
+            channel,
+            address: channel === "email" ? "lauren@example.com" : "+13125550123",
+            skillId: "general",
+            contactName: "Lauren Briggs",
+            ...(journey ? { journeyId: journey as JourneyId } : {}),
+          });
+          await vi.advanceTimersByTimeAsync(300);
+          const id = await dialed;
+          const snapshot = h.provider.getSnapshot();
+          await vi.advanceTimersByTimeAsync(50);
+          journey = (await snapshot).interactions.find((i) => i.id === id)!.journeyId;
+        });
+      }
+      await h.click(h.navCard("Lauren Briggs"));
+      // The agent picks the WhatsApp tab.
+      await h.click(headerIcon("WhatsApp")!);
+      expect(main()).toBe("whatsapp");
+      if (!selected) {
+        // Another card is selected while the chat arrives.
+        await act(async () => {
+          const dialed = h.provider.dial({ channel: "email", address: "dan.ortiz@example.com", skillId: "general", contactName: "Dan Ortiz" });
+          await vi.advanceTimersByTimeAsync(300);
+          await dialed;
+        });
+        await h.click(h.navCard("Dan Ortiz"));
+        expect(main()).toBe("email");
+      }
+      await h.startInbound("chat", "lauren@example.com", "Lauren Briggs");
+      await h.advance(1_000);
+      // It joined Lauren's card (one card for her).
+      expect(h.container.querySelectorAll("aside [aria-label^='Lauren Briggs']").length).toBe(1);
+      const header = () => h.container.querySelector("[data-record-header] h1, h1")?.textContent ?? "";
+      if (selected) {
+        expect(main()).toBe("chat");
+      } else {
+        // The selected card stays Dan's; Lauren's card now opens on the chat.
+        expect(header()).toContain("Dan Ortiz");
+        expect(main()).toBe("email");
+        await h.click(h.navCard("Lauren Briggs"));
+        expect(main()).toBe("chat");
+      }
+      expect(headerIcon("Chat")!.getAttribute("aria-pressed")).toBe("true");
+      expect(headerIcon("WhatsApp")!.getAttribute("aria-pressed")).toBe("false");
+    });
+  }
+
   it("a call beside a tab: the voice bar, the main tab stays, no voice tab", async () => {
     await setUp("inline", false);
     await dial("email");
