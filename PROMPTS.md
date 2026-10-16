@@ -44,6 +44,7 @@ Wrap up this step: run the type-check and the test suite, update PROGRESS.md (do
 - **P0.8, P0.5.0, P0.5a, P-CHORE-TICK, P0.5b.1, P0.5b.2** — see PROGRESS.md.
 - **P0.5d.1** — provider wiring for voice controls, incoming tile and the inline wrap-up card (see PROGRESS.md); the prompts below for 5d.2 build on it.
 - **P0.7, P0.5c** — scenario script format; the scenario player in the sim engine, all four scripted cases engine-backed on Advanced (see PROGRESS.md).
+- **P-AIFIRST** — AI display "main" (the AI-first layout) and the AI-first profile; setting scope (admin-scope settings never travel in a profile); white-label name, logo and brand colors; social placeholders (see PROGRESS.md).
 
 **One page (decided 2026-10-15; final since P0.5d.2):** Advanced is the agent workspace and Desk is deleted. Its layout varies by settings only; "Phase 1" and "Phase 2" are built-in workspace profiles. Prompts below that say "both pages" mean Advanced.
 
@@ -96,7 +97,8 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 5d.2, re-scoped 
 For every visual change in either preset, give a before/after and wait for my approval. Done = the Phase 1 preset is unchanged, the Phase 2 preset reproduces Desk, Desk is deleted, npm test passes, type-check at baseline; list browser checks for me, one per ported piece in each preset. Don't write code yet.
 ```
 
-### P-AIFIRST — Conversation placement, the AI-first profile, white-labeling, social placeholders   ✋ (Plan: Opus · Implement: Opus) — after P0.5d.2, before P-PROFILES
+### P-AIFIRST — Conversation placement, the AI-first profile, white-labeling, social placeholders   ✋ (Plan: Opus · Implement: Opus) — done
+Done 2026-10-16; see PROGRESS.md and PLAN.md Decisions (P-AIFIRST). Changed during the build: conversation placement became AI display "main" (no `assignments.conversationPlacement`), the default app name is "Workspace", and the brand and social placeholders are admin-scope (never in a profile). The original prompt follows for reference.
 ```
 Read CLAUDE.md, PLAN.md and PROGRESS.md. Chore, pulled ahead so the layout can be tested now: PLAN.md "Settings and configuration" → Conversation placement and the AI-first layout, White-labeling, Social channel placeholders. In plan mode, propose:
 (1) assignments.conversationPlacement: "main" | "panel" (default main). "panel": the main column renders exactly what panel-mode AI display renders in the panel today (Autosummary, AI feed, cards/approvals, Copilot composer, inline wrap-up), moved to the main column; every conversation thread — chat included — opens in the docked right panel the way the async slide-out does today, one at a time, switched by the card's rows or the header icons; voice bar unchanged; AI display (and the Omnichannel switch, which "panel" implies) shown as "Set by Conversation placement". Reuse the docked panel, the panel-mode feed/composer and the header toggle group; no new panel implementation.
