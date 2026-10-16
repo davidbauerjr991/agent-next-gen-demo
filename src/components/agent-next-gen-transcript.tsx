@@ -2890,6 +2890,7 @@ export function InteractionTranscript({
   onOutcomeSave,
   onOutcomeCancel,
   outcomeCallEnded,
+  outcomeShowSaveAndRedial,
   onOutcomeSaveAndRedial,
   onOutcomeSaveAndDismiss,
   onDismissChannel,
@@ -3195,6 +3196,8 @@ export function InteractionTranscript({
    *  of "Cancel"/"Save & Close" (`ChannelOutcomeConfig.callEnded`,
    *  outcome-panel.tsx). Unset/false leaves it exactly as today. */
   outcomeCallEnded?: boolean;
+  /** Whether that footer shows "Save & Redial" (Settings → Outbound Calling); default true. */
+  outcomeShowSaveAndRedial?: boolean;
   /** "Save & Redial" clicked — only meaningful while `outcomeCallEnded` is
    *  true. Called with the Outcome trigger's own DOM node (`OutcomePanel`
    *  threads this through automatically — see its own doc comment,
@@ -4363,6 +4366,7 @@ export function InteractionTranscript({
                           onSave: onOutcomeSave!,
                           onCancel: onOutcomeCancel!,
                           callEnded: outcomeCallEnded,
+                          showSaveAndRedial: outcomeShowSaveAndRedial,
                           onSaveAndRedial: onOutcomeSaveAndRedial,
                           onSaveAndDismiss: onOutcomeSaveAndDismiss,
                         }

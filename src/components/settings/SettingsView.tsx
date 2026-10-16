@@ -134,7 +134,6 @@ const OUTBOUND_CALLING_PENDING: Partial<Record<OutboundCalling, string>> = {
   addressBook: "Arrives in P0.9",
   skill: "Arrives in P0.9",
   transfer: "Arrives in P0.9",
-  saveAndRedial: "Needs a lyra change",
 };
 
 /** A row of checkboxes under a label, as CXone lays out its agent settings. */

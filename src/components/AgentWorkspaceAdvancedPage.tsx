@@ -1732,6 +1732,7 @@ export function AgentWorkspaceAdvancedPage({
     ...outboundSettings.calling,
     adHoc: outboundSettings.calling.adHoc && channelSettings.voice,
     redial: outboundSettings.calling.redial && channelSettings.voice,
+    saveAndRedial: outboundSettings.calling.saveAndRedial && channelSettings.voice,
   };
   // Settings → Assignments → "Confirm before closing": an agent's dismiss
   // waits for the confirm dialog (ConfirmCloseDialog, mounted with the modals).
@@ -5025,6 +5026,8 @@ export function AgentWorkspaceAdvancedPage({
       // Dismiss (outcome-panel.tsx). `anchorEl` is the Outcome trigger's own
       // node (or the wrap-up card), so the Redial pad opens right there.
       callEnded: c.type === "voice" && !!(interaction.closed || interaction.voiceCallEnded),
+      // Outbound Calling → Save and Redial (off, or voice off, leaves Save & Dismiss).
+      showSaveAndRedial: calling.saveAndRedial,
       onSaveAndRedial: (anchorEl) =>
         handleOutcomeSaveAndRedial(
           interaction.id,
@@ -9553,6 +9556,7 @@ export function AgentWorkspaceAdvancedPage({
                           // button, same as Contact History's own Redial
                           // button anchors its identical popover on itself.
                           outcomeCallEnded={activeChannelType === "voice" && !!(activeInteraction.closed || activeInteraction.voiceCallEnded)}
+                          outcomeShowSaveAndRedial={calling.saveAndRedial}
                           onOutcomeSaveAndRedial={(anchorEl) =>
                             handleOutcomeSaveAndRedial(
                               activeInteraction.id,

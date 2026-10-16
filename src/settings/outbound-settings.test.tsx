@@ -91,6 +91,42 @@ describe("Outbound Calling (outbound.calling)", () => {
     expect(h.buttonByText("Redial")).toBeUndefined();
   });
 
+  describe("Save and Redial (lyra's Outcome footer, showSaveAndRedial)", () => {
+    /** An inbound call that has ended: the wrap-up card's footer is up. */
+    async function endedCall() {
+      await h.show(AgentWorkspaceAdvancedPage);
+      await h.goAvailable();
+      const id = await h.startInbound("voice", "(312) 555-0164", "Lauren Briggs");
+      await h.accept(id);
+      await h.click(h.navCard("Lauren Briggs"));
+      await act(async () => {
+        h.customer.hangUp({ interactionId: id });
+        await vi.advanceTimersByTimeAsync(300);
+      });
+    }
+    const saveAndRedial = () => h.buttonByText("Save & Redial");
+
+    it("on: the footer offers Save & Redial and Save & Dismiss", async () => {
+      await endedCall();
+      expect(h.buttonByText("Save & Dismiss")).toBeTruthy();
+      expect(saveAndRedial()).toBeTruthy();
+    });
+
+    it("off: only Save & Dismiss", async () => {
+      await endedCall();
+      await setSettings("outbound", { calling: { ...store().getState().values.outbound.calling, saveAndRedial: false } });
+      expect(h.buttonByText("Save & Dismiss")).toBeTruthy();
+      expect(saveAndRedial()).toBeUndefined();
+    });
+
+    it("voice channel off: Save & Redial is hidden too", async () => {
+      await endedCall();
+      await setSettings("channels", { voice: false });
+      expect(h.buttonByText("Save & Dismiss")).toBeTruthy();
+      expect(saveAndRedial()).toBeUndefined();
+    });
+  });
+
   it("Elevation off: an approval card offers no Call now (no call handler)", async () => {
     const container = document.createElement("div");
     const root = createRoot(container);
