@@ -186,7 +186,9 @@ export interface InteractionProvider extends EventSource<InteractionEvents>, Pro
   setAgentState(code: string, reasonCode?: string): Promise<void>;
   /** Sets the channels the agent takes contacts on (`AgentState.channels`).
    *  Routing stops offering contacts on the others; contacts already open on
-   *  them stay until they end. */
+   *  them stay until they end. Rejects `"not-supported"` for a provider that
+   *  routes no inbound channel (`capabilities.channels.inbound` is empty,
+   *  which is every placeholder). */
   setAgentChannels(channels: ChannelKind[]): Promise<void>;
   /** Connects the agent leg; state passes through "connecting". */
   connectAgentLeg(): Promise<void>;

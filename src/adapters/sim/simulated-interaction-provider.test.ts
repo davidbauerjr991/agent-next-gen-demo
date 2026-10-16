@@ -98,6 +98,10 @@ describeInteractionProviderContract(
   }),
 );
 
+// A provider that routes no inbound channel, like the placeholders: per-agent
+// channels have nothing to gate, so setAgentChannels rejects "not-supported".
+describeInteractionProviderContract("sim — no inbound channels", simHarness({ channels: { inbound: [], outbound: ["chat"] } }));
+
 describe("sim seed", () => {
   it("starts with the seed as offered, routed contacts in the snapshot, with no events", async () => {
     const bus = createMemoryBus();

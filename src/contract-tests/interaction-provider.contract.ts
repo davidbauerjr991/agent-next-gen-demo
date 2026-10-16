@@ -299,6 +299,65 @@ export function describeInteractionProviderContract(label: string, factory: Inte
         await waitFor(() => agentStates().some((a) => a.presence.code === next!.code), "agent presence snapshot");
       });
 
+      describe("setAgentChannels (the channels the agent takes contacts on)", () => {
+        /** The skip, and the inbound channels the provider routes. */
+        function channelsUnderTest(ctx: TestContext, atLeast: number): ChannelKind[] {
+          const inbound = caps().channels.inbound;
+          ctx.skip(inbound.length < atLeast, `provider routes fewer than ${atLeast} inbound channel(s)`);
+          return inbound;
+        }
+        const latestChannels = () => {
+          const states = agentStates();
+          return states[states.length - 1]?.channels;
+        };
+        const sameChannels = (a: ChannelKind[] | undefined, b: ChannelKind[]) =>
+          !!a && a.length === b.length && b.every((c) => a.includes(c));
+
+        it("AgentState.channels reflects it, in the event and in the snapshot; duplicates collapse", async (ctx) => {
+          const [first, second] = channelsUnderTest(ctx, 1);
+          const wanted = [first];
+          await h.provider.setAgentChannels(second ? [first, first] : wanted);
+          await waitFor(() => sameChannels(latestChannels(), wanted), "agent snapshot with the channels");
+          const { agent } = await h.provider.getSnapshot();
+          expect(sameChannels(agent.channels, wanted)).toBe(true);
+        });
+
+        it("setting the same channels again emits no new agent snapshot", async (ctx) => {
+          const [first] = channelsUnderTest(ctx, 1);
+          await h.provider.setAgentChannels([first]);
+          await waitFor(() => sameChannels(latestChannels(), [first]), "agent snapshot with the channels");
+          const mark = rec.mark();
+          await h.provider.setAgentChannels([first]);
+          await settleNow();
+          expect(rec.since(mark).filter((e) => e.kind === "event" && e.name === "stateChanged")).toEqual([]);
+        });
+
+        it("an inbound contact on a channel that's off is refused; turning it back on offers it", async (ctx) => {
+          const [on, off] = channelsUnderTest(ctx, 2);
+          await h.provider.setAgentChannels([on]);
+          await waitFor(() => sameChannels(latestChannels(), [on]), "agent snapshot with the channels");
+          const refused = await h.customer.startInbound({ channel: off, address: off === "voice" ? "+15551230000" : "customer-handle", displayName: "Casey Customer" });
+          await settleNow();
+          expect(rec.events("incoming").some((e) => e.interaction.id === refused)).toBe(false);
+          expect((await h.provider.getSnapshot()).interactions.some((i) => i.id === refused)).toBe(false);
+
+          await h.provider.setAgentChannels([on, off]);
+          await waitFor(() => sameChannels(latestChannels(), [on, off]), "agent snapshot with both channels");
+          const offered = await startInbound(off);
+          expect(latest(offered) ?? (await h.provider.getSnapshot()).interactions.find((i) => i.id === offered)).toBeTruthy();
+        });
+
+        it("a contact already open on a channel that's turned off stays until it ends", async (ctx) => {
+          const [first, second] = channelsUnderTest(ctx, 2);
+          const id = await startAccepted(first);
+          await h.provider.setAgentChannels([second]);
+          await waitFor(() => sameChannels(latestChannels(), [second]), "agent snapshot with the channels");
+          await settleNow();
+          expect(latest(id)?.state).toBe("active");
+          await closeFully(id);
+        });
+      });
+
       it("agent leg: disconnect, then connect passes through connecting", async (ctx) => {
         ctx.skip(!caps().agentLeg, "agent leg not supported");
         const { provider } = h;
@@ -709,6 +768,7 @@ export function describeInteractionProviderContract(label: string, factory: Inte
         { name: "transfer (consult)", supported: (c) => c.transfer.consult, call: (p) => p.transfer(GHOST, { kind: "team", id: "t1", label: "Billing" }, "consult") },
         { name: "setTyping", supported: (c) => c.typing, call: (p) => p.setTyping(GHOST, true) },
         { name: "setCaseStatus", supported: (c) => c.caseStatus, call: (p) => p.setCaseStatus(GHOST, "Open") },
+        { name: "setAgentChannels", supported: (c) => c.channels.inbound.length > 0, call: (p) => p.setAgentChannels(["chat"]) },
         { name: "connectAgentLeg", supported: (c) => c.agentLeg, call: (p) => p.connectAgentLeg() },
         { name: "disconnectAgentLeg", supported: (c) => c.agentLeg, call: (p) => p.disconnectAgentLeg() },
         { name: "reopen", supported: (c) => c.reopen, call: (p) => p.reopen({ channel: "chat", direction: "inbound", journeyId: "ghost-journey" as JourneyId }) },
@@ -923,6 +983,7 @@ export function describeInteractionProviderContract(label: string, factory: Inte
           () => provider.listPresenceOptions(),
           () => provider.listOutboundSkills("chat"),
           () => provider.setAgentState("available"),
+          () => provider.setAgentChannels(["chat"]),
           () => provider.connectAgentLeg(),
           () => provider.disconnectAgentLeg(),
           () => provider.accept(id),

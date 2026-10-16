@@ -68,6 +68,10 @@ export function unsupportedReason(command: SimCommand, capabilities: Interaction
     case "connectAgentLeg":
     case "disconnectAgentLeg":
       return off(capabilities.agentLeg, "the agent leg");
+    case "setAgentChannels":
+      // Per-agent media types gate routing, so a provider that routes no
+      // inbound channel has nothing to set.
+      return off(capabilities.channels.inbound.length > 0, "per-agent channels");
     case "dial":
       return off(capabilities.channels.outbound.includes(command.request.channel), `outbound ${command.request.channel}`);
     case "reopen":
