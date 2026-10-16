@@ -492,6 +492,43 @@ describe("AI display \"main\": the AI-first layout (ai.displayLocation)", () => 
   });
 });
 
+// The main column's content stack owns the space under the session row in every
+// AI display, whatever its first card is (the Autosummary, an approval, the
+// transcript); a card never brings its own top spacing (regression from g2).
+describe("the main column's content stack owns its top spacing", () => {
+  const priya = CREATE_NEW_CUSTOMERS.find((c) => c.id === "priya-shah-history")!;
+  const TOP_SPACING = /(^|\s)-?(p|pt|py|m|mt|my)-\d/;
+  /** The current session's stack in the main column ("main": the AI workspace's feed body). */
+  const stack = () => {
+    const main = h.container.querySelector("[data-main-thread]")!;
+    const stacks = main.querySelectorAll<HTMLElement>("[data-slot=content-stack], [data-slot=ai-workspace] [data-slot=details-panel-body]");
+    return stacks[stacks.length - 1];
+  };
+
+  for (const displayLocation of ["inline", "panel", "main"] as const) {
+    for (const channel of ["voice", "chat"] as const) {
+      it(`${displayLocation}, a ${channel} card: the stack has the top padding, its first card none`, async () => {
+        await setSettings("channels", { chat: true });
+        await setSettings("ai", { displayLocation });
+        await h.show(AgentWorkspaceAdvancedPage);
+        await h.goAvailable();
+        await h.accept(await h.startInbound(channel, channel === "voice" ? priya.firstPhone : priya.emailAddress!, priya.name));
+        await h.click(h.navCard(priya.name));
+        const s = stack();
+        expect(s, "a content stack in the main column").toBeTruthy();
+        expect(s.className).toMatch(/(^|\s)(p|pt)-4(\s|$)/);
+        const first = s.firstElementChild as HTMLElement | null;
+        if (first) expect(first.className).not.toMatch(TOP_SPACING);
+        // What leads: the call's Autosummary (inline and "main"; "panel" has it in the
+        // panel), or the chat's transcript (an email-addressed chat has no directory
+        // match, so no Autosummary; under "main" the chat is in the panel).
+        if (channel === "voice" && displayLocation !== "panel") expect(first?.querySelector("[data-slot=autosummary]")).toBeTruthy();
+        if (channel === "chat" && displayLocation !== "main") expect(first?.textContent).toContain("Priya Shah");
+      });
+    }
+  }
+});
+
 describe("header.tabOrder storage", () => {
   const read = (raw: unknown) => SECTIONS.header.read(raw, SECTIONS.header.defaults).tabOrder;
 

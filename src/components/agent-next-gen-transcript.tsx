@@ -3615,8 +3615,12 @@ export function InteractionTranscript({
   // duplicate this branch.
   // Hiding AI actions collapses (fade + slide up) rather than unmounting, mirroring the entrance animation.
   // The cards in the caller's `overview` (`AutosummaryCard`) carry their own enter animation.
-  const renderContactOverviewBlock = () => (
-    <AiActionCollapse hidden={hideAiActions}>{renderContactOverviewBlockInner()}</AiActionCollapse>
+  // `inStack`: a block of the session's content stack, which owns the top spacing; each
+  // block owns only the space below it (`pb-4`), inside the collapse so hiding drops it too.
+  const renderContactOverviewBlock = (inStack = false) => (
+    <AiActionCollapse hidden={hideAiActions}>
+      <div className={cn(inStack && "pb-4")}>{renderContactOverviewBlockInner()}</div>
+    </AiActionCollapse>
   );
   const renderContactOverviewBlockInner = () =>
     customerContextOverview ? (
@@ -4455,6 +4459,10 @@ export function InteractionTranscript({
                 <AccordionHeadlessItem value={session.id} className="border-none">
                 <AccordionHeadlessContent>
                 <div
+                  // The session's content stack. `pt-4`: the stack owns the space under the
+                  // session row, whatever comes first (the Autosummary, an approval, the
+                  // transcript); its blocks own only the space below them (`pb-4`).
+                  data-slot="content-stack"
                   // `max-w-[768px]` — per explicit request ("make the
                   // max-width of the interaction content 768px instead of
                   // 1024px"), narrowed from 1024px, itself narrowed down
@@ -4468,7 +4476,7 @@ export function InteractionTranscript({
                   // box below it, and the voice controls bar all stay the
                   // same width.
                   className={cn(
-                    "w-full max-w-[768px] mx-auto px-6",
+                    "w-full max-w-[768px] mx-auto px-6 pt-4",
                     sessionContentDimmed && "opacity-50 transition-opacity",
                     session.id === lastSessionId && "pb-9"
                   )}
@@ -4499,9 +4507,9 @@ export function InteractionTranscript({
                   session.id === lastSessionId &&
                   !contactOverviewAtBottom &&
                   !overviewBeforeApproval &&
-                  renderContactOverviewBlock()}
+                  renderContactOverviewBlock(true)}
                 {messages.length > 0 && (
-                  <div className="flex min-w-0 flex-col gap-5 py-4">
+                  <div className="flex min-w-0 flex-col gap-5 pb-4">
                     {messages.map((message) => (
                       <TranscriptMessageBubble
                         key={message.id}
@@ -4538,7 +4546,7 @@ export function InteractionTranscript({
                     instead of an empty "Coming Soon" body, per explicit
                     request. */}
                 {messages.length === 0 && channelType === "email" && (
-                  <div className="flex items-center justify-center py-12">
+                  <div className="flex items-center justify-center pt-8 pb-12">
                     <p className="lyra-body-md text-lyra-fg-secondary">
                       Coming Soon Email Content
                     </p>
@@ -4676,13 +4684,13 @@ export function InteractionTranscript({
                   return (
                     <>
                       {existingLiveMessages.length > 0 && (
-                        <div className="flex flex-col gap-5 py-4">
+                        <div className="flex flex-col gap-5 pb-4">
                           {existingLiveMessages.map(renderLiveMessage)}
                         </div>
                       )}
-                      {isNonFreshOverviewSession && renderContactOverviewBlock()}
+                      {isNonFreshOverviewSession && renderContactOverviewBlock(true)}
                       {(newLiveMessages.length > 0 || showTypingIndicator || showAiTypingIndicator) && (
-                        <div className="flex flex-col gap-5 py-4">
+                        <div className="flex flex-col gap-5 pb-4">
                           {newLiveMessages.map(renderLiveMessage)}
                           {showTypingIndicator && (
                             <div className="animate-in slide-in-from-bottom-4 fade-in-0 duration-200">

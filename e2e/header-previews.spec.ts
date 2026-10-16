@@ -134,7 +134,15 @@ test("a long chat preview grows to the max height and scrolls inside, the compos
   expect(Math.round((await preview(page).boundingBox())!.height)).toBe(560);
   // Header (fixed) / transcript (the only scroller) / composer (fixed footer):
   // scrolling the transcript moves neither the header nor the composer, and the
-  // popover itself never scrolls.
+  // popover itself never scrolls. Measured once the popover's open animation has settled.
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => a.effect?.getTiming().iterations !== Infinity)
+        .map((a) => a.finished.catch(() => undefined)),
+    ),
+  );
   const before = await preview(page).evaluate((frame) => {
     const header = frame.firstElementChild!.getBoundingClientRect();
     const textarea = frame.querySelector("textarea")!.getBoundingClientRect();
