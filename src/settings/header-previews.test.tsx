@@ -229,6 +229,17 @@ describe("AI cards", () => {
     for (const cls of AI_CARD_ENTER.split(" ")) expect(title.closest(`.${cls.replace(/[^\w-]/g, "\\$&")}`)).not.toBeNull();
   });
 
+  for (const ai of ["inline", "panel", "main"] as const) {
+    it(`the Autosummary is one AutosummaryCard (AI display ${ai}), once, where the mode puts the AI overview`, async () => {
+      await whatsAppAndEmail(ai);
+      if (ai === "panel" && h.container.querySelector("[data-slot=right-panel]")?.getAttribute("data-thread") !== "details") await h.click(contactDetailsButton());
+      const cards = [...h.container.querySelectorAll("[data-slot=autosummary]")];
+      expect(cards).toHaveLength(1);
+      const where = ai === "panel" ? "[data-slot=right-panel]" : "[data-main-thread]";
+      expect(cards[0].closest(where)).not.toBeNull();
+    });
+  }
+
   it("AI display main, Lucas: once taken over, no Takeover button in the main column; the panel's chat composer is enabled", async () => {
     await h.show(AgentWorkspaceAdvancedPage);
     await settings("main");

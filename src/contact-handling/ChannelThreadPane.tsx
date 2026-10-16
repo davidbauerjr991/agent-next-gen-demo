@@ -1,4 +1,4 @@
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { InteractionComposer, InteractionTranscript } from "@/components/agent-next-gen-transcript";
 import type { Interaction, Thread } from "@/components/agent-next-gen-interaction-dashboard";
 import { isAiActionMessage } from "@/components/agent-next-gen-ai-messages";
@@ -18,9 +18,10 @@ export interface ChannelThreadBodyProps {
   onStatusChange: (status: string) => void;
   /** Leave the AI rows out (AI display "main": they're the main column's). */
   withoutAiActions?: boolean;
-  /** The Autosummary above the transcript (AI display inline: the panel and
-   *  the header icon's hover preview show the same body). */
-  overview?: ComponentProps<typeof InteractionTranscript>["customerContextOverview"];
+  /** The Autosummary (`AutosummaryCard`) above the transcript, AI display
+   *  inline: the thread view only (Customer Info and the rest belong to
+   *  Contact Details); the panel and the hover preview show the same body. */
+  overview?: ReactNode;
 }
 
 /** One thread's transcript outside the main column (the docked channel
@@ -56,11 +57,7 @@ export function ChannelThreadBody({
       skillLabel={thread.preview}
       isFreshLaunch={!!thread.startedFresh}
       liveMessages={withoutAiActions ? messages.filter((m) => !isAiActionMessage(m)) : messages}
-      customerContextOverview={overview}
-      // The thread view: the Autosummary only (Customer Info and the Next
-      // Best Action belong to Contact Details).
-      showCustomerContextProfile={false}
-      showCustomerContextNextBestAction={false}
+      overview={overview}
       currentStatus={interaction.threadStatuses?.[key]}
       onCurrentStatusChange={onStatusChange}
       showSessionActionCluster={false}

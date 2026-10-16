@@ -12,8 +12,6 @@ import {
   Avatar,
   ContactOverview,
   type ContactOverviewInfo,
-  CustomerContextOverview,
-  type CustomerContextOverviewInfo,
   ChatMessage,
   ActionIconButton,
   TagPicker,
@@ -2894,11 +2892,8 @@ export function InteractionTranscript({
   skillLabel,
   isFreshLaunch,
   contactOverview: contactOverviewIn,
-  customerContextOverview: customerContextOverviewIn,
+  overview: overviewIn,
   hideAiActions = false,
-  showCustomerContextProfile,
-  showCustomerContextSnapshot,
-  showCustomerContextNextBestAction,
   contactOverviewPosition,
   onViewCustomerInfo,
   onViewInteractionHistory,
@@ -2944,9 +2939,6 @@ export function InteractionTranscript({
   activeSnapshotLink,
   onWrapUpComplete,
   onSnapshotLink,
-  // Blue (the Customer Info / Approval cards' header token) in every
-  // placement (browser check, 2026-10-16); a caller can still opt out.
-  autosummaryBlue = true,
   onViewSessionDetails,
   onToggleDetailsPanel,
   detailsPanelOpen = false,
@@ -3053,63 +3045,13 @@ export function InteractionTranscript({
   /** When true, only chat bubbles show: no autosummary/context overview, interstitials, approval summaries, events or wrap-up cards. */
   hideAiActions?: boolean;
   /**
-   * When set, renders the newer `CustomerContextOverview` block (Customer
-   * Profile / Customer Snapshot / Next Best Action — see that component's
-   * own doc comment, contact-overview.tsx) at the SAME two spots
-   * `contactOverview` would otherwise use, INSTEAD of `ContactOverview` —
-   * this takes priority over `contactOverview` whenever both happen to be
-   * set. Per explicit request, only AgentNextGenPage.tsx and
-   * AgentWorkspace2WithDeskPage.tsx pass this ("Phase 1"/"Phase 2");
-   * AgentWorkspaceAdvancedPage.tsx now passes it too (its own explicit
-   * follow-up request to mirror Phase 1's Customer Context Overview
-   * functionality — see that page's own call site) — this doc comment's
-   * "still passes plain `contactOverview`" is stale as of that change.
-   * Same "caller resolves the content, this component just renders it"
-   * division of labor `contactOverview` itself already follows.
+   * The overview block, rendered where the transcript places its overview
+   * (above the conversation, or where `contactOverviewPosition` says): the
+   * caller supplies it — the AI overview (`AutosummaryCard`, and Marcus's
+   * card) in the main column with AI display inline, the Autosummary alone
+   * in a thread view. Takes priority over `contactOverview`.
    */
-  customerContextOverview?: CustomerContextOverviewInfo;
-  /**
-   * Overrides the "Customer Profile" container's own default visibility
-   * inside `customerContextOverview`'s block (normally derived from
-   * whether `customerContextOverview.customerCard` is set — see
-   * `renderContactOverviewBlock`'s own `showCustomerProfile` line below)
-   * — `false` force-hides it regardless of `customerCard`. Per explicit
-   * request ("hide the customer profile and contact snapshot from the
-   * main container and just display the next best action"):
-   * AgentWorkspaceAdvancedPage.tsx passes `false` at its own main-column
-   * `<InteractionTranscript>` call site so only "Next Best Action" shows
-   * there, while its own "Details" side panel tab still shows the full
-   * Customer Profile/Contact Snapshot cards (a separate, un-gated
-   * `CustomerContextOverview`/`DetailsPanelAccordions` render, unaffected
-   * by this prop). `undefined` (default) keeps the existing derived
-   * behavior for every other consumer/call site.
-   */
-  showCustomerContextProfile?: boolean;
-  /**
-   * Same idea as `showCustomerContextProfile` just above, for the
-   * "Contact Snapshot" container — see that prop's own doc comment for
-   * the full "why". `undefined` (default) shows it, matching
-   * `CustomerContextOverview`'s own `showContactSnapshot` default.
-   */
-  showCustomerContextSnapshot?: boolean;
-  /**
-   * Same idea as `showCustomerContextProfile`/`showCustomerContextSnapshot`
-   * above, for the "Next Best Action" container. Per explicit follow-up
-   * request ("replace the next best action in all new assignments with
-   * autosummary — tie the autosummary to the contact so it is not random
-   * info"): AgentWorkspaceAdvancedPage.tsx's own main-column
-   * `<InteractionTranscript>` call site now passes `false` here (alongside
-   * flipping `showCustomerContextSnapshot` back to `true`) so a fresh
-   * assignment's main transcript column shows the real, per-contact
-   * "Autosummary" recap (`customerContextOverview.snapshot` —  the exact
-   * same contact-specific bullet list already shown in the "Details" side
-   * panel, not placeholder/random copy) instead of the generic
-   * "Next Best Action" suggestion. `undefined` (default) keeps the
-   * existing behavior (shown, matching `CustomerContextOverview`'s own
-   * `showNextBestAction = true` default) for every other consumer/call
-   * site.
-   */
-  showCustomerContextNextBestAction?: boolean;
+  overview?: React.ReactNode;
   /**
    * Overrides which of the two `ContactOverview` render spots is used —
    * see either spot's own doc comment below for what each means. Only
@@ -3362,8 +3304,6 @@ export function InteractionTranscript({
   onWrapUpComplete?: () => void;
   /** Snapshot bullet links (`[label](key)`) in the inline Contact Overview — called with the key. */
   onSnapshotLink?: (key: string) => void;
-  /** Blue (info) Autosummary header instead of purple — used for the Marcus Webb and Lucas Thomas assignments. */
-  autosummaryBlue?: boolean;
   /** Fires when "View Details" is clicked on any session row (each
    *  `TranscriptSessionSeparator`'s own `onViewDetails`, per explicit
    *  request that it stop expanding `TranscriptSessionDetails` inline and
@@ -3457,7 +3397,7 @@ export function InteractionTranscript({
   const caseStatusCapable = useCapability((c) => c.interaction.caseStatus);
   const showSessionStatus = showSessionStatusProp ?? caseStatusCapable;
   const contactOverview = contactOverviewIn;
-  const customerContextOverview = customerContextOverviewIn;
+  const customerContextOverview = overviewIn;
   const liveMessages = liveMessagesIn;
   // A freshly-launched interaction (see `isFreshLaunch`'s own doc comment)
   // shows just a single synthesized "Session Details" separator (today's
@@ -3674,48 +3614,13 @@ export function InteractionTranscript({
   // — shared by both of the two render spots below so neither has to
   // duplicate this branch.
   // Hiding AI actions collapses (fade + slide up) rather than unmounting, mirroring the entrance animation.
-  // Keyed by contact so the AI cards' shared enter animation replays on a card switch.
+  // The cards in the caller's `overview` (`AutosummaryCard`) carry their own enter animation.
   const renderContactOverviewBlock = () => (
-    <AiActionCollapse hidden={hideAiActions}>
-      <div key={`${contactId ?? ""}:${displayName}`} className={AI_CARD_ENTER}>
-        {renderContactOverviewBlockInner()}
-      </div>
-    </AiActionCollapse>
+    <AiActionCollapse hidden={hideAiActions}>{renderContactOverviewBlockInner()}</AiActionCollapse>
   );
   const renderContactOverviewBlockInner = () =>
     customerContextOverview ? (
-      <CustomerContextOverview
-        customerName={displayName}
-        customerCard={customerContextOverview.customerCard}
-        snapshot={customerContextOverview.snapshot}
-        onSnapshotLink={onSnapshotLink}
-        autosummaryBlue={autosummaryBlue}
-        nextBestAction={customerContextOverview.nextBestAction}
-        nextBestActionContent={customerContextOverview.nextBestActionContent}
-        nextBestActionBare={customerContextOverview.nextBestActionBare}
-        // Per explicit request ("put the customer summary content inside
-        // the customer profile accordion") — see `detailedSummary`'s own
-        // doc comment (lyra-ui/contact-overview.tsx) for what this renders.
-        detailedSummary={customerContextOverview.detailedSummary}
-        // Per explicit follow-up request ("if a new call is made or the
-        // customer does not have any information, do not display the
-        // customer profile"): `customerCard` is only ever unset for
-        // exactly that case (`buildCustomerContextOverviewInfo`'s own
-        // `!isKnownCustomer` branch, agent-next-gen-shared-utils.ts) — so
-        // its presence doubles as the "is there anything useful to show
-        // here" signal, no separate flag needed from callers.
-        showCustomerProfile={showCustomerContextProfile ?? !!customerContextOverview.customerCard}
-        // See `showCustomerContextSnapshot`'s own doc comment above —
-        // `undefined` here falls through to `CustomerContextOverview`'s
-        // own `showContactSnapshot = true` default.
-        showContactSnapshot={showCustomerContextSnapshot}
-        // See `showCustomerContextNextBestAction`'s own doc comment above —
-        // `undefined` here falls through to `CustomerContextOverview`'s
-        // own `showNextBestAction = true` default.
-        showNextBestAction={showCustomerContextNextBestAction}
-        onViewCustomerInfo={onViewCustomerInfo}
-        onViewInteractionHistory={onViewInteractionHistory}
-      />
+      <div className="flex flex-col gap-3">{customerContextOverview}</div>
     ) : (
       contactOverview && (
         <ContactOverview

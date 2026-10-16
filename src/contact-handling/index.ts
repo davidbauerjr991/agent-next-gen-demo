@@ -49,8 +49,8 @@ export { useOmnichannelLayout, type OmnichannelLayout } from "./useOmnichannelLa
 export { useConversationPlacement } from "./useConversationPlacement";
 export { useAutoAcceptDigital } from "./useAutoAcceptDigital";
 export { useMainPins } from "./useMainPins";
-export { useNewRowGuard } from "./useNewRowGuard";
 export { HoverPreviewFrame } from "./HoverPreviewFrame";
+export { AutosummaryCard } from "./AutosummaryCard";
 export { AiWorkspaceColumn, type AiWorkspaceColumnProps } from "./AiWorkspaceColumn";
 export { ConfirmCloseDialog } from "./ConfirmCloseDialog";
 export { useChannelSync } from "./useChannelSync";

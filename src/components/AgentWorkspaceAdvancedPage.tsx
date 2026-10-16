@@ -69,9 +69,7 @@ import {
   CHANNEL_TYPE_META,
   InteriorPanel,
   EmptyState,
-  CustomerContextOverview,
   PanelFooter,
-  AICard,
 } from "@nicecxone/lyra-ui";
 import { CREATE_NEW_CUSTOMERS, type CreateNewCustomerRecord } from "@nicecxone/lyra-ui/customers-data";
 import { useScheduleContent } from "@nicecxone/lyra-ui";
@@ -102,7 +100,6 @@ import {
   TRANSCRIPT_SESSIONS_EMAIL,
   AiActionsFeed,
   ComposerFade,
-  AI_CARD_ENTER,
 } from "@/components/agent-next-gen-transcript";
 import { isAiActionMessage } from "@/components/agent-next-gen-ai-messages";
 import {
@@ -203,8 +200,8 @@ import {
   useConversationPlacement,
   useAutoAcceptDigital,
   useMainPins,
-  useNewRowGuard,
   HoverPreviewFrame,
+  AutosummaryCard,
   AiWorkspaceColumn,
   type Activation,
   type OutcomeDraft,
@@ -366,7 +363,6 @@ import {
   Bell,
   Pin,
   IdCard,
-  Sparkles,
   PanelLeftClose,
   History,
   Maximize2,
@@ -1929,7 +1925,6 @@ export function AgentWorkspaceAdvancedPage({
     ? activeInteraction.currentThreadId ?? activeInteraction.threads[activeInteraction.threads.length - 1]?.id
     : undefined;
   const mainPins = useMainPins();
-  const isNewRow = useNewRowGuard(interactions);
   const mainKey =
     omnichannel && activeInteraction
       ? omnichannelMainKey(activeInteraction.threads, requestedMainKey, mainPins.pinned(activeInteraction.id))
@@ -6345,39 +6340,38 @@ export function AgentWorkspaceAdvancedPage({
   // requests, wrap-up cards, event lines) leave the transcript and render as
   // a feed at the bottom of the docked Contact Details panel, with the same
   // handlers the inline transcript uses.
+  // The Autosummary card (one `AutosummaryCard` everywhere), when there's a
+  // summary to show.
+  const renderAutosummary = () =>
+    activeInteraction && (activeInteractionIsRealCustomer || activePreContactSummary) && customerContextOverviewInfo ? (
+      <AutosummaryCard
+        cardKey={activeInteraction.id}
+        customerName={activeInteraction.customerName ?? ""}
+        snapshot={customerContextOverviewInfo.snapshot ?? []}
+        onSnapshotLink={snapshotLinkHandlerFor(activeInteraction.id)}
+      />
+    ) : undefined;
+  // The AI overview, the same in the AI feed (panel and "main") and at the top
+  // of the inline main column: the Autosummary, then Marcus's card, whose
+  // approval request is its own AI card like Lucas's (no Next Best Action slot).
+  const renderAiOverview = () => {
+    if (!activeInteraction) return undefined;
+    const autosummary = renderAutosummary();
+    const marcus = scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID && <PersistentHostSlot host={marcusCardHost} />;
+    return autosummary || marcus ? (
+      <>
+        {autosummary}
+        {marcus}
+      </>
+    ) : undefined;
+  };
   const renderAiPanelFeed = () => {
     if (!activeInteraction) return null;
-    const key = scenarioKeyOf(activeInteraction.id);
-    const isMarcus = key === MARCUS_WEBB_ID;
-    const isLucas = key === LUCAS_THOMAS_ID;
-    // Every card here is a lyra AICard (radius md, compact), spaced only by
-    // the feed's gap: the Autosummary through lyra's `aiCards` mode. Marcus's
-    // card renders directly: its approval request is its own card (the same
-    // `ApprovalRequestAccordion` Lucas's uses), with no Next Best Action
-    // wrapper (browser check, 2026-10-16), as inline mode already shows it.
-    const overview =
-      (activeInteractionIsRealCustomer || activePreContactSummary) && customerContextOverviewInfo ? (
-        <>
-          <div key={activeInteraction.id} className={AI_CARD_ENTER}>
-            <CustomerContextOverview
-              aiCards
-              customerName={activeInteraction.customerName ?? ""}
-              snapshot={customerContextOverviewInfo.snapshot}
-              onSnapshotLink={snapshotLinkHandlerFor(activeInteraction.id)}
-              autosummaryBlue
-              showCustomerProfile={false}
-              showContactSnapshot
-              showNextBestAction={false}
-              className="pt-0"
-            />
-          </div>
-          {isMarcus && <PersistentHostSlot host={marcusCardHost} />}
-        </>
-      ) : undefined;
+    const isLucas = scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID;
     return (
       <AiActionsFeed
         messages={Object.values(activeInteraction.liveMessages ?? {}).flat()}
-        overview={overview}
+        overview={renderAiOverview()}
         onApprovalDecision={isLucas ? handleLucasApprovalDecision : undefined}
         onApprovalCallRequest={isLucas && calling.elevation ? handleLucasCallRequest : undefined}
         onApprovalSuggestionAsk={isLucas ? (text: string) => handleCopilotAsk(activeInteraction.id, activeChannelKey, text) : undefined}
@@ -6465,10 +6459,7 @@ export function AgentWorkspaceAdvancedPage({
   // (AI display inline; elsewhere the AI feed holds it) and its composer.
   // Customer Info, the Next Best Action text and the rest of Contact Details
   // belong to the Contact Details preview alone.
-  const threadOverview =
-    !aiInPanel && !panelPlacement && (activeInteractionIsRealCustomer || activePreContactSummary) && customerContextOverviewInfo
-      ? { ...customerContextOverviewInfo, customerCard: undefined, detailedSummary: undefined, nextBestAction: undefined }
-      : undefined;
+  const threadOverview = !aiInPanel && !panelPlacement ? renderAutosummary() : undefined;
   // "AI in panel": Overview holds Customer Info (plus the AI feed: the
   // Autosummary, approvals, Next Best Action); the Session tab holds the
   // Journey Summary and Artifacts. Inline mode shows everything on Overview.
@@ -7819,7 +7810,7 @@ export function AgentWorkspaceAdvancedPage({
                     // interaction's record-header PageHeader — see
                     // Interaction.currentChannelId's own doc comment.
                     currentChannelKey={currentId}
-                    onCurrentChannelChange={(key) => !isNewRow(interaction.id, key) && selectPanel({ kind: "thread", cardId: interaction.id, key })}
+                    onCurrentChannelChange={(key) => selectPanel({ kind: "thread", cardId: interaction.id, key })}
                   />
                 );
               }}
@@ -9252,101 +9243,11 @@ export function AgentWorkspaceAdvancedPage({
                           // no equivalent slot for it, and fully mirroring
                           // Phase 1 (as explicitly requested) means this
                           // content no longer renders here.
-                          customerContextOverview={
-                            // An unknown caller still gets the overview when
-                            // the call carried a pre-contact summary (P0.5d.1).
-                            // With Settings → AI display "In the Contact
-                            // Details panel" it moves to the panel's feed.
-                            !aiInPanel && (activeInteractionIsRealCustomer || activePreContactSummary)
-                              ? // Per explicit request ("i want the next best
-                                // action content ... to populate like the way
-                                // claude asks questions"), Marcus Webb's own
-                                // refund-escalation Next Best Action swaps its
-                                // plain sentence for an interactive Approve/
-                                // Reject/Something-else card
-                                // (`MarcusWebbNextBestActionCard`) via
-                                // `ContactOverview`'s own `nextBestActionContent`
-                                // override — every other interaction keeps
-                                // `customerContextOverviewInfo` exactly as-is.
-                                // `nextBestActionBare` per a later explicit
-                                // follow-up request ("remove the next best
-                                // action accordion") — the card already
-                                // supplies its own bordered option/confirmation
-                                // rows, so the surrounding accordion's own
-                                // sparkle-icon title bar/chevron/green
-                                // background would just be redundant chrome
-                                // around it.
-                                scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID
-                                ? {
-                                    ...customerContextOverviewInfo,
-                                    nextBestActionContent: (
-                                      <PersistentHostSlot host={marcusCardHost} />
-                                    ),
-                                    nextBestActionBare: true,
-                                  }
-                                : customerContextOverviewInfo
-                              : undefined
-                          }
-                          // Per explicit request ("hide the customer
-                          // profile and contact snapshot from the main
-                          // container and just display the next best
-                          // action"), then a follow-up request ("add the
-                          // contact overview accordion back into the main
-                          // container above next best action" — "Contact
-                          // Snapshot" specifically; "Customer Profile"
-                          // stays hidden), then a follow-up request
-                          // ("Autosummary should only display in the
-                          // contact details") reversing that middle step
-                          // (both hidden again, "Next Best Action" only),
-                          // then a LATEST follow-up request ("replace the
-                          // next best action in all new assignments with
-                          // autosummary — tie the autosummary to the
-                          // contact so it is not random info") reversing
-                          // THAT: "Customer Profile" stays hidden, but
-                          // "Contact Snapshot" (renamed "Autosummary" —
-                          // see `CustomerContextOverview`'s own doc
-                          // comment, contact-overview.tsx) is shown again
-                          // here while "Next Best Action" is force-hidden
-                          // instead — the main transcript column's fresh-
-                          // assignment card now surfaces the real,
-                          // per-contact Autosummary recap
-                          // (`customerContextOverviewInfo.snapshot`, built
-                          // per contact by `buildCustomerContextOverviewInfo`
-                          // same as every other consumer of that object —
-                          // never placeholder/random copy) instead of the
-                          // generic Next Best Action suggestion. The voice
-                          // "Details" side panel tab (below, near
-                          // `activeChannelType === "voice"`) still shows
-                          // its own separate, un-gated
-                          // `DetailsPanelAccordions` render — see that
-                          // render site's own doc comment — so Autosummary
-                          // now renders in BOTH spots, matching this
-                          // latest request. See `InteractionTranscript`'s
-                          // own `showCustomerContextProfile`/
-                          // `showCustomerContextSnapshot`/
-                          // `showCustomerContextNextBestAction` prop doc
-                          // comments (agent-next-gen-transcript.tsx).
-                          showCustomerContextProfile={false}
-                          showCustomerContextSnapshot={true}
-                          // Marcus Webb is the one exception: his own
-                          // "Next Best Action" isn't a plain suggested
-                          // sentence at all, it's the interactive Approve/
-                          // Reject/Something-else escalation card
-                          // (`MarcusWebbNextBestActionCard`, wired above
-                          // via `nextBestActionContent`/`nextBestActionBare`)
-                          // the agent actually has to act on to resolve his
-                          // scenario — `CustomerContextOverview` filters
-                          // the whole "next-best-action" section (bare
-                          // card included) out of `sections` entirely
-                          // whenever `showNextBestAction` is `false` (see
-                          // that component's own `.filter` on `sections`,
-                          // contact-overview.tsx), so force-hiding it here
-                          // unconditionally would silently break his
-                          // takeover flow rather than just swap its look.
-                          // Every other interaction keeps the new
-                          // Autosummary-instead-of-Next-Best-Action
-                          // behavior.
-                          showCustomerContextNextBestAction={scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID}
+                          // The AI overview (the Autosummary card, then Marcus's
+                          // card), the same as the AI feed's; an unknown caller
+                          // gets it when the call carried a pre-contact summary
+                          // (P0.5d.1). AI display "panel" moves it to the panel.
+                          overview={!aiInPanel ? renderAiOverview() : undefined}
                           // "View customer info" — per explicit request
                           // ("match the customer info side panel content
                           // to what is currently in phase 1 (clicking
