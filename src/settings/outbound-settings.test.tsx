@@ -13,7 +13,7 @@ import { OUTBOUND_GROUPS } from "@/components/agent-next-gen-outbound-data";
 import { addressBookGroup, ADDRESS_BOOKS } from "@/contact-handling/address-books";
 import { launcherGroups } from "@/contact-handling/launcher-groups";
 import { getSettingsStore, resetSettingsStoreForTests } from "./settings-store";
-import { profileValues } from "./profiles";
+import { PROFILES } from "./profiles";
 import { LAUNCHER_TABS, type LauncherTab, type SectionKey, type SettingsState } from "./settings-schema";
 
 const h = createWorkspaceHarness();
@@ -75,7 +75,7 @@ describe("Directory App (outbound.launcher)", () => {
   });
 
   it("Phase 2 turns every tab and behavior on", () => {
-    const outbound = profileValues("phase2").outbound;
+    const outbound = PROFILES.phase2.outbound;
     expect(Object.values(outbound.launcher).every(Boolean)).toBe(true);
     expect(Object.values(outbound.calling).every(Boolean)).toBe(true);
   });

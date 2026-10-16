@@ -65,8 +65,9 @@ describe("the Copilot composer on every live assignment", () => {
         const all = composers();
         expect(all).toHaveLength(1);
         const [composer] = all;
-        expect(composer.dataset.placement).toBe(displayLocation);
-        if (displayLocation === "inline") {
+        // "main" docks the panel-style composer at the bottom of the main column.
+        expect(composer.dataset.placement).toBe(displayLocation === "inline" ? "inline" : "panel");
+        if (displayLocation !== "panel") {
           expect(composer.closest("[data-main-thread]")).not.toBeNull();
           expect(composer.closest("[data-slot=right-panel]")).toBeNull();
         } else {
@@ -95,7 +96,7 @@ describe("the Copilot composer on every live assignment", () => {
       await h.click(h.navCard("Marcus Webb"));
       await h.advance(1_000);
       expect(composers()).toHaveLength(1);
-      expect(composers()[0].dataset.placement).toBe(displayLocation);
+      expect(composers()[0].dataset.placement).toBe(displayLocation === "inline" ? "inline" : "panel");
     });
   }
 });

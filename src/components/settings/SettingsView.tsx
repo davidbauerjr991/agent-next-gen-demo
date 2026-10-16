@@ -43,6 +43,8 @@ import {
   type HomeSectionKey,
   type PhoneSetup,
   type ProfileId,
+  PROFILE_IDS,
+  type AiDisplayLocation,
   type SeamId,
 } from "@/settings";
 
@@ -224,9 +226,9 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
   const [resetOpen, setResetOpen] = React.useState(false);
   const providerKind = useProviderKind();
 
+  const aiInMain = ai.displayLocation === "main";
   const profileOptions = [
-    { value: "phase1", label: PROFILE_LABELS.phase1 },
-    { value: "phase2", label: PROFILE_LABELS.phase2 },
+    ...PROFILE_IDS.map((id) => ({ value: id, label: PROFILE_LABELS[id] })),
     ...(profile === "custom" ? [{ value: "custom", label: PROFILE_LABELS.custom, disabled: true }] : []),
   ];
 
@@ -262,13 +264,14 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
               options={profileOptions}
               value={profile}
               onValueChange={(value) => {
-                if (value === "phase1" || value === "phase2") apply(value as ProfileId);
+                if ((PROFILE_IDS as string[]).includes(value)) apply(value as ProfileId);
               }}
             />
           </div>
           <p className="lyra-body-sm text-lyra-fg-secondary">
-            A profile sets every setting on this page. Phase 1 is the defaults; Phase 2 adds the header apps
-            (Customers, Accounts and Tickets as Home tabs; Schedule and WEM in the header) and the omnichannel layout.
+            A profile sets the agent settings on this page. Phase 1 is the defaults; Phase 2 adds the header apps
+            (Customers, Accounts and Tickets as Home tabs; Schedule and WEM in the header) and the omnichannel layout;
+            AI-first is Phase 2 with every conversation in the side panel and the AI workspace in the main column.
             Changing any setting shows Custom.
           </p>
         </Section>
@@ -416,11 +419,19 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
         </Section>
 
         <Section title="Assignments">
-          <SwitchRow
-            label="Omnichannel layout"
-            checked={assignments.omnichannel}
-            onCheckedChange={(omnichannel) => updateAssignments({ omnichannel })}
-          />
+          {/* AI display "main" implies the omnichannel routing: shown on, not editable. */}
+          {aiInMain ? (
+            <div className="flex items-center gap-2" data-setting="omnichannel">
+              <Switch size="sm" label="Omnichannel layout" checked disabled />
+              <Pending>Set by AI display</Pending>
+            </div>
+          ) : (
+            <SwitchRow
+              label="Omnichannel layout"
+              checked={assignments.omnichannel}
+              onCheckedChange={(omnichannel) => updateAssignments({ omnichannel })}
+            />
+          )}
           <SwitchRow
             label="New Outbound at the bottom"
             checked={assignments.newOutboundAtBottom}
@@ -517,9 +528,10 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
               options={[
                 { value: "inline", label: "Inline in the transcript" },
                 { value: "panel", label: "In the Contact Details panel" },
+                { value: "main", label: "Main column (conversations in panel)" },
               ]}
               value={ai.displayLocation}
-              onValueChange={(value) => updateAi({ displayLocation: value as typeof ai.displayLocation })}
+              onValueChange={(value) => updateAi({ displayLocation: value as AiDisplayLocation })}
             />
           </div>
         </Section>

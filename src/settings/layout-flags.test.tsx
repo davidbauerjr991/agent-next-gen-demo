@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
 import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
+import { SettingsView } from "@/components/settings/SettingsView";
 import { getSettingsStore, resetSettingsStoreForTests } from "./settings-store";
 import { deriveProfile, profileValues } from "./profiles";
 import { SECTIONS, type AppPlacement, type ExtraHeaderApp, type SectionKey, type SettingsState } from "./settings-schema";
@@ -332,6 +333,100 @@ describe("Omnichannel layout (assignments.omnichannel)", () => {
     await h.click(headerIcon("Email")!);
     expect(panelShows()).toBe("email");
     expect(mainThread()).toBe("voice");
+  });
+});
+
+describe("AI display \"main\": the AI-first layout (ai.displayLocation)", () => {
+  const priya = CREATE_NEW_CUSTOMERS.find((c) => c.id === "priya-shah-history")!;
+  const panel = () => h.container.querySelector("[data-slot=right-panel]");
+  const panelShows = () => (panel()?.getAttribute("data-open") === "true" ? panel()!.getAttribute("data-thread") : null);
+  const mainThread = () => h.container.querySelector("[data-main-thread]")?.getAttribute("data-main-thread");
+  const navRow = (label: string) => h.container.querySelector<HTMLElement>(`aside [aria-label^="${label} channel"]`)!;
+  const composers = () => [...document.body.querySelectorAll<HTMLElement>("[data-slot=copilot-composer]")];
+
+  /** Priya's card with an accepted inbound chat and an email sent into the
+   *  same journey, under the AI-first profile. */
+  async function aiFirst() {
+    await act(async () => {
+      store().updateMany(profileValues("aifirst"));
+      await vi.advanceTimersByTimeAsync(50);
+    });
+  }
+
+  async function acceptedChat() {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await h.goAvailable();
+    await aiFirst();
+    const chatId = await h.startInbound("chat", priya.emailAddress!, priya.name);
+    await h.accept(chatId);
+    return chatId;
+  }
+
+  /** …then an email sent into the same journey (it opens in the panel). */
+  async function chatAndEmail() {
+    const chatId = await acceptedChat();
+    await act(async () => {
+      const snapshot = h.provider.getSnapshot();
+      await vi.advanceTimersByTimeAsync(50);
+      const chat = (await snapshot).interactions.find((i) => i.id === chatId)!;
+      const dialed = h.provider.dial({ channel: "email", address: priya.emailAddress!, skillId: "general", journeyId: chat.journeyId });
+      await vi.advanceTimersByTimeAsync(300);
+      await dialed;
+    });
+    await h.click(h.navCard(priya.name));
+  }
+
+  it("a chat never takes the main column: it opens in the panel, the main column is the AI workspace", async () => {
+    await acceptedChat();
+    await h.click(h.navCard(priya.name));
+    expect(mainThread()).toBe("ai");
+    expect(h.container.querySelector("[data-main-thread=ai] [data-slot=ai-workspace]")).toBeTruthy();
+    expect(panelShows()).toBe("chat");
+  });
+
+  it("a nav row swaps the panel's thread; the main column never changes", async () => {
+    await chatAndEmail();
+    expect(panelShows()).toBe("email");
+    await h.click(navRow("Chat"));
+    expect(panelShows()).toBe("chat");
+    expect(mainThread()).toBe("ai");
+    await h.click(navRow("Email"));
+    expect(panelShows()).toBe("email");
+    expect(mainThread()).toBe("ai");
+    // The shown thread's own row closes the panel (the same toggle as its header icon).
+    await h.click(navRow("Email"));
+    expect(panelShows()).toBeNull();
+  });
+
+  it("one Copilot composer, in the main column; the panel's thread composer is chat only", async () => {
+    await chatAndEmail();
+    const all = composers();
+    expect(all).toHaveLength(1);
+    expect(all[0].closest("[data-main-thread=ai]")).toBeTruthy();
+    expect(panel()!.querySelector("[data-slot=copilot-composer]")).toBeNull();
+  });
+
+  it("a call on the card: the voice bar shows as with placement \"main\"", async () => {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await h.goAvailable();
+    await aiFirst();
+    await h.accept(await h.startInbound("voice", priya.firstPhone, priya.name));
+    await h.click(h.navCard(priya.name));
+    expect(h.container.querySelectorAll("[data-slot=voice-bar]")).toHaveLength(1);
+    expect(mainThread()).toBe("ai");
+    // No thread besides the call: the panel stays closed.
+    expect(panelShows()).toBeNull();
+  });
+
+  it("Settings: with AI display \"main\" the Omnichannel switch shows on, \"Set by AI display\"", async () => {
+    await h.show(SettingsView as never);
+    await aiFirst();
+    const omni = h.container.querySelector("[data-setting=omnichannel]");
+    expect(omni?.textContent).toContain("Set by AI display");
+    expect(omni?.querySelector("[role=switch]")?.getAttribute("aria-checked")).toBe("true");
+    // Another AI display: the switch is editable again.
+    await setSettings("ai", { displayLocation: "inline" });
+    expect(h.container.querySelector("[data-setting=omnichannel]")).toBeNull();
   });
 });
 

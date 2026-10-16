@@ -209,8 +209,11 @@ import {
   ADDRESS_BOOKS,
   channelTempo,
   omnichannelMainKey,
+  panelDefaultKey,
   routeChannel,
   useOmnichannelLayout,
+  useConversationPlacement,
+  AiWorkspaceColumn,
   type Activation,
   type OutcomeDraft,
 } from "@/contact-handling";
@@ -1733,10 +1736,11 @@ export function AgentWorkspaceAdvancedPage({
   const [pendingClose, setPendingClose] = useState<(() => void) | null>(null);
   const confirmDismiss = (dismiss: () => void) => (assignmentsSettings.confirmClose ? setPendingClose(() => dismiss) : dismiss());
   const [voiceSettings] = useSettings("voice");
-  // Settings → AI display: "panel" moves the AI content out of the transcript
-  // into the docked Contact Details panel (`renderAiPanelFeed`).
-  const [aiSettings] = useSettings("ai");
-  const aiInPanel = aiSettings.displayLocation === "panel";
+  // Settings → AI display "panel" moves the AI content out of the transcript
+  // into the docked Contact Details panel (`renderAiPanelFeed`). AI display
+  // "main" (AI-first) makes it the main column instead (`AiWorkspaceColumn`),
+  // every thread opens in the panel, and it implies the omnichannel routing.
+  const { panelPlacement, placement, omnichannel, aiInPanel } = useConversationPlacement();
   // AI display "panel": the interior slide-over mounts in the Contact Details panel.
   const [rightPanelMount, setRightPanelMount] = useState<HTMLElement | null>(null);
   const portalInto = (mount: HTMLElement | null, node: React.ReactElement) => (mount ? createPortal(node, mount) : node);
@@ -1745,6 +1749,9 @@ export function AgentWorkspaceAdvancedPage({
   // The docked Copilot composer's slot element (the panel footer); null
   // while the footer isn't rendered.
   const [copilotDockEl, setCopilotDockEl] = useState<HTMLDivElement | null>(null);
+  // Placement "panel": the same slot at the bottom of the main column.
+  const [mainDockEl, setMainDockEl] = useState<HTMLDivElement | null>(null);
+  const dockEl = panelPlacement ? mainDockEl : copilotDockEl;
   // Bumped by an agent action in the docked composer; the Overview body then
   // scrolls to the bottom whatever its position (`DetailsPanelAccordions`).
   const [aiFollowSignal, setAiFollowSignal] = useState(0);
@@ -1753,20 +1760,20 @@ export function AgentWorkspaceAdvancedPage({
   // composer is portaled into the dock, so React events from it bubble
   // through the main column's composer, not through the dock element.
   useEffect(() => {
-    if (!copilotDockEl) return;
+    if (!dockEl) return;
     const onClick = (e: MouseEvent) => {
       if ((e.target as Element).closest("button, [role=button]")) setAiFollowSignal((s) => s + 1);
     };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Enter" && !e.shiftKey) setAiFollowSignal((s) => s + 1);
     };
-    copilotDockEl.addEventListener("click", onClick, true);
-    copilotDockEl.addEventListener("keydown", onKeyDown, true);
+    dockEl.addEventListener("click", onClick, true);
+    dockEl.addEventListener("keydown", onKeyDown, true);
     return () => {
-      copilotDockEl.removeEventListener("click", onClick, true);
-      copilotDockEl.removeEventListener("keydown", onKeyDown, true);
+      dockEl.removeEventListener("click", onClick, true);
+      dockEl.removeEventListener("keydown", onKeyDown, true);
     };
-  }, [copilotDockEl]);
+  }, [dockEl]);
   const [leftNavVoiceSlot, setLeftNavVoiceSlot] = useState<HTMLDivElement | null>(null);
   const { newOutboundAtBottom, navItemsAtTop, noInteractionCollapse } = assignmentsSettings;
   useEffect(() => {
@@ -1921,13 +1928,16 @@ export function AgentWorkspaceAdvancedPage({
   // everywhere else this "current channel" concept appears.
   // Omnichannel layout: the main column only ever shows a thread that
   // belongs there (`omnichannelMainKey`); async threads open in the slide-out.
-  const omnichannel = assignmentsSettings.omnichannel;
+  // With placement "panel" `mainKey` is only the card's context thread and
+  // every thread, the chat included, opens in the panel.
   const requestedMainKey = activeInteraction
     ? activeInteraction.currentThreadId ?? activeInteraction.threads[activeInteraction.threads.length - 1]?.id
     : undefined;
   const mainKey = omnichannel && activeInteraction ? omnichannelMainKey(activeInteraction.threads, requestedMainKey) : requestedMainKey;
   const activeChannel = activeInteraction?.threads.find((c) => (c.id ?? c.type) === mainKey);
-  const omni = useOmnichannelLayout(omnichannel ? activeInteraction : null, mainKey);
+  const omni = useOmnichannelLayout(omnichannel ? activeInteraction : null, panelPlacement ? undefined : mainKey, {
+    defaultKey: panelPlacement && activeInteraction ? panelDefaultKey(activeInteraction.threads) : undefined,
+  });
   const activeChannelType = activeChannel?.type;
   // AI in the panel + a voice contact: the call's transcript fills the main
   // column (its AI rows moved to the panel, so it would otherwise be empty),
@@ -4171,7 +4181,7 @@ export function AgentWorkspaceAdvancedPage({
     // slide-out, and a call next to a chat only moves the voice bar; the
     // main column keeps its thread.
     const threads = interactions.find((i) => i.id === journeyId)?.threads;
-    const route = omnichannel && threads ? routeChannel(threads, threadKey) : null;
+    const route = omnichannel && threads ? routeChannel(threads, threadKey, placement) : null;
     if (route === "slideout") {
       omni.open(journeyId, threadKey);
       if (isNewCard) setSidePanelOpen(false);
@@ -4693,7 +4703,7 @@ export function AgentWorkspaceAdvancedPage({
       // chat → the voice bar only; async → the slide-out (toggles on the
       // active card). From Home, this also opens the card.
       const card = interactions.find((i) => i.id === interactionId);
-      const route = card ? routeChannel(card.threads, channelKey) : "main";
+      const route = card ? routeChannel(card.threads, channelKey, placement) : "main";
       if (interactionId !== activeInteractionId) switchActiveInteraction(interactionId);
       if (route === "main") {
         setInteractions((prev) =>
@@ -6375,7 +6385,7 @@ export function AgentWorkspaceAdvancedPage({
   // hidden but keeps its place (`invisible` + `inert`): unmounting it would
   // grow the body and move its scroll position behind the slide-over.
   const copilotDockConcealed = !!selectedDetailPanelContent;
-  const copilotDock = aiInPanel ? { mount: copilotDockShown ? copilotDockEl : null } : undefined;
+  const copilotDock = panelPlacement ? { mount: mainDockEl } : aiInPanel ? { mount: copilotDockShown ? copilotDockEl : null } : undefined;
   // "AI in panel": Overview holds Customer Info (plus the AI feed: the
   // Autosummary, approvals, Next Best Action); the Session tab holds the
   // Journey Summary and Artifacts. Inline mode shows everything on Overview.
@@ -7041,7 +7051,10 @@ export function AgentWorkspaceAdvancedPage({
                 // The card's current row is its main-column thread; a thread
                 // open in the right panel is highlighted too (`alwaysHighlighted`).
                 const requestedId = interaction.currentThreadId ?? mostRecentId;
-                const currentId = omnichannel ? omnichannelMainKey(interaction.threads, requestedId) ?? requestedId : requestedId;
+                // Placement "panel": the current row is the thread in the panel.
+                const currentId = panelPlacement
+                  ? (interaction.id === activeInteractionId && channelPreviewThreadKey) || panelDefaultKey(interaction.threads) || requestedId
+                  : omnichannel ? omnichannelMainKey(interaction.threads, requestedId) ?? requestedId : requestedId;
                 // Seconds since the CUSTOMER last wrote on this channel —
                 // only meaningful (and only ever read) for a channel that's
                 // actually awaiting, which per `hasCustomerResponded` below
@@ -9080,7 +9093,7 @@ export function AgentWorkspaceAdvancedPage({
                       `CUSTOMER_PANEL_TABS`), so this is unconditional
                       again.) */}
                   <div className="relative flex flex-1 overflow-hidden">
-                      <div className="relative flex flex-1 flex-col min-w-0 overflow-hidden" data-main-thread={activeChannelType}>
+                      <div className="relative flex flex-1 flex-col min-w-0 overflow-hidden" data-main-thread={panelPlacement ? "ai" : activeChannelType}>
                         {isHistoryConversationView && historyConversationForActive ? (
                           /* Past-session conversation, opened as its own tab in
                              this record area (see the history `Tab` in the
@@ -9172,6 +9185,19 @@ export function AgentWorkspaceAdvancedPage({
                             </InlineNotification>
                           </div>
                         )}
+                        {panelPlacement ? (
+                          // AI display "main" (AI-first): the AI
+                          // workspace; the thread itself is in the panel.
+                          <AiWorkspaceColumn
+                            feed={renderAiPanelFeed()}
+                            feedCount={aiFeedCount}
+                            followSignal={aiFollowSignal}
+                            customerName={activeInteraction.customerName}
+                            customerContextOverview={customerContextOverviewInfo}
+                            trailing={activeWrapUpThread && <VoiceWrapUpCard outcome={outcomeConfigFor(activeInteraction, activeWrapUpThread, "card")} />}
+                            dockRef={setMainDockEl}
+                          />
+                        ) : (
                         <InteractionTranscript
  hideAiActions={hideAiActions}
                           hideMockFollowUpMessages={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID}
@@ -9667,6 +9693,7 @@ export function AgentWorkspaceAdvancedPage({
                           // passed here at all; see that `actions` block's
                           // own doc comment for the full history/reasoning.
                         />
+                        )}
                         {/* Full-screen video — see AgentNextGenPage.tsx's
                             identical render site for the full rationale. */}
                         {voiceVideoWindowOpen && voiceVideoFullScreen && activeChannelType === "voice" && (
@@ -9793,9 +9820,11 @@ export function AgentWorkspaceAdvancedPage({
                             <InteractionComposer
                               hideAiActions={hideAiActions}
                               // Only where AI rows interleave with a chat transcript.
-                              onHideAiActionsChange={activeChannelType === "chat" && !aiInPanel ? setHideAiActions : undefined}
+                              onHideAiActionsChange={activeChannelType === "chat" && !aiInPanel && !panelPlacement ? setHideAiActions : undefined}
                               copilotDock={copilotDock}
                               copilotOnly={
+                                // Placement "panel": the chat input lives with the thread in the panel.
+                                panelPlacement ||
                                 activeChannelType === "voice" ||
                                 activeChannelType === "email" ||
                                 (scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && lucasThomasReviewing)
@@ -9805,44 +9834,6 @@ export function AgentWorkspaceAdvancedPage({
                               {...copilotComposerProps(activeInteraction.id, activeChannelKey)}
                             />
                           )}
-                        {/* Per explicit request ("don't add the chat input
-                            to the main container when a new chat is open -
-                            keep it in the side panel"): the main transcript
-                            column never renders its own `InteractionComposer`
-                            anymore, for ANY channel type, including chat/
-                            SMS/WhatsApp, which used to get one here. Replying
-                            now always happens through the docked side panel
-                            (`CustomerInformationSidePanel`'s channel-preview
-                            override, opened via that channel's own icon in
-                            the header row - see `channelPreviewThreadKey`),
-                            the same single composer surface every other
-                            channel preview already uses, rather than a
-                            second, main-column-only composer instance. */}
-                        {/* "Reviewing this conversation" action bar — per a
-                            LATER explicit follow-up request ("move the
-                            review action bar back to the bottom and remove
-                            the min-height so it isn't so tall"), moved back
-                            here (its original spot, in `InteractionComposer`'s
-                            own slot — voice has no composer of its own) after
-                            a brief stint hoisted above the contact identity
-                            row; see git history for that in-between
-                            position's own doc comment if it's ever needed
-                            again. Gated on `activeInteraction.id ===
-                            MARCUS_WEBB_ID` (not `liveVoiceCallInteraction`,
-                            which persists regardless of what's on screen) so
-                            it only ever shows while actually looking at
-                            Marcus's interaction. lyra-ui's own `ActionBar`
-                            (icon + title + description + an `actions` slot)
-                            reused as-is; only "Takeover" is wired
-                            (`setMarcusWebbReviewing(false)` — the sole way
-                            out of review mode, matching the toast's own
-                            "Takeover" one step up the flow);
-                            "Guide Conversation"/"Transfer" have no specified
-                            behavior yet, left as inert buttons. No more
-                            fixed `h-20` — per the same explicit request, the
-                            outer card now sizes to `ActionBar`'s own natural
-                            content height instead of being forced taller
-                            than it needs. */}
                         {/* Cold call from Tom Lewis: just the Ask Copilot footer (no AI agent to take over from). */}
                         {isColdCallId(activeInteraction.id) && !activeInteraction.offered && (
                           <InteractionComposer
@@ -10678,6 +10669,7 @@ export function AgentWorkspaceAdvancedPage({
                             hideAiActions={hideAiActions}
                             onSend={(text) => handleSendMessage(activeInteraction.id, text, channelPreviewThreadStableKey!)}
                             copilot={copilotComposerProps(activeInteraction.id, channelPreviewThreadStableKey!)}
+                            chatOnly={panelPlacement}
                           />
                         )
                         : undefined
@@ -10712,6 +10704,7 @@ export function AgentWorkspaceAdvancedPage({
                         interaction={activeInteraction}
                         thread={channelPreviewThread}
                         hideAiActions={hideAiActions}
+                        withoutAiActions={panelPlacement}
                         hideMockFollowUpMessages={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID}
                         onStatusChange={(status) =>
                           handleInteractionStatusChange(activeInteraction.id, channelPreviewThreadStableKey!, status)

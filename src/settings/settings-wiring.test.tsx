@@ -323,6 +323,24 @@ describe("AI: display location", () => {
     expect(feed()).toBeNull();
     expect(occurrences(prompt)).toHaveLength(1);
   });
+
+  it("Main column (AI-first): Lucas's Autosummary and approval fill the main column, his chat opens in the panel", async () => {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await h.play(LUCAS_THOMAS_SCRIPT.id);
+    await h.click(h.navCard("Lucas Thomas"));
+    await h.advance(14_000);
+    await setSettings("ai", { displayLocation: "main" });
+    const prompt = "How would you like to proceed?";
+    const occurrences = [...h.container.querySelectorAll("*")].filter((el) => el.children.length === 0 && el.textContent === prompt);
+    expect(occurrences).toHaveLength(1);
+    const main = h.container.querySelector("[data-main-thread=ai]")!;
+    expect(main.querySelector("[data-slot=ai-feed]")?.contains(occurrences[0])).toBe(true);
+    expect(main.textContent).toContain("Autosummary");
+    const panel = h.container.querySelector("[data-slot=right-panel]")!;
+    expect(panel.getAttribute("data-open")).toBe("true");
+    expect(panel.getAttribute("data-thread")).toBe("chat");
+    expect(panel.querySelector("[data-slot=ai-feed]")).toBeNull();
+  });
 });
 
 describe("AI display panel: docked Copilot composer", () => {

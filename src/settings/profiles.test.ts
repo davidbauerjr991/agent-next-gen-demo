@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { deriveProfile, profileValues, PROFILES } from "./profiles";
-import { SECTIONS, defaultSettings } from "./settings-schema";
+import { agentSettings, withAgentSettings } from "./scope";
+import { SECTIONS, defaultSettings, defineSection, group, str, type SectionSchemas, type SettingsState } from "./settings-schema";
 import { safeStorage } from "./settings-storage";
 import { createSettingsStore } from "./settings-store";
 
@@ -34,7 +35,8 @@ describe("workspace profiles", () => {
 
   it("defaults read Phase 1, and Phase 1 is the defaults", () => {
     expect(profile(freshStore())).toBe("phase1");
-    expect(profileValues("phase1")).toEqual(defaultSettings());
+    expect(PROFILES.phase1).toEqual(defaultSettings());
+    expect(profileValues("phase1")).toEqual(agentSettings(defaultSettings()));
   });
 
   it("Phase 2 turns on Desk's header apps and placements and the omnichannel layout", () => {
@@ -102,5 +104,44 @@ describe("workspace profiles", () => {
     store.update("assignments", { omnichannel: false });
     store.updateMany(profileValues("phase1"));
     expect(profile(store)).toBe("phase1");
+  });
+
+  it("AI-first is Phase 2 with AI display \"main\", and derives", () => {
+    expect(PROFILES.aifirst).toEqual({ ...PROFILES.phase2, ai: { ...PROFILES.phase2.ai, displayLocation: "main" } });
+    const store = freshStore();
+    store.updateMany(profileValues("aifirst"));
+    expect(store.getState().values.assignments.omnichannel).toBe(true);
+    expect(store.getState().values.ai.displayLocation).toBe("main");
+    expect(profile(store)).toBe("aifirst");
+    store.update("ai", { displayLocation: "inline" });
+    expect(profile(store)).toBe("phase2");
+  });
+});
+
+describe("setting scope", () => {
+  // A two-section schema: one agent section with an admin group inside, one
+  // admin section.
+  const look = defineSection({
+    key: "look",
+    version: 1,
+    defaults: { theme: "light", brand: { name: "Workspace" } },
+    fields: { theme: str(), brand: group({ name: str() }, { scope: "admin" }) },
+  });
+  const tenant = defineSection({ key: "tenant", version: 1, defaults: { id: "t1" }, fields: { id: str() }, scope: "admin" });
+  const schema = { look, tenant } as unknown as SectionSchemas;
+  const values = { look: { theme: "dark", brand: { name: "Acme" } }, tenant: { id: "t9" } } as unknown as SettingsState;
+
+  it("a profile snapshot drops admin-scope nodes, inherited by children", () => {
+    expect(agentSettings(values, schema)).toEqual({ look: { theme: "dark" }, tenant: {} });
+  });
+
+  it("applying keeps the current admin-scope values and takes the agent ones", () => {
+    const incoming = { look: { theme: "light", brand: { name: "Other" } }, tenant: { id: "t2" } } as never;
+    expect(withAgentSettings(values, incoming, schema)).toEqual({ look: { theme: "light", brand: { name: "Acme" } }, tenant: { id: "t9" } });
+  });
+
+  it("applying an identical profile returns the same references (nothing to write)", () => {
+    const same = withAgentSettings(values, agentSettings(values, schema), schema) as unknown as Record<string, unknown>;
+    expect(same.look).toBe((values as unknown as Record<string, unknown>).look);
   });
 });

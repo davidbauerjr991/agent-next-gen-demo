@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { deriveProfile, profileValues, type ProfileId, type WorkspaceProfile } from "./profiles";
+import { withAgentSettings } from "./scope";
 import type { SectionKey, SettingsState } from "./settings-schema";
 import { getSettingsStore, type SectionPatch, type SettingsStoreState, type UpdateOptions } from "./settings-store";
 
@@ -45,9 +46,11 @@ export function useSectionStored(section: SectionKey): boolean {
   return useSettingsSelector(useCallback((state: SettingsStoreState) => state.stored[section], [section]));
 }
 
-/** Writes every section of a built-in profile. */
+/** Writes every agent-scope setting of a built-in profile; admin-scope
+ *  settings (the brand, the social placeholders) stay as they are. */
 export function applyProfile(id: ProfileId) {
-  getSettingsStore().updateMany(profileValues(id));
+  const store = getSettingsStore();
+  store.updateMany(withAgentSettings(store.getState().values, profileValues(id)));
 }
 
 /** The derived workspace profile and how to apply one. */

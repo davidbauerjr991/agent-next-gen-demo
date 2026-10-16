@@ -1,9 +1,11 @@
 // Workspace profiles (P0.5d.2; one-page decision, 2026-10-15). A profile is
-// a snapshot of every settings section. "Phase 1" and "Phase 2" are the
-// built-in profiles. The active profile isn't stored: it's whichever built-in
-// profile the current values equal, else "custom", so changing any setting
-// reads Custom and applying a profile clears it. P-PROFILES adds saved
-// profiles and per-section locks on top of this.
+// a snapshot of every agent-scope setting (admin-scope ones, such as the
+// brand, are never in a profile; P-AIFIRST). "Phase 1", "Phase 2" and
+// "AI-first" are the built-in profiles. The active profile isn't stored: it's
+// whichever built-in profile the current values equal, else "custom", so
+// changing any setting reads Custom and applying a profile clears it.
+// P-PROFILES adds saved profiles and per-section locks on top of this.
+import { agentSettings, deepEqual, type AgentSettings } from "./scope";
 import {
   LAUNCHER_TABS,
   defaultSettings,
@@ -13,7 +15,7 @@ import {
   type SettingsState,
 } from "./settings-schema";
 
-export type ProfileId = "phase1" | "phase2";
+export type ProfileId = "phase1" | "phase2" | "aifirst";
 export type WorkspaceProfile = ProfileId | "custom";
 
 const app = (enabled: boolean, placement: AppDisplay["placement"] = "header"): AppDisplay => ({ enabled, placement });
@@ -40,7 +42,7 @@ function phase2(): SettingsState {
     ...base,
     header: { ...base.header, showAppIcons: true, apps },
     assignments: { ...base.assignments, omnichannel: true },
-    channels: { voice: true, chat: true, email: true, sms: true, whatsapp: true },
+    channels: { ...base.channels, voice: true, chat: true, email: true, sms: true, whatsapp: true },
     // Every Directory App tab and every Outbound Calling behavior.
     outbound: {
       launcher: Object.fromEntries(LAUNCHER_TABS.map((t) => [t, true])) as Record<LauncherTab, boolean>,
@@ -49,29 +51,33 @@ function phase2(): SettingsState {
   };
 }
 
-export const PROFILES: Record<ProfileId, SettingsState> = { phase1: phase1(), phase2: phase2() };
+/** AI-first: Phase 2 with the AI workspace in the main column and every
+ *  conversation thread in the docked panel (AI display "main"). */
+function aiFirst(): SettingsState {
+  const base = phase2();
+  return { ...base, ai: { ...base.ai, displayLocation: "main" } };
+}
+
+export const PROFILES: Record<ProfileId, SettingsState> = { phase1: phase1(), phase2: phase2(), aifirst: aiFirst() };
+
+export const PROFILE_IDS = Object.keys(PROFILES) as ProfileId[];
 
 export const PROFILE_LABELS: Record<WorkspaceProfile, string> = {
   phase1: "Phase 1",
   phase2: "Phase 2",
+  aifirst: "AI-first",
   custom: "Custom",
 };
 
-function deepEqual(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
-  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
-  const keys = Object.keys(b);
-  return keys.length === Object.keys(a).length && keys.every((k) => deepEqual((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
-}
-
-/** Every section's values for a built-in profile. */
-export function profileValues(id: ProfileId): SettingsState {
-  return PROFILES[id];
+/** A built-in profile's values: every agent-scope setting. */
+export function profileValues(id: ProfileId): AgentSettings {
+  return agentSettings(PROFILES[id]);
 }
 
 export function deriveProfile(values: SettingsState): WorkspaceProfile {
-  for (const id of Object.keys(PROFILES) as ProfileId[]) {
-    if (deepEqual(values, PROFILES[id])) return id;
+  const current = agentSettings(values);
+  for (const id of PROFILE_IDS) {
+    if (deepEqual(current, profileValues(id))) return id;
   }
   return "custom";
 }

@@ -28,10 +28,19 @@ export const keyList =
     return [...out, ...values.filter((k) => !out.includes(k))];
   };
 
+/** Who a setting belongs to (P-AIFIRST). "agent" settings are part of
+ *  workspace profiles; "admin" settings (the brand, the social placeholders)
+ *  are tenant-wide: a profile never carries them and applying one never
+ *  touches them. A group's scope is inherited by everything inside it. */
+export type SettingScope = "agent" | "admin";
+
+/** A `group` reader also carries its field readers and scope, so profile
+ *  code can walk the schema (`./scope.ts`). */
+export type GroupField<T> = Field<T> & { readonly fields: Fields<T>; readonly scope?: SettingScope };
+
 /** A nested object, read field by field; unknown stored fields are dropped. */
-export const group =
-  <T extends object>(fields: Fields<T>): Field<T> =>
-  (raw, fallback) => {
+export const group = <T extends object>(fields: Fields<T>, options?: { scope?: SettingScope }): GroupField<T> => {
+  const read: Field<T> = (raw, fallback) => {
     if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return fallback;
     const source = raw as Record<string, unknown>;
     const out = {} as T;
@@ -40,6 +49,8 @@ export const group =
     }
     return out;
   };
+  return Object.assign(read, { fields, scope: options?.scope });
+};
 
 export interface SectionDef<T extends object> {
   key: string;
@@ -47,11 +58,17 @@ export interface SectionDef<T extends object> {
    *  another version are ignored and the section starts from its defaults. */
   version: number;
   defaults: T;
-  read: Field<T>;
+  read: GroupField<T>;
 }
 
-export function defineSection<T extends object>(def: { key: string; version: number; defaults: T; fields: Fields<T> }): SectionDef<T> {
-  return { key: def.key, version: def.version, defaults: def.defaults, read: group(def.fields) };
+export function defineSection<T extends object>(def: {
+  key: string;
+  version: number;
+  defaults: T;
+  fields: Fields<T>;
+  scope?: SettingScope;
+}): SectionDef<T> {
+  return { key: def.key, version: def.version, defaults: def.defaults, read: group(def.fields, { scope: def.scope }) };
 }
 
 // ── Sections ──
@@ -90,7 +107,7 @@ export interface HeaderSettings {
   tabOrder: ExtraHeaderApp[];
 }
 
-const appDisplay = group<AppDisplay>({ enabled: bool(), placement: oneOf(APP_PLACEMENTS) });
+const appDisplay: Field<AppDisplay> = group<AppDisplay>({ enabled: bool(), placement: oneOf(APP_PLACEMENTS) });
 const HIDDEN_APP: AppDisplay = { enabled: false, placement: "header" };
 
 const header = defineSection<HeaderSettings>({
@@ -282,10 +299,15 @@ const voice = defineSection<VoiceSettings>({
   fields: { controlsLocation: oneOf(VOICE_CONTROLS_LOCATIONS) },
 });
 
-export const AI_DISPLAY_LOCATIONS = ["inline", "panel"] as const;
+/** "inline": AI rows in the transcript. "panel": AI in the docked Contact
+ *  Details panel. "main" (AI-first, P-AIFIRST): the AI workspace fills the
+ *  main column and every conversation thread opens in the docked panel; it
+ *  implies the omnichannel routing. */
+export const AI_DISPLAY_LOCATIONS = ["inline", "panel", "main"] as const;
+export type AiDisplayLocation = (typeof AI_DISPLAY_LOCATIONS)[number];
 export interface AiSettings {
   /** P4.4a's pinned-vs-auto card placement hangs off this section later. */
-  displayLocation: (typeof AI_DISPLAY_LOCATIONS)[number];
+  displayLocation: AiDisplayLocation;
 }
 
 const ai = defineSection<AiSettings>({
@@ -346,7 +368,7 @@ export interface ConnectionsSettings {
   seams: Record<SeamId, ConnectionSettings>;
 }
 
-const connection = group<ConnectionSettings>({ mode: oneOf(CONNECTION_MODES) });
+const connection: Field<ConnectionSettings> = group<ConnectionSettings>({ mode: oneOf(CONNECTION_MODES) });
 
 const connections = defineSection<ConnectionsSettings>({
   key: "connections",

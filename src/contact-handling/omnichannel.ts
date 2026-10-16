@@ -11,6 +11,10 @@ import type { Thread } from "@/components/agent-next-gen-interaction-dashboard";
 import type { TranscriptMessage } from "@/components/agent-next-gen-transcript";
 import { threadKeyOf } from "./channel-thread";
 
+/** Where conversation threads open: "main" is the tempo rule below; "panel"
+ *  (AI display "main", the AI-first layout) puts every thread in the panel. */
+export type ConversationPlacement = "main" | "panel";
+
 export type ChannelTempo = "sync" | "async";
 /** Where a channel shows: the main column, only the voice bar, or the slide-out. */
 export type ChannelRoute = "main" | "bar" | "slideout";
@@ -23,18 +27,31 @@ export function mainThreadKey(threads: readonly Thread[]): string | undefined {
   return pick ? threadKeyOf(pick) : undefined;
 }
 
-/** Where activating `key` on a card with these threads puts it. */
-export function routeChannel(threads: readonly Thread[], key: string): ChannelRoute {
+/** Where activating `key` on a card with these threads puts it. With
+ *  placement "panel" (AI display "main", AI-first, P-AIFIRST) no thread takes the
+ *  main column: voice is the bar and every other thread opens in the panel. */
+export function routeChannel(threads: readonly Thread[], key: string, placement: ConversationPlacement = "main"): ChannelRoute {
   const thread = threads.find((t) => threadKeyOf(t) === key);
+  if (placement === "panel") return thread?.type === "voice" ? "bar" : "slideout";
   if (!thread) return "main";
   if (thread.type === "chat") return "main";
   if (thread.type === "voice") return threads.some((t) => t.type === "chat") ? "bar" : "main";
   return threads.some((t) => channelTempo(t.type) === "sync") ? "slideout" : "main";
 }
 
-/** The main column's thread: the requested one if it belongs there, else the card's main thread. */
+/** The main column's thread: the requested one if it belongs there, else the
+ *  card's main thread. (With placement "panel" the main column is the AI
+ *  workspace, and this is only the card's context thread: the one the record
+ *  header, Outcome and Copilot follow.) */
 export function omnichannelMainKey(threads: readonly Thread[], requested: string | undefined): string | undefined {
   return requested !== undefined && routeChannel(threads, requested) === "main" ? requested : mainThreadKey(threads);
+}
+
+/** With placement "panel": the thread the panel shows before the agent
+ *  picks one — the card's chat, else its first thread that isn't voice. */
+export function panelDefaultKey(threads: readonly Thread[]): string | undefined {
+  const pick = threads.find((t) => t.type === "chat") ?? threads.find((t) => t.type !== "voice");
+  return pick ? threadKeyOf(pick) : undefined;
 }
 
 /** Customer messages on a thread (its live messages until P2.2). */

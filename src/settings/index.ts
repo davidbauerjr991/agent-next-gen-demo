@@ -11,7 +11,7 @@ export {
   useApplyTheme,
   applyStoredTheme,
 } from "./hooks";
-export { PROFILE_LABELS, type ProfileId, type WorkspaceProfile } from "./profiles";
+export { PROFILE_LABELS, PROFILE_IDS, type ProfileId, type WorkspaceProfile } from "./profiles";
 export {
   pinnedKeysFromHeader,
   leftNavKeysFromHeader,
@@ -40,6 +40,7 @@ export {
   type HomeSectionKey,
   type HomeQueueChannel,
   type AssignmentsSettings,
+  type AiDisplayLocation,
   CONTACT_CHANNELS,
   type ContactChannel,
   type ChannelsSettings,

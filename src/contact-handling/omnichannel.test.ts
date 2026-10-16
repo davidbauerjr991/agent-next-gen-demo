@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Thread } from "@/components/agent-next-gen-interaction-dashboard";
-import { channelTempo, customerMessageCount, mainThreadKey, omnichannelMainKey, routeChannel } from "./omnichannel";
+import { channelTempo, customerMessageCount, mainThreadKey, omnichannelMainKey, panelDefaultKey, routeChannel } from "./omnichannel";
 
 const thread = (type: Thread["type"]): Thread => ({ id: type, type, startTick: 0 }) as Thread;
 
@@ -34,6 +34,21 @@ describe("omnichannel routing", () => {
     expect(omnichannelMainKey(card, "voice")).toBe("chat");
     expect(omnichannelMainKey(card, "chat")).toBe("chat");
     expect(omnichannelMainKey([thread("voice"), thread("email")], undefined)).toBe("voice");
+  });
+
+  it("placement \"panel\" (AI display \"main\"): voice is the bar, every other thread (chat included) the panel", () => {
+    const card = [thread("voice"), thread("chat"), thread("email")];
+    expect(routeChannel(card, "chat", "panel")).toBe("slideout");
+    expect(routeChannel(card, "email", "panel")).toBe("slideout");
+    expect(routeChannel(card, "voice", "panel")).toBe("bar");
+    expect(routeChannel([thread("chat")], "chat", "panel")).toBe("slideout");
+    expect(routeChannel([thread("voice")], "voice", "panel")).toBe("bar");
+  });
+
+  it("the panel's default thread: the chat, else the first thread that isn't voice", () => {
+    expect(panelDefaultKey([thread("voice"), thread("email"), thread("chat")])).toBe("chat");
+    expect(panelDefaultKey([thread("voice"), thread("sms"), thread("email")])).toBe("sms");
+    expect(panelDefaultKey([thread("voice")])).toBeUndefined();
   });
 
   it("counts only customer messages", () => {

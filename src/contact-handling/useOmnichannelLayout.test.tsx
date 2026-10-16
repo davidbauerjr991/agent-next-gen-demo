@@ -15,13 +15,13 @@ let root: Root;
 let container: HTMLElement;
 let layout!: OmnichannelLayout;
 
-function Probe({ active, mainKey }: { active: Interaction | null; mainKey: string | undefined }) {
-  layout = useOmnichannelLayout(active, mainKey);
+function Probe({ active, mainKey, defaultKey }: { active: Interaction | null; mainKey: string | undefined; defaultKey?: string }) {
+  layout = useOmnichannelLayout(active, mainKey, { defaultKey });
   return null;
 }
 
-async function show(active: Interaction | null, mainKey = "chat") {
-  await act(async () => root.render(<Probe active={active} mainKey={mainKey} />));
+async function show(active: Interaction | null, mainKey: string | null = "chat", defaultKey?: string) {
+  await act(async () => root.render(<Probe active={active} mainKey={mainKey ?? undefined} defaultKey={defaultKey} />));
 }
 
 beforeEach(() => {
@@ -60,5 +60,25 @@ describe("useOmnichannelLayout", () => {
     await act(async () => layout.toggle("a", "sms"));
     await show(card("a", 0));
     expect(layout.slideOutKey).toBeNull();
+  });
+
+  it("placement \"panel\": the default thread shows until the agent picks; a close stays closed until a pick", async () => {
+    await show(card("a", 0), null, "chat");
+    expect(layout.slideOutKey).toBe("chat");
+    await act(async () => layout.open("a", "sms"));
+    await show(card("a", 0), null, "chat");
+    expect(layout.slideOutKey).toBe("sms");
+    // Toggling the showing default closes it, and closed is remembered.
+    await show(card("b", 0), null, "chat");
+    expect(layout.slideOutKey).toBe("chat");
+    await act(async () => layout.toggle("b", "chat"));
+    await show(card("b", 0), null, "chat");
+    expect(layout.slideOutKey).toBeNull();
+    await show(card("a", 0), null, "chat");
+    await show(card("b", 0), null, "chat");
+    expect(layout.slideOutKey).toBeNull();
+    await act(async () => layout.toggle("b", "chat"));
+    await show(card("b", 0), null, "chat");
+    expect(layout.slideOutKey).toBe("chat");
   });
 });

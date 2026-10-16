@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
 import { InteractionComposer, InteractionTranscript } from "@/components/agent-next-gen-transcript";
 import type { Interaction, Thread } from "@/components/agent-next-gen-interaction-dashboard";
+import { isAiActionMessage } from "@/components/agent-next-gen-ai-messages";
 import { threadKeyOf } from "./channel-thread";
 
 /** The composer's Copilot props (chips, chip links, ask). */
@@ -15,18 +16,28 @@ export interface ChannelThreadBodyProps {
   hideAiActions: boolean;
   hideMockFollowUpMessages?: boolean;
   onStatusChange: (status: string) => void;
+  /** Leave the AI rows out (AI display "main": they're the main column's). */
+  withoutAiActions?: boolean;
 }
 
 /** One thread's transcript outside the main column (the docked channel
  *  preview, the omnichannel slide-out). Email shows "Coming soon" until
  *  P-PARKED. */
-export function ChannelThreadBody({ interaction, thread, hideAiActions, hideMockFollowUpMessages, onStatusChange }: ChannelThreadBodyProps) {
+export function ChannelThreadBody({
+  interaction,
+  thread,
+  hideAiActions,
+  hideMockFollowUpMessages,
+  onStatusChange,
+  withoutAiActions,
+}: ChannelThreadBodyProps) {
   if (thread.type === "email") {
     return (
       <div className="flex h-full items-center justify-center px-6 text-center text-sm text-lyra-fg-secondary">Coming soon</div>
     );
   }
   const key = threadKeyOf(thread);
+  const messages = interaction.liveMessages?.[key] ?? [];
   return (
     <InteractionTranscript
       hideAiActions={hideAiActions}
@@ -39,7 +50,7 @@ export function ChannelThreadBody({ interaction, thread, hideAiActions, hideMock
       channelAddressLabel={thread.addressLabel}
       skillLabel={thread.preview}
       isFreshLaunch={!!thread.startedFresh}
-      liveMessages={interaction.liveMessages?.[key] ?? []}
+      liveMessages={withoutAiActions ? messages.filter((m) => !isAiActionMessage(m)) : messages}
       currentStatus={interaction.threadStatuses?.[key]}
       onCurrentStatusChange={onStatusChange}
       showSessionActionCluster={false}
@@ -52,11 +63,16 @@ export interface ChannelThreadComposerProps {
   hideAiActions: boolean;
   onSend: (text: string) => void;
   copilot: CopilotComposerProps;
+  /** Only the chat input (AI display "main": Copilot is the
+   *  main column's). A dock with no mount renders no Copilot part. */
+  chatOnly?: boolean;
 }
 
 /** The composer under a thread shown outside the main column. Render it only
  *  when `threadAcceptsReplies`. No "Hide AI Actions" switch: that's only for
  *  the main column's chat. */
-export function ChannelThreadComposer({ hideAiActions, onSend, copilot }: ChannelThreadComposerProps) {
-  return <InteractionComposer hideAiActions={hideAiActions} onSend={onSend} {...copilot} />;
+export function ChannelThreadComposer({ hideAiActions, onSend, copilot, chatOnly }: ChannelThreadComposerProps) {
+  return (
+    <InteractionComposer hideAiActions={hideAiActions} onSend={onSend} copilotDock={chatOnly ? { mount: null } : undefined} {...copilot} />
+  );
 }

@@ -68,11 +68,12 @@ function openResult(): HTMLElement | null {
   return result && shell?.style.visibility === "visible" ? result : null;
 }
 
-/** Inline: a child of the content card itself (not inside the main column or
- *  the panel), so it covers the card from its top. Panel: inside the panel. */
+/** Inline and main: a child of the content card itself (not inside the main
+ *  column or the panel), so it covers the card from its top. Panel: inside
+ *  the panel. */
 function expectSlideOverPlacement(displayLocation: AiSettings["displayLocation"]) {
   const result = openResult()!;
-  if (displayLocation === "inline") {
+  if (displayLocation !== "panel") {
     expect(result.closest("[data-slot=content-card]")).not.toBeNull();
     expect(result.closest("[data-main-thread]")).toBeNull();
     expect(result.closest("[data-slot=right-panel]")).toBeNull();
@@ -88,7 +89,7 @@ describe("a Copilot result row toggles the interior slide-over (email contact)",
       const first = await ask();
       const second = await ask(true);
       expect(first).not.toBe(second);
-      const rowContainer = displayLocation === "inline" ? "[data-main-thread]" : "[data-slot=right-panel]";
+      const rowContainer = displayLocation !== "panel" ? "[data-main-thread]" : "[data-slot=right-panel]";
       expect(row(first).closest(rowContainer)).not.toBeNull();
       expect(openResult()).toBeNull();
 
@@ -146,8 +147,8 @@ describe("an unscripted voice call has an AI feed for its Copilot rows", () => {
       await h.click(composer().querySelector('button[aria-label="Submit"]')!);
       await h.advance(2_500);
 
-      // The interstitial row, in the feed: the main column inline, the panel in panel mode.
-      const feed = displayLocation === "inline" ? "[data-main-thread]" : "[data-slot=right-panel]";
+      // The interstitial row, in the feed: the main column inline and main, the panel in panel mode.
+      const feed = displayLocation !== "panel" ? "[data-main-thread]" : "[data-slot=right-panel]";
       const summarize = row("Summarize this call");
       expect(summarize).toBeTruthy();
       expect(summarize.closest(feed)).not.toBeNull();
