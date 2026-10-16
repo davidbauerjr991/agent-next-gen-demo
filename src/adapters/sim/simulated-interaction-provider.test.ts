@@ -99,8 +99,24 @@ describeInteractionProviderContract(
 );
 
 // A provider that routes no inbound channel, like the placeholders: per-agent
-// channels have nothing to gate, so setAgentChannels rejects "not-supported".
-describeInteractionProviderContract("sim — no inbound channels", simHarness({ channels: { inbound: [], outbound: ["chat"] } }));
+// channels have nothing to gate, so setAgentChannels rejects "not-supported"
+// (and emits nothing). A single targeted case: a whole third run of the
+// contract suite would skip almost all of it.
+describe("sim — no inbound channels", () => {
+  it("setAgentChannels rejects not-supported, with no event", async () => {
+    const h = simHarness({ channels: { inbound: [], outbound: ["chat"] } })();
+    const rec = recordEvents(h.provider);
+    try {
+      const mark = rec.mark();
+      await expectProviderError(h.provider.setAgentChannels(["chat"]), "not-supported");
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(rec.since(mark).filter((e) => e.kind === "event")).toEqual([]);
+    } finally {
+      rec.stop();
+      await h.dispose();
+    }
+  });
+});
 
 describe("sim seed", () => {
   it("starts with the seed as offered, routed contacts in the snapshot, with no events", async () => {
