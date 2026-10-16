@@ -46,6 +46,8 @@ import {
   type ProfileId,
   PROFILE_IDS,
   type AiDisplayLocation,
+  SOCIAL_CHANNELS,
+  type SocialChannel,
   type SeamId,
 } from "@/settings";
 
@@ -101,6 +103,17 @@ const CHANNEL_LABELS: Record<ContactChannel, string> = {
   email: "Email",
   sms: "SMS",
   whatsapp: "WhatsApp",
+};
+
+const SOCIAL_CHANNEL_LABELS: Record<SocialChannel, string> = {
+  messenger: "Messenger",
+  instagram: "Instagram",
+  x: "X",
+  tiktok: "TikTok",
+  telegram: "Telegram",
+  wechat: "WeChat",
+  appleMessages: "Apple Messages for Business",
+  googleBusiness: "Google Business Messages",
 };
 
 // CXone's Directory App tabs (Dial Pad is ours).
@@ -478,6 +491,19 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
               />
             ),
           )}
+          {/* Placeholders until P2.7's channel registry: stored, nothing else. */}
+          <div className="flex flex-col gap-2" data-setting="social-channels">
+            <span className="lyra-body-md text-lyra-fg-default">Social</span>
+            {SOCIAL_CHANNELS.map((channel) => (
+              <SwitchRow
+                key={channel}
+                label={SOCIAL_CHANNEL_LABELS[channel]}
+                checked={channels.social[channel]}
+                onCheckedChange={(on) => updateChannels((prev) => ({ social: { ...prev.social, [channel]: on } }))}
+                pending="Arrives in P2.7"
+              />
+            ))}
+          </div>
         </Section>
 
         {/* CXone's agent settings, by their names (the CXone adapter maps them 1:1). */}

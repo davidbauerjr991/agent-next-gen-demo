@@ -10,9 +10,11 @@ import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedP
 import { OUTBOUND_CONFIG } from "@/components/agent-next-gen-outbound-data";
 import { buildContactHistoryByRange } from "@/components/agent-next-gen-contact-history";
 import { enabledChannelOptions, withEnabledChannels } from "@/contact-handling/channel-gates";
+import { SettingsView } from "@/components/settings/SettingsView";
 import { getSettingsStore, resetSettingsStoreForTests } from "./settings-store";
-import { profileValues } from "./profiles";
-import { SECTIONS, type ChannelsSettings, type SectionKey, type SettingsState } from "./settings-schema";
+import { applyProfile } from "./hooks";
+import { PROFILES, deriveProfile, profileValues } from "./profiles";
+import { SECTIONS, SOCIAL_CHANNELS, type ChannelsSettings, type SectionKey, type SettingsState } from "./settings-schema";
 
 const h = createWorkspaceHarness();
 
@@ -34,7 +36,8 @@ async function setSettings<K extends SectionKey>(section: K, patch: Partial<Sett
 }
 
 const PHASE1: ChannelsSettings = SECTIONS.channels.defaults;
-const ALL: ChannelsSettings = { voice: true, chat: true, email: true, sms: true, whatsapp: true };
+const ALL: ChannelsSettings = { ...PHASE1, voice: true, chat: true, email: true, sms: true, whatsapp: true };
+const SOCIAL_OFF = Object.fromEntries(SOCIAL_CHANNELS.map((c) => [c, false]));
 
 describe("channel gates (pure)", () => {
   it("New Outbound / the add-channel menu offer only the channels that are on", () => {
@@ -60,10 +63,54 @@ describe("channel gates (pure)", () => {
     expect(channels.size).toBeGreaterThan(1);
   });
 
-  it("Phase 1 is voice only; Phase 2 turns every channel on", () => {
-    expect(profileValues("phase1").channels).toEqual(PHASE1);
-    expect(PHASE1).toEqual({ voice: true, chat: false, email: false, sms: false, whatsapp: false });
-    expect(profileValues("phase2").channels).toEqual(ALL);
+  it("Phase 1 is voice only; Phase 2 turns every channel on (the social placeholders aren't in a profile)", () => {
+    expect(PHASE1).toEqual({ voice: true, chat: false, email: false, sms: false, whatsapp: false, social: SOCIAL_OFF });
+    expect(profileValues("phase1").channels).toEqual({ voice: true, chat: false, email: false, sms: false, whatsapp: false });
+    expect(profileValues("phase2").channels).toEqual({ voice: true, chat: true, email: true, sms: true, whatsapp: true });
+    expect(profileValues("aifirst").channels).toEqual(profileValues("phase2").channels);
+    // The built-in snapshots themselves leave every social channel off.
+    for (const id of ["phase1", "phase2", "aifirst"] as const) expect(PROFILES[id].channels.social).toEqual(SOCIAL_OFF);
+  });
+});
+
+describe("social placeholders (channels.social)", () => {
+  it("store and round-trip through storage", async () => {
+    await setSettings("channels", { social: { ...SOCIAL_OFF, messenger: true, wechat: true } as ChannelsSettings["social"] });
+    resetSettingsStoreForTests();
+    expect(getSettingsStore().getState().values.channels.social).toEqual({ ...SOCIAL_OFF, messenger: true, wechat: true });
+    // An older stored channels value (no `social`) keeps its choices and reads them all off.
+    expect(SECTIONS.channels.read({ voice: false, chat: true }, PHASE1)).toEqual({ ...PHASE1, voice: false, chat: true });
+  });
+
+  it("are admin-scope, like the brand: applyProfile(\"phase2\") leaves a set brand and a set social switch unchanged", async () => {
+    const brand = { appName: "Acme Care", logo: null, colors: { primary: "#c2185b", accent: null } };
+    await setSettings("appearance", { brand });
+    await setSettings("channels", { social: { ...SOCIAL_OFF, instagram: true } as ChannelsSettings["social"] });
+    expect(deriveProfile(getSettingsStore().getState().values)).toBe("phase1");
+    await act(async () => applyProfile("phase2"));
+    const { channels, appearance } = getSettingsStore().getState().values;
+    expect(channels.social).toEqual({ ...SOCIAL_OFF, instagram: true });
+    expect(appearance.brand).toEqual(brand);
+    expect(channels.chat).toBe(true);
+    expect(deriveProfile(getSettingsStore().getState().values)).toBe("phase2");
+  });
+
+  it("Settings lists them under Social, each tagged \"Arrives in P2.7\"", async () => {
+    await h.render(<SettingsView />);
+    const group = h.container.querySelector("[data-setting=social-channels]")!;
+    expect(group.textContent).toContain("Social");
+    expect(group.querySelectorAll("[role=switch]")).toHaveLength(8);
+    expect(group.textContent!.match(/Arrives in P2\.7/g)).toHaveLength(8);
+    await h.click(group.querySelector<HTMLElement>("[role=switch]")!);
+    expect(getSettingsStore().getState().values.channels.social.messenger).toBe(true);
+  });
+
+  it("nothing routes them: the workspace's agent channels never include one", async () => {
+    await h.show(AgentWorkspaceAdvancedPage);
+    const setAgentChannels = vi.spyOn(h.provider, "setAgentChannels");
+    await setSettings("channels", { chat: true, social: { ...SOCIAL_OFF, messenger: true, x: true } as ChannelsSettings["social"] });
+    expect(setAgentChannels).toHaveBeenCalled();
+    for (const [channels] of setAgentChannels.mock.calls) expect([...channels].sort()).toEqual(["chat", "voice"]);
   });
 });
 

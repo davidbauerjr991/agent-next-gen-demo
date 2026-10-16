@@ -247,14 +247,35 @@ const assignments = defineSection<AssignmentsSettings>({
  *  until they end. */
 export const CONTACT_CHANNELS = ["voice", "chat", "email", "sms", "whatsapp"] as const;
 export type ContactChannel = (typeof CONTACT_CHANNELS)[number];
-export type ChannelsSettings = Record<ContactChannel, boolean>;
+
+/** Private social messaging channels (P-AIFIRST placeholders): stored and
+ *  shown in Settings, nothing routes or renders them until P2.7's channel
+ *  registry. Admin-scope, so profiles never carry them. */
+export const SOCIAL_CHANNELS = ["messenger", "instagram", "x", "tiktok", "telegram", "wechat", "appleMessages", "googleBusiness"] as const;
+export type SocialChannel = (typeof SOCIAL_CHANNELS)[number];
+
+export type ChannelsSettings = Record<ContactChannel, boolean> & { social: Record<SocialChannel, boolean> };
 
 const channels = defineSection<ChannelsSettings>({
   key: "channels",
+  // Still v1: `social` is a nested group, so stored channel choices survive.
   version: 1,
-  // Phase 1: voice only.
-  defaults: { voice: true, chat: false, email: false, sms: false, whatsapp: false },
-  fields: Object.fromEntries(CONTACT_CHANNELS.map((c) => [c, bool()])) as Fields<ChannelsSettings>,
+  // Phase 1: voice only; every social placeholder off.
+  defaults: {
+    voice: true,
+    chat: false,
+    email: false,
+    sms: false,
+    whatsapp: false,
+    social: Object.fromEntries(SOCIAL_CHANNELS.map((c) => [c, false])) as Record<SocialChannel, boolean>,
+  },
+  fields: {
+    ...(Object.fromEntries(CONTACT_CHANNELS.map((c) => [c, bool()])) as Fields<Record<ContactChannel, boolean>>),
+    social: group<Record<SocialChannel, boolean>>(
+      Object.fromEntries(SOCIAL_CHANNELS.map((c) => [c, bool()])) as Fields<Record<SocialChannel, boolean>>,
+      { scope: "admin" },
+    ),
+  },
 });
 
 /** The New Outbound launcher's tabs, named after CXone's Directory App so

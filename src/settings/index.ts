@@ -47,6 +47,8 @@ export {
   CONTACT_CHANNELS,
   type ContactChannel,
   type ChannelsSettings,
+  SOCIAL_CHANNELS,
+  type SocialChannel,
   LAUNCHER_TABS,
   OUTBOUND_CALLING,
   type LauncherTab,
