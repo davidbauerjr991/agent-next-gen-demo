@@ -113,11 +113,14 @@ test("10: AI display main, View Details opens the session details as the slide-o
   const details = panel.locator("[data-slot=session-slide-over]");
   await expect(details).toBeVisible();
   await expect(details).toContainText("Contact ID");
-  // Over the thread, inside the panel; the thread stays underneath.
-  const slide = (await details.boundingBox())!;
-  const dock = (await panel.boundingBox())!;
-  expect(slide.x).toBeGreaterThanOrEqual(dock.x - 1);
-  expect(slide.x + slide.width).toBeLessThanOrEqual(dock.x + dock.width + 1);
+  // Over the thread, inside the panel (once both have settled: the launch opens the panel too, k8 4); the thread stays underneath.
+  await expect
+    .poll(async () => {
+      const slide = (await details.boundingBox())!;
+      const dock = (await panel.boundingBox())!;
+      return slide.x >= dock.x - 1 && slide.x + slide.width <= dock.x + dock.width + 1;
+    })
+    .toBe(true);
   await expect(panel).toHaveAttribute("data-thread", "email");
   // Its own close.
   await page.getByRole("button", { name: "Close Session Details" }).click();

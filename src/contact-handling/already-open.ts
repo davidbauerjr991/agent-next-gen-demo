@@ -23,12 +23,41 @@ const sameAddress = (a: string, b: string) => {
 };
 
 /** The customer's own addresses on a channel: the email for email, their
- *  phones for every phone channel (voice, SMS, WhatsApp). */
+ *  phones for every phone channel (voice, SMS, WhatsApp). Each number once:
+ *  a record that lists one number several times would give a picker
+ *  several options with the same value, which lyra's Select draws on top of
+ *  each other in its field (k8 1). */
 export function customerChannelAddresses(record: CustomerAddresses | undefined, channel: ChannelType): string[] {
   if (!record) return [];
   if (channel === "email") return record.emailAddress ? [record.emailAddress] : [];
   const phones = record.phones?.map((p) => p.value) ?? [];
-  return phones.length > 0 ? phones : record.firstPhone ? [record.firstPhone] : [];
+  const all = phones.length > 0 ? phones : record.firstPhone ? [record.firstPhone] : [];
+  return all.filter((a, i) => all.findIndex((b) => sameAddress(a, b)) === i);
+}
+
+/** The reason Voice is disabled while the customer has a call (k8 6). */
+export const ON_A_CALL_REASON = "Already on a call";
+
+/** A call the agent is on with someone: ringing (either way), live or held. */
+const ON_CALL = new Set(["offered", "connecting", "active", "held"]);
+
+/** `{ voice: "Already on a call" }` while the customer has a ringing, live
+ *  or held call: the same entity, the same card (a customer with no
+ *  directory record, e.g. a scripted case), or the same number. One call
+ *  per customer, on every launch path (k8 6). */
+export function onCallReasons(
+  contacts: readonly DomainInteraction[],
+  customer: { entityId?: string; journeyId?: string; addresses?: readonly string[] },
+): Partial<Record<ChannelType, string>> {
+  const onCall = contacts.some(
+    (c) =>
+      c.channel === "voice" &&
+      ON_CALL.has(c.state) &&
+      ((!!customer.entityId && c.entityId === customer.entityId) ||
+        (!!customer.journeyId && c.journeyId === customer.journeyId) ||
+        (!!c.address?.value && (customer.addresses ?? []).some((a) => sameAddress(a, c.address!.value)))),
+  );
+  return onCall ? { voice: ON_A_CALL_REASON } : {};
 }
 
 /** Each channel's addresses that have a live thread for this entity (a call

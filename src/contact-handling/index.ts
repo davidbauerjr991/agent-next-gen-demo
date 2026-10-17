@@ -35,7 +35,7 @@ export { NewOutboundLauncher, type NewOutboundLauncherProps } from "./NewOutboun
 export { useVoiceCallControls, type VoiceCallControlProps } from "./useVoiceCallControls";
 export { voiceWrapUpThread } from "./wrap-up";
 export { preContactSummaryOf, withPreContactSummary } from "./pre-contact";
-export { useVoiceBarCall, pickVoiceBarCall, type VoiceBarCall } from "./useVoiceBarCall";
+export { useVoiceBarCall, pickVoiceBarCall, voiceBarCalls, type VoiceBarCall } from "./useVoiceBarCall";
 export { VoiceHoldChip, type VoiceHoldChipProps } from "./VoiceHoldChip";
 export { VoiceWrapUpCard } from "./VoiceWrapUpCard";
 export { useChannelOutcomeDrafts, outcomeDraftKey, toOutcome, type OutcomeDraft } from "./useChannelOutcomeDrafts";
@@ -54,8 +54,13 @@ export { HoverPreviewFrame, HOVER_PREVIEW_POPOVER_CLASS } from "./HoverPreviewFr
 export { ThreadCrossFade } from "./ThreadCrossFade";
 export { callBadge } from "./call-badge";
 export { useCardAddChannel } from "./useCardAddChannel";
-export { ChannelThreadMenu, type ChannelThreadMenuEntry } from "./ChannelThreadMenu";
-export { ALREADY_OPEN_REASON, alreadyOpenReasons, liveAddressesFor, markAlreadyOpen, unusedAddresses, customerChannelAddresses } from "./already-open";
+export { ChannelThreadMenu, useChannelThreadMenu, type ChannelThreadMenuEntry } from "./ChannelThreadMenu";
+export { CallSwitcher } from "./CallSwitcher";
+export { useFollowHeldCall } from "./useFollowHeldCall";
+export { useSaveAddressOffers } from "./useSaveAddressOffers";
+export { SaveAddressCard, type SaveAddressOffer } from "./SaveAddressCard";
+export { linkContactMethod, withLinkedContactMethods, linkedAddresses, isKnownAddress, useContactMethodsVersion } from "./contact-methods";
+export { ALREADY_OPEN_REASON, ON_A_CALL_REASON, alreadyOpenReasons, onCallReasons, liveAddressesFor, markAlreadyOpen, unusedAddresses, customerChannelAddresses } from "./already-open";
 export { panelToggleClass, PANEL_TOGGLE_ACTIVE } from "./panel-toggle";
 export { DisabledReason } from "./DisabledReason";
 export { useAgentAvailable, useChannelDisabledReasons, useReplyBlockedReason, UNAVAILABLE_REPLY_REASON, UNAVAILABLE_CALL_TOOLTIP } from "./presence-gates";

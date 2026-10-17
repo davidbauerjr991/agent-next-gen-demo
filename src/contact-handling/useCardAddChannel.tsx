@@ -1,7 +1,8 @@
 import { useCallback, useMemo, type ReactNode } from "react";
 import { AddChannelButton, type ChannelType, type CreateNewOutboundConfig } from "@nicecxone/lyra-ui";
 import { useInteractions } from "@/provider-context";
-import { alreadyOpenReasons, customerChannelAddresses, liveAddressesFor, unusedAddresses, type CustomerAddresses } from "./already-open";
+import { alreadyOpenReasons, customerChannelAddresses, liveAddressesFor, onCallReasons, unusedAddresses, type CustomerAddresses } from "./already-open";
+import { useContactMethodsVersion, withLinkedContactMethods } from "./contact-methods";
 
 export interface UseCardAddChannelOptions {
   /** New Outbound's config: its groups (the contacts a card can be), channel options, skills, presence reasons. */
@@ -15,10 +16,12 @@ export interface UseCardAddChannelOptions {
  *  plus what that hook can't know per card: a channel whose every address of
  *  the customer's already has a live thread is disabled "Already open", and
  *  the phone list is the customer's own numbers, so a second thread opens on
- *  an unused one. The nav card's "+" and the record header's are this one
- *  control. */
+ *  an unused one. Voice is disabled "Already on a call" while the customer
+ *  has a ringing, live or held call (k8 6). The nav card's "+" and the
+ *  record header's are this one control. */
 export function useCardAddChannel({ outboundConfig, findCustomer }: UseCardAddChannelOptions) {
   const contacts = useInteractions();
+  const linkedVersion = useContactMethodsVersion();
   const contactsById = useMemo(
     () => new Map(outboundConfig.groups.flatMap((g) => g.contacts ?? []).map((c) => [c.id, c])),
     [outboundConfig],
@@ -31,7 +34,8 @@ export function useCardAddChannel({ outboundConfig, findCustomer }: UseCardAddCh
     ): ReactNode => {
       const contact = contactsById.get(entityId);
       if (!contact) return null;
-      const record = findCustomer(entityId);
+      // The record plus any address the agent added to it (k8 8).
+      const record = withLinkedContactMethods(entityId, findCustomer(entityId));
       const phones = customerChannelAddresses(record, "sms");
       const live = liveAddressesFor(contacts, entityId);
       // The customer's own numbers, in their spelling, with the live ones
@@ -64,10 +68,16 @@ export function useCardAddChannel({ outboundConfig, findCustomer }: UseCardAddCh
           showLabel={options?.showLabel}
           icon={options?.icon}
           initialChannel={options?.initialChannel}
-          channelDisabledReasons={{ ...alreadyOpenReasons(record, live), ...outboundConfig.channelDisabledReasons }}
+          channelDisabledReasons={{
+            ...alreadyOpenReasons(record, live),
+            ...onCallReasons(contacts, { entityId }),
+            ...outboundConfig.channelDisabledReasons,
+          }}
         />
       );
     },
-    [contactsById, outboundConfig, findCustomer, contacts],
+    // `linkedVersion`: an added address re-renders the pickers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [contactsById, outboundConfig, findCustomer, contacts, linkedVersion],
   );
 }

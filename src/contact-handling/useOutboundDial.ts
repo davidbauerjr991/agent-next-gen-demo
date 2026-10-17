@@ -52,6 +52,9 @@ export interface UseOutboundDialOptions {
   /** Save & Redial's new call was placed on `card`; the page completes the
    *  ended call's wrap-up now (not earlier), so the card never empties. */
   onCardRedialPlaced?: (card: NavCard) => void;
+  /** Any launch the provider accepted (`id` is its contact): the page offers
+   *  to save an address that isn't on the customer's record (k8 8). */
+  onPlaced?: (id: InteractionId, target: { channel: ChannelType; address: string; entityId?: string; contactName?: string }) => void;
 }
 
 interface DialTarget {
@@ -67,8 +70,8 @@ interface DialTarget {
   mode: ActivationMode;
 }
 
-/** A voice contact the agent is on: ringing out, live, or held. */
-const ON_CALL_STATES = new Set(["connecting", "active", "held"]);
+/** A voice contact the agent is on: ringing (either way), live, or held. */
+const ON_CALL_STATES = new Set(["offered", "connecting", "active", "held"]);
 
 /** The tooltip on a voice launch disabled by `isOnCallWith`. */
 export const ALREADY_ON_CALL_TOOLTIP = "Already on a call with this customer";
@@ -78,6 +81,8 @@ export const ALREADY_ON_CALL_TOOLTIP = "Already on a call with this customer";
 export interface CallTarget {
   entityId?: string;
   addresses?: readonly string[];
+  /** The card it would join: a customer with no directory record is its card (k8 6). */
+  journeyId?: string;
 }
 
 /** Whether `interactions` hold a ringing-out, live or held voice call with
@@ -91,7 +96,7 @@ export function isOnCallWith(
 }
 
 /** The call `isOnCallWith` finds, if any. */
-export function findCallWith<T extends { channel: string; state: string; entityId?: string; address?: { value: string } }>(
+export function findCallWith<T extends { channel: string; state: string; entityId?: string; journeyId?: string; address?: { value: string } }>(
   interactions: readonly T[],
   target: CallTarget,
 ): T | undefined {
@@ -100,7 +105,9 @@ export function findCallWith<T extends { channel: string; state: string; entityI
     (i) =>
       i.channel === "voice" &&
       ON_CALL_STATES.has(i.state) &&
-      ((!!target.entityId && i.entityId === target.entityId) || (!!i.address && numbers.has(normalizePhone(i.address.value)))),
+      ((!!target.entityId && i.entityId === target.entityId) ||
+        (!!target.journeyId && i.journeyId === target.journeyId) ||
+        (!!i.address && numbers.has(normalizePhone(i.address.value)))),
   );
 }
 
@@ -120,6 +127,7 @@ export function useOutboundDial({
   onVoiceCallRefused,
   onAlreadyOnCall,
   onCardRedialPlaced,
+  onPlaced,
 }: UseOutboundDialOptions) {
   const provider = useInteractionProvider();
   const interactions = useInteractions();
@@ -153,7 +161,9 @@ export function useOutboundDial({
       // One call per customer, on every path (the buttons are disabled too;
       // this catches a number typed into Quick Dial).
       const onCallWith =
-        target.channel === "voice" ? findCallWith(interactions, { entityId: target.entityId, addresses: [target.address] }) : undefined;
+        target.channel === "voice"
+          ? findCallWith(interactions, { entityId: target.entityId, addresses: [target.address], journeyId: target.card?.id })
+          : undefined;
       if (onCallWith) {
         onAlreadyOnCall?.(onCallWith);
         return false;
@@ -205,6 +215,7 @@ export function useOutboundDial({
           id = await provider.dial(request);
         }
         activateWhenReady(id, target.mode, !target.card);
+        onPlaced?.(id, target);
         return true;
       } catch (error) {
         if (target.channel === "voice" && isProviderError(error) && error.code === "invalid-state" && agentState?.leg !== "connected") {
@@ -215,7 +226,7 @@ export function useOutboundDial({
         return false;
       }
     },
-    [provider, interactions, agentState, available, outboundChannels, activateWhenReady, onLegDisconnected, refuseVoice, onAlreadyOnCall],
+    [provider, interactions, agentState, available, outboundChannels, activateWhenReady, onLegDisconnected, refuseVoice, onAlreadyOnCall, onPlaced],
   );
 
   /** Whether Contact History's Redial is disabled for `entry`: the agent is

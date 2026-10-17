@@ -1,5 +1,6 @@
 import { KnowledgeArticleSummaryRow } from "@/components/agent-next-gen-knowledge-article-card";
 import { CopilotComposer } from "@/components/copilot-composer";
+import { SaveAddressCard, type SaveAddressOffer } from "@/contact-handling/SaveAddressCard";
 import React, { useState, useRef, useLayoutEffect, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
@@ -127,6 +128,8 @@ export interface TranscriptMessage {
   instruction?: { title: string; by: string; link: string };
   /** Renders a "Wrap up" accordion (same shell as the approval request, success-subtle header) with a summary and a completion button. */
   wrapUp?: { title: string; summary: string; disposition: string; buttonLabel: string; exiting?: boolean };
+  /** Renders the "Add {address} as … for {customer}?" card (k8 8): a thread started on an address not on the record. */
+  saveAddress?: SaveAddressOffer;
 }
 
 export interface TranscriptApprovalSummary {
@@ -252,6 +255,7 @@ export function AiActionCard({
     );
   }
   if (message.wrapUp) return <WrapUpAccordion message={message} onComplete={onWrapUpComplete} />;
+  if (message.saveAddress) return <SaveAddressCard id={message.id} offer={message.saveAddress} timestamp={message.timestamp} />;
   return (
     <ApprovalSummaryAccordion
       message={message}
@@ -4662,7 +4666,7 @@ export function InteractionTranscript({
                   );
                   const renderLiveMessage = (message: TranscriptMessage) => {
                     const aiCardHandlers = { onApprovalDecision, onApprovalCallRequest, onApprovalSuggestionAsk, approvalTakenOver, onWrapUpComplete, onSnapshotLink, activeSnapshotLink };
-                    const rendered = message.instruction || message.wrapUp ? (
+                    const rendered = message.instruction || message.wrapUp || message.saveAddress ? (
                       <AiActionCard key={message.id} message={message} {...aiCardHandlers} />
                     ) : message.summary ? (
                       <div key={message.id} className="flex flex-col gap-5">
@@ -4681,7 +4685,7 @@ export function InteractionTranscript({
                     ) : (
                       renderBubble(message)
                     );
-                    const isAiAction = !!(message.instruction || message.wrapUp || message.summary || message.event);
+                    const isAiAction = !!(message.instruction || message.wrapUp || message.summary || message.saveAddress || message.event);
                     const entered = initialMessageIdsRef.current?.has(message.id) ? (
                       rendered
                     ) : (

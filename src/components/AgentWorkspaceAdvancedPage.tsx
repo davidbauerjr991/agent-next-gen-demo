@@ -207,6 +207,10 @@ import {
   callBadge,
   useCardAddChannel,
   ChannelThreadMenu,
+  useChannelThreadMenu,
+  useFollowHeldCall,
+  useSaveAddressOffers,
+  voiceBarCalls,
   alreadyOpenReasons,
   liveAddressesFor,
   markAlreadyOpen,
@@ -355,7 +359,7 @@ type DetailPanelContent =
   | { kind: "lucas-order"; orderId: LucasThomasOrderId; from?: "memory" | "purchases" }
   | { kind: "transactions"; id: string; note: string; timestamp: string; date: string; showFullTransactions: boolean }
   // AI display "main": a panel thread's Session Details, over the thread in the panel (k6 10).
-  | { kind: "session"; channelLabel: string };
+  | { kind: "session" };
 import { BrandMark } from "@/components/BrandMark";
 import damagedHeadphonesImg from "@/assets/headphones.jpg";
 import {
@@ -2062,9 +2066,9 @@ export function AgentWorkspaceAdvancedPage({
   // else the live call, else a held one. Selecting never changes hold state.
   // Marcus's call under AI review only counts when his card is selected
   // (the review bar replaces the voice bar there).
-  const voiceBarCall = useVoiceBarCall(interactions, activeInteractionId, (card) =>
-    marcusWebbReviewing && scenarioKeyOf(card.id) === MARCUS_WEBB_ID && card.id !== activeInteractionId ? undefined : findLiveVoiceThread(card)
-  );
+  const voiceBarCallOf = (card: Interaction) =>
+    marcusWebbReviewing && scenarioKeyOf(card.id) === MARCUS_WEBB_ID && card.id !== activeInteractionId ? undefined : findLiveVoiceThread(card);
+  const voiceBarCall = useVoiceBarCall(interactions, activeInteractionId, voiceBarCallOf);
   const liveVoiceCallInteraction = voiceBarCall?.card ?? null;
   const liveVoiceCallThread = voiceBarCall?.thread;
   /** Same "real, matched customer vs. a raw unidentified address" gate
@@ -2983,7 +2987,7 @@ export function AgentWorkspaceAdvancedPage({
       case "tom-call": return `tom-call:${c.panel}`;
       case "lucas-order": return `lucas-order:${c.orderId}`;
       case "transactions": return `transactions:${c.id}`;
-      case "session": return `session:${c.channelLabel}`;
+      case "session": return "session";
     }
   };
   const detailPanelArtifactLabel = (c: DetailPanelContent): string => {
@@ -3162,21 +3166,18 @@ export function AgentWorkspaceAdvancedPage({
   // another tab's session.
   const [sessionDetailsPick, setSessionDetailsPick] = useState<{ key: string; session: Contact } | null>(null);
   const [currentSessions, setCurrentSessions] = useState<Record<string, Contact>>({});
-  // AI display "main": the panel thread whose session details the panel shows instead of the thread (its header row's Session Details).
-  const [panelSessionThreadKey, setPanelSessionThreadKey] = useState<string | null>(null);
   /** A session row's Session Details. The main tab's (inline, panel) opens Contact Details' Session tab on
    *  that thread's session, and closes the panel if it's already showing it. Under "main" the panel
    *  thread's header row opens it as the interior slide-over over the thread, with its own close (k6 10:
-   *  the slide-over card links and Copilot results use, mounted in the panel; no mode-specific body). */
+   *  the slide-over card links and Copilot results use, mounted in the panel; no mode-specific body).
+   *  It shows the panel's thread: switching thread switches its session (k8 3). */
   const viewSessionDetails = (threadKey: string, session: Contact) => {
     if (!activeInteractionId) return;
     setSelectedDetailPanelContent(null);
     const key = `${activeInteractionId}:${threadKey}`;
     if (panelPlacement) {
       setSessionDetailsPick({ key, session });
-      setPanelSessionThreadKey(threadKey);
-      const channel = activeInteraction?.threads.find((t) => (t.id ?? t.type) === threadKey)?.type;
-      openDetailPanelContent({ kind: "session", channelLabel: channel ? CHANNEL_TYPE_META[channel].label : "" });
+      openDetailPanelContent({ kind: "session" });
       return;
     }
     const showing = sidePanelOpen && customerPanelActiveTab === "Session Details" && sessionDetailsPick?.key === key && sessionDetailsPick.session.id === session.id;
@@ -3522,18 +3523,10 @@ export function AgentWorkspaceAdvancedPage({
   // .tsx`'s still-live `CustomerInfoHoverPreview` call site uses.
   const [customerInfoPreviewOpen, setCustomerInfoPreviewOpen] = useState(false);
   const customerInfoPreviewTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  // Per explicit follow-up request ("on hover for the voice, chat, sms,
-  // email channel icons in the top right, display the content of the
-  // panel like you do for contact details"): the SAME hover-preview
-  // pattern as `customerInfoPreviewOpen` just above, generalized to a key
-  // (rather than a bool) since it's shared across every channel icon in
-  // the row (own render site further down) — only one can be
-  // hover-previewed at a time, so a single slot is enough. `null` means
-  // no channel is currently being hover-previewed.
+  // The channel icon being hover-previewed (one at a time), like `customerInfoPreviewOpen`.
   const [channelHoverPreviewKey, setChannelHoverPreviewKey] = useState<string | null>(null);
-  // The header icon's thread picker (k6 4): which channel's menu is open, and the icon it hangs from.
-  const [threadMenuChannel, setThreadMenuChannel] = useState<string | null>(null);
-  const threadMenuAnchorRef = useRef<HTMLElement | null>(null);
+  // A multi-thread channel icon's thread menu (k6 4, k8 7/10): open on hover or click.
+  const threadMenu = useChannelThreadMenu();
   const channelHoverPreviewTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const channelHoverOpenTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // Backstop for `customerInfoPreviewOpen` — per explicit bug report ("when
@@ -4163,43 +4156,33 @@ export function AgentWorkspaceAdvancedPage({
   };
 
   // Where a launched contact lands once the provider has it (P0.5b.2,
-  // useContactActivation). "focus" (a new card, a redial, a reopen, a
-  // notification) makes its card active with that thread in the main column;
-  // "added" (a channel added to an open card) does too with tabs, and opens
-  // in the slide-out with omnichannel when its tempo says so.
+  // useContactActivation): a newly launched or accepted thread is the visible
+  // one (k8 4). "focus" (a new card, a redial, a reopen, a notification) and
+  // "added" (a channel added to an open card) make its card active; "select"
+  // keeps the selected card. With tabs the thread's tab is selected; under
+  // "main" the panel switches to it, a call's transcript included (the voice
+  // bar appears as always).
   const handleContactActivated = ({ journeyId, threadKey, mode, isNewCard }: Activation) => {
     const selectThread = () => setInteractions((prev) => prev.map((i) => (i.id === journeyId && i.currentThreadId !== threadKey ? { ...i, currentThreadId: threadKey } : i)));
-    if (mode === "select") return selectThread(); // its card's main thread; the selected card stays
-    switchActiveInteraction(journeyId);
-    // Omnichannel: an async channel (added or focused) opens in the
-    // slide-out, and a call next to a chat only moves the voice bar; the
-    // main column keeps its thread.
-    const threads = interactions.find((i) => i.id === journeyId)?.threads;
-    // Under "main" a call opening (accepted, dialed) only brings the voice bar; its transcript opens in the panel from its icon.
-    const route = omnichannel && threads ? (threadKey.startsWith("voice") ? "bar" : routeChannel(threads, threadKey, placement)) : null;
-    // A thread added beside a held main thread (an auto-accepted chat) opens
-    // in the panel; the main column stays.
-    const pinned = mainPins.pinned(journeyId);
-    if (route === "slideout" || (route === "main" && mode === "added" && pinned && pinned !== threadKey)) {
-      omni.open(journeyId, threadKey);
-      if (isNewCard) setSidePanelOpen(false);
-      return;
-    }
-    // Tabs: an added thread (a call included) selects its tab.
-    if (route !== "bar") selectThread();
     // A restarted call starts with an empty Outcome (row 19).
     if (threadKey.startsWith("voice")) outcomeDrafts.clear(outcomeDraftKeyOf(journeyId, threadKey));
-    if (route === "bar") return;
+    if (mode === "select") return omnichannel ? omni.open(journeyId, threadKey) : selectThread();
+    switchActiveInteraction(journeyId);
+    if (omnichannel) omni.open(journeyId, threadKey);
+    else selectThread();
     // A new card starts with Customer Information closed; an existing one
     // keeps the panel as the agent left it.
     if (isNewCard) setSidePanelOpen(false);
   };
   const { activateWhenReady } = useContactActivation(handleContactActivated, seedOverlay);
   const { allOptions: allOutboundSkills, idForName: skillIdForName } = useOutboundSkills();
+  const findDirectoryCustomer = (entityId: string) =>
+    createdCustomerRecords.find((c) => c.id === entityId) ?? CREATE_NEW_CUSTOMERS.find((c) => c.id === entityId);
+  // A launch on an address that isn't on the customer's record offers to save it (k8 8).
+  const offerToSaveAddress = useSaveAddressOffers({ cards: interactions, setCards: setInteractions, findCustomer: findDirectoryCustomer });
   const outboundDial = useOutboundDial({
     findOpenCard,
-    findCustomer: (entityId) =>
-      createdCustomerRecords.find((c) => c.id === entityId) ?? CREATE_NEW_CUSTOMERS.find((c) => c.id === entityId),
+    findCustomer: findDirectoryCustomer,
     activateWhenReady,
     onLegDisconnected: () => setAgentLegDisconnectedToastOpen(true),
     // A redial from the Home tab's Contact History panel closes that panel,
@@ -4219,7 +4202,10 @@ export function AgentWorkspaceAdvancedPage({
     // Save & Redial: the ended call's wrap-up completes with its saved
     // outcome once the new call is placed, so the card never empties.
     onCardRedialPlaced: (card) => void contactCommands.completeEndedCalls(card, outcomeFor(card.id)),
+    onPlaced: offerToSaveAddress,
   });
+  // A live call ends while another is held: its card is selected, the call still held (k8 9).
+  useFollowHeldCall(switchActiveInteraction);
   const contactReopen = useContactReopen({ findOpenCard, activateWhenReady, skillIdForName });
   // A digital contact auto-accepted onto an open card: the card's main thread
   // holds (omnichannel) and, on the card the agent is on, the new contact
@@ -4232,11 +4218,9 @@ export function AgentWorkspaceAdvancedPage({
       if (!card || !current || panelPlacement || !omnichannel) return;
       mainPins.pin(cardId, omnichannelMainKey(card.threads, current, mainPins.pinned(cardId)) ?? current);
     },
-    // Tabs (k2): an accepted chat always becomes its card's tab; an async thread never overrides a picked tab.
-    onJoined: (cardId, id, channel) => {
-      if (tabs && channel === "chat") activateWhenReady(id, cardId === activeInteractionId ? "added" : "select", false);
-      else if (!tabs && cardId === activeInteractionId) activateWhenReady(id, "added", false);
-    },
+    // An accepted thread is the visible one on its card (k8 4, superseding k2's async exception): its tab,
+    // or the panel's thread under "main"; on another card it waits there, and the selected card stays.
+    onJoined: (cardId, id) => activateWhenReady(id, cardId === activeInteractionId ? "added" : "select", false),
   });
 
   // Per explicit follow-up request ("the content should be the Contact
@@ -4303,8 +4287,8 @@ export function AgentWorkspaceAdvancedPage({
   // on `!sidePanelOpen`) closes the preview in that same update, so the
   // agent lands on the real panel already in edit mode rather than seeing
   // an editable form appear inside the transient, mouse-driven popover.
-  // The thread whose session it shows: the panel thread's under "main" while the panel shows its session details, else the main tab's.
-  const detailsThreadKey = activeInteraction ? `${activeInteraction.id}:${(panelPlacement && panelSessionThreadKey) || activeChannelKey}` : "";
+  // The thread whose session it shows: the panel's thread under "main" (it follows a switch, k8 3), else the main tab's.
+  const detailsThreadKey = activeInteraction ? `${activeInteraction.id}:${(panelPlacement && channelPreviewThreadKey) || activeChannelKey}` : "";
   const sessionDetailsTabContent = useSessionDetailsTabContent({
     sessionContact: (sessionDetailsPick?.key === detailsThreadKey ? sessionDetailsPick.session : currentSessions[detailsThreadKey]) ?? null,
     onEditClick: () => setSidePanelOpen(true),
@@ -5242,7 +5226,7 @@ export function AgentWorkspaceAdvancedPage({
   const addChannelActionFor = (card: Interaction) =>
     SHOW_ADD_CHANNEL_HEADER_BUTTON &&
     showsSessionControls(card) &&
-    navCardAddChannelAction(card, { getHeaderAction, onAddAdHocChannel: outboundDial.addAdHocChannel, skillOptions: OUTBOUND_CONFIG.skillOptions });
+    navCardAddChannelAction(card, { getHeaderAction, onAddAdHocChannel: outboundDial.addAdHocChannel, skillOptions: OUTBOUND_CONFIG.skillOptions, contacts: storeContacts });
 
   /* Welcome modal — shown once on page load; "Go Available" flips the agent
      to Available, "Start Offline" (button label — see the AgentWelcomeMessage
@@ -8195,20 +8179,11 @@ export function AgentWorkspaceAdvancedPage({
                         the docked panel is closed). */}
                     <PageHeader
                       ref={recordHeaderRef}
-                      // Per explicit follow-up request: this record header
-                      // sits directly above the session row
-                      // (`TranscriptSessionSeparator`/the channel tab row),
-                      // which already draws its own `border-b` right
-                      // underneath — this header's own default border just
-                      // doubled that into two parallel lines with an odd
-                      // gap between them. `compact` shrinks the row from
-                      // the default `min-h-[68px]`/`py-4` down to
-                      // `min-h-[54px]` with the bottom padding dropped, so
-                      // the whole thing reads as one tightly-packed header
-                      // instead of two stacked bordered rows (see both
-                      // props' own doc comments, page-header.tsx).
+                      // Always its own bottom border, with or without a session row, in every mode (k8 2):
+                      // on the wrapper with a little padding, since `compact` drops the row's bottom padding.
                       bordered={false}
                       compact
+                      className="border-b border-lyra-border-subtle pb-3"
                       // Per explicit request ("add an icon indicating
                       // whether the interaction is an agent or a customer
                       // to the left of the name"): `Headphones` for
@@ -8540,36 +8515,16 @@ export function AgentWorkspaceAdvancedPage({
                             Details button (see `handleSidePanelIconToggle`'s
                             own doc comment) since they all share this one
                             `channelPreviewThreadKey` state. */}
-                        {/* Per explicit follow-up request ("just hide the
-                            voice icon in phase 1 it's confusing with no
-                            other channels"): with voice as the only
-                            channel this deployment ever has (see
-                            `SHOW_ADD_CHANNEL_HEADER_BUTTONS`'s own doc
-                            comment — no way to launch a second, non-voice
-                            one), this icon button no longer earns its
-                            place next to Contact Details — it can't
-                            distinguish one channel from another when
-                            there's only ever the one, so it just reads as
-                            a redundant, always-on duplicate of the phone
-                            icon in the record header's own title/call
-                            controls. Skipped entirely (not merely
-                            disabled/dimmed) rather than deleting the whole
-                            block below — every other channel type keeps
-                            rendering here untouched, and this comes back
-                            with a one-line removal of this guard if a
-                            future deployment adds a second channel type
-                            back. Every one of the `isVoiceChannel`
-                            special-cases below (active-tooltip, no-op
-                            click, etc.) stays in place regardless — dead
-                            code for now, but exactly what a future
-                            multi-channel deployment would need again the
-                            moment this early return comes back out. */}
-                        {/* One icon per channel, never one per thread; several threads: its picker (k6 4). */}
+                        {/* Add channel, first in the group (k8 1; k6 1): the nav card's "+", every mode. */}
+                        <span data-slot="header-add-channel" className="inline-flex">{addChannelActionFor(activeInteraction)}</span>
+                        {/* One icon per channel, never one per thread; several threads: its menu, on hover or click (k6 4, k8 10). */}
                         <ChannelThreadMenu
-                          open={!!threadMenuChannel}
-                          onOpenChange={(open) => !open && setThreadMenuChannel(null)}
-                          anchorRef={threadMenuAnchorRef}
-                          threads={activeInteraction.threads.filter((t) => t.type === threadMenuChannel).map((t) => ({
+                          open={!!threadMenu.channel}
+                          onOpenChange={(open) => !open && threadMenu.close()}
+                          anchorRef={threadMenu.anchorRef}
+                          onMouseEnter={threadMenu.cancelClose}
+                          onMouseLeave={threadMenu.scheduleClose}
+                          threads={activeInteraction.threads.filter((t) => t.type === threadMenu.channel).map((t) => ({
                             key: t.id ?? t.type,
                             label: t.addressLabel ?? t.value ?? CHANNEL_TYPE_META[t.type].label,
                             time: activeInteraction.liveMessages?.[t.id ?? t.type]?.slice(-1)[0]?.timestamp,
@@ -8597,41 +8552,26 @@ export function AgentWorkspaceAdvancedPage({
                             c.type !== "voice" && !isOpen && !inMain ? omni.unread(activeInteraction.id, key, activeInteraction.liveMessages?.[key]) : 0;
                           // This tab is the main column's: its "{channel} active" `Tooltip` below.
                           const isActiveChannel = !panelPlacement && key === activeChannelKey;
-                          // Per explicit follow-up request: the voice
-                          // icon's own hover label reads "Voice
-                          // Transcript" (this preview IS just the
-                          // transcript — see `footerOverride`'s own doc
-                          // comment further down for why voice never gets
-                          // a composer here) rather than plain "Voice",
-                          // which reads more like a still-ringing/active
-                          // call indicator. Every other channel keeps
-                          // `meta.label` unchanged.
+                          // The voice icon is labeled "Voice Transcript": its preview is the transcript.
                           const previewLabel = c.type === "voice" ? "Voice Transcript" : meta.label;
-                          // No hover preview for a channel already open in the
-                          // panel: `openChannelHoverPreview` won't open one, and
-                          // clicking the icon closes it.
+                          // No hover preview for a channel already open in the panel (`openChannelHoverPreview`).
                           const hoverOpen = channelHoverPreviewKey === key;
-                          // Per explicit follow-up request ("on hover for
-                          // the voice, chat, sms, email channel icons in
-                          // the top right, display the content of the
-                          // panel like you do for contact details"): same
-                          // hover-preview `Popover` pattern as the
-                          // "Contact Details" button's own (render site
-                          // further down) — a plain text `Tooltip` isn't
-                          // enough content on its own anymore, so it's
-                          // replaced here rather than layered underneath.
-                          // The preview body mirrors exactly what clicking
-                          // this icon opens in the real docked panel (see
-                          // `bodyOverride`/`footerOverride`'s own doc
-                          // comments at that render site) — duplicated
-                          // rather than shared, same as the Contact
-                          // Details hover preview's own duplication of
-                          // `DetailsPanelAccordions`/tabs just below.
+                          // Hover previews the channel's thread; with several threads it opens the thread
+                          // menu instead, the active channel's too (k8 10). Keyed by channel, so the element
+                          // the menu hangs from stays put while its threads change (k8 7).
                           return (
                             <div
-                              key={key}
-                              onMouseEnter={() => openChannelHoverPreview(key)}
-                              onMouseLeave={scheduleCloseChannelHoverPreview}
+                              key={c.type}
+                              data-channel-icon={c.type}
+                              onMouseEnter={(e) => {
+                                if (threadCount < 2) {
+                                  threadMenu.close();
+                                  return openChannelHoverPreview(key);
+                                }
+                                setChannelHoverPreviewKey(null);
+                                threadMenu.openFor(c.type, e.currentTarget);
+                              }}
+                              onMouseLeave={threadCount < 2 ? scheduleCloseChannelHoverPreview : threadMenu.scheduleClose}
                             >
                               {/* `Tooltip` wraps `Popover` through a plain
                                   `span` rather than directly — `Popover`
@@ -8706,9 +8646,8 @@ export function AgentWorkspaceAdvancedPage({
                                   // Several threads on the channel: its thread picker (k6 4); one: select it.
                                   onClick={(e) => {
                                     if (threadCount < 2) return selectPanel({ kind: "thread", cardId: activeInteraction.id, key });
-                                    threadMenuAnchorRef.current = e.currentTarget;
                                     setChannelHoverPreviewKey(null);
-                                    setThreadMenuChannel(c.type);
+                                    threadMenu.openFor(c.type, e.currentTarget.closest<HTMLElement>("[data-channel-icon]") ?? e.currentTarget);
                                   }}
                                 >
                                   {meta.icon}
@@ -8971,8 +8910,6 @@ export function AgentWorkspaceAdvancedPage({
                             </Popover>
                           </div>
                         )}
-                        {/* Add channel, right of Contact Details, every mode: the nav card's "+" (k6 1). */}
-                        <span data-slot="header-add-channel" className="inline-flex">{addChannelActionFor(activeInteraction)}</span>
                         </div>
                       }
                     />
@@ -10637,7 +10574,7 @@ export function AgentWorkspaceAdvancedPage({
                 }
                 headerSubhead={
                   lastDetailPanelContent?.kind === "session"
-                    ? lastDetailPanelContent.channelLabel
+                    ? channelPreviewMeta?.label
                     : lastDetailPanelContent?.kind === "action-log"
                     ? lastDetailPanelContent.entry.timestamp
                     : lastDetailPanelContent?.kind === "transactions"
@@ -10832,6 +10769,9 @@ export function AgentWorkspaceAdvancedPage({
             // Keypad come from it; this page passes its own panels.
             <VoiceBar
               call={voiceBarCall}
+              // More than one call: the label is a switcher; choosing selects that card (k8 5).
+              calls={voiceBarCalls(interactions, voiceBarCallOf)}
+              onSelectCall={switchActiveInteraction}
               controls={liveVoiceCallControls}
               // Settings → Voice controls location; the slot at the top of
               // the left nav exists only while the nav is open.

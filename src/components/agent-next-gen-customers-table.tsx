@@ -37,7 +37,8 @@ import { CHANNEL_TYPE_ICON_COLOR_CLASS } from "@/components/agent-next-gen-conta
 import { cn } from "@/lib/utils";
 import { useSettings, type ContactChannel } from "@/settings";
 import { useChannelDisabledReasons } from "@/contact-handling/presence-gates";
-import { ALREADY_OPEN_REASON, alreadyOpenReasons, liveAddressesFor } from "@/contact-handling/already-open";
+import { ALREADY_OPEN_REASON, alreadyOpenReasons, liveAddressesFor, onCallReasons } from "@/contact-handling/already-open";
+import { linkedAddresses, useContactMethodsVersion, withLinkedContactMethods } from "@/contact-handling/contact-methods";
 import { useInteractions } from "@/provider-context";
 import { DisabledReason } from "@/contact-handling/DisabledReason";
 import {
@@ -299,10 +300,12 @@ export function CustomerChannelPicker({
   const storeContacts = useInteractions();
   const record = CREATE_NEW_CUSTOMERS.find((c) => c.customerId === row.contactNumber);
   const liveAddresses = liveAddressesFor(storeContacts, record?.id);
-  const alreadyOpen = alreadyOpenReasons(record, liveAddresses);
+  // Addresses the agent added to the customer count as theirs (k8 8); Voice waits while they're on a call (k8 6).
+  useContactMethodsVersion();
+  const alreadyOpen = { ...alreadyOpenReasons(withLinkedContactMethods(record?.id, record), liveAddresses), ...onCallReasons(storeContacts, { entityId: record?.id }) };
   const selectedChannelReason = alreadyOpen[selectedChannel] ?? disabledReasons?.[selectedChannel];
   const remainingOptionsFor = (channel: ChannelType) =>
-    addressOptionsForChannel(row, channel).filter(
+    [...addressOptionsForChannel(row, channel), ...linkedAddresses(record?.id, channel).map((value) => ({ value, label: value }))].filter(
       (o) => !(openAddresses[channel] ?? []).includes(o.value) && !(liveAddresses[channel] ?? []).includes(o.value),
     );
 

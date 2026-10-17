@@ -1,6 +1,7 @@
 import { createPortal } from "react-dom";
 import { VoiceCallControls, type VoiceCallControlsProps } from "@/components/agent-next-gen-voice-call-controls";
 import type { VoiceBarCall } from "./useVoiceBarCall";
+import { CallSwitcher, callLabel } from "./CallSwitcher";
 import type { VoiceCallControlProps } from "./useVoiceCallControls";
 
 export interface VoiceBarProps
@@ -19,13 +20,18 @@ export interface VoiceBarProps
    *  bottom. */
   placement?: "bottom" | "top";
   topSlot?: HTMLElement | null;
+  /** Every call the agent has (live or held, `voiceBarCalls`). More than
+   *  one: the customer label is the call switcher (k8 5). */
+  calls?: readonly VoiceBarCall[];
+  /** Selects a call's card (the switcher; selection only, never hold/resume). */
+  onSelectCall?: (cardId: string) => void;
 }
 
 /** The persistent voice bar, shared by both pages (parity row 1): docked
  *  below the main container across the content column, outside any
  *  assignment's content, so it stays put whichever card or tab is showing.
  *  Pages pass only what differs (their transcript panel, hang-up cleanup). */
-export function VoiceBar({ call, controls, placement = "bottom", topSlot, ...rest }: VoiceBarProps) {
+export function VoiceBar({ call, controls, placement = "bottom", topSlot, calls = [], onSelectCall, ...rest }: VoiceBarProps) {
   const atTop = placement === "top" && !!topSlot;
   const bar = (
     <div data-slot="voice-bar" data-placement={atTop ? "top" : "bottom"} className="shrink-0">
@@ -47,7 +53,9 @@ export function VoiceBar({ call, controls, placement = "bottom", topSlot, ...res
         {...controls}
         callStartTick={call.thread.startTick}
         holdStartTick={call.thread.heldSinceTick}
-        customerLabel={call.card.customerName ?? call.thread.addressLabel ?? call.thread.value ?? call.card.id}
+        customerLabel={
+          calls.length > 1 && onSelectCall ? <CallSwitcher calls={calls} current={call} onSelect={onSelectCall} /> : callLabel(call)
+        }
         {...rest}
       />
     </div>

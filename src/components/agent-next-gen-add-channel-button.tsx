@@ -87,6 +87,9 @@ export interface AddChannelAdHocButtonProps {
    *  with no override needed; this only exists for a caller that needs a
    *  different SIZE (e.g. a narrower/wider header). */
   className?: string;
+  /** Channels this card can't start now, with the reason (e.g. Voice while
+   *  the customer is on a call, k8 6); merged over the presence reasons. */
+  channelDisabledReasons?: Partial<Record<ChannelType, string>>;
 }
 
 /** Blue "+" trigger + small "Add Channel" popover: a bare "Enter Email Or
@@ -98,7 +101,7 @@ export interface AddChannelAdHocButtonProps {
  *  `CreateNewOutboundContact.quickLaunch`'s own skip-the-detail-screen
  *  behavior elsewhere in this app; phone-shaped input still advances to its
  *  own second step, see `onLaunch`'s own doc comment). */
-function AddChannelAdHocButton({ onLaunch, skillOptions, className }: AddChannelAdHocButtonProps) {
+function AddChannelAdHocButton({ onLaunch, skillOptions, className, channelDisabledReasons }: AddChannelAdHocButtonProps) {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");
   // Second-step state, phone-shaped input only — see `onLaunch`'s own doc
@@ -117,7 +120,7 @@ function AddChannelAdHocButton({ onLaunch, skillOptions, className }: AddChannel
   // case of an empty list — both launch buttons below stay disabled via
   // their own `!skillId` check in that case, same as `create-new.tsx`.
   const [skillId, setSkillId] = useState(skillOptions[0]?.value ?? "");
-  const disabledReasons = useChannelDisabledReasons();
+  const disabledReasons = { ...channelDisabledReasons, ...useChannelDisabledReasons() };
   // A choice that became disabled (the agent went Unavailable on step 2) can't launch.
   const phoneChannelBlocked = !!phoneChannel && !!disabledReasons?.[phoneChannel];
 

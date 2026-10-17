@@ -18,6 +18,14 @@ export interface VoiceBarCall {
 
 const keyOf = (call: VoiceBarCall) => `${call.card.id}:${call.thread.id}`;
 
+/** Every card's current (live or held) call, in card order. */
+export function voiceBarCalls(cards: readonly NavCard[], callOf: (card: NavCard) => Thread | undefined): VoiceBarCall[] {
+  return cards.flatMap((card) => {
+    const thread = callOf(card);
+    return thread ? [{ card, thread }] : [];
+  });
+}
+
 /** Pure pick; `callOf` returns a card's current (live or held) call. */
 export function pickVoiceBarCall(
   cards: readonly NavCard[],
@@ -25,10 +33,7 @@ export function pickVoiceBarCall(
   callOf: (card: NavCard) => Thread | undefined,
   lastShownKey: string | undefined,
 ): VoiceBarCall | undefined {
-  const calls = cards.flatMap((card) => {
-    const thread = callOf(card);
-    return thread ? [{ card, thread }] : [];
-  });
+  const calls = voiceBarCalls(cards, callOf);
   return (
     calls.find((c) => c.card.id === activeCardId) ??
     calls.find((c) => keyOf(c) === lastShownKey) ??

@@ -113,13 +113,13 @@ async function snapshot() {
 
 describe("1: the record header's \"+\"", () => {
   for (const ai of ["inline", "panel", "main"] as const) {
-    it(`AI display ${ai}: right of Contact Details, the same control as the nav card's`, async () => {
+    it(`AI display ${ai}: in the header (k8: before Contact Details), the same control as the nav card's`, async () => {
       await setUp(ai);
       await dial("email", priya, priya.emailAddress!);
       await h.click(h.navCard(priya.name));
       const plus = h.container.querySelector<HTMLElement>("[data-slot=header-add-channel] button");
       expect(plus).not.toBeNull();
-      expect(contactDetailsButton().compareDocumentPosition(plus!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(contactDetailsButton().compareDocumentPosition(plus!) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
       // The nav card has the same control (lyra's AddChannelButton, "Add Outbound").
       const navPlus = h.navCard(priya.name).closest("aside")!.querySelector('[aria-label="Add Outbound"]');
       expect(navPlus).not.toBeNull();

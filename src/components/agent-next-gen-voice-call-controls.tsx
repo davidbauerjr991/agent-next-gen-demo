@@ -665,7 +665,7 @@ export interface VoiceCallControlsProps {
    *  other optional prop here already follows (see `callStartTick`'s own
    *  doc comment) — for a caller that hasn't wired customer identity
    *  through yet. */
-  customerLabel?: string;
+  customerLabel?: React.ReactNode;
   /** Initials to show inside the avatar chip instead of the generic
    *  fallback glyph, once the caller has a real contact match (the same
    *  initials a caller would derive the same way `interaction-nav-item.tsx`
