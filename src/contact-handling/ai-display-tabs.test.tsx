@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
-// P-AIFIRST (k): omnichannel off means tabs. The header channel icons are
-// tabs for the main column (shown while the card has more than one thread;
-// voice has none), a tab or a nav row swaps the main column, hover previews
-// stay for inactive tabs, and the docked panel holds Contact Details only.
-// Omnichannel on is unchanged (async threads open in the docked panel).
+// P-AIFIRST (k), (k3): AI display decides where threads open. Inline and
+// panel: the header channel icons are tabs for the main column, voice
+// included (its tab is the call's AI workspace), shown while the card has
+// more than one thread; a tab or a nav row swaps the main column, hover
+// previews stay for inactive tabs, and the docked panel holds Contact
+// Details only. "main" is unchanged (every thread in the docked panel).
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
@@ -48,10 +49,9 @@ async function hover(el: HTMLElement) {
   });
 }
 
-async function setUp(ai: AiDisplayLocation, omnichannel: boolean) {
+async function setUp(ai: AiDisplayLocation) {
   await act(async () => {
     getSettingsStore().update("channels", { voice: true, chat: true, email: true, whatsapp: true });
-    getSettingsStore().update("assignments", { omnichannel });
     getSettingsStore().update("ai", { displayLocation: ai });
   });
   await h.show(AgentWorkspaceAdvancedPage);
@@ -89,19 +89,19 @@ async function whatsAppAndEmail() {
 
 describe("tabMainKey", () => {
   const t = (type: Thread["type"], id: string) => ({ type, id }) as Thread;
-  it("the requested tab, else the newest tab; voice only on a voice-only card", () => {
+  it("the requested thread (voice included: every thread is a tab), else the newest", () => {
     const threads = [t("voice", "voice:1"), t("whatsapp", "wa:1"), t("email", "email:1")];
     expect(tabMainKey(threads, "wa:1")).toBe("wa:1");
-    expect(tabMainKey(threads, "voice:1")).toBe("email:1");
+    expect(tabMainKey(threads, "voice:1")).toBe("voice:1");
     expect(tabMainKey(threads, undefined)).toBe("email:1");
-    expect(tabMainKey([t("voice", "voice:1")], "voice:1")).toBe("voice:1");
+    expect(tabMainKey(threads, "gone:1")).toBe("email:1");
   });
 });
 
-describe("omnichannel off: tabs", () => {
+describe("AI display inline and panel: tabs", () => {
   for (const ai of ["inline", "panel"] as const) {
     it(`AI display ${ai}: a tab swaps the main column; the panel holds Contact Details only`, async () => {
-      await setUp(ai, false);
+      await setUp(ai);
       await whatsAppAndEmail();
       expect(main()).toBe("email");
       // Exactly one tab active: the main one.
@@ -123,7 +123,7 @@ describe("omnichannel off: tabs", () => {
   }
 
   it("hover previews: the inactive tab previews, the active one doesn't", async () => {
-    await setUp("inline", false);
+    await setUp("inline");
     await whatsAppAndEmail();
     await hover(headerIcon("Email")!);
     expect(previews()).toHaveLength(0);
@@ -132,7 +132,7 @@ describe("omnichannel off: tabs", () => {
   });
 
   it("a single-thread card has no tabs", async () => {
-    await setUp("inline", false);
+    await setUp("inline");
     await dial("email");
     await h.click(h.navCard(priya.name));
     expect(headerIcon("Email")).toBeNull();
@@ -143,7 +143,7 @@ describe("omnichannel off: tabs", () => {
   // picked, whether or not the card is selected (the selected card stays).
   for (const selected of [true, false]) {
     it(`an accepted chat becomes its card's tab over a picked tab (card ${selected ? "selected" : "not selected"})`, async () => {
-      await setUp("inline", false);
+      await setUp("inline");
       // Lauren (no directory record, so the chat finds her card by address): a WhatsApp, then an email.
       let journey = "";
       for (const channel of ["whatsapp", "email"] as const) {
@@ -195,22 +195,45 @@ describe("omnichannel off: tabs", () => {
     });
   }
 
-  it("a call beside a tab: the voice bar, the main tab stays, no voice tab", async () => {
-    await setUp("inline", false);
-    await dial("email");
-    await h.click(h.navCard(priya.name));
-    await h.accept(await h.startInbound("voice", priya.firstPhone, priya.name));
-    await h.click(h.navCard(priya.name));
-    expect(h.container.querySelectorAll("[data-slot=voice-bar]")).toHaveLength(1);
-    expect(main()).toBe("email");
-    expect(headerIcon("Voice")).toBeNull();
-    expect(headerIcon("Voice Transcript")).toBeNull();
-  });
+  // k3: voice is a tab too (row 11); its main column is the call's AI workspace,
+  // never empty. In panel mode the AI feed leaves Contact Details meanwhile.
+  for (const ai of ["inline", "panel"] as const) {
+    it(`AI display ${ai}: a call is a tab; its main column is the AI workspace (Autosummary, composer); the voice bar stays`, async () => {
+      await setUp(ai);
+      // Priya's call, then an email on the same card.
+      const callId = await h.startInbound("voice", priya.firstPhone, priya.name);
+      await h.accept(callId);
+      const snapshot = await act(async () => {
+        const s = h.provider.getSnapshot();
+        await vi.advanceTimersByTimeAsync(50);
+        return s;
+      });
+      await dial("email", snapshot.interactions.find((i) => i.id === callId)!.journeyId);
+      await h.click(h.navCard(priya.name));
+      expect(h.container.querySelectorAll("[data-slot=voice-bar]")).toHaveLength(1);
+      const voiceTab = () => headerIcon("Voice Transcript")!;
+      expect(voiceTab()).toBeTruthy();
+      if (main() !== "voice") await h.click(voiceTab());
+      expect(main()).toBe("voice");
+      expect(active(voiceTab())).toBe(true);
+      const mainColumn = h.container.querySelector("[data-main-thread]")!;
+      expect(mainColumn.querySelector("[data-slot=ai-workspace] [data-slot=autosummary]")).toBeTruthy();
+      expect(mainColumn.querySelector("[data-slot=copilot-composer]")).toBeTruthy();
+      // The feed is in one place: the main column's AI workspace, not Contact Details.
+      if (panelShows() !== "details") await h.click(contactDetailsButton());
+      expect(panel()!.querySelector("[data-slot=ai-feed]")).toBeNull();
+      expect(document.body.querySelectorAll("[data-slot=copilot-composer]")).toHaveLength(1);
+      // The email tab: the email in main; panel mode's feed is back in Contact Details.
+      await h.click(headerIcon("Email")!);
+      expect(main()).toBe("email");
+      expect(!!panel()!.querySelector("[data-slot=ai-feed]")).toBe(ai === "panel");
+    });
+  }
 });
 
-describe("omnichannel on: unchanged", () => {
-  it("inline: the email opens in the docked panel; the tab icons don't swap the main column", async () => {
-    await setUp("inline", true);
+describe("AI display \"main\": unchanged", () => {
+  it("every thread opens in the docked panel; the main column stays the AI workspace", async () => {
+    await setUp("main");
     await h.accept(await h.startInbound("chat", priya.emailAddress!, priya.name));
     const snapshot = await act(async () => {
       const s = h.provider.getSnapshot();
@@ -219,9 +242,9 @@ describe("omnichannel on: unchanged", () => {
     });
     await dial("email", snapshot.interactions.find((i) => i.channel === "chat")!.journeyId);
     await h.click(h.navCard(priya.name));
-    expect(main()).toBe("chat");
+    expect(main()).toBe("ai");
     await h.click(headerIcon("Email")!);
     expect(panelShows()).toBe("email");
-    expect(main()).toBe("chat");
+    expect(main()).toBe("ai");
   });
 });

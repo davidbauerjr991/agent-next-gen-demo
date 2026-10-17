@@ -39,10 +39,10 @@ describe("workspace profiles", () => {
     expect(profileValues("phase1")).toEqual(agentSettings(defaultSettings()));
   });
 
-  it("Phase 2 turns on Desk's header apps and placements and the omnichannel layout", () => {
+  it("Phase 2 turns on Desk's header apps and placements and every channel", () => {
     const store = freshStore();
     store.updateMany(profileValues("phase2"));
-    const { header, assignments } = store.getState().values;
+    const { header, channels } = store.getState().values;
     expect([header.showAppIcons, header.search, header.notifications, header.appsGrid].every(Boolean)).toBe(true);
     expect(header.agentChat).toEqual({ enabled: true, placement: "header" });
     for (const app of ["customers", "accounts", "tickets"] as const) {
@@ -51,7 +51,9 @@ describe("workspace profiles", () => {
     for (const app of ["schedule", "wem"] as const) {
       expect(header.apps[app]).toEqual({ enabled: true, placement: "header" });
     }
-    expect(assignments.omnichannel).toBe(true);
+    expect([channels.voice, channels.chat, channels.email, channels.sms, channels.whatsapp].every(Boolean)).toBe(true);
+    // (k3): no omnichannel setting; where threads open follows AI display.
+    expect("omnichannel" in store.getState().values.assignments).toBe(false);
     expect(profile(store)).toBe("phase2");
   });
 
@@ -101,7 +103,7 @@ describe("workspace profiles", () => {
     expect(profile(store)).toBe("custom");
     store.updateMany(profileValues("phase2"));
     expect(profile(store)).toBe("phase2");
-    store.update("assignments", { omnichannel: false });
+    store.update("assignments", { confirmClose: true });
     store.updateMany(profileValues("phase1"));
     expect(profile(store)).toBe("phase1");
   });
@@ -110,7 +112,6 @@ describe("workspace profiles", () => {
     expect(PROFILES.aifirst).toEqual({ ...PROFILES.phase2, ai: { ...PROFILES.phase2.ai, displayLocation: "main" } });
     const store = freshStore();
     store.updateMany(profileValues("aifirst"));
-    expect(store.getState().values.assignments.omnichannel).toBe(true);
     expect(store.getState().values.ai.displayLocation).toBe("main");
     expect(profile(store)).toBe("aifirst");
     store.update("ai", { displayLocation: "inline" });

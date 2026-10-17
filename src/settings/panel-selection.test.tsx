@@ -83,8 +83,9 @@ describe("one selection path for the right panel", () => {
       expect(panelShows()).toBe("details");
       expect(pressed(contactDetailsButton())).toBe(true);
       expect(pressed(headerIcon("WhatsApp"))).toBe(false);
-      // Panel mode: WhatsApp is the main column's thread, marked "in main column", not selected.
-      expect(headerIcon("WhatsApp")!.getAttribute("data-in-main")).toBe(mode === "panel" ? "true" : null);
+      // Panel mode: WhatsApp is the card's lone thread, in the main column with no tab (k3); "main": no in-main mark.
+      if (mode === "panel") expect(headerIcon("WhatsApp")).toBeNull();
+      else expect(headerIcon("WhatsApp")!.getAttribute("data-in-main")).toBeNull();
       // The thread icon takes the panel back (main), and Contact Details is one toggle among them.
       if (mode === "main") {
         await h.click(headerIcon("WhatsApp")!);
@@ -137,12 +138,11 @@ describe("header highlight rule", () => {
   it("active looks the same on every member; inline with the email in main and Contact Details in the panel, both are active", async () => {
     await act(async () => {
       getSettingsStore().update("channels", { chat: true, email: true, whatsapp: true });
-      getSettingsStore().update("assignments", { omnichannel: false });
       getSettingsStore().update("ai", { displayLocation: "inline" });
     });
     await h.show(AgentWorkspaceAdvancedPage);
     await h.goAvailable();
-    // A WhatsApp, then an email on the same card: omnichannel off, so the email is the main thread.
+    // A WhatsApp, then an email on the same card: tabs (AI display inline), the email (newest) is the main tab.
     let journeyId = "";
     for (const channel of ["whatsapp", "email"] as const) {
       await act(async () => {
@@ -203,25 +203,26 @@ describe("header highlight rule", () => {
     expect([...emailOn].sort()).toEqual([...whatsAppOn].sort());
   });
 
-  it("selected = what the panel shows (single); inline/panel also mark the main column's thread 'in main'; main: no in-main mark", async () => {
+  it("tabs (inline, panel): exactly one tab is main and pressed, the other swaps it, the panel never shows a thread; main: only the panel's thread", async () => {
     await chatAndEmailCard();
     const inMain = (label: string) => headerIcon(label)!.getAttribute("data-in-main") === "true";
-    // Inline (Phase 2): the chat is in the main column → marked in-main, not selected.
-    expect([pressed(headerIcon("Chat")), inMain("Chat")]).toEqual([false, true]);
-    expect([pressed(headerIcon("Email")), inMain("Email")]).toEqual([false, false]);
-    await h.click(headerIcon("Email")!);
-    expect(panelShows()).toBe("email");
-    expect([pressed(headerIcon("Chat")), inMain("Chat")]).toEqual([false, true]);
-    expect([pressed(headerIcon("Email")), inMain("Email")]).toEqual([true, false]);
-    // Clicking the in-main icon is a no-op.
-    await h.click(headerIcon("Chat")!);
-    expect(panelShows()).toBe("email");
-    // Panel mode: the same rule.
-    await act(async () => {
-      getSettingsStore().update("ai", { displayLocation: "panel" });
-      await vi.advanceTimersByTimeAsync(50);
-    });
-    expect([inMain("Chat"), pressed(headerIcon("Email"))]).toEqual([true, true]);
+    const mainThread = () => h.container.querySelector("[data-main-thread]")?.getAttribute("data-main-thread");
+    for (const displayLocation of ["inline", "panel"] as const) {
+      await act(async () => {
+        getSettingsStore().update("ai", { displayLocation });
+        await vi.advanceTimersByTimeAsync(50);
+      });
+      const [main, other] = mainThread() === "chat" ? ["Chat", "Email"] : ["Email", "Chat"];
+      expect([pressed(headerIcon(main)), inMain(main), pressed(headerIcon(other)), inMain(other)]).toEqual([true, true, false, false]);
+      // The other tab swaps the main column; the panel never shows a thread.
+      await h.click(headerIcon(other)!);
+      expect(mainThread()).toBe(other.toLowerCase());
+      expect([pressed(headerIcon(other)), pressed(headerIcon(main))]).toEqual([true, false]);
+      expect(["chat", "email"]).not.toContain(panelShows());
+      // Clicking the main tab is a no-op.
+      await h.click(headerIcon(other)!);
+      expect(mainThread()).toBe(other.toLowerCase());
+    }
     // "main": nothing in the main column; only the panel's thread is selected.
     await act(async () => {
       getSettingsStore().update("ai", { displayLocation: "main" });

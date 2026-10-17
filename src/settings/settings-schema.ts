@@ -213,9 +213,10 @@ const home = defineSection<HomeSettings>({
 export const AUTO_ACCEPT_CHANNELS = ["chat", "email", "sms", "whatsapp"] as const;
 export type AutoAcceptChannel = (typeof AUTO_ACCEPT_CHANNELS)[number];
 
+/** v2 (P-AIFIRST (k3)): `omnichannel` retired. Where threads open follows AI
+ *  display alone: tabs for the main column (inline, panel), the docked panel
+ *  under "main". */
 export interface AssignmentsSettings {
-  /** Sync channels in the main column, async in the right slide-out. */
-  omnichannel: boolean;
   /** Per digital channel: on, an offer is accepted at once and loads as a
    *  card; off, it arrives as an offer card with Accept / Decline, like a
    *  call. (CXone's per-agent Auto Accept.) */
@@ -231,9 +232,8 @@ export interface AssignmentsSettings {
 
 const assignments = defineSection<AssignmentsSettings>({
   key: "assignments",
-  version: 1,
+  version: 2,
   defaults: {
-    omnichannel: false,
     autoAccept: Object.fromEntries(AUTO_ACCEPT_CHANNELS.map((c) => [c, true])) as Record<AutoAcceptChannel, boolean>,
     newOutboundAtBottom: false,
     navItemsAtTop: false,
@@ -242,7 +242,6 @@ const assignments = defineSection<AssignmentsSettings>({
     confirmClose: false,
   },
   fields: {
-    omnichannel: bool(),
     autoAccept: group<Record<AutoAcceptChannel, boolean>>(
       Object.fromEntries(AUTO_ACCEPT_CHANNELS.map((c) => [c, bool()])) as Fields<Record<AutoAcceptChannel, boolean>>,
     ),
@@ -333,9 +332,10 @@ const voice = defineSection<VoiceSettings>({
 });
 
 /** "inline": AI rows in the transcript. "panel": AI in the docked Contact
- *  Details panel. "main" (AI-first, P-AIFIRST): the AI workspace fills the
- *  main column and every conversation thread opens in the docked panel; it
- *  implies the omnichannel routing. */
+ *  Details panel. In both, a card's threads are tabs for the main column (a
+ *  call's tab is its AI workspace). "main" (AI-first, P-AIFIRST): the AI
+ *  workspace fills the main column and every conversation thread opens in
+ *  the docked panel, one at a time. */
 export const AI_DISPLAY_LOCATIONS = ["inline", "panel", "main"] as const;
 export type AiDisplayLocation = (typeof AI_DISPLAY_LOCATIONS)[number];
 export interface AiSettings {

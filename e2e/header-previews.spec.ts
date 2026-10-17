@@ -6,11 +6,10 @@ import { expect, test, type Page } from "@playwright/test";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-async function setUp(page: Page, settings: { ai: string; omnichannel: boolean }, width = 1600) {
+async function setUp(page: Page, settings: { ai: string }, width = 1600) {
   await page.setViewportSize({ width, height: 1000 });
   await page.addInitScript((s) => {
     localStorage.setItem("agent-next-gen:settings:ai", JSON.stringify({ v: 1, value: { displayLocation: s.ai } }));
-    localStorage.setItem("agent-next-gen:settings:assignments", JSON.stringify({ v: 1, value: { omnichannel: s.omnichannel } }));
     localStorage.setItem("agent-next-gen:settings:channels", JSON.stringify({ v: 1, value: { voice: true, chat: true, email: true } }));
   }, settings);
   await page.goto("?provider=sim&latency=off#/agent-advanced");
@@ -42,7 +41,7 @@ const icon = (page: Page, label: string) => page.locator(`[aria-label='Open ${la
 const preview = (page: Page) => page.locator("[data-slot=hover-preview]");
 
 test("AI display main: the Contact Details hover action selects Contact Details: header, toggle and body together", async ({ page }) => {
-  await setUp(page, { ai: "main", omnichannel: true });
+  await setUp(page, { ai: "main" });
   await priyaCard(page, false);
   await expect(page.locator("[data-slot=right-panel][data-open=true][data-thread=chat]")).toBeVisible();
   await contactDetails(page).hover();
@@ -57,7 +56,7 @@ test("AI display main: the Contact Details hover action selects Contact Details:
 });
 
 test("AI display panel: one Copilot composer, in the panel, whether it floats (narrow) or docks (wide)", async ({ page }) => {
-  await setUp(page, { ai: "panel", omnichannel: false }, 1000);
+  await setUp(page, { ai: "panel" }, 1000);
   await priyaCard(page, false);
   const inPanel = page.locator("[data-slot=right-panel] [data-slot=copilot-composer]");
   await expect(inPanel).toHaveCount(1);
@@ -70,7 +69,7 @@ test("AI display panel: one Copilot composer, in the panel, whether it floats (n
 
 test("the quick-reply menu in a chat preview floats above it, fully visible, beyond the popover's bounds; the preview stays open", async ({ page }) => {
   // AI display main: Priya's chat is in the panel; select Contact Details, then preview the chat.
-  await setUp(page, { ai: "main", omnichannel: true });
+  await setUp(page, { ai: "main" });
   await priyaCard(page, false);
   await contactDetails(page).click();
   await page.mouse.move(5, 5);
@@ -97,8 +96,8 @@ test("the quick-reply menu in a chat preview floats above it, fully visible, bey
 });
 
 test("hover previews share a min height: an empty email preview renders at it", async ({ page }) => {
-  // Omnichannel: the chat holds the main column, so the email previews ("Coming soon").
-  await setUp(page, { ai: "inline", omnichannel: true });
+  // Tabs (inline): the chat holds the main column, so the email tab previews ("Coming soon").
+  await setUp(page, { ai: "inline" });
   await priyaCard(page, true);
   await icon(page, "Email").hover();
   await expect(preview(page)).toBeVisible();
@@ -119,7 +118,7 @@ test("hover previews share a min height: an empty email preview renders at it", 
 test("a long chat preview grows to the max height and scrolls inside, the composer pinned", async ({ page }) => {
   // Lucas under AI display "main": his long chat is in the panel; with Contact
   // Details selected instead, hovering the chat icon previews it.
-  await setUp(page, { ai: "main", omnichannel: true });
+  await setUp(page, { ai: "main" });
   await page.keyboard.press("a");
   await page.locator("aside [aria-label^='Lucas Thomas']").first().click({ force: true });
   await page.waitForTimeout(14_000);

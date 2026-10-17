@@ -5,7 +5,7 @@ import { expect, test } from "@playwright/test";
 // flex row, so the page must stack them itself; jsdom can't see this.
 test("New Outbound at the bottom stacks under Home and Settings, full width", async ({ page }) => {
   await page.addInitScript(() => {
-    localStorage.setItem("agent-next-gen:settings:assignments", JSON.stringify({ v: 1, value: { newOutboundAtBottom: true } }));
+    localStorage.setItem("agent-next-gen:settings:assignments", JSON.stringify({ v: 2, value: { newOutboundAtBottom: true } }));
   });
   await page.goto("?provider=sim&latency=off#/agent-advanced");
   await page.getByRole("button", { name: "Go Available" }).click();

@@ -241,7 +241,6 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
   const [resetOpen, setResetOpen] = React.useState(false);
   const providerKind = useProviderKind();
 
-  const aiInMain = ai.displayLocation === "main";
   const profileOptions = [
     ...PROFILE_IDS.map((id) => ({ value: id, label: PROFILE_LABELS[id] })),
     ...(profile === "custom" ? [{ value: "custom", label: PROFILE_LABELS.custom, disabled: true }] : []),
@@ -285,7 +284,7 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
           </div>
           <p className="lyra-body-sm text-lyra-fg-secondary">
             A profile sets the agent settings on this page. Phase 1 is the defaults; Phase 2 adds the header apps
-            (Customers, Accounts and Tickets as Home tabs; Schedule and WEM in the header) and the omnichannel layout;
+            (Customers, Accounts and Tickets as Home tabs; Schedule and WEM in the header) and every channel;
             AI-first is Phase 2 with every conversation in the side panel and the AI workspace in the main column.
             Changing any setting shows Custom.
           </p>
@@ -434,19 +433,6 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
         </Section>
 
         <Section title="Assignments">
-          {/* AI display "main" implies the omnichannel routing: shown on, not editable. */}
-          {aiInMain ? (
-            <div className="flex items-center gap-2" data-setting="omnichannel">
-              <Switch size="sm" label="Omnichannel layout" checked disabled />
-              <Pending>Set by AI display</Pending>
-            </div>
-          ) : (
-            <SwitchRow
-              label="Omnichannel layout"
-              checked={assignments.omnichannel}
-              onCheckedChange={(omnichannel) => updateAssignments({ omnichannel })}
-            />
-          )}
           {/* Off: that channel's contacts arrive as offers with Accept / Decline, like a call. */}
           <CheckboxRow
             legend="Auto-accept"

@@ -624,9 +624,8 @@ describe("(14) voice transcript placement", () => {
     await h.click(h.navCard("Marcus Webb"));
     await h.advance(1_000);
   }
-  /** The side panel's column (header, tabs, scroll area, footer). */
-  const panel = () =>
-    document.body.querySelector("[data-slot=details-panel-body]")!.parentElement!.closest(".overflow-y-auto")!.parentElement!;
+  /** The docked side panel (Contact Details). */
+  const panel = () => document.body.querySelector("[data-slot=right-panel]")!;
   const transcriptTab = () =>
     [...panel().querySelectorAll("button, [role=tab]")].find((el) => el.textContent?.trim() === "Transcript");
   const lineInMain = () =>
@@ -634,17 +633,17 @@ describe("(14) voice transcript placement", () => {
       (el) => el.children.length === 0 && el.textContent?.includes(LINE) && !panel().contains(el) && !el.closest("aside"),
     );
 
-  it("panel mode: the call's transcript fills the main column and the panel has no Transcript tab", async () => {
-    await marcus("panel");
-    expect(lineInMain()).toBe(true);
-    expect(transcriptTab()).toBeUndefined();
-  });
-
-  it("inline mode: unchanged, the spoken lines stay in the panel's Transcript tab", async () => {
-    await marcus("inline");
-    expect(lineInMain()).toBe(false);
-    expect(transcriptTab()).toBeTruthy();
-  });
+  // (k3): a call's tab is its AI workspace in every mode, so the main column is
+  // never the bare transcript (it was in panel mode, and read empty on a fresh
+  // call); the spoken lines are in Contact Details' Transcript tab.
+  for (const display of ["inline", "panel"] as const) {
+    it(`${display} mode: the main column is the call's AI workspace; the spoken lines are in the panel's Transcript tab`, async () => {
+      await marcus(display);
+      expect(document.body.querySelector("[data-main-thread=voice] [data-slot=ai-workspace]")).not.toBeNull();
+      expect(lineInMain()).toBe(false);
+      expect(transcriptTab()).toBeTruthy();
+    });
+  }
 });
 
 describe("Reset to defaults", () => {

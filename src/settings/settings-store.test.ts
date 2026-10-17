@@ -78,20 +78,29 @@ describe("settings store", () => {
     expect(store.getState().stored.voice).toBe(false);
   });
 
+  it("assignments v1 (with the retired omnichannel flag, (k3)) falls back to v2's defaults", () => {
+    expect(SECTIONS.assignments.version).toBe(2);
+    const backing = memoryStorage({ [sectionStorageKey("assignments")]: stored({ omnichannel: true, confirmClose: true }, 1) });
+    const store = createSettingsStore(safeStorage(() => backing));
+    expect(store.getState().values.assignments).toEqual(SECTIONS.assignments.defaults);
+    expect("omnichannel" in store.getState().values.assignments).toBe(false);
+  });
+
   it("a stored field whose type changed falls back for that field only", () => {
     const backing = memoryStorage({
-      [sectionStorageKey("assignments")]: stored({
-        omnichannel: "yes",
-        newOutboundAtBottom: true,
-        navItemsAtTop: 1,
-        noInteractionCollapse: true,
-        retiredFlag: true,
-      }),
+      [sectionStorageKey("assignments")]: stored(
+        {
+          newOutboundAtBottom: true,
+          navItemsAtTop: 1,
+          noInteractionCollapse: true,
+          retiredFlag: true,
+        },
+        SECTIONS.assignments.version,
+      ),
       [sectionStorageKey("voice")]: stored({ controlsLocation: "sideways" }),
     });
     const store = createSettingsStore(safeStorage(() => backing));
     expect(store.getState().values.assignments).toEqual({
-      omnichannel: false,
       newOutboundAtBottom: true,
       navItemsAtTop: false,
       noInteractionCollapse: true,

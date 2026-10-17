@@ -51,10 +51,9 @@ async function leave(el: HTMLElement) {
     await vi.advanceTimersByTimeAsync(300);
   });
 }
-async function settings(ai: AiDisplayLocation, omnichannel = false) {
+async function settings(ai: AiDisplayLocation) {
   await act(async () => {
     getSettingsStore().update("channels", { chat: true, email: true, whatsapp: true });
-    getSettingsStore().update("assignments", { omnichannel });
     getSettingsStore().update("ai", { displayLocation: ai });
     await vi.advanceTimersByTimeAsync(50);
   });
@@ -139,10 +138,10 @@ describe("header hover previews", () => {
   });
 
   it("unread: a preview that opened counts as reading (the badge clears on hover-off); a glancing hover doesn't", async () => {
-    // Omnichannel: Priya's WhatsApp in the main column… no sync thread, so use an inbound chat for main.
+    // AI display "main" (threads in the panel, where unread counts apply): a chat and a WhatsApp on Priya's card.
     await h.show(AgentWorkspaceAdvancedPage);
     await h.goAvailable();
-    await settings("inline", true);
+    await settings("main");
     await h.startInbound("chat", priya.emailAddress!, priya.name);
     await h.advance(500);
     await act(async () => {
@@ -188,7 +187,7 @@ describe("header hover previews", () => {
   it("one header icon per channel: two email threads → one email icon reading 2; two rows in the nav", async () => {
     await h.show(AgentWorkspaceAdvancedPage);
     await h.goAvailable();
-    await settings("inline", true);
+    await settings("inline");
     const journey = await dial("whatsapp");
     await act(async () => {
       for (const address of ["priya.shah@example.com", "priya.billing@example.com"]) {

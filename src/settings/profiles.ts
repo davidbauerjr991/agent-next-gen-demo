@@ -26,8 +26,8 @@ function phase1(): SettingsState {
 }
 
 /** Phase 2: Desk's layout. Customers, Accounts and Tickets as Home tabs,
- *  Schedule and WEM in the header, the omnichannel layout. Every other
- *  section at its default. */
+ *  Schedule and WEM in the header, every channel. Every other section at its
+ *  default. */
 function phase2(): SettingsState {
   const base = defaultSettings();
   const apps: Record<ExtraHeaderApp, AppDisplay> = {
@@ -41,7 +41,6 @@ function phase2(): SettingsState {
   return {
     ...base,
     header: { ...base.header, showAppIcons: true, apps },
-    assignments: { ...base.assignments, omnichannel: true },
     channels: { ...base.channels, voice: true, chat: true, email: true, sms: true, whatsapp: true },
     // Every Directory App tab and every Outbound Calling behavior.
     outbound: {

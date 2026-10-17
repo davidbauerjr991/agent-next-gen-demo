@@ -19,7 +19,6 @@ declare global {
 
 async function chatAndEmailCard(page: Page) {
   await page.addInitScript(() => {
-    localStorage.setItem("agent-next-gen:settings:assignments", JSON.stringify({ v: 1, value: { omnichannel: true } }));
     localStorage.setItem("agent-next-gen:settings:ai", JSON.stringify({ v: 1, value: { displayLocation: "main" } }));
     localStorage.setItem(
       "agent-next-gen:settings:channels",

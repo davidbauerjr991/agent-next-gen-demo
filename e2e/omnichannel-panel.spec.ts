@@ -1,8 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// Omnichannel: an async thread opens in the same docked right panel as
-// Contact Details (it pushes the main column, not an overlay), and a channel
-// icon's hover preview shows only while that channel isn't open in the panel.
+// AI display "main" (since P-AIFIRST (k3) the only mode where threads open in
+// the panel): a thread opens in the same docked right panel as Contact
+// Details (it pushes the main column, not an overlay), and a channel icon's
+// hover preview shows only while that channel isn't open in the panel.
 // Layout and hover, so Chrome, not jsdom.
 
 declare global {
@@ -20,7 +21,7 @@ declare global {
 
 async function voiceAndEmailCard(page: Page) {
   await page.addInitScript(() => {
-    localStorage.setItem("agent-next-gen:settings:assignments", JSON.stringify({ v: 1, value: { omnichannel: true } }));
+    localStorage.setItem("agent-next-gen:settings:ai", JSON.stringify({ v: 1, value: { displayLocation: "main" } }));
     localStorage.setItem("agent-next-gen:settings:channels", JSON.stringify({ v: 1, value: { voice: true, email: true } }));
   });
   await page.goto("?provider=sim&latency=off#/agent-advanced");
@@ -51,9 +52,11 @@ async function voiceAndEmailCard(page: Page) {
   expect(failure).toBeNull();
   // `force`: the new-assignment card animates, so it never reads as "stable".
   await page.locator("aside [aria-label^='Lauren Briggs']").first().click({ force: true });
-  await expect(page.locator("[data-main-thread=voice]")).toBeVisible();
-  // A row appearing (this email was dialed through the provider, not
-  // launched from the UI) doesn't move anything: the panel starts closed.
+  await expect(page.locator("[data-main-thread=ai]")).toBeVisible();
+  // The panel opens on the card's first thread that isn't voice (the email);
+  // close it, so each test starts from a closed panel.
+  const open = page.locator("[data-slot=right-panel][data-thread=email][data-open=true]");
+  if (await open.count()) await emailIcon(page).click();
   await expect(page.locator("[data-slot=right-panel][data-open=false]")).toHaveCount(1);
   await page.mouse.move(5, 5);
   await page.waitForTimeout(400); // the panel's width transition

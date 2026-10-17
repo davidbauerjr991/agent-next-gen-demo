@@ -45,14 +45,15 @@ describe("digital offers load as cards", () => {
   // Browser check round 2, item 1: the email card is selected (the sim has no
   // inbound email, so it's an outbound one), then a chat arrives for the same
   // address. It joins the card as a second row and activates "added".
-  // Omnichannel on: the panel opens with the chat, the main column stays on
-  // the email. Off (tabs, P-AIFIRST (k)): accepting the chat selects its tab
-  // (the main column), and the panel never shows a thread.
-  for (const omnichannel of [true, false]) {
-    it(`a chat arriving for the selected email card joins it (omnichannel ${omnichannel ? "on: opens beside it" : "off: selects its tab"})`, async () => {
+  // AI display "main": the panel opens with the chat, the main column stays
+  // the AI workspace. Inline (tabs, P-AIFIRST (k), (k3)): accepting the chat
+  // selects its tab (the main column), and the panel never shows a thread.
+  for (const displayLocation of ["main", "inline"] as const) {
+    it(`a chat arriving for the selected email card joins it (AI display ${displayLocation === "main" ? "main: opens in the panel" : "inline: selects its tab"})`, async () => {
+      const panelMode = displayLocation === "main";
       await act(async () => {
         getSettingsStore().update("channels", { chat: true, email: true });
-        getSettingsStore().update("assignments", { omnichannel });
+        getSettingsStore().update("ai", { displayLocation });
       });
       await h.show(AgentWorkspaceAdvancedPage);
       await h.goAvailable();
@@ -64,15 +65,15 @@ describe("digital offers load as cards", () => {
       await h.click(h.navCard("Lauren Briggs"));
       const main = () => h.container.querySelector("[data-main-thread]")?.getAttribute("data-main-thread");
       const panel = () => h.container.querySelector("[data-slot=right-panel]");
-      expect(main()).toBe("email");
+      expect(main()).toBe(panelMode ? "ai" : "email");
 
       await h.startInbound("chat", "lauren@example.com", "Lauren Briggs");
       await h.advance(1_000);
       const rows = [...h.navCard("Lauren Briggs").closest("li, [data-slot=nav-card], div")!.parentElement!.querySelectorAll("[aria-label$=' channel'], [aria-label*=' channel,']")]
         .map((row) => row.getAttribute("aria-label")!.split(" ")[0]);
       expect(rows).toEqual(expect.arrayContaining(["Email", "Chat"]));
-      if (omnichannel) {
-        expect(main()).toBe("email");
+      if (panelMode) {
+        expect(main()).toBe("ai");
         expect(panel()?.getAttribute("data-open")).toBe("true");
         expect(panel()?.getAttribute("data-thread")).toBe("chat");
       } else {

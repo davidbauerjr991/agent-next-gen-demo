@@ -15,19 +15,18 @@ import { threadKeyOf } from "./channel-thread";
  *  (AI display "main", the AI-first layout) puts every thread in the panel. */
 export type ConversationPlacement = "main" | "panel";
 
-/** Where a thread that isn't the main column's goes: the docked panel
- *  (omnichannel) or nowhere but its tab (omnichannel off: the header icons
+/** Where a thread that isn't the main column's goes: the docked panel (AI
+ *  display "main") or nowhere but its tab (inline, panel: the header icons
  *  are tabs for the main column). */
 export type AsyncPlacement = "tabs" | "panel";
 
-/** Omnichannel off ("tabs"): the main column's thread. Voice has no tab, so
- *  it fills the main column only on a voice-only card; otherwise the
- *  requested thread if it's a tab, else the newest one that is. */
+/** Tabs (AI display inline or panel): the main column's thread. Every thread
+ *  is a tab, voice included (its tab is the call's AI workspace): the
+ *  requested one, else the newest. */
 export function tabMainKey(threads: readonly Thread[], requested: string | undefined): string | undefined {
-  const tabs = threads.filter((t) => t.type !== "voice");
-  if (tabs.length === 0) return requested;
-  if (requested !== undefined && tabs.some((t) => threadKeyOf(t) === requested)) return requested;
-  return threadKeyOf(tabs[tabs.length - 1]);
+  if (requested !== undefined && threads.some((t) => threadKeyOf(t) === requested)) return requested;
+  const newest = threads[threads.length - 1];
+  return newest ? threadKeyOf(newest) : requested;
 }
 
 export type ChannelTempo = "sync" | "async";

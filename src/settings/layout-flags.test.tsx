@@ -194,7 +194,10 @@ describe("Apps placed in the left nav open as pages", () => {
   });
 });
 
-describe("Omnichannel layout (assignments.omnichannel)", () => {
+// P-AIFIRST (k3): no omnichannel setting. AI display inline and panel make a
+// card's threads tabs for the main column (voice included: its tab is the
+// call's AI workspace); "main" opens them in the docked panel.
+describe("Header tabs (AI display inline) and the panel's thread (\"main\")", () => {
   const priya = CREATE_NEW_CUSTOMERS.find((c) => c.id === "priya-shah-history")!;
   /** What the right panel (Contact Details' panel) shows: a thread type, "details", or null when closed. */
   const panelShows = () => {
@@ -238,76 +241,48 @@ describe("Omnichannel layout (assignments.omnichannel)", () => {
     await h.click(h.navCard(priya.name));
   }
 
-  it("voice + email: the email opens in the right panel (Contact Details' panel), the call stays in the main column", async () => {
+  it("inline: the call and the email are tabs; the email (newest) is main; the voice tab is the call's AI workspace; the panel never a thread", async () => {
     await voiceAndEmail();
-    await setSettings("assignments", { omnichannel: true });
-    expect(mainThread()).toBe("voice");
+    expect(mainThread()).toBe("email");
     expect(panelShows()).toBeNull();
-    await h.click(headerIcon("Email")!);
-    expect(panelShows()).toBe("email");
-    expect(h.container.querySelector("[data-slot=right-panel]")?.textContent).toContain("Coming soon");
+    await h.click(headerIcon("Voice Transcript")!);
     expect(mainThread()).toBe("voice");
-    // The same icon closes it.
+    const main = h.container.querySelector("[data-main-thread]")!;
+    expect(main.querySelector("[data-slot=ai-workspace] [data-slot=autosummary]")).toBeTruthy();
+    expect(main.querySelector("[data-slot=copilot-composer]")).toBeTruthy();
+    expect(panelShows()).toBeNull();
+    // The email tab swaps back.
     await h.click(headerIcon("Email")!);
+    expect(mainThread()).toBe("email");
     expect(panelShows()).toBeNull();
   });
 
-  it("the channel icons and Contact Details are one toggle group: the panel follows the last one clicked", async () => {
+  it("the tabs and Contact Details are one toggle group: the main tab pressed, Contact Details beside it", async () => {
     await voiceAndEmail();
-    await setSettings("assignments", { omnichannel: true });
-    expect(pressed()).toEqual([]);
-    await h.click(headerIcon("Email")!);
     expect(pressed()).toEqual(["Email"]);
-    expect(panelShows()).toBe("email");
     await h.click(contactDetailsButton()!);
     expect(panelShows()).toBe("details");
-    expect(pressed()).toEqual(["Contact Details"]); // the email icon is released
-    await h.click(headerIcon("Email")!);
-    expect(pressed()).toEqual(["Email"]);
-    expect(panelShows()).toBe("email");
-  });
-
-  it("the Contact Details button is always visible: selected while its panel shows Contact Details, which it then closes", async () => {
-    await voiceAndEmail();
-    await setSettings("assignments", { omnichannel: true });
-    expect(contactDetailsButton()?.getAttribute("aria-pressed")).toBe("false");
-    await h.click(contactDetailsButton()!);
-    expect(panelShows()).toBe("details");
-    expect(contactDetailsButton()?.getAttribute("aria-pressed")).toBe("true");
+    expect(pressed()).toEqual(["Email", "Contact Details"]);
     // Clicking it again closes the panel; it stays visible.
     await h.click(contactDetailsButton()!);
     expect(panelShows()).toBeNull();
-    expect(contactDetailsButton()?.getAttribute("aria-pressed")).toBe("false");
-    // The email thread in the panel → the email icon selected, Contact Details released.
-    await h.click(headerIcon("Email")!);
-    expect(panelShows()).toBe("email");
-    expect(contactDetailsButton()?.getAttribute("aria-pressed")).toBe("false");
-    expect(headerIcon("Email")!.getAttribute("aria-pressed")).toBe("true");
+    expect(pressed()).toEqual(["Email"]);
   });
 
-  it("the open async thread's nav row is highlighted next to the main row; closing clears it", async () => {
+  it("the main tab's nav row is the highlighted one; a row swaps the main column like its tab", async () => {
     await voiceAndEmail();
-    await setSettings("assignments", { omnichannel: true });
     expect(highlightedRows()).toBe(1);
-    await h.click(headerIcon("Email")!);
-    expect(highlightedRows()).toBe(2);
-    await h.click(headerIcon("Email")!);
-    expect(highlightedRows()).toBe(1);
-  });
-
-  it("off: the newest thread (the email) takes the main column, as before", async () => {
-    await voiceAndEmail();
-    expect(panelShows()).toBeNull();
-    expect(mainThread()).toBe("email");
-    // Turning it on moves the email out of the main column.
-    await setSettings("assignments", { omnichannel: true });
+    await h.click(h.container.querySelector<HTMLElement>("aside [aria-label^='Voice channel']")!);
     expect(mainThread()).toBe("voice");
+    expect(highlightedRows()).toBe(1);
   });
 
-  it("the slide-out belongs to its card: another card closes it, coming back reopens it", async () => {
+  it("AI display \"main\": the panel's thread belongs to its card: another card closes it, coming back reopens it", async () => {
     await voiceAndEmail();
-    await setSettings("assignments", { omnichannel: true });
-    await h.click(headerIcon("Email")!);
+    await setSettings("ai", { displayLocation: "main" });
+    // The panel opens on the card's first thread that isn't voice: the email.
+    if (panelShows() !== "email") await h.click(headerIcon("Email")!);
+    expect(panelShows()).toBe("email");
     await setSettings("channels", { chat: true });
     await h.accept(await h.startInbound("chat", "dan.ortiz@example.com", "Dan Ortiz"));
     await h.click(h.navCard("Dan Ortiz"));
@@ -316,7 +291,7 @@ describe("Omnichannel layout (assignments.omnichannel)", () => {
     expect(panelShows()).toBe("email");
   });
 
-  it("Phase 2 profile: Home tabs and the omnichannel slide-out together", async () => {
+  it("Phase 2 profile: Home tabs, and the card's threads as header tabs", async () => {
     await voiceAndEmail();
     await applyPhase2();
     expect(homeTabLabels()).toEqual([]); // the card view, not Home
@@ -326,9 +301,9 @@ describe("Omnichannel layout (assignments.omnichannel)", () => {
     await h.click(home);
     expect(homeTabLabels()).toEqual(["Dashboard", "Customers", "Accounts", "Tickets"]);
     await h.click(h.navCard(priya.name));
-    await h.click(headerIcon("Email")!);
-    expect(panelShows()).toBe("email");
+    await h.click(headerIcon("Voice Transcript")!);
     expect(mainThread()).toBe("voice");
+    expect(panelShows()).not.toBe("email");
   });
 });
 
@@ -481,15 +456,13 @@ describe("AI display \"main\": the AI-first layout (ai.displayLocation)", () => 
     await expectMainHeader();
   });
 
-  it("Settings: with AI display \"main\" the Omnichannel switch shows on, \"Set by AI display\"", async () => {
+  it("Settings: no Omnichannel switch in any AI display (retired in (k3))", async () => {
     await h.show(SettingsView as never);
-    await aiFirst();
-    const omni = h.container.querySelector("[data-setting=omnichannel]");
-    expect(omni?.textContent).toContain("Set by AI display");
-    expect(omni?.querySelector("[role=switch]")?.getAttribute("aria-checked")).toBe("true");
-    // Another AI display: the switch is editable again.
-    await setSettings("ai", { displayLocation: "inline" });
-    expect(h.container.querySelector("[data-setting=omnichannel]")).toBeNull();
+    for (const displayLocation of ["main", "inline", "panel"] as const) {
+      await setSettings("ai", { displayLocation });
+      expect(h.container.querySelector("[data-setting=omnichannel]")).toBeNull();
+      expect(h.container.textContent).not.toContain("Omnichannel layout");
+    }
   });
 });
 

@@ -1732,9 +1732,11 @@ export function AgentWorkspaceAdvancedPage({
   // into the docked Contact Details panel (`renderAiPanelFeed`). AI display
   // "main" (AI-first) makes it the main column instead (`AiWorkspaceColumn`),
   // every thread opens in the panel, and it implies the omnichannel routing.
-  const { panelPlacement, placement, omnichannel, aiInPanel, asyncPlacement } = useConversationPlacement();
-  // Omnichannel off: the header channel icons are tabs for the main column (P-AIFIRST (k)).
+  const { panelPlacement, placement, aiInPanel, asyncPlacement, aiWorkspaceInMain } = useConversationPlacement();
+  // AI display inline / panel: the header channel icons are tabs for the main column (P-AIFIRST (k), (k3)).
   const tabs = asyncPlacement === "tabs";
+  // Threads open in the docked panel, one that moves: AI display "main" only since (k3) (no omnichannel setting).
+  const omnichannel = !tabs;
   // AI display "panel": the interior slide-over mounts in the Contact Details panel.
   const [rightPanelMount, setRightPanelMount] = useState<HTMLElement | null>(null);
   const portalInto = (mount: HTMLElement | null, node: React.ReactElement) => (mount ? createPortal(node, mount) : node);
@@ -1940,20 +1942,20 @@ export function AgentWorkspaceAdvancedPage({
     defaultKey: panelPlacement && activeInteraction ? panelDefaultKey(activeInteraction.threads) : undefined,
   });
   const activeChannelType = activeChannel?.type;
-  // AI in the panel + a voice contact: the call's transcript fills the main
-  // column (its AI rows moved to the panel, so it would otherwise be empty),
-  // and the panel drops its Transcript tab. Inline mode keeps the AI rows in
-  // the main column and the spoken lines in the Transcript tab. (A call next
-  // to a chat that stays the main thread, Lucas, keeps its Transcript tab.)
-  const voiceTranscriptInMain = aiInPanel && activeChannelType === "voice";
+  // The main column is the AI workspace (Autosummary, AI feed, Copilot
+  // composer, wrap-up card): always under "main", and on a call's tab in
+  // inline and panel (k3), so a voice card's main column is never empty. The
+  // call's spoken lines stay in Contact Details → Transcript; in panel mode
+  // the AI feed leaves Contact Details while it's here (never in both).
+  const aiWorkspaceMain = aiWorkspaceInMain(activeChannelType);
   // The selected card's call in wrap-up, if any (its inline wrap-up card).
   const activeWrapUpThread = voiceWrapUpThread(activeInteraction);
   // The voice thread whose Transcript tab the Contact Details panel offers: the active channel when it's voice, or (Lucas) a live call
-  // John placed from the escalation card while the chat stays on screen; with tabs, any call beside the main tab (voice has none).
+  // John placed from the escalation card while the chat stays on screen.
   const panelVoiceThread: Thread | undefined =
     activeChannelType === "voice"
       ? activeChannel
-      : activeInteraction && (tabs || scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID) && !activeInteraction.closed && !activeInteraction.voiceCallEnded
+      : activeInteraction && scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && !activeInteraction.closed && !activeInteraction.voiceCallEnded
         ? activeInteraction.threads.find((t) => t.type === "voice")
         : undefined;
   // Per explicit follow-up request ("leave the active badge visible if the
@@ -4175,9 +4177,8 @@ export function AgentWorkspaceAdvancedPage({
       if (isNewCard) setSidePanelOpen(false);
       return;
     }
-    // Tabs: an added thread selects its tab; a call beside a tab only brings the voice bar (voice has no tab).
-    const callBesideTabs = tabs && threadKey.startsWith("voice") && !!threads?.some((t) => t.type !== "voice");
-    if (route !== "bar" && !callBesideTabs) selectThread();
+    // Tabs: an added thread (a call included) selects its tab.
+    if (route !== "bar") selectThread();
     // A restarted call starts with an empty Outcome (row 19).
     if (threadKey.startsWith("voice")) outcomeDrafts.clear(outcomeDraftKeyOf(journeyId, threadKey));
     if (route === "bar") return;
@@ -4718,13 +4719,10 @@ export function AgentWorkspaceAdvancedPage({
       }
       return;
     }
-    // Tabs (omnichannel off, P-AIFIRST (k)): a header tab or a nav row swaps
-    // the main column to that thread (from Home it opens the card too). Voice
-    // has no tab: its row leaves the main tab as it is (the voice bar shows).
-    const card = interactions.find((i) => i.id === interactionId);
-    const thread = card?.threads.find((c) => (c.id ?? c.type) === channelKey);
+    // Tabs (AI display inline/panel, P-AIFIRST (k), (k3)): a header tab or a nav
+    // row swaps the main column to that thread, a call's to its AI workspace
+    // (from Home it opens the card too).
     if (interactionId !== activeInteractionId) switchActiveInteraction(interactionId);
-    if (!card || (thread?.type === "voice" && card.threads.some((t) => t.type !== "voice"))) return;
     setInteractions((prev) =>
       prev.map((i) => (i.id === interactionId && i.currentThreadId !== channelKey ? { ...i, currentThreadId: channelKey } : i))
     );
@@ -6395,7 +6393,7 @@ export function AgentWorkspaceAdvancedPage({
       <DetailsPanelAccordions
         {...shared}
         show={aiInPanel ? PANEL_OVERVIEW_SECTIONS : undefined}
-        aiFeed={aiInPanel ? renderAiPanelFeed() : undefined}
+        aiFeed={aiInPanel && !aiWorkspaceMain ? renderAiPanelFeed() : undefined}
         aiFeedCount={aiFeedCount}
         followSignal={inPreview ? undefined : aiFollowSignal}
         onViewCustomerInfo={activeInteractionIsRealCustomer ? focusCustomerPanelTab : undefined}
@@ -6422,7 +6420,7 @@ export function AgentWorkspaceAdvancedPage({
   // panel's footer, or the Contact Details hover preview's footer while it's
   // open (panel mode; the preview only opens while the panel isn't showing
   // Contact Details).
-  const copilotDock = panelPlacement
+  const copilotDock = aiWorkspaceMain
     ? { mount: mainDockEl }
     : aiInPanel
       ? { mount: customerInfoPreviewOpen && hoverDockEl ? hoverDockEl : copilotDockShown ? copilotDockEl : null }
@@ -6438,11 +6436,6 @@ export function AgentWorkspaceAdvancedPage({
   // Journey Summary and Artifacts. Inline mode shows everything on Overview.
   const PANEL_OVERVIEW_SECTIONS = { customerInfo: true, journeySummary: false, artifacts: false };
   const PANEL_SESSION_SECTIONS = { customerInfo: false, journeySummary: true, artifacts: true };
-  // With the voice transcript in the main column the panel has no Transcript
-  // tab, so it can't stay selected.
-  useEffect(() => {
-    if (voiceTranscriptInMain && customerPanelActiveTab === "Transcript") setCustomerPanelActiveTab("Details");
-  }, [voiceTranscriptInMain, customerPanelActiveTab]);
   // "AI in panel": the Contact Details panel opens on Details whenever an
   // interaction becomes active. Declared after the interaction-switch panel
   // save/restore effects so it wins (v3).
@@ -8567,18 +8560,14 @@ export function AgentWorkspaceAdvancedPage({
                             moment this early return comes back out. */}
                         {/* One icon per channel (its most recent thread), never one per thread. */}
                         {channelHeaderEntries(activeInteraction.threads).map(({ thread: c, count: threadCount, keys: channelKeys }) => {
-                          // Tabs (omnichannel off): the icons are tabs for the main column, shown while the card has more than one thread.
-                          if ((!SHOW_VOICE_CHANNEL_HEADER_ICON && c.type === "voice") || (tabs && activeInteraction.threads.length < 2)) return null;
+                          // Tabs (AI display inline/panel): every thread, voice included (row 11), is a tab for the main column, shown while the card has more than one.
+                          if ((!SHOW_VOICE_CHANNEL_HEADER_ICON && !tabs && c.type === "voice") || (tabs && activeInteraction.threads.length < 2)) return null;
                           // Lucas Thomas's chat lives in the main column — no header channel icon.
                           // AI display "main": every thread, scripted ones included, is in the panel and gets its icon.
                           const lucasInMain = !panelPlacement && scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID;
                           if (lucasInMain) return null;
                           const key = c.id ?? c.type;
                           const meta = CHANNEL_TYPE_META[c.type];
-                          // Voice's icon (and Lucas's chat, outside AI display
-                          // "main") reads as active and doesn't toggle the panel:
-                          // that thread is already the main column's content.
-                          const isVoiceChannel = c.type === "voice" || lucasInMain;
                           // Active (the selected look, `panelToggleClass`) = on screen: the panel's thread,
                           // and the main column's outside AI display "main" (clicking that one is a no-op).
                           // Pressed = what the panel shows; with tabs, the main tab (exactly one).
@@ -8588,15 +8577,7 @@ export function AgentWorkspaceAdvancedPage({
                             omnichannel && channelTempo(c.type) === "async"
                               ? omni.unread(activeInteraction.id, key, activeInteraction.liveMessages?.[key])
                               : 0;
-                          // Whether this icon's own channel is the one
-                          // currently showing in the main column — drives
-                          // the "{channel} active" `Tooltip` below, same as
-                          // Phase 2's `isActiveChannel`. Independent of
-                          // `isOpen`/`isVoiceChannel`: today only voice can
-                          // ever be `activeChannelKey`, but this stays
-                          // generic rather than voice-specific so another
-                          // channel type picks it up for free if the
-                          // voice-only restriction is ever lifted.
+                          // This tab is the main column's: its "{channel} active" `Tooltip` below.
                           const isActiveChannel = !panelPlacement && key === activeChannelKey;
                           // Per explicit follow-up request: the voice
                           // icon's own hover label reads "Voice
@@ -8698,19 +8679,13 @@ export function AgentWorkspaceAdvancedPage({
                                   variant="outline"
                                   size="icon-sm"
                                   aria-pressed={tabs ? inMain : isOpen}
-                                  aria-label={
-                                    isVoiceChannel
-                                      ? `${previewLabel} active`
-                                      : `${isOpen ? "Close" : "Open"} ${previewLabel} preview`
-                                  }
+                                  aria-label={`${isOpen ? "Close" : "Open"} ${previewLabel} preview`}
                                   className={cn("ml-0.5 h-8 w-8 px-0", panelToggleClass({ active: isOpen || inMain, previewOpen: hoverOpen }))}
                                   data-preview-open={hoverOpen || undefined}
                                   data-in-main={inMain || undefined}
                                   // Several threads on the channel: their count; else its unread count.
                                   badge={threadCount > 1 ? threadCount : unreadCount > 0 ? unreadCount : undefined}
-                                  onClick={() => {
-                                    if (omnichannel || !isVoiceChannel) selectPanel({ kind: "thread", cardId: activeInteraction.id, key });
-                                  }}
+                                  onClick={() => selectPanel({ kind: "thread", cardId: activeInteraction.id, key })}
                                 >
                                   {meta.icon}
                                 </Button>
@@ -9104,7 +9079,7 @@ export function AgentWorkspaceAdvancedPage({
                           // AI display "main" (AI-first): only the session row
                           // here, the same as every mode; the AI workspace
                           // fills the column below and the thread is in the panel.
-                          sessionRowOnly={panelPlacement}
+                          sessionRowOnly={aiWorkspaceMain}
  hideAiActions={hideAiActions}
                           hideMockFollowUpMessages={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID}
                           // Voice wrap-up (P0.5d.1): while this card's call is
@@ -9312,11 +9287,8 @@ export function AgentWorkspaceAdvancedPage({
                             (scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && lucasThomasReviewing)
                           }
                           liveMessages={stripAiInPanel(
-                            voiceTranscriptInMain
-                              ? // AI in the panel: the main column shows the call's own transcript (utterances, event rows); the AI cards are in the panel.
-                                (activeInteraction.liveMessages?.[activeChannelKey] ?? [])
-                              : activeChannelType === "voice"
-                              ? // Every call, scripted or not: the spoken lines live in the Transcript tab; the main column is the call's AI feed, its Copilot interstitial and result rows.
+                            activeChannelType === "voice"
+                              ? // Every call, scripted or not: the spoken lines live in the Transcript tab; the main column is the call's AI workspace.
                                 (activeInteraction.liveMessages?.[activeChannelKey] ?? []).filter((m) => !!m.instruction)
                               : (activeInteraction.liveMessages?.[activeChannelKey] ?? [])
                           )}
@@ -9508,7 +9480,7 @@ export function AgentWorkspaceAdvancedPage({
                           // passed here at all; see that `actions` block's
                           // own doc comment for the full history/reasoning.
                         />
-                        {panelPlacement && (
+                        {aiWorkspaceMain && (
                           <AiWorkspaceColumn
                             feed={renderAiPanelFeed()}
                             feedCount={aiFeedCount}
@@ -10451,8 +10423,8 @@ export function AgentWorkspaceAdvancedPage({
                       )
                       : (
                         <TabList className="px-4">
-                          {(panelVoiceThread && !voiceTranscriptInMain
-                            ? (["Details", "Transcript", "Session Details"] as const)
+                          {(panelVoiceThread
+                            ?(["Details", "Transcript", "Session Details"] as const)
                             : (["Details", "Session Details"] as const)
                           ).map((label) => (
                             <Tab
@@ -10565,7 +10537,7 @@ export function AgentWorkspaceAdvancedPage({
                       <div className="animate-in fade-in-0 duration-200">
                         {customerInfoOverlayContent.body}
                       </div>
-                    ) : customerPanelActiveTab === "Transcript" && panelVoiceThread && !voiceTranscriptInMain ? (
+                    ) : customerPanelActiveTab === "Transcript" && panelVoiceThread ? (
                       // A fresh `InteractionTranscript` instance, same as
                       // this tab always rendered back when it lived in the
                       // separate "Session Details" overlay — see that
