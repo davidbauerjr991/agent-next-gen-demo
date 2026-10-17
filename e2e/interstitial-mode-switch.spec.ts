@@ -115,6 +115,113 @@ for (const [name, decide] of Object.entries(decisions)) {
   }
 }
 
+// The reported path (Bug 2): Copilot result rows from chips on an ordinary card (David Santos's email), asked
+// under one AI display; after a switch the pre-switch row in Contact Details' Overview feed did nothing.
+const DAVID_EMAIL = "david.santos@example.com";
+async function davidsEmail(page: Page, ai: Ai) {
+  await page.addInitScript((displayLocation) => {
+    localStorage.setItem("agent-next-gen:settings:ai", JSON.stringify({ v: 1, value: { displayLocation } }));
+    localStorage.setItem("agent-next-gen:settings:channels", JSON.stringify({ v: 1, value: { voice: true, chat: true, email: true } }));
+  }, ai);
+  await page.goto(`?provider=sim${process.env.E2E_LATENCY === "default" ? "" : "&latency=off"}#/agent-advanced`);
+  await page.getByRole("button", { name: "Go Available" }).click();
+  const failure = await page.evaluate(async (address) => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (window as any).__providers.interaction.dial({ channel: "email", address, skillId: "general", contactName: "David Santos" });
+      return null;
+    } catch (error) {
+      return JSON.stringify(error);
+    }
+  }, DAVID_EMAIL);
+  expect(failure).toBeNull();
+  await davidsCard(page).click({ force: true });
+}
+const davidsCard = (page: Page) => page.locator("aside").getByRole("button", { name: /^(David Santos|david\.santos@example\.com)/ }).first();
+/** Asks Copilot with the visible composer's first chip; `rotate` moves the chips on first. Returns the chip's text. */
+async function askCopilot(page: Page, rotate = false) {
+  const composer = page.locator("[data-slot=copilot-composer]").filter({ visible: true }).first();
+  if (rotate) await composer.locator("[data-slot=copilot-chips-refresh] button").click();
+  const chip = composer.locator("[data-slot=copilot-chips] [role=button]").first();
+  const text = (await chip.textContent())!.trim();
+  await chip.click();
+  await composer.locator('button[aria-label="Submit"]').click();
+  return text;
+}
+const visibleRow = (page: Page, title: string) => row(page, title).filter({ visible: true });
+/** The Copilot result slide-over, open and on screen. */
+const resultOpen = (page: Page, title: string) =>
+  page.evaluate((t) => {
+    const result = [...document.querySelectorAll<HTMLElement>("[data-slot=copilot-result]")].find((el) => el.textContent?.includes(t));
+    const shell = result?.closest<HTMLElement>('[style*="visibility"]');
+    const b = shell?.getBoundingClientRect();
+    return !!(shell && shell.style.visibility === "visible" && b && b.width > 200 && b.left >= 0 && b.right <= window.innerWidth + 1);
+  }, title);
+
+for (const [from, to] of [
+  ["inline", "panel"],
+  ["inline", "main"],
+  ["main", "panel"],
+  ["panel", "main"],
+] as [Ai, Ai][]) {
+  test(`Copilot row asked under ${from}, clicked under ${to}: opens its result, like a row asked after the switch`, async ({ page }) => {
+    await davidsEmail(page, from);
+    const before = await askCopilot(page);
+    await expect(visibleRow(page, before)).toBeVisible({ timeout: 15_000 });
+
+    await page.locator("aside").getByText("Settings", { exact: true }).first().click();
+    await page.getByRole("combobox", { name: "AI display" }).click();
+    await page.getByRole("option", { name: LABEL[to], exact: true }).click();
+    await davidsCard(page).click({ force: true });
+
+    // Control: a row asked after the switch opens, then closes by its X.
+    const after = await askCopilot(page, true);
+    await visibleRow(page, after).click({ timeout: 15_000 });
+    await expect.poll(() => resultOpen(page, after), { timeout: 3_000 }).toBe(true);
+    await page.evaluate(() => {
+      const shell = [...document.querySelectorAll<HTMLElement>('[style*="visibility"]')].find(
+        (el) => el.style.visibility === "visible" && el.querySelector("[data-slot=copilot-result]"),
+      )!;
+      [...shell.firstElementChild!.querySelectorAll<HTMLElement>("button")].find((b) => /close/i.test(b.getAttribute("aria-label") ?? ""))!.click();
+    });
+    await expect.poll(() => resultOpen(page, after), { timeout: 3_000 }).toBe(false);
+
+    // The row asked before the switch.
+    await visibleRow(page, before).click();
+    await expect.poll(() => resultOpen(page, before), { timeout: 3_000 }).toBe(true);
+  });
+}
+
+for (const [from, to] of pairs) {
+  test(`Copilot row open before the switch, ${from} → ${to}: still open and on screen after; the row closes it, then reopens it`, async ({ page }) => {
+    await davidsEmail(page, from);
+    const before = await askCopilot(page);
+    await visibleRow(page, before).click({ timeout: 15_000 });
+    await expect.poll(() => resultOpen(page, before), { timeout: 3_000 }).toBe(true);
+
+    await page.locator("aside").getByText("Settings", { exact: true }).first().click();
+    await page.getByRole("combobox", { name: "AI display" }).click();
+    await page.getByRole("option", { name: LABEL[to], exact: true }).click();
+    await davidsCard(page).click({ force: true });
+
+    await expect.poll(() => resultOpen(page, before), { timeout: 3_000 }).toBe(true);
+    // Under panel the open slide-over covers the panel's feed (by design): close it by its X there, by the row elsewhere.
+    if (HOST[to] === "right-panel") {
+      await page.evaluate(() => {
+        const shell = [...document.querySelectorAll<HTMLElement>('[style*="visibility"]')].find(
+          (el) => el.style.visibility === "visible" && el.querySelector("[data-slot=copilot-result]"),
+        )!;
+        [...shell.firstElementChild!.querySelectorAll<HTMLElement>("button")].find((b) => /close/i.test(b.getAttribute("aria-label") ?? ""))!.click();
+      });
+    } else {
+      await visibleRow(page, before).click();
+    }
+    await expect.poll(() => resultOpen(page, before), { timeout: 3_000 }).toBe(false);
+    await visibleRow(page, before).click();
+    await expect.poll(() => resultOpen(page, before), { timeout: 3_000 }).toBe(true);
+  });
+}
+
 for (const [from, to] of pairs) {
   test(`approve, open before the switch: ${from} → ${to}, one slide-over follows to its host; X closes it, the row reopens it`, async ({ page }) => {
     await lucas(page, from);

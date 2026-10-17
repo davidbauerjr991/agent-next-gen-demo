@@ -8,7 +8,9 @@
 // render, and its selection is the card's.
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
 import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
+import type { EntityId } from "@/domain";
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
 import { LUCAS_THOMAS_SCRIPT } from "@/scenarios";
 import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
@@ -137,6 +139,86 @@ describe("Bug 2a: a switch during the spinner doesn't restart it", () => {
       await h.advance(1_700);
       expect(performing()).toBe(false);
       expect(row(APPROVE_ROW)).toBeTruthy();
+    });
+  }
+});
+
+// The reported path: Copilot result rows (`useCopilotAsk`, not scenario annotations) on an ordinary card,
+// asked under one AI display, then the display switched: the pre-switch row in Contact Details' Overview feed
+// did nothing, a row asked after the switch opened.
+describe("Bug 2c: a Copilot result row asked before a mode switch still opens its result", () => {
+  const david = CREATE_NEW_CUSTOMERS.find((c) => c.name === "David Santos") ?? CREATE_NEW_CUSTOMERS[0];
+  const composer = () => document.body.querySelector<HTMLElement>("[data-slot=copilot-composer]")!;
+  /** The slide-over's Copilot result while it's open (closed, it stays mounted but hidden). */
+  const openResult = () => {
+    const result = document.body.querySelector<HTMLElement>("[data-slot=copilot-result]");
+    const shell = result?.closest<HTMLElement>('[style*="visibility"]');
+    return result && shell?.style.visibility === "visible" ? result : null;
+  };
+  /** Asks Copilot with the composer's first chip ("Draft a reply" first on an email); the chips move on
+   *  once one is used. Returns the chip's text, which is the row's title. */
+  async function ask(rotate = false): Promise<string> {
+    if (rotate) await h.click(composer().querySelector("[data-slot=copilot-chips-refresh] button")!);
+    const chip = composer().querySelector<HTMLElement>("[data-slot=copilot-chips] [role=button]")!;
+    const text = chip.textContent!.trim();
+    await h.click(chip);
+    await h.click(composer().querySelector('button[aria-label="Submit"]')!);
+    await h.advance(2_500);
+    return text;
+  }
+  async function davidsEmail(displayLocation: AiDisplayLocation) {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await act(async () => {
+      getSettingsStore().update("channels", { email: true });
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    await setAi(displayLocation);
+    await h.goAvailable();
+    await act(async () => {
+      const dialed = h.provider.dial({ channel: "email", address: david.emailAddress!, skillId: "general", entityId: david.id as EntityId, contactName: david.name });
+      await vi.advanceTimersByTimeAsync(300);
+      await dialed;
+    });
+    await h.click(h.navCard(david.name));
+  }
+
+  // The Copilot composer is portaled into whichever dock node exists; a switch changes the node, so the composer
+  // remounts and its chips start over. One stable host per surface (C6) keeps it mounted. `it.fails` until C6.
+  it.fails("panel → main: the composer keeps its moved-on chips across the switch", async () => {
+    await davidsEmail("panel");
+    await h.click(composer().querySelector("[data-slot=copilot-chips-refresh] button")!);
+    const first = composer().querySelector<HTMLElement>("[data-slot=copilot-chips] [role=button]")!.textContent!.trim();
+    await setAi("main");
+    await h.advance(300);
+    expect(composer().querySelector<HTMLElement>("[data-slot=copilot-chips] [role=button]")!.textContent!.trim()).toBe(first);
+  });
+
+  // Guards in jsdom (pass on HEAD); the reported failure is checked in Chrome, e2e/interstitial-mode-switch.spec.ts.
+  for (const [from, to] of [
+    ["inline", "panel"],
+    ["inline", "main"],
+    ["main", "panel"],
+    ["panel", "main"],
+  ] as const) {
+    it(`${from} → ${to}: the pre-switch row opens its result, like a row asked after the switch`, async () => {
+      await davidsEmail(from);
+      const before = await ask();
+      expect(row(before), before).toBeTruthy();
+
+      await setAi(to);
+      await h.advance(300);
+      // A row asked after the switch opens (the control).
+      // (The chips start over after a switch, so move them on for a different question.)
+      const after = await ask(true);
+      expect(after).not.toBe(before);
+      await h.click(row(after)!);
+      expect(openResult()?.textContent).toContain(after);
+      await h.click(row(after)!);
+      expect(openResult()).toBeNull();
+
+      // The row asked before the switch.
+      await h.click(row(before)!);
+      expect(openResult()?.textContent).toContain(before);
     });
   }
 });
