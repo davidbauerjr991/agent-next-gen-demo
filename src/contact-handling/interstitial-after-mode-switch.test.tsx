@@ -1,0 +1,162 @@
+// @vitest-environment jsdom
+// P-EXTRACT, Bug 2: a slide-over wouldn't open after an AI display switch.
+// Lucas's approve and decline rows (the "AI agent is performing this now…"
+// interstitials) remount when the layout moves them, and a remounted row
+// showed its 1.8s spinner again: not clickable. The row's "performed" state
+// is a time on the message now, so a row past it is clickable at once. The
+// slide-over's placement follows AI display and its content kind in the same
+// render, and its selection is the card's.
+import { act } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
+import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
+import { LUCAS_THOMAS_SCRIPT } from "@/scenarios";
+import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
+import type { AiDisplayLocation } from "@/settings/settings-schema";
+
+const h = createWorkspaceHarness();
+
+beforeEach(() => {
+  localStorage.clear();
+  resetSettingsStoreForTests();
+  h.setUp();
+});
+afterEach(async () => {
+  await h.tearDown();
+});
+
+const APPROVE_ROW = "Authorize and place order NR-11056";
+const DECLINE_NOTE = "Card payments are paused";
+const DECLINE_ROW = `Declined: ${DECLINE_NOTE}`;
+
+const PERFORMING = "AI agent is performing this now";
+const buttonText = (root: ParentNode, text: string) => [...root.querySelectorAll<HTMLElement>("button")].find((b) => b.textContent?.trim() === text);
+const radio = (title: string) => [...document.body.querySelectorAll<HTMLElement>('[role="radio"]')].find((r) => r.textContent?.trim() === title)!;
+/** An instruction row: a button starting with its title, by John Smith. */
+const row = (title: string) =>
+  [...document.body.querySelectorAll<HTMLElement>("button")].find((b) => b.textContent?.startsWith(title) && b.textContent.includes("John Smith"));
+const performing = () => document.body.textContent?.includes(PERFORMING) ?? false;
+/** The interior slide-over showing `title` while open (closed, it stays mounted, hidden): lyra
+ *  `InteriorPanel`'s content whose header carries the row's title. The docked Contact Details panel
+ *  is an InteriorPanel too, and its Artifacts card names the same panel; the header tells them apart. */
+const openSlideOver = (title: string) =>
+  [...document.body.querySelectorAll<HTMLElement>('[style*="visibility"]')].find(
+    (el) => el.style.visibility === "visible" && el.firstElementChild?.textContent?.includes(title),
+  ) ?? null;
+
+async function setAi(displayLocation: AiDisplayLocation) {
+  await act(async () => {
+    getSettingsStore().update("ai", { displayLocation });
+    await vi.advanceTimersByTimeAsync(50);
+  });
+}
+
+async function lucas() {
+  await h.show(AgentWorkspaceAdvancedPage);
+  await setAi("inline");
+  await h.play(LUCAS_THOMAS_SCRIPT.id);
+  await h.click(h.navCard("Lucas Thomas"));
+  // Past "Approval requested" (12.3s) and the approval card.
+  await h.advance(14_000);
+}
+
+async function approve() {
+  await h.click(radio("Approve the Exception"));
+  await h.click(buttonText(document.body, "Authorize and Place Order")!);
+  // The instruction beat (150ms), then its spinner (1.8s).
+  await h.advance(3_000);
+}
+
+async function decline() {
+  await h.click(radio("Decline the exception"));
+  const note = document.body.querySelector<HTMLTextAreaElement>("#approval-decision-note")!;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(note, DECLINE_NOTE);
+    note.dispatchEvent(new Event("input", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(50);
+  });
+  await h.click(buttonText(document.body, "Perform Task")!);
+  await h.advance(3_000);
+}
+
+/** The Settings page and back to Lucas's card, the way an agent switches (Settings deselects the card). */
+async function settingsRoundTrip(displayLocation: AiDisplayLocation) {
+  const settings = [...h.container.querySelectorAll<HTMLElement>("aside button, aside [role=button]")].find(
+    (el) => el.textContent?.trim() === "Settings" || el.getAttribute("aria-label") === "Settings",
+  )!;
+  await h.click(settings);
+  await setAi(displayLocation);
+  await h.click(h.navCard("Lucas Thomas"));
+}
+
+const decisions = [
+  { name: "approve", act: approve, title: APPROVE_ROW },
+  { name: "decline", act: decline, title: DECLINE_ROW },
+] as const;
+const switches = [
+  { name: "a direct switch", to: (ai: AiDisplayLocation) => setAi(ai) },
+  { name: "the Settings round trip", to: settingsRoundTrip },
+] as const;
+
+describe("Bug 2a: an interstitial row is clickable right after a mode switch", () => {
+  // Guards: these pass on HEAD too (a finished row stays finished across a remount) and must keep passing.
+  for (const decision of decisions) {
+    for (const via of switches) {
+      for (const to of ["panel", "main"] as const) {
+        it(`${decision.name}, inline → ${to} by ${via.name}: the row is a button at once and opens its slide-over`, async () => {
+          await lucas();
+          await decision.act();
+          expect(row(decision.title)).toBeTruthy();
+          expect(performing()).toBe(false);
+
+          await via.to(to);
+          await h.advance(100);
+          expect(performing()).toBe(false);
+          const r = row(decision.title);
+          expect(r).toBeTruthy();
+          await h.click(r!);
+          expect(openSlideOver(decision.title)).not.toBeNull();
+        });
+      }
+    }
+  }
+});
+
+// `it.fails`: fails on HEAD (the spinner restarts on the remount); P-EXTRACT C4 flips these to `it`.
+describe("Bug 2a: a switch during the spinner doesn't restart it", () => {
+  for (const to of ["panel", "main"] as const) {
+    it.fails(`approve, inline → ${to} 300ms after deciding: the row is clickable 1.8s after it appeared, not 1.8s after the switch`, async () => {
+      await lucas();
+      await h.click(radio("Approve the Exception"));
+      await h.click(buttonText(document.body, "Authorize and Place Order")!);
+      // The instruction beat lands at 150ms; switch while its spinner runs.
+      await h.advance(300);
+      expect(performing()).toBe(true);
+      await setAi(to);
+      // 150ms + 1,800ms after deciding the row is done; the switch was at ~400ms.
+      await h.advance(1_700);
+      expect(performing()).toBe(false);
+      expect(row(APPROVE_ROW)).toBeTruthy();
+    });
+  }
+});
+
+describe("Bug 2b: the slide-over follows the layout, and its selection is the card's", () => {
+  it("an open slide-over stays open across inline → panel → inline, in the content card inline and in the panel under panel", async () => {
+    await lucas();
+    await approve();
+    await h.click(row(APPROVE_ROW)!);
+    const open = () => openSlideOver(APPROVE_ROW);
+    expect(open()?.closest("[data-slot=content-card]")).toBeTruthy();
+    expect(open()?.closest("[data-slot=right-panel]")).toBeNull();
+
+    await setAi("panel");
+    await h.advance(100);
+    expect(open()?.closest("[data-slot=right-panel]")).toBeTruthy();
+
+    await setAi("inline");
+    await h.advance(100);
+    expect(open()?.closest("[data-slot=content-card]")).toBeTruthy();
+    expect(open()?.closest("[data-slot=right-panel]")).toBeNull();
+  });
+});
