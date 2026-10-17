@@ -47,5 +47,26 @@ export default tseslint.config(
         },
       ],
     },
+  },
+  {
+    /* The Workspace → admin boundary (P-EXTRACT, for P-ADMIN): nothing outside
+       `src/admin/` imports from it, so the admin areas can grow (and later
+       ship separately) without the Workspace depending on them. See
+       src/admin/README.md. */
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["src/admin/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/admin", "@/admin/**", "**/admin", "**/admin/**"],
+              message: "Workspace code doesn't import from src/admin/ (the Workspace → admin boundary; see src/admin/README.md).",
+            },
+          ],
+        },
+      ],
+    },
   }
 );

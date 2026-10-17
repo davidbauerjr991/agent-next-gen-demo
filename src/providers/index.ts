@@ -5,3 +5,4 @@ export type * from "./media-provider";
 export type * from "./customer-data-provider";
 export type * from "./assist-provider";
 export type * from "./provider-set";
+export type * from "./host-provider";
