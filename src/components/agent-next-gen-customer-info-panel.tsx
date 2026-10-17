@@ -76,7 +76,7 @@ const MARCUS_WEBB_CUSTOMER_ID = MARCUS_WEBB_SCRIPT.entity.caseId;
 import {
   AI_CARD_ENTER,
   OUTCOME_TAG_OPTIONS,
-  type Contact,
+  type TranscriptSession,
   TranscriptSessionDetails,
 } from "@/components/agent-next-gen-transcript";
 import { type CustomerListRecord, CUSTOMER_LIST_RECORDS, CustomerAddChannelButton } from "@/components/agent-next-gen-customers-table";
@@ -3477,7 +3477,7 @@ export function useSessionDetailsTabContent({
    *  transcript's own `onCurrentSessionChange` has fired even once): `body`
    *  falls back to a plain placeholder and `footer` stays `undefined`
    *  (nothing to save with no session loaded). */
-  sessionContact: Contact | null;
+  sessionContact: TranscriptSession | null;
   /** Fired (in addition to this hook's own internal `sessionEditing`
    *  becoming `true`) whenever the Edit button is clicked — for a caller
    *  that renders this hook's `body` in more than one place sharing the
@@ -3525,7 +3525,7 @@ export function useSessionDetailsTabContent({
   // while editing — `key` is a real `Contact` field name so `sessionDraft[
   // key]`/the `setSessionDraft` updater below stay type-safe without a
   // parallel hand-maintained union.
-  const sessionEditFields: Array<{ key: keyof Pick<Contact, "contactId" | "date" | "startTime" | "endTime" | "channel" | "skill" | "agent" | "status">; label: string }> = [
+  const sessionEditFields: Array<{ key: keyof Pick<TranscriptSession, "contactId" | "date" | "startTime" | "endTime" | "channel" | "skill" | "agent" | "status">; label: string }> = [
     { key: "contactId", label: "Contact ID" },
     { key: "date", label: "Date" },
     { key: "startTime", label: "Start" },

@@ -93,7 +93,7 @@ import {
   resolveCustomerAutoReply,
   InteractionTranscript,
   InteractionComposer,
-  type Contact,
+  type TranscriptSession,
   TRANSCRIPT_SESSIONS,
   TRANSCRIPT_SESSIONS_VOICE,
   TRANSCRIPT_SESSIONS_EMAIL,
@@ -297,17 +297,13 @@ import { LUCAS_THOMAS_SCRIPT, MAYA_CHEN_SCRIPT, TOM_LEWIS_SCRIPT } from "@/scena
 import {
   MarcusWebbNextBestActionCard,
   MarcusWebbActionDetailPanelBody,
-  type MarcusWebbActionLogEntry,
   MarcusWebbOrderDetailPanelBody,
   MARCUS_WEBB_ORDER,
-  type MarcusWebbOrderInfo,
   MarcusWebbTransactionsDetailPanelBody,
 } from "@/components/agent-next-gen-marcus-webb-next-best-action-card";
 import {
   KnowledgeArticleDetailPanelBody,
   KnowledgeArticleLinkDetailBody,
-  type KnowledgeArticleCardData,
-  type KnowledgeArticleWebLink,
 } from "@/components/agent-next-gen-knowledge-article-card";
 import {
   LUCAS_THOMAS_PANEL_TITLES,
@@ -324,7 +320,6 @@ import {
   LucasThomasAiAttemptsPanelBody,
   LucasThomasShippingPanelBody,
   LUCAS_THOMAS_ORDER_DETAILS,
-  type LucasThomasOrderId,
   type LucasThomasPanelKey,
   type LucasThomasMemoryFocus,
   MarcusWebbMemoryPanelBody,
@@ -338,28 +333,7 @@ import {
 import { InContactInteriorPanel } from "@/components/agent-next-gen-in-contact-panel";
 import { CopilotResultPanelBody } from "@/components/copilot-result-panel";
 import { VideoCallWindow, VideoCallFullScreen } from "@/components/agent-next-gen-video-window";
-// The Marcus Webb action-log detail panel and the "Do Something"
-// knowledge-article panel share ONE floating `InteriorPanel` overlay
-// (see `selectedDetailPanelContent`'s own doc comment at its render
-// site) — this is the union of everything that ONE panel can show.
-// `"article-link"` is reached by navigating WITHIN that panel (its own
-// `onBack`), not by opening a second, nested one — nesting isn't
-// supported anywhere in this app.
-type DetailPanelContent =
-  | { kind: "action-log"; entry: MarcusWebbActionLogEntry }
-  | { kind: "article"; article: KnowledgeArticleCardData }
-  | { kind: "article-link"; article: KnowledgeArticleCardData; link: KnowledgeArticleWebLink }
-  | { kind: "order"; order: MarcusWebbOrderInfo }
-  | { kind: "lucas"; panel: LucasThomasPanelKey }
-  | { kind: "lucas-memory"; focus: LucasThomasMemoryFocus }
-  | { kind: "lucas-instruction"; decision: string; text: string; time: string }
-  | { kind: "copilot-result"; text: string; time: string }
-  | { kind: "marcus-copilot"; id: string; text: string; time: string }
-  | { kind: "tom-call"; panel: TomLewisCallPanelKey }
-  | { kind: "lucas-order"; orderId: LucasThomasOrderId; from?: "memory" | "purchases" }
-  | { kind: "transactions"; id: string; note: string; timestamp: string; date: string; showFullTransactions: boolean }
-  // AI display "main": a panel thread's Session Details, over the thread in the panel (k6 10).
-  | { kind: "session" };
+import type { DetailPanelContent, PanelKey, PanelState } from "@/contact-handling/workspace/workspace-types";
 import { BrandMark } from "@/components/BrandMark";
 import damagedHeadphonesImg from "@/assets/headphones.jpg";
 import {
@@ -2843,44 +2817,7 @@ export function AgentWorkspaceAdvancedPage({
   const appMenuGroups = buildAppMenuGroups(APP_MENU_ITEMS, () => setAppMenuOpen(false));
 
   /* Panel animation state machine — see AgentNextGenTemplate.stories.tsx for full comment */
-  type PanelState = "closed" | "open" | "closing";
-
-  /* ── Single-container app-header panel ──
-     Screen Pop/Agent Chat/Schedule/Notifications/Ask AI used to each be
-     an independently open/mounted/positioned/sized `Draggable` (five full
-     copies of this state, plus a `dockPanelExclusively` helper enforcing
-     "only one of the five may be docked at once"). Per request ("Multiple
-     Containers: false" — see lyra-ui's `Draggable.stories.tsx`
-     `MultiplePanelsSingleDock` story and its own "Multiple Containers"
-     control), there is now only ONE physical container — clicking a
-     different button just swaps `activePanelKey` (and therefore which
-     content shows) without the container itself resizing, repositioning,
-     or replaying its open/close animation. That also makes the old
-     "only one may be docked" rule trivially true (there's only ever one
-     container to dock) instead of something to actively enforce.
-
-     Notifications' actual content (previously only reachable via the
-     standalone `AgentNotifications` component, which bakes its own header
-     AND its own `Draggable` wrapper together) now comes from
-     `useAgentNotificationsContent` (lyra-ui) — the same hook that
-     component calls internally, so this is a second CALLER of that
-     content, not a second, drifting copy of it. See lyra-ui's own "Single
-     Container - Real Content" Storybook demo (`Draggable.stories.tsx`) for
-     this exact pattern in isolation (that demo also includes Ask AI's
-     content via `useAiPanelContent` — dropped from this app per request,
-     but left in the shared demo since it's still a real, valid caller of
-     that hook). */
-  type PanelKey =
-    | "notif"
-    | "conversations"
-    | "schedule"
-    | "screenpop"
-    | "customers"
-    | "accounts"
-    | "tickets"
-    | "wem"
-    | "search";
-
+  // `PanelState`/`PanelKey`: workspace-types.ts (the single-container app-header panel).
   const [panelOpen,      setPanelOpen]      = useState(false);
   // Per explicit request ("go back to auto-closing the app panels when a
   // new interaction is launched") — see AgentNextGenPage.tsx's identical
@@ -3164,14 +3101,14 @@ export function AgentWorkspaceAdvancedPage({
   // pick for the thread it's showing, else that thread's current session,
   // so it never reads "Select 'View Details' on a session…" and never shows
   // another tab's session.
-  const [sessionDetailsPick, setSessionDetailsPick] = useState<{ key: string; session: Contact } | null>(null);
-  const [currentSessions, setCurrentSessions] = useState<Record<string, Contact>>({});
+  const [sessionDetailsPick, setSessionDetailsPick] = useState<{ key: string; session: TranscriptSession } | null>(null);
+  const [currentSessions, setCurrentSessions] = useState<Record<string, TranscriptSession>>({});
   /** A session row's Session Details. The main tab's (inline, panel) opens Contact Details' Session tab on
    *  that thread's session, and closes the panel if it's already showing it. Under "main" the panel
    *  thread's header row opens it as the interior slide-over over the thread, with its own close (k6 10:
    *  the slide-over card links and Copilot results use, mounted in the panel; no mode-specific body).
    *  It shows the panel's thread: switching thread switches its session (k8 3). */
-  const viewSessionDetails = (threadKey: string, session: Contact) => {
+  const viewSessionDetails = (threadKey: string, session: TranscriptSession) => {
     if (!activeInteractionId) return;
     setSelectedDetailPanelContent(null);
     const key = `${activeInteractionId}:${threadKey}`;
@@ -3186,7 +3123,7 @@ export function AgentWorkspaceAdvancedPage({
     setCustomerPanelActiveTab("Session Details");
     setSidePanelOpen(true);
   };
-  const reportCurrentSession = (key: string) => (session: Contact) =>
+  const reportCurrentSession = (key: string) => (session: TranscriptSession) =>
     setCurrentSessions((prev) => (prev[key]?.id === session.id && prev[key]?.status === session.status ? prev : { ...prev, [key]: session }));
   useEffect(() => {
     if (activeInteractionId) {
