@@ -7,7 +7,7 @@ import type { ReopenRequest } from "@/providers";
 import { useInteractionProvider, useInteractions } from "@/provider-context";
 import { getCaseRecord } from "@/components/agent-next-gen-case-database";
 import type { ContactHistoryEntry } from "@/components/agent-next-gen-contact-history";
-import { NOTIFICATION_CHANNEL, NOTIFICATION_INTERACTION_ID } from "@/components/agent-next-gen-interaction-dashboard";
+import { NOTIFICATION_CHANNEL, NOTIFICATION_ENTITY_ID, NOTIFICATION_INTERACTION_ID } from "@/components/agent-next-gen-interaction-dashboard";
 import type { InteractionHistoryRecord } from "@/components/agent-next-gen-interactions-table";
 import { synthesizeChannelAddress } from "@/components/agent-next-gen-shared-utils";
 import { historyEntityId, knownOrSynthesizedAddress } from "./contact-identity";
@@ -140,7 +140,8 @@ export function useContactReopen({ findOpenCard, activateWhenReady, skillIdForNa
       // A customer who already has a card open gets the notification's
       // channel on that card, as before P0.5b.2 (accept or reopen into its
       // journey), not a second card.
-      const entityId = seed?.entityId ?? customer.id;
+      // A seeded assignment is its own pseudo-entity, never another customer's record (k5 F).
+      const entityId = seed?.entityId ?? NOTIFICATION_ENTITY_ID[notification.id] ?? customer.id;
       const openCard = findOpenCard({ entityId });
 
       if (seed?.state === "offered") {

@@ -12,6 +12,7 @@ import {
 } from "@/adapters/placeholder/placeholder-providers";
 import { createMemoryBus } from "@/adapters/sim/memory-transport";
 import { SIM_DEMO_DIRECTORY } from "@/adapters/sim/sim-demo-directory";
+import type { SimSeedContact } from "@/adapters/sim/sim-fixtures";
 import { createSimCustomerClient, type SimCustomerClient } from "@/adapters/sim/sim-customer-client";
 import { createSimulatedInteractionProvider, type SimulatedInteractionProvider } from "@/adapters/sim/simulated-interaction-provider";
 import type { ChannelKind, InteractionId } from "@/domain";
@@ -77,7 +78,8 @@ export type WorkspacePage = ComponentType<{ showPageHeader?: boolean; showPanelT
 
 let databaseCounter = 0;
 
-export function createWorkspaceHarness() {
+/** `seed`: the sim's waiting assignments (e.g. `SIM_DEMO_SEED`); none by default. */
+export function createWorkspaceHarness(options: { seed?: readonly SimSeedContact[] } = {}) {
   let container!: HTMLElement;
   let root!: Root;
   let provider!: SimulatedInteractionProvider;
@@ -109,6 +111,7 @@ export function createWorkspaceHarness() {
               timings: { ring: ZERO, legConnect: ZERO, delivery: ZERO },
               directory: SIM_DEMO_DIRECTORY,
               scripts: SCENARIOS,
+              ...(options.seed ? { seed: options.seed } : {}),
             });
             customer = createSimCustomerClient(provider.sessionId, bus.createTransport());
             return {

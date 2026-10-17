@@ -44,13 +44,13 @@ describe("omnichannel routing", () => {
     expect(omnichannelMainKey([thread("voice"), thread("email")], undefined)).toBe("voice");
   });
 
-  it("placement \"panel\" (AI display \"main\"): voice is the bar, every other thread (chat included) the panel", () => {
+  it("placement \"panel\" (AI display \"main\"): every thread, a call included (k5: its transcript), opens in the panel", () => {
     const card = [thread("voice"), thread("chat"), thread("email")];
     expect(routeChannel(card, "chat", "panel")).toBe("slideout");
     expect(routeChannel(card, "email", "panel")).toBe("slideout");
-    expect(routeChannel(card, "voice", "panel")).toBe("bar");
+    expect(routeChannel(card, "voice", "panel")).toBe("slideout");
     expect(routeChannel([thread("chat")], "chat", "panel")).toBe("slideout");
-    expect(routeChannel([thread("voice")], "voice", "panel")).toBe("bar");
+    expect(routeChannel([thread("voice")], "voice", "panel")).toBe("slideout");
   });
 
   it("the panel's default thread: the chat, else the first thread that isn't voice", () => {

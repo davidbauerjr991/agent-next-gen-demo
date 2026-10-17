@@ -195,10 +195,12 @@ describe("AI display inline and panel: tabs", () => {
     });
   }
 
-  // k3: voice is a tab too (row 11); its main column is the call's AI workspace,
-  // never empty. In panel mode the AI feed leaves Contact Details meanwhile.
+  // k5 (supersedes k3's "voice tab = AI workspace"): a call's tab follows AI
+  // display like every other thread. Inline: its transcript with the AI rows
+  // inline and the composer at the bottom. Panel: the transcript only; AI and
+  // the composer stay in Contact Details.
   for (const ai of ["inline", "panel"] as const) {
-    it(`AI display ${ai}: a call is a tab; its main column is the AI workspace (Autosummary, composer); the voice bar stays`, async () => {
+    it(`AI display ${ai}: a call is a tab; its main column is its transcript (AI ${ai === "inline" ? "inline" : "in Contact Details"}); the voice bar stays`, async () => {
       await setUp(ai);
       // Priya's call, then an email on the same card.
       const callId = await h.startInbound("voice", priya.firstPhone, priya.name);
@@ -217,13 +219,17 @@ describe("AI display inline and panel: tabs", () => {
       expect(main()).toBe("voice");
       expect(active(voiceTab())).toBe(true);
       const mainColumn = h.container.querySelector("[data-main-thread]")!;
-      expect(mainColumn.querySelector("[data-slot=ai-workspace] [data-slot=autosummary]")).toBeTruthy();
-      expect(mainColumn.querySelector("[data-slot=copilot-composer]")).toBeTruthy();
-      // The feed is in one place: the main column's AI workspace, not Contact Details.
+      expect(mainColumn.querySelector("[data-slot=ai-workspace]")).toBeNull();
+      expect(mainColumn.querySelector("[data-slot=content-stack]")).toBeTruthy();
       if (panelShows() !== "details") await h.click(contactDetailsButton());
-      expect(panel()!.querySelector("[data-slot=ai-feed]")).toBeNull();
+      // Inline: the Autosummary and the composer in the main column. Panel: both in Contact Details.
+      expect(!!mainColumn.querySelector("[data-slot=autosummary]")).toBe(ai === "inline");
+      expect(!!mainColumn.querySelector("[data-slot=copilot-composer]")).toBe(ai === "inline");
+      expect(!!panel()!.querySelector("[data-slot=ai-feed]")).toBe(ai === "panel");
       expect(document.body.querySelectorAll("[data-slot=copilot-composer]")).toHaveLength(1);
-      // The email tab: the email in main; panel mode's feed is back in Contact Details.
+      // No separate Transcript tab: the call's transcript is its tab.
+      expect([...panel()!.querySelectorAll("[role=tab], button")].some((el) => el.textContent?.trim() === "Transcript")).toBe(false);
+      // The email tab: the same placement rules.
       await h.click(headerIcon("Email")!);
       expect(main()).toBe("email");
       expect(!!panel()!.querySelector("[data-slot=ai-feed]")).toBe(ai === "panel");

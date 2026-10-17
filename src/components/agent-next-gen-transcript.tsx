@@ -2475,7 +2475,9 @@ showViewDetails?: boolean;
                 <TransferIcon />
               </Button>
             )}
-            {!isNewThread && (outcome && !isClosed ? (
+            {/* Outcome and the status pill show on every channel tab, a new outbound thread
+                included (P-AIFIRST (k5)); only Consult/Transfer and the kebab wait for a real session. */}
+            {(outcome && !isClosed ? (
               // Shared with the LeftNav's own `ChannelRow` Outcome button —
               // lyra-ui's `OutcomePanel` owns the Status/Tags/Disposition/
               // Summary form (and the Resolution dropdown's own local
@@ -2634,7 +2636,7 @@ showViewDetails?: boolean;
                 the one piece of the cluster that stayed visible regardless
                 of `isNewThread` — a real, confirmed bug fixed here
                 alongside the header's own identical fix. */}
-            {showStatus && !isNewThread && channelType !== "voice" && (
+            {showStatus && channelType !== "voice" && (
               <ChannelStatusTag
                 status={session.status}
                 menuOpen={statusMenuOpen}
@@ -2888,6 +2890,7 @@ export function InteractionTranscript({
   hideMockFollowUpMessages = false,
   hideAllMessages = false,
   sessionRowOnly = false,
+  hideCurrentSessionRow = false,
   contactId,
   channelAddressLabel,
   skillLabel,
@@ -2995,6 +2998,10 @@ export function InteractionTranscript({
    *  (P-AIFIRST), where the thread itself is in the panel and the AI
    *  workspace fills the column below this row. */
   sessionRowOnly?: boolean;
+  /** The conversation without the current session's row: the caller renders
+   *  that row elsewhere (`sessionRowOnly`, the docked panel's header under AI
+   *  display "main", P-AIFIRST (k5)). Earlier sessions keep their rows. */
+  hideCurrentSessionRow?: boolean;
   customerIdentified?: boolean;
   /** The active channel's own BASE Contact id (`Thread.contactId`) — used
    *  as the synthetic "just launched" session's Contact ID (see
@@ -3735,8 +3742,10 @@ export function InteractionTranscript({
     if (current) {
       onCurrentSessionChange?.({ ...current, status: getSessionStatus(current) });
     }
+    // The thread's identity too (channel, contact, address): two threads can share a session id (every fresh
+    // launch is "session-fresh"), and a tab switch must still report the new thread's session (k5 B).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastSessionId, currentStatus]);
+  }, [lastSessionId, currentStatus, channelType, contactId, channelAddressLabel]);
 
   // Which session's status popover is open, and which of that popover's two
   // bodies (the status list, or the "Close Contact?" confirm) it's
@@ -4237,6 +4246,8 @@ export function InteractionTranscript({
                     full-width, no `max-w`) is applied directly on its root
                     className now instead — see that component's own doc
                     comment. */}
+                {/* `hideCurrentSessionRow`: the caller shows the current session's row elsewhere (the docked panel's header, k5 B). */}
+                {!(hideCurrentSessionRow && session.id === lastSessionId) && (
                 <TranscriptSessionSeparator
                   // Per explicit bug fix — this separator's own trailing
                   // fade otherwise paints straight over the `ContactOverview`
@@ -4385,6 +4396,7 @@ export function InteractionTranscript({
                   // on why 768px specifically, and what it does.
                   compactHeader={transcriptBubbleFullWidth}
                 />
+                )}
                 {/* Everything below the separator (mock/live message
                     bubbles, the Voice/Email placeholder) is what actually
                     dims — see `sessionContentDimmed`'s own doc comment

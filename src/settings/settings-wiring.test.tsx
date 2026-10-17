@@ -633,15 +633,15 @@ describe("(14) voice transcript placement", () => {
       (el) => el.children.length === 0 && el.textContent?.includes(LINE) && !panel().contains(el) && !el.closest("aside"),
     );
 
-  // (k3): a call's tab is its AI workspace in every mode, so the main column is
-  // never the bare transcript (it was in panel mode, and read empty on a fresh
-  // call); the spoken lines are in Contact Details' Transcript tab.
+  // (k5): a call's tab follows AI display like every other thread: its
+  // transcript (spoken lines) in the main column, with the AI rows inline
+  // (inline) or in Contact Details (panel); no separate Transcript tab.
   for (const display of ["inline", "panel"] as const) {
-    it(`${display} mode: the main column is the call's AI workspace; the spoken lines are in the panel's Transcript tab`, async () => {
+    it(`${display} mode: the call's transcript is in the main column; Contact Details has no Transcript tab`, async () => {
       await marcus(display);
-      expect(document.body.querySelector("[data-main-thread=voice] [data-slot=ai-workspace]")).not.toBeNull();
-      expect(lineInMain()).toBe(false);
-      expect(transcriptTab()).toBeTruthy();
+      expect(document.body.querySelector("[data-main-thread=voice] [data-slot=ai-workspace]")).toBeNull();
+      expect(lineInMain()).toBe(true);
+      expect(transcriptTab()).toBeUndefined();
     });
   }
 });

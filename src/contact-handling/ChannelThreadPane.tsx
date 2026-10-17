@@ -23,6 +23,8 @@ export interface ChannelThreadBodyProps {
    *  inline: the thread view only (Customer Info and the rest belong to
    *  Contact Details); the panel and the hover preview show the same body. */
   overview?: ReactNode;
+  /** The current session's row is in the panel's header (`ChannelThreadSessionRow`, AI display "main"). */
+  sessionRowInHeader?: boolean;
 }
 
 /** One thread's transcript outside the main column (the docked channel
@@ -36,6 +38,7 @@ export function ChannelThreadBody({
   onStatusChange,
   withoutAiActions,
   overview,
+  sessionRowInHeader,
 }: ChannelThreadBodyProps) {
   if (thread.type === "email") {
     return (
@@ -63,7 +66,47 @@ export function ChannelThreadBody({
       onCurrentStatusChange={onStatusChange}
       showSessionActionCluster={false}
       showViewDetails={false}
+      hideCurrentSessionRow={sessionRowInHeader}
     />
+  );
+}
+
+export interface ChannelThreadSessionRowProps {
+  interaction: Interaction;
+  thread: Thread;
+  onStatusChange: (status: string) => void;
+  onViewSessionDetails: ComponentProps<typeof InteractionTranscript>["onViewSessionDetails"];
+  onCurrentSessionChange: ComponentProps<typeof InteractionTranscript>["onCurrentSessionChange"];
+  /** The session row's Outcome (the page's shared draft for this thread). */
+  outcome: Partial<ComponentProps<typeof InteractionTranscript>>;
+}
+
+/** A panel thread's current session row (status pill, Session Details,
+ *  Outcome) for the docked panel's header, under the channel name (AI
+ *  display "main", P-AIFIRST (k5) B). The thread body hides its own copy
+ *  (`sessionRowInHeader`). */
+export function ChannelThreadSessionRow({ interaction, thread, onStatusChange, onViewSessionDetails, onCurrentSessionChange, outcome }: ChannelThreadSessionRowProps) {
+  const key = threadKeyOf(thread);
+  return (
+    <div data-slot="panel-session-row">
+      <InteractionTranscript
+        sessionRowOnly
+        channelType={thread.type}
+        direction={thread.direction}
+        customerName={interaction.customerName}
+        contactId={thread.contactId ?? interaction.customerId}
+        channelAddressLabel={thread.addressLabel}
+        skillLabel={thread.preview}
+        isFreshLaunch={!!thread.startedFresh}
+        liveMessages={interaction.liveMessages?.[key] ?? []}
+        currentStatus={interaction.threadStatuses?.[key]}
+        onCurrentStatusChange={onStatusChange}
+        onViewSessionDetails={onViewSessionDetails}
+        onCurrentSessionChange={onCurrentSessionChange}
+        dimmed={!!interaction.closed || interaction.threadStatuses?.[key] === "Closed"}
+        {...outcome}
+      />
+    </div>
   );
 }
 

@@ -92,10 +92,10 @@ test("digital assignments load as cards: the demo's seeded email and SMS offers 
   }
 });
 
-test("the record header: the session row, and the chat icon and Contact Details swap the panel", async ({ page }) => {
+test("the record header: the panel thread's session row in the panel header, and the chat icon and Contact Details swap the panel", async ({ page }) => {
   await chatAndEmailCard(page);
-  const main = page.locator("[data-main-thread=ai]");
-  await expect(main.getByText("Session Details", { exact: true })).toBeVisible();
+  // k5 B: the session row is the panel thread's, under the channel name in the panel's header.
+  await expect(page.locator("[data-slot=right-panel] [data-slot=panel-session-row]").getByText("View Details")).toBeVisible();
   const chatIcon = page.locator("[aria-label='Open Chat preview'], [aria-label='Close Chat preview']").first();
   const contactDetails = page.getByRole("button", { name: /Contact Details$/ }).first();
   await contactDetails.click();

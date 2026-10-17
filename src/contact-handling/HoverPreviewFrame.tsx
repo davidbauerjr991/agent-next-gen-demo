@@ -1,5 +1,13 @@
 import type { ReactNode } from "react";
 
+/** The hover previews' `Popover` (channel icons and Contact Details): no
+ *  surface of its own (the frame is the card), and no enter animation — the
+ *  open delay already prevents flicker, and a fade on top of it flashed when
+ *  the agent hovered then clicked fast (P-AIFIRST (k5)). No close animation
+ *  either: lyra's is 100ms, not under the 100ms the rule allows. Important,
+ *  because twMerge keeps the animate plugin's `animate-in` beside it. */
+export const HOVER_PREVIEW_POPOVER_CLASS = "border-0 bg-transparent p-0 shadow-none !animate-none";
+
 /** The record header's hover previews (every channel icon and Contact
  *  Details) share this frame (browser check, 2026-10-16): a column with a
  *  fixed header, one body that is the only scroller, and a fixed footer. A

@@ -241,14 +241,16 @@ describe("Header tabs (AI display inline) and the panel's thread (\"main\")", ()
     await h.click(h.navCard(priya.name));
   }
 
-  it("inline: the call and the email are tabs; the email (newest) is main; the voice tab is the call's AI workspace; the panel never a thread", async () => {
+  it("inline: the call and the email are tabs; the email (newest) is main; the voice tab is the call's transcript with its AI inline; the panel never a thread", async () => {
     await voiceAndEmail();
     expect(mainThread()).toBe("email");
     expect(panelShows()).toBeNull();
     await h.click(headerIcon("Voice Transcript")!);
     expect(mainThread()).toBe("voice");
     const main = h.container.querySelector("[data-main-thread]")!;
-    expect(main.querySelector("[data-slot=ai-workspace] [data-slot=autosummary]")).toBeTruthy();
+    // k5: like a chat tab — the transcript (its content stack, Autosummary inline) and the composer at the bottom.
+    expect(main.querySelector("[data-slot=ai-workspace]")).toBeNull();
+    expect(main.querySelector("[data-slot=content-stack] [data-slot=autosummary]")).toBeTruthy();
     expect(main.querySelector("[data-slot=copilot-composer]")).toBeTruthy();
     expect(panelShows()).toBeNull();
     // The email tab swaps back.

@@ -147,8 +147,8 @@ describe("an unscripted voice call has an AI feed for its Copilot rows", () => {
       await h.click(composer().querySelector('button[aria-label="Submit"]')!);
       await h.advance(2_500);
 
-      // The interstitial row, in the feed: a call's tab is its AI workspace, the main column, in every mode (k3).
-      const feed = "[data-main-thread]";
+      // The interstitial row, in the feed: the main column inline and main, the panel in panel mode (k5: a call follows AI display).
+      const feed = displayLocation !== "panel" ? "[data-main-thread]" : "[data-slot=right-panel]";
       const summarize = row("Summarize this call");
       expect(summarize).toBeTruthy();
       expect(summarize.closest(feed)).not.toBeNull();

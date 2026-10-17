@@ -65,11 +65,10 @@ describe("the Copilot composer on every live assignment", () => {
         const all = composers();
         expect(all).toHaveLength(1);
         const [composer] = all;
-        // "main", and a call's tab in every mode (its AI workspace, (k3)), dock the
-        // panel-style composer at the bottom of the main column.
-        const inAiWorkspace = displayLocation === "main" || channel === "voice";
-        expect(composer.dataset.placement).toBe(displayLocation === "inline" && !inAiWorkspace ? "inline" : "panel");
-        if (displayLocation !== "panel" || inAiWorkspace) {
+        // "main" docks the panel-style composer at the bottom of the main column; a
+        // call's tab follows AI display like every other thread (k5).
+        expect(composer.dataset.placement).toBe(displayLocation === "inline" ? "inline" : "panel");
+        if (displayLocation !== "panel") {
           expect(composer.closest("[data-main-thread]")).not.toBeNull();
           expect(composer.closest("[data-slot=right-panel]")).toBeNull();
         } else {
@@ -98,9 +97,8 @@ describe("the Copilot composer on every live assignment", () => {
       await h.click(h.navCard("Marcus Webb"));
       await h.advance(1_000);
       expect(composers()).toHaveLength(1);
-      // A call's tab is its AI workspace in every mode (k3): the docked composer in the main column.
-      expect(composers()[0].dataset.placement).toBe("panel");
-      expect(composers()[0].closest("[data-main-thread]")).not.toBeNull();
+      // A call follows AI display like every other thread (k5).
+      expect(composers()[0].dataset.placement).toBe(displayLocation === "inline" ? "inline" : "panel");
     });
   }
 });

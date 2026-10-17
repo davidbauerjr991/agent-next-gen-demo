@@ -74,6 +74,7 @@ import { MARCUS_WEBB_SCRIPT } from "@/scenarios";
 /** Marcus Webb's case id (his card's customer record id), from his script. */
 const MARCUS_WEBB_CUSTOMER_ID = MARCUS_WEBB_SCRIPT.entity.caseId;
 import {
+  AI_CARD_ENTER,
   OUTCOME_TAG_OPTIONS,
   type Contact,
   TranscriptSessionDetails,
@@ -3861,7 +3862,9 @@ export function DetailsPanelAccordions({
         // Autosummary) as an AICard. `customerContextOverview.journeySummary`
         // is the same per-contact facts `snapshot` carries, joined into one
         // paragraph by `buildCustomerContextOverviewInfo`. lyra's own prop
-        // names still say "realTimeSummary".
+        // names still say "realTimeSummary". Enters with the other AI cards
+        // (`AI_CARD_ENTER`, P-AIFIRST (k5)).
+        <div className={AI_CARD_ENTER} data-slot="journey-summary">
         <CustomerContextOverview
           aiCards
           customerName={customerName ?? ""}
@@ -3875,6 +3878,7 @@ export function DetailsPanelAccordions({
           showCustomerProfile={false}
           className="pt-0"
         />
+        </div>
           )}
         </ClockValue>
       )}

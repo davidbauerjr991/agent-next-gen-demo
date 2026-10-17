@@ -183,6 +183,7 @@ import {
   VoiceWrapUpCard,
   ChannelThreadBody,
   ChannelThreadComposer,
+  ChannelThreadSessionRow,
   threadAcceptsReplies,
   type CopilotComposerProps,
   ConfirmCloseDialog,
@@ -201,6 +202,8 @@ import {
   useAutoAcceptDigital,
   useMainPins,
   HoverPreviewFrame,
+  HOVER_PREVIEW_POPOVER_CLASS,
+  ThreadCrossFade,
   panelToggleClass,
   useReplyBlockedReason,
   useChannelDisabledReasons,
@@ -491,16 +494,6 @@ const SHOW_CHANNEL_TOGGLE_GROUP = false;
 // just above (avoids `no-constant-binary-expression`).
 const SHOW_ADD_CHANNEL_HEADER_BUTTONS = false;
 
-// Whether the record header's per-channel icon row renders an icon for a
-// VOICE thread. Off in this deployment (voice is the only channel, so the
-// icon just duplicates the phone icon already in the record header) — the
-// guard used to be a hard-coded `if (c.type === "voice") return null`, which
-// also made TypeScript narrow `c.type` to exclude "voice" for the rest of
-// that callback and flag the voice special-cases below as dead. They're kept
-// on purpose (a future multi-channel deployment needs them again), so the
-// restore is now this one-word flip. Annotated `boolean` (not a bare
-// `false`) so the guard doesn't narrow on a literal.
-const SHOW_VOICE_CHANNEL_HEADER_ICON: boolean = false;
 /** How long a pointer rests on a header channel icon before its preview opens. */
 const HOVER_PREVIEW_OPEN_DELAY_MS = 250;
 
@@ -1938,26 +1931,23 @@ export function AgentWorkspaceAdvancedPage({
       ? omnichannelMainKey(activeInteraction.threads, requestedMainKey, mainPins.pinned(activeInteraction.id))
       : tabMainKey(activeInteraction.threads, requestedMainKey);
   const activeChannel = activeInteraction?.threads.find((c) => (c.id ?? c.type) === mainKey);
-  const omni = useOmnichannelLayout(omnichannel ? activeInteraction : null, panelPlacement ? undefined : mainKey, {
+  // The panel's thread (under "main") and, in every mode, the unread counts of threads not on screen (k5).
+  const omni = useOmnichannelLayout(activeInteraction, panelPlacement ? undefined : mainKey, {
     defaultKey: panelPlacement && activeInteraction ? panelDefaultKey(activeInteraction.threads) : undefined,
   });
   const activeChannelType = activeChannel?.type;
   // The main column is the AI workspace (Autosummary, AI feed, Copilot
-  // composer, wrap-up card): always under "main", and on a call's tab in
-  // inline and panel (k3), so a voice card's main column is never empty. The
-  // call's spoken lines stay in Contact Details → Transcript; in panel mode
-  // the AI feed leaves Contact Details while it's here (never in both).
+  // composer, wrap-up card) under "main" only. A call's tab follows AI
+  // display like every other thread (k5): its transcript in the main column.
   const aiWorkspaceMain = aiWorkspaceInMain(activeChannelType);
   // The selected card's call in wrap-up, if any (its inline wrap-up card).
   const activeWrapUpThread = voiceWrapUpThread(activeInteraction);
-  // The voice thread whose Transcript tab the Contact Details panel offers: the active channel when it's voice, or (Lucas) a live call
-  // John placed from the escalation card while the chat stays on screen.
+  // A call whose transcript isn't on screen as a thread gets Contact Details' Transcript tab: (Lucas) a live
+  // call John placed from the escalation card while the chat stays on screen. Every other call is a tab or a panel thread.
   const panelVoiceThread: Thread | undefined =
-    activeChannelType === "voice"
-      ? activeChannel
-      : activeInteraction && scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && !activeInteraction.closed && !activeInteraction.voiceCallEnded
-        ? activeInteraction.threads.find((t) => t.type === "voice")
-        : undefined;
+    activeInteraction && activeChannelType !== "voice" && scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && !activeInteraction.closed && !activeInteraction.voiceCallEnded
+      ? activeInteraction.threads.find((t) => t.type === "voice")
+      : undefined;
   // Per explicit follow-up request ("leave the active badge visible if the
   // agent switches between chat/other channels"): whether the interaction
   // has a chat thread open ANYWHERE among its threads, not just whether the
@@ -2180,7 +2170,7 @@ export function AgentWorkspaceAdvancedPage({
   const activeInteractionIsRealCustomer = activeInteraction
     ? CREATE_NEW_CUSTOMERS.some((c) => c.id === activeInteraction.entityId) ||
       createdCustomerRecords.some((c) => c.id === activeInteraction.entityId) ||
-      !!activeInteraction.entityId?.startsWith("history:") ||
+      /^(history|seed):/.test(activeInteraction.entityId ?? "") ||
       // Lucas Thomas arrives already linked to an existing customer.
       scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID ||
       isColdCallId(activeInteraction.id)
@@ -3139,6 +3129,33 @@ export function AgentWorkspaceAdvancedPage({
   };
   /** A composer's Copilot chips and ask, for one thread: the chips follow the
    *  thread's channel (Lucas has his own). */
+  /** A thread's session-row Outcome (the main column's transcript, and the docked panel's header row under
+   *  "main"): the shared `outcomeDraft` keyed `${interactionId}:${threadKey}`, as the LeftNav's `ChannelRow`.
+   *  Once a call has ended the footer is Save & Redial / Save & Dismiss; Redial anchors on the Outcome button. */
+  const threadOutcomeProps = (interaction: Interaction, thread: Thread | undefined) => {
+    const key = `${interaction.id}:${thread?.id ?? thread?.type ?? "channel"}`;
+    return {
+      outcomeOpen: outcomeDraftKey === key && outcomeDraftSource === "transcript",
+      onOutcomeOpenChange: (open: boolean) => handleOutcomeOpenChange(key, open, "transcript"),
+      outcomeTags: outcomeDraft.tags,
+      onOutcomeTagsChange: handleOutcomeTagsChange,
+      outcomeDispositionCode: outcomeDraft.dispositionCode,
+      onOutcomeDispositionChange: handleOutcomeDispositionChange,
+      outcomeSummary: outcomeDraft.summary,
+      onOutcomeSummaryChange: (value: string) => setOutcomeDraft((d) => ({ ...d, summary: value })),
+      onOutcomeSave: handleOutcomeSave,
+      onOutcomeCancel: handleOutcomeCancel,
+      outcomeCallEnded: thread?.type === "voice" && !!(interaction.closed || interaction.voiceCallEnded),
+      outcomeShowSaveAndRedial: calling.saveAndRedial,
+      onOutcomeSaveAndRedial: (anchorEl: HTMLElement | null) =>
+        handleOutcomeSaveAndRedial(
+          interaction.id,
+          thread?.value ?? thread?.addressLabel ?? synthesizeChannelAddress("voice", interaction.customerId ?? interaction.id, interaction.customerName),
+          anchorEl
+        ),
+      onOutcomeSaveAndDismiss: () => handleOutcomeSaveAndDismiss(interaction.id),
+    };
+  };
   const replyBlockedReason = useReplyBlockedReason();
   const copilotComposerProps = (interactionId: string, threadKey: string): CopilotComposerProps => {
     const isLucas = scenarioKeyOf(interactionId) === LUCAS_THOMAS_ID;
@@ -3159,27 +3176,37 @@ export function AgentWorkspaceAdvancedPage({
   // the rest of the transcript. A callback ref (not a plain `useRef`) so
   // it's guaranteed set by the first render that needs to portal into it.
   const [marcusQuestionSlotEl, setMarcusQuestionSlotEl] = useState<HTMLDivElement | null>(null);
-  // "View Details"'s target session — voice and every other channel each
-  // get their own single-purpose state (`selectedVoiceDetailsSession`/
-  // `selectedSessionDetails`, kept separate rather than unified — the two
-  // channel families never show at the same time, since only one channel
-  // is ever active). Both also fall back to whichever session is CURRENTLY
-  // live when nothing's been explicitly clicked yet (`currentVoiceSession`/
-  // `currentSessionDetails` below) — per explicit bug report, the "Session"
-  // tab showed a bare "Select 'View Details' on a session..." placeholder
-  // if the agent switched straight to it without ever clicking "View
-  // Details" first, even though there's always exactly one real current
-  // session to show. This fallback was originally wired for voice only;
-  // extended to every channel per a later explicit request ("the session
-  // tab should display the details when it is active always").
-  const [selectedVoiceDetailsSession, setSelectedVoiceDetailsSession] = useState<Contact | null>(null);
-  // Fallback for the Session tab when no session has been explicitly
-  // clicked yet — see the state declaration's own doc comment just above.
-  const [currentVoiceSession, setCurrentVoiceSession] = useState<Contact | null>(null);
-  const [selectedSessionDetails, setSelectedSessionDetails] = useState<Contact | null>(null);
-  // Non-voice counterpart to `currentVoiceSession` — see that state's own
-  // doc comment above.
-  const [currentSessionDetails, setCurrentSessionDetails] = useState<Contact | null>(null);
+  // Session Details is per thread (P-AIFIRST (k5) B): the session "View
+  // Details" picked, keyed `${cardId}:${threadKey}`, and each thread's
+  // current session as its transcript reports it. The Session tab shows the
+  // pick for the thread it's showing, else that thread's current session,
+  // so it never reads "Select 'View Details' on a session…" and never shows
+  // another tab's session.
+  const [sessionDetailsPick, setSessionDetailsPick] = useState<{ key: string; session: Contact } | null>(null);
+  const [currentSessions, setCurrentSessions] = useState<Record<string, Contact>>({});
+  // AI display "main": the panel thread whose session details the panel shows instead of the thread (its header row's Session Details).
+  const [panelSessionThreadKey, setPanelSessionThreadKey] = useState<string | null>(null);
+  const panelSessionShowing = panelPlacement && !!channelPreviewThreadStableKey && panelSessionThreadKey === channelPreviewThreadStableKey;
+  /** A session row's Session Details. The main tab's (inline, panel) opens Contact Details' Session tab on
+   *  that thread's session, and closes the panel if it's already showing it. Under "main" the panel
+   *  thread's header row swaps the panel between the thread and its session details. */
+  const viewSessionDetails = (threadKey: string, session: Contact) => {
+    if (!activeInteractionId) return;
+    setSelectedDetailPanelContent(null);
+    const key = `${activeInteractionId}:${threadKey}`;
+    if (panelPlacement) {
+      setSessionDetailsPick({ key, session });
+      setPanelSessionThreadKey((current) => (current === threadKey ? null : threadKey));
+      return;
+    }
+    const showing = sidePanelOpen && customerPanelActiveTab === "Session Details" && sessionDetailsPick?.key === key && sessionDetailsPick.session.id === session.id;
+    if (showing) return setSidePanelOpen(false);
+    setSessionDetailsPick({ key, session });
+    setCustomerPanelActiveTab("Session Details");
+    setSidePanelOpen(true);
+  };
+  const reportCurrentSession = (key: string) => (session: Contact) =>
+    setCurrentSessions((prev) => (prev[key]?.id === session.id && prev[key]?.status === session.status ? prev : { ...prev, [key]: session }));
   useEffect(() => {
     if (activeInteractionId) {
       setVoiceVideoWindowOpen(false);
@@ -3208,10 +3235,7 @@ export function AgentWorkspaceAdvancedPage({
       } else {
         setCustomerPanelActiveTab("Details");
       }
-      setSelectedVoiceDetailsSession(null);
-      setCurrentVoiceSession(null);
-      setSelectedSessionDetails(null);
-      setCurrentSessionDetails(null);
+      setSessionDetailsPick(null);
       // Backstop reset for the restored hover-preview (`customerInfoPreview
       // Open`, see that state's own doc comment) — same "clear it on every
       // interaction switch" reset `AgentNextGenPage.tsx`'s own copy of this
@@ -4168,7 +4192,8 @@ export function AgentWorkspaceAdvancedPage({
     // slide-out, and a call next to a chat only moves the voice bar; the
     // main column keeps its thread.
     const threads = interactions.find((i) => i.id === journeyId)?.threads;
-    const route = omnichannel && threads ? routeChannel(threads, threadKey, placement) : null;
+    // Under "main" a call opening (accepted, dialed) only brings the voice bar; its transcript opens in the panel from its icon.
+    const route = omnichannel && threads ? (threadKey.startsWith("voice") ? "bar" : routeChannel(threads, threadKey, placement)) : null;
     // A thread added beside a held main thread (an auto-accepted chat) opens
     // in the panel; the main column stays.
     const pinned = mainPins.pinned(journeyId);
@@ -4295,11 +4320,9 @@ export function AgentWorkspaceAdvancedPage({
   // on `!sidePanelOpen`) closes the preview in that same update, so the
   // agent lands on the real panel already in edit mode rather than seeing
   // an editable form appear inside the transient, mouse-driven popover.
-  const sessionDetailsTabContent = useSessionDetailsTabContent({
-    sessionContact:
-      activeChannelType === "voice"
-        ? selectedVoiceDetailsSession ?? currentVoiceSession
-        : selectedSessionDetails ?? currentSessionDetails,
+  // The thread whose session it shows: the panel thread's under "main" while the panel shows its session details, else the main tab's.
+  const detailsThreadKey = activeInteraction ? `${activeInteraction.id}:${(panelPlacement && panelSessionThreadKey) || activeChannelKey}` : "";  const sessionDetailsTabContent = useSessionDetailsTabContent({
+    sessionContact: (sessionDetailsPick?.key === detailsThreadKey ? sessionDetailsPick.session : currentSessions[detailsThreadKey]) ?? null,
     onEditClick: () => setSidePanelOpen(true),
   });
 
@@ -4705,6 +4728,9 @@ export function AgentWorkspaceAdvancedPage({
       const card = interactions.find((i) => i.id === interactionId);
       const route = card ? routeChannel(card.threads, channelKey, placement) : "main";
       if (interactionId !== activeInteractionId) switchActiveInteraction(interactionId);
+      // Its session details showing in the panel (k5 B): the thread's icon or row goes back to the thread.
+      setPanelSessionThreadKey(null);
+      if (interactionId === activeInteractionId && panelSessionThreadKey === channelKey && omni.slideOutKey === channelKey) return;
       // A held main thread (`mainPins`) stays put on its own row; picking a
       // main-column thread is the agent's own move, so the hold ends.
       if (mainPins.pinned(interactionId) === channelKey) return;
@@ -6389,7 +6415,7 @@ export function AgentWorkspaceAdvancedPage({
         sessionDetailsTabContent.body
       );
     }
-    return (
+    const overview = (
       <DetailsPanelAccordions
         {...shared}
         show={aiInPanel ? PANEL_OVERVIEW_SECTIONS : undefined}
@@ -6400,6 +6426,21 @@ export function AgentWorkspaceAdvancedPage({
         // The on-demand search/create-new overlay (`linkCustomerPanelOpen`); nothing to link once matched.
         onLinkCustomer={activeInteractionIsRealCustomer ? undefined : inPreview ? handleLinkCustomerFromPreview : () => setLinkCustomerPanelOpen(true)}
       />
+    );
+    // In the hover preview an action (an interstitial row, a card's button or link; not an expand toggle)
+    // hands off to the docked panel first: the preview closes, Contact Details opens, the action runs there (k5 G).
+    return inPreview ? (
+      <div
+        className="contents"
+        onClickCapture={(e) => {
+          const action = (e.target as Element).closest("button, a, [role=button], [role=link]");
+          if (action && !action.hasAttribute("aria-expanded")) showContactDetails();
+        }}
+      >
+        {overview}
+      </div>
+    ) : (
+      overview
     );
   };
   // How many AI items the panel feed holds (the overview counts as one); a
@@ -6436,6 +6477,10 @@ export function AgentWorkspaceAdvancedPage({
   // Journey Summary and Artifacts. Inline mode shows everything on Overview.
   const PANEL_OVERVIEW_SECTIONS = { customerInfo: true, journeySummary: false, artifacts: false };
   const PANEL_SESSION_SECTIONS = { customerInfo: false, journeySummary: true, artifacts: true };
+  // No call to show in Contact Details' Transcript tab (it's a tab or a panel thread): it can't stay selected.
+  useEffect(() => {
+    if (!panelVoiceThread && customerPanelActiveTab === "Transcript") setCustomerPanelActiveTab("Details");
+  }, [panelVoiceThread, customerPanelActiveTab]);
   // "AI in panel": the Contact Details panel opens on Details whenever an
   // interaction becomes active. Declared after the interaction-switch panel
   // save/restore effects so it wins (v3).
@@ -8560,12 +8605,9 @@ export function AgentWorkspaceAdvancedPage({
                             moment this early return comes back out. */}
                         {/* One icon per channel (its most recent thread), never one per thread. */}
                         {channelHeaderEntries(activeInteraction.threads).map(({ thread: c, count: threadCount, keys: channelKeys }) => {
-                          // Tabs (AI display inline/panel): every thread, voice included (row 11), is a tab for the main column, shown while the card has more than one.
-                          if ((!SHOW_VOICE_CHANNEL_HEADER_ICON && !tabs && c.type === "voice") || (tabs && activeInteraction.threads.length < 2)) return null;
-                          // Lucas Thomas's chat lives in the main column — no header channel icon.
-                          // AI display "main": every thread, scripted ones included, is in the panel and gets its icon.
-                          const lucasInMain = !panelPlacement && scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID;
-                          if (lucasInMain) return null;
+                          // Every thread, voice and scripted cases included, has an icon: a tab for the main column
+                          // (AI display inline/panel; shown while the card has more than one thread) or the panel's ("main").
+                          if (tabs && activeInteraction.threads.length < 2) return null;
                           const key = c.id ?? c.type;
                           const meta = CHANNEL_TYPE_META[c.type];
                           // Active (the selected look, `panelToggleClass`) = on screen: the panel's thread,
@@ -8573,10 +8615,9 @@ export function AgentWorkspaceAdvancedPage({
                           // Pressed = what the panel shows; with tabs, the main tab (exactly one).
                           const isOpen = channelKeys.includes(channelPreviewThreadKey ?? "");
                           const inMain = !isOpen && !panelPlacement && channelKeys.includes(activeChannelKey);
+                          // Unread: customer messages on a thread that isn't on screen (an inactive tab, or not the panel's).
                           const unreadCount =
-                            omnichannel && channelTempo(c.type) === "async"
-                              ? omni.unread(activeInteraction.id, key, activeInteraction.liveMessages?.[key])
-                              : 0;
+                            c.type !== "voice" && !isOpen && !inMain ? omni.unread(activeInteraction.id, key, activeInteraction.liveMessages?.[key]) : 0;
                           // This tab is the main column's: its "{channel} active" `Tooltip` below.
                           const isActiveChannel = !panelPlacement && key === activeChannelKey;
                           // Per explicit follow-up request: the voice
@@ -8592,7 +8633,7 @@ export function AgentWorkspaceAdvancedPage({
                           // No hover preview for a channel already open in the
                           // panel: `openChannelHoverPreview` won't open one, and
                           // clicking the icon closes it.
-                          const hoverOpen = !lucasInMain && channelHoverPreviewKey === key;
+                          const hoverOpen = channelHoverPreviewKey === key;
                           // Per explicit follow-up request ("on hover for
                           // the voice, chat, sms, email channel icons in
                           // the top right, display the content of the
@@ -8632,7 +8673,7 @@ export function AgentWorkspaceAdvancedPage({
                                 align="end"
                                 showArrow={false}
                                 bodyPadding={false}
-                                className="border-0 bg-transparent p-0 shadow-none"
+                                className={HOVER_PREVIEW_POPOVER_CLASS}
                                 onOpenAutoFocus={(e: Event) => e.preventDefault()}
                                 onCloseAutoFocus={(e: Event) => e.preventDefault()}
                                 onInteractOutside={(e: Event) => {
@@ -8818,7 +8859,7 @@ export function AgentWorkspaceAdvancedPage({
                               align="end"
                               showArrow={false}
                               bodyPadding={false}
-                              className="border-0 bg-transparent p-0 shadow-none"
+                              className={HOVER_PREVIEW_POPOVER_CLASS}
                               onOpenAutoFocus={(e: Event) => e.preventDefault()}
                               onCloseAutoFocus={(e: Event) => e.preventDefault()}
                               onInteractOutside={(e: Event) => {
@@ -8915,11 +8956,6 @@ export function AgentWorkspaceAdvancedPage({
                                           handleInteractionStatusChange(activeInteraction.id, activeChannel.id, status)
                                         }
                                         showSessionActionCluster={false}
-                                        onViewSessionDetails={(session) => {
-                                          setSelectedDetailPanelContent(null);
-                                          setSelectedVoiceDetailsSession(session);
-                                          setCustomerPanelActiveTab("Session Details");
-                                        }}
                                         showViewDetails={false}
                                       />
                                     ) : (
@@ -8984,6 +9020,7 @@ export function AgentWorkspaceAdvancedPage({
                       again.) */}
                   <div className="relative flex flex-1 overflow-hidden">
                       <div className="relative flex flex-1 flex-col min-w-0 overflow-hidden" data-main-thread={panelPlacement ? "ai" : activeChannelType}>
+                        <ThreadCrossFade transitionKey={panelPlacement ? undefined : activeChannelKey} groupKey={activeInteraction.id} />
                         {isHistoryConversationView && historyConversationForActive ? (
                           /* Past-session conversation, opened as its own tab in
                              this record area (see the history `Tab` in the
@@ -9075,10 +9112,10 @@ export function AgentWorkspaceAdvancedPage({
                             </InlineNotification>
                           </div>
                         )}
+                        {/* AI display "main": the session row is the panel thread's, in the panel's header (k5 B); this
+                            context thread's row stays mounted, hidden, so Contact Details' Session tab knows its session. */}
+                        <div className={aiWorkspaceMain ? "hidden" : "contents"}>
                         <InteractionTranscript
-                          // AI display "main" (AI-first): only the session row
-                          // here, the same as every mode; the AI workspace
-                          // fills the column below and the thread is in the panel.
                           sessionRowOnly={aiWorkspaceMain}
  hideAiActions={hideAiActions}
                           hideMockFollowUpMessages={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID}
@@ -9286,12 +9323,8 @@ export function AgentWorkspaceAdvancedPage({
                             (scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID && marcusWebbReviewing) ||
                             (scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && lucasThomasReviewing)
                           }
-                          liveMessages={stripAiInPanel(
-                            activeChannelType === "voice"
-                              ? // Every call, scripted or not: the spoken lines live in the Transcript tab; the main column is the call's AI workspace.
-                                (activeInteraction.liveMessages?.[activeChannelKey] ?? []).filter((m) => !!m.instruction)
-                              : (activeInteraction.liveMessages?.[activeChannelKey] ?? [])
-                          )}
+                          // Every thread, a call included (k5): its transcript, with its AI rows inline (AI display inline) or in Contact Details (panel).
+                          liveMessages={stripAiInPanel(activeInteraction.liveMessages?.[activeChannelKey] ?? [])}
                           // See `customerTyping`'s own doc comment above —
                           // scoped to whichever channel is ACTIVE right now,
                           // same reasoning `applyToChannel` itself already
@@ -9330,46 +9363,8 @@ export function AgentWorkspaceAdvancedPage({
                           onCurrentStatusChange={(status) =>
                             activeChannel && handleInteractionStatusChange(activeInteraction.id, activeChannel.id, status)
                           }
-                          // Same shared `outcomeDraftKey`/`outcomeDraft` state
-                          // the LeftNav's own `ChannelRow` Outcome button uses
-                          // for this exact channel (`outcomeKey` — same
-                          // `${interactionId}:${channelKey}` scheme that
-                          // call site uses) — see `InteractionTranscript`'s
-                          // own outcome props' doc comment.
-                          outcomeOpen={outcomeDraftKey === activeChannelOutcomeKey && outcomeDraftSource === "transcript"}
-                          onOutcomeOpenChange={(open) => handleOutcomeOpenChange(activeChannelOutcomeKey!, open, "transcript")}
-                          outcomeTags={outcomeDraft.tags}
-                          onOutcomeTagsChange={handleOutcomeTagsChange}
-                          outcomeDispositionCode={outcomeDraft.dispositionCode}
-                          onOutcomeDispositionChange={handleOutcomeDispositionChange}
-                          outcomeSummary={outcomeDraft.summary}
-                          onOutcomeSummaryChange={(value) => setOutcomeDraft((d) => ({ ...d, summary: value }))}
-                          onOutcomeSave={handleOutcomeSave}
-                          onOutcomeCancel={handleOutcomeCancel}
-                          // Per explicit request: once this voice channel's
-                          // call has ended, the Outcome popover's footer
-                          // becomes "Save & Redial"/"Save & Dismiss" instead
-                          // — same condition as the LeftNav `ChannelRow`
-                          // config's own `callEnded` above. `anchorEl` here
-                          // is the Outcome trigger's OWN DOM node
-                          // (`OutcomePanel` threads it through automatically
-                          // — see its own doc comment, outcome-panel.tsx),
-                          // so the resulting "Redial Contact" popover
-                          // anchors right on this session row's Outcome
-                          // button, same as Contact History's own Redial
-                          // button anchors its identical popover on itself.
-                          outcomeCallEnded={activeChannelType === "voice" && !!(activeInteraction.closed || activeInteraction.voiceCallEnded)}
-                          outcomeShowSaveAndRedial={calling.saveAndRedial}
-                          onOutcomeSaveAndRedial={(anchorEl) =>
-                            handleOutcomeSaveAndRedial(
-                              activeInteraction.id,
-                              activeChannel?.value ??
-                                activeChannel?.addressLabel ??
-                                synthesizeChannelAddress("voice", activeInteraction.customerId ?? activeInteraction.id, activeInteraction.customerName),
-                              anchorEl
-                            )
-                          }
-                          onOutcomeSaveAndDismiss={() => handleOutcomeSaveAndDismiss(activeInteraction.id)}
+                          // The session row's Outcome: the same shared draft the LeftNav's `ChannelRow` uses for this channel.
+                          {...threadOutcomeProps(activeInteraction, activeChannel)}
                           // Same dismiss logic `ChannelTab`'s own kebab
                           // "Unassign & Dismiss" entry uses for this exact
                           // channel — dismiss just the channel while others
@@ -9421,7 +9416,7 @@ export function AgentWorkspaceAdvancedPage({
                           // Wired for every channel — see
                           // `currentSessionDetails`'s own doc comment above
                           // for the full rationale.
-                          onCurrentSessionChange={activeChannelType === "voice" ? setCurrentVoiceSession : setCurrentSessionDetails}
+                          onCurrentSessionChange={reportCurrentSession(`${activeInteraction.id}:${activeChannelKey}`)}
                           // See AgentNextGenPage.tsx's identical prop for
                           // the full rationale.
                           hideSessionSeparatorFade={
@@ -9444,27 +9439,7 @@ export function AgentWorkspaceAdvancedPage({
                           // from under an agent who simply had it open on
                           // its "Details" accordions for an unrelated
                           // reason.
-                          onViewSessionDetails={(session) => {
-                            // A slide-out panel (order/card/instruction…) closes when Session Details is opened.
-                            setSelectedDetailPanelContent(null);
-                            const alreadyShowingThisSession =
-                              sidePanelOpen &&
-                              customerPanelActiveTab === "Session Details" &&
-                              (activeChannelType === "voice"
-                                ? selectedVoiceDetailsSession?.id === session.id
-                                : selectedSessionDetails?.id === session.id);
-                            if (alreadyShowingThisSession) {
-                              setSidePanelOpen(false);
-                            } else {
-                              if (activeChannelType === "voice") {
-                                setSelectedVoiceDetailsSession(session);
-                              } else {
-                                setSelectedSessionDetails(session);
-                              }
-                              setCustomerPanelActiveTab("Session Details");
-                              setSidePanelOpen(true);
-                            }
-                          }}
+                          onViewSessionDetails={(session) => viewSessionDetails(activeChannelKey, session)}
                           // Per explicit follow-up request ("move the
                           // details side panel toggle to above the session
                           // row to the right of the voice + button group"),
@@ -9480,6 +9455,7 @@ export function AgentWorkspaceAdvancedPage({
                           // passed here at all; see that `actions` block's
                           // own doc comment for the full history/reasoning.
                         />
+                        </div>
                         {aiWorkspaceMain && (
                           <AiWorkspaceColumn
                             feed={renderAiPanelFeed()}
@@ -10403,7 +10379,17 @@ export function AgentWorkspaceAdvancedPage({
                   }
                   headerTabsOverride={
                     channelPreviewThread
-                      ? undefined
+                      ? panelPlacement && (
+                        // AI display "main": the panel thread's session row under the channel name (k5 B).
+                        <ChannelThreadSessionRow
+                          interaction={activeInteraction}
+                          thread={channelPreviewThread}
+                          onStatusChange={(status) => handleInteractionStatusChange(activeInteraction.id, channelPreviewThreadStableKey!, status)}
+                          onViewSessionDetails={(session) => viewSessionDetails(channelPreviewThreadStableKey!, session)}
+                          onCurrentSessionChange={reportCurrentSession(`${activeInteraction.id}:${channelPreviewThreadStableKey}`)}
+                          outcome={threadOutcomeProps(activeInteraction, channelPreviewThread)}
+                        />
+                      )
                       : customerPanelActiveTab === "Artifacts" || customerPanelActiveTab === "Experience Memory"
                       ? <></>
                       : customerPanelActiveTab === "Customer Info"
@@ -10456,7 +10442,9 @@ export function AgentWorkspaceAdvancedPage({
                   // site), or once this specific thread has actually
                   // closed.
                   footerOverride={
-                    channelPreviewThread
+                    channelPreviewThread && panelSessionShowing
+                      ? sessionDetailsTabContent.footer
+                      : channelPreviewThread
                       ? threadAcceptsReplies(activeInteraction, channelPreviewThread) &&
                         // An AI-led chat under review has no chat input until the agent takes over.
                         !(scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && lucasThomasReviewing)
@@ -10495,12 +10483,15 @@ export function AgentWorkspaceAdvancedPage({
                       : undefined
                   }
                   bodyOverride={
-                    channelPreviewThread ? (
+                    channelPreviewThread && panelSessionShowing ? (
+                      sessionDetailsTabContent.body
+                    ) : channelPreviewThread ? (
                       <ChannelThreadBody
                         interaction={activeInteraction}
                         thread={channelPreviewThread}
                         hideAiActions={hideAiActions}
                         withoutAiActions={panelPlacement}
+                        sessionRowInHeader={panelPlacement}
                         overview={threadOverview}
                         hideMockFollowUpMessages={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID}
                         onStatusChange={(status) =>
@@ -10566,11 +10557,6 @@ export function AgentWorkspaceAdvancedPage({
                           activeChannel && handleInteractionStatusChange(activeInteraction.id, activeChannel.id, status)
                         }
                         showSessionActionCluster={false}
-                        onViewSessionDetails={(session) => {
-                          setSelectedDetailPanelContent(null);
-                          setSelectedVoiceDetailsSession(session);
-                          setCustomerPanelActiveTab("Session Details");
-                        }}
                         showViewDetails={false}
                       />
                     ) : customerPanelActiveTab === "Session Details" ? (

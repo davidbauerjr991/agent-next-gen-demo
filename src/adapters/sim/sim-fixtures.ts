@@ -136,15 +136,18 @@ export interface SimSeedContact {
 
 /** The demo's waiting assignments, matching the agent UI's notifications
  *  "1", "3" and "4" (INITIAL_NOTIFICATIONS / NOTIFICATION_CHANNEL in
- *  agent-next-gen-interaction-dashboard.tsx). Each `entityId` is the record
- *  the page links today, `CREATE_NEW_CUSTOMERS[Number(id) % length]`, kept
- *  even though its directory name differs from `contactName`. Plain data on
- *  purpose; `demo-seed.test.ts` guards against drift. P1's generated
- *  databases replace this. */
+ *  agent-next-gen-interaction-dashboard.tsx). Each `entityId` is the seed
+ *  contact's own pseudo-entity (`seed:<name>`, like Contact History's
+ *  `history:<caseId>`; NOTIFICATION_ENTITY_ID mirrors it on the UI side).
+ *  They used to be linked to `CREATE_NEW_CUSTOMERS[Number(id) % length]`, a
+ *  different customer's record, so an outbound to that customer (Sarah
+ *  Brown, `customer-2`) joined Noah Patel's card (P-AIFIRST (k5) F). Plain
+ *  data on purpose; `demo-seed.test.ts` guards against drift. P1's
+ *  generated databases replace this. */
 export const SIM_DEMO_SEED: readonly SimSeedContact[] = [
-  { id: "seed-notification-1" as InteractionId, channel: "email", contactName: "Noah Patel", entityId: "customer-2" as EntityId, ageMinutes: 13 },
-  { id: "seed-notification-3" as InteractionId, channel: "email", contactName: "Lauren Kim", entityId: "customer-4" as EntityId, ageMinutes: 24 },
-  { id: "seed-notification-4" as InteractionId, channel: "sms", contactName: "Ethan Zhang", entityId: "customer-5" as EntityId, ageMinutes: 37 },
+  { id: "seed-notification-1" as InteractionId, channel: "email", contactName: "Noah Patel", entityId: "seed:noah-patel" as EntityId, ageMinutes: 13 },
+  { id: "seed-notification-3" as InteractionId, channel: "email", contactName: "Lauren Kim", entityId: "seed:lauren-kim" as EntityId, ageMinutes: 24 },
+  { id: "seed-notification-4" as InteractionId, channel: "sms", contactName: "Ethan Zhang", entityId: "seed:ethan-zhang" as EntityId, ageMinutes: 37 },
 ];
 
 /** Scripted delays inside the engine, separate from bus latency. */

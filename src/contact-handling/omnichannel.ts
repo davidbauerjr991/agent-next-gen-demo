@@ -43,10 +43,11 @@ export function mainThreadKey(threads: readonly Thread[]): string | undefined {
 
 /** Where activating `key` on a card with these threads puts it. With
  *  placement "panel" (AI display "main", AI-first, P-AIFIRST) no thread takes the
- *  main column: voice is the bar and every other thread opens in the panel. */
+ *  main column: every thread, a call included (its transcript, k5), opens in
+ *  the panel; the voice bar shows the call either way. */
 export function routeChannel(threads: readonly Thread[], key: string, placement: ConversationPlacement = "main"): ChannelRoute {
   const thread = threads.find((t) => threadKeyOf(t) === key);
-  if (placement === "panel") return thread?.type === "voice" ? "bar" : "slideout";
+  if (placement === "panel") return "slideout";
   if (!thread) return "main";
   if (thread.type === "chat") return "main";
   if (thread.type === "voice") return threads.some((t) => t.type === "chat") ? "bar" : "main";

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
 import { describe, expect, it } from "vitest";
-import { INITIAL_NOTIFICATIONS, NOTIFICATION_CHANNEL, NOTIFICATION_INTERACTION_ID } from "@/components/agent-next-gen-interaction-dashboard";
+import { INITIAL_NOTIFICATIONS, NOTIFICATION_CHANNEL, NOTIFICATION_ENTITY_ID, NOTIFICATION_INTERACTION_ID } from "@/components/agent-next-gen-interaction-dashboard";
 import { CONTACT_HISTORY } from "@/components/agent-next-gen-contact-history";
 import { SIM_DEMO_DIRECTORY, SIM_DEMO_LAST_CONTACT_IDS } from "../sim/sim-demo-directory";
 import { SIM_DEMO_SEED } from "../sim/sim-fixtures";
@@ -27,7 +27,9 @@ describe("SIM_DEMO_SEED", () => {
     const seed = SIM_DEMO_SEED.find((s) => s.id === `seed-notification-${id}`);
     expect(seed?.contactName).toBe(n.subtitle);
     expect(seed?.channel).toBe(NOTIFICATION_CHANNEL[id] ?? "email");
-    expect(seed?.entityId).toBe(CREATE_NEW_CUSTOMERS[Number(id) % CREATE_NEW_CUSTOMERS.length].id);
+    // Its own pseudo-entity, mirrored by NOTIFICATION_ENTITY_ID, never a directory record (k5 F).
+    expect(seed?.entityId).toBe(NOTIFICATION_ENTITY_ID[id]);
+    expect(CREATE_NEW_CUSTOMERS.some((c) => c.id === seed?.entityId)).toBe(false);
     expect(seed?.ageMinutes).toBe(Number.parseInt(n.timestamp, 10));
   });
 });

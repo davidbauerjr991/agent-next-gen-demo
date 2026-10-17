@@ -53,10 +53,11 @@ async function voiceAndEmailCard(page: Page) {
   // `force`: the new-assignment card animates, so it never reads as "stable".
   await page.locator("aside [aria-label^='Lauren Briggs']").first().click({ force: true });
   await expect(page.locator("[data-main-thread=ai]")).toBeVisible();
-  // The panel opens on the card's first thread that isn't voice (the email);
-  // close it, so each test starts from a closed panel.
-  const open = page.locator("[data-slot=right-panel][data-thread=email][data-open=true]");
-  if (await open.count()) await emailIcon(page).click();
+  // The panel may open on a thread (the email by default, or the call's
+  // transcript, a panel thread too since k5); close it, so each test starts
+  // from a closed panel.
+  const shown = page.locator("[aria-label^='Close '][aria-label$=' preview'][aria-pressed=true]");
+  if (await shown.count()) await shown.first().click();
   await expect(page.locator("[data-slot=right-panel][data-open=false]")).toHaveCount(1);
   await page.mouse.move(5, 5);
   await page.waitForTimeout(400); // the panel's width transition

@@ -1089,6 +1089,15 @@ export const NOTIFICATION_INTERACTION_ID: Record<string, string> = {
   "4": "seed-notification-4",
 };
 
+/** Each seeded assignment's own pseudo-entity (the sim's SIM_DEMO_SEED
+ *  `entityId`), so reopening a forgotten one never links it to another
+ *  customer's directory record (P-AIFIRST (k5) F). */
+export const NOTIFICATION_ENTITY_ID: Record<string, string> = {
+  "1": "seed:noah-patel",
+  "3": "seed:lauren-kim",
+  "4": "seed:ethan-zhang",
+};
+
 // The three seeded assignments (1, 3, 4) start unread: each stands for an
 // offer waiting in the provider (P0.5b.2). The rest are history and start read.
 export const INITIAL_NOTIFICATIONS: AgentNotification[] = [

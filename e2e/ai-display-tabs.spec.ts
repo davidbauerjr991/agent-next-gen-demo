@@ -22,17 +22,22 @@ const icon = (page: Page, label: string) => page.locator(`[aria-label='Open ${la
 const mainThread = (page: Page) => page.locator("[data-main-thread]").first();
 
 for (const ai of ["inline", "panel"] as const) {
-  test(`AI display ${ai}: a call's tab is its AI workspace (Autosummary and Copilot in the main column), beside the email tab`, async ({ page }) => {
+  test(`AI display ${ai}: a call's tab follows AI display (k5): its transcript in the main column, ${ai === "inline" ? "AI inline" : "AI in Contact Details"}`, async ({ page }) => {
     await setUp(page, ai);
     const failure = await page.evaluate(async () => {
       const w = window as any;
       const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-      // Retried until routing offers it (presence reaches the sim a moment after "Go Available").
+      // Retried until routing offers it (presence reaches the sim a moment after "Go Available"); each try
+      // waits up to 1.5s for a call from the number before starting another (one call, even under load).
+      const routed = async () =>
+        (await w.__providers.interaction.getSnapshot()).interactions.find((i: any) => i.channel === "voice" && i.address?.value === "(312) 555-0164");
       let id = "";
       for (let attempt = 0; attempt < 20 && !id; attempt++) {
-        const tried = w.__simCustomer.startInbound({ channel: "voice", address: "(312) 555-0164", displayName: "Lauren Briggs" });
-        await wait(300);
-        if ((await w.__providers.interaction.getSnapshot()).interactions.some((i: any) => i.id === tried)) id = tried;
+        w.__simCustomer.startInbound({ channel: "voice", address: "(312) 555-0164", displayName: "Lauren Briggs" });
+        for (let poll = 0; poll < 10 && !id; poll++) {
+          await wait(150);
+          id = (await routed())?.id ?? "";
+        }
       }
       if (!id) return "the call was never offered";
       try {
@@ -46,13 +51,16 @@ for (const ai of ["inline", "panel"] as const) {
       }
     });
     expect(failure).toBeNull();
-    await page.locator("aside [aria-label^='Lauren Briggs']").first().click({ force: true });
-    await expect(icon(page, "Email")).toBeVisible();
+    await page.locator("aside [aria-label^='Lauren Briggs']:visible").first().click({ force: true });
+    await expect(icon(page, "Email")).toBeVisible({ timeout: 10_000 });
     await icon(page, "Voice Transcript").click();
     await expect(mainThread(page)).toHaveAttribute("data-main-thread", "voice");
-    const workspace = page.locator("[data-main-thread=voice] [data-slot=ai-workspace]");
-    await expect(workspace.locator("[data-slot=autosummary]")).toBeVisible();
-    await expect(page.locator("[data-main-thread=voice] [data-slot=copilot-composer]")).toBeVisible();
+    // The call's transcript, like a chat tab: no AI workspace in the main column.
+    await expect(page.locator("[data-main-thread=voice] [data-slot=ai-workspace]")).toHaveCount(0);
+    await expect(page.locator("[data-main-thread=voice] [data-slot=content-stack]").first()).toBeVisible();
+    // Inline: the Autosummary and composer in the main column; panel: in Contact Details.
+    await expect(page.locator("[data-main-thread=voice] [data-slot=autosummary]")).toHaveCount(ai === "inline" ? 1 : 0);
+    await expect(page.locator("[data-main-thread=voice] [data-slot=copilot-composer]")).toHaveCount(ai === "inline" ? 1 : 0);
     await expect(page.locator("[data-slot=voice-bar]")).toHaveCount(1);
     await icon(page, "Email").click();
     await expect(mainThread(page)).toHaveAttribute("data-main-thread", "email");
