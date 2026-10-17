@@ -419,10 +419,14 @@ describe("AI display \"main\": the AI-first layout (ai.displayLocation)", () => 
     [...document.body.querySelectorAll("[data-radix-popper-content-wrapper]")].find((w) => /Messages/.test(w.textContent ?? ""));
 
   async function expectMainHeader() {
-    // Session row: status, Session Details, Outcome — above the AI workspace.
+    // Session row: status, Session Details, Outcome — the panel thread's, in the panel's header (k5 B). The
+    // main column has none (P-EXTRACT: this used to find a hidden duplicate there, the cause of Bug 1).
     const main = h.container.querySelector("[data-main-thread=ai]")!;
-    expect(main.textContent).toContain("Session Details");
-    expect(main.textContent).toContain("Outcome");
+    expect(main.textContent).not.toContain("Session Details");
+    const panelRow = h.container.querySelector("[data-slot=right-panel] [data-slot=panel-session-row]")!;
+    // (Its link reads "View Details"; "Session Details" was the hidden main-column copy's label.)
+    expect(panelRow.textContent).toContain("View Details");
+    expect(panelRow.textContent).toContain("Outcome");
     // The chat's icon is there and selected: the chat is in the panel.
     expect(chatIcon()).not.toBeNull();
     expect(panelShows()).toBe("chat");

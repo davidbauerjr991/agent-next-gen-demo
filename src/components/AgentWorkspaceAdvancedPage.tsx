@@ -334,6 +334,9 @@ import { InContactInteriorPanel } from "@/components/agent-next-gen-in-contact-p
 import { CopilotResultPanelBody } from "@/components/copilot-result-panel";
 import { VideoCallWindow, VideoCallFullScreen } from "@/components/agent-next-gen-video-window";
 import type { DetailPanelContent, PanelKey, PanelState } from "@/contact-handling/workspace/workspace-types";
+import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
+import { useOutcomeClaims } from "@/contact-handling/useOutcomeClaim";
+import { useThreadCurrentSession } from "@/contact-handling/useThreadCurrentSession";
 import { BrandMark } from "@/components/BrandMark";
 import damagedHeadphonesImg from "@/assets/headphones.jpg";
 import {
@@ -700,8 +703,12 @@ function InteractionNavCard({
   cardOnHold,
   cardHoldSeverity,
   expanded,
-  ...itemProps
+  ...itemPropsIn
 }: InteractionNavCardProps) {
+  // Each channel row's Outcome opens only from the row that was clicked (P-EXTRACT, Bug 1): the store names
+  // the channel, this card's rows hold the claim, so the thread's session row doesn't open with it.
+  const channels = useOutcomeClaims(itemPropsIn.channels ?? [], (ch, i) => ch.id ?? `${ch.type}:${i}`);
+  const itemProps = itemPropsIn.channels ? { ...itemPropsIn, channels } : itemPropsIn;
   // The outer wrapper is stable across expanded/collapsed, so the entrance (slight fade in from the left) plays once when
   // the tile first appears and not again when the rail expands or collapses.
   return (
@@ -1506,25 +1513,14 @@ export function AgentWorkspaceAdvancedPage({
   // already-lifted piece of state the session-status pill itself reads/
   // writes via `handleInteractionStatusChange` — so there's nothing left
   // for a local draft to own for that field.
-  const [outcomeDraftKey, setOutcomeDraftKey] = useState<string | null>(null);
-  // Which of the three triggers actually opened the popover currently named
-  // by `outcomeDraftKey` — the LeftNav `ChannelRow` Outcome button, the
-  // transcript's own `TranscriptSessionSeparator` Outcome button, and the
-  // record-header `ChannelTab`'s kebab "Outcome" entry all key off the exact
-  // same `${interactionId}:${channelKey}` value for a given channel (so all
-  // three stay in sync on the same shared draft), but that meant clicking
-  // any one satisfied every `outcomeDraftKey === key` check and popped open
-  // more than one popover at once (reported via screenshot, back when there
-  // were only two triggers). Each trigger's own `open` now additionally
-  // requires this to match its own source, so only the one actually clicked
-  // shows as open — the underlying draft (tags/disposition/summary) still
-  // stays the same shared state either way.
-  // Per explicit request/follow-up: a fourth possible source, `"header"`,
-  // for the record header's own top-right icon-button cluster — only
-  // rendered while `showChannelTabRow` reads `false` for the active
-  // interaction (see that const's own doc comment). Mirrors Agent Workspace
-  // 2.0's identical `outcomeDraftSource` union (AgentNextGenPage.tsx).
-  const [outcomeDraftSource, setOutcomeDraftSource] = useState<"leftnav" | "transcript" | "tab" | "header" | null>(null);
+  // The open one is the store's `outcomeOpenFor` (P-EXTRACT, Bug 1): one
+  // entry keyed by the channel, no record of which kind of trigger opened
+  // it. Every trigger for a channel (its nav row, its session rows) keys off
+  // the same `${interactionId}:${channelKey}` so they share one draft; which
+  // one shows the popover is that trigger's own claim (`useOutcomeClaim`), so
+  // two rows showing the same thread (the bug: a second, hidden session row
+  // under AI display "main") can never both open it.
+  const [outcomeDraftKey, setOutcomeDraftKey] = useWorkspaceUiField("outcomeOpenFor");
   // One Outcome draft per channel (`${cardId}:${threadKey}`, shared hook,
   // P0.5d.1): every Outcome popover and the inline voice wrap-up card read
   // and write the same draft for a channel. It starts empty, is kept across
@@ -1569,15 +1565,14 @@ export function AgentWorkspaceAdvancedPage({
   /** The "Search Customers" box's own typed value — reset alongside
    *  `customerMatchStep` for the same reason. */
   const [customerMatchQuery, setCustomerMatchQuery] = useState("");
-  const handleOutcomeOpenChange = (key: string, open: boolean, source: "leftnav" | "transcript" | "tab" | "header") => {
+  const handleOutcomeOpenChange = (key: string, open: boolean) => {
     if (open) {
       // The channel's own draft (`outcomeDrafts`) shows as-is: whatever was
       // already picked for it, or empty the first time.
       setOutcomeDraftKey(key);
-      setOutcomeDraftSource(source);
-    } else if (outcomeDraftKey === key && outcomeDraftSource === source) {
-      setOutcomeDraftKey(null);
-      setOutcomeDraftSource(null);
+    } else {
+      // Only if it's still this channel's: another channel may have opened in the same click.
+      setOutcomeDraftKey((current) => (current === key ? null : current));
     }
   };
   // The open popover's Tags/Disposition handlers (session row, record tab).
@@ -1592,11 +1587,9 @@ export function AgentWorkspaceAdvancedPage({
     // row's Unassign & Dismiss icon, below).
     outcomeDrafts.markSaved(outcomeDraftKey);
     setOutcomeDraftKey(null);
-    setOutcomeDraftSource(null);
   };
   const handleOutcomeCancel = () => {
     setOutcomeDraftKey(null);
-    setOutcomeDraftSource(null);
   };
   // "Save & Redial"/"Save & Dismiss" — the Outcome popover's own footer
   // once `callEnded` is true (`ChannelOutcomeConfig`, outcome-panel.tsx).
@@ -1608,7 +1601,6 @@ export function AgentWorkspaceAdvancedPage({
   // card, logs Contact History via the existing `handleDismissInteraction`).
   const handleOutcomeSaveAndDismiss = (interactionId: string) => {
     setOutcomeDraftKey(null);
-    setOutcomeDraftSource(null);
     handleDismissInteraction(interactionId);
   };
   // "Save & Redial" opens the exact same "Redial Contact" dial-pad popover
@@ -1619,7 +1611,6 @@ export function AgentWorkspaceAdvancedPage({
   // redialing THIS interaction" rather than an unrelated new quick dial.
   const handleOutcomeSaveAndRedial = (interactionId: string, phoneNumber: string, anchorEl: HTMLElement | null) => {
     setOutcomeDraftKey(null);
-    setOutcomeDraftSource(null);
     outboundDial.openCardRedialPad(interactionId, phoneNumber, anchorEl);
   };
   // Formerly drove the record header's own icon-button-cluster Outcome
@@ -3052,8 +3043,9 @@ export function AgentWorkspaceAdvancedPage({
   const threadOutcomeProps = (interaction: Interaction, thread: Thread | undefined) => {
     const key = `${interaction.id}:${thread?.id ?? thread?.type ?? "channel"}`;
     return {
-      outcomeOpen: outcomeDraftKey === key && outcomeDraftSource === "transcript",
-      onOutcomeOpenChange: (open: boolean) => handleOutcomeOpenChange(key, open, "transcript"),
+      // Open for this channel; the session row that opened it shows it (its claim, `useOutcomeClaim`).
+      outcomeOpen: outcomeDraftKey === key,
+      onOutcomeOpenChange: (open: boolean) => handleOutcomeOpenChange(key, open),
       outcomeTags: outcomeDraft.tags,
       onOutcomeTagsChange: handleOutcomeTagsChange,
       outcomeDispositionCode: outcomeDraft.dispositionCode,
@@ -3097,12 +3089,11 @@ export function AgentWorkspaceAdvancedPage({
   const [marcusQuestionSlotEl, setMarcusQuestionSlotEl] = useState<HTMLDivElement | null>(null);
   // Session Details is per thread (P-AIFIRST (k5) B): the session "View
   // Details" picked, keyed `${cardId}:${threadKey}`, and each thread's
-  // current session as its transcript reports it. The Session tab shows the
+  // current session, derived (`detailsCurrentSession`, below). The Session tab shows the
   // pick for the thread it's showing, else that thread's current session,
   // so it never reads "Select 'View Details' on a session…" and never shows
   // another tab's session.
   const [sessionDetailsPick, setSessionDetailsPick] = useState<{ key: string; session: TranscriptSession } | null>(null);
-  const [currentSessions, setCurrentSessions] = useState<Record<string, TranscriptSession>>({});
   /** A session row's Session Details. The main tab's (inline, panel) opens Contact Details' Session tab on
    *  that thread's session, and closes the panel if it's already showing it. Under "main" the panel
    *  thread's header row opens it as the interior slide-over over the thread, with its own close (k6 10:
@@ -3123,8 +3114,6 @@ export function AgentWorkspaceAdvancedPage({
     setCustomerPanelActiveTab("Session Details");
     setSidePanelOpen(true);
   };
-  const reportCurrentSession = (key: string) => (session: TranscriptSession) =>
-    setCurrentSessions((prev) => (prev[key]?.id === session.id && prev[key]?.status === session.status ? prev : { ...prev, [key]: session }));
   useEffect(() => {
     if (activeInteractionId) {
       setVoiceVideoWindowOpen(false);
@@ -4226,8 +4215,16 @@ export function AgentWorkspaceAdvancedPage({
   // an editable form appear inside the transient, mouse-driven popover.
   // The thread whose session it shows: the panel's thread under "main" (it follows a switch, k8 3), else the main tab's.
   const detailsThreadKey = activeInteraction ? `${activeInteraction.id}:${(panelPlacement && channelPreviewThreadKey) || activeChannelKey}` : "";
+  const detailsFromPanelRow = !!(panelPlacement && channelPreviewThreadKey);
+  const detailsCurrentSession = useThreadCurrentSession({
+    interaction: activeInteraction,
+    thread: detailsFromPanelRow ? channelPreviewThread : activeChannel,
+    threadKey: detailsThreadKey,
+    fromPanelRow: detailsFromPanelRow,
+    mainStatus: activeChannelStatus,
+  });
   const sessionDetailsTabContent = useSessionDetailsTabContent({
-    sessionContact: (sessionDetailsPick?.key === detailsThreadKey ? sessionDetailsPick.session : currentSessions[detailsThreadKey]) ?? null,
+    sessionContact: (sessionDetailsPick?.key === detailsThreadKey ? sessionDetailsPick.session : detailsCurrentSession) ?? null,
     onEditClick: () => setSidePanelOpen(true),
   });
 
@@ -4903,25 +4900,26 @@ export function AgentWorkspaceAdvancedPage({
    *  it's the whole-card dismiss, which also logs Contact History. */
   const handleOutcomeSaveAndDismissChannel = (interaction: Interaction, c: Interaction["threads"][number]) => {
     setOutcomeDraftKey(null);
-    setOutcomeDraftSource(null);
     if (interaction.threads.length <= 1) handleDismissInteraction(interaction.id);
     else handleDismissChannel(interaction.id, c);
   };
-  /** One channel's Outcome config: the nav row's popover ("leftnav") or the
-   *  inline voice wrap-up card ("card", always open). Both edit the
-   *  channel's own draft (`outcomeDrafts`). */
+  /** One channel's Outcome config: the nav row's popover ("popover": open
+   *  while the store names this channel, shown by the row that claimed it,
+   *  `useOutcomeClaims` in `InteractionNavCard`) or the inline voice wrap-up
+   *  card ("inline", always open). Both edit the channel's own draft
+   *  (`outcomeDrafts`). */
   const outcomeConfigFor = (
     interaction: Interaction,
     c: Interaction["threads"][number],
-    source: "leftnav" | "card"
+    surface: "popover" | "inline"
   ): ChannelOutcomeConfig => {
     const outcomeKey = outcomeDraftKeyOf(interaction.id, c.id ?? c.type);
     const draft = outcomeDrafts.draftFor(outcomeKey);
     const edit = (change: (d: OutcomeDraft) => OutcomeDraft) => outcomeDrafts.update(outcomeKey, change);
     return {
-      open: source === "card" || (outcomeDraftKey === outcomeKey && outcomeDraftSource === source),
+      open: surface === "inline" || outcomeDraftKey === outcomeKey,
       onOpenChange: (open: boolean) => {
-        if (source === "leftnav") handleOutcomeOpenChange(outcomeKey, open, source);
+        if (surface === "popover") handleOutcomeOpenChange(outcomeKey, open);
       },
       // Same options list AND same underlying value as the session-status
       // pill's own dropdown (rule #29), so changing status from either
@@ -7440,7 +7438,7 @@ export function AgentWorkspaceAdvancedPage({
                     // closed/read-only card, since `showMenu={removable !==
                     // false}` already hides the whole button (and this along
                     // with it) there.
-                    outcome: outcomeConfigFor(interaction, c, "leftnav"),
+                    outcome: outcomeConfigFor(interaction, c, "popover"),
                     // A live call stays blue-highlighted alongside the open chat (Lucas: John on the call).
                     alwaysHighlighted:
                       (scenarioKeyOf(interaction.id) === LUCAS_THOMAS_ID && c.type === "voice" && !interaction.voiceCallEnded && !interaction.closed) ||
@@ -8652,8 +8650,8 @@ export function AgentWorkspaceAdvancedPage({
                                   }
                                   removeVariant={isNewOutboundThread ? "delete-draft" : "close"}
                                   outcome={{
-                                    open: outcomeDraftKey === outcomeKey && outcomeDraftSource === "tab",
-                                    onOpenChange: (open) => handleOutcomeOpenChange(outcomeKey, open, "tab"),
+                                    open: outcomeDraftKey === outcomeKey,
+                                    onOpenChange: (open) => handleOutcomeOpenChange(outcomeKey, open),
                                     resolutionOptions: TRANSCRIPT_SESSION_STATUS_OPTIONS,
                                     resolution: activeInteraction.threadStatuses?.[c.id] ?? "Open",
                                     onResolutionChange: (value) =>
@@ -8965,11 +8963,11 @@ export function AgentWorkspaceAdvancedPage({
                             </InlineNotification>
                           </div>
                         )}
-                        {/* AI display "main": the session row is the panel thread's, in the panel's header (k5 B); this
-                            context thread's row stays mounted, hidden, so Contact Details' Session tab knows its session. */}
-                        <div className={aiWorkspaceMain ? "hidden" : "contents"}>
+                        {/* AI display "main": the session row is the panel thread's, in the panel's header (k5 B), and the
+                            main column has no transcript. Contact Details' Session tab derives the thread's current session
+                            (`currentSessionOf`) instead of a hidden copy of this transcript reporting it (P-EXTRACT, Bug 1). */}
+                        {!aiWorkspaceMain && (
                         <InteractionTranscript
-                          sessionRowOnly={aiWorkspaceMain}
  hideAiActions={hideAiActions}
                           hideMockFollowUpMessages={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID}
                           // Voice wrap-up (P0.5d.1): while this card's call is
@@ -8980,7 +8978,7 @@ export function AgentWorkspaceAdvancedPage({
                           // conversation. It leaves once the outcome is saved.
                           trailingContent={
                             activeWrapUpThread ? (
-                              <VoiceWrapUpCard outcome={outcomeConfigFor(activeInteraction, activeWrapUpThread, "card")} />
+                              <VoiceWrapUpCard outcome={outcomeConfigFor(activeInteraction, activeWrapUpThread, "inline")} />
                             ) : undefined
                           }
                           trailingContentKey={
@@ -9266,10 +9264,6 @@ export function AgentWorkspaceAdvancedPage({
                                   })
                               : undefined
                           }
-                          // Wired for every channel — see
-                          // `currentSessionDetails`'s own doc comment above
-                          // for the full rationale.
-                          onCurrentSessionChange={reportCurrentSession(`${activeInteraction.id}:${activeChannelKey}`)}
                           // See AgentNextGenPage.tsx's identical prop for
                           // the full rationale.
                           hideSessionSeparatorFade={
@@ -9308,7 +9302,7 @@ export function AgentWorkspaceAdvancedPage({
                           // passed here at all; see that `actions` block's
                           // own doc comment for the full history/reasoning.
                         />
-                        </div>
+                        )}
                         {aiWorkspaceMain && (
                           <AiWorkspaceColumn
                             feed={renderAiPanelFeed()}
@@ -9316,7 +9310,7 @@ export function AgentWorkspaceAdvancedPage({
                             followSignal={aiFollowSignal}
                             customerName={activeInteraction.customerName}
                             customerContextOverview={customerContextOverviewInfo}
-                            trailing={activeWrapUpThread && <VoiceWrapUpCard outcome={outcomeConfigFor(activeInteraction, activeWrapUpThread, "card")} />}
+                            trailing={activeWrapUpThread && <VoiceWrapUpCard outcome={outcomeConfigFor(activeInteraction, activeWrapUpThread, "inline")} />}
                             dockRef={setMainDockEl}
                           />
                         )}
@@ -10239,7 +10233,6 @@ export function AgentWorkspaceAdvancedPage({
                           thread={channelPreviewThread}
                           onStatusChange={(status) => handleInteractionStatusChange(activeInteraction.id, channelPreviewThreadStableKey!, status)}
                           onViewSessionDetails={(session) => viewSessionDetails(channelPreviewThreadStableKey!, session)}
-                          onCurrentSessionChange={reportCurrentSession(`${activeInteraction.id}:${channelPreviewThreadStableKey}`)}
                           outcome={threadOutcomeProps(activeInteraction, channelPreviewThread)}
                           // A draft's "Discard draft", or Unassign & Dismiss once its outcome is saved (k6 9).
                           onDismiss={

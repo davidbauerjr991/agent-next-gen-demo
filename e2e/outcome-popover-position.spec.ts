@@ -7,8 +7,6 @@ import { expect, test } from "@playwright/test";
 // count across modes is in src/contact-handling/outcome-single-popover.test.tsx.)
 
 test("AI display main, a call: the panel row's Outcome opens one popover, under its button", async ({ page }) => {
-  // Fails on HEAD (the bug); P-EXTRACT C3 removes this annotation.
-  test.fail();
   await page.addInitScript(() => {
     localStorage.setItem("agent-next-gen:settings:ai", JSON.stringify({ v: 1, value: { displayLocation: "main" } }));
   });

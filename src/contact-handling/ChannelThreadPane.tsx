@@ -76,7 +76,6 @@ export interface ChannelThreadSessionRowProps {
   thread: Thread;
   onStatusChange: (status: string) => void;
   onViewSessionDetails: ComponentProps<typeof InteractionTranscript>["onViewSessionDetails"];
-  onCurrentSessionChange: ComponentProps<typeof InteractionTranscript>["onCurrentSessionChange"];
   /** The session row's Outcome (the page's shared draft for this thread). */
   outcome: Partial<ComponentProps<typeof InteractionTranscript>>;
   /** Discard the draft / Unassign & Dismiss this thread. */
@@ -87,7 +86,7 @@ export interface ChannelThreadSessionRowProps {
  *  Outcome) for the docked panel's header, under the channel name (AI
  *  display "main", P-AIFIRST (k5) B). The thread body hides its own copy
  *  (`sessionRowInHeader`). */
-export function ChannelThreadSessionRow({ interaction, thread, onStatusChange, onViewSessionDetails, onCurrentSessionChange, outcome, onDismiss }: ChannelThreadSessionRowProps) {
+export function ChannelThreadSessionRow({ interaction, thread, onStatusChange, onViewSessionDetails, outcome, onDismiss }: ChannelThreadSessionRowProps) {
   const key = threadKeyOf(thread);
   return (
     <div data-slot="panel-session-row">
@@ -104,7 +103,6 @@ export function ChannelThreadSessionRow({ interaction, thread, onStatusChange, o
         currentStatus={interaction.threadStatuses?.[key]}
         onCurrentStatusChange={onStatusChange}
         onViewSessionDetails={onViewSessionDetails}
-        onCurrentSessionChange={onCurrentSessionChange}
         dimmed={!!interaction.closed || interaction.threadStatuses?.[key] === "Closed"}
         // The same draft derivation as the nav row (k6 9): "Discard draft" until a message is sent.
         isNewThread={isDraftThread(interaction, thread)}

@@ -94,9 +94,8 @@ async function acceptCall(address: string, name: string) {
   await h.advance(800);
 }
 
-// `it.fails`: fails on HEAD (the bug); P-EXTRACT C3 flips these to `it`.
 describe("Bug 1: one Outcome popover per click", () => {
-  it.fails("AI display main, a call: the panel row's Outcome opens one popover", async () => {
+  it("AI display main, a call: the panel row's Outcome opens one popover", async () => {
     await setUp("main");
     await acceptCall("(312) 555-0164", "Lauren Briggs");
     expect(panelShows()).toBe("voice");
@@ -105,7 +104,7 @@ describe("Bug 1: one Outcome popover per click", () => {
     expect(openOutcomePopovers()).toHaveLength(1);
   });
 
-  it.fails("AI display main, two emails, the panel on each in turn: one popover each time", async () => {
+  it("AI display main, two emails, the panel on each in turn: one popover each time", async () => {
     await setUp("main");
     const journey = await dial("email", priya.emailAddress!);
     await dial("email", "priya.second@example.com", journey);
@@ -139,7 +138,7 @@ describe("Bug 1: one Outcome popover per click", () => {
 });
 
 describe("Bug 1: which session rows exist", () => {
-  it.fails("AI display main, a call: none in the main column (visible or hidden), one in the panel header", async () => {
+  it("AI display main, a call: none in the main column (visible or hidden), one in the panel header", async () => {
     await setUp("main");
     await acceptCall("(312) 555-0164", "Lauren Briggs");
     expect(sessionRowOutcomes(mainColumn())).toHaveLength(0);
