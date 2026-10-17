@@ -48,7 +48,10 @@ Wrap up this step: run the type-check and the test suite, update PROGRESS.md (do
 
 **One page (decided 2026-10-15; final since P0.5d.2):** Advanced is the agent workspace and Desk is deleted. Its layout varies by settings only; "Phase 1" and "Phase 2" are built-in workspace profiles. Prompts below that say "both pages" mean Advanced.
 
-**Execution order (revised 2026-10-16):** finish 5d.1 → P0.7 → P0.5c → P-SETTINGS → P0.5d.2 → P-AIFIRST → P-PROFILES → P-EXTRACT → P0.5d.3 → the lyra timers change → P0.9.1–9.3 → P0.6 → Phase 1 (incl. P1.4a, P1.4b) → Phase 2 (incl. P2.7) → Phase 3 → Phase 4 (incl. P4.4a, P4.11) → remaining verticals → Phase 5 (incl. P5.6, P5.7) → Phase 6 → Phase 7 → P-MAPPINGS → P-ADAPTER sequence.
+**Execution order (revised 2026-10-17, demo-first):** finish 5d.1 → P0.7 and P0.5c → P-SETTINGS → P0.5d.2 → P-AIFIRST → P-EXTRACT → P-PROFILES → P0.5d.3 → the lyra timers change → P0.6 → Phase 2 §0–5 → Phase 3 (*first demo milestone: a simulated chat and spoken call driven from the console*) → P-ADMIN → P0.9.1–9.3 → P-EMPLOYEES → Phase 1 (incl. P1.4a, P1.4b) → Phase 2 §6–7 (P2.7) → Phase 4 (incl. P4.4a, P4.11) → remaining verticals (P1.2a, P1.2b) → Phase 5 (incl. P5.6, P5.7) and P-CONFIG-ASSIST → Phase 6 → Phase 7 → P-REPORTING → P-BILLING → P-MAPPINGS → P-ADAPTER sequence → P-IMPORT → P-EMBED (last).
+
+---
+
 
 ---
 
@@ -84,6 +87,29 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 5b.2; 5b.1 is co
 ### P0.5d.1 — Voice controls, incoming tile and wrap-up card (provider wiring)   ✋ (Plan: Opus · Implement: Opus) — done
 The original P0.5d prompt was split (2026-10-14). 5d.1 is done; see PROGRESS.md and PLAN.md Decisions for what it built (controlled voice controls, `IncomingOfferActions`, the inline wrap-up card, per-channel drafts, hold chips, recording dot, one call per customer, inbound skill and pre-contact summary).
 
+### P0.7 — Scenario script format   (Plan: Opus · Implement: Sonnet) — before 5c
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 7, run before 5c so the scenario player is built once against this format. In plan mode, propose a TS/JSON scenario format — customer lines per entity per channel, optional timing hints, expressed as SimCustomerAction-compatible steps — loadable by the engine's scenario player (5c) and the console's canned-lines panel, and port the Marcus Webb scenario into it as data (no player yet). Done = Marcus Webb's script validates against the format type; npm test covers loading it. Don't write code yet.
+```
+
+### P0.5c — Scenario player; retire page timers   ✋ (Plan: Opus · Implement: Opus) — done
+Done 2026-10-15; see PROGRESS.md and PLAN.md Decisions. The original prompt, for reference:
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 5c. In plan mode, propose a scenario player inside SimEngine that plays P0.7-format scripts as customer actions and transcript/message events on schedule (paused on hold, stopped when the interaction leaves active/held), and migrate the Marcus Webb scenario's inline page timers onto it so pages only render events via the P0.5.0 hooks. Keep scenario content unchanged. The P0.7 scripts in src/scenarios cover Marcus, Lucas, Tom and Maya, so migrate all four. Done = Marcus Webb replay looks identical; launching Marcus, Tom and Maya via the player produces engine-backed calls that behave identically to __simCustomer.startInbound (auto-hold on a second call, one call per customer, hold chip with timer and SLA, wrap-up), proven by a test that starts one each way and compares events and nav cards; no scenario setTimeouts and no hotkey-built cards remain in page components; npm test passes; list browser checks for me. Don't write code yet.
+```
+
+### P-SETTINGS — Settings store, LayoutConfig and presets   (Plan: Opus · Implement: Sonnet) — after P0.5c, before P0.5d.2
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. Chore: settings and the layout presets (PLAN.md "Settings and configuration" and the one-page decision, Decisions 2026-10-15). Advanced (AgentWorkspaceAdvancedPage) is the single workspace; Desk is frozen and gets nothing new. In plan mode, propose:
+(1) Inventory the Settings page: every setting, what it controls, live or placeholder. Report before proposing.
+(2) A settings store next to src/provider-context/ with useSetting/useSettings hooks the page reads; no page-local setting state; settings apply immediately.
+(3) localStorage, versioned (a changed setting type falls back to its default), surviving reloads and closed tabs, cleared only by "Reset to defaults" on the Settings page; every read/write in try/catch, with defaults when storage is unavailable.
+(4) LayoutConfig, owned here: a typed set of flags for Desk's pieces — omnichannel layout, Home tabs, header apps, desk tabs, calendar — read by Advanced. Presets: "Phase 1" is the default (every Desk flag off: Advanced exactly as today); "Phase 2" turns every flag on; changing any single flag away from a preset shows the preset as "Custom". The Settings page shows the preset picker and one toggle per flag. Flags whose piece hasn't been ported yet (5d.2 ports them) are shown but inert and labeled as such. The app menu's "Phase 1"/"Phase 2" entries pick the preset; keep both routes working until 5d.2 deletes Desk.
+(5) Say which settings belong with profile or database data (P1.4) and keep them out of the store.
+(6) A Connections section skeleton (one row per seam, "Simulated" status, Test/Save disabled until adapters exist).
+No visual changes except making dead settings work and the new preset/flag controls; before/after for those. Tests: the store (defaults, persistence, reset, version fallback, unavailable storage) and the presets (Phase 1 default, Phase 2 sets every flag, one flag change reads Custom, choosing a preset again clears Custom). List browser checks for me. Don't write code yet.
+```
+
 ### P0.5d.2 — Consolidate Desk into Advanced behind settings, then delete Desk   ✋ (Plan: Opus · Implement: Opus) — done
 Done 2026-10-16; see PROGRESS.md and PLAN.md Decisions (P0.5d.2): Home tabs from the apps placed as "tab", left-nav apps as pages, Home v2 (v3's Dashboard settings), the omnichannel layout, New Outbound and Outbound Calling settings under CXone's names, the dismiss flags, presets renamed to workspace profiles, Desk deleted. Layout slots, the contact-handling flags and rows 11/21 moved to P0.5d.3. The original prompt follows for reference.
 ```
@@ -110,7 +136,16 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. Chore, pulled ahead so the layout can b
 Line count before/after; commits (a) placement + profile, (b) white-label + menu, (c) brand colors (+ lyra token fixes, separately), (d) social placeholders, (e) docs. List copy-pasteable browser checks for me. Don't write code yet.
 ```
 
-### P-PROFILES — Saved workspace profiles and per-section locks   ✋ (Plan: Opus · Implement: Sonnet) — after P-AIFIRST, before P-EXTRACT
+### P-EXTRACT — Record header, left nav and body row out of the page   ✋ (Plan: Opus · Implement: Opus) — after P-AIFIRST, before P-PROFILES
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. Chore: extract the three largest inline blocks of AgentWorkspaceAdvancedPage.tsx (PROGRESS.md Known gaps, P0.5d.2): the interaction record header PageHeader (channel icons with hover previews, Contact Details hover, add-channel; ~950 lines), the LeftNav block (~900, of which the per-card channel-row configuration is ~690), and the interaction body row (transcript, composer, scenario surfaces). No behavior change. In plan mode, inventory each block first — the page state it reads and writes, the closures it calls, the props it would need — and flag anything that needs a context instead of heavy prop-drilling (CLAUDE.md file organization). Then propose the files (src/contact-handling/ for contact-handling logic, src/components/ for presentational pieces) and the order. Done = the existing vitest and Playwright suites pass with no assertion or snapshot changes, type-check at baseline, the page's line count reported before and after. List browser checks for me. Don't write code yet.
+Three additions to this step:
+(a) Scope widens to the two other oversized files — `agent-next-gen-transcript.tsx` (5,641 lines) and `agent-next-gen-customer-info-panel.tsx` (5,613) — split by concern into `src/contact-handling/` and `src/components/` files under the same no-behavior-change rule, with line counts before/after for all three and a target of no file over 1,500 lines when done. For the transcript file specifically: `TranscriptSessionSeparator` (~1,170 lines) is the session row and becomes its own module; `InteractionTranscript` (~2,040) splits into message list, overview block, AI rows and a scroll-follow hook; the composer (`InteractionComposer`, `ComposerFade`, `fillQuickReplyTemplate`, `InstructionInterstitial`) is one module; `CUSTOMER_AUTO_REPLY_POOL` / `ACKNOWLEDGE_QUICK_REPLY_RESPONSE` are simulation content and move to `src/adapters/sim/` as a fixture (P2.2 removes the page-side use); the legacy `Contact` interface is checked for remaining importers and retired if P0.5's mapping already covers them; the module-level `revealedApprovalRequests` Set (mutable state at file scope, shared across cards, provider swaps and tests) moves into component or store state keyed by card. `agent-next-gen-marcus-webb-next-best-action-card.tsx` (3,189) is scenario content and moves into the scenario's data in P1.8, not here.
+(b) An ESLint `no-restricted-imports` rule forbidding imports from an `src/admin/` tree (create the empty tree with a README so the rule has a target) anywhere under the Workspace code.
+(c) A `HostProvider` seam in `src/providers/` (types only: `getSession`, `getContext` for current customer/case, `hostKind: "standalone" | "embedded"`, `postToHost`) with a standalone implementation that returns today's values.
+```
+
+### P-PROFILES — Saved workspace profiles and per-section locks   ✋ (Plan: Opus · Implement: Sonnet) — after P-EXTRACT, before P0.5d.3
 ```
 Read CLAUDE.md, PLAN.md and PROGRESS.md. Chore: workspace profiles (PLAN.md "Settings and configuration" → Workspace profiles and "Profiles on the roadmap"). A profile is a snapshot of every agent-scope settings section; Phase 1, Phase 2 and AI-first are built-in; deriveProfile/applyProfile/useWorkspaceProfile in src/settings/profiles.ts. In plan mode, propose:
 (1) Saved profiles in the settings store (their own versioned section): Save as (from the current values), rename, duplicate, **delete** (built-ins can't be renamed or deleted), and **share** as export/import JSON — the file carries every agent-scope section, with locks; admin-scope settings (brand, social) are not in a profile — validated with the section readers, so an old or hand-edited file falls back field by field. The Settings page's profile picker lists built-in (Phase 1, Phase 2, AI-first) and saved profiles; "Custom" still means "differs from every profile".
@@ -118,11 +153,6 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. Chore: workspace profiles (PLAN.md "Set
 (3) Revisit the consequences P0.5d.2 recorded: applying a profile resets personal settings (theme, phone, Home tab order, left-nav toggles); a launch-screen phone number reads Custom. Propose how a profile's unlocked sections should apply (overwrite vs keep the agent's value), and which sections a built-in profile should leave unlocked.
 (4) The app menu no longer lists profiles (P-AIFIRST removed them); profiles are picked in Settings only.
 Assignment to agents, teams and skills lands in Phase 7 My Team (it needs the DirectoryProvider from P0.9; assigned profiles' locked sections render read-only); the `#/agent-console?as=<agentId>` window (P0.9.3) demos it before then. Leave a seam for it. Tests: save/rename/duplicate/delete, export/import round trip and a malformed import, an exported file carries no admin-scope settings, a locked section refuses writes and renders read-only, Custom after any change. List browser checks for me. Don't write code yet.
-```
-
-### P-EXTRACT — Record header, left nav and body row out of the page   ✋ (Plan: Opus · Implement: Opus) — after P-PROFILES, before P0.5d.3
-```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. Chore: extract the three largest inline blocks of AgentWorkspaceAdvancedPage.tsx (PROGRESS.md Known gaps, P0.5d.2): the interaction record header PageHeader (channel icons with hover previews, Contact Details hover, add-channel; ~950 lines), the LeftNav block (~900, of which the per-card channel-row configuration is ~690), and the interaction body row (transcript, composer, scenario surfaces). No behavior change. In plan mode, inventory each block first — the page state it reads and writes, the closures it calls, the props it would need — and flag anything that needs a context instead of heavy prop-drilling (CLAUDE.md file organization). Then propose the files (src/contact-handling/ for contact-handling logic, src/components/ for presentational pieces) and the order. Done = the existing vitest and Playwright suites pass with no assertion or snapshot changes, type-check at baseline, the page's line count reported before and after. List browser checks for me. Don't write code yet.
 ```
 
 ### P0.5d.3 — Layout slots, contact-handling flags, rows 11 and 21   ✋ (Plan: Opus · Implement: Opus) — after P-EXTRACT
@@ -136,16 +166,88 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 5d.3, the rest o
 For every visual change in either profile, give a before/after and wait for my approval. Tests per flag; Playwright for anything that depends on layout. List browser checks for me. Don't write code yet.
 ```
 
-### P-SETTINGS — Settings store, LayoutConfig and presets   (Plan: Opus · Implement: Sonnet) — after P0.5c, before P0.5d.2
+### P0.6 — Customer console route   (Plan: Opus · Implement: Sonnet)
 ```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. Chore: settings and the layout presets (PLAN.md "Settings and configuration" and the one-page decision, Decisions 2026-10-15). Advanced (AgentWorkspaceAdvancedPage) is the single workspace; Desk is frozen and gets nothing new. In plan mode, propose:
-(1) Inventory the Settings page: every setting, what it controls, live or placeholder. Report before proposing.
-(2) A settings store next to src/provider-context/ with useSetting/useSettings hooks the page reads; no page-local setting state; settings apply immediately.
-(3) localStorage, versioned (a changed setting type falls back to its default), surviving reloads and closed tabs, cleared only by "Reset to defaults" on the Settings page; every read/write in try/catch, with defaults when storage is unavailable.
-(4) LayoutConfig, owned here: a typed set of flags for Desk's pieces — omnichannel layout, Home tabs, header apps, desk tabs, calendar — read by Advanced. Presets: "Phase 1" is the default (every Desk flag off: Advanced exactly as today); "Phase 2" turns every flag on; changing any single flag away from a preset shows the preset as "Custom". The Settings page shows the preset picker and one toggle per flag. Flags whose piece hasn't been ported yet (5d.2 ports them) are shown but inert and labeled as such. The app menu's "Phase 1"/"Phase 2" entries pick the preset; keep both routes working until 5d.2 deletes Desk.
-(5) Say which settings belong with profile or database data (P1.4) and keep them out of the store.
-(6) A Connections section skeleton (one row per seam, "Simulated" status, Test/Save disabled until adapters exist).
-No visual changes except making dead settings work and the new preset/flag controls; before/after for those. Tests: the store (defaults, persistence, reset, version fallback, unavailable storage) and the presets (Phase 1 default, Phase 2 sets every flag, one flag change reads Custom, choosing a preset again clears Custom). List browser checks for me. Don't write code yet.
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 6. In plan mode, propose a #/customer-console route (same Vite app, lyra-ui styling) built on the sim protocol's SimCustomerAction messages (startInbound, message, typing, hangUp), replacing window.__simCustomer. Solve engine discovery across windows: the engine lives in the agent window and is session-scoped by sessionId, so the console needs a way to find active sessions (e.g. an announce/hello message) and pick one. The console lists that session's interactions, can attach to one, or start an inbound one "as <entity>" or "as unknown caller" (free phone/name entry), carrying identifiers and pre-contact context. The console must not render inside ProviderRoot's agent providers and the agent UI must not know it exists. No chat/voice UI yet — shell and handshake only. Done = the console in a second window sees the agent's session and starting an inbound contact produces an incoming offer in the agent app; list browser checks for me. Don't write code yet.
+```
+
+---
+
+## Phase 2 — Realtime chat simulation
+
+Every Phase 2 step follows PLAN.md's **Where threads open: AI display decides** (rewritten 2026-10-16, P-AIFIRST (k3); the omnichannel setting is retired): under AI display inline and panel every thread on a card, voice included, is a record-header tab for the main column (a call's tab is its AI workspace; the docked panel holds Contact Details only); under "main" (the AI-first profile) the main column is the AI workspace and every thread opens in the docked panel, one at a time. Assignment-based cards with one row per channel; tempo is static and describes channels, not layout.
+
+### P2.0 — Render performance pass   (Plan: Opus · Implement: Sonnet) — before 2.1  [§0–5 only; §6–7 after Phase 1]
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 2, step 0. Known gaps records that the 550–1180ms renders seen on the dev server are dev-mode overhead; the production build is fast, but it still logs occasional slow handlers (~230–270ms) and forced reflows (up to ~120ms). Live chat and voice will deliver events every second or two, so in plan mode, propose how to find which components re-render on a single provider event and why, then the smallest fixes (memoized selectors in the P0.5.0 hooks, React.memo on heavy subtrees, splitting state so one interaction's update doesn't re-render the whole page). The React Profiler can be used on the dev server to find what re-renders, but **all timings, before and after, are measured against a production build**: build with `npx vite build` and run `npm run preview`, not `npm run build`, until the type-check chore in PROGRESS.md is done. No visual changes. Done = a stateChanged or message event causes a render under ~50ms in the production build, measured before and after; list browser checks for me. Don't write code yet.
+```
+
+### P2.1 — Console chat view   (Plan: Opus · Implement: Sonnet)  [§0–5 only; §6–7 after Phase 1]
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 2, step 1. In plan mode, propose the console's chat view: thread (lyra chat-message/conversation-message), composer, typing toggle, a canned-lines panel from the active profile's scenarios (P0.7 format), and End chat — all sent as SimCustomerAction messages. Done = typing on the console produces customer messages the agent app receives as message events; list browser checks for me. Don't write code yet.
+```
+
+### P2.2 — Agent-side inbound chat   ✋ (Plan: Opus · Implement: Sonnet)  [§0–5 only; §6–7 after Phase 1]
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 2, step 2. In plan mode, propose rendering inbound chat end to end through the P0.5.0 hooks: incoming offer → accept → messages (useTranscript) in the existing channel-row / interaction-nav flow; agent replies via sendMessage (appearing only when the message event arrives, with delivery state); setTyping and incoming typing events both ways. Where threads open already follows AI display (P-AIFIRST (k3); src/contact-handling/omnichannel.ts, useConversationPlacement, useOmnichannelLayout): verify it with a real inbound chat on a card with three rows (chat, call, an async thread) as header tabs under inline and panel (an accepted chat becomes its card's tab; the call's tab is its AI workspace), and in the docked panel under "main"; move the panel's unread counts (under "main") from the page's live-message overlay onto real message events, and decide whether inactive tabs get unread counts too. Under "main", "the one thread that moves": accepting a chat on a card whose panel shows an async thread swaps the panel to the chat in the same frame, unsent draft kept — an offered chat never rearranges anything. Rich content (PLAN.md Phase 0 §1): `Message.content` becomes a union (text, html, media { kind, url, caption?, mime }, interactive { prompt, options, kind }), a tapped option arrives as a reply carrying `choice: { messageId, optionId }`, `attachments[]` alongside; carry it end to end for chat (domain, sim, store, transcript rendering with lyra bubbles), with string-content call sites migrated. Per-channel capabilities (PLAN.md Integration readiness): `capabilities.channels.<channel>.media | interactive | templates | richCards | html | attachments`; the sim turns them all on; the composer hides (not disables) a control whose capability is off; contract cases for both. Email/SMS content stays P-PARKED. Done = a full two-way chat works between console and agent app, under AI display inline, panel and "main"; list browser checks for me. Don't write code yet.
+```
+
+### P2.3 — Unknown-contact state   (Plan: Opus · Implement: Sonnet)  [§0–5 only; §6–7 after Phase 1]
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 2, step 3. In plan mode, propose the unknown-contact state for an Interaction with no entityId: Profile card shows "New <entity>" with the address, snapshot says no prior history, and an empty Draft <entity> card (fields from the profile schema) appears in the AI-assist slot with Save disabled. No extraction yet. Done = starting a chat "as unknown caller" from the console shows this state; list browser checks for me. Don't write code yet.
+```
+
+### P2.4 — Handoff snapshot card   (Plan: Opus · Implement: Sonnet)  [§0–5 only; §6–7 after Phase 1]
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 2, step 4. In plan mode, propose replacing the Next Best Action card's role with a handoff snapshot: seeded from the handshake's pre-contact context through the profile's snapshot template, static once the agent takes over, collapsible via the existing accordion, with a sensible default for whether it auto-collapses. Keep the accent styling. Done = snapshot renders for known and unknown contacts in chat and voice; list browser checks for me. Don't write code yet.
+```
+
+### P2.5 — Utterance events   (Sonnet · Sonnet)  [§0–5 only; §6–7 after Phase 1]
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 2, step 5. Propose and implement onCustomerUtterance / onAgentUtterance hooks in src/provider-context/ derived from message and transcript events (final utterances only, channel-agnostic), with tests. Nothing else listens yet.
+```
+
+---
+
+## Phase 3 — Voice call simulation
+
+### P3.1 — SimulatedMediaProvider   (Plan: Opus · Implement: Sonnet)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 3, step 1. In plan mode, propose SimulatedMediaProvider in src/adapters/sim/ implementing the MediaProvider contract: it subscribes to transcript events itself and plays customer utterances via speechSynthesis (per-persona voice from getVoices on voiceschanged), queued with no overlap, paused while held, stopped when the interaction's state leaves active/held (not on ended); emits audioStateChanged, speaking and wordBoundary; unlock() and setOutputVolume(). Optional continuous SpeechRecognition (Chrome) while active and unmuted publishes agent utterances back over the sim transport so they arrive as transcript events. Done = with the sim set wired, a customer voice line is heard and the events fire; list browser checks for me. Don't write code yet.
+```
+
+### P3.2 — Console voice view   (Sonnet · Sonnet)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 3, step 2. Propose and implement the console's voice view: composer, canned lines, voice/rate/pitch selectors (console-only, not in the MediaProvider contract), Hang up, and a typed-agent-lines fallback box. Done = lines sent from the console arrive as voice transcript events; list browser checks for me.
+```
+
+### P3.3 — Inbound ringing + answer   (Plan: Opus · Implement: Sonnet)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 3, step 3. In plan mode, propose driving the incoming-call UI from the incoming event for voice, with Answer calling accept() and MediaProvider.unlock() in the same click (the audio-unlock gesture), plus decline and timeout paths. Done = starting an inbound call from the console rings the agent app; Answer connects it with audio ready; list browser checks for me. Don't write code yet.
+```
+
+### P3.4 — Transcript + playback wiring   (Plan: Opus · Implement: Sonnet)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 3, step 4. In plan mode, propose rendering voice transcript events (partials and finals) in the transcript component via useTranscript, and confirming playback follows call state: Hold silences, resume continues, end silences immediately even though wrap-up follows. Done = a typed customer line appears in the transcript and is heard, with the hold/end behavior above; list browser checks for me. Don't write code yet.
+```
+
+### P3.5 — Word sync + speaking indicator   (Sonnet · Sonnet)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 3, step 5. Propose and implement word-by-word transcript reveal from MediaProvider wordBoundary events and a "customer speaking" indicator in the voice bar from speaking events, with a graceful fallback when capabilities.wordTimings is false. Done = transcript keeps pace with the audio in Chrome and Safari; list browser checks for me.
+```
+
+### P3.6 — Voice unknown-contact + speech normalizers   (Sonnet · Sonnet)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 3, step 6. Propose and implement the unknown-contact state for voice (same as chat) plus normalizers for spoken emails ("sarah dot chen at gmail dot com") and spelled-out names ("S-A-R-A-H"), as pure functions with tests. Done = both normalizers pass tests; unknown-caller voice shows the Draft card.
+```
+
+## Milestone — simulated chat + spoken call from the console
+
+After Phase 3 (P0.6, Phase 2 §0–5, Phase 3): a simulated chat and a spoken call driven from the customer console work end to end against the telecom shape. First demo milestone; Administration (P-ADMIN onward) starts here.
+
+### P-ADMIN — Area switcher, AdminShell, scope back-fill, command registry   (Plan: Opus · Implement: Opus) — after Phase 3, before P0.9
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on P-ADMIN, the first Administration step (PLAN.md "Administration — the Workspace and the admin areas": Area switcher, Admin shell, Settings scope and declared configuration, Rails). In plan mode, propose (1) the top-left area switcher replacing the BrandMark-only header: areas as data in `buildAppMenuGroups`, each with the permission it needs, collapsing to a plain label for a user with one area (hide, never disable), the default app name becoming "Workspace", the `BrandMark` staying fixed beside it; the one-page rule amended in CLAUDE.md (it governs the Workspace; admin areas are a separate surface); (2) one `AdminShell` (left rail + content) shared by every area, rail items as data per area, the Workspace the only area without a rail; (3) scope back-fill: every existing schema node in `src/settings` gets `scope`, a label and a plain-language description, and the settings forms render from the schema; (4) the command registry: named commands with typed parameters for admin actions that aren't settings; (5) the Branding and Channels areas, with the admin-scope sections moved out of the agent's Settings (the order line names three; inventory which sections qualify before moving any); applying a profile still never touches them. The ESLint Workspace → admin import rule and the `HostProvider` stub already exist from P-EXTRACT; keep them green. Tests: the switcher hides areas without permission, scope back-fill covers every node, a command's typed parameters are validated, profiles still skip admin-scope sections. Playwright: switch areas and return to the Workspace with its state intact. List browser checks for me. Don't write code yet.
 ```
 
 ### P0.9.1 — Transfer/merge contract, directory, messaging, participants   (Plan: Opus · Implement: Opus)
@@ -163,20 +265,9 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 9.2; 9.1 is comm
 Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 9.3. In plan mode, propose #/agent-console?as=<agentId>: a second agent desktop (same Vite app) attached to the agent window's sim session through the P0.6 discovery handshake, acting as that directory agent or supervisor. A transfer rings there and accepting removes it here; a consult or merge shows the participants in both windows; a hand raise opens there as the supervisor with the context card. Done = the two-window demo runs end to end; list browser checks for me. Don't write code yet.
 ```
 
-### P0.6 — Customer console route   (Plan: Opus · Implement: Sonnet)
+### P-EMPLOYEES — Directory, groups, permission sets, SessionProvider, Acceptable Use, audit log   (Plan: Opus · Implement: Opus) — after P0.9, before Phase 1
 ```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 6. In plan mode, propose a #/customer-console route (same Vite app, lyra-ui styling) built on the sim protocol's SimCustomerAction messages (startInbound, message, typing, hangUp), replacing window.__simCustomer. Solve engine discovery across windows: the engine lives in the agent window and is session-scoped by sessionId, so the console needs a way to find active sessions (e.g. an announce/hello message) and pick one. The console lists that session's interactions, can attach to one, or start an inbound one "as <entity>" or "as unknown caller" (free phone/name entry), carrying identifiers and pre-contact context. The console must not render inside ProviderRoot's agent providers and the agent UI must not know it exists. No chat/voice UI yet — shell and handshake only. Done = the console in a second window sees the agent's session and starting an inbound contact produces an incoming offer in the agent app; list browser checks for me. Don't write code yet.
-```
-
-### P0.7 — Scenario script format   (Plan: Opus · Implement: Sonnet) — before 5c
-```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 7, run before 5c so the scenario player is built once against this format. In plan mode, propose a TS/JSON scenario format — customer lines per entity per channel, optional timing hints, expressed as SimCustomerAction-compatible steps — loadable by the engine's scenario player (5c) and the console's canned-lines panel, and port the Marcus Webb scenario into it as data (no player yet). Done = Marcus Webb's script validates against the format type; npm test covers loading it. Don't write code yet.
-```
-
-### P0.5c — Scenario player; retire page timers   ✋ (Plan: Opus · Implement: Opus) — done
-Done 2026-10-15; see PROGRESS.md and PLAN.md Decisions. The original prompt, for reference:
-```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 5c. In plan mode, propose a scenario player inside SimEngine that plays P0.7-format scripts as customer actions and transcript/message events on schedule (paused on hold, stopped when the interaction leaves active/held), and migrate the Marcus Webb scenario's inline page timers onto it so pages only render events via the P0.5.0 hooks. Keep scenario content unchanged. The P0.7 scripts in src/scenarios cover Marcus, Lucas, Tom and Maya, so migrate all four. Done = Marcus Webb replay looks identical; launching Marcus, Tom and Maya via the player produces engine-backed calls that behave identically to __simCustomer.startInbound (auto-hold on a second call, one call per customer, hold chip with timer and SLA, wrap-up), proven by a test that starts one each way and compares events and nav cards; no scenario setTimeouts and no hotkey-built cards remain in page components; npm test passes; list browser checks for me. Don't write code yet.
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on P-EMPLOYEES (PLAN.md "Administration": Employees, Rails). In plan mode, propose (1) the Employees area as a view onto `DirectoryProvider` (Directory, Groups, Permission sets, Skills, Profiles, Compliance, Audit): permission sets (built-ins Agent, Supervisor, Admin, Read-only) bundling visible areas, allowed actions and takeable channels; groups carrying a permission set and a default workspace profile; individual grants and denies; effective permissions = union of group sets + individual grants − individual denies, shown on every employee page with where each permission came from; role as an attribute that only seeds defaults; (2) hide-never-disable gates on effective permissions in the switcher, Workspace actions and channels offered, and channel entitlement moving onto permission sets (so `channels.*` becomes admin-scope and leaves the Phase 1 / Phase 2 profiles); (3) a `SessionProvider` seam (`currentUser`, effective permissions, resolved workspace profile, default area) that everything downstream reads instead of `DirectoryProvider`; the login screen becomes a simulated sign-in ("Sign in as…" over the directory's personas, plus a form that accepts anything); landing in the Workspace with the profile applied before first paint, or the first permitted admin area; area in the URL, unauthenticated hits redirecting to login and back; sign out in the app menu; (4) Acceptable Use as a login step: versioned terms edited under Employees → Compliance, acceptance recorded per user with version and timestamp, re-acceptance forced on a version change, a report of who accepted which version, terms that prohibit automating or modifying the app; (5) the audit log: every admin action recorded with actor, command, before/after and approval state, exportable. Group/individual assignment UI for permission sets and profiles lands with Phase 7 My Team. Tests: effective-permission math with provenance, deny beats grant, the gates, session resolution, re-acceptance on a version bump. List browser checks for me. Don't write code yet.
 ```
 
 ---
@@ -238,38 +329,7 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 1, step 5. In plan mode,
 Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 1, step 6. In plan mode, propose in-browser .csv/.xlsx import (PapaParse / SheetJS) inside the wizard and from the Customers table: column mapping onto the active profile's entity schema with auto-match + Select overrides, preview, validation, dedupe via findNearMatches; extra sheets map onto related collections. Done = importing a sample telecom CSV creates entities that behave like generated ones; list browser checks for me. Don't write code yet.
 ```
 
-### P1.2a — Retail, collections, healthcare, customer-service profiles   (Plan: Opus · Implement: Sonnet)
-```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 1, step 2a. In plan mode, propose full profiles for retail (orders, returns/RMAs, loyalty, payments), collections (debts, payment plans, promises-to-pay, contact attempts), healthcare (appointments, claims, prescriptions, providers), and customer service/tech support (tickets, entitlements, devices, known issues) — terminology, schema, generators with realistic status mixes and showcase records, two scenario scripts each, dispositions, snapshot template, and compliance behaviors (PHI gating, right-party/mini-Miranda, etc.) declared as data for Phase 4 to enforce. Done = each profile generates a database and every screen renders it correctly; list browser checks for me. Don't write code yet.
-```
-
-### P1.2b — Thin packs: banking, insurance, travel, utilities   (Sonnet · Sonnet)
-```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 1, step 2b. Propose and implement thin profiles for banking (accounts, transactions, cards, disputes — with PCI masking declared), insurance (policies, claims, payments), travel/hospitality (bookings, itineraries, loyalty), and utilities (service addresses, meters, outages, bills), following the full profiles' pattern with one scenario script each. Done = each generates and renders.
-```
-
----
-
-## Phase 2 — Realtime chat simulation
-
-Every Phase 2 step follows PLAN.md's **Where threads open: AI display decides** (rewritten 2026-10-16, P-AIFIRST (k3); the omnichannel setting is retired): under AI display inline and panel every thread on a card, voice included, is a record-header tab for the main column (a call's tab is its AI workspace; the docked panel holds Contact Details only); under "main" (the AI-first profile) the main column is the AI workspace and every thread opens in the docked panel, one at a time. Assignment-based cards with one row per channel; tempo is static and describes channels, not layout.
-
-### P2.0 — Render performance pass   (Plan: Opus · Implement: Sonnet) — before 2.1
-```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 2, step 0. Known gaps records that the 550–1180ms renders seen on the dev server are dev-mode overhead; the production build is fast, but it still logs occasional slow handlers (~230–270ms) and forced reflows (up to ~120ms). Live chat and voice will deliver events every second or two, so in plan mode, propose how to find which components re-render on a single provider event and why, then the smallest fixes (memoized selectors in the P0.5.0 hooks, React.memo on heavy subtrees, splitting state so one interaction's update doesn't re-render the whole page). The React Profiler can be used on the dev server to find what re-renders, but **all timings, before and after, are measured against a production build**: build with `npx vite build` and run `npm run preview`, not `npm run build`, until the type-check chore in PROGRESS.md is done. No visual changes. Done = a stateChanged or message event causes a render under ~50ms in the production build, measured before and after; list browser checks for me. Don't write code yet.
-```
-
-### P2.1 — Console chat view   (Plan: Opus · Implement: Sonnet)
-```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 2, step 1. In plan mode, propose the console's chat view: thread (lyra chat-message/conversation-message), composer, typing toggle, a canned-lines panel from the active profile's scenarios (P0.7 format), and End chat — all sent as SimCustomerAction messages. Done = typing on the console produces customer messages the agent app receives as message events; list browser checks for me. Don't write code yet.
-```
-
-### P2.2 — Agent-side inbound chat   ✋ (Plan: Opus · Implement: Sonnet)
-```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 2, step 2. In plan mode, propose rendering inbound chat end to end through the P0.5.0 hooks: incoming offer → accept → messages (useTranscript) in the existing channel-row / interaction-nav flow; agent replies via sendMessage (appearing only when the message event arrives, with delivery state); setTyping and incoming typing events both ways. Where threads open already follows AI display (P-AIFIRST (k3); src/contact-handling/omnichannel.ts, useConversationPlacement, useOmnichannelLayout): verify it with a real inbound chat on a card with three rows (chat, call, an async thread) as header tabs under inline and panel (an accepted chat becomes its card's tab; the call's tab is its AI workspace), and in the docked panel under "main"; move the panel's unread counts (under "main") from the page's live-message overlay onto real message events, and decide whether inactive tabs get unread counts too. Under "main", "the one thread that moves": accepting a chat on a card whose panel shows an async thread swaps the panel to the chat in the same frame, unsent draft kept — an offered chat never rearranges anything. Rich content (PLAN.md Phase 0 §1): `Message.content` becomes a union (text, html, media { kind, url, caption?, mime }, interactive { prompt, options, kind }), a tapped option arrives as a reply carrying `choice: { messageId, optionId }`, `attachments[]` alongside; carry it end to end for chat (domain, sim, store, transcript rendering with lyra bubbles), with string-content call sites migrated. Per-channel capabilities (PLAN.md Integration readiness): `capabilities.channels.<channel>.media | interactive | templates | richCards | html | attachments`; the sim turns them all on; the composer hides (not disables) a control whose capability is off; contract cases for both. Email/SMS content stays P-PARKED. Done = a full two-way chat works between console and agent app, under AI display inline, panel and "main"; list browser checks for me. Don't write code yet.
-```
-
-### P2.7 — Social: the channel registry, private DMs and public posts   ✋ (Plan: Opus · Implement: Opus) — after P2.2
+### P2.7 — Social: the channel registry, private DMs and public posts   ✋ (Plan: Opus · Implement: Opus) — after P2.2  [Phase 2 §6–7; after Phase 1]
 ```
 Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 2, step 7 (PLAN.md Phase 2 §7 and Phase 0 §1 "Channel registry"). In plan mode, propose, in this order:
 (1) The channel registry first: `ChannelDef { id, label, kind, platform?, tempo, addressKind, capabilities, icon, messagingWindow? }`, seeded with the built-in five; `Interaction.channel` references a ChannelDef id; `Interaction.kind: conversation | social-post`. Inventory every place the channel string enum runs (domain, sim, routing, settings, nav cards, Contact History chips, omnichannel routing, tests) and migrate them to read the registry; tempo comes from the def. No visual change for the five.
@@ -277,55 +337,6 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 2, step 7 (PLAN.md Phase
 (3) Public social: interaction kind `social-post` (post preview, platform, public badge, sentiment) as main-column content; actions reply publicly, take private (spawns a DM thread on the same journey, opening in the panel), hide, delete, like, flag; triage from AssistProvider; an unmatched author gets a provisional entity; a Home "Social" queue section with per-platform tiles; wrap-up/Outcome as any contact; public replies logged to Contact History with a link. The sim seeds posts and comments and plays the take-private handoff.
 (4) Settings → Channels lists registry entries grouped by platform, replacing P-AIFIRST's `channels.social` placeholders (keep the stored values); Connections gains a "Social" seam row.
 Contract cases for social-post (reply publicly, take-private spawning a thread, hide/flag as capabilities). The page file must not grow. For every visual change, give a before/after and wait for my approval. List browser checks for me. Don't write code yet.
-```
-
-### P2.3 — Unknown-contact state   (Plan: Opus · Implement: Sonnet)
-```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 2, step 3. In plan mode, propose the unknown-contact state for an Interaction with no entityId: Profile card shows "New <entity>" with the address, snapshot says no prior history, and an empty Draft <entity> card (fields from the profile schema) appears in the AI-assist slot with Save disabled. No extraction yet. Done = starting a chat "as unknown caller" from the console shows this state; list browser checks for me. Don't write code yet.
-```
-
-### P2.4 — Handoff snapshot card   (Plan: Opus · Implement: Sonnet)
-```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 2, step 4. In plan mode, propose replacing the Next Best Action card's role with a handoff snapshot: seeded from the handshake's pre-contact context through the profile's snapshot template, static once the agent takes over, collapsible via the existing accordion, with a sensible default for whether it auto-collapses. Keep the accent styling. Done = snapshot renders for known and unknown contacts in chat and voice; list browser checks for me. Don't write code yet.
-```
-
-### P2.5 — Utterance events   (Sonnet · Sonnet)
-```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 2, step 5. Propose and implement onCustomerUtterance / onAgentUtterance hooks in src/provider-context/ derived from message and transcript events (final utterances only, channel-agnostic), with tests. Nothing else listens yet.
-```
-
----
-
-## Phase 3 — Voice call simulation
-
-### P3.1 — SimulatedMediaProvider   (Plan: Opus · Implement: Sonnet)
-```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 3, step 1. In plan mode, propose SimulatedMediaProvider in src/adapters/sim/ implementing the MediaProvider contract: it subscribes to transcript events itself and plays customer utterances via speechSynthesis (per-persona voice from getVoices on voiceschanged), queued with no overlap, paused while held, stopped when the interaction's state leaves active/held (not on ended); emits audioStateChanged, speaking and wordBoundary; unlock() and setOutputVolume(). Optional continuous SpeechRecognition (Chrome) while active and unmuted publishes agent utterances back over the sim transport so they arrive as transcript events. Done = with the sim set wired, a customer voice line is heard and the events fire; list browser checks for me. Don't write code yet.
-```
-
-### P3.2 — Console voice view   (Sonnet · Sonnet)
-```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 3, step 2. Propose and implement the console's voice view: composer, canned lines, voice/rate/pitch selectors (console-only, not in the MediaProvider contract), Hang up, and a typed-agent-lines fallback box. Done = lines sent from the console arrive as voice transcript events; list browser checks for me.
-```
-
-### P3.3 — Inbound ringing + answer   (Plan: Opus · Implement: Sonnet)
-```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 3, step 3. In plan mode, propose driving the incoming-call UI from the incoming event for voice, with Answer calling accept() and MediaProvider.unlock() in the same click (the audio-unlock gesture), plus decline and timeout paths. Done = starting an inbound call from the console rings the agent app; Answer connects it with audio ready; list browser checks for me. Don't write code yet.
-```
-
-### P3.4 — Transcript + playback wiring   (Plan: Opus · Implement: Sonnet)
-```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 3, step 4. In plan mode, propose rendering voice transcript events (partials and finals) in the transcript component via useTranscript, and confirming playback follows call state: Hold silences, resume continues, end silences immediately even though wrap-up follows. Done = a typed customer line appears in the transcript and is heard, with the hold/end behavior above; list browser checks for me. Don't write code yet.
-```
-
-### P3.5 — Word sync + speaking indicator   (Sonnet · Sonnet)
-```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 3, step 5. Propose and implement word-by-word transcript reveal from MediaProvider wordBoundary events and a "customer speaking" indicator in the voice bar from speaking events, with a graceful fallback when capabilities.wordTimings is false. Done = transcript keeps pace with the audio in Chrome and Safari; list browser checks for me.
-```
-
-### P3.6 — Voice unknown-contact + speech normalizers   (Sonnet · Sonnet)
-```
-Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 3, step 6. Propose and implement the unknown-contact state for voice (same as chat) plus normalizers for spoken emails ("sarah dot chen at gmail dot com") and spelled-out names ("S-A-R-A-H"), as pure functions with tests. Done = both normalizers pass tests; unknown-caller voice shows the Draft card.
 ```
 
 ---
@@ -392,6 +403,16 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 4, step 10. Propose and 
 Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 4, step 11 (PLAN.md Phase 4 §11). In plan mode, propose a profile-level "knowledge" collection (title, body, tags, product/skill scope, source, last updated) imported from Markdown/HTML/PDF/CSV through the wizard's import path, a KnowledgeProvider contract with a sim and a placeholder (vendor KBs come later under the sync rules), Tier 1 retrieval by tag and keyword surfacing a records card with provenance, article open in the Details panel or the draggable panel, and Settings for which sources are active per skill and whether the AI may quote or only link. Quick replies (PLAN.md §11a): a native quick-reply library `{ id, title, body, channels, skills, tags, source: native | <vendor>, externalId?, sourceBody? }` managed in Settings → Knowledge, served by `KnowledgeProvider.listQuickReplies(skill, channel)`; AssistProvider ranks and fills entries for the current contact; the composer's suggestion chips on chat/SMS/email/WhatsApp draw from the library first and AI-drafted replies second, and an AI draft can be "saved as quick reply". Vendor libraries (CXone Quick Replies, Genesys canned responses, Zendesk macros, Salesforce Quick Text) are sync sources, not replacements: read-only by default, two-way when configured, so the agent sees one library. Variable syntax: one canonical form in our data (`{customer.firstName}`, `{agent.name}`, `{case.id}`) against an app-owned variable catalog; each adapter carries a `variableMap` and a delimiter tokenizer (CXone `{{FirstName}}`, Zendesk `{{ticket.requester.first_name}}`) and translates at the edge only; on import an unmapped token becomes `{unknown:<original>}` and the entry is flagged in Settings ("1 variable not recognized"), never dropped; on write-back an entry with a canonical variable that has no vendor equivalent is refused with the reason; `sourceBody` keeps the vendor's original for a lossless round trip; at render time every variable resolves against the live contact, and one that can't (no first name on an unknown caller) becomes a highlighted placeholder the agent must fill or delete before Send is enabled, AI-filled replies included. Formatting: email replies are HTML, SMS/chat/WhatsApp plain text; the adapter normalizes per channel on import and the composer strips markup on plain channels. Vendor-only features (CXone attachments, Zendesk macro actions such as set-status) import the text only and are recorded as `unsupported` on the entry, which P-MAPPINGS' dry-run preview surfaces. Templates are the same library (PLAN.md §11a, 2026-10-16): entries carry `kind: quickReply | template`, `format: text | html | whatsapp-template`, `channels`, `variables` and `approval: { status: draft | pending | approved | rejected, vendorId? }`; the composer's "Insert template" and the chips draw from one library filtered by channel, kind and approval; a WhatsApp business-initiated message outside the 24-hour window offers only approved templates; sync sources by kind — CXone for quick replies, Mailchimp (and the profile's own HTML templates) for email templates, WhatsApp Business via the CPaaS for approved message templates — through the same `variableMap` / `sourceBody` / `unsupported` machinery. Tests: a quick reply is retrievable by skill and channel; the chips rank library first; a variable round-trips through a fake vendor syntax (canonical → vendor → canonical, `sourceBody` intact); an unmapped token is flagged and kept; write-back refuses an untranslatable entry; an unresolved variable disables Send; plain channels strip HTML; "Insert template" offers only approved templates on WhatsApp outside the 24-hour window; an email template from a fake Mailchimp source imports with its HTML and variables intact. Contract test: an imported article is retrievable by tag; a disabled source never surfaces. Done = "how do I void a charge?" surfaces the right article and a saved quick reply fills its variables for the open contact; list browser checks for me. Don't write code yet.
 ```
 
+### P1.2a — Retail, collections, healthcare, customer-service profiles   (Plan: Opus · Implement: Sonnet)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 1, step 2a. In plan mode, propose full profiles for retail (orders, returns/RMAs, loyalty, payments), collections (debts, payment plans, promises-to-pay, contact attempts), healthcare (appointments, claims, prescriptions, providers), and customer service/tech support (tickets, entitlements, devices, known issues) — terminology, schema, generators with realistic status mixes and showcase records, two scenario scripts each, dispositions, snapshot template, and compliance behaviors (PHI gating, right-party/mini-Miranda, etc.) declared as data for Phase 4 to enforce. Done = each profile generates a database and every screen renders it correctly; list browser checks for me. Don't write code yet.
+```
+
+### P1.2b — Thin packs: banking, insurance, travel, utilities   (Sonnet · Sonnet)
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 1, step 2b. Propose and implement thin profiles for banking (accounts, transactions, cards, disputes — with PCI masking declared), insurance (policies, claims, payments), travel/hospitality (bookings, itineraries, loyalty), and utilities (service addresses, meters, outages, bills), following the full profiles' pattern with one scenario script each. Done = each generates and renders.
+```
+
 ---
 
 ## Phase 5 — AI assist, Tier 2 (real model with tools)
@@ -429,6 +450,11 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 5, step 6 (PLAN.md Phase
 ### P5.7 — Setup assistant and configuration templates   (Plan: Opus · Implement: Opus)
 ```
 Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 5, step 7 (PLAN.md Phase 5 §7). In plan mode, propose: (1) each vertical profile ships a full configuration bundle (layout preset, Contact Details tabs/fields, AI card templates and placements, dispositions, compliance gates, KB sources, suggested connections), applied when the wizard picks the vertical; (2) a conversational setup assistant on Settings and first run that asks a few questions and proposes a configuration diff over the nearest template, shown item by item for accept/edit/reject, applying nothing without review; (3) safety rails: it emits only the typed configuration schema the hand editors use, can't remove compliance gates, and every applied change is versioned with rollback. Done = answering the assistant's questions for a healthcare center yields a reviewable proposal that, when accepted, changes the Details tabs, cards and gates accordingly; tests cover the schema constraint and rollback. Don't write code yet.
+```
+
+### P-CONFIG-ASSIST — Configuration by conversation   (Plan: Opus · Implement: Opus) — with Phase 5 §7
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on P-CONFIG-ASSIST, which generalizes P5.7 (PLAN.md "Administration": Configuration by conversation; Phase 5 §7). In plan mode, propose (1) a simulated `ConfigAssistProvider` on `LLMProvider`; (2) "Set up with AI" on every admin area and on first run: an interview (how many teams, which channels today, who approves refunds, which systems) mapped onto settings and registered commands, shown as a proposed-changes diff in the existing cards/approvals pattern; nothing applies without approval, it only proposes within the admin's permissions, and it emits only the typed schema and registered commands; (3) an org profile (industry, size, channels, terminology, systems) that accumulates across areas, pre-fills later interviews and adjusts defaults, visible and editable, stored in the provider; (4) the same assistant working an agent's own settings from the Workspace ("make my layout AI-first") with the same approval card; (5) Phase 5 §7's templates half and Phase 7 §8's auto-tune wired in as sources of proposals into this one flow; (6) every proposal and decision written to the audit log. Tests: a proposal outside the admin's permissions is refused, nothing applies unapproved, only declared commands and schema fields are emitted. List browser checks for me. Don't write code yet.
 ```
 
 ---
@@ -508,6 +534,16 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 7, step 7 (PLAN.md Phase
 Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 7, step 8 (PLAN.md "Settings and configuration" and "Customer data: the app is the source of truth"). In plan mode, propose: the Connections section (one per seam, endpoint/credentials, Test/Save, status and last-event time, the "Simulated" badge in the chrome, a first-run step after the wizard; secrets go to the proxy, never localStorage); CustomerDataProvider sync modes (manual/interval/realtime) with a CRM adapter interface, saved mappings, write-back queue (idempotent change ids, retries, visible failures), per-field authority (app | crm | newest), conflict notes, never-delete-on-sync, unknown fields preserved, a Sync section listing conflicts and pending/failed writes, and sim "simulate sync" and "simulate conflict" controls; outbound policy (channels, who, reason code) filtering the launcher; address books (Outlook, Google) as a DirectoryProvider source. Contract tests per PLAN.md. Done = a simulated sync conflict shows on the record and resolves from Settings; an agent edit is visible to suggest() before sync; list browser checks for me. Don't write code yet.
 ```
 
+### P-REPORTING — ReportingProvider, dashboards, reports, exports   (Plan: Opus · Implement: Opus) — after Phase 7 §5
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on P-REPORTING (PLAN.md "Administration": Reporting). In plan mode, propose (1) a `ReportingProvider` as the in-app read model, deriving metrics (volume, handle, hold, after-call, CSAT, queue; per agent, channel and group; internal time as its own bucket) from the simulated interaction history and `recordInteraction`, with `ReportingSink` staying the egress seam; (2) dashboards: a widget grid (KPI tile, time series, breakdown, table) with add, remove, resize and reorder, several named dashboards, one default, layouts stored in the provider rather than `src/settings` (a profile may name a default dashboard); (3) reports: pick a type, set filters (date range, agent, group, channel, queue), run, get a sortable table and a chart, saved definitions; (4) exports: CSV and PDF of any report or dashboard downloaded as a real file, plus an export history; (5) the Reporting area in the admin rail (Dashboards, Reports, Exports), gated by permission. Playwright for the grid. Later, not now: an agent-facing "My stats" view in the Workspace on the same provider. List browser checks for me. Don't write code yet.
+```
+
+### P-BILLING — LLMProvider, UsageProvider, Billing area   (Plan: Opus · Implement: Opus) — after P-REPORTING and P5.1
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on P-BILLING (PLAN.md "Administration": LLM access and metering). In plan mode, propose (1) an `LLMProvider` seam through which `AssistProvider`, `BotAgentProvider` and the configuration assistant all call the model, simulated or real; (2) a `UsageProvider` recording every call's model, input and output tokens, cost at a configured rate card, timestamp, user, group, feature (copilot, autosummary, bot, config assist, reporting) and interaction id, with nothing reaching a model except through this path; (3) the Billing area: Usage (by feature, group, employee, model, over time), Rate card, Budgets (monthly caps per group; a soft warning, then a hard stop that hides AI features, never disables them), Invoices (simulated statements, exportable); (4) a usage widget in Reporting; (5) "Use AI features" and "view usage" as permission-set entries, so an org can run no-AI seats. Tests: an unmetered call path fails the suite, the hard stop hides the AI surfaces, rate-card math. List browser checks for me. Don't write code yet.
+```
+
 ---
 
 ## Later
@@ -526,6 +562,16 @@ Tests: mapping validation, the authority rules on a conflicting field, each trig
 One step per adapter, run in this order (PLAN.md "Integration readiness"): **Twilio** (InteractionProvider + MediaProvider; free trial) → **Zendesk** (tickets via WorkProvider, KB via KnowledgeProvider; free sandbox) → **CXone** (InteractionProvider, DirectoryProvider, MessagingProvider; needs a tenant) → **SOCIAL** (a social platform for private DMs and social-post, PLAN.md Phase 2 §7: a CPaaS where it offers them, else CXone Digital / Sprinklr / Khoros / Genesys social) → **a WFM vendor** (WorkProvider/CalendarProvider) → **an AI-agent vendor** (BotAgentProvider). Each needs the proxy/relay for auth and webhooks; **the relay is built in the Twilio step** and reused by every later one (PLAN.md Integration readiness, "The relay is a real deliverable"). Carriers are not a seam: carrier choice, BYOC/SIP trunks and number inventory live inside the CPaaS adapter, and one CPaaS connection carries voice and SMS.
 ```
 Read CLAUDE.md, PLAN.md and PROGRESS.md. We're building the <vendor> adapter for <seam(s)> in src/adapters/<vendor>/. In plan mode, propose: the vendor mapping checklist first (each contract method and event against the vendor API, with gaps as capability flags, including the per-channel capabilities the vendor reports per number); the adapter; auth/token handling through the proxy/relay. The relay's four jobs (built in the Twilio step, extended after): (1) webhook receiver — public URLs per connection, signature verification (Twilio X-Twilio-Signature, Zendesk/Salesforce HMACs), idempotency on the vendor's event id, a dead-letter log; (2) voice routing decisions — for a CPaaS the webhook response is the instruction (TwiML: connect to the agent's browser client, hold, queue, transfer), so the engine's routing rules run in the relay; CXone keeps routing on its side and the relay only forwards; (3) fan-out to agent sessions over the WebSocket SimTransport becomes, with each vendor payload translated by the adapter into domain events before it reaches a browser; (4) outbound webhooks — Data Memorialization (P-MAPPINGS) writes and configured trigger URLs; inbound CRM webhooks become collectionChanged. An honest capabilities map; recorded vendor traffic and relay webhook payloads saved as JSON fixtures and replayed in tests; a Connections entry. It must pass the seam's contract suite with no page changes; point the matching factory entry at it. Don't write code yet.
+```
+
+### P-IMPORT — Import with history   (Plan: Opus · Implement: Opus) — after P-MAPPINGS and P-ADAPTER
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on P-IMPORT (PLAN.md "Administration": Import, with history). In plan mode, propose (1) one shared import engine surfaced as Employees → Import and Customers → Import; (2) adapter jobs `exportEmployees()` / `exportHistory()` beside the relay's (CXone, Genesys, Five9, Zendesk, Salesforce; CSV/Excel as the escape hatch), simulated with fixtures; (3) four steps: pick source → map fields (the P-MAPPINGS mapper, auto-suggested) → preview with dedupe (match on email / external id, merges vs creates) → run with a results summary; (4) `Employee.externalIds: { [source]: id }` so a re-import updates instead of duplicating, imported skills, roles and teams mapping onto Groups/Skills with unmapped values in a "needs review" bucket, and role defaults applied so a migrated agent lands in a working permission set and profile; (5) historical interactions and metrics loaded into `ReportingProvider` with a `source` dimension and their original timestamps, so a dashboard shows the pre-migration baseline on day one. Tests: re-import is idempotent, dedupe merges vs creates, history lands with original timestamps. List browser checks for me. Don't write code yet.
+```
+
+### P-EMBED — Small-screen and embedded Workspace   (Plan: Opus · Implement: Opus) — the last step
+```
+Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on P-EMBED, the last step (PLAN.md "Administration": Small-screen and embedded Workspace). In plan mode, propose (1) the restructure into two app shells over shared packages: `apps/full` (switcher, admin areas, Workspace) and `apps/embed` (Workspace only), over `packages/workspace`, `packages/providers`, `packages/settings` and lyra; inventory first what blocks the split and confirm the three boundaries held (no Workspace → admin imports, the `HostProvider` seam, container-query layout); (2) the embedded `HostProvider`: an iframe with `postMessage` (the host passes the open record and an SSO token in, the Workspace sends status and wrap-up out; sketch how Salesforce Canvas and the Zendesk Apps framework fit it); (3) the container-query pass: layout responds to container width, not viewport, with a stacked small-screen mode where the docked panel becomes a full-width sheet and placement collapses to one visible region at a time, as a layout setting with an `auto` value so a 400 px sidebar and a phone are one mode; (4) the embed has no switcher and no admin, personal settings reduced to what fits, white-labeling from the org, Acceptable Use passed through from the host session, metering unchanged; (5) a mock host page that frames the embed and exchanges messages. Playwright at 400 px and phone widths. List browser checks for me. Don't write code yet.
 ```
 
 ### P-PARKED — Email and SMS   (Plan: Opus · Implement: Sonnet)
