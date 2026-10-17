@@ -28,7 +28,6 @@ import {
   Input,
   LeftNav,
   NavRail,
-  useAddChannelButton,
   InteractionNavItem,
   Icon,
   Badge,
@@ -185,6 +184,7 @@ import {
   ChannelThreadComposer,
   ChannelThreadSessionRow,
   threadAcceptsReplies,
+  isDraftThread,
   type CopilotComposerProps,
   ConfirmCloseDialog,
   copilotSuggestionsFor,
@@ -204,6 +204,12 @@ import {
   HoverPreviewFrame,
   HOVER_PREVIEW_POPOVER_CLASS,
   ThreadCrossFade,
+  callBadge,
+  useCardAddChannel,
+  ChannelThreadMenu,
+  alreadyOpenReasons,
+  liveAddressesFor,
+  markAlreadyOpen,
   panelToggleClass,
   useReplyBlockedReason,
   useChannelDisabledReasons,
@@ -347,7 +353,9 @@ type DetailPanelContent =
   | { kind: "marcus-copilot"; id: string; text: string; time: string }
   | { kind: "tom-call"; panel: TomLewisCallPanelKey }
   | { kind: "lucas-order"; orderId: LucasThomasOrderId; from?: "memory" | "purchases" }
-  | { kind: "transactions"; id: string; note: string; timestamp: string; date: string; showFullTransactions: boolean };
+  | { kind: "transactions"; id: string; note: string; timestamp: string; date: string; showFullTransactions: boolean }
+  // AI display "main": a panel thread's Session Details, over the thread in the panel (k6 10).
+  | { kind: "session"; channelLabel: string };
 import { BrandMark } from "@/components/BrandMark";
 import damagedHeadphonesImg from "@/assets/headphones.jpg";
 import {
@@ -474,25 +482,6 @@ function extractPriorContactInfo(entry: ContactHistoryEntry | undefined): Custom
 // a named `const` (not a literal `false` at the use site, which trips
 // `no-constant-binary-expression`) so it comes back with a one-line flip.
 const SHOW_CHANNEL_TOGGLE_GROUP = false;
-// Per explicit request ("hide the '+' add channel button in the contact
-// page header - this will only have inbound/outbound voice capabilities"),
-// later broadened by an explicit follow-up ("hide the '+' add icon button
-// from the header of the interactionNavItems in phase 1 since we can't add
-// new channels"): this deployment of Phase 1 is voice-only, so an agent
-// should never be offered an ad-hoc non-voice channel to launch from
-// EITHER the record header's own standalone "+" trigger OR the LeftNav
-// card's own inline "+" (Add Channel) row on the active card — both read
-// off this one flag now (renamed from the original, record-header-only
-// `SHOW_RECORD_HEADER_ADD_CHANNEL_BUTTON`, once a second render site
-// needed it too). Deliberately still NOT a flip of the shared, app-wide
-// `SHOW_ADD_CHANNEL_HEADER_BUTTON` import (agent-next-gen-shared-utils.ts)
-// itself — this const only gates the two render sites in THIS file, so a
-// future deployment that wants the header trigger back has a single,
-// local, one-line flip rather than having to touch the shared default
-// every other page using that import also reads. Same "named const, not a
-// literal `false` at the use site" reasoning as `SHOW_CHANNEL_TOGGLE_GROUP`
-// just above (avoids `no-constant-binary-expression`).
-const SHOW_ADD_CHANNEL_HEADER_BUTTONS = false;
 
 /** How long a pointer rests on a header channel icon before its preview opens. */
 const HOVER_PREVIEW_OPEN_DELAY_MS = 250;
@@ -2105,26 +2094,9 @@ export function AgentWorkspaceAdvancedPage({
   // acting on the wrong interaction's panel.
   const isViewingLiveVoiceCallInteraction =
     !!liveVoiceCallInteraction && liveVoiceCallInteraction.id === activeInteractionId;
-  // Per explicit request/follow-up clarification: true for a brand-new
-  // AGENT-INITIATED OUTBOUND active channel — the active Thread's OWN
-  // `startedFresh` (see that field's own doc comment on why this reads
-  // per-Thread now, not `activeInteraction.startedFresh`) AND-ed with "the
-  // customer hasn't replied yet" (`lastCustomerMessageTick`), same compound
-  // check `isNewOutboundThread` uses at the LeftNav card / record-header tab
-  // loops (their own doc comments have the full reasoning) — reused here
-  // for `InteractionTranscript`'s own `isNewThread` prop (the session row).
-  // Per explicit request ("voice calls should never be drafts"): a voice
-  // channel never reads as a fresh/draft outbound thread here, regardless
-  // of `startedFresh`/`lastCustomerMessageTick` — there's no real per-
-  // message model for voice for a customer "response" to ever set
-  // `lastCustomerMessageTick` on, so without this exclusion an outbound
-  // call would stay permanently stuck in the draft state for its entire
-  // life. Voice should show its real "Open" status and the full Consult/
-  // Transfer/Outcome/Unassign & Dismiss cluster immediately once launched.
-  const activeChannelIsNewOutboundThread =
-    activeChannel?.type !== "voice" &&
-    !!activeChannel?.startedFresh &&
-    activeChannel?.lastCustomerMessageTick === undefined;
+  // The main tab is a draft (agent-initiated digital, nothing sent; `isDraftThread`, k6 9): the
+  // session row's `isNewThread` — "Discard draft" and no Outcome/Transfer/status pill.
+  const activeChannelIsNewOutboundThread = !!activeInteraction && isDraftThread(activeInteraction, activeChannel);
   // Per explicit request: true when the active interaction's own `id` is
   // one of `OUTBOUND_AGENTS`'s ids — i.e. this is an agent-to-agent voice
   // call, not a customer interaction (an agent's own outbound "Chat" pick
@@ -3011,6 +2983,7 @@ export function AgentWorkspaceAdvancedPage({
       case "tom-call": return `tom-call:${c.panel}`;
       case "lucas-order": return `lucas-order:${c.orderId}`;
       case "transactions": return `transactions:${c.id}`;
+      case "session": return `session:${c.channelLabel}`;
     }
   };
   const detailPanelArtifactLabel = (c: DetailPanelContent): string => {
@@ -3027,6 +3000,7 @@ export function AgentWorkspaceAdvancedPage({
       case "tom-call": return TOM_LEWIS_CALL_PANEL_TITLES[c.panel].title;
       case "lucas-order": return `Order ${LUCAS_THOMAS_ORDER_DETAILS[c.orderId].item}`;
       case "transactions": return "Transactions";
+      case "session": return "Session Details";
     }
   };
   const [panelArtifactsByInteraction, setPanelArtifactsByInteraction] = useState<
@@ -3035,7 +3009,7 @@ export function AgentWorkspaceAdvancedPage({
   useEffect(() => {
     if (!activeInteractionId || !selectedDetailPanelContent) return;
     // Experience Memory lives in the docked side panel, so it is never listed as an artifact.
-    if (selectedDetailPanelContent.kind === "lucas-memory") return;
+    if (selectedDetailPanelContent.kind === "lucas-memory" || selectedDetailPanelContent.kind === "session") return;
     const content = selectedDetailPanelContent;
     const id = detailPanelArtifactKey(content);
     setPanelArtifactsByInteraction((prev) => {
@@ -3069,6 +3043,8 @@ export function AgentWorkspaceAdvancedPage({
   // showing the last real content throughout the close animation; `open`
   // itself still tracks `selectedDetailPanelContent` directly.
   const [lastDetailPanelContent, setLastDetailPanelContent] = useState<DetailPanelContent | null>(null);
+  // The interior slide-over lives in the docked panel: AI display "panel", or a panel thread's Session Details under "main".
+  const slideOverInPanel = aiInPanel || lastDetailPanelContent?.kind === "session";
   useEffect(() => {
     if (selectedDetailPanelContent) setLastDetailPanelContent(selectedDetailPanelContent);
   }, [selectedDetailPanelContent]);
@@ -3145,15 +3121,17 @@ export function AgentWorkspaceAdvancedPage({
       onOutcomeSummaryChange: (value: string) => setOutcomeDraft((d) => ({ ...d, summary: value })),
       onOutcomeSave: handleOutcomeSave,
       onOutcomeCancel: handleOutcomeCancel,
-      outcomeCallEnded: thread?.type === "voice" && !!(interaction.closed || interaction.voiceCallEnded),
-      outcomeShowSaveAndRedial: calling.saveAndRedial,
+      // A live digital thread: Save & Dismiss dismisses just it (k6 9), as the nav row's Outcome.
+      outcomeCallEnded: thread?.type !== "voice" || !!(interaction.closed || interaction.voiceCallEnded),
+      outcomeShowSaveAndRedial: thread?.type === "voice" && calling.saveAndRedial,
       onOutcomeSaveAndRedial: (anchorEl: HTMLElement | null) =>
         handleOutcomeSaveAndRedial(
           interaction.id,
           thread?.value ?? thread?.addressLabel ?? synthesizeChannelAddress("voice", interaction.customerId ?? interaction.id, interaction.customerName),
           anchorEl
         ),
-      onOutcomeSaveAndDismiss: () => handleOutcomeSaveAndDismiss(interaction.id),
+      onOutcomeSaveAndDismiss: () =>
+        thread && thread.type !== "voice" ? confirmDismiss(() => handleOutcomeSaveAndDismissChannel(interaction, thread)) : handleOutcomeSaveAndDismiss(interaction.id),
     };
   };
   const replyBlockedReason = useReplyBlockedReason();
@@ -3186,17 +3164,19 @@ export function AgentWorkspaceAdvancedPage({
   const [currentSessions, setCurrentSessions] = useState<Record<string, Contact>>({});
   // AI display "main": the panel thread whose session details the panel shows instead of the thread (its header row's Session Details).
   const [panelSessionThreadKey, setPanelSessionThreadKey] = useState<string | null>(null);
-  const panelSessionShowing = panelPlacement && !!channelPreviewThreadStableKey && panelSessionThreadKey === channelPreviewThreadStableKey;
   /** A session row's Session Details. The main tab's (inline, panel) opens Contact Details' Session tab on
    *  that thread's session, and closes the panel if it's already showing it. Under "main" the panel
-   *  thread's header row swaps the panel between the thread and its session details. */
+   *  thread's header row opens it as the interior slide-over over the thread, with its own close (k6 10:
+   *  the slide-over card links and Copilot results use, mounted in the panel; no mode-specific body). */
   const viewSessionDetails = (threadKey: string, session: Contact) => {
     if (!activeInteractionId) return;
     setSelectedDetailPanelContent(null);
     const key = `${activeInteractionId}:${threadKey}`;
     if (panelPlacement) {
       setSessionDetailsPick({ key, session });
-      setPanelSessionThreadKey((current) => (current === threadKey ? null : threadKey));
+      setPanelSessionThreadKey(threadKey);
+      const channel = activeInteraction?.threads.find((t) => (t.id ?? t.type) === threadKey)?.type;
+      openDetailPanelContent({ kind: "session", channelLabel: channel ? CHANNEL_TYPE_META[channel].label : "" });
       return;
     }
     const showing = sidePanelOpen && customerPanelActiveTab === "Session Details" && sessionDetailsPick?.key === key && sessionDetailsPick.session.id === session.id;
@@ -3551,6 +3531,9 @@ export function AgentWorkspaceAdvancedPage({
   // hover-previewed at a time, so a single slot is enough. `null` means
   // no channel is currently being hover-previewed.
   const [channelHoverPreviewKey, setChannelHoverPreviewKey] = useState<string | null>(null);
+  // The header icon's thread picker (k6 4): which channel's menu is open, and the icon it hangs from.
+  const [threadMenuChannel, setThreadMenuChannel] = useState<string | null>(null);
+  const threadMenuAnchorRef = useRef<HTMLElement | null>(null);
   const channelHoverPreviewTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const channelHoverOpenTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // Backstop for `customerInfoPreviewOpen` — per explicit bug report ("when
@@ -4321,7 +4304,8 @@ export function AgentWorkspaceAdvancedPage({
   // agent lands on the real panel already in edit mode rather than seeing
   // an editable form appear inside the transient, mouse-driven popover.
   // The thread whose session it shows: the panel thread's under "main" while the panel shows its session details, else the main tab's.
-  const detailsThreadKey = activeInteraction ? `${activeInteraction.id}:${(panelPlacement && panelSessionThreadKey) || activeChannelKey}` : "";  const sessionDetailsTabContent = useSessionDetailsTabContent({
+  const detailsThreadKey = activeInteraction ? `${activeInteraction.id}:${(panelPlacement && panelSessionThreadKey) || activeChannelKey}` : "";
+  const sessionDetailsTabContent = useSessionDetailsTabContent({
     sessionContact: (sessionDetailsPick?.key === detailsThreadKey ? sessionDetailsPick.session : currentSessions[detailsThreadKey]) ?? null,
     onEditClick: () => setSidePanelOpen(true),
   });
@@ -4728,9 +4712,6 @@ export function AgentWorkspaceAdvancedPage({
       const card = interactions.find((i) => i.id === interactionId);
       const route = card ? routeChannel(card.threads, channelKey, placement) : "main";
       if (interactionId !== activeInteractionId) switchActiveInteraction(interactionId);
-      // Its session details showing in the panel (k5 B): the thread's icon or row goes back to the thread.
-      setPanelSessionThreadKey(null);
-      if (interactionId === activeInteractionId && panelSessionThreadKey === channelKey && omni.slideOutKey === channelKey) return;
       // A held main thread (`mainPins`) stays put on its own row; picking a
       // main-column thread is the agent's own move, so the hold ends.
       if (mainPins.pinned(interactionId) === channelKey) return;
@@ -5045,9 +5026,10 @@ export function AgentWorkspaceAdvancedPage({
       // Once the call has ended the footer becomes Save & Redial / Save &
       // Dismiss (outcome-panel.tsx). `anchorEl` is the Outcome trigger's own
       // node (or the wrap-up card), so the Redial pad opens right there.
-      callEnded: c.type === "voice" && !!(interaction.closed || interaction.voiceCallEnded),
-      // Outbound Calling → Save and Redial (off, or voice off, leaves Save & Dismiss).
-      showSaveAndRedial: calling.saveAndRedial,
+      // A live digital thread's footer is Save & Dismiss too (k6 9): outcoming it dismisses it, in every mode.
+      callEnded: c.type !== "voice" || !!(interaction.closed || interaction.voiceCallEnded),
+      // Outbound Calling → Save and Redial (off, or voice off, leaves Save & Dismiss); a digital thread never redials.
+      showSaveAndRedial: c.type === "voice" && calling.saveAndRedial,
       onSaveAndRedial: (anchorEl) =>
         handleOutcomeSaveAndRedial(
           interaction.id,
@@ -5114,7 +5096,9 @@ export function AgentWorkspaceAdvancedPage({
   const outboundConfig = useMemo<CreateNewOutboundConfig>(() => {
     // Settings → Channels hides what's off; presence disables voice, with its reason (New Outbound and the "+").
     const tagChannels = buildOpenChannelTagger(interactions);
-    const tagOpenChannels = (contact: CreateNewOutboundContact) => withEnabledChannels(tagChannels(contact), channelSettings);
+    // A channel open on every one of the customer's addresses is disabled here too (k6 2; no tooltip in lyra's CreateNew).
+    const tagOpenChannels = (contact: CreateNewOutboundContact) =>
+      markAlreadyOpen(withEnabledChannels(tagChannels(contact), channelSettings), alreadyOpenReasons(CREATE_NEW_CUSTOMERS.find((c) => c.id === contact.id), liveAddressesFor(storeContacts, contact.id)), OUTBOUND_CONFIG.phoneOptions);
     // Skills come from the provider (`listOutboundSkills`, P0.5b.2); the
     // static list only fills in until they load.
     const providerSkills = allOutboundSkills();
@@ -5160,7 +5144,7 @@ export function AgentWorkspaceAdvancedPage({
         };
       }),
     };
-  }, [interactions, selectedOutboundTeamId, allOutboundSkills, channelSettings, calling.adHoc, presenceChannelReasons]);
+  }, [interactions, storeContacts, selectedOutboundTeamId, allOutboundSkills, channelSettings, calling.adHoc, presenceChannelReasons]);
 
   // `CONTACT_HISTORY_OUTBOUND_CONTACTS` (the 5 hand-authored rows) PLUS a
   // live-rebuilt contact for every row in `dismissedContactHistory` (see
@@ -5244,14 +5228,21 @@ export function AgentWorkspaceAdvancedPage({
   // (run through `buildOpenChannelTagger`, same as `outboundConfig`'s own
   // groups above) is used here instead of the raw, untagged
   // `CONTACT_HISTORY_OUTBOUND_CONTACTS` constant.
-  const { getHeaderAction } = useAddChannelButton({
-    ...outboundConfig,
-    groups: [
-      ...outboundConfig.groups,
-      { id: "contact-history", label: "Contact History", contacts: contactHistoryOutboundContacts },
-    ],
-    onStartCall: handleStartCall,
+  // The card "+" picker: lyra's AddChannelButton per card, with "Already open" and the customer's own numbers (k6 2).
+  const getHeaderAction = useCardAddChannel({
+    outboundConfig: {
+      ...outboundConfig,
+      groups: [...outboundConfig.groups, { id: "contact-history", label: "Contact History", contacts: contactHistoryOutboundContacts }],
+      onStartCall: handleStartCall,
+    },
+    findCustomer: (entityId) => createdCustomerRecords.find((c) => c.id === entityId) ?? CREATE_NEW_CUSTOMERS.find((c) => c.id === entityId),
   });
+  /** A card's "+" (add channel): the nav card's and the record header's, one control (k6 1); its picker is
+   *  gated like New Outbound (Settings → Channels, presence, threads already open). None while ringing or closed. */
+  const addChannelActionFor = (card: Interaction) =>
+    SHOW_ADD_CHANNEL_HEADER_BUTTON &&
+    showsSessionControls(card) &&
+    navCardAddChannelAction(card, { getHeaderAction, onAddAdHocChannel: outboundDial.addAdHocChannel, skillOptions: OUTBOUND_CONFIG.skillOptions });
 
   /* Welcome modal — shown once on page load; "Go Available" flips the agent
      to Available, "Start Offline" (button label — see the AgentWelcomeMessage
@@ -6428,13 +6419,14 @@ export function AgentWorkspaceAdvancedPage({
       />
     );
     // In the hover preview an action (an interstitial row, a card's button or link; not an expand toggle)
-    // hands off to the docked panel first: the preview closes, Contact Details opens, the action runs there (k5 G).
+    // hands off to the docked panel: the action runs, then the preview closes and Contact Details opens (k5 G). After
+    // the click (k6 6): closing it in the capture phase unmounts the row before its own onClick in a real browser.
     return inPreview ? (
       <div
         className="contents"
         onClickCapture={(e) => {
           const action = (e.target as Element).closest("button, a, [role=button], [role=link]");
-          if (action && !action.hasAttribute("aria-expanded")) showContactDetails();
+          if (action && !action.hasAttribute("aria-expanded")) window.setTimeout(showContactDetails);
         }}
       >
         {overview}
@@ -7196,7 +7188,8 @@ export function AgentWorkspaceAdvancedPage({
                   // exclusion/reasoning as `activeChannelIsNewOutboundThread`
                   // above (its own doc comment has the full "no per-message
                   // model for voice" explanation) — per explicit request.
-                  const isNewOutboundThread = c.type !== "voice" && !!c.startedFresh && !hasCustomerResponded(c);
+                  // Since k6 9: the shared `isDraftThread` (nothing sent yet), the same derivation the session row reads.
+                  const isNewOutboundThread = isDraftThread(interaction, c);
                   // Per explicit request: a "Resolved" channel ALSO stops
                   // counting toward SLA/awaiting-response — same treatment
                   // `isClosed` above already gets — WITHOUT closing the
@@ -7780,17 +7773,8 @@ export function AgentWorkspaceAdvancedPage({
                         />
                       ) : undefined
                     }
-                    // The card's "+" (add channel), shared with Desk
-                    // (navCardAddChannelAction); off on this page until 5d.2.
-                    headerAction={
-                      SHOW_ADD_CHANNEL_HEADER_BUTTONS &&
-                      SHOW_ADD_CHANNEL_HEADER_BUTTON &&
-                      navCardAddChannelAction(interaction, {
-                        getHeaderAction,
-                        onAddAdHocChannel: outboundDial.addAdHocChannel,
-                        skillOptions: OUTBOUND_CONFIG.skillOptions,
-                      })
-                    }
+                    // The card's "+" (add channel): the same control as the record header's (k6 1).
+                    headerAction={addChannelActionFor(interaction)}
                     // Renders side by side with `collapsible`'s own
                     // expand/collapse chevron, rather than being replaced
                     // by it — see `InteractionNavItem`'s own `collapsible`
@@ -8385,7 +8369,8 @@ export function AgentWorkspaceAdvancedPage({
                       // exactly "the interaction THIS header belongs to has
                       // a live voice call" (this header only ever renders
                       // for `activeInteraction`).
-                      badge={isViewingLiveVoiceCallInteraction ? "Active Call" : undefined}
+                      // Since k6 7: the call's state (Active Call, Call On Hold, Ringing, Wrap-up), `callBadge`.
+                      badge={callBadge(activeInteraction, storeContacts)}
                       // Per explicit follow-up request (mockup's own 4
                       // states — even State 2/4, with the full tab row
                       // showing, still read the ACTIVE tab's own "{icon}
@@ -8524,30 +8509,6 @@ export function AgentWorkspaceAdvancedPage({
                       // rather than needing its own separate `actions` slot.
                       actions={
                         <div className="flex items-center gap-1">
-                        {/* "+" Add Channel trigger — per explicit follow-up
-                            request ("move the + button outside of the
-                            toggle group and hide the toggle group for
-                            now"), no longer folded into `ChannelToggleGroup`'s
-                            own bordered shell via its `action` prop (see
-                            that prop's own former doc comment, still on
-                            `ChannelToggleGroup` below, for why it moved IN
-                            there in the first place) — rendered as a plain
-                            standalone sibling instead, so it keeps working
-                            even while the toggle group itself is hidden.
-                            Same `getHeaderAction` (stock picker) ??
-                            `AddChannelAdHocButton` (directory-independent
-                            fallback) pair, unchanged. */}
-                        {SHOW_ADD_CHANNEL_HEADER_BUTTONS && SHOW_ADD_CHANNEL_HEADER_BUTTON && showsSessionControls(activeInteraction) && (getHeaderAction(
-                          activeInteraction.entityId ?? "",
-                          "ml-0.5 h-8 w-8 px-0 border border-lyra-border-soft bg-lyra-bg-control text-lyra-fg-action hover:bg-lyra-state-hover active:bg-lyra-state-pressed",
-                          { label: "Add Channel", showLabel: false }
-                        ) ?? (
-                          <AddChannelAdHocButton
-                            onLaunch={handleAddAdHocChannel}
-                            skillOptions={OUTBOUND_CONFIG.skillOptions}
-                            className="ml-0.5 h-8 w-8 px-0 border border-lyra-border-soft bg-lyra-bg-control text-lyra-fg-action hover:bg-lyra-state-hover active:bg-lyra-state-pressed"
-                          />
-                        ))}
                         {/* Per explicit request ("add an icon representing
                             the channel to the right of the '+' ... and
                             open a side panel ... with the channel
@@ -8603,11 +8564,27 @@ export function AgentWorkspaceAdvancedPage({
                             code for now, but exactly what a future
                             multi-channel deployment would need again the
                             moment this early return comes back out. */}
-                        {/* One icon per channel (its most recent thread), never one per thread. */}
-                        {channelHeaderEntries(activeInteraction.threads).map(({ thread: c, count: threadCount, keys: channelKeys }) => {
+                        {/* One icon per channel, never one per thread; several threads: its picker (k6 4). */}
+                        <ChannelThreadMenu
+                          open={!!threadMenuChannel}
+                          onOpenChange={(open) => !open && setThreadMenuChannel(null)}
+                          anchorRef={threadMenuAnchorRef}
+                          threads={activeInteraction.threads.filter((t) => t.type === threadMenuChannel).map((t) => ({
+                            key: t.id ?? t.type,
+                            label: t.addressLabel ?? t.value ?? CHANNEL_TYPE_META[t.type].label,
+                            time: activeInteraction.liveMessages?.[t.id ?? t.type]?.slice(-1)[0]?.timestamp,
+                            unread: omni.unread(activeInteraction.id, t.id ?? t.type, activeInteraction.liveMessages?.[t.id ?? t.type]),
+                          }))}
+                          activeKey={panelPlacement ? channelPreviewThreadKey ?? undefined : activeChannelKey}
+                          onSelect={(key) => selectPanel({ kind: "thread", cardId: activeInteraction.id, key })}
+                        />
+                        {channelHeaderEntries(activeInteraction.threads).map(({ thread: latest, count: threadCount, keys: channelKeys }) => {
                           // Every thread, voice and scripted cases included, has an icon: a tab for the main column
                           // (AI display inline/panel; shown while the card has more than one thread) or the panel's ("main").
                           if (tabs && activeInteraction.threads.length < 2) return null;
+                          // The channel's active thread (on screen), else its latest: what the icon previews and selects.
+                          const shownKey = channelKeys.find((k) => k === channelPreviewThreadKey || (!panelPlacement && k === activeChannelKey));
+                          const c = activeInteraction.threads.find((t) => (t.id ?? t.type) === shownKey) ?? latest;
                           const key = c.id ?? c.type;
                           const meta = CHANNEL_TYPE_META[c.type];
                           // Active (the selected look, `panelToggleClass`) = on screen: the panel's thread,
@@ -8703,12 +8680,12 @@ export function AgentWorkspaceAdvancedPage({
                                     }
                                   >
                                     <div className="flex min-h-0 flex-1 flex-col" data-slot="thread-preview">
+                                      {/* The conversation only: no Autosummary or AI rows in a channel preview (k6 5). */}
                                       <ChannelThreadBody
                                         interaction={activeInteraction}
                                         thread={c}
                                         hideAiActions={hideAiActions}
-                                        withoutAiActions={panelPlacement}
-                                        overview={threadOverview}
+                                        withoutAiActions
                                         hideMockFollowUpMessages={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID}
                                         onStatusChange={(status) => handleInteractionStatusChange(activeInteraction.id, key, status)}
                                       />
@@ -8726,7 +8703,13 @@ export function AgentWorkspaceAdvancedPage({
                                   data-in-main={inMain || undefined}
                                   // Several threads on the channel: their count; else its unread count.
                                   badge={threadCount > 1 ? threadCount : unreadCount > 0 ? unreadCount : undefined}
-                                  onClick={() => selectPanel({ kind: "thread", cardId: activeInteraction.id, key })}
+                                  // Several threads on the channel: its thread picker (k6 4); one: select it.
+                                  onClick={(e) => {
+                                    if (threadCount < 2) return selectPanel({ kind: "thread", cardId: activeInteraction.id, key });
+                                    threadMenuAnchorRef.current = e.currentTarget;
+                                    setChannelHoverPreviewKey(null);
+                                    setThreadMenuChannel(c.type);
+                                  }}
                                 >
                                   {meta.icon}
                                 </Button>
@@ -8746,13 +8729,7 @@ export function AgentWorkspaceAdvancedPage({
                             {activeInteraction.threads.map((c) => {
                               const key = c.id ?? c.type;
                               const outcomeKey = `${activeInteraction.id}:${key}`;
-                              // Voice never reads as a draft — see this
-                              // same check's own doc comment at
-                              // `activeChannelIsNewOutboundThread` above.
-                              const isNewOutboundThread =
-                                c.type !== "voice" &&
-                                !!c.startedFresh &&
-                                c.lastCustomerMessageTick === undefined;
+                              const isNewOutboundThread = isDraftThread(activeInteraction, c);
                               // Own `<ClockTick>`: only this tab re-renders
                               // for its last-contact/awaiting timers.
                               return (
@@ -8994,6 +8971,8 @@ export function AgentWorkspaceAdvancedPage({
                             </Popover>
                           </div>
                         )}
+                        {/* Add channel, right of Contact Details, every mode: the nav card's "+" (k6 1). */}
+                        <span data-slot="header-add-channel" className="inline-flex">{addChannelActionFor(activeInteraction)}</span>
                         </div>
                       }
                     />
@@ -9391,9 +9370,9 @@ export function AgentWorkspaceAdvancedPage({
                           onDismissChannel={
                             assignmentsSettings.allowUnassignDismiss &&
                             activeChannel &&
-                            // Same rule as the nav row's icon: a digital channel is removable by hand only once its
-                            // contact has ended (or it's Closed) or its outcome is saved.
-                            (activeChannelType === "voice" ||
+                            // A draft can always be discarded (k6 9). Otherwise the nav row's rule: a digital channel is
+                            // removable by hand only once its contact has ended (or it's Closed) or its outcome is saved.
+                            (activeChannelIsNewOutboundThread || ((activeChannelType === "voice" ||
                               activeChannelStatus === "Closed" ||
                               !!activeInteraction.closed ||
                               ["wrap-up", "ended"].includes(contactStateById.get(activeChannel.providerInteractionId ?? "") ?? "") ||
@@ -9402,7 +9381,7 @@ export function AgentWorkspaceAdvancedPage({
                               activeInteraction.closed ||
                               (!activeInteraction.voiceCallEnded &&
                                 scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID &&
-                                activeChannelStatus === "Resolved"))
+                                activeChannelStatus === "Resolved"))))
                               ? () =>
                                   confirmDismiss(() => {
                                     if (activeInteraction.threads.length > 1) {
@@ -10388,6 +10367,13 @@ export function AgentWorkspaceAdvancedPage({
                           onViewSessionDetails={(session) => viewSessionDetails(channelPreviewThreadStableKey!, session)}
                           onCurrentSessionChange={reportCurrentSession(`${activeInteraction.id}:${channelPreviewThreadStableKey}`)}
                           outcome={threadOutcomeProps(activeInteraction, channelPreviewThread)}
+                          // A draft's "Discard draft", or Unassign & Dismiss once its outcome is saved (k6 9).
+                          onDismiss={
+                            isDraftThread(activeInteraction, channelPreviewThread) ||
+                            outcomeDrafts.isSaved(outcomeDraftKeyOf(activeInteraction.id, channelPreviewThreadStableKey!))
+                              ? () => confirmDismiss(() => handleOutcomeSaveAndDismissChannel(activeInteraction, channelPreviewThread))
+                              : undefined
+                          }
                         />
                       )
                       : customerPanelActiveTab === "Artifacts" || customerPanelActiveTab === "Experience Memory"
@@ -10442,9 +10428,7 @@ export function AgentWorkspaceAdvancedPage({
                   // site), or once this specific thread has actually
                   // closed.
                   footerOverride={
-                    channelPreviewThread && panelSessionShowing
-                      ? sessionDetailsTabContent.footer
-                      : channelPreviewThread
+                    channelPreviewThread
                       ? threadAcceptsReplies(activeInteraction, channelPreviewThread) &&
                         // An AI-led chat under review has no chat input until the agent takes over.
                         !(scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && lucasThomasReviewing)
@@ -10483,9 +10467,7 @@ export function AgentWorkspaceAdvancedPage({
                       : undefined
                   }
                   bodyOverride={
-                    channelPreviewThread && panelSessionShowing ? (
-                      sessionDetailsTabContent.body
-                    ) : channelPreviewThread ? (
+                    channelPreviewThread ? (
                       <ChannelThreadBody
                         interaction={activeInteraction}
                         thread={channelPreviewThread}
@@ -10621,12 +10603,17 @@ export function AgentWorkspaceAdvancedPage({
                 its top (over the record header) to its bottom edge. Panel:
                 it's portaled into the Contact Details panel, where the AI
                 rows live (the card while the panel isn't up). */}
-            {activeInteraction && portalInto(aiInPanel ? rightPanelMount : null,
+            {activeInteraction && portalInto(slideOverInPanel ? rightPanelMount : null,
               <InContactInteriorPanel
-                open={!!selectedDetailPanelContent}
+                // In the panel, it opens once the panel's mount exists: an action handed off from the Contact
+                // Details hover preview opens the panel and the slide-over in one click (k6 6).
+                open={!!selectedDetailPanelContent && (!slideOverInPanel || !!rightPanelMount)}
                 onClose={() => setSelectedDetailPanelContent(null)}
+                footer={lastDetailPanelContent?.kind === "session" ? sessionDetailsTabContent.footer : undefined}
                 headerTitle={
-                  lastDetailPanelContent?.kind === "action-log"
+                  lastDetailPanelContent?.kind === "session"
+                    ? "Session Details"
+                    : lastDetailPanelContent?.kind === "action-log"
                     ? lastDetailPanelContent.entry.title
                     : lastDetailPanelContent?.kind === "article"
                       ? lastDetailPanelContent.article.title
@@ -10649,7 +10636,9 @@ export function AgentWorkspaceAdvancedPage({
                             : undefined
                 }
                 headerSubhead={
-                  lastDetailPanelContent?.kind === "action-log"
+                  lastDetailPanelContent?.kind === "session"
+                    ? lastDetailPanelContent.channelLabel
+                    : lastDetailPanelContent?.kind === "action-log"
                     ? lastDetailPanelContent.entry.timestamp
                     : lastDetailPanelContent?.kind === "transactions"
                       ? lastDetailPanelContent.timestamp
@@ -10678,6 +10667,7 @@ export function AgentWorkspaceAdvancedPage({
                     : undefined
                 }
               >
+                {lastDetailPanelContent?.kind === "session" && <div data-slot="session-slide-over">{sessionDetailsTabContent.body}</div>}
                 {lastDetailPanelContent?.kind === "action-log" && (
                   <MarcusWebbActionDetailPanelBody entry={lastDetailPanelContent.entry} />
                 )}

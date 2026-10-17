@@ -111,7 +111,7 @@ describe("B: Session Details is per channel", () => {
     expect(body()).toContain("WhatsApp");
   });
 
-  it("main: the panel thread's session row is in the panel header; its Session Details swaps the panel, the thread icon swaps back", async () => {
+  it("main: the panel thread's session row is in the panel header; its View Details opens the slide-over over the thread", async () => {
     await setUp("main");
     const journey = await dial("whatsapp");
     await dial("email", journey);
@@ -124,10 +124,9 @@ describe("B: Session Details is per channel", () => {
     const sessionDetails = [...row()!.querySelectorAll<HTMLElement>("button")].find((b) => b.textContent?.includes("View Details"))!;
     expect(sessionDetails).toBeTruthy();
     await h.click(sessionDetails);
-    expect(panel().textContent).toContain("Contact ID");
-    expect(panel().textContent).not.toContain("Coming soon");
-    // The thread icon goes back to the thread (the panel stays open on it).
-    await h.click(headerIcon("Email")!);
+    // k6 10: the session details open as the interior slide-over over the thread, in the panel.
+    const slideOver = () => panel().querySelector("[data-slot=session-slide-over]");
+    expect(slideOver()?.textContent).toContain("Contact ID");
     expect(panelShows()).toBe("email");
     expect(panel().textContent).toContain("Coming soon");
   });
@@ -135,12 +134,20 @@ describe("B: Session Details is per channel", () => {
 
 describe("C: Outcome and the status pill on every channel tab", () => {
   for (const ai of ["inline", "panel"] as const) {
-    it(`AI display ${ai}: a new outbound SMS tab shows Outcome and its status pill`, async () => {
+    it(`AI display ${ai}: an outbound SMS tab, once a message is sent, shows Outcome and its status pill`, async () => {
       await setUp(ai);
       await dial("sms");
       await h.click(h.navCard(priya.name));
       const mainColumn = h.container.querySelector("[data-main-thread=sms]")!;
       expect(mainColumn).not.toBeNull();
+      // k6 9: a draft until something is sent.
+      const input = mainColumn.querySelector<HTMLTextAreaElement>('textarea[placeholder^="Type a message"]')!;
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(input, "Hi Priya");
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        await vi.advanceTimersByTimeAsync(10);
+      });
+      await h.click([...mainColumn.querySelectorAll<HTMLElement>("button")].find((b) => b.textContent?.trim() === "Send")!);
       expect(mainColumn.querySelector('[aria-label="Outcome"], [title="Outcome"]')).not.toBeNull();
       expect([...mainColumn.querySelectorAll("button, [role=button]")].some((el) => /^(New|Open|Pending)/.test(el.textContent?.trim() ?? ""))).toBe(true);
     });

@@ -86,6 +86,7 @@ import {
 } from "@/components/agent-next-gen-shared-utils";
 import { isAiActionMessage } from "@/components/agent-next-gen-ai-messages";
 import { useCapability } from "@/provider-context";
+import { useSetting } from "@/settings";
 
 /* ── Transcript + Composer ──
    Split out of AgentNextGenPage.tsx (which had grown past Babel's 500KB
@@ -2475,9 +2476,9 @@ showViewDetails?: boolean;
                 <TransferIcon />
               </Button>
             )}
-            {/* Outcome and the status pill show on every channel tab, a new outbound thread
-                included (P-AIFIRST (k5)); only Consult/Transfer and the kebab wait for a real session. */}
-            {(outcome && !isClosed ? (
+            {/* Outcome and the status pill show on every channel tab once it's live; a draft
+                (`isNewThread`: agent-initiated, nothing sent yet, `isDraftThread`, k6 9) shows only "Discard draft". */}
+            {!isNewThread && (outcome && !isClosed ? (
               // Shared with the LeftNav's own `ChannelRow` Outcome button —
               // lyra-ui's `OutcomePanel` owns the Status/Tags/Disposition/
               // Summary form (and the Resolution dropdown's own local
@@ -2636,7 +2637,7 @@ showViewDetails?: boolean;
                 the one piece of the cluster that stayed visible regardless
                 of `isNewThread` — a real, confirmed bug fixed here
                 alongside the header's own identical fix. */}
-            {showStatus && channelType !== "voice" && (
+            {showStatus && !isNewThread && channelType !== "voice" && (
               <ChannelStatusTag
                 status={session.status}
                 menuOpen={statusMenuOpen}
@@ -2757,7 +2758,7 @@ showViewDetails?: boolean;
                     onClick={onDismiss}
                   >
                     <Trash2 className="h-4 w-4" strokeWidth={1.5} />
-                    Delete Draft
+                    Discard draft
                   </Button>
                 )
               : onDismiss && (
@@ -3403,7 +3404,9 @@ export function InteractionTranscript({
   hideSessionSeparatorFade?: boolean;
 }) {
   const caseStatusCapable = useCapability((c) => c.interaction.caseStatus);
-  const showSessionStatus = showSessionStatusProp ?? caseStatusCapable;
+  // Settings → Assignments → "Show status chip in the session row" (k6 3): every mode; Outcome keeps its own status control.
+  const [showStatusChip] = useSetting("assignments", "showStatusChip");
+  const showSessionStatus = (showSessionStatusProp ?? caseStatusCapable) && showStatusChip;
   const contactOverview = contactOverviewIn;
   const customerContextOverview = overviewIn;
   const liveMessages = liveMessagesIn;

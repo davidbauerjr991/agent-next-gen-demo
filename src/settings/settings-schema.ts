@@ -228,6 +228,8 @@ export interface AssignmentsSettings {
   allowUnassignDismiss: boolean;
   /** Dismissing a contact asks for confirmation first. */
   confirmClose: boolean;
+  /** The session row's status pill (every mode); Outcome keeps its own status control. */
+  showStatusChip: boolean;
 }
 
 const assignments = defineSection<AssignmentsSettings>({
@@ -240,6 +242,7 @@ const assignments = defineSection<AssignmentsSettings>({
     noInteractionCollapse: false,
     allowUnassignDismiss: true,
     confirmClose: false,
+    showStatusChip: true,
   },
   fields: {
     autoAccept: group<Record<AutoAcceptChannel, boolean>>(
@@ -250,6 +253,7 @@ const assignments = defineSection<AssignmentsSettings>({
     noInteractionCollapse: bool(),
     allowUnassignDismiss: bool(),
     confirmClose: bool(),
+    showStatusChip: bool(),
   },
 });
 

@@ -44,7 +44,7 @@ export { IncomingOfferActions, type IncomingOfferActionsProps } from "./Incoming
 export { navCardAddChannelAction } from "./nav-card-add-channel";
 export { showsSessionControls } from "./session-controls";
 export { ChannelThreadBody, ChannelThreadComposer, ChannelThreadSessionRow, type CopilotComposerProps } from "./ChannelThreadPane";
-export { threadAcceptsReplies, threadKeyOf } from "./channel-thread";
+export { isDraftThread, threadAcceptsReplies, threadKeyOf } from "./channel-thread";
 export { channelTempo, routeChannel, mainThreadKey, omnichannelMainKey, panelDefaultKey, tabMainKey, channelHeaderEntries, type AsyncPlacement, type ChannelRoute, type ConversationPlacement } from "./omnichannel";
 export { useOmnichannelLayout, type OmnichannelLayout } from "./useOmnichannelLayout";
 export { useConversationPlacement } from "./useConversationPlacement";
@@ -52,6 +52,10 @@ export { useAutoAcceptDigital, useDigitalOfferChannels } from "./useAutoAcceptDi
 export { useMainPins } from "./useMainPins";
 export { HoverPreviewFrame, HOVER_PREVIEW_POPOVER_CLASS } from "./HoverPreviewFrame";
 export { ThreadCrossFade } from "./ThreadCrossFade";
+export { callBadge } from "./call-badge";
+export { useCardAddChannel } from "./useCardAddChannel";
+export { ChannelThreadMenu, type ChannelThreadMenuEntry } from "./ChannelThreadMenu";
+export { ALREADY_OPEN_REASON, alreadyOpenReasons, liveAddressesFor, markAlreadyOpen, unusedAddresses, customerChannelAddresses } from "./already-open";
 export { panelToggleClass, PANEL_TOGGLE_ACTIVE } from "./panel-toggle";
 export { DisabledReason } from "./DisabledReason";
 export { useAgentAvailable, useChannelDisabledReasons, useReplyBlockedReason, UNAVAILABLE_REPLY_REASON, UNAVAILABLE_CALL_TOOLTIP } from "./presence-gates";

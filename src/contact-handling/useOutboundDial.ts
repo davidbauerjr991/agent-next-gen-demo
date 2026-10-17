@@ -172,6 +172,12 @@ export function useOutboundDial({
               (i) => i.journeyId === target.card!.id && threadKey(i) === key && i.state !== "ended" && i.state !== "offered",
             )
           : undefined;
+      // A thread that's live on this address isn't restarted: it would supersede the live contact (the page
+      // flashed and nothing happened). The pickers disable it ("Already open"); this catches the rest (k6 2).
+      if (liveSameThread && ["connecting", "active", "held"].includes(liveSameThread.state)) {
+        if (import.meta.env.DEV) console.warn(`[outbound] ${channel} is already open on ${target.address}`);
+        return false;
+      }
       try {
         let id: InteractionId;
         if (liveSameThread) {

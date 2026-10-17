@@ -3506,16 +3506,20 @@ export function useSessionDetailsTabContent({
   // record.
   const [sessionEditing, setSessionEditing] = useState(false);
   const [sessionDraft, setSessionDraft] = useState(sessionContact);
+  // The session's identity: its id isn't enough (every fresh launch is
+  // "session-fresh", whatever the channel), so a tab switch from a fresh call
+  // to a fresh SMS kept showing the call (P-AIFIRST (k6) 8).
+  const sessionIdentity = sessionContact ? `${sessionContact.id}|${sessionContact.channel}|${sessionContact.contactId}` : "";
   useEffect(() => {
     setSessionDraft(sessionContact);
     setSessionEditing(false);
-    // Keyed on the session's own id, not the whole `sessionContact` object —
+    // Keyed on the session's identity, not the whole `sessionContact` object —
     // the caller rebuilds that object fresh on every render (e.g. the
     // `sessionWithCurrentStatus` patch in agent-next-gen-transcript.tsx), so
     // resetting on reference equality alone would wipe out an in-progress
     // edit the instant anything else on the page re-rendered.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionContact?.id]);
+  }, [sessionIdentity]);
   // Same eight fields `TranscriptSessionDetails` itself reads, just as a
   // {key, label} list this loop can walk to build one `Input` per field
   // while editing — `key` is a real `Contact` field name so `sessionDraft[

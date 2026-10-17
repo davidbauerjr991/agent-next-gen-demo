@@ -468,6 +468,11 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
             checked={assignments.confirmClose}
             onCheckedChange={(confirmClose) => updateAssignments({ confirmClose })}
           />
+          <SwitchRow
+            label="Show status chip in the session row"
+            checked={assignments.showStatusChip}
+            onCheckedChange={(showStatusChip) => updateAssignments({ showStatusChip })}
+          />
         </Section>
 
         {/* The channels agents contact customers on. Voice can't be turned

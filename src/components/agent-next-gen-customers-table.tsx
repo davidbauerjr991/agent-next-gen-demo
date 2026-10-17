@@ -37,6 +37,8 @@ import { CHANNEL_TYPE_ICON_COLOR_CLASS } from "@/components/agent-next-gen-conta
 import { cn } from "@/lib/utils";
 import { useSettings, type ContactChannel } from "@/settings";
 import { useChannelDisabledReasons } from "@/contact-handling/presence-gates";
+import { ALREADY_OPEN_REASON, alreadyOpenReasons, liveAddressesFor } from "@/contact-handling/already-open";
+import { useInteractions } from "@/provider-context";
 import { DisabledReason } from "@/contact-handling/DisabledReason";
 import {
   Plus,
@@ -286,15 +288,23 @@ export function CustomerChannelPicker({
   const [skillId, setSkillId] = useState(OUTBOUND_CONFIG.skillOptions[0]?.value ?? "");
   // Presence (voice while Unavailable): listed, disabled, with the reason.
   const disabledReasons = useChannelDisabledReasons();
-  const selectedChannelReason = disabledReasons?.[selectedChannel];
 
   // Every real address for a channel MINUS whichever of those are already
   // open on this interaction — see `openAddresses`'s own doc comment above.
   // An empty result means this channel is genuinely exhausted (every known
   // number/address for it is already an open channel), not merely that one
   // particular number happens to be taken.
+  // The customer's live threads too (the store), so a channel open on every one of their addresses is
+  // disabled "Already open" here as in the "+" pickers (k6 2).
+  const storeContacts = useInteractions();
+  const record = CREATE_NEW_CUSTOMERS.find((c) => c.customerId === row.contactNumber);
+  const liveAddresses = liveAddressesFor(storeContacts, record?.id);
+  const alreadyOpen = alreadyOpenReasons(record, liveAddresses);
+  const selectedChannelReason = alreadyOpen[selectedChannel] ?? disabledReasons?.[selectedChannel];
   const remainingOptionsFor = (channel: ChannelType) =>
-    addressOptionsForChannel(row, channel).filter((o) => !(openAddresses[channel] ?? []).includes(o.value));
+    addressOptionsForChannel(row, channel).filter(
+      (o) => !(openAddresses[channel] ?? []).includes(o.value) && !(liveAddresses[channel] ?? []).includes(o.value),
+    );
 
   // Re-derive every time this popover opens (not just on first mount) —
   // same "only once actually open" timing `AddChannelButton` uses (see its
@@ -386,8 +396,8 @@ export function CustomerChannelPicker({
             options={available.map((c) => ({
               value: c,
               label: CHANNEL_ICON_META[c].label,
-              disabled: remainingOptionsFor(c).length === 0 || !!disabledReasons?.[c],
-              disabledReason: disabledReasons?.[c],
+              disabled: remainingOptionsFor(c).length === 0 || !!alreadyOpen[c] || !!disabledReasons?.[c],
+              disabledReason: alreadyOpen[c] ?? (remainingOptionsFor(c).length === 0 ? ALREADY_OPEN_REASON : disabledReasons?.[c]),
             }))}
             value={selectedChannel}
             onValueChange={(v: string) => setSelectedChannel(v as ChannelType)}

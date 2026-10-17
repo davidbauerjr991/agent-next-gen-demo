@@ -108,6 +108,7 @@ describe("settings store", () => {
       allowUnassignDismiss: true,
       confirmClose: false,
       autoAccept: { chat: true, email: true, sms: true, whatsapp: true },
+      showStatusChip: true,
     });
     expect(store.getState().values.voice.controlsLocation).toBe("bottom");
   });

@@ -93,7 +93,7 @@ async function whatsAppAndEmail(ai: AiDisplayLocation = "inline") {
 }
 
 describe("header hover previews", () => {
-  it("inline, email in the main column: its icon previews nothing; WhatsApp's previews the panel's body with the Autosummary", async () => {
+  it("inline, email in the main column: its icon previews nothing; WhatsApp's previews the conversation only (no AI, k6 5)", async () => {
     await whatsAppAndEmail();
     expect(h.container.querySelector("[data-main-thread]")?.getAttribute("data-main-thread")).toBe("email");
     await hover(headerIcon("Email")!);
@@ -102,10 +102,15 @@ describe("header hover previews", () => {
     const preview = previews()[0];
     expect(preview).toBeDefined();
     const body = preview.querySelector("[data-slot=thread-preview]")!.textContent!;
-    // The thread view only: its transcript (session row) and the Autosummary.
-    expect(body).toContain("Autosummary");
+    // The conversation only (k6 5): its transcript (session row), no Autosummary or other AI, no Contact Details.
+    expect(body).not.toContain("Autosummary");
     expect(body).toMatch(/Messages/);
     for (const contactDetails of ["Customer Info", "Journey Summary", "Next Best Action", "Artifacts"]) expect(body).not.toContain(contactDetails);
+    // Its composer is the customer chat with quick replies; no Ask Copilot.
+    expect(preview.textContent).not.toContain("Ask Copilot");
+    expect(preview.querySelector("[data-slot=copilot-composer]")).toBeNull();
+    expect(preview.querySelector('textarea[placeholder^="Type a message"]')).not.toBeNull();
+    expect(preview.querySelector('[aria-label="Quick replies"], [title="Quick replies"]')).not.toBeNull();
   });
 
   it("the trigger keeps its hover look while its preview is open, including with the pointer inside the popover", async () => {
