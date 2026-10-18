@@ -15,6 +15,8 @@ export function navCardAddChannelAction(
   card: NavCard,
   options: {
     getHeaderAction: (entityId: string) => ReactNode;
+    /** A card with no directory entity but addresses saved for it: the picker over them (`useCardOwnAddChannel`). */
+    getCardAction?: (card: NavCard) => ReactNode;
     onAddAdHocChannel: (card: NavCard, query: string, channel: ChannelType, skillId: string) => void;
     skillOptions: AddChannelAdHocButtonProps["skillOptions"];
     /** The card's provider contacts: Voice is disabled while it has a call (one call per customer, k8 6). */
@@ -23,7 +25,7 @@ export function navCardAddChannelAction(
 ): ReactNode {
   if (card.offered || card.closed) return null;
   return (
-    (card.entityId ? options.getHeaderAction(card.entityId) : null) ?? (
+    (card.entityId ? options.getHeaderAction(card.entityId) : options.getCardAction?.(card) ?? null) ?? (
       <AddChannelAdHocButton
         onLaunch={(query, channel, skillId) => options.onAddAdHocChannel(card, query, channel, skillId)}
         skillOptions={options.skillOptions}

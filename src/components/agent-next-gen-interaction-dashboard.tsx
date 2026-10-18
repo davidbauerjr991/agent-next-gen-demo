@@ -559,6 +559,10 @@ export interface Interaction {
    *  Set only on store-built cards, whose `id` is the journey rather than
    *  the customer record. */
   entityId?: string;
+  /** Why the card is a known customer, stamped the first time it holds and
+   *  kept for the card's life (`card-identity.ts`, P-EXTRACT Bug 3). Unset:
+   *  an unknown contact. Page overlay state. */
+  identity?: "directory" | "created" | "history" | "scenario";
   /** A routed voice offer still ringing: the card shows Accept/Decline and
    *  isn't a live call yet. Set only on store-built cards (P0.5d.1). */
   offered?: boolean;

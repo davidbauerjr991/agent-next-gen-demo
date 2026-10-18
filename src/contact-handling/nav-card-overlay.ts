@@ -11,7 +11,7 @@ import type { NavCard } from "@/adapters/legacy/nav-card-view-model";
 import type { Thread } from "@/components/agent-next-gen-interaction-dashboard";
 
 /** Card fields the page owns. */
-export const CARD_OVERLAY_FIELDS = ["currentThreadId", "startedFresh", "liveMessages", "customerId"] as const;
+export const CARD_OVERLAY_FIELDS = ["currentThreadId", "startedFresh", "liveMessages", "customerId", "identity"] as const;
 /** Thread fields the page owns (the faked customer reply, P2.2 replaces it). */
 export const THREAD_OVERLAY_FIELDS = ["awaitingResponse", "lastCustomerMessageTick", "messageCount", "startedFresh"] as const;
 

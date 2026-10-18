@@ -28,7 +28,6 @@ import {
   Input,
   LeftNav,
   NavRail,
-  InteractionNavItem,
   Icon,
   Badge,
   Separator,
@@ -48,17 +47,10 @@ import {
   Popover,
   PanelHeader,
   Tag,
-  ProgressBar,
-  AccordionHeadless,
-  AccordionHeadlessItem,
-  AccordionHeadlessContent,
-  Spinner,
-  type SelectOption,
   type CreateNewOutboundConfig,
   type CreateNewOutboundContact,
   type InteractionChannel,
   type ChannelType,
-  type InteractionNavItemProps,
   type ChannelOutcomeConfig,
   type AgentStatus,
   type AgentNotification,
@@ -82,7 +74,6 @@ import {
   synthesizeChannelAddress,
   SHOW_ADD_CHANNEL_HEADER_BUTTON,
   buildCustomerContextOverviewInfo,
-  type CustomerPriorContactInfo,
   type Page,
 } from "@/components/agent-next-gen-shared-utils";
 import {
@@ -93,9 +84,6 @@ import {
   InteractionTranscript,
   InteractionComposer,
   type TranscriptSession,
-  TRANSCRIPT_SESSIONS,
-  TRANSCRIPT_SESSIONS_VOICE,
-  TRANSCRIPT_SESSIONS_EMAIL,
   AiActionsFeed,
   ComposerFade,
 } from "@/components/agent-next-gen-transcript";
@@ -116,7 +104,6 @@ import {
   buildNavItems,
   type AssignmentSortValue,
   type AssignmentSortDirection,
-  ASSIGNMENT_SORT_OPTIONS,
   sortAssignments,
   AssignmentsSectionCaption,
   interactionHasBreachedSla,
@@ -125,7 +112,7 @@ import {
   INITIAL_QUEUE_SUB_ITEMS,
   LATEST_CONTACTS_STATIC,
 } from "@/components/agent-next-gen-interaction-dashboard";
-import { PageClockContext, usePageClock, usePageClockSource, useClockValue } from "@/components/agent-next-gen-page-clock";
+import { PageClockContext, usePageClockSource, useClockValue } from "@/components/agent-next-gen-page-clock";
 import { QueueSimContext, useQueueSimSource } from "@/components/agent-next-gen-queue-sim";
 import { ClockTick, QueueSubItems } from "@/components/agent-next-gen-clock-tick";
 import {
@@ -134,7 +121,6 @@ import {
   buildContactHistoryByRange,
   ContactHistoryCard,
   ContactHistoryEntryDetail,
-  CONTACT_HISTORY,
 } from "@/components/agent-next-gen-contact-history";
 import { saveCaseRecord } from "@/components/agent-next-gen-case-database";
 import {
@@ -209,6 +195,10 @@ import {
   useChannelThreadMenu,
   useFollowHeldCall,
   useSaveAddressOffers,
+  useCardOwnAddChannel,
+  SaveAddressLinkContext,
+  deriveCardIdentity,
+  useStampCardIdentity,
   voiceBarCalls,
   alreadyOpenReasons,
   liveAddressesFor,
@@ -226,7 +216,7 @@ import { AppTabBody, CustomerTabBodies, CustomersPage, CustomersTabBody, HomeTab
 import { isCustomerTab, keptMountedClass, useHomeTabs } from "@/components/home-tabs-state";
 import { HomeDashboard } from "@/components/home-dashboard";
 import { useCustomerTableState } from "@/components/customer-table-state";
-import { useSearchPanelContent, type SearchPanelTabKey } from "@/components/agent-next-gen-search-panel";
+import { useSearchPanelContent } from "@/components/agent-next-gen-search-panel";
 // `InteractionsListView` reimported directly per the "All Contacts"
 // follow-up (`showAllContacts`, below) — the Search panel's own Contacts
 // tab still renders it internally too (agent-next-gen-search-panel.tsx, via
@@ -260,11 +250,6 @@ import {
   // `sessionDetailsTabContent`'s own doc comment for the fuller "why".
   useSessionDetailsTabContent,
 } from "@/components/agent-next-gen-customer-info-panel";
-// PROTOTYPE — local-only, not in lyra-ui yet. See CollapsedChannelBadge's
-// own doc comment for why, and CLAUDE.md's lyra-ui rules for the convention
-// this follows (build new things locally, promote to lyra-ui only once
-// explicitly asked).
-import { CollapsedChannelBadge } from "@/components/CollapsedChannelBadge";
 import { AddChannelAdHocButton } from "@/components/agent-next-gen-add-channel-button";
 // The scripted cases (P0.5c): the sim engine plays them from src/scenarios
 // and they arrive as ordinary provider contacts. `useScenarioCases` tells
@@ -292,7 +277,6 @@ import {
   CONTACT_CHANNELS,
 } from "@/settings";
 import { SettingsView } from "@/components/settings/SettingsView";
-import { LUCAS_THOMAS_SCRIPT, MAYA_CHEN_SCRIPT, TOM_LEWIS_SCRIPT } from "@/scenarios";
 import {
   MarcusWebbNextBestActionCard,
   MarcusWebbActionDetailPanelBody,
@@ -335,7 +319,6 @@ import { VideoCallWindow, VideoCallFullScreen } from "@/components/agent-next-ge
 import type { DetailPanelContent, PanelKey, PanelState } from "@/contact-handling/workspace/workspace-types";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { usePortalHost, HostSlot } from "@/contact-handling/portal-hosts";
-import { useOutcomeClaims } from "@/contact-handling/useOutcomeClaim";
 import { useThreadCurrentSession } from "@/contact-handling/useThreadCurrentSession";
 import { AI_PERFORM_MS } from "@/contact-handling/ai-perform";
 import { resolveCustomerAutoReply } from "@/contact-handling/customer-auto-reply";
@@ -372,868 +355,38 @@ import {
   Inbox,
   Check,
   X,
-  Phone,
-  ChevronDown,
   type LucideIcon,
   ArrowLeft,
 } from "lucide-react";
-
-/** Bare digits only — used to match a dialed/SMS'd phone number against
- *  `ContactHistoryEntry.phone` regardless of formatting (parens/dashes/
- *  spaces/country code). Ported from `AgentNextGenPage.tsx` ("Phase 1") for
- *  `findContactHistoryMatch`, below — see that function's own doc comment. */
-
-function digitsOnly(value: string | undefined | null): string {
-  return (value || "").replace(/\D/g, "");
-}
-
-/** Finds the real `CONTACT_HISTORY` case (agent-next-gen-contact-
- *  history.tsx) matching the active interaction, if any — grounds the
- *  Customer Context Overview's content in the customer's ACTUAL prior case
- *  instead of the generic hashed-pool fallback. Ported verbatim from
- *  `AgentNextGenPage.tsx` ("Phase 1") per explicit request to mirror that
- *  page's Customer Context Overview functionality here. Lives here, not in
- *  agent-next-gen-shared-utils.ts, per that file's own dependency-free rule
- *  (see `buildCustomerContextOverviewInfo`'s `priorContact` doc comment
- *  there).
- *
- *  Matches by phone digits first — `customerName` IS the raw dialed/SMS'd
- *  address itself for an unidentified voice/SMS contact — so this is the
- *  one join key that works across every interaction-launch code path
- *  without a dedicated customer-id thread. Falls back to `customerId`
- *  (when the interaction has a real one) and finally an exact name match,
- *  for a chat contact where `customerName` is an actual name rather than a
- *  phone number. */
-function findContactHistoryMatch(
-  customerName: string | undefined,
-  customerId?: string
-): ContactHistoryEntry | undefined {
-  if (!customerName) return undefined;
-  const dialedDigits = digitsOnly(customerName);
-  if (dialedDigits.length >= 7) {
-    const byPhone = CONTACT_HISTORY.find((entry) => entry.phone && digitsOnly(entry.phone) === dialedDigits);
-    if (byPhone) return byPhone;
-  }
-  if (customerId) {
-    const byId = CONTACT_HISTORY.find((entry) => entry.customerId === customerId);
-    if (byId) return byId;
-  }
-  return CONTACT_HISTORY.find((entry) => entry.name.toLowerCase() === customerName.toLowerCase());
-}
-
-/** Extracts the plain fields `buildCustomerContextOverviewInfo` actually
- *  needs (its own `CustomerPriorContactInfo` param) off a matched
- *  `ContactHistoryEntry` — the entry's LAST transcript message (whichever
- *  side spoke last) or, for an email-only case, its `emailBody`, stands in
- *  for `transcriptExcerpt`. Ported verbatim from `AgentNextGenPage.tsx`
- *  ("Phase 1"). */
-function extractPriorContactInfo(entry: ContactHistoryEntry | undefined): CustomerPriorContactInfo | undefined {
-  if (!entry) return undefined;
-  const lastMessage = entry.messages && entry.messages.length > 0 ? entry.messages[entry.messages.length - 1] : undefined;
-  return {
-    description: entry.description,
-    skillName: entry.skillName,
-    statusLabel: entry.statusLabel,
-    transcriptExcerpt: lastMessage?.text ?? entry.emailBody,
-  };
-}
-
-// Shared default width for the single app-header panel (Search/Customers/
-// Accounts/Tickets/WEM/Screen Pop/Agent Chat/Schedule/Notifications) —
-// renamed from `AI_PANEL_DEFAULT_WIDTH` now that Ask AI (its original sole
-// occupant, back when each of these was its own independently-sized
-// `Draggable`) has been removed from this app.
-// ── AgentWorkspaceAdvancedPage ── (see agent-next-gen-shared-utils.ts and sibling
-// agent-next-gen-*.ts(x) files for everything this component itself no
-// longer declares — split out once this file crossed Babel's 500KB
-// code-generator threshold)
-// Per explicit request ("hide the toggle group for now"): the channel
-// switching/outcome/history-tab pill row (`ChannelToggleGroup`, its own
-// render site further down) is feature-flagged off rather than deleted —
-// a named `const` (not a literal `false` at the use site, which trips
-// `no-constant-binary-expression`) so it comes back with a one-line flip.
-const SHOW_CHANNEL_TOGGLE_GROUP = false;
-
-/** How long a pointer rests on a header channel icon before its preview opens. */
-const HOVER_PREVIEW_OPEN_DELAY_MS = 250;
-
-const SHARED_PANEL_DEFAULT_WIDTH = 360;
-
-// The true, VISUAL minimum content width the interaction record's own main
-// content column (`containerRef`) and the docked shared panel (Notifications/
-// AI/Apps/etc., `Draggable`'s own `minWidth`) should both deliver at their
-// respective floors — per explicit request, so the two sit at the same
-// on-screen size at minimum, not just the same raw CSS number. The two
-// consumers read this differently because only ONE of them pays a padding
-// tax on the way there (see `INTERACTION_MAIN_CONTENT_MIN_WIDTH`, just below,
-// for why): the docked panel's own outer box has no padding of its own, so it
-// passes this value straight through as its literal `minWidth` prop; the main
-// content column needs to add its own padding back on top (that's exactly
-// what `INTERACTION_MAIN_CONTENT_MIN_WIDTH` is for).
-const SHARED_CONTENT_MIN_VISUAL_WIDTH = 362;
-
-// The interaction record's own main content column (record-header tab row +
-// transcript + composer, `containerRef`'s div) — never renders narrower
-// than this, even with a docked shared panel (Notifications/AI/Apps/etc.)
-// open and LeftNav expanded. Below this, the record-header tab's own
-// address/name label, the transcript bubbles, and the composer all started
-// cramping/wrapping (confirmed live — the exact report that prompted this
-// constant). Paired with `dockedPanelRenderWidth`'s own clamp (this docked
-// panel's own render block, further down) rather than left as a plain CSS
-// `min-w-[…]` floor on its own: a bare CSS floor with nothing else giving up
-// space just pushes the WHOLE row past the viewport once every sibling's
-// combined width exceeds what's actually available (confirmed live as an
-// earlier, simpler attempt's actual failure mode) — the docked panel has to
-// be the one that shrinks to make room, since it's the only sibling here
-// with a size that's a preference (a drag-resized width) rather than a
-// genuine floor of its own.
-//
-// `containerRef`'s own div is `border-box` sized (Tailwind's preflight
-// default), so its `pr-3` (12px) right padding is CARVED OUT of a plain
-// `min-w-[350px]` rather than added on top of it, leaving only 338px of
-// actual usable content width for the record-header row/transcript/composer
-// inside — confirmed live as the reason the row was still measurably
-// narrower than intended even though the floor was technically "holding" at
-// 350. This is `SHARED_CONTENT_MIN_VISUAL_WIDTH` (the real, usable-content
-// target both this column and the docked panel should match) + 12 (this same
-// `pr-3`), so the CONTENT area itself — not the padded border-box — never
-// drops below `SHARED_CONTENT_MIN_VISUAL_WIDTH`. The docked panel does NOT
-// need this same `+ 12` treatment — its own outer box carries no equivalent
-// padding, so `SHARED_CONTENT_MIN_VISUAL_WIDTH` alone already lands it at the
-// same real visual width as this column's floor.
-//
-// Two call sites read this: the plain CSS floor itself is a literal
-// `min-w-[374px]` on `containerRef`'s own div (Tailwind's arbitrary-value
-// classes need a literal string at build time, same reason
-// `CUSTOMER_INFO_COLUMN_MINWIDTHS` above pairs each column's own
-// `min-w-[…]` string with a plain numeric `minWidthPx` for JS math) — keep
-// that literal in sync with this constant by hand if it ever changes.
-const INTERACTION_MAIN_CONTENT_MIN_WIDTH = SHARED_CONTENT_MIN_VISUAL_WIDTH + 12;
-
-// Screen Pop — visual mock of an external app's login screen, shown in
-// place of a real embed. Real screen-pop targets like Salesforce/Zendesk
-// send clickjack-protection headers (X-Frame-Options / CSP frame-ancestors)
-// on their login and app pages specifically to refuse cross-origin
-// iframing — that protection lives on THEIR side and can't be relaxed from
-// a consumer/embedding page no matter how it's built (see
-// support.zendesk.com's own "Embedding Zendesk into an iframe is not
-// allowed" article, and the equivalent Salesforce clickjack protection on
-// login.salesforce.com). So rather than a broken/blank iframe, each app
-// gets a hand-rolled, obviously-fake login card instead — every field is
-// `disabled` and the button/links are non-interactive, and the badge under
-// the card spells out that it's a mock, so it can never be mistaken for a
-// real login prompt (or an actual authentication surface asking for real
-// credentials).
-function MockLoginCard({
-  appName,
-  accent,
-  logo,
-  usernameLabel = "Username",
-  usernamePlaceholder = "username@company.com",
-  buttonLabel = "Log In",
-  footerLink = "Forgot Your Password?",
-  rememberMe = true,
-}: {
-  appName: string;
-  accent: string;
-  logo: React.ReactNode;
-  usernameLabel?: string;
-  usernamePlaceholder?: string;
-  buttonLabel?: string;
-  footerLink?: string;
-  rememberMe?: boolean;
-}) {
-  return (
-    <div className="overflow-y-auto flex-1 flex flex-col items-center bg-[#f4f6f9] px-4 pt-10 pb-6 gap-4">
-      <div className="w-full max-w-[280px] bg-white rounded-lg shadow-md border border-[#e5e5e5] flex flex-col items-center px-7 py-8">
-        {logo}
-        <div className="flex flex-col gap-1 w-full mb-3 mt-1">
-          <label className="text-xs text-[#3e3e3c]">{usernameLabel}</label>
-          <input
-            type="text"
-            disabled
-            placeholder={usernamePlaceholder}
-            className="border border-[#c9c9c9] rounded px-2.5 py-2 text-sm text-[#3e3e3c] placeholder:text-[#aeaeae] bg-white disabled:opacity-100 disabled:cursor-not-allowed focus:outline-none"
-          />
-        </div>
-        <div className="flex flex-col gap-1 w-full mb-3">
-          <label className="text-xs text-[#3e3e3c]">Password</label>
-          <input
-            type="password"
-            disabled
-            placeholder="••••••••"
-            className="border border-[#c9c9c9] rounded px-2.5 py-2 text-sm text-[#3e3e3c] bg-white disabled:opacity-100 disabled:cursor-not-allowed focus:outline-none"
-          />
-        </div>
-        {rememberMe && (
-          <label className="flex items-center gap-2 text-xs text-[#3e3e3c] w-full mb-4">
-            <input type="checkbox" disabled defaultChecked className="disabled:cursor-not-allowed" />
-            Remember me
-          </label>
-        )}
-        <button
-          type="button"
-          disabled
-          style={{ backgroundColor: accent }}
-          className="w-full text-white text-sm font-medium rounded px-4 py-2 mb-3 disabled:opacity-100 cursor-not-allowed"
-        >
-          {buttonLabel}
-        </button>
-        <a className="text-xs pointer-events-none" style={{ color: accent }}>{footerLink}</a>
-      </div>
-      <span className="lyra-body-xs text-lyra-fg-disabled bg-lyra-bg-surface-container-subtle border border-lyra-border-subtle rounded-full px-2.5 py-1">
-        Mock preview — not a live {appName} session
-      </span>
-    </div>
-  );
-}
-
-// LeftNav's overlay (responsive) mode expands on hover by cloning
-// `expanded={hoverOpen}` onto the TOP-LEVEL children of its slots
-// (`injectExpanded`, lyra left-nav.tsx); anything nested deeper keeps its own
-// `expanded={navOpen}` and stays collapsed. These two keep the slots in the
-// shape lyra's "Agent Next Gen Left Nav" story uses, so the cards, the rail
-// and the launcher all follow hover together.
-
-/** A top-level `header` child that hands LeftNav's injected `expanded` to a
- *  render function (e.g. through `ClockTick` to the card). `undefined` when
- *  nothing was injected (inline mode): the caller falls back to `navOpen`. */
-function LeftNavSlot({ expanded, children }: { expanded?: boolean; children: (expanded: boolean | undefined) => React.ReactNode }) {
-  return <>{children(expanded)}</>;
-}
-
-/** A top-level `footer` child with the rail's spacing above it (Settings →
- *  "New Outbound at the bottom"); passes LeftNav's injected `expanded` on to
- *  the launcher. */
-function LeftNavFooterSpacer({ expanded, children }: { expanded?: boolean; children: React.ReactElement<{ expanded?: boolean }> }) {
-  return <div className="w-full pt-2">{expanded === undefined ? children : React.cloneElement(children, { expanded })}</div>;
-}
-
-/** Stacks the left-nav footer's pieces (the rail, then New Outbound) in a
- *  column: lyra's footer slot is a centered flex row, so loose siblings sit
- *  side by side. Forwards the overlay hover's `expanded` to each child, as
- *  lyra's `injectExpanded` would for top-level children. */
-function LeftNavFooterColumn({ expanded, children }: { expanded?: boolean; children: React.ReactNode }) {
-  return (
-    <div data-slot="left-nav-footer" className="flex w-full flex-col">
-      {expanded === undefined
-        ? children
-        : React.Children.map(children, (child) =>
-            React.isValidElement(child) ? React.cloneElement(child as React.ReactElement<{ expanded?: boolean }>, { expanded }) : child
-          )}
-    </div>
-  );
-}
-
-// Wraps a single `InteractionNavItem` (plus its collapsed-rail-only
-// `CollapsedChannelBadge` overlay) behind ONE stable top-level element,
-// rather than the `.map()` callback below returning two structurally
-// different shapes (a bare `InteractionNavItem` when expanded vs. a
-// wrapping `<div className="relative">` around it + the badge when
-// collapsed) depending on `navOpen`. That structural split is what broke
-// `LeftNav`'s own hover-to-expand overlay mode (left-nav.tsx's
-// `injectExpanded`) — per explicit bug report/screenshot: hovering the
-// collapsed rail open visibly widened it to the full 256px panel (New
-// Outbound's full label, "Assignments (N active)"'s full text — both
-// plain top-level children of `header`, correctly re-cloned with
-// `expanded={hoverOpen}`), but each interaction card stayed stuck as its
-// small collapsed avatar tile instead of also switching to the full card.
-// `injectExpanded` only clones `expanded` onto `header`'s own TOP-LEVEL
-// children — with the collapsed-mode wrapper div in the way, that clone
-// landed on a plain `<div>` (which just ignores an unknown `expanded`
-// prop) instead of ever reaching the real `InteractionNavItem` nested
-// inside it, which was left stuck on whatever `expanded={navOpen}` value
-// `AgentNextGenPage` had explicitly hardcoded onto it (the PINNED
-// open/closed state, not hover state) — so it never flipped along with
-// hovering, no matter how wide the rail visibly got.
-//
-// This component is the fix: the `.map()` below now always returns ONE
-// `<InteractionNavCard>` per card, unconditionally, so `injectExpanded`
-// always has a single real element to clone `expanded` onto. Internally,
-// THIS component (not the caller) decides whether to render the plain
-// expanded card or the collapsed tile + badge, based on whatever
-// `expanded` value it actually received — which is exactly the value
-// `injectExpanded` just overwrote when hovering open in overlay mode, so
-// the decision now correctly follows hover state, not just `navOpen`.
-interface InteractionNavCardProps extends InteractionNavItemProps {
-  /** This interaction's current channel type — only used for the
-   *  collapsed-rail badge (see `showChannelBadge` below); ignored once
-   *  `expanded` is true, since the expanded card already shows a per-
-   *  channel chip for each open channel. */
-  currentChannelType?: ChannelType;
-  /** Whether the collapsed-rail badge should render at all — false once a
-   *  card has more than one open channel, since `InteractionNavItem`
-   *  already renders its own multi-channel count badge in that exact same
-   *  corner (see `CollapsedChannelBadge`'s own doc comment for why the two
-   *  are mutually exclusive). */
-  showChannelBadge: boolean;
-  /** Same "success"/"warning"/"critical" SLA tier the expanded card's own
-   *  `awaitingSeverity` prop already resolves — passed straight through to
-   *  `CollapsedChannelBadge` so the collapsed badge escalates in lockstep
-   *  with the rest of the card. */
-  badgeSeverity?: "success" | "warning" | "critical";
-  /** Per explicit request ("in the interactionNavItem when a call is put
-   *  on hold and the panel is collapsed make the channel badge a pause
-   *  icon and change the color to warning") — true when this card's live
-   *  voice thread is currently held (`c.heldByAgent`, same field the
-   *  expanded card's own on-hold timer reads — see that render site's own
-   *  doc comment). Passed straight through to `CollapsedChannelBadge`'s own
-   *  `onHold` prop. */
-  cardOnHold?: boolean;
-  /** Hold SLA tier for the collapsed badge (15s warning / 30s critical). */
-  cardHoldSeverity?: "success" | "warning" | "critical";
-  /** True while the tile animates out (e.g. a declined incoming call). */
-  leaving?: boolean;
-}
-function InteractionNavCard({
-  leaving,
-  currentChannelType,
-  showChannelBadge,
-  badgeSeverity,
-  cardOnHold,
-  cardHoldSeverity,
-  expanded,
-  ...itemPropsIn
-}: InteractionNavCardProps) {
-  // Each channel row's Outcome opens only from the row that was clicked (P-EXTRACT, Bug 1): the store names
-  // the channel, this card's rows hold the claim, so the thread's session row doesn't open with it.
-  const channels = useOutcomeClaims(itemPropsIn.channels ?? [], (ch, i) => ch.id ?? `${ch.type}:${i}`);
-  const itemProps = itemPropsIn.channels ? { ...itemPropsIn, channels } : itemPropsIn;
-  // The outer wrapper is stable across expanded/collapsed, so the entrance (slight fade in from the left) plays once when
-  // the tile first appears and not again when the rail expands or collapses.
-  return (
-    <div
-      className={`grid transition-[grid-template-rows,opacity,transform] duration-300 ease-in ${
-        leaving
-          ? "pointer-events-none grid-rows-[0fr] -translate-x-4 opacity-0"
-          : "animate-in fade-in-0 slide-in-from-left-2 grid-rows-[1fr]"
-      }`}
-    >
-     <div className="min-h-0 overflow-hidden">
-      {!expanded ? (
-        <div className="relative">
-          <InteractionNavItem expanded={expanded} {...itemProps} />
-          {currentChannelType && showChannelBadge && (
-            <CollapsedChannelBadge type={currentChannelType} severity={badgeSeverity} onHold={cardOnHold} holdSeverity={cardHoldSeverity} />
-          )}
-        </div>
-      ) : (
-        <InteractionNavItem expanded={expanded} {...itemProps} />
-      )}
-     </div>
-    </div>
-  );
-}
-
-// Screen Pop — external apps an agent can pop the current contact/record
-// into. Dummy list; wiring an actual screen-pop integration per app is out
-// of scope for now.
-const SCREEN_POP_APPS: SelectOption[] = [
-  { value: "salesforce",         label: "Salesforce" },
-  { value: "zendesk",            label: "Zendesk" },
-  { value: "servicenow",         label: "ServiceNow" },
-  { value: "hubspot",            label: "HubSpot" },
-  { value: "freshdesk",          label: "Freshdesk" },
-  { value: "script",             label: "Script" },
-  { value: "launch",             label: "Launch" },
-  { value: "custom-workspace",   label: "Custom Workspace" },
-];
-
-// Search panel's own sub-tabs (`useSearchPanelContent`, agent-next-gen-
-// search-panel.tsx) — all 4 tabs, with "interactions" listed FIRST per
-// explicit request (was "customers" first, per an earlier explicit
-// request — reverted per this later one, "have Interactions be the first
-// tab visible" instead): that hook treats the first entry as both the
-// leftmost tab AND its own default active tab. `AgentWorkspace2WithDeskPage.tsx`
-// passes its own, shorter list (just Messages/Threads) to the same hook
-// instead of this constant — see that file's own call site.
-const SEARCH_PANEL_TABS: SearchPanelTabKey[] = ["interactions", "customers", "messages", "threads"];
-const CUSTOMERS_ONLY: ExtraHeaderApp[] = ["customers"];
-
-// Per explicit request ("remove longest wait and match sorting (ascending/
-// descending) to the Phase 1 current menu") — this tier now drops "Longest
-// Wait" from the Assignments sort picker too, matching `AgentNextGenPage
-// .tsx`'s own `PHASE1_ASSIGNMENT_SORT_OPTIONS` (see that file's own doc
-// comment for the fuller "why" this filters the shared list rather than
-// touching `ASSIGNMENT_SORT_OPTIONS` itself). Named for this tier rather
-// than reusing Phase 1's own constant since it isn't exported.
-const ADVANCED_ASSIGNMENT_SORT_OPTIONS = ASSIGNMENT_SORT_OPTIONS.filter((o) => o.value !== "awaitingLongest");
-
-// `buildOpenChannelTagger` (open channels per contact, for New Outbound and
-// "+") moved to src/contact-handling/open-channel-tagger.ts in P0.5b.2,
-// shared with Desk and keyed by the card's `entityId`.
-
-// The scripted cases' chips and overviews, from their scripts (P0.7/P0.5c).
-const LUCAS_THOMAS_COPILOT_SUGGESTIONS: string[] = LUCAS_THOMAS_SCRIPT.content.copilot!.suggestions;
-const LUCAS_THOMAS_COPILOT_SUGGESTION_LINKS: Record<string, string> = LUCAS_THOMAS_SCRIPT.content.copilot!.links;
-const LUCAS_THOMAS_COPILOT_SUGGESTION_REPLACEMENTS: Record<string, string> = LUCAS_THOMAS_SCRIPT.content.copilot!.replacements ?? {};
-const TOM_LEWIS_CALL_OVERVIEW = TOM_LEWIS_SCRIPT.content.overview!;
-const TOM_LEWIS_CALL_COPILOT_SUGGESTIONS: string[] = TOM_LEWIS_SCRIPT.content.copilot!.suggestions;
-const TOM_LEWIS_CALL_COPILOT_LINKS: Record<string, string> = TOM_LEWIS_SCRIPT.content.copilot!.links;
-const MAYA_CHEN_CALL_OVERVIEW = MAYA_CHEN_SCRIPT.content.overview!;
-const MAYA_CHEN_CALL_COPILOT_SUGGESTIONS: string[] = MAYA_CHEN_SCRIPT.content.copilot!.suggestions;
-const MAYA_CHEN_CALL_COPILOT_LINKS: Record<string, string> = MAYA_CHEN_SCRIPT.content.copilot!.links;
-
-/** Duplicated verbatim from AgentNextGenPage.tsx (Agent Workspace 2.0) per
- *  this codebase's "no shared sync" convention (see BEHAVIOR.md) — used
- *  ONLY for the unknown-contact record-header subtitle (see the
- *  `resolveActiveChannelDateTimeLabel` doc comment below, and the
- *  `PageHeader`'s `subtitle` render call site further down this file). */
-function formatCompactDateTime(input: string | Date): string | undefined {
-  const date = typeof input === "string" ? new Date(input) : input;
-  if (Number.isNaN(date.getTime())) return undefined;
-  const datePart = date.toLocaleDateString(undefined, { month: "numeric", day: "numeric", year: "numeric" });
-  const timePart = date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-  return `${datePart} ${timePart}`;
-}
-
-/** Duplicated verbatim from AgentNextGenPage.tsx (Agent Workspace 2.0) per
- *  this codebase's "no shared sync" convention — see that file's own doc
- *  comment on this same function for the full priority-order rationale.
- *  Used ONLY for the unknown-contact record-header subtitle (this tier's
- *  real-customer subtitle is untouched by this port). */
-function resolveActiveChannelDateTimeLabel(
-  channelType: ChannelType | undefined,
-  isFreshLaunch: boolean,
-  activeChannel: Thread | undefined,
-  launchedAt: string | undefined
-): string | undefined {
-  const reopened = activeChannel?.reopenedContacts?.[activeChannel.reopenedContacts.length - 1];
-  if (reopened) {
-    return formatCompactDateTime(`${reopened.date} ${reopened.startTime}`);
-  }
-  if (isFreshLaunch) {
-    const isTextChannel = channelType === "chat" || channelType === "sms" || channelType === "whatsapp";
-    if (isTextChannel) {
-      return launchedAt ? formatCompactDateTime(launchedAt) : "Draft";
-    }
-    return formatCompactDateTime(new Date());
-  }
-  const baseSessions =
-    channelType === "email"
-      ? TRANSCRIPT_SESSIONS_EMAIL
-      : channelType === "voice"
-        ? TRANSCRIPT_SESSIONS_VOICE
-        : channelType === "chat" || channelType === "sms" || channelType === "whatsapp"
-          ? TRANSCRIPT_SESSIONS
-          : undefined;
-  const lastSession = baseSessions?.[baseSessions.length - 1];
-  if (!lastSession) return undefined;
-  return formatCompactDateTime(`${lastSession.date} ${lastSession.startTime}`);
-}
-
-/** Finds the most recent real customer-response timestamp across EVERY
- *  thread on an interaction (not just the active one) and formats it with
- *  `formatCompactDateTime` — feeds the record-header subtitle's
- *  "{N} channels open | Last Customer Response: {date/time}" pattern below,
- *  per explicit follow-up request, shown once 2+ channels are open in place
- *  of the single active channel's own "{icon} {label} | {date}" line (that
- *  line stops meaning much once several channels are live at once — this
- *  answers "when did the customer last actually say something," across
- *  whichever channel that happened on).
- *
- *  Resolution per thread, most authoritative first:
- *  1. `lastCustomerMessageTick` — set the instant a real (or simulated)
- *     customer reply lands on THIS session (`handleSendMessage`'s reply
- *     timeout). It's a `clockTick` value — real elapsed seconds since this
- *     page mounted (the page clock's 1-per-second tick, see `clock`'s doc
- *     comment in the page) — so `pageMountTimeMs + tick * 1000` gives
- *     an exact, real wall-clock `Date`, not a mock string.
- *  2. `reopenedContacts` — a thread reopened from Contact History carries a
- *     real historical date/time of its own even with no live reply yet.
- *  3. A genuinely fresh (`interaction.startedFresh`) thread with neither of
- *     the above has had NO customer response at all — skipped outright,
- *     deliberately NOT falling through to canned session data (that would
- *     surface stale, unrelated mock history for a channel the customer
- *     hasn't touched, the same "isFreshLaunch short-circuits before the
- *     canned branch" reasoning `resolveActiveChannelDateTimeLabel` above
- *     already applies).
- *  4. Otherwise (a pre-existing/real customer channel, no live activity
- *     this session) — that channel type's last canned session's own last
- *     CUSTOMER-sender message timestamp (chat/sms/whatsapp only; Voice/
- *     Email's canned sessions ship an empty `messages: []`, so those fall
- *     back to the session's own `startTime`, same as
- *     `resolveActiveChannelDateTimeLabel`'s own base-session fallback).
- *
- *  Returns `undefined` (not a broken "Last Customer Response: undefined"
- *  string) when NONE of the interaction's threads have any qualifying
- *  response yet — the subtitle then reads just "{N} channels open" with no
- *  trailing clause. */
-function resolveInteractionLastCustomerResponseLabel(
-  interaction: Interaction,
-  pageMountTimeMs: number
-): string | undefined {
-  let latest: Date | undefined;
-  const consider = (candidate: Date | undefined) => {
-    if (candidate && !Number.isNaN(candidate.getTime()) && (!latest || candidate.getTime() > latest.getTime())) {
-      latest = candidate;
-    }
-  };
-  for (const c of interaction.threads) {
-    if (c.lastCustomerMessageTick !== undefined) {
-      consider(new Date(pageMountTimeMs + c.lastCustomerMessageTick * 1000));
-      continue;
-    }
-    const reopened = c.reopenedContacts?.[c.reopenedContacts.length - 1];
-    if (reopened) {
-      consider(new Date(`${reopened.date} ${reopened.startTime}`));
-      continue;
-    }
-    // Per-THREAD, not `interaction.startedFresh` — see `Thread.startedFresh`'s
-    // own doc comment. This loop already iterates per-thread (`c`); a
-    // genuinely fresh thread (no history to fall back to) skips the canned
-    // fallback below regardless of whether the interaction it lives on was
-    // itself born fresh or resumed from history.
-    if (c.startedFresh) continue;
-    const baseSessions =
-      c.type === "email"
-        ? TRANSCRIPT_SESSIONS_EMAIL
-        : c.type === "voice"
-          ? TRANSCRIPT_SESSIONS_VOICE
-          : c.type === "chat" || c.type === "sms" || c.type === "whatsapp"
-            ? TRANSCRIPT_SESSIONS
-            : undefined;
-    const lastSession = baseSessions?.[baseSessions.length - 1];
-    if (!lastSession) continue;
-    const lastCustomerMessage = [...lastSession.messages].reverse().find((m) => m.sender === "customer");
-    consider(new Date(`${lastSession.date} ${lastCustomerMessage?.timestamp ?? lastSession.startTime}`));
-  }
-  return latest ? formatCompactDateTime(latest) : undefined;
-}
-
-// Per explicit request, hold off on auto-dismissing the Marcus Webb
-// assignment once its scripted flow completes, while the agent is
-// testing — "hide, don't destroy": `onAssignmentClosed`'s call site
-// below stays fully wired, just gated on this flag. Flip back to `true`
-// to re-enable.
-const MARCUS_WEBB_AUTO_DISMISS_ON_CLOSE = false;
-
-// Per explicit request ("remove the ability to hang up from the
-// interactionNavItem overall") — "hide, don't destroy": the left-nav
-// channel builder's own `onEndCall` computation stays fully wired, just
-// gated off by this flag. Hanging up a call still works from the main
-// call-controls bar's own "End Call" button (`VoiceCallControls`'s
-// `onHangUp`) regardless of this flag — that's a separate, independent
-// code path that isn't affected either way. Flip back to `true` to
-// restore the left-nav's own standalone End Call icon.
-const SHOW_END_CALL_IN_INTERACTION_NAV_ROWS = false;
-
-/* ── Marcus Webb's call transcript ──
- *  His script (src/scenarios/scripts/marcus-webb.ts) holds it; the sim
- *  engine writes it into his call's transcript when the scenario plays
- *  (P0.5c), and `useScenarioCases` renders it from the store. */
-
-/* ── MarcusWebbIncomingCallNotice ──
- *  Per explicit request ("when a new call comes in (clicking the 'L' button
- *  to launch marcus webb) open a popover/toast that displays [a Copilot
- *  case-summary card]... this should animate up from the bottom of the
- *  screen... do not add the assignment to the assignment panel until an
- *  action is taken on the popover toast... use a popover component from
- *  lyra-ui... have it appear in the toast area and animate upward"):
- *  replaces the "L" trigger's old behavior of dropping Marcus straight into
- *  the left nav the instant the key is pressed. Now the trigger only builds
- *  the `Interaction` and holds it (see `marcusWebbPendingInteractionRef`,
- *  below `agentStatus`) — this card is what the agent actually sees, and
- *  `interactions` isn't touched until they click "Review" or "Takeover".
- *
- *  Built from lyra-ui primitives, matching the reference mockup's own
- *  layout: `Container variant="info"` for the case-summary card (same blue
- *  tint `ProgressBar.stories.tsx`'s "AI Confidence" demo already uses for
- *  this exact kind of copy), `Tag variant="critical"` for the "Escalated"
- *  pill (the same variant `agent-next-gen-contact-history.tsx` already
- *  uses for that exact status word), `ProgressBar` for AI Confidence. Per
- *  explicit follow-up requests, the card no longer includes an "Ask
- *  Copilot about this Case" input, nor the `DetailsPanelAccordions`
- *  Customer Profile/Contact Snapshot/Files section — it ends with the
- *  Case Summary container. `contextOverview` is still accepted/computed
- *  by the caller (`marcusWebbContextOverviewInfo`) but is currently unused
- *  by this component now that that section is gone.
- *
- *  The actual "animate upward from the toast area" mechanics are the
- *  CALLER's job, not this component's: the render site wraps this card's
- *  content in a lyra-ui `Popover` (`asAnchor`, `placement="top"`) anchored
- *  to a plain span planted directly inside the same `fixed bottom-4 right-4`
- *  block that already renders every other toast — `placement="top"` is what
- *  gets Popover's own existing `data-[side=top]:slide-in-from-bottom-2` /
- *  `slide-out-to-bottom-1` animate-in/out classes (popover.tsx) for free,
- *  with zero new CSS needed here. This component is purely the card's own
- *  content/copy.
- *
- *  Per a later explicit follow-up request ("hide the contact snapshot and
- *  review/takeover buttons and add a close button to the top right of the
- *  toast. In addition, load the assignment tile in the left nav when the
- *  toast comes in") — this reverses the "don't add the assignment until an
- *  action is taken" behavior described above: the "L" keydown handler now
- *  commits Marcus's interaction (and sets `marcusWebbReviewing`) the
- *  instant the toast opens, not when Review/Takeover is clicked (see that
- *  handler's own doc comment). With the tile already in the left nav, this
- *  card became a lighter notice — Contact Snapshot and Takeover are hidden
- *  behind `SHOW_MARCUS_NOTICE_DETAILS` below ("hide, don't destroy," same
- *  as `SHOW_APPROVE_PROCESSING_STEPS`/`SHOW_DO_SOMETHING_INPUT` elsewhere
- *  in this file), and a real close button was added. Per a further
- *  explicit follow-up ("add the Review button back (dismiss the toast when
- *  review is clicked and navigate to the assignment)"), Review itself is
- *  unconditional again — it's the fast path straight into the
- *  already-loaded tile, while Takeover stays reachable only from inside
- *  the interaction (the "Reviewing this conversation" action bar's own
- *  independent Takeover button, which flips `marcusWebbReviewing` false). */
-const SHOW_MARCUS_NOTICE_DETAILS = false;
-
-// Not rendered since P0.5c ("hide, don't destroy"): it was already never
-// opened (its `open` state was never set true), and Marcus now arrives from
-// the engine like any routed contact. Restore it by rendering it when his
-// scenario contact first appears.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function MarcusWebbIncomingCallNotice({
-  contextOverview,
-  onReview,
-  onTakeover,
-  onClose,
-}: {
-  /** Same shape `buildCustomerContextOverviewInfo` returns for every other
-   *  consumer (`customerContextOverviewInfo`, this page's own docked-panel/
-   *  hover-preview memo) — computed once for Marcus specifically
-   *  (`marcusWebbContextOverviewInfo`, below `agentStatus`) rather than
-   *  recomputed per render, same reasoning as that memo. */
-  contextOverview: ReturnType<typeof buildCustomerContextOverviewInfo>;
-  // `onReview` drives the always-visible Review button below. `onTakeover`
-  // stays wired for whenever `SHOW_MARCUS_NOTICE_DETAILS` (below) is back
-  // on — see that flag's own doc comment.
-  onReview: () => void;
-  onTakeover: () => void;
-  /** Per explicit follow-up request ("add a close button to the top right
-   *  of the toast") — the one way to dismiss this notice now that Review/
-   *  Takeover are hidden by default. Only closes the notice itself; the
-   *  interaction is already committed into `interactions` regardless (see
-   *  the "L" keydown handler), so this doesn't need to touch anything
-   *  else. */
-  onClose: () => void;
-}) {
-  // Live "ringing" timer for the header chip (the "00:16" in the reference
-  // mockup). The notice only mounts while it's open, so it counts from the
-  // page-clock tick it mounted at: a later open starts from 00:00 again.
-  // Only the chip's text re-renders each second (`<ClockTick>` below).
-  const clock = usePageClock();
-  const [openedAtTick] = useState(() => clock.now());
-  // Per explicit follow-up request ("use the attached image as an
-  // accordion within the popover toast"), Case Summary is now a genuine
-  // collapsible accordion (chevron toggle, matching the reference
-  // screenshot's own "Contact Snapshot" accordion styling — bulleted
-  // content with the AI Confidence/Recommended Action boxes nested inside)
-  // instead of the always-expanded plain `Container` it used to be. Kept
-  // as local component state (not the shared `Accordion` component's own
-  // `items`/`value` API) since there's exactly one section here and the
-  // header row needs this card's own blue-tinted styling rather than
-  // `Accordion`'s default row chrome — same externally-driven
-  // `AccordionHeadless`/`-Item`/`-Content` building blocks
-  // `agent-next-gen-transcript.tsx` already uses for the same reason
-  // (a pill/button elsewhere drives `value`, not `AccordionPrimitive
-  // .Trigger`). Per a later explicit follow-up request, starts CLOSED now
-  // (reversing the reference screenshot's own chevron-up/expanded state).
-  const [caseSummaryOpen, setCaseSummaryOpen] = useState(false);
-  return (
-    <div className="flex w-[400px] flex-col overflow-hidden rounded-lyra-lg border border-lyra-border-soft bg-lyra-bg-surface-overlay shadow-lg">
-      {/* Header — avatar/name/status match `TranscriptSessionSeparator`'s
-          own session-row conventions, except this bubble's own background
-          (see its own doc comment just below) — not a plain text title,
-          since this IS an incoming voice call notification. */}
-      <div className="flex items-start gap-3 p-4 pb-3">
-        {/* Per explicit follow-up request ("make the background of the
-            avatar error instead of purple"), then ("use the hard red not
-            the soft red, make the phone icon white"): this design system
-            calls that severity color "critical", not "error" (see `Tag
-            variant="critical"`, the "Escalated" tag right below, and
-            `ActionBar`'s own `variant="error"` mapping internally to these
-            same `status-critical-*` tokens) — `bg-lyra-status-critical-
-            strong` (the "hard"/solid red, was `-subtle`) with `text-lyra-
-            fg-on-primary` (white — the same token `Button`'s own
-            `destructive` variant already uses for its label on a solid red
-            fill) for the `Phone` icon below, rather than that icon reading
-            in the critical-strong red itself (illegible against a same-red
-            background). */}
-        <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-lyra-status-critical-strong text-lyra-fg-on-primary">
-          {/* Incoming-call pulse — per explicit follow-up request ("reuse
-              the spinner animation in the center of the avatar"): this
-              swaps out the bespoke ring keyframes the previous pass added
-              here for lyra-ui's own `Spinner` (`variant="circle"`) —
-              already built for exactly this "circle growing from center,
-              fading as it goes" pulse (spinner.tsx's own `lyra-circle-
-              pulse` keyframes), so reused as-is rather than hand-rolling a
-              second version of it. `size="lg"` (32px) sits just inside
-              this 36px bubble; `absolute inset-0` centers it within the
-              bubble without disturbing the `Phone` icon's own centering.
-              `color="inverse"` (white) rather than the default `"primary"`
-              blue — per explicit follow-up request, just to see how it
-              reads against this bubble's own background.
-              Rendered before the `Phone` icon so it sits behind it in
-              paint order without needing an explicit z-index. */}
-          <Spinner variant="circle" size="lg" color="inverse" className="absolute inset-0" />
-          <Phone className="relative h-4 w-4" strokeWidth={1.5} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="lyra-heading-sm text-lyra-fg-default truncate">Marcus Webb</span>
-            {/* Per explicit follow-up request ("remove the pink rounded
-                rectangle to the right of marcus webb in the toast") — the
-                "Escalated" `Tag` that used to sit here is gone. */}
-            <span className="shrink-0 rounded-lyra-sm border border-lyra-border-subtle px-1.5 py-0.5 lyra-body-sm text-lyra-fg-secondary tabular-nums">
-              {/* Only this text ticks; the notice itself doesn't re-render. */}
-              <ClockTick>
-                {(clockTick) => {
-                  const elapsedSeconds = clockTick - openedAtTick;
-                  const mm = String(Math.floor(elapsedSeconds / 60)).padStart(2, "0");
-                  const ss = String(elapsedSeconds % 60).padStart(2, "0");
-                  return `${mm}:${ss}`;
-                }}
-              </ClockTick>
-            </span>
-          </div>
-          <p className="lyra-body-sm text-lyra-fg-secondary mt-0.5 line-clamp-2">
-            Voice Call escalation from AI Agent
-          </p>
-        </div>
-        {/* Per explicit follow-up request ("add a close button to the top
-            right of the toast") — last flex child of this `items-start`
-            row, so it pins to the card's top-right corner for free with no
-            extra positioning. `ActionIconButton` + `Tooltip` + lucide `X`,
-            same icon-only-action convention this file already uses
-            elsewhere (e.g. the docked panel's own "Full Screen" button).
-            The render site's own `Popover` still `preventDefault()`s
-            Escape/outside-click (see that doc comment) — this button is
-            the one deliberate way to dismiss the notice now. */}
-        <Tooltip content="Close" placement="top">
-          <ActionIconButton
-            aria-label="Close"
-            size="sm"
-            onClick={onClose}
-            className="shrink-0 text-lyra-fg-secondary hover:text-lyra-fg-secondary"
-          >
-            <X className="h-4 w-4" strokeWidth={1.5} />
-          </ActionIconButton>
-        </Tooltip>
-      </div>
-
-      {SHOW_MARCUS_NOTICE_DETAILS && (
-      <div className="flex flex-col gap-3 px-4 pb-4 max-h-[70vh] overflow-y-auto">
-        <Container variant="info" className="overflow-hidden p-0">
-          <AccordionHeadless
-            type="single"
-            collapsible
-            value={caseSummaryOpen ? "case-summary" : ""}
-            onValueChange={() => {}}
-          >
-            <AccordionHeadlessItem value="case-summary">
-              {/* Header row IS the trigger — plain button (not
-                  `AccordionPrimitive.Trigger`) driving the local
-                  `caseSummaryOpen` state above, same externally-driven
-                  shape this file's own doc comment on that state
-                  describes. Chevron rotate mirrors `accordion.tsx`'s own
-                  `Accordion` component chevron exactly (`ChevronDown`,
-                  `rotate-180` when open), and so does the hover/active/
-                  focus-visible treatment below (`accordion.tsx`'s own
-                  `AccordionRow` trigger className) — this isn't that
-                  component, but it should still feel like a clickable
-                  accordion header, not a static label. */}
-              <button
-                type="button"
-                onClick={() => setCaseSummaryOpen((v) => !v)}
-                aria-expanded={caseSummaryOpen}
-                className="flex w-full items-center justify-between gap-2 p-4 text-left transition-colors hover:bg-lyra-state-hover active:bg-lyra-state-pressed cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lyra-border-focus focus-visible:ring-inset"
-              >
-                {/* Per explicit follow-up request ("case summary should not
-                    be all capitals") — `uppercase` dropped, same fix
-                    "AI Confidence"/"Recommended Action" already got earlier
-                    (see those spans' own doc comments a bit further down):
-                    the text itself was already normal/title case, only the
-                    CSS transform was still rendering it in all caps. Label
-                    itself later changed to "Contact Snapshot" per a further
-                    explicit follow-up request — the local `caseSummaryOpen`
-                    state/handler name (and every other internal reference
-                    to "Case Summary" in this file's own doc comments) are
-                    left as-is; only this visible heading text changed.
-                    `tracking-wide` (the letter-spacing behind the earlier
-                    "not have tracking" report) later dropped too, and the
-                    label itself capitalized to "Contact Snapshot" (was
-                    lowercase "snapshot") per that same follow-up. Typography
-                    changed from `lyra-body-sm-emphasis` to plain
-                    `lyra-body-md` per a further follow-up ("make it body
-                    copy md to match accordion component") — `accordion.tsx`'s
-                    own `AccordionRow` renders every item's title as
-                    `lyra-body-md` (no emphasis weight), and this hand-rolled
-                    header is deliberately styled to read as an accordion
-                    trigger (see this block's own top doc comment), so its
-                    title text now matches that component's actual title
-                    typography instead of a heavier one it never used. Color
-                    (`text-lyra-fg-active-strong`) is unchanged — that's
-                    this bar's own accent, not part of the typography match. */}
-                <span className="lyra-body-md text-lyra-fg-active-strong">Contact Snapshot</span>
-                <ChevronDown
-                  className={cn(
-                    "h-4 w-4 shrink-0 text-lyra-fg-active-strong transition-transform duration-200",
-                    caseSummaryOpen && "rotate-180"
-                  )}
-                  strokeWidth={1.5}
-                  aria-hidden="true"
-                />
-              </button>
-              <AccordionHeadlessContent>
-                <div className="px-4 pb-4">
-                  {/* Bulleted per the reference screenshot's own "Contact
-                      Snapshot" accordion content style, replacing the
-                      previous single Sparkles-accented paragraph. */}
-                  <ul className="list-disc space-y-1 pl-4 lyra-body-md text-lyra-fg-default">
-                    <li>Customer called in for a refund on a $200 order</li>
-                    <li>Refund exceeds the AI agent's $100 auto-approval limit</li>
-                    <li>Customer placed on hold, pending human approval</li>
-                  </ul>
-                  <div className="mt-3 rounded-lyra-md border border-lyra-border-soft bg-lyra-bg-surface-overlay p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="lyra-body-sm-emphasis text-lyra-fg-secondary">AI Confidence</span>
-                      <span className="lyra-heading-sm text-lyra-status-info-strong">91%</span>
-                    </div>
-                    <ProgressBar value={91} size="sm" className="mt-2" />
-                    <p className="lyra-body-sm text-lyra-fg-secondary mt-2">
-                      Straightforward refund request — the only reason for
-                      escalation is that $200 is above the AI agent's own
-                      approval limit.
-                    </p>
-                  </div>
-                  <div className="mt-3 rounded-lyra-md border border-lyra-border-soft bg-lyra-bg-surface-overlay p-3">
-                    <p className="lyra-body-sm-emphasis text-lyra-fg-secondary">Recommended Action</p>
-                    <p className="lyra-body-md text-lyra-fg-default mt-1">
-                      Approve the $200 refund so the AI agent can complete
-                      the request and take the customer off hold.
-                    </p>
-                  </div>
-                </div>
-              </AccordionHeadlessContent>
-            </AccordionHeadlessItem>
-          </AccordionHeadless>
-        </Container>
-      </div>
-      )}
-
-      {/* Per a later explicit follow-up request ("add the Review button
-          back (dismiss the toast when review is clicked and navigate to
-          the assignment)") — Review is unconditional again, unlike
-          Takeover (still gated behind `SHOW_MARCUS_NOTICE_DETAILS`,
-          untouched): the agent can jump straight into Marcus's already-
-          loaded tile from here, but still takes over via the "Reviewing
-          this conversation" action bar's own button once inside, not a
-          second toast-level shortcut. */}
-      <div className="flex items-center gap-2 border-t border-lyra-border-subtle p-3">
-        <Button variant="outline" size="md" className="flex-1" onClick={onReview}>
-          Review
-        </Button>
-        {SHOW_MARCUS_NOTICE_DETAILS && (
-          <Button variant="default" size="md" className="flex-1" onClick={onTakeover}>
-            Takeover
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
+import {
+  findContactHistoryMatch,
+  extractPriorContactInfo,
+  resolveActiveChannelDateTimeLabel,
+  resolveInteractionLastCustomerResponseLabel,
+} from "@/contact-handling/workspace/active-channel-labels";
+import {
+  SHOW_CHANNEL_TOGGLE_GROUP,
+  HOVER_PREVIEW_OPEN_DELAY_MS,
+  SHARED_PANEL_DEFAULT_WIDTH,
+  SHARED_CONTENT_MIN_VISUAL_WIDTH,
+  INTERACTION_MAIN_CONTENT_MIN_WIDTH,
+  SCREEN_POP_APPS,
+  SEARCH_PANEL_TABS,
+  CUSTOMERS_ONLY,
+  ADVANCED_ASSIGNMENT_SORT_OPTIONS,
+  LUCAS_THOMAS_COPILOT_SUGGESTIONS,
+  LUCAS_THOMAS_COPILOT_SUGGESTION_LINKS,
+  LUCAS_THOMAS_COPILOT_SUGGESTION_REPLACEMENTS,
+  TOM_LEWIS_CALL_OVERVIEW,
+  TOM_LEWIS_CALL_COPILOT_SUGGESTIONS,
+  TOM_LEWIS_CALL_COPILOT_LINKS,
+  MAYA_CHEN_CALL_OVERVIEW,
+  MAYA_CHEN_CALL_COPILOT_SUGGESTIONS,
+  MAYA_CHEN_CALL_COPILOT_LINKS,
+  MARCUS_WEBB_AUTO_DISMISS_ON_CLOSE,
+  SHOW_END_CALL_IN_INTERACTION_NAV_ROWS,
+} from "@/components/workspace/workspace-constants";
+import { MockLoginCard, LeftNavSlot, LeftNavFooterSpacer, LeftNavFooterColumn, InteractionNavCard } from "@/components/workspace/left-nav-parts";
 
 export function AgentWorkspaceAdvancedPage({
   showPageHeader = false,
@@ -2106,13 +1259,18 @@ export function AgentWorkspaceAdvancedPage({
   // NOT a real customer here, wrongly hiding Contact Overview for a
   // genuine past contact. `startsWith("history:")` covers only that case,
   // not the genuinely-unknown `adhoc:`/`quickdial:`/`redial:` ones.
+  // A known customer is a fact on the card (P-EXTRACT, Bug 3): stamped the first time it holds, so a
+  // scripted case (Lucas arrives linked to an existing customer; the cold calls are known callers) stays
+  // one after its scripted contact ends.
+  const cardIdentityOf = (card: Interaction) =>
+    deriveCardIdentity(card, {
+      isDirectoryEntity: (entityId) => CREATE_NEW_CUSTOMERS.some((c) => c.id === entityId),
+      isCreatedEntity: (entityId) => createdCustomerRecords.some((c) => c.id === entityId),
+      isKnownScenario: (cardId) => scenarioKeyOf(cardId) === LUCAS_THOMAS_ID || isColdCallId(cardId),
+    });
+  useStampCardIdentity(interactions, setInteractions, cardIdentityOf);
   const activeInteractionIsRealCustomer = activeInteraction
-    ? CREATE_NEW_CUSTOMERS.some((c) => c.id === activeInteraction.entityId) ||
-      createdCustomerRecords.some((c) => c.id === activeInteraction.entityId) ||
-      /^(history|seed):/.test(activeInteraction.entityId ?? "") ||
-      // Lucas Thomas arrives already linked to an existing customer.
-      scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID ||
-      isColdCallId(activeInteraction.id)
+    ? !!(activeInteraction.identity ?? cardIdentityOf(activeInteraction))
     : true;
   // Feeds the Customer Context Overview accordion (`customerContextOverview`
   // prop, below) that now renders in place of the old plain `ContactOverview`
@@ -5147,12 +4305,14 @@ export function AgentWorkspaceAdvancedPage({
     },
     findCustomer: (entityId) => createdCustomerRecords.find((c) => c.id === entityId) ?? CREATE_NEW_CUSTOMERS.find((c) => c.id === entityId),
   });
+  // A card with no directory entity, once an address was saved for it: the picker over its own addresses (Bug 3).
+  const getCardAction = useCardOwnAddChannel({ outboundConfig, onAddToCard: outboundDial.addAdHocChannel });
   /** A card's "+" (add channel): the nav card's and the record header's, one control (k6 1); its picker is
    *  gated like New Outbound (Settings → Channels, presence, threads already open). None while ringing or closed. */
   const addChannelActionFor = (card: Interaction) =>
     SHOW_ADD_CHANNEL_HEADER_BUTTON &&
     showsSessionControls(card) &&
-    navCardAddChannelAction(card, { getHeaderAction, onAddAdHocChannel: outboundDial.addAdHocChannel, skillOptions: OUTBOUND_CONFIG.skillOptions, contacts: storeContacts });
+    navCardAddChannelAction(card, { getHeaderAction, getCardAction, onAddAdHocChannel: outboundDial.addAdHocChannel, skillOptions: OUTBOUND_CONFIG.skillOptions, contacts: storeContacts });
 
   /* Welcome modal — shown once on page load; "Go Available" flips the agent
      to Available, "Start Offline" (button label — see the AgentWelcomeMessage
@@ -6418,6 +5578,8 @@ export function AgentWorkspaceAdvancedPage({
   return (
     <PageClockContext.Provider value={clock}>
     <QueueSimContext.Provider value={queueSim}>
+    {/* A save-address offer on a card that isn't a known customer also opens the Link flow (Bug 3). */}
+    <SaveAddressLinkContext.Provider value={handleLinkCustomerFromPreview}>
     <div className="flex flex-col h-screen bg-lyra-bg-surface-shell overflow-hidden animate-in fade-in-0 duration-500">
       {/* Marcus's Next Best Action card lives in a persistent host node (moved into the transcript by a HostSlot),
           so navigating away and back never resets its state or its running timers. Unmounted when the assignment is dismissed. */}
@@ -11072,6 +10234,7 @@ export function AgentWorkspaceAdvancedPage({
         </ToastContainer>
       </div>
     </div>
+    </SaveAddressLinkContext.Provider>
     </QueueSimContext.Provider>
     </PageClockContext.Provider>
   );

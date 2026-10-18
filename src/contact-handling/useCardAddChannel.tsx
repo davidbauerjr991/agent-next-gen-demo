@@ -1,8 +1,10 @@
 import { useCallback, useMemo, type ReactNode } from "react";
-import { AddChannelButton, type ChannelType, type CreateNewOutboundConfig } from "@nicecxone/lyra-ui";
+import { AddChannelButton, type ChannelType, type CreateNewOutboundConfig, type CreateNewOutboundContact } from "@nicecxone/lyra-ui";
+import type { NavCard } from "@/adapters/legacy/nav-card-view-model";
+import { initialsFor } from "@/components/agent-next-gen-shared-utils";
 import { useInteractions } from "@/provider-context";
 import { alreadyOpenReasons, customerChannelAddresses, liveAddressesFor, onCallReasons, unusedAddresses, type CustomerAddresses } from "./already-open";
-import { useContactMethodsVersion, withLinkedContactMethods } from "./contact-methods";
+import { linkedAddresses, useContactMethodsVersion, withLinkedContactMethods } from "./contact-methods";
 
 export interface UseCardAddChannelOptions {
   /** New Outbound's config: its groups (the contacts a card can be), channel options, skills, presence reasons. */
@@ -26,7 +28,7 @@ export function useCardAddChannel({ outboundConfig, findCustomer }: UseCardAddCh
     () => new Map(outboundConfig.groups.flatMap((g) => g.contacts ?? []).map((c) => [c.id, c])),
     [outboundConfig],
   );
-  return useCallback(
+  const getHeaderAction = useCallback(
     (
       entityId: string,
       className?: string,
@@ -79,5 +81,49 @@ export function useCardAddChannel({ outboundConfig, findCustomer }: UseCardAddCh
     // `linkedVersion`: an added address re-renders the pickers.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [contactsById, outboundConfig, findCustomer, contacts, linkedVersion],
+  );
+  return getHeaderAction;
+}
+
+/** The "+" for a card with no directory entity once an address was saved
+ *  for it (P-EXTRACT, Bug 3): the channel picker over the card's own
+ *  addresses (the saved ones first, then its threads'), launching onto the
+ *  card like the ad-hoc "+" does. `null` while nothing is saved for the
+ *  card: the ad-hoc "+" (a typed address) stays. */
+export function useCardOwnAddChannel({
+  outboundConfig,
+  onAddToCard,
+}: {
+  outboundConfig: Pick<CreateNewOutboundConfig, "channelOptions" | "skillOptions" | "channelDisabledReasons">;
+  onAddToCard: (card: NavCard, address: string, channel: ChannelType, skillId: string) => void;
+}) {
+  const contacts = useInteractions();
+  const linkedVersion = useContactMethodsVersion();
+  return useCallback(
+    (card: NavCard, className?: string): ReactNode => {
+      const savedPhones = linkedAddresses(card.id, "sms");
+      const savedEmails = linkedAddresses(card.id, "email");
+      if (savedPhones.length === 0 && savedEmails.length === 0) return null;
+      const threadPhones = card.threads.filter((t) => t.type !== "email").map((t) => t.value ?? t.addressLabel ?? "").filter(Boolean);
+      const phones = [...new Set([...savedPhones, ...threadPhones])];
+      const email = savedEmails[0] ?? card.threads.find((t) => t.type === "email")?.value;
+      const channels: ChannelType[] = [...(phones.length ? (["voice", "sms", "whatsapp"] as ChannelType[]) : []), ...(email ? (["email"] as ChannelType[]) : [])];
+      const name = card.customerName ?? phones[0] ?? email ?? "";
+      const contact: CreateNewOutboundContact = { id: `card:${card.id}`, name, initials: initialsFor(name), channels, ...(email ? { email } : {}) };
+      return (
+        <AddChannelButton
+          contact={contact}
+          channelOptions={outboundConfig.channelOptions.filter((c) => channels.includes(c.id))}
+          phoneOptions={phones.map((value) => ({ value, label: value }))}
+          skillOptions={outboundConfig.skillOptions ?? []}
+          onStartCall={({ channel, phone, skillId }) => onAddToCard(card, channel === "email" ? email ?? phone : phone, channel, skillId)}
+          className={className}
+          channelDisabledReasons={{ ...onCallReasons(contacts, { journeyId: card.id }), ...outboundConfig.channelDisabledReasons }}
+        />
+      );
+    },
+    // `linkedVersion`: a saved address re-renders the picker.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [outboundConfig, onAddToCard, contacts, linkedVersion],
   );
 }

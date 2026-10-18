@@ -114,8 +114,8 @@ describe("Bug 3: a scripted case is a known customer for the card's whole life",
     expect(linkControl()).toBeUndefined();
   });
 
-  // `it.fails`: fails on HEAD (the bug); P-EXTRACT C8a flips these to `it`.
-  it.fails("after the call ends, on the card's SMS thread: still no Link control", async () => {
+  // Failed before P-EXTRACT C8a (the bug), as `it.fails`; flipped in C8a.
+  it("after the call ends, on the card's SMS thread: still no Link control", async () => {
     await maya();
     await addSms(NEW_NUMBER);
     await endMayasCall();
@@ -124,7 +124,7 @@ describe("Bug 3: a scripted case is a known customer for the card's whole life",
     expect(linkControl()).toBeUndefined();
   });
 
-  it.fails("a new number for Maya (no directory entity) offers the Save-address card; Add makes it hers in the next \"+\"", async () => {
+  it("a new number for Maya (no directory entity) offers the Save-address card; Add makes it hers in the next \"+\"", async () => {
     await maya();
     await addSms(NEW_NUMBER);
     expect(saveCard()?.textContent).toContain(`Add ${NEW_NUMBER} as a phone number for Maya Chen?`);
@@ -138,7 +138,7 @@ describe("Bug 3: a scripted case is a known customer for the card's whole life",
 });
 
 describe("Bug 3: a card with no identity", () => {
-  it.fails("an ad-hoc card's second number offers Add or Link to existing customer", async () => {
+  it("an ad-hoc card's second number offers Add or Link to existing customer", async () => {
     await act(async () => {
       getSettingsStore().update("channels", { voice: true, chat: true, email: true, sms: true, whatsapp: true });
     });
