@@ -1,0 +1,269 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Agent Workspace Plan Status</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+html{scroll-behavior:smooth}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+section{scroll-margin-top:16px}
+/* Layout: one reading column, sections as plain lists; status carried by a left stripe + text tone, completed items dimmed */
+:root{
+  --bg:#f7f6f3; --fg:#1d1f24; --muted:#6b6f78; --dim:#a4a7ae; --rule:#dcdad4;
+  --done-bg:#ecebe7; --inprog:#b4530a; --inprog-bg:#fbeee2; --partial:#8a6d00; --partial-bg:#faf3d8; --todo:#1f5fa8;
+  --font-body:"IBM Plex Sans",system-ui,sans-serif; --font-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#17181b; --fg:#e8e6e1; --muted:#9a9ea7; --dim:#5f636b; --rule:#2d2f35;
+  --done-bg:#1f2024; --inprog:#f0a060; --inprog-bg:#2d2219; --partial:#e0c45a; --partial-bg:#2b2714; --todo:#7fb2f0; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#17181b; --fg:#e8e6e1; --muted:#9a9ea7; --dim:#5f636b; --rule:#2d2f35;
+  --done-bg:#1f2024; --inprog:#f0a060; --inprog-bg:#2d2219; --partial:#e0c45a; --partial-bg:#2b2714; --todo:#7fb2f0; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:32px 64px}
+main{max-width:860px;margin:0 auto;display:grid;gap:40px}
+header{display:grid;gap:12px}
+h1{font-size:26px;font-weight:600;margin:0;text-wrap:balance}
+.meta{color:var(--muted);font-size:13px;font-family:var(--font-mono)}
+.legend{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:13px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.sw{width:12px;height:12px;border-radius:2px;display:inline-block}
+.sw.done{background:var(--done-bg);border:1px solid var(--rule)}
+.sw.inprog{background:var(--inprog)}
+.sw.partial{background:var(--partial)}
+.sw.todo{background:var(--todo)}
+section{display:grid;gap:10px}
+h2{font-size:17px;font-weight:600;margin:0;padding-bottom:6px;border-bottom:1px solid var(--rule);text-wrap:balance}
+h2 small{font-weight:400;color:var(--muted);font-size:13px;margin-left:8px}
+ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+li{display:grid;grid-template-columns:72px 1fr;gap:12px;padding:8px 10px;border-left:3px solid var(--rule);border-radius:0 4px 4px 0;min-width:0}
+li .tag{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.03em;text-transform:uppercase;padding-top:3px}
+li .body{min-width:0}
+li .body b{font-weight:600}
+li .body .note{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+li.done{background:var(--done-bg);border-left-color:var(--dim);color:var(--dim)}
+li.done .tag{color:var(--dim)}
+li.done .body b{font-weight:500}
+li.done .body .note{color:var(--dim)}
+li.inprog{background:var(--inprog-bg);border-left-color:var(--inprog)}
+li.inprog .tag{color:var(--inprog);font-weight:500}
+li.partial{background:var(--partial-bg);border-left-color:var(--partial)}
+li.partial .tag{color:var(--partial)}
+li.todo{border-left-color:var(--todo)}
+li.todo .tag{color:var(--todo)}
+.order{font-size:14px;line-height:1.9;display:flex;flex-wrap:wrap;gap:6px 0;align-items:center}
+.order .step{color:inherit;text-decoration:none;padding:2px 8px;border-radius:4px;border:1px solid var(--rule);white-space:nowrap}
+.order .step.done{background:var(--done-bg);color:var(--dim);border-color:transparent}
+.order .step:hover,.order .step:focus-visible{border-color:var(--todo);outline:none}
+.order .step.inprog{background:var(--inprog-bg);color:var(--inprog);border-color:var(--inprog);font-weight:500}
+.order .arrow{color:var(--dim);padding:0 6px}
+.order .mark{color:var(--muted);font-style:italic;padding:0 6px}
+@media (max-width:480px){li{grid-template-columns:1fr;gap:2px}}
+#top{position:fixed;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));padding:8px 14px;border-radius:999px;border:1px solid var(--rule);background:var(--bg);color:var(--fg);font:500 13px var(--font-body);text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.12);opacity:0;pointer-events:none;transition:opacity .15s}
+#top.show{opacity:1;pointer-events:auto}
+#top:focus-visible{outline:2px solid var(--todo);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){#top{transition:none}}
+</style>
+
+<main id="page-top">
+<header>
+  <h1>Agent Workspace Simulation — plan status</h1>
+  <div class="meta">PLAN.md as of 2026-10-18 · completed work grayed · P-PROFILES in progress</div>
+  <div class="legend">
+    <span><i class="sw done"></i>Done</span>
+    <span><i class="sw inprog"></i>In progress</span>
+    <span><i class="sw partial"></i>Partly built</span>
+    <span><i class="sw todo"></i>Not started</span>
+  </div>
+</header>
+
+<section>
+  <h2>Order of attack <small>demo-first, revised 2026-10-17</small></h2>
+  <div class="order">
+    <a class="step done" href="#phase0">5d.1</a><span class="arrow">→</span>
+    <a class="step done" href="#phase0">P0.7 + P0.5c</a><span class="arrow">→</span>
+    <a class="step done" href="#landed">P-SETTINGS</a><span class="arrow">→</span>
+    <a class="step done" href="#phase0">P0.5d.2</a><span class="arrow">→</span>
+    <a class="step done" href="#landed">P-AIFIRST (a–k9)</a><span class="arrow">→</span>
+    <a class="step done" href="#landed">P-EXTRACT</a><span class="arrow">→</span>
+    <a class="step inprog" href="#settings">P-PROFILES</a><span class="arrow">→</span>
+    <a class="step" href="#phase0">P0.5d.3</a><span class="arrow">→</span>
+    <a class="step" href="#phase0">lyra timers</a><span class="arrow">→</span>
+    <a class="step" href="#phase0">P0.6 console</a><span class="arrow">→</span>
+    <a class="step" href="#phase2">Phase 2 §0–5</a><span class="arrow">→</span>
+    <a class="step" href="#phase3">Phase 3</a><span class="mark">— demo milestone —</span>
+    <a class="step" href="#admin">P-ADMIN</a><span class="arrow">→</span>
+    <a class="step" href="#phase0">P0.9</a><span class="arrow">→</span>
+    <a class="step" href="#admin">P-EMPLOYEES</a><span class="arrow">→</span>
+    <a class="step" href="#phase1">Phase 1</a><span class="arrow">→</span>
+    <a class="step" href="#phase2">Phase 2 §6–7</a><span class="arrow">→</span>
+    <a class="step" href="#phase4">Phase 4</a><span class="arrow">→</span>
+    <a class="step" href="#phase1">verticals</a><span class="arrow">→</span>
+    <a class="step" href="#phase5">Phase 5 + P-CONFIG-ASSIST</a><span class="arrow">→</span>
+    <a class="step" href="#phase6">Phase 6</a><span class="arrow">→</span>
+    <a class="step" href="#phase7">Phase 7</a><span class="arrow">→</span>
+    <a class="step" href="#admin">P-REPORTING</a><span class="arrow">→</span>
+    <a class="step" href="#admin">P-BILLING</a><span class="arrow">→</span>
+    <a class="step" href="#integration">P-MAPPINGS</a><span class="arrow">→</span>
+    <a class="step" href="#integration">adapters</a><span class="arrow">→</span>
+    <a class="step" href="#admin">P-IMPORT</a><span class="arrow">→</span>
+    <a class="step" href="#admin">P-EMBED</a>
+  </div>
+</section>
+
+<section id="phase0">
+  <h2>Phase 0 — Provider architecture and simulation plumbing</h2>
+  <ul>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>1. Domain model</b> — Interaction, Message, Utterance, Entity, RelatedRecord, AgentState; branded ids, externalId<span class="note">Rich Message.content union and the channel registry are still targets (P2.2 / P2.7)</span></div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>2. Four provider interfaces</b> — InteractionProvider, MediaProvider, CustomerDataProvider, AssistProvider; ProviderError</div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>3. Provider context</b> — ProviderRoot, hooks, ?provider= selection, hide-don't-disable gating, ref-counted cache</div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>4. SimulatedInteractionProvider</b> — SimEngine over SimTransport, latency presets, typed protocol</div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>5.0 Interaction store + nav-card view model</b></div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>5a Agent leg</b> onto the provider; lyra AgentProfile controlled props</div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>5b.1 / 5b.2 Dial, reopen, store-backed cards</b> — journeyId re-key, useNavCards, useOutboundDial, one active voice contact</div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>5d.1 Voice bar, offers, wrap-up</b> onto the provider — inline wrap-up card, hold chip, one outcome draft per channel, presence sync</div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>5d.2 Desk folded into Advanced; Desk deleted</b> — profiles, Home tabs, launcher, Settings → Channels, Copilot composer everywhere</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>5d.3 Layout slots</b> — LayoutSlot anchors, CONTACT_HANDLING_FLAGS, row 21, "Call previous agent" placeholder<span class="note">Row 11 (voice header icon) already landed in P-AIFIRST (k3/k5)</span></div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>5c Scenario player in the engine</b> — Marcus, Lucas, Tom, Maya are engine contacts; review state; customer speak; hotkeys</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>6. Customer console route</b> — #/customer-console replaces window.__simCustomer</div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>7. Scenario script format</b> — timeline + case content, JSON-serializable, canned lines derived</div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>8. Contract test suite</b> — describeInteractionProviderContract, Vitest, run twice against the sim</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>9. Transfer, consult, merge, hand raise, internal messaging</b> — DirectoryProvider, MessagingProvider, participants, agent console window, agent-to-agent calls (9.1–9.4)</div></li>
+  </ul>
+</section>
+
+<section id="landed">
+  <h2>Cross-step work landed so far</h2>
+  <ul>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>P-CHORE-TICK</b> — self-ticking timers; page clock and queue sim by context</div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>P-SETTINGS</b> — section-keyed settings store, header apps, launch-screen prefs, theme before first render</div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>P-AIFIRST (a–e)</b> — AI display "main", AI-first profile, settings scope, white-label name/logo, brand colors (OKLCH), social placeholders</div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>P-AIFIRST (f–k9)</b> — tabs for every thread, one icon per channel + thread menu, hover-preview frame, header "+", already-open and one-call rules, auto-accept per channel, presence rules (disable with reason), call switcher, save-address card, status chip setting, session row per thread, cross-fade</div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>Administration docs</b> — section, demo-first order, scope corrections, new step rows (P-ADMIN … P-EMBED)</div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>P-EXTRACT</b> — page / transcript / customer-info splits with state-ownership fixes (outcome popover, slide-over placement, known-customer identity); ESLint admin boundary; HostProvider stub<span class="note">Page 11,147 → 621 lines (workspace controller + region components); transcript 5,645 → 4 and customer-info 5,613 → 15 (re-export barrels); no new file over 1,100</span></div></li>
+  </ul>
+</section>
+
+<section id="phase1">
+  <h2>Phase 1 — Vertical profiles and database management</h2>
+  <ul>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>1. ContactCenterProfile type and registry</b></div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>2. Verticals</b> — retail, collections, healthcare, tech support in full; banking, telecom, insurance, travel, utilities thinner</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>3. Generator engine</b></div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>4. Named databases on IndexedDB</b> + 4a interaction history persistence + 4b native tickets</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>5. Create-database wizard</b></div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>6. Vertical-aware import</b> (.csv/.xlsx)</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>7. Schema-driven panels</b> — the real work of the phase</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>8. Route overview, history, dial pad, console picker through provider + profile</b></div></li>
+  </ul>
+</section>
+
+<section id="phase2">
+  <h2>Phase 2 — Realtime chat simulation</h2>
+  <ul>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>Where threads open: AI display decides</b> — tabs under inline/panel, the panel under "main"; omnichannel setting retired; assignment-based nav cards</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>0. Render performance pass</b></div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>1. Console chat view</b></div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>2. Agent app chat through the provider</b> — messages append, sendMessage, typing both ways; Message.content union; per-channel capabilities</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>3. Unknown-contact state</b> (telecom shape until Phase 1)</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>4. Handoff snapshot card</b></div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>5. onCustomerUtterance / onAgentUtterance</b></div></li>
+    <li class="todo"><span class="tag">Later</span><div class="body"><b>6. Rich messaging in the sim</b> — after Phase 1</div></li>
+    <li class="todo"><span class="tag">Later</span><div class="body"><b>7. Social (P2.7)</b> — channel registry first, private DMs, social-post kind — after Phase 1</div></li>
+  </ul>
+</section>
+
+<section id="phase3">
+  <h2>Phase 3 — Voice call simulation</h2>
+  <ul>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>1–6.</b> SimulatedMediaProvider with TTS, console voice view, ringing via incoming, playback tied to state, word-boundary realism, unknown-contact state and speech normalizers</div></li>
+  </ul>
+</section>
+
+<section id="phase4">
+  <h2>Phase 4 — AI assist, Tier 1</h2>
+  <ul>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>1–10.</b> SimulatedAssistProvider router, parameterized handlers, slot extraction, record cards, card-type registry (4a), compliance gates, per-channel placement, actions, ask box, progressive entity creation, no-match fallback</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>11. Knowledge base, Tier 1</b> + 11a quick replies and templates library (variable syntax, vendor sync sources)</div></li>
+  </ul>
+</section>
+
+<section id="phase5">
+  <h2>Phase 5 — AI assist, Tier 2</h2>
+  <ul>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>1–7.</b> Model access, tools and persona from the profile, hybrid rule, streaming, KB Tier 2, setup assistant (generalized by P-CONFIG-ASSIST)</div></li>
+  </ul>
+</section>
+
+<section id="phase6">
+  <h2>Phase 6 — Virtual agent and escalation</h2>
+  <ul>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>1–5.</b> BotAgentProvider contract, simulated bot with bot-first routing, console AI-customer mode, agent-side handoff, voice</div></li>
+  </ul>
+</section>
+
+<section id="phase7">
+  <h2>Phase 7 — Work items, schedule, apps and configuration</h2>
+  <ul>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>1–8.</b> WorkItem/WorkProvider, nav cards per kind, calendar wiring, schedule-driven presence, ReportingSink, embedded apps (AppProvider), configurable layout, setup assistant auto-tune; My Team profile assignment</div></li>
+  </ul>
+</section>
+
+<section id="settings">
+  <h2>Settings and configuration</h2>
+  <ul>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>Settings store</b> — P-SETTINGS</div></li>
+    <li class="inprog"><span class="tag">Now</span><div class="body"><b>Workspace profiles</b> — built-ins Phase 1 / Phase 2 / AI-first, agent-scope snapshots, derive and apply<span class="note">P-PROFILES next: retire the two re-export barrels first, then save as, rename, duplicate, delete, export/import JSON, locks, saved-profile picker</span></div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>Conversation placement / AI-first layout</b> — folded into AI display inline | panel | main</div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>White-labeling</b> — app name, logo, brand colors; admin-scope; BrandMark header<span class="note">Rename to "Workspace" waits for P-ADMIN's area switcher</span></div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>Social channel placeholders</b> — channels.social, admin-scope, "Arrives in P2.7"</div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>Agent settings named after CXone's</b> — launcher tabs, Outbound Calling behaviors, Unassign & Dismiss, Confirm before closing</div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>Settings → Channels</b> — enablement gates what the agent can start or receive, never history; setAgentChannels</div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>Auto-accept per digital channel; status-chip setting; presence rules</b> (hide what doesn't exist, disable with reason what presence blocks)</div></li>
+    <li class="partial"><span class="tag">Partly</span><div class="body"><b>New Outbound</b> — Dial Pad, All, Favorites, Address Book live; Agents, Skills, Teams inert until P0.9</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Connections</b> — one integration per seam, status, Simulated badge, tenant connections file</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Contact Details configuration</b> — on P1.7's schema-driven panels</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Outbound policy</b> — per skill/team</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Address books as a DirectoryProvider source</b> — P0.9.1</div></li>
+  </ul>
+</section>
+
+<section id="admin">
+  <h2>Administration — the Workspace and the admin areas</h2>
+  <ul>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>Design and documentation</b> — section, decisions, step rows, demo-first order</div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>Boundaries landed in P-EXTRACT</b> — ESLint Workspace → admin import rule, HostProvider stub (standalone)</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-ADMIN</b> — area switcher + BrandMark, AdminShell, scope back-fill and schema labels, command registry, Branding and Channels areas; app name becomes "Workspace"</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-EMPLOYEES</b> — directory, groups, permission sets, SessionProvider and login resolution, Acceptable Use, audit log</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-CONFIG-ASSIST</b> — configuration by conversation over the declared schema and commands; org profile</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-REPORTING</b> — ReportingProvider, dashboards, reports, exports</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-BILLING</b> — LLMProvider, UsageProvider metering, usage / rate card / budgets / invoices</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-IMPORT</b> — shared import engine with history, externalIds per source</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>In-app only posture</b> — CSP, stripped hooks, integrity monitor, Acceptable Use</div></li>
+    <li class="todo"><span class="tag">Last</span><div class="body"><b>P-EMBED</b> — apps/full and apps/embed shells, embedded HostProvider, container-query layout, mock host page</div></li>
+  </ul>
+</section>
+
+<section id="customerdata">
+  <h2>Customer data — the app is the source of truth</h2>
+  <ul>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Sync modes, write-back, conflict handling, provenance, offline, contract tests</b> — lands with Phase 1 and the CRM adapters<span class="note">Page-level stand-ins exist today: contact-methods overlay, seed pseudo-entities, live-message overlay</span></div></li>
+  </ul>
+</section>
+
+<section id="integration">
+  <h2>Integration readiness</h2>
+  <ul>
+    <li class="partial"><span class="tag">Partly</span><div class="body"><b>Contract suites per seam</b> — InteractionProvider suite exists; CustomerData, Bot, Directory, Messaging, Knowledge, Work, App, Reporting still to come</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Relay</b> — webhook receiver, voice routing, fan-out, outbound webhooks (P-ADAPTER's first step)</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-MAPPINGS</b> — connector mappings and data memorialization</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-ADAPTER</b> — Twilio → Zendesk → CXone → SOCIAL → WFM → AI vendor</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Parked — email and SMS</b> — composer, outbox store, console tab; renders into the thread view</div></li>
+  </ul>
+</section>
+</main>
+<a id="top" href="#page-top" aria-label="Back to top">↑ Top</a>
+<script>
+(function(){var b=document.getElementById('top');function u(){b.classList.toggle('show',window.scrollY>400)}window.addEventListener('scroll',u,{passive:true});u();})();
+</script>
+
+</body></html>
