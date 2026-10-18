@@ -193,6 +193,27 @@ describe("Bug 2c: a Copilot result row asked before a mode switch still opens it
     expect(composer().querySelector<HTMLElement>("[data-slot=copilot-chips] [role=button]")!.textContent!.trim()).toBe(first);
   });
 
+  // A row's result is identified by its link, `instruction:copilot:<text>:<h:mm>`: the same question asked again in
+  // the same minute (the chips start over after a switch, so the agent re-asks) gives two rows one identity, and
+  // clicking one while the other's result is open closes it instead of opening its own. Keyed by the row (its
+  // message id) from P-EXTRACT C4. `it.fails` until then.
+  it.fails("the same question asked twice (before and after a switch): each row opens its own result, and only it reads active", async () => {
+    await davidsEmail("inline");
+    const question = await ask();
+    await setAi("panel");
+    await h.advance(300);
+    expect(await ask()).toBe(question); // the chips started over
+    const rows = () => [...document.body.querySelectorAll<HTMLElement>("button")].filter((b) => b.textContent?.startsWith(question) && b.textContent.includes("John Smith"));
+    expect(rows()).toHaveLength(2);
+    await h.click(rows()[1]);
+    expect(openResult()).not.toBeNull();
+    expect(rows().map((r) => r.getAttribute("aria-current"))).toEqual([null, "true"]);
+    // The other row (asked before the switch) swaps to its own result; it doesn't close the open one.
+    await h.click(rows()[0]);
+    expect(openResult()).not.toBeNull();
+    expect(rows().map((r) => r.getAttribute("aria-current"))).toEqual(["true", null]);
+  });
+
   // Guards in jsdom (pass on HEAD); the reported failure is checked in Chrome, e2e/interstitial-mode-switch.spec.ts.
   for (const [from, to] of [
     ["inline", "panel"],
