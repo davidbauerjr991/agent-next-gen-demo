@@ -90,7 +90,6 @@ import {
   TRANSCRIPT_SESSION_STATUS_OPTIONS,
   OUTCOME_TAG_OPTIONS,
   OUTCOME_DISPOSITION_OPTIONS,
-  resolveCustomerAutoReply,
   InteractionTranscript,
   InteractionComposer,
   type TranscriptSession,
@@ -338,6 +337,7 @@ import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { useOutcomeClaims } from "@/contact-handling/useOutcomeClaim";
 import { useThreadCurrentSession } from "@/contact-handling/useThreadCurrentSession";
 import { AI_PERFORM_MS } from "@/contact-handling/ai-perform";
+import { resolveCustomerAutoReply } from "@/contact-handling/customer-auto-reply";
 import { BrandMark } from "@/components/BrandMark";
 import damagedHeadphonesImg from "@/assets/headphones.jpg";
 import {
