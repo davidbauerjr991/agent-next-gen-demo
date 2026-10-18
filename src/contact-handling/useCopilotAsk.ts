@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { NavCard } from "@/adapters/legacy/nav-card-view-model";
 import type { TranscriptMessage } from "@/components/agent-next-gen-transcript";
+import { AI_PERFORM_MS } from "./ai-perform";
 
 // Ask Copilot on a scripted case (P0.5c, moved out of the Advanced page):
 // anything the agent asks is logged in the chat as an instruction row (the
@@ -39,7 +40,8 @@ export interface CopilotAskOptions {
   linkFor: (cardId: string, text: string) => string | undefined;
   /** Whether a free-form question on this card opens its result panel by itself. */
   autoOpensResult: (cardId: string) => boolean;
-  openResult: (cardId: string, request: { text: string; time: string }) => void;
+  /** `link`: the row's own link, so the opened result marks that row active. */
+  openResult: (cardId: string, request: { text: string; time: string; link: string }) => void;
   /** Called on every ask (the page reveals hidden AI action rows). */
   onAsk?: () => void;
   agentName?: string;
@@ -66,8 +68,12 @@ export function useCopilotAsk({ setCards, linkFor, autoOpensResult, openResult, 
       asked?.();
       const time = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
       const chipLink = link(cardId, text);
+      const id = `copilot-ask-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      // A free-form question's row is identified by its own id (the trailing segment), not by its text and
+      // minute: the same question asked twice is two rows, each opening and marking its own result (P-EXTRACT).
+      const ownLink = `instruction:copilot:${encodeURIComponent(text)}:${encodeURIComponent(time)}:${id}`;
       const message: TranscriptMessage = {
-        id: `copilot-ask-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        id,
         sender: "agent",
         name: agentName,
         initials: agentName
@@ -82,7 +88,8 @@ export function useCopilotAsk({ setCards, linkFor, autoOpensResult, openResult, 
           by: agentName,
           // Lookup chips reopen the exact panel the chip opens; free-form
           // questions open the instruction/result panel.
-          link: chipLink ?? `instruction:copilot:${encodeURIComponent(text)}:${encodeURIComponent(time)}`,
+          link: chipLink ?? ownLink,
+          performedAt: Date.now() + AI_PERFORM_MS,
         },
       };
       setCards((prev) =>
@@ -95,7 +102,7 @@ export function useCopilotAsk({ setCards, linkFor, autoOpensResult, openResult, 
       if (!chipLink && autoOpens(cardId)) {
         const timer = setTimeout(() => {
           timers.current.delete(timer);
-          latest.current.openResult(cardId, { text, time });
+          latest.current.openResult(cardId, { text, time, link: ownLink });
         }, COPILOT_ASK_RESULT_MS);
         timers.current.add(timer);
       }

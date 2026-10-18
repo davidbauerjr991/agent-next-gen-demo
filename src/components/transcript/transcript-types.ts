@@ -23,8 +23,9 @@ export interface TranscriptMessage {
   summary?: TranscriptApprovalSummary;
   /** The decision already made on this approval card (the provider's record), so a remounted card shows it decided. */
   decided?: { value: string; note?: string };
-  /** Renders the "AI agent finished performing this." line plus a clickable instruction row (opens a side panel via `onSnapshotLink`). */
-  instruction?: { title: string; by: string; link: string };
+  /** Renders the clickable instruction row (opens a side panel via `onSnapshotLink`), showing "AI agent is
+   *  performing this now…" until `performedAt` (epoch ms; absent: already performed). */
+  instruction?: { title: string; by: string; link: string; performedAt?: number };
   /** Renders a "Wrap up" accordion (same shell as the approval request, success-subtle header) with a summary and a completion button. */
   wrapUp?: { title: string; summary: string; disposition: string; buttonLabel: string; exiting?: boolean };
   /** Renders the "Add {address} as … for {customer}?" card (k8 8): a thread started on an address not on the record. */

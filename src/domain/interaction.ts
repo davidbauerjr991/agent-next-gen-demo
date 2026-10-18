@@ -112,6 +112,9 @@ export interface Message {
     ref: string;
     by?: string;
     link?: string;
+    /** An instruction: when the AI finishes performing it (the row shows "performing…" until then). Set by the
+     *  provider, so every mount of the row agrees, before and after a remount. */
+    performedAt?: EpochMs;
     /** The agent's answer to an approval or wrap-up card (`respondToRequest`). */
     response?: { value: string; note?: string; at: EpochMs };
     /** The card was withdrawn (an unfinished wrap-up card when the agent takes over). */

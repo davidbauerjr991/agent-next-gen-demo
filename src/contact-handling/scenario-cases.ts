@@ -4,6 +4,7 @@ import type { TranscriptMessage } from "@/components/agent-next-gen-transcript";
 import type { Interaction, InteractionId, Message, Participant, Utterance } from "@/domain";
 import { useInteractionProvider, useInteractions, useTranscript, useTyping, type TranscriptState } from "@/provider-context";
 import type { RequestResponse } from "@/providers";
+import { AI_PERFORM_MS } from "./ai-perform";
 import { LUCAS_THOMAS_SCRIPT, MARCUS_WEBB_SCRIPT, MAYA_CHEN_SCRIPT, SCENARIOS, TOM_LEWIS_SCRIPT, type ScenarioScript } from "@/scenarios";
 
 // Scripted cases on the agent side (P0.5c). The engine plays the script; a
@@ -86,6 +87,8 @@ export function toTranscriptRows(transcript: Pick<TranscriptState, "messages" | 
             title: m.text,
             by: a.by ?? agent,
             link: a.link ?? `instruction:${a.ref}:${encodeURIComponent(m.text)}:${encodeURIComponent(timestamp)}`,
+            // The provider's time; a provider that doesn't set one: the usual performing step after it was sent.
+            performedAt: a.performedAt ?? m.sentAt + AI_PERFORM_MS,
           },
         },
       });

@@ -24,8 +24,10 @@ export type DetailPanelContent =
   | { kind: "order"; order: MarcusWebbOrderInfo }
   | { kind: "lucas"; panel: LucasThomasPanelKey }
   | { kind: "lucas-memory"; focus: LucasThomasMemoryFocus }
-  | { kind: "lucas-instruction"; decision: string; text: string; time: string }
-  | { kind: "copilot-result"; text: string; time: string }
+  // `link`: the row that opened it (its own link, unique per row since P-EXTRACT): which row reads active, and its
+  // Artifacts entry. Two rows with the same question and minute are still two results.
+  | { kind: "lucas-instruction"; decision: string; text: string; time: string; link?: string }
+  | { kind: "copilot-result"; text: string; time: string; link?: string }
   | { kind: "marcus-copilot"; id: string; text: string; time: string }
   | { kind: "tom-call"; panel: TomLewisCallPanelKey }
   | { kind: "lucas-order"; orderId: LucasThomasOrderId; from?: "memory" | "purchases" }

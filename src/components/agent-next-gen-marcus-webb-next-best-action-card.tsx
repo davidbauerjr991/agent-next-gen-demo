@@ -1536,7 +1536,8 @@ export function MarcusWebbNextBestActionCard({
   /** Opens the docked Experience Memory view focused on the given event id (approval checklist links). */
   onOpenExperienceMemory?: (focus: string) => void;
   /** Questions the agent asked Copilot (shown as interstitial rows), and which one's result panel is open. */
-  copilotRequests?: { id: string; text: string; time: string }[];
+  /** `performedAt`: when the row's "performing…" step ends (epoch ms). */
+  copilotRequests?: { id: string; text: string; time: string; performedAt?: number }[];
   onOpenCopilotRequest?: (request: { id: string; text: string; time: string }) => void;
   activeCopilotRequestId?: string | null;
   /** Fired when a "Something else" round's instruction row is clicked —
@@ -2742,11 +2743,12 @@ export function MarcusWebbNextBestActionCard({
     return copilotAskedAfterTakeoverRef.current[id];
   };
   const copilotRows = copilotRequests ?? [];
-  const renderCopilotRow = (r: { id: string; text: string; time: string }) => (
+  const renderCopilotRow = (r: { id: string; text: string; time: string; performedAt?: number }) => (
     <InstructionInterstitial
       key={r.id}
       id={r.id}
       instruction={{ title: r.text, by: "John Smith", link: r.id }}
+      performedAt={r.performedAt}
       timestamp={r.time}
       active={activeCopilotRequestId === r.id}
       onOpen={() => onOpenCopilotRequest?.(r)}

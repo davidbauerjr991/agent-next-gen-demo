@@ -7,6 +7,10 @@ import { providerError } from "../provider-error";
 import { SIM_AGENT } from "./sim-fixtures";
 import { simId } from "./sim-util";
 
+/** How long the simulated AI agent takes to perform an instruction (the row's "AI agent is performing this
+ *  now…" step): `annotation.performedAt` = sent + this. */
+export const SIM_INSTRUCTION_PERFORM_MS = 1800;
+
 // The scenario player (P0.5c). It lives inside the sim engine and plays a
 // P0.7 script against one contact: setup lines are written into the
 // transcript before the contact is announced (backfill), live steps fire on
@@ -208,6 +212,8 @@ export function createScenarioPlayer(
                 ref: inputs.branch ?? step.id,
                 ...(step.by ? { by: step.by } : {}),
                 ...(step.link ? { link: step.link } : {}),
+                // The simulated AI takes this long to perform it (independent of the latency preset).
+                performedAt: (host.now() + SIM_INSTRUCTION_PERFORM_MS) as Message["sentAt"],
               }),
             );
             return;

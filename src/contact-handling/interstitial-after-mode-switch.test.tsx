@@ -124,10 +124,11 @@ describe("Bug 2a: an interstitial row is clickable right after a mode switch", (
   }
 });
 
-// `it.fails`: fails on HEAD (the spinner restarts on the remount); P-EXTRACT C4 flips these to `it`.
+// The spinner used to restart on the remount (a module-scope set filled by mounted timers); the row's own
+// `performedAt` (P-EXTRACT C4) times it from the row.
 describe("Bug 2a: a switch during the spinner doesn't restart it", () => {
   for (const to of ["panel", "main"] as const) {
-    it.fails(`approve, inline → ${to} 300ms after deciding: the row is clickable 1.8s after it appeared, not 1.8s after the switch`, async () => {
+    it(`approve, inline → ${to} 300ms after deciding: the row is clickable 1.8s after it appeared, not 1.8s after the switch`, async () => {
       await lucas();
       await h.click(radio("Approve the Exception"));
       await h.click(buttonText(document.body, "Authorize and Place Order")!);
@@ -195,9 +196,9 @@ describe("Bug 2c: a Copilot result row asked before a mode switch still opens it
 
   // A row's result is identified by its link, `instruction:copilot:<text>:<h:mm>`: the same question asked again in
   // the same minute (the chips start over after a switch, so the agent re-asks) gives two rows one identity, and
-  // clicking one while the other's result is open closes it instead of opening its own. Keyed by the row (its
-  // message id) from P-EXTRACT C4. `it.fails` until then.
-  it.fails("the same question asked twice (before and after a switch): each row opens its own result, and only it reads active", async () => {
+  // clicking one while the other's result is open closed it instead of opening its own. Keyed by the row (its
+  // message id) since P-EXTRACT C4.
+  it("the same question asked twice (before and after a switch): each row opens its own result, and only it reads active", async () => {
     await davidsEmail("inline");
     const question = await ask();
     await setAi("panel");

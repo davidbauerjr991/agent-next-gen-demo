@@ -337,6 +337,7 @@ import type { DetailPanelContent, PanelKey, PanelState } from "@/contact-handlin
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { useOutcomeClaims } from "@/contact-handling/useOutcomeClaim";
 import { useThreadCurrentSession } from "@/contact-handling/useThreadCurrentSession";
+import { AI_PERFORM_MS } from "@/contact-handling/ai-perform";
 import { BrandMark } from "@/components/BrandMark";
 import damagedHeadphonesImg from "@/assets/headphones.jpg";
 import {
@@ -2678,19 +2679,19 @@ export function AgentWorkspaceAdvancedPage({
             : undefined;
     },
     autoOpensResult: (cardId) => scenarioKeyOf(cardId) === LUCAS_THOMAS_ID || isColdCallId(cardId),
-    openResult: (cardId, { text, time }) =>
-      setDetailPanelByInteraction((prev) => ({ ...prev, [cardId]: { kind: "lucas-instruction", decision: "copilot", text, time } })),
+    openResult: (cardId, { text, time, link }) =>
+      setDetailPanelByInteraction((prev) => ({ ...prev, [cardId]: { kind: "lucas-instruction", decision: "copilot", text, time, link } })),
   });
   const copilotResultTimer = useCopilotResultTimer();
   // Plays out the chat follow-up (events + AI replying to the customer) after the agent decides on Lucas's approval card.
   // Distinct id per run so a repeated "Something else" instruction never reuses a message id.
-  const [marcusCopilotRequests, setMarcusCopilotRequests] = useState<{ id: string; text: string; time: string }[]>([]);
-  const marcusCopilotRequestsRef = useRef<{ id: string; text: string; time: string }[]>([]);
+  const [marcusCopilotRequests, setMarcusCopilotRequests] = useState<{ id: string; text: string; time: string; performedAt?: number }[]>([]);
+  const marcusCopilotRequestsRef = useRef<{ id: string; text: string; time: string; performedAt?: number }[]>([]);
   const handleMarcusCopilotAsk = (text: string, openAfterMs?: number) => {
     // Asking Copilot produces an AI action row, so reveal AI actions if they were hidden.
     setHideAiActions(false);
     const time = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-    const req = { id: `marcus-copilot-${Date.now()}`, text, time };
+    const req = { id: `marcus-copilot-${Date.now()}`, text, time, performedAt: Date.now() + AI_PERFORM_MS };
     marcusCopilotRequestsRef.current = [...marcusCopilotRequestsRef.current, req];
     setMarcusCopilotRequests((prev) => [...prev, req]);
     // Free-form questions open their result once Copilot "finishes"; chips open their own panel after their spinner.
@@ -2909,8 +2910,8 @@ export function AgentWorkspaceAdvancedPage({
       case "order": return `order:${c.order.orderId}`;
       case "lucas": return `lucas:${c.panel}`;
       case "lucas-memory": return "lucas-memory";
-      case "lucas-instruction": return `lucas-instruction:${c.text}`;
-      case "copilot-result": return `copilot-result:${c.text}:${c.time}`;
+      case "lucas-instruction": return `lucas-instruction:${c.link ?? c.text}`;
+      case "copilot-result": return `copilot-result:${c.link ?? `${c.text}:${c.time}`}`;
       case "marcus-copilot": return `marcus-copilot:${c.id}`;
       case "tom-call": return `tom-call:${c.panel}`;
       case "lucas-order": return `lucas-order:${c.orderId}`;
@@ -2957,9 +2958,9 @@ export function AgentWorkspaceAdvancedPage({
     selectedDetailPanelContent?.kind === "lucas"
       ? selectedDetailPanelContent.panel
       : selectedDetailPanelContent?.kind === "lucas-instruction"
-      ? `instruction:${selectedDetailPanelContent.decision}:${encodeURIComponent(selectedDetailPanelContent.text)}:${encodeURIComponent(selectedDetailPanelContent.time)}`
+      ? selectedDetailPanelContent.link ?? `instruction:${selectedDetailPanelContent.decision}:${encodeURIComponent(selectedDetailPanelContent.text)}:${encodeURIComponent(selectedDetailPanelContent.time)}`
       : selectedDetailPanelContent?.kind === "copilot-result"
-      ? `instruction:copilot:${encodeURIComponent(selectedDetailPanelContent.text)}:${encodeURIComponent(selectedDetailPanelContent.time)}`
+      ? selectedDetailPanelContent.link ?? `instruction:copilot:${encodeURIComponent(selectedDetailPanelContent.text)}:${encodeURIComponent(selectedDetailPanelContent.time)}`
       : selectedDetailPanelContent?.kind === "tom-call"
       ? selectedDetailPanelContent.panel
       : undefined;
@@ -6227,7 +6228,7 @@ export function AgentWorkspaceAdvancedPage({
       if (key.startsWith("instruction:")) {
         const [, decision, text, time] = key.split(":");
         const request = { text: decodeURIComponent(text ?? ""), time: decodeURIComponent(time ?? "") };
-        return openDetailPanelContent(scripted ? { kind: "lucas-instruction", decision, ...request } : { kind: "copilot-result", ...request });
+        return openDetailPanelContent(scripted ? { kind: "lucas-instruction", decision, ...request, link: key } : { kind: "copilot-result", ...request, link: key });
       }
       if (isColdCallId(interactionId)) {
         if (key === "order" || key === "card" || key === "void-steps" || key === "maya-order" || key === "maya-card" || key === "maya-refund-steps") {
