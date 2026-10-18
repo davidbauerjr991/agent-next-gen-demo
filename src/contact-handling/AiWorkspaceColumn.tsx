@@ -16,9 +16,9 @@ export interface AiWorkspaceColumnProps {
   customerContextOverview?: OverviewInfo;
   /** After the feed: the voice wrap-up card while the card's call is in wrap-up. */
   trailing?: ReactNode;
-  /** The Copilot composer's slot (`copilotDock`'s mount): the page's
-   *  composer portals into it, as it does into the panel footer. */
-  dockRef: (el: HTMLDivElement | null) => void;
+  /** The Copilot composer's slot (a `HostSlot` for the page's stable
+   *  Copilot host, as in the panel footer). */
+  dock: ReactNode;
 }
 
 /** The main column under AI display "main" (AI-first,
@@ -33,7 +33,7 @@ export function AiWorkspaceColumn({
   customerName,
   customerContextOverview,
   trailing,
-  dockRef,
+  dock,
 }: AiWorkspaceColumnProps) {
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-slot="ai-workspace">
@@ -52,7 +52,9 @@ export function AiWorkspaceColumn({
       </div>
       <div className="relative shrink-0">
         <ComposerFade />
-        <div ref={dockRef} data-slot="copilot-dock" className="mx-auto w-full max-w-[768px] px-6 pb-4" />
+        <div data-slot="copilot-dock" className="mx-auto w-full max-w-[768px] px-6 pb-4">
+          {dock}
+        </div>
       </div>
     </div>
   );

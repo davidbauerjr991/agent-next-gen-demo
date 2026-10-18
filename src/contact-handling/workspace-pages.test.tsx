@@ -219,7 +219,9 @@ describe.each(PAGES)("%s", (_label, Page) => {
     await accept(id);
     const bars = container.querySelectorAll("[data-slot=voice-bar]");
     expect(bars).toHaveLength(1);
-    const bar = bars[0];
+    // The bar sits in its stable host, in the bottom slot (`display: contents`,
+    // so the slot is the column's flex child as far as layout goes).
+    const bar = bars[0].closest("[data-slot=voice-bar-bottom]")!;
     // The content column holds the main container (the call's assignment:
     // its session row), then the bar.
     const mainContainer = bar.previousElementSibling!;

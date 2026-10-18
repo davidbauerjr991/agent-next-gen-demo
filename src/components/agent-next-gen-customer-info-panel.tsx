@@ -3663,7 +3663,7 @@ export function DetailsPanelAccordions({
   /** Fired by "View All" (only shown when more than 10 artifacts are listed). */
   onViewAllArtifacts?: () => void;
   /** Side panels the agent has opened on this interaction — listed as links in the Artifacts card; clicking re-opens one. */
-  artifacts?: { id: string; label: string }[];
+  artifacts?: readonly { id: string; label: string }[];
   onOpenArtifact?: (id: string) => void;
   customerName?: string;
   /** Same object each page already builds via `buildCustomerContextOverviewInfo`
@@ -5591,7 +5591,7 @@ export function ArtifactsListBody({
   artifacts,
   onOpenArtifact,
 }: {
-  artifacts: { id: string; label: string }[];
+  artifacts: readonly { id: string; label: string }[];
   onOpenArtifact: (id: string) => void;
 }) {
   return (

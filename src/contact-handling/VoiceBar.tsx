@@ -14,12 +14,15 @@ export interface VoiceBarProps
   call: VoiceBarCall;
   /** Provider state and handlers (`useVoiceCallControls`). */
   controls: VoiceCallControlProps;
-  /** Where the bar renders (Settings → Voice controls location). "top"
-   *  portals a stacked bar into `topSlot` (a slot at the top of the left
-   *  nav); while there's no slot (the nav is collapsed) it falls back to the
-   *  bottom. */
+  /** How the bar renders where it is: "top" is the stacked bar at the top of
+   *  the left nav (Settings → Voice controls location, while the nav is
+   *  open), "bottom" the docked one. */
   placement?: "bottom" | "top";
-  topSlot?: HTMLElement | null;
+  /** The page's stable host for the bar (`usePortalHost`): the bar always
+   *  portals into it, and the page's `HostSlot`s move it between the left
+   *  nav and the bottom, so moving never remounts the bar. Without one it
+   *  renders in place. */
+  host?: HTMLElement;
   /** Every call the agent has (live or held, `voiceBarCalls`). More than
    *  one: the customer label is the call switcher (k8 5). */
   calls?: readonly VoiceBarCall[];
@@ -31,8 +34,8 @@ export interface VoiceBarProps
  *  below the main container across the content column, outside any
  *  assignment's content, so it stays put whichever card or tab is showing.
  *  Pages pass only what differs (their transcript panel, hang-up cleanup). */
-export function VoiceBar({ call, controls, placement = "bottom", topSlot, calls = [], onSelectCall, ...rest }: VoiceBarProps) {
-  const atTop = placement === "top" && !!topSlot;
+export function VoiceBar({ call, controls, placement = "bottom", host, calls = [], onSelectCall, ...rest }: VoiceBarProps) {
+  const atTop = placement === "top";
   const bar = (
     <div data-slot="voice-bar" data-placement={atTop ? "top" : "bottom"} className="shrink-0">
       <VoiceCallControls
@@ -60,5 +63,5 @@ export function VoiceBar({ call, controls, placement = "bottom", topSlot, calls 
       />
     </div>
   );
-  return atTop ? createPortal(bar, topSlot!) : bar;
+  return host ? createPortal(bar, host) : bar;
 }

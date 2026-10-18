@@ -184,8 +184,8 @@ describe("Bug 2c: a Copilot result row asked before a mode switch still opens it
   }
 
   // The Copilot composer is portaled into whichever dock node exists; a switch changes the node, so the composer
-  // remounts and its chips start over. One stable host per surface (C6) keeps it mounted. `it.fails` until C6.
-  it.fails("panel → main: the composer keeps its moved-on chips across the switch", async () => {
+  // remounted and its chips started over. One stable host per surface keeps it mounted (P-EXTRACT C6).
+  it("panel → main: the composer keeps its moved-on chips across the switch", async () => {
     await davidsEmail("panel");
     await h.click(composer().querySelector("[data-slot=copilot-chips-refresh] button")!);
     const first = composer().querySelector<HTMLElement>("[data-slot=copilot-chips] [role=button]")!.textContent!.trim();

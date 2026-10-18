@@ -334,6 +334,7 @@ import { CopilotResultPanelBody } from "@/components/copilot-result-panel";
 import { VideoCallWindow, VideoCallFullScreen } from "@/components/agent-next-gen-video-window";
 import type { DetailPanelContent, PanelKey, PanelState } from "@/contact-handling/workspace/workspace-types";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
+import { usePortalHost, HostSlot } from "@/contact-handling/portal-hosts";
 import { useOutcomeClaims } from "@/contact-handling/useOutcomeClaim";
 import { useThreadCurrentSession } from "@/contact-handling/useThreadCurrentSession";
 import { AI_PERFORM_MS } from "@/contact-handling/ai-perform";
@@ -381,18 +382,6 @@ import {
  *  `ContactHistoryEntry.phone` regardless of formatting (parens/dashes/
  *  spaces/country code). Ported from `AgentNextGenPage.tsx` ("Phase 1") for
  *  `findContactHistoryMatch`, below — see that function's own doc comment. */
-/** Moves a persistent DOM host (which a React portal renders a stateful card into) into this spot in the layout, so the
- *  card keeps its state and timers while the surrounding column remounts on assignment switches. */
-function PersistentHostSlot({ host }: { host: HTMLDivElement }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    ref.current?.appendChild(host);
-    return () => {
-      host.remove();
-    };
-  }, [host]);
-  return <div ref={ref} className="contents" />;
-}
 
 function digitsOnly(value: string | undefined | null): string {
   return (value || "").replace(/\D/g, "");
@@ -1288,11 +1277,11 @@ export function AgentWorkspaceAdvancedPage({
   // Dial below. Click any resulting InteractionNavItem card to make it the
   // active one. `initialInteraction` (see above) seeds this instead, for
   // callers that want to start already mid-call.
-  const [marcusCardHost] = useState(() => {
-    const el = document.createElement("div");
-    el.style.display = "contents";
-    return el;
-  });
+  // Marcus's card and his active question portal into stable hosts (`portal-hosts.tsx`), moved by `HostSlot`s.
+  const marcusCardHost = usePortalHost("contents");
+  const marcusQuestionHost = usePortalHost(
+    "mx-auto flex w-full max-w-[768px] shrink-0 flex-col gap-3 overflow-y-auto px-6 pb-3 empty:hidden max-h-[50vh]",
+  );
   // The page clock (agent-next-gen-page-clock.ts) is created here, ahead of
   // the cards, because store cards measure their timers from its anchor.
   // Handlers and timeouts read the current tick with `clock.now()`; only the
@@ -1689,42 +1678,50 @@ export function AgentWorkspaceAdvancedPage({
   const tabs = asyncPlacement === "tabs";
   // Threads open in the docked panel, one that moves: AI display "main" only since (k3) (no omnichannel setting).
   const omnichannel = !tabs;
-  // AI display "panel": the interior slide-over mounts in the Contact Details panel.
-  const [rightPanelMount, setRightPanelMount] = useState<HTMLElement | null>(null);
+  // AI display "panel" (or a panel thread's Session Details): the interior slide-over portals into the Contact
+  // Details panel's element (a ref, so lyra's InteriorPanel measures the panel itself). Only whether the panel is
+  // in the page is state; the slide-over opens there once it is.
+  const rightPanelEl = useRef<HTMLDivElement | null>(null);
+  const [rightPanelSlotMounted, setRightPanelSlotMounted] = useState(false);
+  const rightPanelRef = useCallback((el: HTMLDivElement | null) => {
+    rightPanelEl.current = el;
+    setRightPanelSlotMounted(!!el);
+  }, []);
   const portalInto = (mount: HTMLElement | null, node: React.ReactElement) => (mount ? createPortal(node, mount) : node);
   const stripAiInPanel = (messages: TranscriptMessage[]) =>
     aiInPanel ? messages.filter((m) => !isAiActionMessage(m)) : messages;
-  // The docked Copilot composer's slot element (the panel footer); null
-  // while the footer isn't rendered.
-  const [copilotDockEl, setCopilotDockEl] = useState<HTMLDivElement | null>(null);
-  // Placement "panel": the same slot at the bottom of the main column.
-  const [mainDockEl, setMainDockEl] = useState<HTMLDivElement | null>(null);
-  // AI display "panel": the Contact Details hover preview's footer slot.
-  const [hoverDockEl, setHoverDockEl] = useState<HTMLDivElement | null>(null);
-  const dockEl = panelPlacement ? mainDockEl : copilotDockEl;
+  // The docked Copilot composer portals into one stable host for the page's life (`portal-hosts.tsx`); the slot that
+  // holds it is the main column's dock ("main"), the panel footer, or the hover preview's footer (`copilotSlot`,
+  // below). Moving the host never remounts the composer, so its draft, tab and chips survive a layout switch.
+  const copilotHost = usePortalHost("contents");
+  const [hoverDockMounted, setHoverDockMounted] = useState(false);
   // Bumped by an agent action in the docked composer; the Overview body then
   // scrolls to the bottom whatever its position (`DetailsPanelAccordions`).
   const [aiFollowSignal, setAiFollowSignal] = useState(0);
+  // Only the panel footer and the main column's dock follow (not the hover preview's footer).
+  const copilotFollows = useRef(false);
   // An agent action in the docked composer (a chip, Takeover, sending a
   // question) makes the Overview follow its result. Native listeners: the
-  // composer is portaled into the dock, so React events from it bubble
-  // through the main column's composer, not through the dock element.
+  // composer is portaled into the host, so React events from it bubble
+  // through the main column's composer, not through the host element.
   useEffect(() => {
-    if (!dockEl) return;
     const onClick = (e: MouseEvent) => {
-      if ((e.target as Element).closest("button, [role=button]")) setAiFollowSignal((s) => s + 1);
+      if (copilotFollows.current && (e.target as Element).closest("button, [role=button]")) setAiFollowSignal((s) => s + 1);
     };
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Enter" && !e.shiftKey) setAiFollowSignal((s) => s + 1);
+      if (copilotFollows.current && e.key === "Enter" && !e.shiftKey) setAiFollowSignal((s) => s + 1);
     };
-    dockEl.addEventListener("click", onClick, true);
-    dockEl.addEventListener("keydown", onKeyDown, true);
+    copilotHost.addEventListener("click", onClick, true);
+    copilotHost.addEventListener("keydown", onKeyDown, true);
     return () => {
-      dockEl.removeEventListener("click", onClick, true);
-      dockEl.removeEventListener("keydown", onKeyDown, true);
+      copilotHost.removeEventListener("click", onClick, true);
+      copilotHost.removeEventListener("keydown", onKeyDown, true);
     };
-  }, [dockEl]);
-  const [leftNavVoiceSlot, setLeftNavVoiceSlot] = useState<HTMLDivElement | null>(null);
+  }, [copilotHost]);
+  // The voice bar portals into this host; its slot is the top of the left nav or the bottom (`VoiceBar`).
+  const voiceBarHost = usePortalHost("shrink-0 empty:hidden");
+  // The left nav's slot renders only while the nav is open (and the setting is "top"); otherwise the bar sits at the bottom.
+  const [voiceNavSlotMounted, setVoiceNavSlotMounted] = useState(false);
   const { newOutboundAtBottom, navItemsAtTop, noInteractionCollapse } = assignmentsSettings;
   useEffect(() => {
     if (!noInteractionCollapse) return;
@@ -2884,8 +2881,9 @@ export function AgentWorkspaceAdvancedPage({
   // (nesting isn't supported anywhere in this app).
   // Panel content is native to each customer/interaction: it only shows while
   // that interaction is active, is hidden when switching to another one, and
-  // comes back when returning to it.
-  const [detailPanelByInteraction, setDetailPanelByInteraction] = useState<Record<string, DetailPanelContent | null>>({});
+  // comes back when returning to it. Kept in the workspace UI store by card id, so it survives a remount of
+  // whatever shows it (a layout switch).
+  const [detailPanelByInteraction, setDetailPanelByInteraction] = useWorkspaceUiField("detailPanelByCard");
   const selectedDetailPanelContent: DetailPanelContent | null = activeInteractionId
     ? detailPanelByInteraction[activeInteractionId] ?? null
     : null;
@@ -2936,9 +2934,7 @@ export function AgentWorkspaceAdvancedPage({
       case "session": return "Session Details";
     }
   };
-  const [panelArtifactsByInteraction, setPanelArtifactsByInteraction] = useState<
-    Record<string, { id: string; label: string; content: DetailPanelContent }[]>
-  >({});
+  const [panelArtifactsByInteraction, setPanelArtifactsByInteraction] = useWorkspaceUiField("artifactsByCard");
   useEffect(() => {
     if (!activeInteractionId || !selectedDetailPanelContent) return;
     // Experience Memory lives in the docked side panel, so it is never listed as an artifact.
@@ -2977,7 +2973,8 @@ export function AgentWorkspaceAdvancedPage({
   // itself still tracks `selectedDetailPanelContent` directly.
   const [lastDetailPanelContent, setLastDetailPanelContent] = useState<DetailPanelContent | null>(null);
   // The interior slide-over lives in the docked panel: AI display "panel", or a panel thread's Session Details under "main".
-  const slideOverInPanel = aiInPanel || lastDetailPanelContent?.kind === "session";
+  // Derived from this render's selection (the last one while closing), so a placement never lags its content.
+  const slideOverInPanel = aiInPanel || (selectedDetailPanelContent ?? lastDetailPanelContent)?.kind === "session";
   useEffect(() => {
     if (selectedDetailPanelContent) setLastDetailPanelContent(selectedDetailPanelContent);
   }, [selectedDetailPanelContent]);
@@ -3081,13 +3078,6 @@ export function AgentWorkspaceAdvancedPage({
       replyBlockedReason: replyBlockedReason(channel),
     };
   };
-  // The DOM node the Next Best Action card's currently-active question
-  // portals into (see `MarcusWebbNextBestActionCard`'s own
-  // `questionSlotElement` doc comment) — fixed to the bottom of the
-  // interaction column, per explicit request, instead of scrolling with
-  // the rest of the transcript. A callback ref (not a plain `useRef`) so
-  // it's guaranteed set by the first render that needs to portal into it.
-  const [marcusQuestionSlotEl, setMarcusQuestionSlotEl] = useState<HTMLDivElement | null>(null);
   // Session Details is per thread (P-AIFIRST (k5) B): the session "View
   // Details" picked, keyed `${cardId}:${threadKey}`, and each thread's
   // current session, derived (`detailsCurrentSession`, below). The Session tab shows the
@@ -6265,7 +6255,7 @@ export function AgentWorkspaceAdvancedPage({
   const renderAiOverview = () => {
     if (!activeInteraction) return undefined;
     const autosummary = renderAutosummary();
-    const marcus = scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID && <PersistentHostSlot host={marcusCardHost} />;
+    const marcus = scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID && <HostSlot host={marcusCardHost} />;
     return autosummary || marcus ? (
       <>
         {autosummary}
@@ -6373,11 +6363,14 @@ export function AgentWorkspaceAdvancedPage({
   // panel's footer, or the Contact Details hover preview's footer while it's
   // open (panel mode; the preview only opens while the panel isn't showing
   // Contact Details).
-  const copilotDock = aiWorkspaceMain
-    ? { mount: mainDockEl }
+  const copilotSlot: "main" | "panel-footer" | "hover-footer" | null = aiWorkspaceMain
+    ? "main"
     : aiInPanel
-      ? { mount: customerInfoPreviewOpen && hoverDockEl ? hoverDockEl : copilotDockShown ? copilotDockEl : null }
-      : undefined;
+      ? customerInfoPreviewOpen && hoverDockMounted ? "hover-footer" : copilotDockShown ? "panel-footer" : null
+      : null;
+  copilotFollows.current = copilotSlot === "main" || copilotSlot === "panel-footer";
+  // The composer always portals into the same host while docked; no slot holding it hides it without unmounting it.
+  const copilotDock = aiWorkspaceMain || aiInPanel ? { mount: copilotHost } : undefined;
   // A thread outside the main column (the panel, the header icon's hover
   // preview) is the thread view only: its transcript with the Autosummary
   // (AI display inline; elsewhere the AI feed holds it) and its composer.
@@ -6426,7 +6419,7 @@ export function AgentWorkspaceAdvancedPage({
     <PageClockContext.Provider value={clock}>
     <QueueSimContext.Provider value={queueSim}>
     <div className="flex flex-col h-screen bg-lyra-bg-surface-shell overflow-hidden animate-in fade-in-0 duration-500">
-      {/* Marcus's Next Best Action card lives in a persistent host node (moved into the transcript by PersistentHostSlot),
+      {/* Marcus's Next Best Action card lives in a persistent host node (moved into the transcript by a HostSlot),
           so navigating away and back never resets its state or its running timers. Unmounted when the assignment is dismissed. */}
       {!!scenarioCardId(MARCUS_WEBB_ID) &&
         createPortal(
@@ -6540,7 +6533,7 @@ export function AgentWorkspaceAdvancedPage({
               const cardId = scenarioCardId(MARCUS_WEBB_ID);
               if (cardId) handleDismissInteraction(cardId);
             }}
-            questionSlotElement={marcusQuestionSlotEl}
+            questionSlotElement={marcusQuestionHost}
           />,
           marcusCardHost
         )}
@@ -6953,7 +6946,7 @@ export function AgentWorkspaceAdvancedPage({
                   while the nav is open; collapsed, the bar falls back to
                   the bottom. */}
               {navOpen && voiceSettings.controlsLocation === "top" && (
-                <div ref={setLeftNavVoiceSlot} data-slot="left-nav-voice" className="empty:hidden" />
+                <HostSlot host={voiceBarHost} data-slot="left-nav-voice" onMountedChange={setVoiceNavSlotMounted} />
               )}
               {/* Per explicit request ("add a message and icon into the left
                   nav when there are no assignments indicating that the
@@ -8819,7 +8812,9 @@ export function AgentWorkspaceAdvancedPage({
                                       preview is open, as in the docked panel's footer (one on screen). */}
                                   {aiInPanel && customerPanelActiveTab === "Details" && (
                                     <div className="relative shrink-0 px-4 pb-3 pt-2">
-                                      <div ref={setHoverDockEl} data-slot="copilot-dock" className="w-full" />
+                                      <div data-slot="copilot-dock" className="w-full">
+                                        <HostSlot host={copilotHost} active={copilotSlot === "hover-footer"} onMountedChange={setHoverDockMounted} />
+                                      </div>
                                     </div>
                                   )}
                                 </HoverPreviewFrame>
@@ -9312,7 +9307,7 @@ export function AgentWorkspaceAdvancedPage({
                             customerName={activeInteraction.customerName}
                             customerContextOverview={customerContextOverviewInfo}
                             trailing={activeWrapUpThread && <VoiceWrapUpCard outcome={outcomeConfigFor(activeInteraction, activeWrapUpThread, "inline")} />}
-                            dockRef={setMainDockEl}
+                            dock={<HostSlot host={copilotHost} active={copilotSlot === "main"} />}
                           />
                         )}
                         {/* Full-screen video — see AgentNextGenPage.tsx's
@@ -9401,10 +9396,7 @@ export function AgentWorkspaceAdvancedPage({
                             into it. `max-w-[768px] mx-auto px-6` matches the
                             transcript's own centered message column exactly
                             (agent-next-gen-transcript.tsx). */}
-                        <div
-                          ref={setMarcusQuestionSlotEl}
-                          className="mx-auto flex w-full max-w-[768px] shrink-0 flex-col gap-3 overflow-y-auto px-6 pb-3 empty:hidden max-h-[50vh]"
-                        >
+                        <HostSlot host={marcusQuestionHost} />
                           {/* Per explicit follow-up request ("remove the
                               AI ask a question from the contact main
                               containers for all interactions"): every
@@ -9415,15 +9407,14 @@ export function AgentWorkspaceAdvancedPage({
                               instead of this slot just collapsing to
                               nothing. That's gone now; this node exists
                               purely as Marcus Webb's own portal target
-                              (`questionSlotElement`, set via
-                              `setMarcusQuestionSlotEl` above) for his
+                              (`questionSlotElement`, the stable
+                              `marcusQuestionHost` this slot holds) for his
                               scripted questions AND his own real ask-flow,
                               elsewhere in this same return when he's
                               active — every other interaction now leaves
-                              this slot genuinely empty (`empty:hidden`
-                              above collapses it to nothing, same as
+                              this slot genuinely empty (the host's
+                              `empty:hidden` collapses it to nothing, same as
                               before). */}
-                        </div>
                         {/* Every live assignment gets the composer, whatever its
                             channel or script: inline at the bottom of the main
                             column, or (AI display "panel") its Copilot part in
@@ -10019,7 +10010,7 @@ export function AgentWorkspaceAdvancedPage({
                   // the whole time). Mirrored one level down on
                   // `SidePanel`'s own pinned-branch outer div
                   // (side-panel.tsx), which had the identical gap.
-                  ref={setRightPanelMount}
+                  ref={rightPanelRef}
                   className="relative shrink-0 h-full z-[5] animate-in fade-in-0 duration-200 delay-150 fill-mode-backwards"
                   data-slot="right-panel"
                   data-open={sidePanelOpen || !!channelPreviewThreadKey}
@@ -10329,7 +10320,9 @@ export function AgentWorkspaceAdvancedPage({
                           inert={copilotDockConcealed || undefined}
                         >
                           <ComposerFade toClassName="to-lyra-bg-surface-container-subtle" />
-                          <div ref={setCopilotDockEl} data-slot="copilot-dock" className="w-full" />
+                          <div data-slot="copilot-dock" className="w-full">
+                            <HostSlot host={copilotHost} active={copilotSlot === "panel-footer"} />
+                          </div>
                         </PanelFooter>
                       )
                       : undefined
@@ -10470,12 +10463,16 @@ export function AgentWorkspaceAdvancedPage({
                 AI display inline: it covers this whole content card, from
                 its top (over the record header) to its bottom edge. Panel:
                 it's portaled into the Contact Details panel, where the AI
-                rows live (the card while the panel isn't up). */}
-            {activeInteraction && portalInto(slideOverInPanel ? rightPanelMount : null,
+                rows live (the card while the panel isn't up). Keyed by
+                where it shows, so a layout switch remounts it once with a
+                fresh measure of its new parent; the selection is the card's
+                (the workspace UI store), so it comes back open. */}
+            {activeInteraction && portalInto(slideOverInPanel && rightPanelSlotMounted ? rightPanelEl.current : null,
               <InContactInteriorPanel
-                // In the panel, it opens once the panel's mount exists: an action handed off from the Contact
+                key={slideOverInPanel && rightPanelSlotMounted ? "right-panel" : "content-card"}
+                // In the panel, it opens once the panel's slot exists: an action handed off from the Contact
                 // Details hover preview opens the panel and the slide-over in one click (k6 6).
-                open={!!selectedDetailPanelContent && (!slideOverInPanel || !!rightPanelMount)}
+                open={!!selectedDetailPanelContent && (!slideOverInPanel || rightPanelSlotMounted)}
                 onClose={() => setSelectedDetailPanelContent(null)}
                 footer={lastDetailPanelContent?.kind === "session" ? sessionDetailsTabContent.footer : undefined}
                 headerTitle={
@@ -10705,9 +10702,10 @@ export function AgentWorkspaceAdvancedPage({
               onSelectCall={switchActiveInteraction}
               controls={liveVoiceCallControls}
               // Settings → Voice controls location; the slot at the top of
-              // the left nav exists only while the nav is open.
-              placement={voiceSettings.controlsLocation}
-              topSlot={leftNavVoiceSlot}
+              // the left nav exists only while the nav is open. The bar
+              // portals into one host either way, so moving never remounts it.
+              placement={voiceSettings.controlsLocation === "top" && voiceNavSlotMounted ? "top" : "bottom"}
+              host={voiceBarHost}
               onHangUp={() => {
                 setVoiceVideoWindowOpen(false);
                 setVoiceVideoFullScreen(false);
@@ -10792,6 +10790,8 @@ export function AgentWorkspaceAdvancedPage({
               }
             />
           ) : null}
+          {/* The voice bar's bottom slot (`voiceBarHost`), unless the left nav's holds it. */}
+          <HostSlot host={voiceBarHost} active={!(voiceSettings.controlsLocation === "top" && voiceNavSlotMounted)} data-slot="voice-bar-bottom" />
           {/* Shared single-container panel — float (CSS transitions, not
               keyframe animations — avoids compositor fill-mode flash).
               Was five near-identical blocks (one per panel); with only one

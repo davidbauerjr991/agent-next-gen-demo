@@ -104,8 +104,9 @@ export function InteractionComposer({
   /** Settings → AI display "In the Contact Details panel": the Ask Copilot
    *  part (chips, input, Takeover) renders as the panel's docked footer
    *  (portaled into `mount`) instead of here; this composer keeps only the
-   *  chat input. While `mount` is null (the panel isn't showing its Overview)
-   *  the Copilot part isn't rendered anywhere. */
+   *  chat input. `mount` is the page's stable Copilot host: while no slot
+   *  holds it (the panel isn't showing its Overview) the Copilot part stays
+   *  mounted, off screen. */
   copilotDock?: { mount: HTMLElement | null };
   /** Shows a "Hide AI Actions" switch at the right of the mode toggle row. */
   hideAiActions?: boolean;
@@ -475,12 +476,14 @@ export function InteractionComposer({
         copilotDock.mount,
       )
     : null;
-  // Copilot-only and docked: nothing stays inline.
-  if (copilotDocked && copilotOnly) return dockedCopilot;
-
+  // The docked part keeps one place in the tree (first), whether or not the
+  // inline chat renders, so a layout switch never remounts it.
   return (
+    <>
+    {dockedCopilot}
+    {/* Copilot-only and docked: nothing stays inline. */}
+    {!(copilotDocked && copilotOnly) && (
     <div ref={composerRootRef} className="relative shrink-0 bg-lyra-bg-surface-base px-6 py-4">
-      {dockedCopilot}
       <ComposerFade />
       {/* `max-w-[768px]` — kept in sync with the message-column wrapper's
           own matching width above (originally narrowed together from
@@ -638,5 +641,7 @@ export function InteractionComposer({
         </div>
       </div>
     </div>
+    )}
+    </>
   );
 }
