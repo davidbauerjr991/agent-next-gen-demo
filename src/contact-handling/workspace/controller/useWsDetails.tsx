@@ -23,6 +23,8 @@ import { LUCAS_THOMAS_PANEL_TITLES, LUCAS_THOMAS_ORDER_DETAILS, TOM_LEWIS_CALL_P
 import type { DetailPanelContent } from "@/contact-handling/workspace/workspace-types";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { AI_PERFORM_MS } from "@/contact-handling/ai-perform";
+import { visibleNotifications } from "@/contact-handling/notification-gates";
+import { touchedThreadKey, useParkedSeedIds, useTouchedWhileShown } from "@/contact-handling/touched-threads";
 import { resolveActiveChannelDateTimeLabel, resolveInteractionLastCustomerResponseLabel } from "@/contact-handling/workspace/active-channel-labels";
 import { LUCAS_THOMAS_COPILOT_SUGGESTION_LINKS, TOM_LEWIS_CALL_COPILOT_LINKS, MAYA_CHEN_CALL_COPILOT_LINKS } from "@/components/workspace/workspace-constants";
 import type { WorkspaceLate } from "./workspace-late";
@@ -30,13 +32,13 @@ import type { WsCards } from "./useWsCards";
 
 export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
   const {
-    activeChannel, activeChannelType, activeCustomerRecordDraft, activeInteraction, activeInteractionId, activeScenarioKey,
+    activeChannel, activeChannelKey, activeChannelType, activeCustomerRecordDraft, activeInteraction, activeInteractionId, activeScenarioKey,
     addToast, aiInPanel, calling, clock, confirmDismiss, createdCustomerRecords, customerContextOverviewBase,
-    customerMatchQuery, handleOutcomeCancel, handleOutcomeDispositionChange, handleOutcomeOpenChange, handleOutcomeSave,
+    customerMatchQuery, enabledChannels, handleOutcomeCancel, handleOutcomeDispositionChange, handleOutcomeOpenChange, handleOutcomeSave,
     handleOutcomeSaveAndDismiss, handleOutcomeSaveAndRedial, handleOutcomeTagsChange, interactions, isColdCallId, omni,
     omnichannel, outcomeDraft, outcomeDraftKey, pendingAgentLegToastRef, scenarioCardId, scenarioCases, scenarioKeyOf,
     setCreatedCustomerRecords, setCustomerMatchStep, setInteractions, setNavOpen, setOutcomeDraft, showAgentLegToast,
-    threadLaunchTimestamps,
+    storeContacts, threadLaunchTimestamps,
   } = prev;
   // An inbound call's pre-contact summary (P0.5d.1) replaces the Autosummary
   // lines, for a known customer or an unknown caller alike. A scripted
@@ -446,7 +448,14 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
   // Settings leaves it.
   const [leftNavPage, setLeftNavPage] = useState<ExtraHeaderApp | null>(null);
   const [windowWidth, setWindowWidth] = useState(() => window.innerWidth);
-  const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
+  const [storedNotifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
+  // What the bell shows and counts: Settings → Channels hides an unread one whose offer waits on a channel that's off.
+  // So does an untouched seed that went back to waiting (touched-threads.ts).
+  const parkedSeeds = useParkedSeedIds(storeContacts);
+  const notifications = useMemo(
+    () => visibleNotifications(storedNotifications, storeContacts, enabledChannels, parkedSeeds),
+    [storedNotifications, storeContacts, enabledChannels, parkedSeeds],
+  );
   const [agentStatus, setAgentStatus] = useState<AgentStatus>("unavailable");
   // The scripted cases (Marcus "L", Lucas "A", Tom "C", Maya "B") are
   // launched by the sim's dev hotkeys and played by its engine (P0.5c,
@@ -793,6 +802,13 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
   // tabs (omnichannel off, P-AIFIRST (k)) the panel never shows a thread:
   // the header icons swap the main column instead, so this is always null.
   const channelPreviewThreadKey = omnichannel ? omni.slideOutKey : null;
+  // Touched threads (touched-threads.ts): the active card's main thread, the one in the docked preview and the one
+  // whose Outcome is open (its key is already `${cardId}:${threadKey}`). Sending needs one of these open too.
+  useTouchedWhileShown([
+    activeInteraction && activeChannel ? touchedThreadKey(activeInteraction.id, activeChannelKey) : null,
+    activeInteraction && channelPreviewThreadKey ? touchedThreadKey(activeInteraction.id, channelPreviewThreadKey) : null,
+    outcomeDraftKey,
+  ]);
   // Looked up once here (rather than inline at the
   // `CustomerInformationSidePanel` render call site) since it now feeds
   // several of that single docked panel's own override props — see each

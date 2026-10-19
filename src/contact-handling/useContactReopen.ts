@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import type { AgentNotification, ChannelType } from "@nicecxone/lyra-ui";
 import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
-import type { NavCard } from "@/adapters/legacy/nav-card-view-model";
+import { threadKey, type NavCard } from "@/adapters/legacy/nav-card-view-model";
 import type { ChannelKind, Direction, EntityId, InteractionId, JourneyId } from "@/domain";
 import type { ReopenRequest } from "@/providers";
 import { useInteractionProvider, useInteractions } from "@/provider-context";
@@ -13,6 +13,7 @@ import { synthesizeChannelAddress } from "@/components/agent-next-gen-shared-uti
 import { historyEntityId, knownOrSynthesizedAddress } from "./contact-identity";
 import type { ActivationMode } from "./useContactActivation";
 import type { CardOverlay } from "./nav-card-overlay";
+import { useTouchThread } from "./touched-threads";
 
 // Contacts that come back rather than get dialed (P0.5b.2): Contact History
 // reopen (row 18), the Search row, and opening an assignment notification.
@@ -29,6 +30,7 @@ export interface UseContactReopenOptions {
 export function useContactReopen({ findOpenCard, activateWhenReady, skillIdForName }: UseContactReopenOptions) {
   const provider = useInteractionProvider();
   const interactions = useInteractions();
+  const touchThread = useTouchThread();
 
   const reopen = useCallback(
     async (request: ReopenRequest) => {
@@ -144,6 +146,8 @@ export function useContactReopen({ findOpenCard, activateWhenReady, skillIdForNa
       const entityId = seed?.entityId ?? NOTIFICATION_ENTITY_ID[notification.id] ?? customer.id;
       const openCard = findOpenCard({ entityId });
 
+      // Opening it from its notification is the agent opening the thread (touched-threads.ts).
+      if (seed && seed.state !== "ended") touchThread(openCard?.id ?? seed.journeyId, threadKey(seed));
       if (seed?.state === "offered") {
         try {
           await provider.accept(seed.id, openCard ? { journeyId: openCard.id as JourneyId } : undefined);
@@ -168,7 +172,7 @@ export function useContactReopen({ findOpenCard, activateWhenReady, skillIdForNa
       if (id) activateWhenReady(id, "focus", !openCard);
       return !!id && !openCard;
     },
-    [interactions, provider, reopen, activateWhenReady, findOpenCard],
+    [interactions, provider, reopen, activateWhenReady, findOpenCard, touchThread],
   );
 
   return { reopenHistoryEntry, reopenSearchRow, openNotification };

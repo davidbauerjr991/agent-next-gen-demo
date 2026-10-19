@@ -1089,14 +1089,8 @@ export const NOTIFICATION_CHANNEL: Record<string, ChannelType> = {
   "4": "sms",
 };
 
-/** The provider contact each assignment notification stands for (P0.5b.2):
- *  the sim seeds these as waiting offers (`SIM_DEMO_SEED`), and opening the
- *  notification accepts it. demo-seed.test.ts keeps the two in step. */
-export const NOTIFICATION_INTERACTION_ID: Record<string, string> = {
-  "1": "seed-notification-1",
-  "3": "seed-notification-3",
-  "4": "seed-notification-4",
-};
+/** The provider contact each assignment notification stands for: see seed-notification-ids.ts. */
+export { NOTIFICATION_INTERACTION_ID } from "@/contact-handling/seed-notification-ids";
 
 /** Each seeded assignment's own pseudo-entity (the sim's SIM_DEMO_SEED
  *  `entityId`), so reopening a forgotten one never links it to another

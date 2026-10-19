@@ -48,7 +48,7 @@ export { isDraftThread, threadAcceptsReplies, threadKeyOf } from "./channel-thre
 export { channelTempo, routeChannel, mainThreadKey, omnichannelMainKey, panelDefaultKey, tabMainKey, channelHeaderEntries, type AsyncPlacement, type ChannelRoute, type ConversationPlacement } from "./omnichannel";
 export { useOmnichannelLayout, type OmnichannelLayout } from "./useOmnichannelLayout";
 export { useConversationPlacement } from "./useConversationPlacement";
-export { useAutoAcceptDigital, useDigitalOfferChannels } from "./useAutoAcceptDigital";
+export { useAutoAcceptDigital, useDigitalOfferChannels, useEnabledDigitalChannels } from "./useAutoAcceptDigital";
 export { useMainPins } from "./useMainPins";
 export { HoverPreviewFrame, HOVER_PREVIEW_POPOVER_CLASS } from "./HoverPreviewFrame";
 export { ThreadCrossFade } from "./ThreadCrossFade";

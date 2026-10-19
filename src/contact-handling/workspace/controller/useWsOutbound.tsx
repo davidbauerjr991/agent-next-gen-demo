@@ -56,12 +56,13 @@ import { SCREEN_POP_APPS, SHARED_PANEL_DEFAULT_WIDTH } from "@/components/worksp
 import { MockLoginCard } from "@/components/workspace/left-nav-parts";
 import type { WorkspaceLate } from "./workspace-late";
 import type { WsLaunch } from "./useWsLaunch";
+import { useTouchThread } from "@/contact-handling/touched-threads";
 
 export function useWsOutbound(prev: WsLaunch, late: WorkspaceLate) {
   const {
     SHARED_PANEL_MAX_WIDTH, activateWhenReady, activeInteractionId, addToast, allOutboundSkills, calling, cardContactMethodsOf, channelSettings,
     clock, computePanelHeight, confirmDismiss, contactReopen, containerRef, createdCustomerRecords,
-    dismissedContactHistory, findOpenCard, fullScreenAnimTimer, handleDismissChannel, handleDismissInteraction,
+    dismissedContactHistory, enabledChannels, findOpenCard, fullScreenAnimTimer, handleDismissChannel, handleDismissInteraction,
     handleOutcomeCancel, handleOutcomeOpenChange, handleOutcomeSave, handleOutcomeSaveAndRedial, handleStartCall,
     handleStatusChange, interactions, liveVoiceCallThread, notifications, outboundDial, outcomeDraftKey, outcomeDrafts,
     panelAnimTimer, panelFloatLeft, panelFloatTop, panelFullScreen, panelOpen, panelRef, panelWidth, screenPopApp,
@@ -93,6 +94,8 @@ export function useWsOutbound(prev: WsLaunch, late: WorkspaceLate) {
           : i
       )
     );
+  // Sending touches the thread (touched-threads.ts): it stays when its channel goes off.
+  const touchThread = useTouchThread();
   const handleSendMessage = (interactionId: string, text: string, channelKeyOverride?: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
@@ -133,6 +136,7 @@ export function useWsOutbound(prev: WsLaunch, late: WorkspaceLate) {
           interactionAtSend.threads[interactionAtSend.threads.length - 1].type
         : undefined) ??
       "channel";
+    touchThread(interactionId, channelKeyAtSend);
     // Same key `applyToChannel`/`customerTyping` below share — see
     // `customerTyping`'s own doc comment. Only chat/SMS/WhatsApp ever gets a
     // "customer is typing" bubble (`InteractionTranscript`'s own
@@ -533,9 +537,11 @@ export function useWsOutbound(prev: WsLaunch, late: WorkspaceLate) {
   // picker over its contact methods, the addresses Contact Details shows.
   const getCardAction = useCardOwnAddChannel({ outboundConfig, onAddToCard: outboundDial.addAdHocChannel, contactMethodsOf: cardContactMethodsOf });
   /** A card's "+" (add channel): the nav card's and the record header's, one control (k6 1); its picker is
-   *  gated like New Outbound (Settings → Channels, presence, threads already open). None while ringing or closed. */
+   *  gated like New Outbound (Settings → Channels, presence, threads already open). None while ringing or closed,
+   *  and none with a single channel on (Settings → Channels): there's nothing to add (P-POLISH 2). */
   const addChannelActionFor = (card: Interaction) =>
     SHOW_ADD_CHANNEL_HEADER_BUTTON &&
+    enabledChannels.length > 1 &&
     showsSessionControls(card) &&
     navCardAddChannelAction(card, { getHeaderAction, getCardAction, onAddAdHocChannel: outboundDial.addAdHocChannel, skillOptions: OUTBOUND_CONFIG.skillOptions, contacts: storeContacts });
 
@@ -780,8 +786,15 @@ export function useWsOutbound(prev: WsLaunch, late: WorkspaceLate) {
   // of whether that content is the one currently showing.
   const notifContent = useAgentNotificationsContent({
     notifications,
-    onMarkAllRead: () => setNotifications((prev) => prev.map((n) => ({ ...n, read: true }))),
-    onClearAll: () => setNotifications([]),
+    // Only the ones the bell shows: one hidden by Settings → Channels comes back unread when its channel is on.
+    onMarkAllRead: () => {
+      const shown = new Set(notifications.map((n) => n.id));
+      setNotifications((prev) => prev.map((n) => (shown.has(n.id) ? { ...n, read: true } : n)));
+    },
+    onClearAll: () => {
+      const shown = new Set(notifications.map((n) => n.id));
+      setNotifications((prev) => prev.filter((n) => !shown.has(n.id)));
+    },
     onDismiss: (id: string) => setNotifications((prev) => prev.filter((n) => n.id !== id)),
     // "New Assignment" (`type: "new-case"`) and "Escalation" notifications
     // both open a real assignment. "New Agent Chat" (`type:

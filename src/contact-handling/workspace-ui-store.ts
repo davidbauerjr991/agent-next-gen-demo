@@ -20,6 +20,8 @@ export interface WorkspaceUiState {
   artifactsByCard: Readonly<Record<string, readonly PanelArtifact[]>>;
   /** Approval cards that already played their first reveal, `${cardId}:${revealKey}`. */
   revealedApprovals: ReadonlySet<string>;
+  /** Threads the agent touched (opened, sent on, opened Outcome on), `${cardId}:${threadKey}` (touched-threads.ts). */
+  touchedThreads: ReadonlySet<string>;
 }
 
 export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
@@ -27,6 +29,7 @@ export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
   detailPanelByCard: Object.freeze({}),
   artifactsByCard: Object.freeze({}),
   revealedApprovals: new Set<string>(),
+  touchedThreads: new Set<string>(),
 });
 
 export interface WorkspaceUiStore {

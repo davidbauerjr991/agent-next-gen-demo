@@ -3,7 +3,8 @@ import { buildNavCards, threadKey, tickClock, type NavCard } from "@/adapters/le
 import type { Interaction as DomainInteraction, InteractionId } from "@/domain";
 import { useInteractions } from "@/provider-context";
 import { diffCardOverlay, mergeCardOverlay, type CardOverlay } from "./nav-card-overlay";
-import { useDigitalOfferChannels } from "./useAutoAcceptDigital";
+import { useDigitalOfferChannels, useEnabledDigitalChannels } from "./useAutoAcceptDigital";
+import { useParkedSeedIds } from "./touched-threads";
 
 // The left nav's cards (P0.5b.2). Every contact the provider knows about comes
 // from the interaction store through `buildNavCards`, scripted scenario cases
@@ -48,15 +49,20 @@ interface LocalState {
  *  gone, including across tier switches. A ringing voice offer is kept (it's
  *  the incoming tile) unless it's about to be auto-answered; a digital offer
  *  is a card only on a channel in `digitalOfferChannels` (auto-accept off;
- *  otherwise the workspace accepts it at once). */
+ *  otherwise the workspace accepts it at once) that's also in
+ *  `enabledDigitalChannels` (Settings → Channels; omitted, every channel). */
 export function visibleContacts(
   interactions: readonly DomainInteraction[],
   digitalOfferChannels: readonly string[] = [],
+  enabledDigitalChannels?: readonly string[],
 ): DomainInteraction[] {
   const newest = new Map<string, DomainInteraction>();
   for (const i of interactions) {
     // An auto-answered offer is active one event later: never a ringing tile.
-    const offerCard = i.channel === "voice" ? !i.autoAnswered : digitalOfferChannels.includes(i.channel);
+    const offerCard =
+      i.channel === "voice"
+        ? !i.autoAnswered
+        : digitalOfferChannels.includes(i.channel) && (enabledDigitalChannels?.includes(i.channel) ?? true);
     if (i.state === "offered" && !offerCard) continue;
     const key = `${i.journeyId}|${threadKey(i)}`;
     const current = newest.get(key);
@@ -72,6 +78,10 @@ export function useNavCards({ anchorMs, displayName }: UseNavCardsOptions): NavC
   const interactions = useInteractions();
   // Settings → Assignments → Auto-accept off: those channels' offers are cards with Accept / Decline.
   const digitalOfferChannels = useDigitalOfferChannels();
+  // Settings → Channels: an offer on a channel that's off isn't a card (P-POLISH 1).
+  const enabledDigitalChannels = useEnabledDigitalChannels();
+  // …and neither is an untouched seed whose channel went off since it was accepted (touched-threads.ts).
+  const parkedSeeds = useParkedSeedIds(interactions);
   const [local, setLocal] = useState<LocalState>({ overlay: {} });
 
   // First-seen order, so new cards append like they did when the page owned
@@ -93,7 +103,11 @@ export function useNavCards({ anchorMs, displayName }: UseNavCardsOptions): NavC
   overlayRef.current = local.overlay;
 
   const storeCards = useMemo(() => {
-    const visible = visibleContacts(interactions, digitalOfferChannels);
+    const visible = visibleContacts(
+      parkedSeeds.size > 0 ? interactions.filter((i) => !parkedSeeds.has(i.id)) : interactions,
+      digitalOfferChannels,
+      enabledDigitalChannels,
+    );
     return buildNavCards(visible, {
       toTick: tickClock(anchorMs),
       displayName,
@@ -108,7 +122,7 @@ export function useNavCards({ anchorMs, displayName }: UseNavCardsOptions): NavC
         return mark;
       },
     });
-  }, [interactions, anchorMs, displayName, digitalOfferChannels]);
+  }, [interactions, anchorMs, displayName, digitalOfferChannels, enabledDigitalChannels, parkedSeeds]);
 
   const storeIdsRef = useRef(new Set<string>());
   storeIdsRef.current = new Set(storeCards.map((c) => c.id));
