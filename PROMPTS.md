@@ -48,7 +48,7 @@ Wrap up this step: run the type-check and the test suite, update PROGRESS.md (do
 
 **One page (decided 2026-10-15; final since P0.5d.2):** Advanced is the agent workspace and Desk is deleted. Its layout varies by settings only; "Phase 1" and "Phase 2" are built-in workspace profiles. Prompts below that say "both pages" mean Advanced.
 
-**Execution order (revised 2026-10-17, demo-first):** finish 5d.1 → P0.7 and P0.5c → P-SETTINGS → P0.5d.2 → P-AIFIRST → P-EXTRACT → P-PROFILES → P0.5d.3 → the lyra timers change → P0.6 → Phase 2 §0–5 → Phase 3 (*first demo milestone: a simulated chat and spoken call driven from the console*) → P-ADMIN → P0.9.1–9.3 → P-EMPLOYEES → Phase 1 (incl. P1.4a, P1.4b) → Phase 2 §6–7 (P2.7) → Phase 4 (incl. P4.4a, P4.11) → remaining verticals (P1.2a, P1.2b) → Phase 5 (incl. P5.6, P5.7) and P-CONFIG-ASSIST → Phase 6 → Phase 7 → P-REPORTING → P-BILLING → P-MAPPINGS → P-ADAPTER sequence → P-IMPORT → P-EMBED (last).
+**Execution order (revised 2026-10-19, demo-first):** finish 5d.1 → P0.7 and P0.5c → P-SETTINGS → P0.5d.2 → P-AIFIRST → P-EXTRACT → P-POLISH → P-PROFILES → P0.5d.3 → the lyra timers change → P0.6 → Phase 2 §0–5 → Phase 3 (*first demo milestone: a simulated chat and spoken call driven from the console*) → P-ADMIN → P0.9.1–9.3 → P-EMPLOYEES → Phase 1 (incl. P1.4a, P1.4b) → Phase 2 §6–7 (P2.7) → Phase 4 (incl. P4.4a, P4.11) → remaining verticals (P1.2a, P1.2b) → Phase 5 (incl. P5.6, P5.7) and P-CONFIG-ASSIST → Phase 6 → Phase 7 → P-REPORTING → P-BILLING → P-MAPPINGS → P-ADAPTER sequence → P-IMPORT → P-EMBED (last).
 
 ---
 
@@ -145,7 +145,10 @@ Three additions to this step:
 (c) A `HostProvider` seam in `src/providers/` (types only: `getSession`, `getContext` for current customer/case, `hostKind: "standalone" | "embedded"`, `postToHost`) with a standalone implementation that returns today's values.
 ```
 
-### P-PROFILES — Saved workspace profiles and per-section locks   ✋ (Plan: Opus · Implement: Sonnet) — after P-EXTRACT, before P0.5d.3
+### P-POLISH — UI polish batches   — after P-EXTRACT, before P-PROFILES
+No kickoff prompt. Batches from browser walkthroughs; no rule changes; each batch commits as P-POLISH n against the PROGRESS row.
+
+### P-PROFILES — Saved workspace profiles and per-section locks   ✋ (Plan: Opus · Implement: Sonnet) — after P-POLISH, before P0.5d.3
 ```
 Read CLAUDE.md, PLAN.md and PROGRESS.md. Chore: workspace profiles (PLAN.md "Settings and configuration" → Workspace profiles and "Profiles on the roadmap"). A profile is a snapshot of every agent-scope settings section; Phase 1, Phase 2 and AI-first are built-in; deriveProfile/applyProfile/useWorkspaceProfile in src/settings/profiles.ts. In plan mode, propose:
 (1) Saved profiles in the settings store (their own versioned section): Save as (from the current values), rename, duplicate, **delete** (built-ins can't be renamed or deleted), and **share** as export/import JSON — the file carries every agent-scope section, with locks; admin-scope settings (brand, social) are not in a profile — validated with the section readers, so an old or hand-edited file falls back field by field. The Settings page's profile picker lists built-in (Phase 1, Phase 2, AI-first) and saved profiles; "Custom" still means "differs from every profile".

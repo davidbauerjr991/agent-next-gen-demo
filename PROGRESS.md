@@ -169,6 +169,7 @@ All of these live in a new UI-side folder (e.g. `src/contact-handling/`). They c
 
 ## Known gaps
 
+- **Untouched seeds are hidden in the workspace, not returned to queue (P-POLISH 1, 2026-10-19).** An auto-accepted demo seed the agent never touched, whose channel is turned off, is only hidden by the workspace (`touched-threads.ts`); in the provider it stays accepted. A provider "return to queue" command is a later item.
 - **Type-check baseline: 3 errors** from `npx tsc -b --noEmit` (2026-10-14; was 219 → 31 → 12 → 4 → 3). Steps verify by filtering tsc output to the files they touch, not by total count. All three are outside app code:
   - **2 inside lyra-ui itself**: `admin-shell.tsx` ×2 (TS2554). The third, `list-item.tsx` (TS2430), went away when lyra `26781cb` rewrote `ListItem` on top of `MenuItem`.
   - **1 missing dev dependency**: `src/components/ui/__stories__/Shell.stories.tsx` — `@storybook/react` isn't installed in this app.
