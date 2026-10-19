@@ -93,11 +93,12 @@ export interface Thread {
   /** Routing skill label for this channel, shown as its body copy — looked
    *  up from OUTBOUND_CONFIG.skillOptions at start-call time. */
   preview?: string;
-  /** The phone number/email address/WhatsApp handle this channel was
-   *  started on (from `handleStartCall`'s `selection.phone`) — surfaced
-   *  back into CreateNew's `openChannelAddresses` so reopening the outbound
-   *  picker for this contact disables only that exact address in "Select
-   *  Phone"/"Select Email Address"/"Select WhatsApp Handle", not the whole
+  /** The phone number or email address this channel was started on
+   *  (WhatsApp reaches a phone number, E4; from `handleStartCall`'s
+   *  `selection.phone`) — surfaced back into CreateNew's
+   *  `openChannelAddresses` so reopening the outbound picker for this
+   *  contact disables only that exact address in "Select Phone"/"Select
+   *  Email Address", not the whole
    *  field. Undefined for quick-dialed/redialed channels, which don't go
    *  through CreateNew's contact flow. */
   value?: string;

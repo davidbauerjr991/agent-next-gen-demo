@@ -109,7 +109,8 @@ export function markAlreadyOpen<C extends TaggableContact>(contact: C, reasons: 
   const channels = Object.keys(reasons) as ChannelType[];
   const listed = (c: C): C => (c.openChannelAddresses ? { ...c, openAddressReason: ALREADY_OPEN_REASON } : c);
   if (channels.length === 0) return listed(contact);
-  const every = [contact.primaryPhone?.value, ...phoneOptions.map((o) => o.value), contact.email, `@${contact.name}`].filter((v): v is string => !!v);
+  // Every address lyra could offer: the phone lines (voice, SMS, WhatsApp; E4) and the email.
+  const every = [contact.primaryPhone?.value, ...phoneOptions.map((o) => o.value), contact.email].filter((v): v is string => !!v);
   const openChannelAddresses = { ...contact.openChannelAddresses };
   for (const channel of channels) openChannelAddresses[channel] = every;
   return listed({ ...contact, openChannelAddresses });

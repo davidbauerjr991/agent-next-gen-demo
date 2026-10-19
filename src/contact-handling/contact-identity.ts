@@ -14,14 +14,13 @@ export function historyEntityId(entry: ContactHistoryEntry): string {
 /** A Contact History row's address on a channel: the one on record, or a
  *  stable synthesized one. */
 export function knownOrSynthesizedAddress(entry: ContactHistoryEntry, channelType: ChannelType): string {
+  // WhatsApp reaches the customer's phone number, like voice and SMS (E4).
   const known =
     channelType === "email"
       ? entry.email
-      : channelType === "whatsapp"
-        ? entry.whatsappHandle
-        : channelType === "voice" || channelType === "sms"
-          ? entry.phone
-          : undefined;
+      : channelType === "voice" || channelType === "sms" || channelType === "whatsapp"
+        ? entry.phone
+        : undefined;
   return known ?? synthesizeChannelAddress(channelType, entry.caseId, entry.name);
 }
 

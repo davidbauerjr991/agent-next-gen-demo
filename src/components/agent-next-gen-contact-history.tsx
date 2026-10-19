@@ -270,19 +270,11 @@ export interface ContactHistoryEntry {
   email?: string;
   /**
    * This row's real phone number, when known — same populate/consume
-   * pattern as `email` above, but for `channelType === "voice"`/`"sms"`
-   * rows (`customer.firstPhone`, or the dismissed row's primary `Thread`
-   * address).
+   * pattern as `email` above, but for `channelType === "voice"`/`"sms"`/
+   * `"whatsapp"` rows (`customer.firstPhone`, or the dismissed row's primary
+   * `Thread` address). WhatsApp reaches a phone number, not a handle (E4).
    */
   phone?: string;
-  /**
-   * This row's real WhatsApp handle, when known — same pattern again, for
-   * `channelType === "whatsapp"` rows. Synthesized as `@${name}` for
-   * `CREATE_NEW_CUSTOMERS`-backed rows, matching lyra-ui's own
-   * `resolveOutboundDetailField` convention (create-new.tsx) for a
-   * contact with no dedicated `whatsappHandle`-style field on file yet.
-   */
-  whatsappHandle?: string;
   /**
    * The real message thread this row's own conversation actually had, when
    * known — populated by `buildDismissedContactHistoryEntry` from the
@@ -350,8 +342,8 @@ export interface ContactHistoryEntry {
 
 /**
  * Per-`channelType` display identity for a Contact History row — real
- * reach-back address instead of the customer's name: WhatsApp shows the
- * row's `whatsappHandle`, Voice/SMS shows `phone`, Email shows `email`.
+ * reach-back address instead of the customer's name: Voice/SMS/WhatsApp
+ * show `phone`, Email shows `email`.
  * Chat still shows the customer's name (no separate "chat handle" concept
  * exists to show instead). Falls back to `name` wherever the specific
  * field this row would need isn't populated (e.g. a dismissed quick-dialed
@@ -367,13 +359,11 @@ export interface ContactHistoryEntry {
  */
 export function contactHistoryDisplayIdentity(entry: ContactHistoryEntry): string {
   if (entry.channelType === "chat") return entry.name;
-  // `formatPhoneForDisplay` normalizes `whatsappHandle`/`phone` for display
-  // regardless of which of this app's several coexisting raw mock-data
-  // formats (E.164 with/without spaces, bare US-formatted) produced the
-  // underlying value — see that function's own doc comment. It's a no-op
-  // for a non-phone-shaped WhatsApp handle, so this is safe unconditionally.
-  if (entry.channelType === "whatsapp") return formatPhoneForDisplay(entry.whatsappHandle) || entry.name;
   if (entry.channelType === "email") return entry.email ?? entry.name;
+  // `formatPhoneForDisplay` normalizes `phone` for display regardless of
+  // which of this app's several coexisting raw mock-data formats (E.164
+  // with/without spaces, bare US-formatted) produced the underlying value —
+  // see that function's own doc comment. Voice, SMS and WhatsApp alike.
   return formatPhoneForDisplay(entry.phone) || entry.name;
 }
 
@@ -637,7 +627,7 @@ export const CONTACT_HISTORY: ContactHistoryEntry[] = [
     // to compute different fallback ids and open a second, wrong card).
     customerId: "nathan-cole-history",
     channels: ["voice", "sms", "email"],
-    phone: "(704) 555-0142", email: "nathan.cole@example.com", whatsappHandle: "@Nathan Cole",
+    phone: "(704) 555-0142", email: "nathan.cole@example.com",
     messages: [
       { sender: "customer", text: "Hi, I'm locked out of my account — I think I've tried logging in too many times.", timestampDisplay: "9:02 AM" },
       { sender: "agent", text: "Sorry to hear that, Nathan. Let's get you back in — can I verify a couple of details on the account first?", timestampDisplay: "9:03 AM" },
@@ -656,7 +646,7 @@ export const CONTACT_HISTORY: ContactHistoryEntry[] = [
     // create-new-customers-data.ts).
     customerId: "priya-shah-history",
     channels: ["email", "sms"],
-    phone: "(415) 555-0178", email: "priya.shah@example.com", whatsappHandle: "@Priya Shah",
+    phone: "(415) 555-0178", email: "priya.shah@example.com",
     messages: [
       { sender: "customer", text: "Hi, I noticed I was charged $89.99 twice on my last statement.", timestampDisplay: "10:14 AM" },
       { sender: "agent", text: "Thanks for flagging that, Priya — let me pull up your billing history.", timestampDisplay: "10:16 AM" },
@@ -675,7 +665,7 @@ export const CONTACT_HISTORY: ContactHistoryEntry[] = [
     // create-new-customers-data.ts).
     customerId: "omar-farooq-history",
     channels: ["email", "whatsapp"],
-    phone: "(212) 555-0193", email: "omar.farooq@example.com", whatsappHandle: "@Omar Farooq",
+    phone: "(212) 555-0193", email: "omar.farooq@example.com",
     emailBody:
       "Hi Omar, thanks for upgrading to the Pro plan today! Your account has already been updated and the new usage limits are in effect. Along with higher usage caps, Pro also unlocks priority support, advanced reporting, and additional team seats — happy to walk you through any of these on a quick call if that would help. Let me know if you have any questions in the meantime.",
   },
@@ -689,7 +679,7 @@ export const CONTACT_HISTORY: ContactHistoryEntry[] = [
     // create-new-customers-data.ts).
     customerId: "lauren-briggs-history",
     channels: ["voice", "email"],
-    phone: "(312) 555-0164", email: "lauren.briggs@example.com", whatsappHandle: "@Lauren Briggs",
+    phone: "(312) 555-0164", email: "lauren.briggs@example.com",
     messages: [
       { sender: "agent", text: "Hi Lauren, this is a follow-up on the fraud alert we flagged on your account — do you have a few minutes?", timestampDisplay: "8:10 AM" },
       { sender: "customer", text: "Yes, I've actually been worried about that. What did you find?", timestampDisplay: "8:13 AM" },
@@ -708,7 +698,7 @@ export const CONTACT_HISTORY: ContactHistoryEntry[] = [
     // create-new-customers-data.ts).
     customerId: "mei-tanaka-history",
     channels: ["sms", "whatsapp", "email"],
-    phone: "(206) 555-0157", email: "mei.tanaka@example.com", whatsappHandle: "@Mei Tanaka",
+    phone: "(206) 555-0157", email: "mei.tanaka@example.com",
     messages: [
       { sender: "customer", text: "Hi, my order was supposed to arrive last week and it still hasn't shown up.", timestampDisplay: "2:05 PM" },
       { sender: "agent", text: "I'm sorry about that, Mei — let me check the tracking on your order.", timestampDisplay: "2:06 PM" },
@@ -815,14 +805,10 @@ export function buildContactHistoryFromCustomers(
       // `ContactHistoryEntry.customerId`'s own doc comment for why
       // `handleRedial` needs this.
       customerId: customer.id,
-      // `email`/`phone`/`whatsappHandle` — see `ContactHistoryEntry`'s own
-      // doc comments for these three. `whatsappHandle` is synthesized as
-      // `@${name}`, matching lyra-ui's own `resolveOutboundDetailField`
-      // convention (create-new.tsx) for a contact with no dedicated
-      // WhatsApp-handle field on file.
+      // `email`/`phone` — see `ContactHistoryEntry`'s own doc comments for
+      // these two (`phone` covers WhatsApp too).
       email: customer.emailAddress,
       phone: customer.firstPhone,
-      whatsappHandle: `@${customer.name}`,
       ...templates[i],
     };
   });
@@ -872,7 +858,7 @@ export function buildDismissedContactHistoryEntry(
   const earliestStart =
     interaction.threads.length > 0 ? Math.min(...interaction.threads.map((c) => c.startTick)) : clockTick;
   const statusLabel = interaction.threadStatuses?.[primaryChannel?.id ?? ""] ?? "Resolved";
-  // The real captured address (email/phone/WhatsApp handle) this row's
+  // The real captured address (email or phone, WhatsApp's included) this row's
   // primary Thread was opened on, if any — `addressLabel` (human-readable,
   // e.g. "(456) 383-3329") preferred over the raw `value` (e.g.
   // "+14563833329"), same preference `ChannelToggle`'s own face already
@@ -953,18 +939,13 @@ export function buildDismissedContactHistoryEntry(
     // only needs each type once, not one entry per open thread.
     channels: [...new Set(interaction.threads.map((c) => c.type))],
     interactionId: interaction.interactionId,
-    // `email`/`phone`/`whatsappHandle` — see `ContactHistoryEntry`'s own
-    // doc comments for these three. Only the one matching this row's real
-    // `channelType` is populated from `channelAddress` above; the other two
-    // stay undefined (`contactHistoryDisplayIdentity` never reads them for
-    // a row of this type). WhatsApp falls back to a synthesized `@${name}`
-    // handle (same convention `buildContactHistoryFromCustomers` and
-    // lyra-ui's own `resolveOutboundDetailField` use) when no real captured
-    // address exists for this thread.
+    // `email`/`phone` — see `ContactHistoryEntry`'s own doc comments for
+    // these two. Only the one matching this row's real `channelType` is
+    // populated from `channelAddress` above (`phone` for voice, SMS and
+    // WhatsApp); the other stays undefined (`contactHistoryDisplayIdentity`
+    // never reads it for a row of this type).
     email: channelType === "email" ? channelAddress : undefined,
-    phone: channelType === "voice" || channelType === "sms" ? channelAddress : undefined,
-    whatsappHandle:
-      channelType === "whatsapp" ? channelAddress ?? `@${interaction.customerName ?? "Customer"}` : undefined,
+    phone: channelType === "voice" || channelType === "sms" || channelType === "whatsapp" ? channelAddress : undefined,
     messages:
       primaryChannelMessages && primaryChannelMessages.length > 0
         ? primaryChannelMessages.map(
@@ -1061,7 +1042,6 @@ export const CONTACT_HISTORY_STRESS_BATCH: ContactHistoryEntry[] = Array.from(
       customerId: customer.id,
       email: customer.emailAddress,
       phone: customer.firstPhone,
-      whatsappHandle: `@${customer.name}`,
       statusLabel: status.statusLabel,
       statusVariant: status.statusVariant,
       description: CONTACT_HISTORY_STRESS_DESCRIPTIONS[i % CONTACT_HISTORY_STRESS_DESCRIPTIONS.length],
@@ -1232,8 +1212,8 @@ export function ContactHistoryCard({
   /**
    * Per explicit request, Agent Workspace 2.0 only: rows show
    * `contactHistoryDisplayIdentity(entry)` (a real reach-back address —
-   * phone for Voice/SMS, email for Email, the row's own WhatsApp handle
-   * for WhatsApp — falling back to `name` for Chat, which has no separate
+   * phone for Voice/SMS/WhatsApp, email for Email — falling back to `name`
+   * for Chat, which has no separate
    * "handle" concept) in place of `entry.name`. Defaults to false/unset —
    * Agent Workspace 2.0 Premium/Advanced don't pass this, so both keep
    * showing real customer names exactly as before, per that same explicit

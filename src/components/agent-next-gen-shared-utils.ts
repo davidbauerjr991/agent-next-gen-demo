@@ -409,7 +409,7 @@ function splitCustomerName(customerName: string | undefined): { firstName: strin
  *  contact's `openChannelAddresses[type]` (built from each open
  *  `Thread.value` — see `buildOpenChannelTagger`,
  *  AgentNextGenPage.tsx/AgentWorkspace2WithDeskPage.tsx) against that same
- *  contact's OWN `email`/`primaryPhone`/synthesized-`@name` WhatsApp handle
+ *  contact's OWN `email`/`primaryPhone`/phone options (WhatsApp included)
  *  to decide whether every address for a channel is already open and the
  *  channel should disable itself. If this function's output ever drifted
  *  from the contact object's own fields, that comparison would silently
@@ -421,12 +421,8 @@ function splitCustomerName(customerName: string | undefined): { firstName: strin
  *  only ever set the new channel's `addressLabel` (display only), never its
  *  `value` — the field `buildOpenChannelTagger` actually reads to populate
  *  `openChannelAddresses` in the first place, so that map stayed empty and
- *  nothing ever looked "already open." The `@name` WhatsApp branch below
- *  deliberately does NOT strip spaces from `customerName` for this same
- *  reason — `resolveOutboundDetailField`'s own WhatsApp formula
- *  (`@${contact.name}`) doesn't either, and this needs to produce that
- *  exact same string, not a similar-looking one, or WhatsApp's own
- *  exhaustion check would silently break the same way Email's just did.
+ *  nothing ever looked "already open." WhatsApp gets the same synthesized
+ *  phone as voice and SMS, so its exhaustion check compares numbers (E4).
  *
  *  `chat` is the one deliberate exception, per explicit request: a website
  *  chat widget has no phone/email/handle concept anywhere in this app's
@@ -451,12 +447,9 @@ function synthesizeChannelAddress(
     const { firstName, lastName } = splitCustomerName(customerName);
     return `${firstName.toLowerCase()}.${lastName.toLowerCase()}@example.com`;
   }
-  if (type === "whatsapp") {
-    return `@${customerName ?? "Customer"}`;
-  }
-  // voice / sms — same synthesized-phone formula as `buildCustomerInfoFields`/
-  // `OUTBOUND_CUSTOMERS` for every other channel type that isn't a plain
-  // digit string on its own.
+  // voice / sms / whatsapp — same synthesized-phone formula as
+  // `buildCustomerInfoFields`/`OUTBOUND_CUSTOMERS`. WhatsApp reaches a phone
+  // number, not a handle (E4), so it's the same number voice and SMS get.
   return synthesizePhone(hashSeed(seedKey || customerName || "customer"));
 }
 

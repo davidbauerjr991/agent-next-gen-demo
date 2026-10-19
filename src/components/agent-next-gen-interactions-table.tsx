@@ -275,7 +275,7 @@ function formatInteractionRecordTimeAgo(date: Date): string {
  * table's own rows carry a real `Date`, unlike `ContactHistoryEntry`'s
  * hand-authored `timeAgo` strings). `redial` is true only for `voice` rows,
  * matching every other `ContactHistoryEntry` consumer's own "Redial is
- * voice-only" convention. `messages`/`email`/`phone`/`whatsappHandle` are
+ * voice-only" convention. `messages`/`email`/`phone` are
  * left undefined — `ContactHistoryEntryDetail` already falls back to its
  * own synthesized `buildContactHistoryMessages`/`buildContactHistoryEmailBody`
  * for every entry with no real transcript behind it, the same fallback

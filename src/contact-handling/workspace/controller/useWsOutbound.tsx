@@ -358,9 +358,9 @@ export function useWsOutbound(prev: WsLaunch, late: WorkspaceLate) {
      A contact already reachable via a currently-open channel (e.g. Jamie
      Torres has an SMS interaction open on a specific number) still shows
      that channel in "Select Channel" and every address in the detail
-     screen's second field ("Select Phone"/"Select Email Address"/"Select
-     WhatsApp Handle") — except whichever exact address(es) are already in
-     use, which are disabled so starting another interaction on one of them
+     screen's second field ("Select Phone" for voice, SMS and WhatsApp, or
+     "Select Email Address") — except whichever exact address(es) are
+     already in use, which are disabled so starting another interaction on one of them
      wouldn't just duplicate the one already running (a different outbound
      line for the same channel — or a second, still-unused one, even when
      one SMS number is already open — stays selectable). Voice is the one

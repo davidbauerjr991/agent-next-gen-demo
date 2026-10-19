@@ -163,38 +163,18 @@ export type CustomerFilterKey = Exclude<keyof CustomerListRecord, "channels">;
 export const CUSTOMER_CHANNEL_ORDER: ChannelType[] = ["voice", "sms", "email", "whatsapp"];
 
 /** Which field the launch popover's address dropdown shows for a given
- *  channel — email uses the row's `emailAddress`, voice/sms use its
- *  `firstPhone`, WhatsApp uses a synthesized `@FirstName LastName` handle
- *  (see below) rather than either of those. This dataset only carries one
- *  number/address per customer (unlike the full Outbound picker's
- *  `resolveOutboundDetailField`, which juggles several candidate numbers),
- *  so there's just one option to offer either way.
- *
- *  WhatsApp used to fall into the same `firstPhone` branch as voice/sms —
- *  a real, confirmed bug: this table's own database (`CREATE_NEW_CUSTOMERS`,
- *  `create-new-customers-data.ts`) has no `whatsappHandle`-style field to
- *  read a real one from, so the launch popover's "Select Phone" field
- *  listed this row's plain phone number (and, via `addressOptionsForChannel`
- *  below, the same shared `OUTBOUND_CONFIG.phoneOptions` pool every OTHER
- *  phone-based channel offers) for a channel that isn't actually reached by
- *  phone number at all. `@${row.firstName} ${row.lastName}` mirrors the
- *  exact synthesis lyra-ui's own `resolveOutboundDetailField` already uses
- *  for the real "New Outbound" launch flow (`create-new.tsx`,
- *  `channel === "whatsapp"` branch: `` `@${contact.name}` `` — the same
- *  "no real per-contact handle field exists yet" gap that function's own
- *  doc comment documents) so this table's picker maps to the exact same
- *  handle the rest of the app would derive for this same customer, instead
- *  of a second, disconnected value. */
+ *  channel — email uses the row's `emailAddress`; voice, SMS and WhatsApp
+ *  use its `firstPhone`. WhatsApp reaches a phone number, not a handle
+ *  (E4; WhatsApp Business routes by number), so it's a "Select Phone"
+ *  field like the other phone channels, never a separate WhatsApp one. */
 export function customerChannelAddress(row: CustomerListRecord, channel: ChannelType): { label: string; value: string } {
   if (channel === "email") return { label: "Select Email Address", value: row.emailAddress };
-  if (channel === "whatsapp") return { label: "Select WhatsApp Handle", value: `@${row.firstName} ${row.lastName}` };
   return { label: "Select Phone", value: row.firstPhone };
 }
 
 /** Every known address this row can be reached at for a given channel —
- *  the row's own number/email/handle first (same value
- *  `customerChannelAddress` returns), then, for PHONE-based channels only
- *  (voice/sms — NOT WhatsApp, see below), the same shared fallback pool
+ *  the row's own number/email first (same value `customerChannelAddress`
+ *  returns). Voice and SMS add the shared fallback pool
  *  (`OUTBOUND_CONFIG.phoneOptions`) already offered everywhere else a phone
  *  number needs to be picked (e.g. the `CreateNew` outbound picker's own
  *  "Select Phone" screen) — deduped so the row's own number isn't listed
@@ -203,21 +183,18 @@ export function customerChannelAddress(row: CustomerListRecord, channel: Channel
  *  exhausted here even though the very same contact still has other real
  *  numbers reachable elsewhere in the app (caught from a screenshot of
  *  Sarah Miller's SMS icon disappearing entirely despite her own "Add
- *  Channel" picker still listing 3 more unused numbers). Email and
- *  WhatsApp both have no such shared pool — a customer only ever has the
- *  one address/handle on file for either (WhatsApp's is synthesized, see
- *  `customerChannelAddress`'s own doc comment, but is still just the one
- *  value) — `OUTBOUND_CONFIG.phoneOptions` is a pool of raw PHONE numbers
- *  specifically, and mixing WhatsApp's own handle-shaped value into that
- *  pool (its pre-existing behavior) offered actual phone numbers as
- *  "WhatsApp handles," which was the bug this whole function got rewritten
- *  to fix. */
+ *  Channel" picker still listing 3 more unused numbers). WhatsApp offers
+ *  the customer's own numbers only, every one on their record (E4): a
+ *  WhatsApp conversation is with the customer's number, so the agent's
+ *  outbound lines don't belong in it. Email has the one address on file. */
 export function addressOptionsForChannel(row: CustomerListRecord, channel: ChannelType): { value: string; label: string }[] {
   const own = customerChannelAddress(row, channel);
   const options = own.value ? [{ value: own.value, label: own.value }] : [];
-  if (channel === "email" || channel === "whatsapp") return options;
-  for (const opt of OUTBOUND_CONFIG.phoneOptions) {
-    if (!options.some((o) => o.value === opt.value)) options.push(opt);
+  if (channel === "email") return options;
+  const record = CREATE_NEW_CUSTOMERS.find((c) => c.customerId === row.contactNumber);
+  const pool = channel === "whatsapp" ? (record?.phones ?? []) : OUTBOUND_CONFIG.phoneOptions;
+  for (const opt of pool) {
+    if (!options.some((o) => o.value === opt.value)) options.push({ value: opt.value, label: opt.value });
   }
   return options;
 }
@@ -415,17 +392,12 @@ export function CustomerChannelPicker({
             label={fieldMeta.label}
             value={hasAddress ? address || undefined : undefined}
             onValueChange={setAddress}
-            disabled={!hasAddress}
+            // Still opens when every address is open: they're listed there, disabled "Already open" (E3/E4).
+            disabled={addressOptionsFor(selectedChannel).length === 0}
             placeholder={
               hasAddress
                 ? undefined
-                : `No ${
-                    selectedChannel === "email"
-                      ? "email address"
-                      : selectedChannel === "whatsapp"
-                      ? "WhatsApp handle"
-                      : "unused phone number"
-                  } available`
+                : `No ${selectedChannel === "email" ? "email address" : "unused phone number"} available`
             }
             options={addressOptionsFor(selectedChannel)}
           />

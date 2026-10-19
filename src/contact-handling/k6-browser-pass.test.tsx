@@ -320,6 +320,45 @@ describe("E3: an open address stays listed, disabled \"Already open\"", () => {
   }
 });
 
+// E4: WhatsApp reaches the customer's phone number (WhatsApp Business routes by number), so already-open
+// matching compares numbers.
+describe("E4: WhatsApp is a phone channel", () => {
+  it("Alex Miller with WhatsApp open on (200) 200-1000: the Customers table's WhatsApp field lists that number, disabled \"Already open\"", async () => {
+    expect(alex.firstPhone).toBe("(200) 200-1000");
+    await setUp("inline", true);
+    await dial("whatsapp", alex, alex.firstPhone);
+    await h.click([...h.container.querySelectorAll<HTMLElement>("aside button, aside [role=button]")].find((el) => el.textContent?.trim() === "Home")!);
+    await h.click([...h.container.querySelectorAll<HTMLElement>('[data-slot=home-tabs] [role="tab"]')].find((t) => t.textContent?.trim() === "Customers")!);
+    const row = [...h.container.querySelectorAll<HTMLElement>("table tr")].find((tr) => tr.textContent?.includes("Alex") && tr.textContent?.includes("Miller"))!;
+    await h.click(row.querySelector<HTMLElement>('[title="WhatsApp"], [aria-label="WhatsApp"]')!);
+    // One number on record, open: the channel is "Already open" (k6 2), and its number is listed, greyed.
+    expect(radio("WhatsApp")!.disabled).toBe(true);
+    expect(document.body.textContent).toContain("Select Phone");
+    expect(document.body.textContent).not.toContain("WhatsApp Handle");
+    const field = [...document.body.querySelectorAll<HTMLElement>('[role="combobox"]')].find((c) => /available|\d{3}/.test(c.textContent ?? ""))!;
+    await h.click(field);
+    const options = [...document.body.querySelectorAll<HTMLElement>('[role="option"]')];
+    expect(options.some((o) => o.textContent?.includes("@"))).toBe(false);
+    const number = options.find((o) => o.textContent?.includes("(200) 200-1000"));
+    expect(number, "the open number is listed").toBeTruthy();
+    expect(number!.hasAttribute("data-disabled")).toBe(true);
+    expect(number!.getAttribute("data-disabled-reason")).toBe(ALREADY_OPEN_REASON);
+  });
+
+  it("a WhatsApp thread started from the header \"+\" is on one of the customer's numbers", async () => {
+    await setUp("inline", true);
+    const journey = await dial("email", miguel, miguel.emailAddress!);
+    await h.click(h.navCard(miguel.name));
+    await h.click(h.container.querySelector<HTMLElement>("[data-slot=header-add-channel] button")!);
+    await h.click(radio("WhatsApp")!);
+    expect(document.body.textContent).not.toContain("WhatsApp Handle");
+    await h.click(buttonText(document.body, "Start Interaction")!);
+    await h.advance(1_000);
+    const whatsapp = (await snapshot()).find((i) => i.channel === "whatsapp" && i.journeyId === journey)!;
+    expect(miguel.phones.map((p) => p.value)).toContain(whatsapp.address?.value);
+  });
+});
+
 describe("3: Settings → Assignments → Show status chip in the session row", () => {
   it("on by default and in every built-in profile; off hides the session row's status pill", async () => {
     expect(getSettingsStore().getState().values.assignments.showStatusChip).toBe(true);
