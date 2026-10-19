@@ -93,8 +93,14 @@ li.todo .tag{color:var(--todo)}
     <a class="step" href="#phase2">Phase 2 §0–5</a><span class="arrow">→</span>
     <a class="step" href="#phase3">Phase 3</a><span class="mark">— demo milestone —</span>
     <a class="step" href="#admin">P-ADMIN</a><span class="arrow">→</span>
+    <a class="step" href="#i18n">P-LYRA-RTL</a><span class="arrow">→</span>
+    <a class="step" href="#i18n">P-I18N</a><span class="arrow">→</span>
     <a class="step" href="#phase0">P0.9</a><span class="arrow">→</span>
+    <a class="step" href="#admin">P-ADMIN-2</a><span class="arrow">→</span>
     <a class="step" href="#admin">P-EMPLOYEES</a><span class="arrow">→</span>
+    <a class="step" href="#compliance">P-COMPLIANCE</a><span class="arrow">→</span>
+    <a class="step" href="#admin">P-REPORTING</a><span class="arrow">→</span>
+    <a class="step" href="#buyer">P-QM</a><span class="arrow">→</span>
     <a class="step" href="#phase1">Phase 1</a><span class="arrow">→</span>
     <a class="step" href="#phase2">Phase 2 §6–7</a><span class="arrow">→</span>
     <a class="step" href="#phase4">Phase 4</a><span class="arrow">→</span>
@@ -102,11 +108,12 @@ li.todo .tag{color:var(--todo)}
     <a class="step" href="#phase5">Phase 5 + P-CONFIG-ASSIST</a><span class="arrow">→</span>
     <a class="step" href="#phase6">Phase 6</a><span class="arrow">→</span>
     <a class="step" href="#phase7">Phase 7</a><span class="arrow">→</span>
-    <a class="step" href="#admin">P-REPORTING</a><span class="arrow">→</span>
+    <a class="step" href="#campaigns">P-CAMPAIGNS</a><span class="arrow">→</span>
     <a class="step" href="#admin">P-BILLING</a><span class="arrow">→</span>
     <a class="step" href="#integration">P-MAPPINGS</a><span class="arrow">→</span>
     <a class="step" href="#integration">adapters</a><span class="arrow">→</span>
     <a class="step" href="#admin">P-IMPORT</a><span class="arrow">→</span>
+    <a class="step" href="#flows">P-STUDIO</a><span class="arrow">→</span>
     <a class="step" href="#admin">P-EMBED</a>
   </div>
 </section>
@@ -234,14 +241,68 @@ li.todo .tag{color:var(--todo)}
   <ul>
     <li class="done"><span class="tag">Done</span><div class="body"><b>Design and documentation</b> — section, decisions, step rows, demo-first order</div></li>
     <li class="done"><span class="tag">Done</span><div class="body"><b>Boundaries landed in P-EXTRACT</b> — ESLint Workspace → admin import rule, HostProvider stub (standalone)</div></li>
-    <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-ADMIN</b> — area switcher + BrandMark, AdminShell, scope back-fill and schema labels, command registry, Branding and Channels areas; app name becomes "Workspace"</div></li>
-    <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-EMPLOYEES</b> — directory, groups, permission sets, SessionProvider and login resolution, Acceptable Use, audit log</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Governing principle: simple, AI-led configuration</b> — declared before designed, defaults from the profile, conversation first, one page per rail item, plain language both ways, learning<span class="note">Rule in CLAUDE.md from 2026-10-18</span></div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-ADMIN</b> — area switcher + BrandMark, AdminShell, scope back-fill and schema labels, command registry, Branding and Channels areas, Dispositions and Service levels; app name becomes "Workspace"</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-ADMIN-2</b> — Routing, Agent states, Recording policy, the minimal Flows page; after P0.9</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-EMPLOYEES</b> — directory, groups, permission sets, SessionProvider and login resolution, IdentityProvider and sign-in methods, Acceptable Use, audit log</div></li>
     <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-CONFIG-ASSIST</b> — configuration by conversation over the declared schema and commands; org profile</div></li>
-    <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-REPORTING</b> — ReportingProvider, dashboards, reports, exports</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-REPORTING</b> — ReportingProvider (historical + live), supervisor dashboards with widget actions, wallboard, alerts, reports, exports<span class="note">Moved up 2026-10-18 to after P-COMPLIANCE</span></div></li>
     <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-BILLING</b> — LLMProvider, UsageProvider metering, usage / rate card / budgets / invoices</div></li>
     <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-IMPORT</b> — shared import engine with history, externalIds per source</div></li>
     <li class="todo"><span class="tag">Todo</span><div class="body"><b>In-app only posture</b> — CSP, stripped hooks, integrity monitor, Acceptable Use</div></li>
     <li class="todo"><span class="tag">Last</span><div class="body"><b>P-EMBED</b> — apps/full and apps/embed shells, embedded HostProvider, container-query layout, mock host page</div></li>
+  </ul>
+</section>
+
+<section id="i18n">
+  <h2>Internationalization — any language and direction</h2>
+  <ul>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>String convention</b> — <code>t()</code> with ICU, <code>Intl.*</code>, logical CSS properties<span class="note">String rule in CLAUDE.md; identity shim lands in P-PROFILES</span></div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-LYRA-RTL</b> — lyra: logical properties, <code>dir</code>, mirrored icons, script-aware type, RTL/CJK stories</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-I18N</b> — i18next + ICU, extraction and CI check, sweep, locale setting, Bidi spans, pseudo-locale, terminology (Branding → Terminology), axe pass</div></li>
+  </ul>
+</section>
+
+<section id="compliance">
+  <h2>Compliance — PCI DSS and SOC 2 as architecture</h2>
+  <ul>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Redaction convention</b> — every model and reporting path goes through <code>redact()</code><span class="note">Rule in CLAUDE.md; identity pass-through lands in P-PROFILES</span></div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-COMPLIANCE</b> — RedactionProvider, Mask as a state, RecordingProvider, hash-chained audit log, access controls, retention and erasure, Compliance home with the controls checklist</div></li>
+  </ul>
+</section>
+
+<section id="campaigns">
+  <h2>Outbound campaigns — segments, cadences and the dialer</h2>
+  <ul>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-CAMPAIGNS</b> — CampaignProvider, segments, cadences, campaigns, dialer offers, Campaigns admin area<span class="note">Record shape decided now: a cadence step is an Interaction with origin "campaign"</span></div></li>
+  </ul>
+</section>
+
+<section id="buyer">
+  <h2>Buyer checklist — table-stakes items with their homes</h2>
+  <ul>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Quality management</b> — P-QM, after P-REPORTING</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Routing configuration</b> — Channels → Routing</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Dispositions, outcome codes, not-ready reasons</b> — Channels → Dispositions, Agent states</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Callbacks and virtual hold</b> — minimal callback WorkItem in P0.9</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Post-interaction surveys</b> — Phase 7 §5 / P-REPORTING</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Knowledge: connect and import, never author</b> — P4.11 rescoped; real embeddings in Phase 5</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Identity: SSO and third-party login</b> — IdentityProvider in P-EMPLOYEES; token exchange in the relay</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Accessibility, WCAG 2.1 AA</b> — axe pass with P-I18N</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Open APIs and webhooks</b> — P-ADAPTER, surfaced in Integrations</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Agent scripting and guided calls</b> — Phase 4 §12 over FlowProvider</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Apps, API and webhooks page</b> — Integrations → Apps &amp; API, P-ADAPTER</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Service levels</b> — Channels → Service levels, P-ADMIN</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Uptime SLA and data resiliency</b> — hosting commitments; status surface and offline behavior in Connections</div></li>
+  </ul>
+</section>
+
+<section id="flows">
+  <h2>Flows — IVR, studio workflows and the contract</h2>
+  <ul>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>FlowProvider seam</b> — flow definition, node registry, sim interpreter; P0.9</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Minimal Flows area</b> — list, import/export, trigger, version, run in the sim; P-ADMIN-2</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-STUDIO</b> — canvas, test-run with trace, versioning, CXone Studio / Genesys Architect importers</div></li>
   </ul>
 </section>
 
@@ -259,6 +320,7 @@ li.todo .tag{color:var(--todo)}
     <li class="todo"><span class="tag">Todo</span><div class="body"><b>Relay</b> — webhook receiver, voice routing, fan-out, outbound webhooks (P-ADAPTER's first step)</div></li>
     <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-MAPPINGS</b> — connector mappings and data memorialization</div></li>
     <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-ADAPTER</b> — Twilio → Zendesk → CXone → SOCIAL → WFM → AI vendor</div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Data warehouses and change streams</b> — cursor-first import; relay-only connections</div></li>
     <li class="todo"><span class="tag">Todo</span><div class="body"><b>Parked — email and SMS</b> — composer, outbox store, console tab; renders into the thread view</div></li>
   </ul>
 </section>

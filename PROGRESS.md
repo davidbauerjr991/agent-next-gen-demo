@@ -46,10 +46,16 @@ Status values: `todo` / `in progress` / `done` / `deferred`. Rows follow PROMPTS
 | P3.6 | Voice unknown-contact + speech normalizers | 3 | todo | |
 | Milestone | Simulated chat + call from the console | — | todo | First demo milestone, after Phase 3 (P0.6, Phase 2 §0–5, Phase 3). Administration starts after it. |
 | P-ADMIN | Area switcher, AdminShell, scope back-fill, command registry, Branding and Channels areas | Admin | todo | Added 2026-10-16; after Phase 3, before P0.9. PLAN.md "Administration". The Workspace → admin ESLint rule and the `HostProvider` stub come from P-EXTRACT. |
-| P0.9.1 | Transfer/merge contract, DirectoryProvider, MessagingProvider, participants | 0 | todo | Added 2026-10-15; after P0.5d.2. No page changes. |
+| P-LYRA-RTL | lyra-ui: logical properties, `dir`, mirrored icons, script-aware type, RTL/CJK stories | Admin | todo | Added 2026-10-18; after P-ADMIN, before P-I18N. Its own authorized lyra pass; bumps `.lyra-ui-sync`. PLAN.md "Internationalization". |
+| P-I18N | i18n layer, extraction + CI check, sweep, locale setting, Bidi spans, pseudo-locale, terminology, axe pass | Admin | todo | Added 2026-10-18; after P-LYRA-RTL and P-ADMIN. The `t()` identity shim lands in P-PROFILES' first commit. |
+| P0.9.1 | Transfer/merge contract, DirectoryProvider, MessagingProvider, participants | 0 | todo | Added 2026-10-15; after P0.5d.2. No page changes. 2026-10-18: also the minimal callback WorkItem and the FlowProvider seam with its sim interpreter. |
 | P0.9.2 | Consult strip, hand raise, messaging drawer, participants UI | 0 | todo | Added 2026-10-15. Before/afters; lyra changes need authorization. |
 | P0.9.3 | Agent console window (`#/agent-console?as=…`) | 0 | todo | Added 2026-10-15; after P0.6. |
+| P-ADMIN-2 | Routing, Agent states, Recording policy, the minimal Flows page | Admin | todo | Added 2026-10-18; after P0.9 (routing to other agents needs the directory). Editable lists replace fixtures; the Outcome form and presence menu read them. |
 | P-EMPLOYEES | Directory, groups, permission sets, SessionProvider and login resolution, Acceptable Use, audit log | Admin | todo | Added 2026-10-16; after P0.9. Channel entitlement moves onto permission sets here, so `channels.*` becomes admin-scope. |
+| P-COMPLIANCE | Redaction seam, Mask as a state, RecordingProvider, audit hardening, access controls, retention and erasure, Compliance home | Admin | todo | Added 2026-10-18; after P-EMPLOYEES, before P-REPORTING. The `redact()` identity pass-through lands in P-PROFILES' first commit. |
+| P-REPORTING | ReportingProvider, live supervisor dashboards, wallboard, alerts, reports, exports | Admin | todo | Added 2026-10-16; moved 2026-10-18 from after Phase 7 §5 to after P-COMPLIANCE. The user supplies the real-time dashboard designs. |
+| P-QM | Quality management: scorecards, synced playback, AI auto-scoring, calibration, coaching | Admin | todo | Added 2026-10-18; after P-REPORTING. |
 | P1.1 | ContactCenterProfile type and registry | 1 | todo | Telecom profile (PLAN.md 1.2 thin pack) is stubbed here and filled out across P1.3/P1.8 — it has no 1.2a/1.2b row of its own. |
 | P1.3 | Generator engine | 1 | todo | |
 | P1.4 | Named databases on IndexedDB | 1 | todo | Entities carry several `externalId`s (2026-10-15). |
@@ -74,6 +80,7 @@ Status values: `todo` / `in progress` / `done` / `deferred`. Rows follow PROMPTS
 | P4.9 | Progressive entity creation (deterministic) | 4 | todo | |
 | P4.10 | No-match fallback | 4 | todo | |
 | P4.11 | Knowledge base, Tier 1 | 4 | todo | Added 2026-10-15. Quick replies (PLAN §11a, 2026-10-16) are in scope: a native library served by `KnowledgeProvider.listQuickReplies`, vendor libraries as sync sources, canonical `{customer.firstName}` variables translated at the adapter edge, render-time unresolved-variable safety, per-channel formatting, vendor-only features recorded `unsupported`. **Templates (2026-10-16):** the same library (`kind: quickReply \| template`, `format`, `approval`); "Insert template" filtered by channel/kind/approval; WhatsApp outside the 24h window offers approved templates only; Mailchimp and WhatsApp Business as sync sources. |
+| P4.12 | Agent scripting over FlowProvider | 4 | todo | Added 2026-10-18. Scripts as flows, AI-advanced steps, captured fields with confirmation, required-step gate before Outcome. |
 | P1.2a | Retail, collections, healthcare, customer-service profiles | 1 | todo | |
 | P1.2b | Thin packs: banking, insurance, travel, utilities | 1 | todo | |
 | P5.1 | Model access | 5 | todo | |
@@ -97,11 +104,12 @@ Status values: `todo` / `in progress` / `done` / `deferred`. Rows follow PROMPTS
 | P7.6 | Embedded apps in the draggable panel | 7 | todo | |
 | P7.7 | Configurable layout + Contact Details configuration | 7 | todo | Needs the layout slots from P0.5d.2. |
 | P7.8 | Connections, sync modes, conflict handling, outbound policy, address books | 7 | todo | |
-| P-REPORTING | ReportingProvider, dashboards, reports, exports | Admin | todo | Added 2026-10-16; after Phase 7 §5. |
+| P-CAMPAIGNS | Segments, cadences, campaigns, dialer offers, Campaigns area | Admin | todo | Added 2026-10-18; after P-COMPLIANCE and Phase 7. A cadence step is an `Interaction` with `origin: "campaign"`. |
 | P-BILLING | LLMProvider, UsageProvider, Billing area | Admin | todo | Added 2026-10-16; after P-REPORTING and P5.1. |
 | P-MAPPINGS | Connector mappings and data memorialization | Later | todo | Added 2026-10-16; before P-ADAPTER (Zendesk needs it). Per connection: field-by-field entity mappings (customer, ticket, account, interaction, quick reply with its `variableMap`, templates with their approval status (2026-10-16); direction, per-field authority, search keys) and named memorialization mappings on triggers, with dry-run; `connections.<seam>.mappings`; the sim logs what it would write. |
 | P-ADAPTER | Real adapters: Twilio → Zendesk → CXone → SOCIAL → WFM → AI vendor | Later | todo | One step per adapter (PLAN.md "Integration readiness"); after P-MAPPINGS. The Twilio step builds the relay and its four jobs (webhook receiver with signature verification, idempotency and dead-letter; voice routing via TwiML; WebSocket fan-out of adapter-translated domain events; outbound webhooks for memorialization), reused by every later adapter. Carriers live inside the adapter, not a seam. SOCIAL (added 2026-10-16) after CXone. |
 | P-IMPORT | Import with history (employees, customers, historical metrics) | Admin | todo | Added 2026-10-16; after P-MAPPINGS and P-ADAPTER. |
+| P-STUDIO | Flow canvas, test-run, versioning, CXone Studio / Genesys Architect importers | Later | todo | Added 2026-10-18; after P-CAMPAIGNS, before P-EMBED. |
 | P-EMBED | Small-screen and embedded Workspace (apps/full, apps/embed) | Admin | todo | Added 2026-10-16; the last step. Needs the three boundaries held from P-EXTRACT on. |
 | P-PARKED | Email and SMS | Later | deferred | See Deferred items. |
 
