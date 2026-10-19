@@ -214,6 +214,40 @@ describe("Bug 3: a scripted case is a known customer for the card's whole life",
     expect([...document.body.querySelectorAll('[role="option"]')].some((o) => o.textContent?.includes(NEW_NUMBER))).toBe(true);
   });
 
+  // E3: the repro. Her call in wrap-up holds no number (a new call isn't blocked), so Voice lists it, enabled.
+  it("in wrap-up, \"+\" → Voice lists her number, enabled", async () => {
+    await maya();
+    await endMayasCallToWrapUp();
+    await h.click(h.navCard("Maya Chen"));
+    await h.click(headerPlus());
+    expect(radio("Voice")!.disabled).toBe(false);
+    await h.click(radio("Voice")!);
+    expect(combobox(MAYA_PHONE)).toBeTruthy();
+    await h.click(combobox(MAYA_PHONE)!);
+    const option = [...document.body.querySelectorAll<HTMLElement>('[role="option"]')].find((o) => o.textContent?.includes(MAYA_PHONE))!;
+    expect(option.hasAttribute("data-disabled")).toBe(false);
+  });
+
+  // E3: in her card's picker, the number with an open SMS thread stays listed, disabled "Already open"; the
+  // free one is the default.
+  it("an SMS thread open on her added number lists it disabled \"Already open\" in her card's picker", async () => {
+    await maya();
+    // SMS on the new number (through Custom), then Add it to her contact methods.
+    await addSmsViaCustom(NEW_NUMBER);
+    await h.click(buttonText((await awaitSaveCard())!, "Add")!);
+    await h.click(headerPlus());
+    expect(radio("SMS")!.disabled).toBe(false);
+    await h.click(radio("SMS")!);
+    expect(combobox(MAYA_PHONE), "her free number is the default").toBeTruthy();
+    await h.click(combobox(MAYA_PHONE)!);
+    const options = [...document.body.querySelectorAll<HTMLElement>('[role="option"]')];
+    const added = options.find((o) => o.textContent?.includes(NEW_NUMBER));
+    expect(added, "the open number is listed").toBeTruthy();
+    expect(added!.hasAttribute("data-disabled")).toBe(true);
+    expect(added!.getAttribute("data-disabled-reason")).toBe("Already open");
+    expect(options.find((o) => o.textContent?.includes(MAYA_PHONE))!.hasAttribute("data-disabled")).toBe(false);
+  });
+
   it("Maya's own number through Custom is already hers: no Save-address card", async () => {
     await maya();
     await endMayasCallToWrapUp();

@@ -304,10 +304,15 @@ export function CustomerChannelPicker({
   useContactMethodsVersion();
   const alreadyOpen = { ...alreadyOpenReasons(withLinkedContactMethods(record?.id, record), liveAddresses), ...onCallReasons(storeContacts, { entityId: record?.id }) };
   const selectedChannelReason = alreadyOpen[selectedChannel] ?? disabledReasons?.[selectedChannel];
-  const remainingOptionsFor = (channel: ChannelType) =>
-    [...addressOptionsForChannel(row, channel), ...linkedAddresses(record?.id, channel).map((value) => ({ value, label: value }))].filter(
-      (o) => !(openAddresses[channel] ?? []).includes(o.value) && !(liveAddresses[channel] ?? []).includes(o.value),
+  // Every address for the channel; one already open on it (this interaction's, or a live thread) stays
+  // listed, disabled "Already open", so the agent sees the channel is active there (E3).
+  const addressOptionsFor = (channel: ChannelType): { value: string; label: string; disabled?: boolean; disabledReason?: string }[] =>
+    [...addressOptionsForChannel(row, channel), ...linkedAddresses(record?.id, channel).map((value) => ({ value, label: value }))].map((o) =>
+      (openAddresses[channel] ?? []).includes(o.value) || (liveAddresses[channel] ?? []).includes(o.value)
+        ? { ...o, disabled: true, disabledReason: ALREADY_OPEN_REASON }
+        : o,
     );
+  const remainingOptionsFor = (channel: ChannelType) => addressOptionsFor(channel).filter((o) => !o.disabled);
 
   // Re-derive every time this popover opens (not just on first mount) —
   // same "only once actually open" timing `AddChannelButton` uses (see its
@@ -422,7 +427,7 @@ export function CustomerChannelPicker({
                       : "unused phone number"
                   } available`
             }
-            options={remainingOptions}
+            options={addressOptionsFor(selectedChannel)}
           />
           <Select
             label="Outbound Skill"

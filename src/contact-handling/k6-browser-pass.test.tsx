@@ -11,7 +11,7 @@ import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
 import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
 import { SettingsView } from "@/components/settings/SettingsView";
-import type { EntityId, Interaction, JourneyId } from "@/domain";
+import type { EntityId, Interaction, InteractionId, JourneyId } from "@/domain";
 import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
 import { profileValues } from "@/settings/profiles";
 import type { AiDisplayLocation } from "@/settings/settings-schema";
@@ -198,6 +198,126 @@ describe("2: a channel already open on every address is disabled \"Already open\
     const whatsapps = (await snapshot()).filter((i) => i.channel === "whatsapp" && i.entityId === miguel.id && i.state !== "ended");
     expect(whatsapps.map((i) => i.address?.value).sort()).toEqual([miguel.phones[0].value, miguel.phones[1].value].sort());
   });
+});
+
+// E3: an address with an open thread on the channel stays in Select Phone / Select Email, disabled "Already
+// open" (the agent sees the channel is active there), in every add-channel picker; only a channel open on
+// every address is disabled itself (k6 2, above).
+describe("E3: an open address stays listed, disabled \"Already open\"", () => {
+  const escape = () =>
+    act(async () => {
+      document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      await vi.advanceTimersByTimeAsync(300);
+    });
+  /** The address Select's options, read from its open list (opened from its trigger, which shows `shown`). */
+  async function addressOptions(shown: string) {
+    const trigger = [...document.body.querySelectorAll<HTMLElement>('[role="combobox"]')].find((c) => c.textContent?.includes(shown));
+    expect(trigger, `the address field showing ${shown}; fields: ${[...document.body.querySelectorAll('[role="combobox"]')].map((c) => c.textContent).join(" | ")}`).toBeTruthy();
+    await h.click(trigger!);
+    const options = [...document.body.querySelectorAll<HTMLElement>('[role="option"]')].map((o) => ({
+      text: o.textContent ?? "",
+      disabled: o.hasAttribute("data-disabled") || (o as HTMLButtonElement).disabled === true,
+      reason: o.getAttribute("data-disabled-reason"),
+    }));
+    await escape();
+    return options;
+  }
+  const optionFor = (options: { text: string; disabled: boolean; reason: string | null }[], value: string) => options.find((o) => o.text.includes(value));
+  const navPlusOf = (name: string) => {
+    let scope: HTMLElement | null = h.navCard(name);
+    while (scope && !scope.querySelector('[aria-label="Add Outbound"]')) scope = scope.parentElement;
+    return scope!.querySelector<HTMLElement>('[aria-label="Add Outbound"]')!;
+  };
+  // Priya Shah: SMS and email, two numbers on record. The Customers table lists directory customers only:
+  // there, the first one with SMS and two numbers on record (so the channel isn't open on all of them).
+  const tableCustomer = CREATE_NEW_CUSTOMERS.find(
+    (c) => /^customer-\d+$/.test(c.id) && c.channels.includes("sms") && new Set(c.phones.map((p) => p.value)).size >= 2,
+  )!;
+  let who = priya;
+  const pickers: Record<string, () => Promise<void>> = {
+    "header +": async () => {
+      await h.click(h.navCard(who.name));
+      await h.click(h.container.querySelector<HTMLElement>("[data-slot=header-add-channel] button")!);
+    },
+    "nav +": async () => {
+      await h.click(navPlusOf(who.name));
+    },
+    "Customers table": async () => {
+      await h.click([...h.container.querySelectorAll<HTMLElement>("aside button, aside [role=button]")].find((el) => el.textContent?.trim() === "Home")!);
+      await h.click([...h.container.querySelectorAll<HTMLElement>('[data-slot=home-tabs] [role="tab"]')].find((t) => t.textContent?.trim() === "Customers")!);
+      const row = [...h.container.querySelectorAll<HTMLElement>("table tr")].find((tr) => tr.textContent?.includes(who.firstName) && tr.textContent?.includes(who.lastName))!;
+      expect(row, `${who.name}'s row`).toBeTruthy();
+      await h.click(row.querySelector<HTMLElement>('[title="SMS"], [aria-label="SMS"]')!);
+    },
+    "New Outbound": async () => {
+      await h.click([...h.container.querySelectorAll<HTMLElement>("aside button")].find((b) => b.textContent?.includes("New Outbound"))!);
+      const field = document.getElementById("new-outbound-search") as HTMLInputElement;
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, who.name);
+        field.dispatchEvent(new Event("input", { bubbles: true }));
+        await vi.advanceTimersByTimeAsync(50);
+      });
+      const inPopover = (match: (el: HTMLElement) => boolean) =>
+        [...document.querySelectorAll<HTMLElement>("[data-radix-popper-content-wrapper] *")].find(
+          (el) => (el.getAttribute("role") === "button" || el.tagName === "BUTTON") && match(el),
+        );
+      const all = inPopover((el) => !!el.textContent?.trim().startsWith("All"));
+      if (all) await h.click(all);
+      await h.click(inPopover((el) => !!el.textContent?.includes(who.name))!);
+    },
+  };
+
+  /** The address field's current value (its default), as its trigger shows it. */
+  const shownAddress = () =>
+    [...document.body.querySelectorAll<HTMLElement>('[role="combobox"]')].map((c) => c.textContent?.trim() ?? "").find((t) => /\d{3}.*\d{4}/.test(t)) ?? "";
+
+  for (const [picker, open] of Object.entries(pickers)) {
+    it(`${picker}: an SMS thread open on the customer's default number lists it disabled "Already open"; closing the thread re-enables it`, async () => {
+      who = picker === "Customers table" ? tableCustomer : priya;
+      await setUp("inline", true);
+      // An email keeps her card while the SMS thread comes and goes.
+      const journey = await dial("email", who, who.emailAddress!);
+      await open();
+      await h.click(radio("SMS")!);
+      const number = shownAddress();
+      expect(number, "the picker's default number").not.toBe("");
+      await escape();
+
+      await dial("sms", who, number, journey);
+      await open();
+      // Another number is still free: the channel stays enabled, and defaults to it.
+      expect(radio("SMS")!.disabled).toBe(false);
+      await h.click(radio("SMS")!);
+      const other = shownAddress();
+      expect(other).not.toBe(number);
+      let options = await addressOptions(other);
+      expect(optionFor(options, number), "the open number is listed").toBeTruthy();
+      expect(optionFor(options, number)!.disabled).toBe(true);
+      expect(optionFor(options, number)!.reason).toBe(ALREADY_OPEN_REASON);
+      expect(optionFor(options, other)!.disabled).toBe(false);
+      await escape();
+
+      // Close the SMS thread (end it and complete its wrap-up).
+      const sms = (await snapshot()).find((i) => i.channel === "sms" && i.entityId === who.id && i.state !== "ended")!;
+      await act(async () => {
+        const ended = h.provider.end(sms.id as InteractionId);
+        await vi.advanceTimersByTimeAsync(300);
+        await ended;
+      });
+      await act(async () => {
+        const done = h.provider.completeWrapUp(sms.id as InteractionId, { dispositionCode: "resolved", tags: [], summary: "" });
+        await vi.advanceTimersByTimeAsync(300);
+        await done.catch(() => undefined);
+      });
+      await h.advance(500);
+      await open();
+      await h.click(radio("SMS")!);
+      expect(shownAddress()).toBe(number);
+      options = await addressOptions(number);
+      expect(optionFor(options, number)!.disabled).toBe(false);
+      expect(optionFor(options, number)!.reason).toBeNull();
+    });
+  }
 });
 
 describe("3: Settings → Assignments → Show status chip in the session row", () => {

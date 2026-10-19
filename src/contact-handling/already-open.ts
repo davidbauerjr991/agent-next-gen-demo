@@ -72,6 +72,17 @@ export function liveAddressesFor(contacts: readonly DomainInteraction[], entityI
   return open;
 }
 
+/** A card's live addresses per channel, by its journey (a card with no
+ *  directory entity: a scripted case, a history or ad-hoc contact; E3). */
+export function liveAddressesForJourney(contacts: readonly DomainInteraction[], journeyId: string): Partial<Record<ChannelType, string[]>> {
+  const open: Partial<Record<ChannelType, string[]>> = {};
+  for (const c of contacts) {
+    if (c.journeyId !== journeyId || !LIVE.has(c.state) || !c.address?.value) continue;
+    (open[c.channel as ChannelType] ??= []).push(c.address.value);
+  }
+  return open;
+}
+
 /** The customer's unused addresses on a channel (theirs, minus live ones). */
 export function unusedAddresses(record: CustomerAddresses | undefined, channel: ChannelType, open: Partial<Record<ChannelType, string[]>>): string[] {
   const live = open[channel] ?? [];
@@ -84,19 +95,24 @@ type TaggableContact = {
   email?: string;
   primaryPhone?: { value: string };
   openChannelAddresses?: Partial<Record<ChannelType, string[]>>;
+  openAddressReason?: string;
 };
 
 /** New Outbound (lyra `CreateNew`) disables a channel once every address it
  *  would offer is open, and can't take a reason per contact. So a channel
  *  that's "Already open" for this customer gets every address lyra could
- *  offer marked open: disabled there too, without the tooltip. */
+ *  offer marked open: disabled there too, without the tooltip. Any open
+ *  address stays listed in "Select Phone"/"Select Email Address", disabled
+ *  "Already open" (`openAddressReason`, E3), so the agent sees the channel
+ *  is active there. */
 export function markAlreadyOpen<C extends TaggableContact>(contact: C, reasons: Partial<Record<ChannelType, string>>, phoneOptions: readonly { value: string }[]): C {
   const channels = Object.keys(reasons) as ChannelType[];
-  if (channels.length === 0) return contact;
+  const listed = (c: C): C => (c.openChannelAddresses ? { ...c, openAddressReason: ALREADY_OPEN_REASON } : c);
+  if (channels.length === 0) return listed(contact);
   const every = [contact.primaryPhone?.value, ...phoneOptions.map((o) => o.value), contact.email, `@${contact.name}`].filter((v): v is string => !!v);
   const openChannelAddresses = { ...contact.openChannelAddresses };
   for (const channel of channels) openChannelAddresses[channel] = every;
-  return { ...contact, openChannelAddresses };
+  return listed({ ...contact, openChannelAddresses });
 }
 
 /** `{ [channel]: "Already open" }` for every channel with a live thread and

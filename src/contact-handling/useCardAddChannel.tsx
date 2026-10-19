@@ -3,7 +3,16 @@ import { AddChannelButton, type ChannelType, type CreateNewOutboundConfig, type 
 import type { NavCard } from "@/adapters/legacy/nav-card-view-model";
 import { initialsFor } from "@/components/agent-next-gen-shared-utils";
 import { useInteractions } from "@/provider-context";
-import { alreadyOpenReasons, customerChannelAddresses, liveAddressesFor, onCallReasons, unusedAddresses, type CustomerAddresses } from "./already-open";
+import {
+  ALREADY_OPEN_REASON,
+  alreadyOpenReasons,
+  customerChannelAddresses,
+  liveAddressesFor,
+  liveAddressesForJourney,
+  onCallReasons,
+  unusedAddresses,
+  type CustomerAddresses,
+} from "./already-open";
 import { linkedAddresses, useContactMethodsVersion, withLinkedContactMethods } from "./contact-methods";
 import type { CardContactMethods } from "./card-contact-methods";
 
@@ -42,23 +51,23 @@ export function useCardAddChannel({ outboundConfig, findCustomer }: UseCardAddCh
       const phones = customerChannelAddresses(record, "sms");
       const live = liveAddressesFor(contacts, entityId);
       // The customer's own numbers, in their spelling, with the live ones
-      // marked open per channel: lyra then offers (and defaults to) an unused
-      // one, never the outbound contact's synthesized number.
-      const cardContact =
-        phones.length === 0
-          ? contact
-          : {
-              ...contact,
-              primaryPhone: undefined,
-              openChannelAddresses: {
-                ...contact.openChannelAddresses,
-                ...Object.fromEntries(
-                  (Object.keys(live) as ChannelType[])
-                    .filter((ch) => ch !== "email")
-                    .map((ch) => [ch, phones.filter((p) => !unusedAddresses(record, ch, live).includes(p))]),
-                ),
-              },
-            };
+      // marked open per channel: lyra lists them disabled "Already open" (E3)
+      // and offers (and defaults to) an unused one, never the outbound
+      // contact's synthesized number. An open email is marked the same way.
+      const openOn = (ch: ChannelType) => customerChannelAddresses(record, ch).filter((a) => !unusedAddresses(record, ch, live).includes(a));
+      const cardContact = {
+        ...contact,
+        ...(phones.length > 0 ? { primaryPhone: undefined } : {}),
+        openChannelAddresses: {
+          ...contact.openChannelAddresses,
+          ...Object.fromEntries(
+            (Object.keys(live) as ChannelType[])
+              .filter((ch) => ch === "email" || phones.length > 0)
+              .map((ch) => [ch, openOn(ch)]),
+          ),
+        },
+        openAddressReason: ALREADY_OPEN_REASON,
+      };
       return (
         <AddChannelButton
           contact={cardContact}
@@ -124,7 +133,22 @@ export function useCardOwnAddChannel({
       }
       const channels: ChannelType[] = [...(phones.length ? (["voice", "sms", "whatsapp"] as ChannelType[]) : []), ...(email ? (["email"] as ChannelType[]) : [])];
       const name = card.customerName ?? phones[0] ?? email ?? "";
-      const contact: CreateNewOutboundContact = { id: `card:${card.id}`, name, initials: initialsFor(name), channels, ...(email ? { email } : {}) };
+      // The card's addresses with a live thread, per channel (E3): listed disabled "Already open"; a channel
+      // with every address open is disabled with the same reason (k6 2).
+      const own: CustomerAddresses = { phones: phones.map((value) => ({ value })), emailAddress: email };
+      const live = liveAddressesForJourney(contacts, card.id);
+      const openChannelAddresses = Object.fromEntries(
+        (Object.keys(live) as ChannelType[]).map((ch) => [ch, customerChannelAddresses(own, ch).filter((a) => !unusedAddresses(own, ch, live).includes(a))]),
+      );
+      const contact: CreateNewOutboundContact = {
+        id: `card:${card.id}`,
+        name,
+        initials: initialsFor(name),
+        channels,
+        ...(email ? { email } : {}),
+        openChannelAddresses,
+        openAddressReason: ALREADY_OPEN_REASON,
+      };
       return (
         <AddChannelButton
           contact={contact}
@@ -134,7 +158,11 @@ export function useCardOwnAddChannel({
           // `phone` is the chosen address, an email's included, or what was typed under Custom.
           onStartCall={({ channel, phone, skillId }) => onAddToCard(card, phone || (channel === "email" ? email ?? "" : ""), channel, skillId)}
           className={className}
-          channelDisabledReasons={{ ...onCallReasons(contacts, { journeyId: card.id, addresses: phones }), ...outboundConfig.channelDisabledReasons }}
+          channelDisabledReasons={{
+            ...alreadyOpenReasons(own, live),
+            ...onCallReasons(contacts, { journeyId: card.id, addresses: phones }),
+            ...outboundConfig.channelDisabledReasons,
+          }}
         />
       );
     },
