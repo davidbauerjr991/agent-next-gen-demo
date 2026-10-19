@@ -166,6 +166,7 @@ export function InteractionTranscript({
   trailingContent,
   trailingContentKey,
   isNewThread = false,
+  onSendDraft,
   isCustomerTyping = false,
   isAiTyping = false,
   onApprovalDecision,
@@ -792,10 +793,14 @@ export function InteractionTranscript({
                     instead of an empty "Coming Soon" body, per explicit
                     request. */}
                 {messages.length === 0 && channelType === "email" && (
-                  <div className="flex items-center justify-center pt-8 pb-12">
+                  <div className="flex flex-col items-center justify-center gap-3 pt-8 pb-12">
                     <p className="lyra-body-md text-lyra-fg-secondary">
                       Coming Soon Email Content
                     </p>
+                    {/* An outbound email draft's temporary Send (E2; P-PARKED's composer replaces it). */}
+                    {isNewThread && onSendDraft && session.id === lastSessionId && (
+                      <Button data-slot="email-draft-send" onClick={onSendDraft}>Send</Button>
+                    )}
                   </div>
                 )}
                 {/* Live messages — this interaction's own sent/received

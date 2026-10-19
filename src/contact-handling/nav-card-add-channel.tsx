@@ -15,7 +15,8 @@ export function navCardAddChannelAction(
   card: NavCard,
   options: {
     getHeaderAction: (entityId: string) => ReactNode;
-    /** A card with no directory entity but addresses saved for it: the picker over them (`useCardOwnAddChannel`). */
+    /** A card the directory picker doesn't cover: the picker over its contact methods when it's a known
+     *  customer, or over the addresses saved for it (`useCardOwnAddChannel`); `null` for the ad-hoc "+". */
     getCardAction?: (card: NavCard) => ReactNode;
     onAddAdHocChannel: (card: NavCard, query: string, channel: ChannelType, skillId: string) => void;
     skillOptions: AddChannelAdHocButtonProps["skillOptions"];
@@ -25,7 +26,8 @@ export function navCardAddChannelAction(
 ): ReactNode {
   if (card.offered || card.closed) return null;
   return (
-    (card.entityId ? options.getHeaderAction(card.entityId) : options.getCardAction?.(card) ?? null) ?? (
+    // The directory picker; else the card's own (a known card's contact methods, or saved addresses); else ad-hoc.
+    (card.entityId ? options.getHeaderAction(card.entityId) : null) ?? options.getCardAction?.(card) ?? (
       <AddChannelAdHocButton
         onLaunch={(query, channel, skillId) => options.onAddAdHocChannel(card, query, channel, skillId)}
         skillOptions={options.skillOptions}

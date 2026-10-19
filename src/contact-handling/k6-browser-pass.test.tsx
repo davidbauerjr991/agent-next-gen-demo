@@ -314,13 +314,48 @@ describe("8: the Session tab's channel matches the selected tab", () => {
 });
 
 describe("9: drafts vs live threads (one derivation)", () => {
-  it("isDraftThread: agent-initiated digital, nothing sent; a call or an email never", () => {
-    const thread = (type: string, startedFresh = true) => ({ id: `${type}:1`, type, startedFresh }) as never;
+  it("isDraftThread: agent-initiated digital, nothing sent; a call never; an email until its Send (E2)", () => {
+    const thread = (type: string, startedFresh = true, draftSent?: boolean) => ({ id: `${type}:1`, type, startedFresh, draftSent }) as never;
     expect(isDraftThread({ liveMessages: {} }, thread("sms"))).toBe(true);
     expect(isDraftThread({ liveMessages: { "sms:1": [{ sender: "agent" } as never] } }, thread("sms"))).toBe(false);
     expect(isDraftThread({ liveMessages: {} }, thread("sms", false))).toBe(false);
     expect(isDraftThread({ liveMessages: {} }, thread("voice"))).toBe(false);
-    expect(isDraftThread({ liveMessages: {} }, thread("email"))).toBe(false);
+    expect(isDraftThread({ liveMessages: {} }, thread("email"))).toBe(true);
+    expect(isDraftThread({ liveMessages: {} }, thread("email", true, true))).toBe(false);
+    expect(isDraftThread({ liveMessages: {} }, thread("email", false))).toBe(false);
+  });
+
+  // E2: a new outbound email is a draft like chat/SMS/WhatsApp; the temporary Send under its "Coming soon"
+  // body (P-PARKED's composer replaces it) marks it sent and makes it live.
+  for (const ai of ["inline", "panel"] as const) {
+    it(`AI display ${ai}: a new outbound email is a draft (nav delete icon, "Discard draft", no Outcome); Send makes it live with Outcome`, async () => {
+      await setUp(ai);
+      await dial("email", priya, priya.emailAddress!);
+      await h.click(h.navCard(priya.name));
+      expect(mainColumn().getAttribute("data-main-thread")).toBe("email");
+      const deleteDraft = () => h.navCard(priya.name).closest("aside")!.querySelector('[title="Delete Draft"], [aria-label="Delete Draft"]');
+      expect(deleteDraft()).not.toBeNull();
+      expect(buttonText(mainColumn(), /Discard draft/)).toBeTruthy();
+      expect(mainColumn().querySelector('[aria-label="Outcome"]')).toBeNull();
+      await h.click(mainColumn().querySelector<HTMLElement>("[data-slot=email-draft-send]")!);
+      expect(deleteDraft()).toBeNull();
+      expect(buttonText(mainColumn(), /Discard draft/)).toBeFalsy();
+      expect(mainColumn().querySelector("[data-slot=email-draft-send]")).toBeNull();
+      expect(mainColumn().querySelector('[aria-label="Outcome"]')).not.toBeNull();
+    });
+  }
+
+  it("AI display main: a new outbound email is a draft in the panel's session row; Send in its body makes it live with Outcome", async () => {
+    await setUp("main");
+    await dial("email", priya, priya.emailAddress!);
+    await h.click(h.navCard(priya.name));
+    if (panelShows() !== "email") await h.click(headerIcon("Email")!);
+    const row = () => panel().querySelector("[data-slot=panel-session-row]")!;
+    expect(buttonText(row(), /Discard draft/)).toBeTruthy();
+    expect(row().querySelector('[aria-label="Outcome"]')).toBeNull();
+    await h.click(panel().querySelector<HTMLElement>("[data-slot=email-draft-send]")!);
+    expect(buttonText(row(), /Discard draft/)).toBeFalsy();
+    expect(row().querySelector('[aria-label="Outcome"]')).not.toBeNull();
   });
 
   for (const ai of ["inline", "panel"] as const) {
@@ -335,7 +370,8 @@ describe("9: drafts vs live threads (one derivation)", () => {
       expect(buttonText(mainColumn(), /Discard draft/)).toBeTruthy();
       expect(mainColumn().querySelector('[aria-label="Outcome"], [title="Outcome"]')).toBeNull();
       expect(navScope().querySelector('[aria-label="Outcome"], [title="Outcome"]')).toBeNull();
-      const deleteDraft = () => h.navCard(priya.name).closest("aside")!.querySelector('[title="Delete Draft"], [aria-label="Delete Draft"]');
+      // The SMS row's own delete icon (the email dialed first is a draft too, E2).
+      const deleteDraft = () => navScope().querySelector('[title="Delete Draft"], [aria-label="Delete Draft"]');
       expect(deleteDraft()).not.toBeNull();
       await sendInMain("Hi Priya");
       expect(deleteDraft()).toBeNull();
@@ -377,6 +413,8 @@ describe("9: drafts vs live threads (one derivation)", () => {
     await dial("email", priya, priya.emailAddress!, journey);
     await h.click(h.navCard(priya.name));
     if (panelShows() !== "email") await h.click(headerIcon("Email")!);
+    // A new outbound email is a draft until its Send (E2).
+    await h.click(panel().querySelector<HTMLElement>("[data-slot=email-draft-send]")!);
     const row = panel().querySelector("[data-slot=panel-session-row]")!;
     await h.click(row.querySelector<HTMLElement>('[aria-label="Outcome"]')!);
     await saveAndDismiss();

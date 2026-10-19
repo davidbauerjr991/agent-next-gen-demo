@@ -28,6 +28,9 @@ import {
 } from "@/contact-handling";
 import { AGENT_WORKSPACE_CUSTOMER_PANEL_TABS, useCustomerDetailsInteriorPanel, useSessionDetailsTabContent } from "@/components/agent-next-gen-customer-info-panel";
 import { MARCUS_WEBB_ID } from "@/contact-handling/scenario-cases";
+import { cardContactMethods } from "@/contact-handling/card-contact-methods";
+import { SCENARIOS } from "@/scenarios";
+import type { Interaction } from "@/components/agent-next-gen-interaction-dashboard";
 import { usePresenceSync } from "@/contact-handling/usePresenceSync";
 import { useThreadCurrentSession } from "@/contact-handling/useThreadCurrentSession";
 import type { WorkspaceLate } from "./workspace-late";
@@ -36,7 +39,7 @@ import type { WsPanels } from "./useWsPanels";
 export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
   const {
     LUCAS_THOMAS_PHONE, activeChannel, activeChannelKey, activeChannelStatus, activeCustomerOverviewEditing,
-    activeCustomerRecordDraft, activeInteraction, activeInteractionId, addToast, agentStatus, channelPreviewThread,
+    activeCustomerRecordDraft, activeInteraction, activeInteractionId, addToast, agentStatus, cardIdentityOf, channelPreviewThread,
     channelPreviewThreadKey, clock, containerRef, createdCustomerRecords, customerTable, dismissInteractionRef,
     enabledChannels, findOpenCard, fireDismissToast, interactions, isNavNarrow, launchLucasCall, lucasCallConfirmRef,
     mainPins, navOpen, omni, omnichannel, outcomeDrafts, panelOpen, panelPlacement, placement, scenarioCases,
@@ -199,8 +202,17 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
   const { allOptions: allOutboundSkills, idForName: skillIdForName } = useOutboundSkills();
   const findDirectoryCustomer = (entityId: string) =>
     createdCustomerRecords.find((c) => c.id === entityId) ?? CREATE_NEW_CUSTOMERS.find((c) => c.id === entityId);
-  // A launch on an address that isn't on the customer's record offers to save it (k8 8).
-  const offerToSaveAddress = useSaveAddressOffers({ cards: interactions, setCards: setInteractions, findCustomer: findDirectoryCustomer });
+  /** A card's contact methods (E2): what Contact Details shows for it, plus added addresses; the "+" picker
+   *  and the save-address offer both read it. */
+  const cardContactMethodsOf = (card: Interaction) => {
+    const known = !!(card.identity ?? cardIdentityOf(card));
+    const record = card.entityId ? findDirectoryCustomer(card.entityId) : undefined;
+    const key = scenarioKeyOf(card.id);
+    const scenarioPhone = key ? SCENARIOS.find((s) => s.id === key || s.entity.key === key)?.entity.phone : undefined;
+    return { known, methods: cardContactMethods(card, { record, known, scenarioPhone }) };
+  };
+  // A launch on an address that isn't among a known card's contact methods offers to save it (k8 8, E2).
+  const offerToSaveAddress = useSaveAddressOffers({ cards: interactions, setCards: setInteractions, contactMethodsOf: cardContactMethodsOf });
   const outboundDial = useOutboundDial({
     findOpenCard,
     findCustomer: findDirectoryCustomer,
@@ -807,7 +819,7 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
     ...prev,
     isCompactHeader, narrowActiveRegion, setNarrowActiveRegion, MAX_PANEL_HEIGHT, BOTTOM_PADDING, SHARED_PANEL_MAX_WIDTH,
     computePanelHeight, handleStatusChange, isOnVoiceCall, preCallStatusRef, handleStartCall, handleContactActivated,
-    activateWhenReady, allOutboundSkills, skillIdForName, findDirectoryCustomer, offerToSaveAddress, outboundDial,
+    activateWhenReady, allOutboundSkills, skillIdForName, findDirectoryCustomer, cardContactMethodsOf, offerToSaveAddress, outboundDial,
     contactReopen, customerInfoOverlayContent, detailsThreadKey, detailsFromPanelRow, detailsCurrentSession,
     sessionDetailsTabContent, handleRedialButtonClick, handleDialpadSubmit, handleAddAdHocChannel,
     handleReopenContactHistoryEntry, handleDismissInteraction, handleDismissChannel, handleChannelSelect,

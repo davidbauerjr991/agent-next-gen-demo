@@ -59,7 +59,7 @@ import type { WsLaunch } from "./useWsLaunch";
 
 export function useWsOutbound(prev: WsLaunch, late: WorkspaceLate) {
   const {
-    SHARED_PANEL_MAX_WIDTH, activateWhenReady, activeInteractionId, addToast, allOutboundSkills, calling, channelSettings,
+    SHARED_PANEL_MAX_WIDTH, activateWhenReady, activeInteractionId, addToast, allOutboundSkills, calling, cardContactMethodsOf, channelSettings,
     clock, computePanelHeight, confirmDismiss, contactReopen, containerRef, createdCustomerRecords,
     dismissedContactHistory, findOpenCard, fullScreenAnimTimer, handleDismissChannel, handleDismissInteraction,
     handleOutcomeCancel, handleOutcomeOpenChange, handleOutcomeSave, handleOutcomeSaveAndRedial, handleStartCall,
@@ -83,6 +83,16 @@ export function useWsOutbound(prev: WsLaunch, late: WorkspaceLate) {
    *  exactly the treatment `InteractionNavItem.stories.tsx`'s "Active,
    *  Awaiting Response" story already documents, not a new visual invented
    *  for this feature. */
+  /** An outbound email draft's temporary Send (E2): marks the thread sent, which makes it live (Outcome, the
+   *  status pill, Unassign & Dismiss). P-PARKED's email composer replaces it. */
+  const handleSendEmailDraft = (interactionId: string, threadKey: string) =>
+    setInteractions((prev) =>
+      prev.map((i) =>
+        i.id === interactionId
+          ? { ...i, threads: i.threads.map((t) => ((t.id ?? t.type) === threadKey ? { ...t, draftSent: true } : t)) }
+          : i
+      )
+    );
   const handleSendMessage = (interactionId: string, text: string, channelKeyOverride?: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
@@ -519,7 +529,9 @@ export function useWsOutbound(prev: WsLaunch, late: WorkspaceLate) {
     findCustomer: (entityId) => createdCustomerRecords.find((c) => c.id === entityId) ?? CREATE_NEW_CUSTOMERS.find((c) => c.id === entityId),
   });
   // A card with no directory entity, once an address was saved for it: the picker over its own addresses (Bug 3).
-  const getCardAction = useCardOwnAddChannel({ outboundConfig, onAddToCard: outboundDial.addAdHocChannel });
+  // E2: a known card without a directory contact (a scripted case, a created or history customer) gets the
+  // picker over its contact methods, the addresses Contact Details shows.
+  const getCardAction = useCardOwnAddChannel({ outboundConfig, onAddToCard: outboundDial.addAdHocChannel, contactMethodsOf: cardContactMethodsOf });
   /** A card's "+" (add channel): the nav card's and the record header's, one control (k6 1); its picker is
    *  gated like New Outbound (Settings → Channels, presence, threads already open). None while ringing or closed. */
   const addChannelActionFor = (card: Interaction) =>
@@ -870,7 +882,7 @@ export function useWsOutbound(prev: WsLaunch, late: WorkspaceLate) {
 
   return {
     ...prev,
-    handleSendMessage, contactCommands, outcomeFor, handleInteractionStatusChange, caseStatusCapable,
+    handleSendMessage, handleSendEmailDraft, contactCommands, outcomeFor, handleInteractionStatusChange, caseStatusCapable,
     handleOutcomeSaveAndDismissChannel, outcomeConfigFor, incomingOffer, liveVoiceCallControls, handleCallHoldChip,
     presenceChannelReasons, outboundConfig, contactHistoryOutboundContacts, getHeaderAction, getCardAction,
     addChannelActionFor, handleGoAvailable, handleStartUnavailable, handlePanelVariantChange,

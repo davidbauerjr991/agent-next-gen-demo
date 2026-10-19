@@ -118,6 +118,8 @@ describe("B: Session Details is per channel", () => {
     await h.click(h.navCard(priya.name));
     if (panelShows() !== "email") await h.click(headerIcon("Email")!);
     expect(panelShows()).toBe("email");
+    // A new outbound email is a draft (no Outcome) until its Send (E2).
+    await h.click(panel().querySelector<HTMLElement>("[data-slot=email-draft-send]")!);
     const row = () => panel().querySelector("[data-slot=panel-session-row]");
     expect(row()).not.toBeNull();
     expect(row()!.querySelector('[aria-label="Outcome"], [title="Outcome"]')).not.toBeNull();

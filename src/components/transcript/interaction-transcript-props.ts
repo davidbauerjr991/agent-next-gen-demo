@@ -331,6 +331,9 @@ export interface InteractionTranscriptProps {
    *  existing call site is unaffected until the caller starts computing a
    *  real value. */
   isNewThread?: boolean;
+  /** An outbound email draft's temporary Send (E2), under the "Coming soon" body while the thread is a draft
+   *  (`isNewThread`): marks it sent, which makes it live. P-PARKED's email composer replaces it. */
+  onSendDraft?: () => void;
   /** True while a simulated customer reply is pending on the ACTIVE channel
    *  (`handleSendMessage`'s 2.5s reply timeout, main component — set the
    *  instant the agent's own message is sent, cleared the moment the

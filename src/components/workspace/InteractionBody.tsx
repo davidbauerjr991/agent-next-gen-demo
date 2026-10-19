@@ -34,7 +34,7 @@ export function InteractionBody() {
     confirmDismiss, contactStateById, copilotComposerProps, copilotDock, copilotHost, copilotSlot,
     customerContextOverviewInfo, customerTyping, focusCustomerPanelTab, handleCopilotAsk, handleDismissChannel,
     handleDismissInteraction, handleInteractionStatusChange, handleLucasApprovalDecision, handleLucasCallRequest,
-    handleLucasTakeover, handleMarcusCopilotAsk, handleSendMessage, hideAiActions, historyConversationForActive,
+    handleLucasTakeover, handleMarcusCopilotAsk, handleSendEmailDraft, handleSendMessage, hideAiActions, historyConversationForActive,
     isColdCallId, isHistoryConversationView, liveVoiceCallInteraction, lucasActiveLinkKey, lucasThomasReviewing,
     marcusCopilotRequestsRef, marcusQuestionHost, marcusWebbPhotoExpanded, marcusWebbReviewing,
     openDetailPanelContent, outcomeConfigFor, outcomeDrafts, panelPlacement, renderAiOverview, renderAiPanelFeed,
@@ -269,6 +269,8 @@ export function InteractionBody() {
                           // see `activeChannelIsNewOutboundThread`'s own
                           // doc comment above for the full reasoning.
                           isNewThread={activeChannelIsNewOutboundThread}
+                          // An outbound email draft's temporary Send (E2; P-PARKED's composer replaces it).
+                          onSendDraft={activeChannelType === "email" ? () => handleSendEmailDraft(activeInteraction.id, activeChannelKey) : undefined}
                           // Per explicit follow-up request ("let's update
                           // the channel controls to always be in the
                           // session row - even if there is only one channel

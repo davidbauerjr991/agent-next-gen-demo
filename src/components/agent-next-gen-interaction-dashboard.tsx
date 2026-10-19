@@ -201,6 +201,10 @@ export interface Thread {
    *  own `startedFresh` prop for the unrelated "is this a brand-new/possibly
    *  unmatched customer record" question, which really is interaction-wide. */
   startedFresh?: boolean;
+  /** An outbound email's draft was sent (E2): the temporary Send under its "Coming soon" body sets it, and
+   *  `isDraftThread` reads it. Email has no messages to tell a draft from a sent thread until P-PARKED's
+   *  composer, which replaces this. */
+  draftSent?: boolean;
   /** Whether this channel was customer-initiated ("inbound") or agent-
    *  initiated ("outbound") — per explicit request (Agent Workspace 2.0
    *  Phase 1 & Phase 2 only), drives the direction-aware voice/SMS icon in

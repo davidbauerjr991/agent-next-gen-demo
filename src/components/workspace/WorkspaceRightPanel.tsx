@@ -38,7 +38,7 @@ export function WorkspaceRightPanel() {
     customerMatchQuery, customerMatchStep, customerPanelActiveTab, customerPanelFocusTab, customerSearchResults,
     effectiveSidePanelPinned, experienceMemoryFocus, focusCustomerPanelTab, handleBackToCustomerSearch,
     handleInteractionStatusChange, handleLinkCustomerRecord, handleOutcomeSaveAndDismissChannel,
-    handleSaveNewCustomer, handleSendMessage, handleSidePanelClose, handleStartCall, handleStartCreateCustomer,
+    handleSaveNewCustomer, handleSendEmailDraft, handleSendMessage, handleSidePanelClose, handleStartCall, handleStartCreateCustomer,
     hideAiActions, isSidePanelAtMinimalThreshold, linkCustomerPanelOpen, lucasThomasReviewing, marcusMemoryFocus,
     onSidePanelHoverEnd, onSidePanelHoverStart, openDetailPanelContent, outcomeDrafts, panelArtifacts,
     panelPlacement, panelVoiceThread, possibleCustomerMatches, renderContactDetailsTab, reopenPanelArtifact,
@@ -464,6 +464,7 @@ export function WorkspaceRightPanel() {
                         withoutAiActions={panelPlacement}
                         sessionRowInHeader={panelPlacement}
                         overview={threadOverview}
+                        onSendDraft={() => handleSendEmailDraft(activeInteraction.id, channelPreviewThreadStableKey!)}
                         hideMockFollowUpMessages={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID}
                         onStatusChange={(status) =>
                           handleInteractionStatusChange(activeInteraction.id, channelPreviewThreadStableKey!, status)

@@ -1,4 +1,5 @@
 import type { ComponentProps, ReactNode } from "react";
+import { Button } from "@nicecxone/lyra-ui";
 import { InteractionComposer, InteractionTranscript } from "@/components/agent-next-gen-transcript";
 import type { Interaction, Thread } from "@/components/agent-next-gen-interaction-dashboard";
 import { isAiActionMessage } from "@/components/agent-next-gen-ai-messages";
@@ -25,6 +26,8 @@ export interface ChannelThreadBodyProps {
   overview?: ReactNode;
   /** The current session's row is in the panel's header (`ChannelThreadSessionRow`, AI display "main"). */
   sessionRowInHeader?: boolean;
+  /** An outbound email draft's temporary Send under "Coming soon" (E2; P-PARKED's composer replaces it). */
+  onSendDraft?: () => void;
 }
 
 /** One thread's transcript outside the main column (the docked channel
@@ -39,11 +42,15 @@ export function ChannelThreadBody({
   withoutAiActions,
   overview,
   sessionRowInHeader,
+  onSendDraft,
 }: ChannelThreadBodyProps) {
   if (thread.type === "email") {
     return (
       // `flex-1`: centered in whatever body it fills (the panel, or a preview at its min height).
-      <div className="flex min-h-full flex-1 items-center justify-center px-6 text-center text-sm text-lyra-fg-secondary">Coming soon</div>
+      <div className="flex min-h-full flex-1 flex-col items-center justify-center gap-3 px-6 text-center text-sm text-lyra-fg-secondary">
+        Coming soon
+        {onSendDraft && isDraftThread(interaction, thread) && <Button data-slot="email-draft-send" onClick={onSendDraft}>Send</Button>}
+      </div>
     );
   }
   const key = threadKeyOf(thread);

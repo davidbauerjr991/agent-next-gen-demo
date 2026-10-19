@@ -13,7 +13,7 @@ import type { Thread } from "@/components/agent-next-gen-interaction-dashboard";
 /** Card fields the page owns. */
 export const CARD_OVERLAY_FIELDS = ["currentThreadId", "startedFresh", "liveMessages", "customerId", "identity"] as const;
 /** Thread fields the page owns (the faked customer reply, P2.2 replaces it). */
-export const THREAD_OVERLAY_FIELDS = ["awaitingResponse", "lastCustomerMessageTick", "messageCount", "startedFresh"] as const;
+export const THREAD_OVERLAY_FIELDS = ["awaitingResponse", "lastCustomerMessageTick", "messageCount", "startedFresh", "draftSent"] as const;
 
 type CardOverlayField = (typeof CARD_OVERLAY_FIELDS)[number];
 type ThreadOverlayField = (typeof THREAD_OVERLAY_FIELDS)[number];

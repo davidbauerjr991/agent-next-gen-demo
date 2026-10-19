@@ -119,6 +119,9 @@ describe("Bug 1: one Outcome popover per click", () => {
         await h.click(rows.find((r) => !r.textContent?.includes("Current"))!);
       }
       expect(panelShows()).toBe("email");
+      // A new outbound email is a draft (no Outcome) until its Send (E2).
+      const send = panel().querySelector<HTMLElement>("[data-slot=email-draft-send]");
+      if (send) await h.click(send);
       const [outcome] = sessionRowOutcomes(panel().querySelector("[data-slot=panel-session-row]")!);
       await h.click(outcome);
       expect(openOutcomePopovers(), `email ${pick + 1}`).toHaveLength(1);

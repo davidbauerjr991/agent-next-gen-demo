@@ -5,6 +5,7 @@ import { initialsFor } from "@/components/agent-next-gen-shared-utils";
 import { useInteractions } from "@/provider-context";
 import { alreadyOpenReasons, customerChannelAddresses, liveAddressesFor, onCallReasons, unusedAddresses, type CustomerAddresses } from "./already-open";
 import { linkedAddresses, useContactMethodsVersion, withLinkedContactMethods } from "./contact-methods";
+import type { CardContactMethods } from "./card-contact-methods";
 
 export interface UseCardAddChannelOptions {
   /** New Outbound's config: its groups (the contacts a card can be), channel options, skills, presence reasons. */
@@ -85,28 +86,42 @@ export function useCardAddChannel({ outboundConfig, findCustomer }: UseCardAddCh
   return getHeaderAction;
 }
 
-/** The "+" for a card with no directory entity once an address was saved
- *  for it (P-EXTRACT, Bug 3): the channel picker over the card's own
- *  addresses (the saved ones first, then its threads'), launching onto the
- *  card like the ad-hoc "+" does. `null` while nothing is saved for the
- *  card: the ad-hoc "+" (a typed address) stays. */
+/** The "+" for a card the directory picker doesn't cover (no directory
+ *  contact behind it): the channel picker over the card's contact methods
+ *  (`cardContactMethods`, what Contact Details shows), Custom included,
+ *  launching onto the card like the ad-hoc "+" does. A known card (a
+ *  scripted case, a created or history customer) always gets it (E2); a card
+ *  with no identity only once an address was saved for it (P-EXTRACT, Bug 3:
+ *  the saved ones first, then its threads'). `null` otherwise: the ad-hoc
+ *  "+" (a typed address) stays. */
 export function useCardOwnAddChannel({
   outboundConfig,
   onAddToCard,
+  contactMethodsOf,
 }: {
   outboundConfig: Pick<CreateNewOutboundConfig, "channelOptions" | "skillOptions" | "channelDisabledReasons">;
   onAddToCard: (card: NavCard, address: string, channel: ChannelType, skillId: string) => void;
+  /** The card's contact methods, and whether it's a known customer. */
+  contactMethodsOf: (card: NavCard) => { known: boolean; methods: CardContactMethods };
 }) {
   const contacts = useInteractions();
   const linkedVersion = useContactMethodsVersion();
   return useCallback(
     (card: NavCard, className?: string): ReactNode => {
-      const savedPhones = linkedAddresses(card.id, "sms");
-      const savedEmails = linkedAddresses(card.id, "email");
-      if (savedPhones.length === 0 && savedEmails.length === 0) return null;
-      const threadPhones = card.threads.filter((t) => t.type !== "email").map((t) => t.value ?? t.addressLabel ?? "").filter(Boolean);
-      const phones = [...new Set([...savedPhones, ...threadPhones])];
-      const email = savedEmails[0] ?? card.threads.find((t) => t.type === "email")?.value;
+      const { known, methods } = contactMethodsOf(card);
+      let phones: string[];
+      let email: string | undefined;
+      if (known) {
+        phones = methods.phones;
+        email = methods.emails[0];
+      } else {
+        const savedPhones = linkedAddresses(card.id, "sms");
+        const savedEmails = linkedAddresses(card.id, "email");
+        if (savedPhones.length === 0 && savedEmails.length === 0) return null;
+        const threadPhones = card.threads.filter((t) => t.type !== "email").map((t) => t.value ?? t.addressLabel ?? "").filter(Boolean);
+        phones = [...new Set([...savedPhones, ...threadPhones])];
+        email = savedEmails[0] ?? card.threads.find((t) => t.type === "email")?.value;
+      }
       const channels: ChannelType[] = [...(phones.length ? (["voice", "sms", "whatsapp"] as ChannelType[]) : []), ...(email ? (["email"] as ChannelType[]) : [])];
       const name = card.customerName ?? phones[0] ?? email ?? "";
       const contact: CreateNewOutboundContact = { id: `card:${card.id}`, name, initials: initialsFor(name), channels, ...(email ? { email } : {}) };
@@ -116,14 +131,15 @@ export function useCardOwnAddChannel({
           channelOptions={outboundConfig.channelOptions.filter((c) => channels.includes(c.id))}
           phoneOptions={phones.map((value) => ({ value, label: value }))}
           skillOptions={outboundConfig.skillOptions ?? []}
-          onStartCall={({ channel, phone, skillId }) => onAddToCard(card, channel === "email" ? email ?? phone : phone, channel, skillId)}
+          // `phone` is the chosen address, an email's included, or what was typed under Custom.
+          onStartCall={({ channel, phone, skillId }) => onAddToCard(card, phone || (channel === "email" ? email ?? "" : ""), channel, skillId)}
           className={className}
-          channelDisabledReasons={{ ...onCallReasons(contacts, { journeyId: card.id }), ...outboundConfig.channelDisabledReasons }}
+          channelDisabledReasons={{ ...onCallReasons(contacts, { journeyId: card.id, addresses: phones }), ...outboundConfig.channelDisabledReasons }}
         />
       );
     },
     // `linkedVersion`: a saved address re-renders the picker.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [outboundConfig, onAddToCard, contacts, linkedVersion],
+    [outboundConfig, onAddToCard, contactMethodsOf, contacts, linkedVersion],
   );
 }

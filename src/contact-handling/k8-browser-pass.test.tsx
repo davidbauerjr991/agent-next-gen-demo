@@ -247,10 +247,10 @@ describe("6: one call per customer on every launch path", () => {
     await h.play(MAYA);
     await h.advance(3_000);
     await h.click(h.navCard("Maya Chen"));
-    for (const plus of [headerPlus(), h.navCard("Maya Chen").closest("aside")!.querySelector<HTMLElement>('[title="Add Channel"], [aria-label="Add Channel"]')!]) {
+    // A known card (her scripted case): her "+" is the channel picker over her contact methods (E2), not the ad-hoc box.
+    for (const plus of [headerPlus(), h.navCard("Maya Chen").closest("aside")!.querySelector<HTMLElement>('[aria-label="Add Outbound"]')!]) {
       await h.click(plus);
-      await typeInto(document.body.querySelector<HTMLInputElement>('input[placeholder="Email or phone number"]')!, "(212) 555-0177");
-      await h.click(buttonText(document.body, /^Continue with/)!);
+      expect(document.body.querySelector('input[placeholder="Email or phone number"]')).toBeNull();
       expect(radio("Voice")!.disabled).toBe(true);
       expect(reasonOf(radio("Voice"))).toBe(ON_A_CALL_REASON);
       expect(radio("SMS")!.disabled).toBe(false);

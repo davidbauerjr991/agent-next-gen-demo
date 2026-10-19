@@ -6,12 +6,12 @@ export const threadKeyOf = (thread: Thread): string => thread.id ?? thread.type;
 /** A draft (P-AIFIRST (k6) 9): an agent-initiated digital thread with nothing
  *  sent yet. The nav row shows its delete icon and the session row "Discard
  *  draft" (no Outcome, Transfer or status pill); once the agent sends a
- *  message it's a live thread on both. A call is never a draft, and neither
- *  is an email: there's no email composer yet (P-PARKED), so its outbound
- *  dial is its send. One derivation, read by the nav card and the session
- *  row in every mode. */
+ *  message it's a live thread on both. A call is never a draft. An outbound
+ *  email is one too (E2) until its temporary Send (`draftSent`; P-PARKED's
+ *  composer replaces it). One derivation, read by the nav card and the
+ *  session row in every mode. */
 export function isDraftThread(interaction: Pick<Interaction, "liveMessages">, thread: Thread | undefined): boolean {
-  if (!thread || thread.type === "voice" || thread.type === "email" || !thread.startedFresh) return false;
+  if (!thread || thread.type === "voice" || !thread.startedFresh || thread.draftSent) return false;
   return !(interaction.liveMessages?.[threadKeyOf(thread)] ?? []).some((m) => m.sender === "agent");
 }
 
