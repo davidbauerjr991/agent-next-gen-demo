@@ -243,3 +243,92 @@ for (const [displayLocation, tabs] of [
     await expect(panel.locator("[data-slot=contact-details-tabs] [role=tab]")).toHaveText([...tabs]);
   });
 }
+
+/** Maya Chen's call (dev hotkey B), with this AI display and the two-column canvas. */
+async function mayaLive(page: Page, displayLocation: "inline" | "main", width: number) {
+  await page.setViewportSize({ width, height: 1000 });
+  await page.addInitScript((display) => {
+    localStorage.setItem("agent-next-gen:settings:ai", JSON.stringify({ v: 1, value: { displayLocation: display, canvasLayout: "twoColumn" } }));
+  }, displayLocation);
+  await page.goto("?provider=sim&latency=off#/agent-advanced");
+  await page.getByRole("button", { name: "Go Available" }).click();
+  await page.keyboard.press("b");
+  await expect(page.locator("aside").getByText("Maya Chen").first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator("[data-canvas-region=action]")).toBeVisible();
+  await page.waitForTimeout(500);
+}
+
+const rect = (page: Page, selector: string) =>
+  page.evaluate((s) => {
+    const el = [...document.querySelectorAll(s)].find((e) => e.getBoundingClientRect().width > 0);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, width: r.width };
+  }, selector);
+const slideOver = "[data-slot=reference-slide-over]";
+const composerSel = "[data-canvas-region=action] [data-slot=copilot-composer]";
+
+for (const displayLocation of ["inline", "main"] as const) {
+  test(`${displayLocation}: a slide-over takes the reference slot below the header, and dragging it pushes the action area`, async ({ page }) => {
+    await mayaLive(page, displayLocation, displayLocation === "main" ? 2200 : 1600);
+    const column = (await rect(page, "[data-canvas-region=reference]"))!;
+    const rowBefore = await row(page);
+    const actionBefore = (await rect(page, "[data-canvas-region=action]"))!;
+    await page.locator(composerSel).getByRole("button", { name: "Show the card on file" }).click();
+    await expect(page.locator(slideOver)).toBeVisible();
+    await page.waitForTimeout(400);
+
+    // Where the column was, from the header's bottom down; no reference card while it's open.
+    const so = (await rect(page, slideOver))!;
+    const header = (await rect(page, "[data-slot=record-header]"))!;
+    expect(Math.round(so.left)).toBe(Math.round(column.left));
+    expect(Math.round(so.right)).toBe(Math.round(column.right));
+    expect(Math.abs(so.top - header.bottom)).toBeLessThanOrEqual(1);
+    await expect(page.locator("[data-canvas-region=reference]")).toHaveCount(0);
+
+    // Drag the handle 200px wider: the action area gives up exactly that, scroll kept. (The composer is
+    // centered at most 768px wide inside the action area, so it shrinks only once the area is narrower.)
+    const action = page.locator("[data-canvas-region=action]");
+    const scrollBefore = await action.evaluate((el) => el.querySelector("[data-slot=transcript-scroll], .overflow-y-auto")?.scrollTop ?? 0);
+    const actionOpen = (await rect(page, "[data-canvas-region=action]"))!;
+    const handle = page.locator(slideOver).getByRole("separator", { name: "Resize panel" });
+    const hb = (await handle.boundingBox())!;
+    await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(hb.x + hb.width / 2 - 100, hb.y + hb.height / 2, { steps: 5 });
+    await page.mouse.move(hb.x + hb.width / 2 - 200, hb.y + hb.height / 2, { steps: 5 });
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+    const dragged = (await rect(page, slideOver))!;
+    const actionDragged = (await rect(page, "[data-canvas-region=action]"))!;
+    const composerAfter = (await rect(page, composerSel))!;
+    expect(Math.round(dragged.width)).toBe(Math.round(so.width + 200));
+    expect(Math.abs(actionDragged.right - dragged.left)).toBeLessThanOrEqual(2);
+    expect(Math.round(actionOpen.width - actionDragged.width)).toBe(200);
+    expect(composerAfter.right).toBeLessThanOrEqual(dragged.left + 2);
+    const scrollAfter = await action.evaluate((el) => el.querySelector("[data-slot=transcript-scroll], .overflow-y-auto")?.scrollTop ?? 0);
+    expect(scrollAfter).toBe(scrollBefore);
+
+    // Full screen: the whole row, below the header; the left rail stays.
+    await page.locator(slideOver).getByRole("button", { name: "Full screen" }).click();
+    await page.waitForTimeout(400);
+    const full = (await rect(page, slideOver))!;
+    const r = await row(page);
+    expect(Math.round(full.width)).toBe(Math.round(r.width));
+    expect(Math.round(full.left)).toBe(Math.round(r.left));
+    expect(Math.abs(full.top - header.bottom)).toBeLessThanOrEqual(1);
+    await expect(page.locator("aside").first()).toBeVisible();
+    // Exit: the dragged width again.
+    await page.locator(slideOver).getByRole("button", { name: "Exit full screen" }).click();
+    await page.waitForTimeout(400);
+    expect(Math.round((await rect(page, slideOver))!.width)).toBe(Math.round(dragged.width));
+
+    // Close: the reference cards are back and the action area has its width again.
+    await page.locator(slideOver).getByRole("button", { name: /^Close / }).click();
+    await page.waitForTimeout(600);
+    await expect(page.locator(slideOver)).toHaveCount(0);
+    await expect(page.locator("[data-canvas-region=reference]")).toBeVisible();
+    expect(Math.round((await rect(page, "[data-canvas-region=action]"))!.width)).toBe(Math.round(actionBefore.width));
+    expect(Math.round((await row(page)).width)).toBe(Math.round(rowBefore.width));
+  });
+}

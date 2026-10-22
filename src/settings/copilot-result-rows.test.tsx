@@ -68,13 +68,14 @@ function openResult(): HTMLElement | null {
   return result && shell?.style.visibility === "visible" ? result : null;
 }
 
-/** Inline and main: a child of the content card itself (not inside the main
- *  column or the panel), so it covers the card from its top. Panel: inside
- *  the panel. */
+/** Inline and main: in the reference slot beside the main column (not inside
+ *  the main column or the panel), below the record header. Panel: inside the
+ *  panel. */
 function expectSlideOverPlacement(displayLocation: AiSettings["displayLocation"]) {
   const result = openResult()!;
   if (displayLocation !== "panel") {
     expect(result.closest("[data-slot=content-card]")).not.toBeNull();
+    expect(result.closest("[data-slot=reference-slide-over]")).not.toBeNull();
     expect(result.closest("[data-main-thread]")).toBeNull();
     expect(result.closest("[data-slot=right-panel]")).toBeNull();
   } else {

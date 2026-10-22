@@ -11,7 +11,7 @@ import { HostSlot } from "@/contact-handling/portal-hosts";
 import { LUCAS_THOMAS_ID, MARCUS_WEBB_ID, MAYA_CHEN_CALL_ID } from "@/contact-handling/scenario-cases";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useCanvasRegions } from "@/contact-handling/useCanvasRegions";
-import { ReferenceColumn } from "./ReferenceColumn";
+import { ReferenceSlot } from "./ReferenceSlot";
 import { HistoryConversationView } from "@/components/agent-next-gen-customer-info-panel";
 import { InteractionComposer, InteractionTranscript } from "@/components/agent-next-gen-transcript";
 import type { TomLewisCallPanelKey } from "@/components/agent-next-gen-lucas-thomas-panels";
@@ -689,8 +689,8 @@ export function InteractionBody() {
                         </>
                         )}
                       </div>
-                      {/* P-CANVAS: the reference column (two-column canvas only). */}
-                      {canvas.reference && <ReferenceColumn>{canvas.reference}</ReferenceColumn>}
+                      {/* P-CANVAS: the reference slot — the reference column (two-column canvas only) or a slide-over. */}
+                      {canvas.enabled && <ReferenceSlot reference={canvas.reference} />}
                       {/* The separate voice/non-voice "Session Details"
                           `InteriorPanel` overlay that used to render here
                           (portaled beside `CustomerInformationSidePanel`)

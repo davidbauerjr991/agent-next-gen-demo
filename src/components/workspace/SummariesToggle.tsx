@@ -3,6 +3,7 @@ import { PanelRight } from "lucide-react";
 import { panelToggleClass } from "@/contact-handling";
 import { useCanvasRegions } from "@/contact-handling/useCanvasRegions";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
+import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 
@@ -14,7 +15,9 @@ export function SummariesToggle() {
   const { twoColumn } = useCanvasRegions();
   const [fits] = useWorkspaceUiField("referenceColumnFits");
   const [open, setOpen] = useWorkspaceUiField("summariesOverlayOpen");
-  if (!twoColumn || fits) return null;
+  const { selectedDetailPanelContent, slideOverMode } = useWorkspace();
+  // A slide-over in the reference slot takes the column's place, so there's nothing to toggle.
+  if (!twoColumn || fits || (slideOverMode === "referenceSlot" && selectedDetailPanelContent)) return null;
   return (
     <Tooltip content={t("Summaries")} placement="bottom">
       <Button

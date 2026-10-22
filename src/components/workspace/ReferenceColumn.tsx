@@ -1,6 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { LYRA_CARD_MAX_WIDTH, SidePanel } from "@nicecxone/lyra-ui";
-import { ACTION_AREA_MIN_WIDTH } from "@/contact-handling/canvas-registry";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { t } from "@/i18n";
@@ -12,29 +11,15 @@ import { t } from "@/i18n";
  *  overlay (the same component as Contact Details, with its header and
  *  background) over the action area, opened by the record header's
  *  "Summaries" toggle and closed by its close button or a click outside it. Docked vs. overlay is derived from the measured width,
- *  never a setting. Mount it as the last child of the main column's row,
- *  which must be `relative` (the overlay positions against it). */
+ *  never a setting. `ReferenceSlot` mounts it (the last child of the main
+ *  column's row, which must be `relative`: the overlay positions against it)
+ *  and measures the row. */
 export function ReferenceColumn({ children }: { children: ReactNode }) {
   const { activeInteraction } = useWorkspace();
-  const [fits, setFits] = useWorkspaceUiField("referenceColumnFits");
+  // Measured by `ReferenceSlot`, which mounts this column.
+  const [fits] = useWorkspaceUiField("referenceColumnFits");
   const [overlayOpen, setOverlayOpen] = useWorkspaceUiField("summariesOverlayOpen");
-  const anchorRef = useRef<HTMLDivElement>(null);
   const columnRef = useRef<HTMLDivElement>(null);
-
-  // The row this column shares with the action area (the content card minus
-  // the docked Contact Details / thread panel, so an open thread panel under
-  // "main" counts). A zero width (not laid out; jsdom) keeps the last answer.
-  useLayoutEffect(() => {
-    const row = anchorRef.current?.parentElement;
-    if (!row) return;
-    const measure = (width: number) => {
-      if (width > 0) setFits(width >= ACTION_AREA_MIN_WIDTH + LYRA_CARD_MAX_WIDTH);
-    };
-    measure(row.getBoundingClientRect().width);
-    const ro = new ResizeObserver(([entry]) => measure(entry.contentRect.width));
-    ro.observe(row);
-    return () => ro.disconnect();
-  }, [setFits]);
 
   // The overlay closes when the column docks again and when the card changes.
   useEffect(() => {
@@ -58,7 +43,7 @@ export function ReferenceColumn({ children }: { children: ReactNode }) {
   }, [open, setOverlayOpen]);
 
   return (
-    <div ref={anchorRef} className="contents">
+    <>
       {fits ? (
         // Docked: a plain column on the content card's own background (no panel chrome).
         <div
@@ -87,6 +72,6 @@ export function ReferenceColumn({ children }: { children: ReactNode }) {
           <div className="flex flex-col gap-3 p-4">{children}</div>
         </SidePanel>
       )}
-    </div>
+    </>
   );
 }

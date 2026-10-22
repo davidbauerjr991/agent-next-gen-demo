@@ -26,6 +26,10 @@ export interface WorkspaceUiState {
    *  column beside the action area (measured by `ReferenceColumn`). False:
    *  the column is an overlay behind the record header's "Summaries" button. */
   referenceColumnFits: boolean;
+  /** P-CANVAS: the main column's row width (action area + reference slot),
+   *  measured by `ReferenceSlot`; 0 until laid out. Caps the slide-over's
+   *  drag so the action area keeps its minimum. */
+  regionsRowWidth: number;
   /** P-CANVAS: the reference column's overlay is open (only while it doesn't fit). */
   summariesOverlayOpen: boolean;
 }
@@ -37,6 +41,7 @@ export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
   revealedApprovals: new Set<string>(),
   touchedThreads: new Set<string>(),
   referenceColumnFits: true,
+  regionsRowWidth: 0,
   summariesOverlayOpen: false,
 });
 

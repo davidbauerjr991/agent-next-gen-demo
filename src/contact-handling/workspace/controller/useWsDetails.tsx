@@ -23,6 +23,7 @@ import { useBrand, useSettings, type ExtraHeaderApp } from "@/settings";
 import { LUCAS_THOMAS_PANEL_TITLES, LUCAS_THOMAS_ORDER_DETAILS, TOM_LEWIS_CALL_PANEL_TITLES } from "@/components/agent-next-gen-lucas-thomas-panels";
 import type { DetailPanelContent } from "@/contact-handling/workspace/workspace-types";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
+import { slideOverPlacement } from "@/contact-handling/slide-over-placement";
 import { AI_PERFORM_MS } from "@/contact-handling/ai-perform";
 import { visibleNotifications } from "@/contact-handling/notification-gates";
 import { touchedThreadKey, useParkedSeedIds, useTouchedWhileShown } from "@/contact-handling/touched-threads";
@@ -34,7 +35,7 @@ import type { WsCards } from "./useWsCards";
 export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
   const {
     activeChannel, activeChannelKey, activeChannelType, activeCustomerRecordDraft, activeInteraction, activeInteractionId, activeScenarioKey,
-    addToast, aiInPanel, calling, clock, confirmDismiss, createdCustomerRecords, customerContextOverviewBase,
+    addToast, calling, clock, confirmDismiss, createdCustomerRecords, customerContextOverviewBase,
     customerMatchQuery, enabledChannels, handleOutcomeCancel, handleOutcomeDispositionChange, handleOutcomeOpenChange, handleOutcomeSave,
     handleOutcomeSaveAndDismiss, handleOutcomeSaveAndRedial, handleOutcomeTagsChange, interactions, isColdCallId, omni,
     omnichannel, outcomeDraft, outcomeDraftKey, pendingAgentLegToastRef, scenarioCardId, scenarioCases, scenarioKeyOf,
@@ -792,9 +793,14 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
   // showing the last real content throughout the close animation; `open`
   // itself still tracks `selectedDetailPanelContent` directly.
   const [lastDetailPanelContent, setLastDetailPanelContent] = useState<DetailPanelContent | null>(null);
-  // The interior slide-over lives in the docked panel: AI display "panel", or a panel thread's Session Details under "main".
-  // Derived from this render's selection (the last one while closing), so a placement never lags its content.
-  const slideOverInPanel = aiInPanel || (selectedDetailPanelContent ?? lastDetailPanelContent)?.kind === "session";
+  // The interior slide-over's mount (slide-over-placement.ts): the docked panel, or the reference slot beside the
+  // action area. Derived from this render's selection (the last one while closing), so a placement never lags its content.
+  const [{ displayLocation }] = useSettings("ai");
+  const slideOverMode = slideOverPlacement({
+    displayLocation,
+    content: selectedDetailPanelContent ?? lastDetailPanelContent,
+  }).mode;
+  const slideOverInPanel = slideOverMode === "panel";
   useEffect(() => {
     if (selectedDetailPanelContent) setLastDetailPanelContent(selectedDetailPanelContent);
   }, [selectedDetailPanelContent]);
@@ -914,7 +920,7 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
     detailPanelByInteraction, setDetailPanelByInteraction, selectedDetailPanelContent, setSelectedDetailPanelContent,
     detailPanelArtifactKey, detailPanelArtifactLabel, panelArtifactsByInteraction, setPanelArtifactsByInteraction,
     lucasActiveLinkKey, panelArtifacts, reopenPanelArtifact, lastDetailPanelContent, setLastDetailPanelContent,
-    slideOverInPanel, channelPreviewThreadKey, channelPreviewThread, channelPreviewThreadStableKey, channelPreviewMeta,
+    slideOverInPanel, slideOverMode, channelPreviewThreadKey, channelPreviewThread, channelPreviewThreadStableKey, channelPreviewMeta,
     openDetailPanelContent, threadOutcomeProps,
   };
 }

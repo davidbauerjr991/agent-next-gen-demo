@@ -188,6 +188,44 @@ describe("the registry decides the region", () => {
   });
 });
 
+describe("a slide-over takes the reference slot (inline and main)", () => {
+  const slideOver = () => h.container.querySelector<HTMLElement>("[data-slot=reference-slide-over]");
+  const composer = () => document.body.querySelector<HTMLElement>("[data-slot=copilot-composer]")!;
+  const resultRow = (text: string) =>
+    [...h.container.querySelectorAll<HTMLElement>("[data-canvas-region=action] button")].find(
+      (b) => b.textContent?.startsWith(text) && b.textContent.includes("John Smith"),
+    )!;
+
+  for (const displayLocation of ["inline", "main"] as const) {
+    it(`AI display ${displayLocation}: the reference cards give way while it's open and come back after its close`, async () => {
+      await open({ displayLocation, canvasLayout: "twoColumn" });
+      await CASES.noah();
+      expect(region("reference")).not.toBeNull();
+      expect(slideOver()).toBeNull();
+
+      // Ask Copilot with the first chip, then open its result row's slide-over.
+      const chip = composer().querySelector<HTMLElement>("[data-slot=copilot-chips] [role=button]")!;
+      const text = chip.textContent!.trim();
+      await h.click(chip);
+      await h.click(composer().querySelector('button[aria-label="Submit"]')!);
+      await h.advance(2_500);
+      await h.click(resultRow(text));
+      expect(slideOver()).not.toBeNull();
+      expect(slideOver()!.textContent).toContain(text);
+      expect(region("reference")).toBeNull();
+      // The action area's sibling in the row, not inside it.
+      expect(slideOver()!.parentElement).toBe(region("action")!.parentElement);
+
+      // Close: still mounted (closed) through the transition, then the cards are back.
+      await h.click(resultRow(text));
+      expect(region("reference")).toBeNull();
+      await h.advance(300);
+      expect(slideOver()).toBeNull();
+      expect(region("reference")).not.toBeNull();
+    });
+  }
+});
+
 describe("the Summaries overlay when the column doesn't fit", () => {
   const summaries = () => h.container.querySelector<HTMLElement>("[data-summaries-toggle]");
   const fits = async (value: boolean) => {
