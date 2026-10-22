@@ -51,10 +51,11 @@ function phase2(): SettingsState {
 }
 
 /** AI-first: Phase 2 with the AI workspace in the main column and every
- *  conversation thread in the docked panel (AI display "main"). */
+ *  conversation thread in the docked panel (AI display "main"), with the
+ *  reference cards in their own column (P-CANVAS). */
 function aiFirst(): SettingsState {
   const base = phase2();
-  return { ...base, ai: { ...base.ai, displayLocation: "main" } };
+  return { ...base, ai: { ...base.ai, displayLocation: "main", canvasLayout: "twoColumn" } };
 }
 
 export const PROFILES: Record<ProfileId, SettingsState> = { phase1: phase1(), phase2: phase2(), aifirst: aiFirst() };

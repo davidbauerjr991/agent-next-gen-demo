@@ -186,4 +186,4 @@ Reference implementation: the Lucas Thomas case on the Advanced page (`src/scena
 - Ask Copilot uses `AIInput` with purple pill suggestion chips beneath it. A chip in the Approval request box and the same chip in Ask Copilot must open the same panel, add the same chat row, and reopen the same content. Anything asked of Copilot is logged in the chat as an interstitial.
 
 **Verification**
-- After every edit run `npx tsc -b --noEmit` here (baseline 3) and `npx tsc --noEmit` in `../lyra-ui` (baseline 3); don't fix baseline errors unless asked. Say honestly when nothing was verified in a browser. Don't commit unless asked.
+- After every edit run `npx tsc -b --noEmit` here (baseline 3) and `npx tsc --noEmit` in `../lyra-ui` (baseline 2: `admin-shell.tsx` ×2); don't fix baseline errors unless asked. Say honestly when nothing was verified in a browser. Don't commit unless asked.

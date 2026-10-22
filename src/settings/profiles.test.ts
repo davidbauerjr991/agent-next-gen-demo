@@ -108,14 +108,26 @@ describe("workspace profiles", () => {
     expect(profile(store)).toBe("phase1");
   });
 
-  it("AI-first is Phase 2 with AI display \"main\", and derives", () => {
-    expect(PROFILES.aifirst).toEqual({ ...PROFILES.phase2, ai: { ...PROFILES.phase2.ai, displayLocation: "main" } });
+  it("AI-first is Phase 2 with AI display \"main\" and the two-column canvas, and derives", () => {
+    expect(PROFILES.aifirst).toEqual({
+      ...PROFILES.phase2,
+      ai: { ...PROFILES.phase2.ai, displayLocation: "main", canvasLayout: "twoColumn" },
+    });
     const store = freshStore();
     store.updateMany(profileValues("aifirst"));
     expect(store.getState().values.ai.displayLocation).toBe("main");
+    expect(store.getState().values.ai.canvasLayout).toBe("twoColumn");
     expect(profile(store)).toBe("aifirst");
-    store.update("ai", { displayLocation: "inline" });
+    store.update("ai", { displayLocation: "inline", canvasLayout: "stacked" });
     expect(profile(store)).toBe("phase2");
+  });
+
+  it("canvasLayout defaults to stacked (Phase 1 and 2); a stored ai section without it reads the default", () => {
+    expect(PROFILES.phase1.ai.canvasLayout).toBe("stacked");
+    expect(PROFILES.phase2.ai.canvasLayout).toBe("stacked");
+    const read = SECTIONS.ai.read({ displayLocation: "main" }, SECTIONS.ai.defaults);
+    expect(read).toEqual({ displayLocation: "main", canvasLayout: "stacked" });
+    expect(SECTIONS.ai.read({ displayLocation: "main", canvasLayout: "grid" }, SECTIONS.ai.defaults).canvasLayout).toBe("stacked");
   });
 });
 

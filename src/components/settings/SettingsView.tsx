@@ -22,6 +22,8 @@ import {
 } from "@nicecxone/lyra-ui";
 import { readSimLatency, useInteractions, useProviderKind } from "@/provider-context";
 import { BrandSettings } from "./BrandSettings";
+import { DisabledReason } from "@/contact-handling/DisabledReason";
+import { t } from "@/i18n";
 import {
   CONTACT_CHANNELS,
   type ContactChannel,
@@ -46,6 +48,8 @@ import {
   type ProfileId,
   PROFILE_IDS,
   type AiDisplayLocation,
+  AI_CANVAS_LAYOUT_FIELD,
+  type AiCanvasLayout,
   AUTO_ACCEPT_CHANNELS,
   SOCIAL_CHANNELS,
   type SocialChannel,
@@ -562,6 +566,25 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
               value={ai.displayLocation}
               onValueChange={(value) => updateAi({ displayLocation: value as AiDisplayLocation })}
             />
+          </div>
+          <div className="max-w-xs">
+            {/* Rendered from its declaration (label, description); unused under "panel", so disabled with the reason. */}
+            <DisabledReason
+              reason={ai.displayLocation === "panel" ? t("Not used when AI display is In the Contact Details panel") : undefined}
+              className="flex w-full"
+            >
+              <Select
+                label={t(AI_CANVAS_LAYOUT_FIELD.meta!.label)}
+                labelHelpText={t(AI_CANVAS_LAYOUT_FIELD.meta!.description)}
+                options={[
+                  { value: "twoColumn", label: t("Two columns") },
+                  { value: "stacked", label: t("Stacked") },
+                ]}
+                value={ai.canvasLayout}
+                disabled={ai.displayLocation === "panel"}
+                onValueChange={(value) => updateAi({ canvasLayout: value as AiCanvasLayout })}
+              />
+            </DisabledReason>
           </div>
         </Section>
 

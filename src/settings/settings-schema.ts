@@ -11,10 +11,22 @@ export const bool = (): Field<boolean> => (raw, fallback) => (typeof raw === "bo
 
 export const str = (): Field<string> => (raw, fallback) => (typeof raw === "string" ? raw : fallback);
 
-export const oneOf =
-  <const V extends string>(values: readonly V[]): Field<V> =>
-  (raw, fallback) =>
+/** A setting's declaration for the forms that render it (CLAUDE.md: admin
+ *  configuration is declared before designed). English source text; the
+ *  form passes it through `t()`. P-ADMIN back-fills the other fields. */
+export interface FieldMeta {
+  label: string;
+  description: string;
+}
+
+export const oneOf = <const V extends string>(
+  values: readonly V[],
+  meta?: FieldMeta
+): Field<V> & { readonly values: readonly V[]; readonly meta?: FieldMeta } => {
+  const read: Field<V> = (raw, fallback) =>
     typeof raw === "string" && (values as readonly string[]).includes(raw) ? (raw as V) : fallback;
+  return Object.assign(read, { values, meta });
+};
 
 export type Fields<T> = { [K in keyof T]: Field<T[K]> };
 
@@ -342,16 +354,29 @@ const voice = defineSection<VoiceSettings>({
  *  the docked panel, one at a time. */
 export const AI_DISPLAY_LOCATIONS = ["inline", "panel", "main"] as const;
 export type AiDisplayLocation = (typeof AI_DISPLAY_LOCATIONS)[number];
+/** P-CANVAS: under AI display "inline" and "main", whether the reference
+ *  cards (Customer Info, Journey Summary, Artifacts) sit in a reference
+ *  column on the main column's right edge ("twoColumn") or inline above the
+ *  action area ("stacked", the single-column look). Unused under "panel". */
+export const AI_CANVAS_LAYOUTS = ["stacked", "twoColumn"] as const;
+export type AiCanvasLayout = (typeof AI_CANVAS_LAYOUTS)[number];
+export const AI_CANVAS_LAYOUT_FIELD = oneOf(AI_CANVAS_LAYOUTS, {
+  label: "Canvas layout",
+  description:
+    "Two columns puts the customer's reference cards in a column on the right of the main column; stacked shows them above the conversation or AI feed.",
+});
 export interface AiSettings {
   /** P4.4a's pinned-vs-auto card placement hangs off this section later. */
   displayLocation: AiDisplayLocation;
+  canvasLayout: AiCanvasLayout;
 }
 
+// No version bump for canvasLayout: a missing stored key reads as its default.
 const ai = defineSection<AiSettings>({
   key: "ai",
   version: 1,
-  defaults: { displayLocation: "inline" },
-  fields: { displayLocation: oneOf(AI_DISPLAY_LOCATIONS) },
+  defaults: { displayLocation: "inline", canvasLayout: "stacked" },
+  fields: { displayLocation: oneOf(AI_DISPLAY_LOCATIONS), canvasLayout: AI_CANVAS_LAYOUT_FIELD },
 });
 
 export const PHONE_SETUPS = ["soft-phone", "phone-number", "work-station"] as const;
