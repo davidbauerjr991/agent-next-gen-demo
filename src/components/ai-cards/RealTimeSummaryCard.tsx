@@ -30,7 +30,7 @@ export function RealTimeSummaryCard({ summary, open, onOpenChange, onCopy }: Ref
   const done = card.status === "complete";
   const words = card.text.trim().split(/\s+/).filter(Boolean).length;
   return (
-    <div data-slot="real-time-summary" data-frame={done ? "done" : "live"}>
+    <div data-slot="real-time-summary" data-frame={done ? "done" : "live"} data-words={words}>
       <AgenticAICard
         {...base}
         status={done ? "done" : "live"}

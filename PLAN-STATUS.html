@@ -68,7 +68,7 @@ li.todo .tag{color:var(--todo)}
 <main id="page-top">
 <header>
   <h1>Agent Workspace Simulation — plan status</h1>
-  <div class="meta">PLAN.md as of 2026-10-22 · completed work grayed · P-CANVAS done · P-POLISH in progress</div>
+  <div class="meta">PLAN.md as of 2026-10-22 · completed work grayed · P-CANVAS follow-up in progress · P-POLISH paused</div>
   <div class="legend">
     <span><i class="sw done"></i>Done</span>
     <span><i class="sw inprog"></i>In progress</span>
@@ -86,8 +86,8 @@ li.todo .tag{color:var(--todo)}
     <a class="step done" href="#phase0">P0.5d.2</a><span class="arrow">→</span>
     <a class="step done" href="#landed">P-AIFIRST (a–k9)</a><span class="arrow">→</span>
     <a class="step done" href="#landed">P-EXTRACT</a><span class="arrow">→</span>
-    <a class="step inprog" href="#landed">P-POLISH</a><span class="arrow">→</span>
-    <a class="step done" href="#settings">P-CANVAS</a><span class="arrow">→</span>
+    <a class="step" href="#landed">P-POLISH</a><span class="arrow">→</span>
+    <a class="step inprog" href="#settings">P-CANVAS</a><span class="arrow">→</span>
     <a class="step" href="#settings">P-PROFILES</a><span class="arrow">→</span>
     <a class="step" href="#phase0">P0.5d.3</a><span class="arrow">→</span>
     <a class="step" href="#phase0">lyra timers</a><span class="arrow">→</span>
@@ -150,7 +150,7 @@ li.todo .tag{color:var(--todo)}
     <li class="done"><span class="tag">Done</span><div class="body"><b>P-AIFIRST (f–k9)</b> — tabs for every thread, one icon per channel + thread menu, hover-preview frame, header "+", already-open and one-call rules, auto-accept per channel, presence rules (disable with reason), call switcher, save-address card, status chip setting, session row per thread, cross-fade</div></li>
     <li class="done"><span class="tag">Done</span><div class="body"><b>Administration docs</b> — section, demo-first order, scope corrections, new step rows (P-ADMIN … P-EMBED)</div></li>
     <li class="done"><span class="tag">Done</span><div class="body"><b>P-EXTRACT</b> — page / transcript / customer-info splits with state-ownership fixes (outcome popover, slide-over placement, known-customer identity); ESLint admin boundary; HostProvider stub<span class="note">Page 11,147 → 621 lines (workspace controller + region components); transcript 5,645 → 4 and customer-info 5,613 → 15 (re-export barrels); no new file over 1,100</span></div></li>
-    <li class="inprog"><span class="tag">Now</span><div class="body"><b>P-POLISH</b> — UI polish batches from browser walkthroughs; no rule changes<span class="note">Resumed after P-CANVAS. Batch 1: seeded cards, their notifications and the "+" follow Settings → Channels; an untouched seed goes back to waiting when its channel turns off</span></div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-POLISH</b> — UI polish batches from browser walkthroughs; no rule changes<span class="note">Paused again for the P-CANVAS follow-up. Batch 1: seeded cards, their notifications and the "+" follow Settings → Channels; an untouched seed goes back to waiting when its channel turns off</span></div></li>
   </ul>
 </section>
 
@@ -225,7 +225,7 @@ li.todo .tag{color:var(--todo)}
     <li class="done"><span class="tag">Done</span><div class="body"><b>Settings store</b> — P-SETTINGS</div></li>
     <li class="todo"><span class="tag">Todo</span><div class="body"><b>Workspace profiles</b> — built-ins Phase 1 / Phase 2 / AI-first, agent-scope snapshots, derive and apply<span class="note">P-PROFILES next: retire the two re-export barrels first, then save as, rename, duplicate, delete, export/import JSON, locks, saved-profile picker</span></div></li>
     <li class="done"><span class="tag">Done</span><div class="body"><b>Conversation placement / AI-first layout</b> — folded into AI display inline | panel | main</div></li>
-    <li class="done"><span class="tag">Done</span><div class="body"><b>P-CANVAS</b> — action area + reference column, cell and tab registries<span class="note">Panel mode keeps Overview; the reference column is a SidePanel at lyra's max card width (token, 350px provisional) that collapses to a "Summaries" overlay; browser checks pending</span></div></li>
+    <li class="inprog"><span class="tag">Now</span><div class="body"><b>P-CANVAS</b> — action area + reference column, cell and tab registries<span class="note">Follow-up: slide-overs are an InteriorPanel in the reference slot; Next Best Action pinned first in the action area; the reference column is three Agentic AI cards (Real-Time Summary, Journey Summary, Customer Info) the AI focuses. Panel mode unchanged; Marcus's port to the NBA is a todo; browser checks pending</span></div></li>
     <li class="done"><span class="tag">Done</span><div class="body"><b>White-labeling</b> — app name, logo, brand colors; admin-scope; BrandMark header<span class="note">Rename to "Workspace" waits for P-ADMIN's area switcher</span></div></li>
     <li class="done"><span class="tag">Done</span><div class="body"><b>Social channel placeholders</b> — channels.social, admin-scope, "Arrives in P2.7"</div></li>
     <li class="done"><span class="tag">Done</span><div class="body"><b>Agent settings named after CXone's</b> — launcher tabs, Outbound Calling behaviors, Unassign & Dismiss, Confirm before closing</div></li>

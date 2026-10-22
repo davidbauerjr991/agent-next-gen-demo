@@ -121,3 +121,27 @@ for (const displayLocation of ["inline", "main"] as const) {
     });
   }
 }
+
+// P-CANVAS 3: the AI drives the reference column. Maya's turn that names her
+// card on file expands Customer Info; a manual click on Journey Summary then
+// survives the summary's next refresh (a summary update never takes focus).
+test("inline, Maya: her card-on-file turn expands Customer Info; a manual Journey Summary click survives the next summary refresh", async ({ page }) => {
+  await start(page, "inline");
+  await CONTACTS.maya.open(page);
+  const expanded = () =>
+    page.evaluate(() =>
+      ["real-time-summary", "journey-summary", "customer-info-card"].filter(
+        (slot) => document.querySelector(`[data-slot=${slot}] [aria-expanded]`)?.getAttribute("aria-expanded") === "true",
+      ),
+    );
+  expect(await expanded()).toEqual(["real-time-summary"]);
+  // Maya names her Visa about 12s after the call connects.
+  await expect.poll(expanded, { timeout: 20_000 }).toEqual(["customer-info-card"]);
+  await page.locator("[data-slot=journey-summary] [aria-expanded]").click();
+  expect(await expanded()).toEqual(["journey-summary"]);
+  const words = () => page.locator("[data-slot=real-time-summary]").getAttribute("data-words");
+  const before = await words();
+  // Her next turn (20s after answer) refreshes the summary; Journey Summary stays open.
+  await expect.poll(words, { timeout: 15_000 }).not.toBe(before);
+  expect(await expanded()).toEqual(["journey-summary"]);
+});

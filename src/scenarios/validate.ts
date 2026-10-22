@@ -10,6 +10,7 @@ const SPEAKERS = ["customer", "bot", "agent"];
 const ANCHORS = ["launch", "answered", "takeover"];
 const BEATS = ["instruction", "approval", "wrap-up", "close", "dismiss"];
 const NBA_TYPES = ["say", "ask", "do"];
+const FOCUS_CARDS = ["summary", "journey", "customer"];
 const ANSWERS = ["agent", "auto", "delivered"];
 const CONDITIONS = ["note-addresses-customer"];
 
@@ -199,7 +200,7 @@ export function validateScenario(input: unknown, options: { channel?: ChannelKin
         case "hangUp":
           break;
         case "guide":
-          if (!step.nba) err(`${at}: guide needs an nba`);
+          if (!step.nba && !step.focus) err(`${at}: guide needs an nba or a focus`);
           break;
         case "beat":
           if (!BEATS.includes(step.beat)) err(`${at}: unknown beat`);
@@ -211,6 +212,7 @@ export function validateScenario(input: unknown, options: { channel?: ChannelKin
         default:
           err(`${at}: unknown kind`);
       }
+      if (step.focus !== undefined && !FOCUS_CARDS.includes(step.focus)) err(`${at}: unknown focus`);
       if (step.nba) {
         const nba = step.nba;
         if (!NBA_TYPES.includes(nba.type) || !isStr(nba.title) || !isStr(nba.why)) err(`${at}: nba needs a type, title and why`);

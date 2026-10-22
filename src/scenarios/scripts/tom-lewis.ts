@@ -55,6 +55,8 @@ export const TOM_LEWIS_SCRIPT = {
       anchor: "answered",
       at: 12000,
       text: "It's order NR-50877, $86.40. I only placed it once, and I'd rather keep the Mastercard charge since that's my default card.",
+      // The card on file: Customer Info comes forward.
+      focus: "customer",
     },
     {
       id: "tlc-ask",

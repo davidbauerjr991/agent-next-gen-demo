@@ -196,7 +196,7 @@ describe("answer modes and live timing", () => {
     expect(rec.events("incoming").map((e) => e.interaction.id)).toEqual([id]);
     expect(latest(id)).toMatchObject({ state: "active", autoAnswered: true, skill: { name: "Returns" } });
     expect(Date.now() - latest(id)!.acceptedAt!).toBeLessThan(10);
-    await advance(12_000);
+    await advance(20_000);
     expect(utterances(id).map((u) => u.text)).toEqual(MAYA_CHEN_SCRIPT.steps.flatMap((s) => (s.kind === "say" ? [s.text] : [])));
   });
 

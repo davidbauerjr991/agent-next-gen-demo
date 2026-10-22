@@ -57,6 +57,16 @@ export const MAYA_CHEN_SCRIPT = {
       anchor: "answered",
       at: 12000,
       text: "It's order NR-10871, the $412 espresso machine, paid with my Visa. I'll buy a different model instead.",
+      // The card on file: Customer Info comes forward.
+      focus: "customer",
+    },
+    {
+      id: "mcc-4",
+      kind: "say",
+      speaker: "customer",
+      anchor: "answered",
+      at: 20_000,
+      text: "Do I need to send the machine back before the refund goes through?",
     },
     {
       id: "mcc-ask",

@@ -5,6 +5,7 @@ import type {
   AssistEvents,
   AssistRequestId,
   NextBestActionSuggestion,
+  ReferenceCardFocus,
 } from "../../providers";
 import type { ScenarioNba, ScenarioScript, ScenarioStep } from "../../scenarios/scenario-script";
 import { providerError } from "../provider-error";
@@ -29,7 +30,13 @@ export interface GuidanceHost {
   send(payload: AssistEvents["card"]): void;
   /** Starts a script's action branch (a used suggestion's `branch`). */
   startBranch(id: InteractionId, branch: string): void;
+  /** Runs `run` after `ms` (engine-owned timers, cleared on dispose). */
+  later(ms: number, run: () => void): void;
 }
+
+/** How long the simulated journey lookup takes on a contact with a known
+ *  customer; it brings the Journey Summary forward when it completes. */
+export const SIM_JOURNEY_LOOKUP_MS = 800;
 
 export interface Guidance {
   /** A scripted contact was just routed (before it's announced). */
@@ -134,7 +141,9 @@ export function createGuidance(host: GuidanceHost): Guidance {
     at: host.now(),
   });
 
-  function sendNba(g: Guide) {
+  /** The card's current state. A focus call is a step of its own: its step
+   *  id, the suggestion showing unchanged, and the card to bring forward. */
+  function sendNba(g: Guide, focus?: { stepId: string; card: ReferenceCardFocus }) {
     g.seq += 1;
     const frame = g.current ? "suggestion" : g.over || (!g.scripted && g.rule === "done") ? "nothing" : "listening";
     const card: AssistCard = {
@@ -143,9 +152,10 @@ export function createGuidance(host: GuidanceHost): Guidance {
       title: "Next Best Action",
       status: "complete",
       provenance: { tier: 1, collections: g.scripted ? ["flow"] : ["rules"] },
-      stepId: g.current?.stepId ?? `${frame}-${g.seq}`,
+      stepId: focus?.stepId ?? g.current?.stepId ?? `${frame}-${g.seq}`,
       frame,
       ...(g.current ? { suggestion: g.current.suggestion } : {}),
+      ...(focus ? { focus: focus.card } : {}),
     };
     host.send({ requestId: requestIdOf(g.id), interactionId: g.id, card });
   }
@@ -221,12 +231,19 @@ export function createGuidance(host: GuidanceHost): Guidance {
       }
       g.rule = "reason";
       enqueue(g, "rule-greeting", greetingNba(interaction.channel, host.customerName(interaction.id) ?? interaction.contactName));
+      // A known customer's journey lookup completes a moment later and brings the Journey Summary forward.
+      if (interaction.entityId) {
+        host.later(SIM_JOURNEY_LOOKUP_MS, () => {
+          if (!g.over) sendNba(g, { stepId: `rule-journey`, card: "journey" });
+        });
+      }
     },
 
     onStep(id, step) {
       const g = guides.get(id);
       if (!g?.scripted || g.over) return;
       if (step.nba) enqueue(g, step.id, step.nba);
+      if (step.focus) sendNba(g, { stepId: step.id, card: step.focus });
       if (step.kind === "say" && step.speaker === "customer" && g.summary.revealed < g.summary.lines.length) {
         g.summary.revealed += 1;
         sendSummary(g);

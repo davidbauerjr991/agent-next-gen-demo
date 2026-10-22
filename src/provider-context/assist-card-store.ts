@@ -24,6 +24,8 @@ export interface RealTimeSummaryState {
 export interface ContactAssistCards {
   nba?: NextBestActionCard;
   summary?: RealTimeSummaryState;
+  /** The last reference card the nba card brought forward, and the step that did — kept past later snapshots, so no focus call is missed. */
+  focus?: { stepId: string; card: NonNullable<NextBestActionCard["focus"]> };
 }
 
 type State = Readonly<Record<string, ContactAssistCards>>;
@@ -62,7 +64,8 @@ export function createAssistCardStore(provider: AssistProvider, now: () => numbe
   function onCard({ interactionId, card }: { interactionId: InteractionId; card: AssistCard }) {
     const current = state[interactionId] ?? {};
     if (card.kind === "nba") {
-      commit({ ...state, [interactionId]: { ...current, nba: card } });
+      const focus = card.focus ? { stepId: card.stepId, card: card.focus } : current.focus;
+      commit({ ...state, [interactionId]: { ...current, nba: card, ...(focus ? { focus } : {}) } });
     } else if (card.kind === "text" && card.purpose === "real-time-summary") {
       const before = current.summary?.card.text;
       const changed = before !== card.text;
@@ -99,6 +102,12 @@ export function createAssistCardStore(provider: AssistProvider, now: () => numbe
 }
 
 const NONE: ContactAssistCards = Object.freeze({});
+
+/** Every contact's cards, by provider interaction id. */
+export function useAssistCardsByContact(): State {
+  const store = getAssistCardStore(useAssistProvider());
+  return useSyncExternalStore(store.subscribe, store.getState);
+}
 
 /** A contact's Next Best Action and Real-Time Summary cards (empty until the provider sends them). */
 export function useContactAssistCards(interactionId: string | undefined): ContactAssistCards {

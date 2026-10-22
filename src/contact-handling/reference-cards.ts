@@ -1,36 +1,94 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { InteractionId } from "@/domain";
 import type { ReferenceCardFocus } from "@/providers";
-import { useContactAssistCards, useInteraction } from "@/provider-context";
+import { useAssistCardsByContact, useContactAssistCards, useInteraction } from "@/provider-context";
 import { journeySummaryFor } from "./journey-summary";
-import { useWorkspaceUiField } from "./workspace-ui-store";
+import { useWorkspaceUiField, useWorkspaceUiStore, type ReferenceFocusState, type WorkspaceUiStore } from "./workspace-ui-store";
 import { useWorkspace } from "./workspace/WorkspaceContext";
 
 /** How long a contact's Journey Summary reads "Looking up" after it arrives. */
 export const JOURNEY_LOOKUP_MS = 800;
 
+/** How long a card the AI brings forward stays highlighted. */
+export const REFERENCE_HIGHLIGHT_MS = 1200;
+
 /** The reference column's cards in order (P-CANVAS); the column is a single-open accordion over them. */
 export const REFERENCE_CARD_ORDER: readonly ReferenceCardFocus[] = ["summary", "journey", "customer"];
 
-/** Which reference card is open on the active card (the Real-Time Summary
- *  until something else is opened), and the setter each card's header uses:
- *  opening one closes the others; closing the open one leaves none open. */
+/** A card's reference column before anything was opened: the Real-Time Summary. */
+const INITIAL: ReferenceFocusState = { open: "summary" };
+
+const focusOf = (store: WorkspaceUiStore, cardId: string) => store.getState().referenceFocusByCard[cardId] ?? INITIAL;
+
+function write(store: WorkspaceUiStore, cardId: string, next: ReferenceFocusState) {
+  store.update((s) => ({ ...s, referenceFocusByCard: { ...s.referenceFocusByCard, [cardId]: next } }));
+}
+
+/** The AI brings `card` forward on `cardId` (P-CANVAS): it opens, the others
+ *  close, and it's highlighted briefly — unless the agent opened or closed a
+ *  card by hand on this same guidance step, which wins until the step advances. */
+export function focusReferenceCard(store: WorkspaceUiStore, cardId: string, card: ReferenceCardFocus, stepId: string, now = Date.now()) {
+  const current = focusOf(store, cardId);
+  if (current.manualStepId !== undefined && current.manualStepId === stepId) return;
+  write(store, cardId, { open: card, highlight: { card, at: now } });
+}
+
+/** The agent opens (or closes) a card by hand on guidance step `stepId`: opening one closes the others. */
+export function setReferenceCardOpen(store: WorkspaceUiStore, cardId: string, card: ReferenceCardFocus, open: boolean, stepId: string | undefined) {
+  const current = focusOf(store, cardId);
+  const next = open ? card : current.open === card ? null : current.open;
+  write(store, cardId, { open: next, ...(stepId !== undefined ? { manualStepId: stepId } : {}) });
+}
+
+/** A reference card's header on the active card: whether it's open, the
+ *  setter its header uses (a manual click), and whether the AI just brought
+ *  it forward (highlighted). */
 export function useReferenceAccordion(id: ReferenceCardFocus) {
-  const { activeInteraction } = useWorkspace();
-  const [openByCard, setOpenByCard] = useWorkspaceUiField("referenceOpenByCard");
+  const { activeInteraction, activeChannel } = useWorkspace();
+  const store = useWorkspaceUiStore();
+  const [byCard] = useWorkspaceUiField("referenceFocusByCard");
+  const { nba } = useContactAssistCards(activeChannel?.providerInteractionId);
   const cardId = activeInteraction?.id;
-  const openId = cardId && cardId in openByCard ? openByCard[cardId] : "summary";
+  const state = (cardId && byCard[cardId]) || INITIAL;
+  const highlightAt = state.highlight?.card === id ? state.highlight.at : undefined;
+  const [now, setNow] = useState(() => Date.now());
+  const remaining = highlightAt !== undefined ? highlightAt + REFERENCE_HIGHLIGHT_MS - now : 0;
+  useEffect(() => {
+    if (highlightAt === undefined) return;
+    setNow(Date.now());
+  }, [highlightAt]);
+  useEffect(() => {
+    if (remaining <= 0) return;
+    const timer = window.setTimeout(() => setNow(Date.now()), remaining);
+    return () => window.clearTimeout(timer);
+  }, [remaining]);
   return {
-    open: openId === id,
+    open: state.open === id,
     onOpenChange: (open: boolean) => {
-      if (!cardId) return;
-      setOpenByCard((prev) => {
-        const current = cardId in prev ? prev[cardId] : "summary";
-        const next = open ? id : current === id ? null : current;
-        return next === current ? prev : { ...prev, [cardId]: next };
-      });
+      if (cardId) setReferenceCardOpen(store, cardId, id, open, nba?.stepId);
     },
+    highlighted: remaining > 0,
   };
+}
+
+/** Applies the guidance's focus calls (an nba card step with `focus`) to the
+ *  card each contact is on, once per step. Mounted once, by the workspace
+ *  controller, so a card that isn't showing still gets its focus. */
+export function useGuidanceFocus(cards: readonly { id: string; threads: readonly { providerInteractionId?: string }[] }[]) {
+  const store = useWorkspaceUiStore();
+  const byContact = useAssistCardsByContact();
+  const applied = useRef(new Map<string, string>());
+  useEffect(() => {
+    for (const card of cards) {
+      for (const thread of card.threads) {
+        const contactId = thread.providerInteractionId;
+        const focus = contactId ? byContact[contactId]?.focus : undefined;
+        if (!contactId || !focus || applied.current.get(contactId) === focus.stepId) continue;
+        applied.current.set(contactId, focus.stepId);
+        focusReferenceCard(store, card.id, focus.card, focus.stepId);
+      }
+    }
+  }, [byContact, cards, store]);
 }
 
 /** The active thread's contact and its Real-Time Summary card. */

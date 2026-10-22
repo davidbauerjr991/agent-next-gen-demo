@@ -6,6 +6,7 @@ import { useWsPanels } from "./useWsPanels";
 import { useWsLaunch } from "./useWsLaunch";
 import { useWsOutbound } from "./useWsOutbound";
 import { useWsHeaderApps } from "./useWsHeaderApps";
+import { useGuidanceFocus } from "../../reference-cards";
 
 /** The agent workspace's controller (P-EXTRACT C8b): everything the page's
  *  body computed, in the same order (so the hooks run in the same order),
@@ -34,6 +35,8 @@ export function useWorkspaceController(props: WorkspaceControllerProps) {
   late.handleOutcomeSaveAndDismissChannel = outbound.handleOutcomeSaveAndDismissChannel;
   const workspace = useWsHeaderApps(outbound);
   late.handlePanelButtonClick = workspace.handlePanelButtonClick;
+  // P-CANVAS: the guidance's focus calls open a reference card on each contact's card.
+  useGuidanceFocus(workspace.interactions);
   return workspace;
 }
 

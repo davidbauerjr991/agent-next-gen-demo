@@ -71,7 +71,8 @@ export const LUCAS_THOMAS_SCRIPT = {
       text: "Placing it another way needs a person's approval, so I'm asking a payments specialist now. They'll see everything we've tried.",
     },
     { id: "lt-6-event", kind: "event", at: 12_300, text: "Approval requested" },
-    { id: "lt-6-summary", kind: "beat", beat: "approval", ref: "initial", at: 13_300 },
+    // The approval cites his Experience Memory: the Journey Summary comes forward.
+    { id: "lt-6-summary", kind: "beat", beat: "approval", ref: "initial", at: 13_300, focus: "journey" },
     // The agent takes the chat over: the bot hands off and Lucas acknowledges.
     { id: "lt-warm-handoff-typing", kind: "typing", speaker: "bot", anchor: "takeover", at: 500, durationMs: 1800 },
     {

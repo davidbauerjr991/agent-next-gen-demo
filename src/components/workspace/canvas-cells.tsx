@@ -15,40 +15,61 @@ import { JourneySummaryCard } from "@/components/ai-cards/JourneySummaryCard";
 import { NextBestActionCard } from "@/components/ai-cards/NextBestActionCard";
 import { RealTimeSummaryCard } from "@/components/ai-cards/RealTimeSummaryCard";
 import { hasCustomerInfo } from "@/components/customer-info/reference-sections";
+import { cn } from "@/lib/utils";
+import type { ReactNode } from "react";
 
 const copy = (text: string) => void navigator.clipboard?.writeText(text).catch(() => {});
 
+/** The highlight a card gets when the AI brings it forward: its border turns
+ *  the active border colour for a moment (lyra's Agentic AI card has no
+ *  highlight of its own). */
+function FocusRing({ highlighted, children }: { highlighted: boolean; children: ReactNode }) {
+  return (
+    <div
+      className={cn("rounded-lyra-md border transition-colors duration-500", highlighted ? "border-lyra-border-active" : "border-transparent")}
+      data-highlighted={highlighted || undefined}
+    >
+      {children}
+    </div>
+  );
+}
+
 function RealTimeSummaryCell() {
-  return <RealTimeSummaryCard summary={useActiveContactSummary()} onCopy={copy} {...useReferenceAccordion("summary")} />;
+  const { highlighted, ...accordion } = useReferenceAccordion("summary");
+  return (
+    <FocusRing highlighted={highlighted}>
+      <RealTimeSummaryCard summary={useActiveContactSummary()} onCopy={copy} {...accordion} />
+    </FocusRing>
+  );
 }
 
 function JourneySummaryCell() {
   const { referenceCardProps: p } = useWorkspace();
   const { journey, lookingUp } = useActiveJourney();
+  const { highlighted, ...accordion } = useReferenceAccordion("journey");
   return (
-    <JourneySummaryCard
-      journey={journey}
-      lookingUp={lookingUp}
-      onViewExperienceMemory={p?.onViewExperienceMemory}
-      artifacts={p?.artifacts}
-      onOpenArtifact={p?.onOpenArtifact}
-      onViewAllArtifacts={p?.onViewAllArtifacts}
-      {...useReferenceAccordion("journey")}
-    />
+    <FocusRing highlighted={highlighted}>
+      <JourneySummaryCard
+        journey={journey}
+        lookingUp={lookingUp}
+        onViewExperienceMemory={p?.onViewExperienceMemory}
+        artifacts={p?.artifacts}
+        onOpenArtifact={p?.onOpenArtifact}
+        onViewAllArtifacts={p?.onViewAllArtifacts}
+        {...accordion}
+      />
+    </FocusRing>
   );
 }
 
 function CustomerInfoCell() {
   const { referenceCardProps: p } = useWorkspace();
-  const accordion = useReferenceAccordion("customer");
+  const { highlighted, ...accordion } = useReferenceAccordion("customer");
   if (!p) return null;
   return (
-    <CustomerInfoCard
-      known={hasCustomerInfo(p)}
-      onViewCustomerInfo={p.onViewCustomerInfo}
-      onLinkCustomer={p.onLinkCustomer}
-      {...accordion}
-    />
+    <FocusRing highlighted={highlighted}>
+      <CustomerInfoCard known={hasCustomerInfo(p)} onViewCustomerInfo={p.onViewCustomerInfo} onLinkCustomer={p.onLinkCustomer} {...accordion} />
+    </FocusRing>
   );
 }
 

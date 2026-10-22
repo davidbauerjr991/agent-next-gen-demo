@@ -9,20 +9,23 @@ const ID = "i-1" as InteractionId;
 function setUp(name = "Priya Shah") {
   const sent: AssistEvents["card"][] = [];
   const startBranch = vi.fn();
+  const timers: { ms: number; run: () => void }[] = [];
   const guidance = createGuidance({
     now: () => 1_000,
     get: () => undefined,
     customerName: () => name,
     send: (payload) => sent.push(payload),
     startBranch,
+    later: (ms, run) => timers.push({ ms, run }),
   });
+  const runTimers = () => timers.splice(0).forEach((t) => t.run());
   const nba = () => [...sent].reverse().find((p) => p.card.kind === "nba")?.card as Extract<AssistCard, { kind: "nba" }> | undefined;
   const summary = () => [...sent].reverse().find((p) => p.card.kind === "text")?.card as Extract<AssistCard, { kind: "text" }> | undefined;
   const contact = (state: Interaction["state"], patch: Partial<Interaction> = {}) =>
     ({ id: ID, channel: "chat", state, direction: "inbound", origin: "routed", startedAt: 0, ...patch }) as Interaction;
   const resolve = (outcome: "used" | "dismissed", alternative?: number) =>
     guidance.resolve(nba()!.id, { outcome, ...(alternative !== undefined ? { alternative } : {}) });
-  return { guidance, sent, nba, summary, contact, resolve, startBranch };
+  return { guidance, sent, nba, summary, contact, resolve, startBranch, timers, runTimers };
 }
 
 describe("the rule set (a contact with no script)", () => {
@@ -58,6 +61,22 @@ describe("the rule set (a contact with no script)", () => {
     expect(nba()!.suggestion!.text).toMatch(/^Hi there,/);
   });
 
+  it("a known customer's journey lookup brings the Journey Summary forward, as its own step, the greeting unchanged", () => {
+    const { guidance, nba, contact, timers, runTimers } = setUp();
+    guidance.onInteraction(contact("active", { entityId: "customer-1" as Interaction["entityId"] }));
+    expect(timers.map((t) => t.ms)).toEqual([800]);
+    const greeting = nba()!;
+    expect(greeting.focus).toBeUndefined();
+    runTimers();
+    expect(nba()).toMatchObject({ stepId: "rule-journey", focus: "journey", suggestion: { title: greeting.suggestion!.title } });
+  });
+
+  it("an unknown contact has no lookup to complete", () => {
+    const { guidance, contact, timers } = setUp();
+    guidance.onInteraction(contact("active"));
+    expect(timers).toEqual([]);
+  });
+
   it("a routed call's pre-contact lines start the Real-Time Summary", () => {
     const { guidance, summary, contact } = setUp();
     guidance.onInteraction(contact("active", { channel: "voice", preContactSummary: ["Calling about a refund.", "Known caller."] }));
@@ -90,6 +109,8 @@ describe("a scripted contact (Maya Chen)", () => {
 
     guidance.onStep(ID, step("mcc-3"));
     expect(summary()!.text.split(". ").length).toBeGreaterThan(1);
+    // Her card fact brings Customer Info forward.
+    expect(nba()).toMatchObject({ stepId: "mcc-3", focus: "customer", frame: "listening" });
     guidance.onStep(ID, step("mcc-do"));
     expect(nba()).toMatchObject({ stepId: "mcc-do", suggestion: { type: "do", link: "maya-refund-steps", branch: "refund" } });
     resolve("used");

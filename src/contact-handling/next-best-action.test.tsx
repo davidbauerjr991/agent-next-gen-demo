@@ -189,8 +189,58 @@ describe("the reference column", () => {
     expect(summary.textContent).not.toContain("Wants a refund, not a replacement");
     // Her second turn (12s after answer) adds the next line.
     await h.advance(11_000);
-    expect(summary.textContent).toContain("Wants a refund, not a replacement");
-    await h.click(header("customer-info-card"));
+    // That turn names her card on file: Customer Info comes forward (P-CANVAS 3).
+    expect(expanded()).toEqual(["customer-info-card"]);
     expect(h.container.querySelector("[data-slot=customer-info-card]")!.textContent).toContain("View customer info");
+    await h.click(header("real-time-summary"));
+    expect(h.container.querySelector("[data-slot=real-time-summary]")!.textContent).toContain("Wants a refund, not a replacement");
+  });
+});
+
+describe("the AI drives the reference column", () => {
+  const expanded = () =>
+    ["real-time-summary", "journey-summary", "customer-info-card"].filter(
+      (slot) => h.container.querySelector(`[data-slot=${slot}] [aria-expanded]`)?.getAttribute("aria-expanded") === "true",
+    );
+  const header = (slot: string) => h.container.querySelector<HTMLElement>(`[data-slot=${slot}] [aria-expanded]`)!;
+  const highlighted = () => [...h.container.querySelectorAll("[data-highlighted] [data-slot]")].map((el) => el.getAttribute("data-slot"));
+
+  it("Maya: her card-on-file turn expands Customer Info, highlighted for a moment", async () => {
+    await open({ displayLocation: "inline", canvasLayout: "twoColumn" });
+    await maya();
+    expect(expanded()).toEqual(["real-time-summary"]);
+    await h.advance(12_000);
+    expect(expanded()).toEqual(["customer-info-card"]);
+    expect(highlighted()).toContain("customer-info-card");
+    await h.advance(1_500);
+    expect(highlighted()).toEqual([]);
+  });
+
+  it("a manual click survives the summary's next refresh (a summary update never takes focus)", async () => {
+    await open({ displayLocation: "inline", canvasLayout: "twoColumn" });
+    await maya();
+    await h.advance(12_500);
+    expect(expanded()).toEqual(["customer-info-card"]);
+    await h.click(header("journey-summary"));
+    expect(expanded()).toEqual(["journey-summary"]);
+    const words = () => h.container.querySelector("[data-slot=real-time-summary]")!.getAttribute("data-words");
+    const before = words();
+    // Her next turn (20s after answer) refreshes the summary.
+    await h.advance(8_000);
+    expect(words()).not.toBe(before);
+    expect(expanded()).toEqual(["journey-summary"]);
+  });
+
+  it("a known customer's sim contact: the journey lookup brings the Journey Summary forward", async () => {
+    await open({ displayLocation: "main", canvasLayout: "twoColumn" });
+    await act(async () => {
+      const dialed = h.provider.dial({ channel: "whatsapp", address: "(200) 200-1000", skillId: "general", entityId: "customer-1" as never, contactName: "Alex Miller" });
+      await vi.advanceTimersByTimeAsync(300);
+      await dialed;
+    });
+    await h.click(h.navCard("Alex Miller"));
+    expect(expanded()).toEqual(["real-time-summary"]);
+    await h.advance(1_000);
+    expect(expanded()).toEqual(["journey-summary"]);
   });
 });

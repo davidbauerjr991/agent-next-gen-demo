@@ -37,6 +37,10 @@ interface StepBase {
   /** A Next Best Action this step suggests once it plays (P-CANVAS): queued
    *  behind the one showing, so the agent sees one at a time. */
   nba?: ScenarioNba;
+  /** The reference card this step brings forward once it plays (P-CANVAS):
+   *  set it where the step's content is about that card — a payment or card
+   *  fact → customer, a look at the customer's history → journey. */
+  focus?: "summary" | "journey" | "customer";
 }
 
 /** A scripted Next Best Action (the assist provider's nba card). Say and Ask
@@ -67,7 +71,7 @@ export type ScenarioStep = StepBase &
     /** A system line in the thread ("Chat started", "Order placed"). */
     | { kind: "event"; text: string }
     | { kind: "hangUp" }
-    /** Guidance only: nothing in the thread, just its `nba` (P-CANVAS). */
+    /** Guidance only: nothing in the thread, just its `nba` and/or `focus` (P-CANVAS). */
     | { kind: "guide" }
     /** A presentation beat: `instruction` is an interstitial row (`text`,
      *  `by`, `link` = side-panel key); `approval` and `wrap-up` are cards

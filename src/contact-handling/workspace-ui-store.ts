@@ -39,8 +39,17 @@ export interface WorkspaceUiState {
   /** P-CANVAS: the Next Best Action last used on each contact (provider
    *  interaction id), shown as the card's "Used" frame until the next suggestion. */
   nbaUsedByContact: Readonly<Record<string, { title: string; at: string }>>;
-  /** P-CANVAS: the one open reference card per card (single-open accordion); absent = the Real-Time Summary. */
-  referenceOpenByCard: Readonly<Record<string, ReferenceCardFocus | null>>;
+  /** P-CANVAS: each card's reference column — the one open card (single-open
+   *  accordion; absent = the Real-Time Summary), the guidance step a manual
+   *  header click happened on (AI focus waits until the step advances), and
+   *  the card the AI just brought forward (highlighted briefly). */
+  referenceFocusByCard: Readonly<Record<string, ReferenceFocusState>>;
+}
+
+export interface ReferenceFocusState {
+  open: ReferenceCardFocus | null;
+  manualStepId?: string;
+  highlight?: { card: ReferenceCardFocus; at: number };
 }
 
 export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
@@ -54,7 +63,7 @@ export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
   summariesOverlayOpen: false,
   composerPrefill: Object.freeze({}),
   nbaUsedByContact: Object.freeze({}),
-  referenceOpenByCard: Object.freeze({}),
+  referenceFocusByCard: Object.freeze({}),
 });
 
 export interface WorkspaceUiStore {
