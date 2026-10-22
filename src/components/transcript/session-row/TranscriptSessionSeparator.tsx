@@ -140,7 +140,8 @@ export function TranscriptSessionSeparator({
           external panel instead of expanding content below, this is simply
           the bottom border of the collapsed row. */}
       <div className="border-b border-lyra-border-subtle">
-        <div className="flex flex-wrap items-center justify-between gap-3 py-2">
+        {/* In the record header (portaled) it's the header's second line: the lyra PageHeader "Agent" story's spacing. */}
+        <div className={cn("flex flex-wrap items-center justify-between gap-3", portalTarget ? "pb-3 pt-1" : "py-2")}>
           {/* Flat, left-aligned case info — no wrapping pill border/
               background and no flanking divider lines (per earlier design
               update matching the reference screenshot): plain inline
@@ -182,7 +183,8 @@ export function TranscriptSessionSeparator({
           <SessionActionCluster session={session} isClosed={isClosed} channelType={channelType} {...cluster} />
         </div>
       </div>
-      {!hideFade && (
+      {/* The fade is for content scrolling under the sticky row; the header's copy doesn't scroll. */}
+      {!hideFade && !portalTarget && (
         <div
           className="pointer-events-none absolute inset-x-0 -bottom-8 h-8 bg-gradient-to-b from-lyra-bg-surface-base to-transparent"
           aria-hidden="true"

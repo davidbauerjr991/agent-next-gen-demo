@@ -188,8 +188,11 @@ describe("CopilotComposer layout (measured, not a breakpoint)", () => {
   it("narrow: Takeover goes below the chips, full width", async () => {
     const { composer, takeover, chips } = await renderAt(ROW_WIDTH - 1);
     expect(composer.dataset.layout).toBe("stacked");
-    // Its own line in the composer's column, not inside the chips row.
-    expect(takeover.parentElement).toBe(composer);
+    // Its own line in the composer's column, not inside the chips row: the rows under the input are one column
+    // element, the composer's last child (P-CANVAS browser pass: the composer ends at its last visible row).
+    expect(takeover.closest("[data-slot=copilot-chips]")).toBeNull();
+    expect(takeover.parentElement).toBe(composer.lastElementChild);
+    expect(takeover.parentElement!.className).toContain("flex-col");
     expect(chips.compareDocumentPosition(takeover) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(takeover.className).toContain("w-full");
   });

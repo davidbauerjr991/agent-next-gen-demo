@@ -69,7 +69,7 @@ export function useWsHeaderApps(prev: WsOutbound) {
     setCustomerPanelActiveTab, setLeftNavPage, setLinkCustomerPanelOpen, setNarrowActiveRegion, setPanelFullScreen,
     setPanelIsResizing, setPanelOpen, setPanelWidth, setSelectedDetailPanelContent, setShowAllContacts,
     setShowSettings, setSidePanelOpen, showAllContacts, showSettings, switchActiveInteraction,
-    togglePinnedKey, focusCustomerPanelTab, handleLinkCustomerFromPreview,
+    togglePinnedKey, focusCustomerPanelTab, handleLinkCustomerFromPreview, isHistoryConversationView,
   } = prev;
   // Search — per explicit request, the Interactions table (previously its
   // own top-level desk tab, `InteractionsListView`, agent-next-gen-
@@ -952,6 +952,9 @@ export function useWsHeaderApps(prev: WsOutbound) {
   // Customer Info, the Next Best Action text and the rest of Contact Details
   // belong to the Contact Details preview alone.
   const threadOverview = !aiInPanel && !panelPlacement ? renderAutosummary() : undefined;
+  // The main transcript's current session row is the record header's second line (AI display inline and panel;
+  // under "main" it's the panel thread's, in the panel header, k5 B). A past session's view has no transcript.
+  const sessionRowInHeader = !!activeInteraction && !aiWorkspaceMain && !isHistoryConversationView;
   // "AI in panel": Overview holds Customer Info (plus the AI feed: the
   // Autosummary, approvals, Next Best Action); the Session tab holds the
   // Journey Summary and Artifacts. Inline mode shows everything on Overview.
@@ -996,7 +999,7 @@ export function useWsHeaderApps(prev: WsOutbound) {
     sharedPanel, sharedPanelFullScreenOverlay, leftNavKeys, leftNavPageShown, leftNavAppItems, homeNavItem,
     restNavItems, navRailItems, snapshotLinkHandlerFor, renderAutosummary, renderAiOverview, renderAiPanelFeed, referenceCardProps,
     renderContactDetailsTab, aiFeedCount, copilotDockShown, copilotDockConcealed, copilotSlot, copilotDock,
-    threadOverview, PANEL_OVERVIEW_SECTIONS, PANEL_SESSION_SECTIONS, newOutboundLauncher,
+    threadOverview, sessionRowInHeader, PANEL_OVERVIEW_SECTIONS, PANEL_SESSION_SECTIONS, newOutboundLauncher,
   };
 }
 

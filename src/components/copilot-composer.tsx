@@ -195,6 +195,26 @@ export function CopilotComposer({
       </Button>
     );
 
+  // The one-line row (chips + refresh + Takeover) at its natural width, for the wide/narrow check above. A
+  // zero-size clip so the copy never widens a scroll container; positioned against the composer root.
+  const rowMeasure = takeover && (
+    <div aria-hidden="true" className="pointer-events-none invisible absolute left-0 top-0 h-0 w-0 overflow-hidden">
+      <div ref={measureRef} data-slot="copilot-row-measure" className="flex w-max gap-3 whitespace-nowrap">
+        <div className="flex gap-2">
+          {chipsForMeasure.map((s) => (
+            <Tag key={s} label={s} variant="purple" icon={chipIcon} shape="pill" className="shrink-0" />
+          ))}
+          <ActionIconButton size="xs" title="" tabIndex={-1}>
+            <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.5} />
+          </ActionIconButton>
+        </div>
+        <Button variant="destructive" size="md" tabIndex={-1}>
+          {takeover.label}
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
     <div
       ref={setRoot}
@@ -212,38 +232,19 @@ export function CopilotComposer({
         onSubmit={onSubmit}
         placeholder="Ask Copilot about this customer or conversation..."
         helperText=""
+        // lyra's single-line pill (+ left, mic right), as v3: every dock this composer portals into.
+        singleLine
+        rounded
         className="w-full"
       />
-      {layout === "row" ? (
-        (chips || takeover) && (
-          <div className="flex items-center justify-between gap-3">
-            {chips ?? <span />}
-            {takeoverButton(false)}
-          </div>
-        )
-      ) : (
-        <>
-          {chips}
-          {takeoverButton(true)}
-        </>
-      )}
-      {/* The one-line row at its natural width, for the wide/narrow check above. */}
-      {/* A zero-size clip so the copy never widens a scroll container. */}
-      {takeover && (
-        <div aria-hidden="true" className="pointer-events-none invisible absolute left-0 top-0 h-0 w-0 overflow-hidden">
-          <div ref={measureRef} data-slot="copilot-row-measure" className="flex w-max gap-3 whitespace-nowrap">
-            <div className="flex gap-2">
-              {chipsForMeasure.map((s) => (
-                <Tag key={s} label={s} variant="purple" icon={chipIcon} shape="pill" className="shrink-0" />
-              ))}
-              <ActionIconButton size="xs" title="" tabIndex={-1}>
-                <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.5} />
-              </ActionIconButton>
-            </div>
-            <Button variant="destructive" size="md" tabIndex={-1}>
-              {takeover.label}
-            </Button>
-          </div>
+      {/* The rows under the input, only when there's something in them, so the composer ends at its last visible
+          row (P-CANVAS browser pass). The invisible measuring copy rides at the end of that element: after the real
+          Takeover in the DOM, and absolutely positioned (no space, no gap). */}
+      {(chips || takeover) && (
+        <div className={layout === "row" ? "flex items-center justify-between gap-3" : "flex flex-col gap-3"}>
+          {layout === "row" ? (chips ?? <span />) : chips}
+          {takeoverButton(layout === "stacked")}
+          {rowMeasure}
         </div>
       )}
     </div>

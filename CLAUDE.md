@@ -182,7 +182,7 @@ Reference implementation: the Lucas Thomas case on the Advanced page (`src/scena
 - Resolved paths end with a Wrap up card (same accordion shell as the approval request, success-subtle header, summary, disposition line, "Complete wrap-up" button); completing it saves the outcome and closes/unassigns. If the customer follows up, keep the chat open and have the AI reply instead of auto-closing.
 
 **Chat input / Ask Copilot**
-- A lyra-ui `ToggleGroup` (not tabs): "Chat with Customer" / "Ask Copilot"; one mode always active; switching focuses that mode's input; both panes share one grid cell so the height never changes; the chat draft is kept.
+- A lyra-ui `ToggleGroup` (not tabs): "Chat with Customer" / "Ask Copilot"; one mode always active; switching focuses that mode's input; both panes stay mounted (the chat draft and the Copilot question are kept) and the area takes the active pane's height, ending at its last row (changed 2026-10-22, P-CANVAS browser pass: the Copilot pane is lyra's single-line `AIInput` pill, shorter than the chat box).
 - Ask Copilot uses `AIInput` with purple pill suggestion chips beneath it. A chip in the Approval request box and the same chip in Ask Copilot must open the same panel, add the same chat row, and reopen the same content. Anything asked of Copilot is logged in the chat as an interstitial.
 
 **Verification**

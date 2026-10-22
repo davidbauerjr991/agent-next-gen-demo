@@ -149,11 +149,19 @@ describe("2: the record header always has its bottom border", () => {
       await setUp(ai);
       const { journey } = await dial("email", priya, priya.emailAddress!);
       await h.click(h.navCard(priya.name));
-      const recordHeader = () =>
-        [...h.container.querySelectorAll<HTMLElement>(".lyra-page-header-container")].find((el) => el.textContent?.includes(priya.name))!;
-      expect(recordHeader().className).toContain("border-b");
+      // One border under the whole header (P-CANVAS browser pass): the session row's when it's the header's second
+      // line (inline, panel), else the PageHeader's (main: the session row is the panel thread's, k5 B).
+      const recordHeader = () => h.container.querySelector<HTMLElement>("[data-slot=record-header]")!;
+      const borders = () => {
+        const pageHeaderBorder = recordHeader().querySelector(".lyra-page-header-container")!.className.includes("border-b");
+        const sessionRowBorder = !!recordHeader().querySelector("[data-slot=record-session-row] .border-b");
+        return { pageHeaderBorder, sessionRowBorder };
+      };
+      const expected = ai === "main" ? { pageHeaderBorder: true, sessionRowBorder: false } : { pageHeaderBorder: false, sessionRowBorder: true };
+      expect(recordHeader().textContent).toContain(priya.name);
+      expect(borders()).toEqual(expected);
       await dial("sms", priya, priya.firstPhone, journey);
-      expect(recordHeader().className).toContain("border-b");
+      expect(borders()).toEqual(expected);
     });
   }
 });
@@ -393,9 +401,12 @@ describe("10: a multi-thread channel icon opens its thread menu on hover", () =>
     expect(rows).toHaveLength(2);
     const current = rows.find((r) => r.textContent?.includes("Current"))!;
     expect(current).toBeTruthy();
-    const before = h.container.querySelector("[data-main-thread]")!.textContent;
+    // The thread's view: its session row (the record header's second line, P-CANVAS browser pass) and its column.
+    const threadView = () =>
+      `${h.container.querySelector("[data-slot=record-session-row]")?.textContent ?? ""}|${h.container.querySelector("[data-main-thread]")!.textContent}`;
+    const before = threadView();
     await h.click(rows.find((r) => r !== current)!);
-    expect(h.container.querySelector("[data-main-thread]")!.textContent).not.toBe(before);
+    expect(threadView()).not.toBe(before);
   });
 
   it("a single-thread icon keeps its preview", async () => {

@@ -461,7 +461,7 @@ export function InteractionComposer({
       paneRef={placement === "inline" ? copilotPaneRef : undefined}
       className={
         placement === "inline"
-          ? `col-start-1 row-start-1 ${composerTab === "copilot" ? "animate-in fade-in-0 duration-200" : "invisible pointer-events-none"}`
+          ? `col-start-1 row-start-1 ${composerTab === "copilot" ? "animate-in fade-in-0 duration-200" : "hidden"}`
           : undefined
       }
       aria-hidden={placement === "inline" ? composerTab !== "copilot" : undefined}
@@ -574,11 +574,13 @@ export function InteractionComposer({
         )}
         </div>
         )}
-        {/* Both panes share one grid cell so the area keeps the taller (chat) height on either tab.
-            `minmax(0,1fr)`: the cell is the column's width, never a pane's min-content. */}
+        {/* Both panes stay mounted in one grid cell (the chat draft and the Copilot question are kept); the inactive
+            one is `hidden`, so the area is the active pane's height and ends at its last row (P-CANVAS browser pass,
+            2026-10-22: the single-line Copilot pill is shorter than the chat box). `minmax(0,1fr)`: the cell is the
+            column's width, never a pane's min-content. */}
         <div className="grid grid-cols-[minmax(0,1fr)]">
         {!copilotDocked && copilotComposer("inline")}
-        <div className={`col-start-1 row-start-1 ${composerTab === "chat" ? "" : "invisible pointer-events-none"}`} aria-hidden={composerTab !== "chat"}>
+        <div className={`col-start-1 row-start-1 ${composerTab === "chat" ? "" : "hidden"}`} aria-hidden={composerTab !== "chat"}>
         {replyBlockedReason && (
           <InlineNotification variant="warning" className="mb-2" data-slot="reply-blocked">
             {replyBlockedReason}

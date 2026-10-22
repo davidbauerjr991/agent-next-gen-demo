@@ -42,7 +42,7 @@ export function InteractionBody() {
     openDetailPanelContent, outcomeConfigFor, outcomeDrafts, panelPlacement, renderAiPanelFeed,
     scenarioCases, scenarioKeyOf, scenarioThreadOf, setHideAiActions, setMarcusWebbPhotoExpanded,
     setVoiceVideoFullScreen, setVoiceVideoWindowOpen, snapshotLinkHandlerFor, stripAiInPanel, threadOutcomeProps,
-    viewSessionDetails, voiceVideoFullScreen, voiceVideoWindowOpen,
+    viewSessionDetails, voiceVideoFullScreen, voiceVideoWindowOpen, sessionRowHost, sessionRowInHeader,
   } = useWorkspace();
   // P-CANVAS: under AI display inline and main, the action cells around the
   // conversation and the reference column come from the canvas registry.
@@ -154,6 +154,8 @@ export function InteractionBody() {
                         <InteractionTranscript
  hideAiActions={hideAiActions}
                           hideMockFollowUpMessages={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID}
+                          // The current session's row is the record header's second line (its own host there).
+                          sessionRowPortalTarget={sessionRowInHeader ? sessionRowHost : undefined}
                           // Voice wrap-up (P0.5d.1): while this card's call is
                           // in wrap-up (agent or customer hang-up), its
                           // wrap-up card is the last item in the scrolling

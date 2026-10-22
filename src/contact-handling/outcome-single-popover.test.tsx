@@ -30,6 +30,8 @@ afterEach(async () => {
 const panel = () => h.container.querySelector("[data-slot=right-panel]")!;
 const panelShows = () => (panel()?.getAttribute("data-open") === "true" ? panel().getAttribute("data-thread") : null);
 const mainColumn = () => h.container.querySelector("[data-main-thread]")!;
+/** The record header (its second line is the main thread's session row under inline and panel, P-CANVAS browser pass). */
+const recordHeader = () => h.container.querySelector("[data-slot=record-header]")!;
 const headerIcon = (label: string) =>
   h.container.querySelector<HTMLElement>(`[aria-label="Open ${label} preview"], [aria-label="Close ${label} preview"]`);
 const buttonText = (root: ParentNode, text: string | RegExp) =>
@@ -133,7 +135,7 @@ describe("Bug 1: one Outcome popover per click", () => {
     await setUp("inline");
     await acceptCall("(312) 555-0164", "Lauren Briggs");
     await h.click(h.navCard("Lauren Briggs"));
-    expect(sessionRowOutcomes(mainColumn())).toHaveLength(1);
+    expect(sessionRowOutcomes(recordHeader())).toHaveLength(1);
     const navOutcome = h.navCard("Lauren Briggs").closest("aside")!.querySelector<HTMLElement>('button[aria-label="Outcome"]')!;
     await h.click(navOutcome);
     expect(openOutcomePopovers()).toHaveLength(1);
@@ -145,13 +147,15 @@ describe("Bug 1: which session rows exist", () => {
     await setUp("main");
     await acceptCall("(312) 555-0164", "Lauren Briggs");
     expect(sessionRowOutcomes(mainColumn())).toHaveLength(0);
+    expect(sessionRowOutcomes(recordHeader())).toHaveLength(0);
     expect(sessionRowOutcomes(panel().querySelector("[data-slot=panel-session-row]")!)).toHaveLength(1);
   });
 
-  it("AI display inline, a call: one in the main column", async () => {
+  it("AI display inline, a call: one, the record header's second line; none in the main column", async () => {
     await setUp("inline");
     await acceptCall("(312) 555-0164", "Lauren Briggs");
     await h.click(h.navCard("Lauren Briggs"));
-    expect(sessionRowOutcomes(mainColumn())).toHaveLength(1);
+    expect(sessionRowOutcomes(recordHeader().querySelector("[data-slot=record-session-row]")!)).toHaveLength(1);
+    expect(sessionRowOutcomes(mainColumn())).toHaveLength(0);
   });
 });

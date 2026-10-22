@@ -134,6 +134,45 @@ describe("stacked canvas and panel mode", () => {
   });
 });
 
+describe("the record header's second line and the docked column (browser pass, 2026-10-22)", () => {
+  const header = () => h.container.querySelector<HTMLElement>("[data-slot=record-header]");
+  const sessionRow = () => header()?.querySelector("[data-slot=record-session-row]");
+
+  for (const [displayLocation, canvasLayout] of [
+    ["inline", "twoColumn"],
+    ["inline", "stacked"],
+    ["panel", "twoColumn"],
+  ] as const) {
+    it(`${displayLocation} (${canvasLayout}): the current session row is the record header's second line, above both regions`, async () => {
+      await open({ displayLocation, canvasLayout });
+      await CASES.noah();
+      const row = sessionRow();
+      expect(row).not.toBeNull();
+      expect(row!.textContent).toContain("#");
+      // Not in the transcript too: exactly one current session row, in the header.
+      const main = h.container.querySelector<HTMLElement>("[data-main-thread]")!;
+      expect(main.contains(row!)).toBe(false);
+      expect(main.textContent).not.toContain(row!.textContent!.trim().slice(0, 12));
+      // One bottom border: the session row's, not the PageHeader's.
+      expect(header()!.querySelectorAll(".border-b").length).toBeGreaterThan(0);
+      expect(header()!.firstElementChild!.className).not.toContain("border-b");
+    });
+  }
+
+  it("main: no second line (the session row is the panel thread's, k5 B); the PageHeader carries the border", async () => {
+    await open({ displayLocation: "main", canvasLayout: "twoColumn" });
+    await CASES.noah();
+    expect(sessionRow()).toBeNull();
+    expect(header()!.firstElementChild!.className).toContain("border-b");
+  });
+
+  it("the docked column has no panel header", async () => {
+    await open({ displayLocation: "inline", canvasLayout: "twoColumn" });
+    await CASES.noah();
+    expect(region("reference")!.textContent).not.toContain("Summaries");
+  });
+});
+
 describe("the registry decides the region", () => {
   it("re-registering the Autosummary as reference moves it into the reference column, with no other change", async () => {
     registerCanvasCell({ ...canvasCellDefinition("autosummary")!, region: "reference", order: 25 });

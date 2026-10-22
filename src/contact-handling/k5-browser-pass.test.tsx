@@ -150,8 +150,10 @@ describe("C: Outcome and the status pill on every channel tab", () => {
         await vi.advanceTimersByTimeAsync(10);
       });
       await h.click([...mainColumn.querySelectorAll<HTMLElement>("button")].find((b) => b.textContent?.trim() === "Send")!);
-      expect(mainColumn.querySelector('[aria-label="Outcome"], [title="Outcome"]')).not.toBeNull();
-      expect([...mainColumn.querySelectorAll("button, [role=button]")].some((el) => /^(New|Open|Pending)/.test(el.textContent?.trim() ?? ""))).toBe(true);
+      // The tab's session row is the record header's second line (P-CANVAS browser pass).
+      const sessionRow = h.container.querySelector("[data-slot=record-header] [data-slot=record-session-row]")!;
+      expect(sessionRow.querySelector('[aria-label="Outcome"], [title="Outcome"]')).not.toBeNull();
+      expect([...sessionRow.querySelectorAll("button, [role=button]")].some((el) => /^(New|Open|Pending)/.test(el.textContent?.trim() ?? ""))).toBe(true);
     });
   }
 });

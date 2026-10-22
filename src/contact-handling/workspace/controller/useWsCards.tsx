@@ -503,6 +503,9 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   }, [copilotHost]);
   // The voice bar portals into this host; its slot is the top of the left nav or the bottom (`VoiceBar`).
   const voiceBarHost = usePortalHost("shrink-0 empty:hidden");
+  // The main transcript's current session row portals into this host, the record header's second line
+  // (`sessionRowPortalTarget`; AI display inline and panel, P-CANVAS browser pass).
+  const sessionRowHost = usePortalHost();
   // The left nav's slot renders only while the nav is open (and the setting is "top"); otherwise the bar sits at the bottom.
   const [voiceNavSlotMounted, setVoiceNavSlotMounted] = useState(false);
   const { newOutboundAtBottom, navItemsAtTop, noInteractionCollapse } = assignmentsSettings;
@@ -1036,7 +1039,7 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
     setPendingClose, confirmDismiss, voiceSettings, panelPlacement, placement, aiInPanel, asyncPlacement,
     aiWorkspaceInMain, tabs, omnichannel, rightPanelEl, rightPanelSlotMounted, setRightPanelSlotMounted,
     rightPanelRef, portalInto, stripAiInPanel, copilotHost, hoverDockMounted, setHoverDockMounted, aiFollowSignal,
-    setAiFollowSignal, copilotFollows, voiceBarHost, voiceNavSlotMounted, setVoiceNavSlotMounted,
+    setAiFollowSignal, copilotFollows, voiceBarHost, sessionRowHost, voiceNavSlotMounted, setVoiceNavSlotMounted,
     newOutboundAtBottom, navItemsAtTop, noInteractionCollapse, channelsExpandedById, setChannelsExpandedById,
     activeInteractionId, setActiveInteractionId, isNewAssignment, answerSla, customerTable, activeInteraction,
     activeScenarioKey, activeCustomerFields, activeCustomerRecordDraft, activeCustomerOverviewEditing,

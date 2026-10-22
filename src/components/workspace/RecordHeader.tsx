@@ -57,7 +57,7 @@ export function RecordHeader() {
     replyBlockedReason, scenarioKeyOf, scheduleCloseChannelHoverPreview,
     scheduleCloseCustomerInfoPreview, selectPanel, setChannelHoverPreviewKey,
     setHistoryConversationTab, setHoverDockMounted, setOutcomeDraft, showChannelTabRow, sidePanelToggleLabel,
-    storeContacts, tabs, threadMenu,
+    storeContacts, tabs, threadMenu, sessionRowHost, sessionRowInHeader,
   } = useWorkspace();
   if (!activeInteraction) return null;
   return (
@@ -112,13 +112,17 @@ export function RecordHeader() {
                         being a safe stand-in for it once this button
                         started rendering unconditionally, not just while
                         the docked panel is closed). */}
+                    {/* One header, one bottom border (P-CANVAS browser pass, lyra's PageHeader "Agent" story): line one
+                        is the PageHeader; line two, under AI display inline and panel, is the main transcript's
+                        current session row (`sessionRowHost`), whose own bottom border closes the header. Without a
+                        second line (AI display "main": the session row is the panel thread's, k5 B) the PageHeader
+                        carries the border. */}
+                    <div data-slot="record-header" className="shrink-0">
                     <PageHeader
                       ref={recordHeaderRef}
-                      // Always its own bottom border, with or without a session row, in every mode (k8 2):
-                      // on the wrapper with a little padding, since `compact` drops the row's bottom padding.
                       bordered={false}
                       compact
-                      className="border-b border-lyra-border-subtle pb-3"
+                      className={sessionRowInHeader ? undefined : "border-b border-lyra-border-subtle pb-3"}
                       // Per explicit request ("add an icon indicating
                       // whether the interaction is an agent or a customer
                       // to the left of the name"): `Headphones` for
@@ -797,6 +801,8 @@ export function RecordHeader() {
                         </div>
                       }
                     />
+                    {sessionRowInHeader && <HostSlot host={sessionRowHost} data-slot="record-session-row" />}
+                    </div>
                     {/* Per the latest explicit follow-up request ("float the
                         channel toggles to the right..."): the
                         `ChannelToggleGroup`/`ChannelToggle` pills now render

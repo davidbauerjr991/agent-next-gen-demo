@@ -74,6 +74,123 @@ for (const displayLocation of ["inline", "main"] as const) {
   });
 }
 
+/** The record header's box and its session row's (its second line), and the elements under the header that draw a bottom border. */
+const headerGeometry = (page: Page) =>
+  page.evaluate(() => {
+    const header = document.querySelector("[data-slot=record-header]")!;
+    const rowEl = header.querySelector("[data-slot=record-session-row] > div > div");
+    const rect = (el: Element | null) => {
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, width: r.width };
+    };
+    const hb = header.getBoundingClientRect();
+    // Elements whose drawn bottom border sits on the header's bottom edge.
+    const bottomBorders = [header, ...header.querySelectorAll("*")].filter((el) => {
+      const s = getComputedStyle(el);
+      return parseFloat(s.borderBottomWidth) > 0 && s.borderBottomStyle !== "none" && Math.abs(el.getBoundingClientRect().bottom - hb.bottom) <= 1;
+    }).length;
+    return { header: rect(header)!, sessionRow: rect(rowEl), bottomBorders };
+  });
+
+for (const displayLocation of ["inline", "panel"] as const) {
+  test(`${displayLocation}: the record header carries the session row as its second line, with one border below it`, async ({ page }) => {
+    await setUp(page, { displayLocation, canvasLayout: "twoColumn" });
+    const g = await headerGeometry(page);
+    expect(g.sessionRow).not.toBeNull();
+    // The header's box includes the session row.
+    expect(g.sessionRow!.top).toBeGreaterThanOrEqual(g.header.top);
+    expect(g.sessionRow!.bottom).toBeLessThanOrEqual(g.header.bottom + 0.5);
+    expect(g.bottomBorders).toBe(1);
+    // The main column below has no session row of its own.
+    expect(await page.locator("[data-main-thread] [aria-label='Outcome']").count()).toBe(0);
+  });
+}
+
+test("main: no second line (the session row is the panel thread's); still one border below the header", async ({ page }) => {
+  await setUp(page, { displayLocation: "main", canvasLayout: "twoColumn" }, 2200);
+  const g = await headerGeometry(page);
+  expect(g.sessionRow).toBeNull();
+  expect(g.bottomBorders).toBe(1);
+});
+
+test("inline, two columns: the column starts below the session row, which spans the main column; no panel chrome", async ({ page }) => {
+  await setUp(page, { displayLocation: "inline", canvasLayout: "twoColumn" });
+  const g = await headerGeometry(page);
+  const col = await box(page, "[data-canvas-region=reference]");
+  const top = await page.evaluate(() => document.querySelector("[data-canvas-region=reference]")!.getBoundingClientRect().top);
+  const r = await row(page);
+  expect(top).toBeGreaterThanOrEqual(g.sessionRow!.bottom - 0.5);
+  // The session row spans the action area and the column together.
+  expect(g.sessionRow!.left).toBeLessThanOrEqual(r.left + 24.5);
+  expect(g.sessionRow!.right).toBeGreaterThanOrEqual(r.right - 24.5);
+  expect(Math.round(col.right)).toBe(Math.round(r.right));
+  // Docked: no "Summaries" header, no panel background.
+  await expect(reference(page)).not.toContainText("Summaries");
+  const bg = await page.evaluate(() => getComputedStyle(document.querySelector("[data-canvas-region=reference]")!).backgroundColor);
+  expect(bg).toBe("rgba(0, 0, 0, 0)");
+});
+
+test("main, two columns: the column starts where the action area does, below the record header", async ({ page }) => {
+  await setUp(page, { displayLocation: "main", canvasLayout: "twoColumn" }, 2200);
+  const tops = await page.evaluate(() =>
+    ["action", "reference"].map((r) => document.querySelector(`[data-canvas-region=${r}]`)!.getBoundingClientRect().top),
+  );
+  expect(Math.round(tops[1])).toBe(Math.round(tops[0]));
+  await expect(reference(page)).not.toContainText("Summaries");
+});
+
+test("the Copilot composer is lyra's single-line pill (+ left, mic right)", async ({ page }) => {
+  await setUp(page, { displayLocation: "main", canvasLayout: "twoColumn" }, 2200);
+  const field = page.locator("[data-slot=copilot-composer] textarea").first();
+  await expect(field).toBeVisible();
+  // The field's container is the pill.
+  const pill = await field.evaluate((el) => el.closest(".rounded-full") !== null);
+  expect(pill).toBe(true);
+});
+
+for (const displayLocation of ["inline", "main"] as const) {
+  test(`${displayLocation}: the Copilot composer ends at its last visible row`, async ({ page }) => {
+    // Noah's email: its composer is Copilot only, in either mode.
+    await setUp(page, { displayLocation, canvasLayout: "twoColumn" }, 2200);
+    const m = await page.evaluate(() => {
+      const c = [...document.querySelectorAll<HTMLElement>("[data-slot=copilot-composer]")].find((el) => el.getBoundingClientRect().height > 0)!;
+      const rows = [...c.children].filter((el) => getComputedStyle(el).position !== "absolute" && el.getBoundingClientRect().height > 0);
+      return { composer: c.getBoundingClientRect().bottom, lastRow: rows[rows.length - 1]!.getBoundingClientRect().bottom, paddingBottom: getComputedStyle(c).paddingBottom };
+    });
+    expect(Math.abs(m.composer - m.lastRow)).toBeLessThanOrEqual(2);
+    expect(m.paddingBottom).toBe("0px");
+  });
+}
+
+test("inline chat, Ask Copilot: the composer area ends at the chips (the chat pane takes no space)", async ({ page }) => {
+  await setUp(page, { displayLocation: "inline", canvasLayout: "twoColumn" }, 2200);
+  const failure = await page.evaluate(async () => {
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const w = window as any;
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const id = w.__simCustomer.startInbound({ channel: "chat", address: "priya.shah@example.com", displayName: "Priya Shah" });
+      await wait(500);
+      const chat = (await w.__providers.interaction.getSnapshot()).interactions.find((i: { id: string; state: string }) => i.id === id && i.state === "active");
+      if (chat) return null;
+    }
+    return "the chat never went live";
+  });
+  expect(failure).toBeNull();
+  await page.locator("aside [aria-label^='Priya Shah']").first().click({ force: true });
+  await page.getByRole("radio", { name: "Ask Copilot" }).or(page.getByRole("button", { name: "Ask Copilot" })).first().click();
+  await page.waitForTimeout(400);
+  const m = await page.evaluate(() => {
+    const c = [...document.querySelectorAll<HTMLElement>("[data-main-thread] [data-slot=copilot-composer]")].find((el) => el.getBoundingClientRect().height > 0)!;
+    const chips = c.querySelector("[data-slot=copilot-chips]")!;
+    const cell = c.parentElement!;
+    return { composer: c.getBoundingClientRect().bottom, chips: chips.getBoundingClientRect().bottom, cell: cell.getBoundingClientRect().bottom };
+  });
+  expect(Math.abs(m.composer - m.chips)).toBeLessThanOrEqual(2);
+  expect(Math.abs(m.cell - m.chips)).toBeLessThanOrEqual(2);
+});
+
 test("narrow: the column becomes the Summaries overlay; outside click and its close button close it", async ({ page }) => {
   // 1000px: the row (~730px) is under the action area's minimum plus the column.
   await setUp(page, { displayLocation: "inline", canvasLayout: "twoColumn" }, 1000);

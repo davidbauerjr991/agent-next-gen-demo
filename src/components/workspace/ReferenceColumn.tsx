@@ -5,12 +5,13 @@ import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { t } from "@/i18n";
 
-/** P-CANVAS: the reference column, a lyra `SidePanel` (the same component as
- *  Contact Details) at lyra's max card width, on the main column's right
- *  edge. Docked (pinned) while the main column fits the action area's minimum
- *  plus the column; otherwise an overlay over the action area, opened by the
- *  record header's "Summaries" toggle and closed by its close button or a
- *  click outside it. Docked vs. overlay is derived from the measured width,
+/** P-CANVAS: the reference column, at lyra's max card width on the main
+ *  column's right edge. Docked while the main column fits the action area's
+ *  minimum plus the column: a plain column, the cards straight on the content
+ *  card's background (browser pass, 2026-10-22). Otherwise a lyra `SidePanel`
+ *  overlay (the same component as Contact Details, with its header and
+ *  background) over the action area, opened by the record header's
+ *  "Summaries" toggle and closed by its close button or a click outside it. Docked vs. overlay is derived from the measured width,
  *  never a setting. Mount it as the last child of the main column's row,
  *  which must be `relative` (the overlay positions against it). */
 export function ReferenceColumn({ children }: { children: ReactNode }) {
@@ -58,21 +59,34 @@ export function ReferenceColumn({ children }: { children: ReactNode }) {
 
   return (
     <div ref={anchorRef} className="contents">
-      <SidePanel
-        ref={columnRef}
-        side="right"
-        pinned={fits}
-        open={fits || open}
-        resizable={false}
-        width={LYRA_CARD_MAX_WIDTH}
-        headerTitle={t("Summaries")}
-        showCloseButton={!fits}
-        onClose={() => setOverlayOpen(false)}
-        data-canvas-region="reference"
-        data-docked={fits || undefined}
-      >
-        <div className="flex flex-col gap-3 p-4">{children}</div>
-      </SidePanel>
+      {fits ? (
+        // Docked: a plain column on the content card's own background (no panel chrome).
+        <div
+          ref={columnRef}
+          className="h-full shrink-0 overflow-y-auto"
+          style={{ width: LYRA_CARD_MAX_WIDTH }}
+          data-canvas-region="reference"
+          data-docked="true"
+        >
+          <div className="flex flex-col gap-3 p-4">{children}</div>
+        </div>
+      ) : (
+        // Overlay: the panel (header, close button, background) over the action area.
+        <SidePanel
+          ref={columnRef}
+          side="right"
+          pinned={false}
+          open={open}
+          resizable={false}
+          width={LYRA_CARD_MAX_WIDTH}
+          headerTitle={t("Summaries")}
+          showCloseButton
+          onClose={() => setOverlayOpen(false)}
+          data-canvas-region="reference"
+        >
+          <div className="flex flex-col gap-3 p-4">{children}</div>
+        </SidePanel>
+      )}
     </div>
   );
 }

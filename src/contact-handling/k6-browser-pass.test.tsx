@@ -44,6 +44,10 @@ const contactDetailsButton = () =>
 const panel = () => h.container.querySelector("[data-slot=right-panel]")!;
 const panelShows = () => (panel()?.getAttribute("data-open") === "true" ? panel().getAttribute("data-thread") : null);
 const mainColumn = () => h.container.querySelector("[data-main-thread]")!;
+/** The main thread's current session row: the record header's second line (P-CANVAS browser pass). */
+const sessionRow = () => h.container.querySelector("[data-slot=record-header] [data-slot=record-session-row]")!;
+/** What the main thread shows: its session row and its column. */
+const threadView = () => `${sessionRow()?.textContent ?? ""}|${mainColumn().textContent}`;
 const radio = (label: string) =>
   [...document.body.querySelectorAll<HTMLButtonElement>('[role="radio"]')].find(
     (r) =>
@@ -367,11 +371,11 @@ describe("3: Settings → Assignments → Show status chip in the session row", 
     await act(async () => getSettingsStore().update("channels", { chat: true }));
     await h.accept(await h.startInbound("chat", priya.emailAddress!, priya.name));
     await h.click(h.navCard(priya.name));
-    const pill = () => [...mainColumn().querySelectorAll("button, [role=button]")].some((el) => /^(New|Open|Pending|Escalated|Resolved)\b/.test(el.textContent?.trim() ?? ""));
+    const pill = () => [...sessionRow().querySelectorAll("button, [role=button]")].some((el) => /^(New|Open|Pending|Escalated|Resolved)\b/.test(el.textContent?.trim() ?? ""));
     expect(pill()).toBe(true);
     await act(async () => getSettingsStore().update("assignments", { showStatusChip: false }));
     expect(pill()).toBe(false);
-    expect(mainColumn().querySelector('[aria-label="Outcome"], [title="Outcome"]')).not.toBeNull();
+    expect(sessionRow().querySelector('[aria-label="Outcome"], [title="Outcome"]')).not.toBeNull();
   });
 
   it("the Settings switch", async () => {
@@ -395,11 +399,11 @@ describe("4: one icon per channel with a thread picker", () => {
     expect(menu).not.toBeNull();
     const rows = [...menu.querySelectorAll<HTMLElement>("[role=menuitem]")];
     expect(rows.map((r) => r.textContent)).toEqual([expect.stringContaining(sarah.firstPhone), expect.stringContaining("(300) 555-0199")]);
-    const before = mainColumn().textContent;
+    const before = threadView();
     const other = rows.find((r) => !before?.includes(r.textContent!.split(" ")[0]!)) ?? rows[1];
     await h.click(other);
     expect(document.body.querySelector("[data-slot=channel-thread-menu]")).toBeNull();
-    expect(mainColumn().textContent).not.toBe(before);
+    expect(threadView()).not.toBe(before);
   });
 
   it("one thread: a plain icon, no menu", async () => {
@@ -494,13 +498,13 @@ describe("9: drafts vs live threads (one derivation)", () => {
       expect(mainColumn().getAttribute("data-main-thread")).toBe("email");
       const deleteDraft = () => h.navCard(priya.name).closest("aside")!.querySelector('[title="Delete Draft"], [aria-label="Delete Draft"]');
       expect(deleteDraft()).not.toBeNull();
-      expect(buttonText(mainColumn(), /Discard draft/)).toBeTruthy();
-      expect(mainColumn().querySelector('[aria-label="Outcome"]')).toBeNull();
+      expect(buttonText(sessionRow(), /Discard draft/)).toBeTruthy();
+      expect(sessionRow().querySelector('[aria-label="Outcome"]')).toBeNull();
       await h.click(mainColumn().querySelector<HTMLElement>("[data-slot=email-draft-send]")!);
       expect(deleteDraft()).toBeNull();
-      expect(buttonText(mainColumn(), /Discard draft/)).toBeFalsy();
+      expect(buttonText(sessionRow(), /Discard draft/)).toBeFalsy();
       expect(mainColumn().querySelector("[data-slot=email-draft-send]")).toBeNull();
-      expect(mainColumn().querySelector('[aria-label="Outcome"]')).not.toBeNull();
+      expect(sessionRow().querySelector('[aria-label="Outcome"]')).not.toBeNull();
     });
   }
 
@@ -526,16 +530,16 @@ describe("9: drafts vs live threads (one derivation)", () => {
       if (mainColumn().getAttribute("data-main-thread") !== "sms") await h.click(headerIcon("SMS")!);
       const navRow = () => h.container.querySelector<HTMLElement>("aside [aria-label^='SMS channel']")!;
       const navScope = () => navRow().closest("[class]")!.parentElement!;
-      expect(buttonText(mainColumn(), /Discard draft/)).toBeTruthy();
-      expect(mainColumn().querySelector('[aria-label="Outcome"], [title="Outcome"]')).toBeNull();
+      expect(buttonText(sessionRow(), /Discard draft/)).toBeTruthy();
+      expect(sessionRow().querySelector('[aria-label="Outcome"], [title="Outcome"]')).toBeNull();
       expect(navScope().querySelector('[aria-label="Outcome"], [title="Outcome"]')).toBeNull();
       // The SMS row's own delete icon (the email dialed first is a draft too, E2).
       const deleteDraft = () => navScope().querySelector('[title="Delete Draft"], [aria-label="Delete Draft"]');
       expect(deleteDraft()).not.toBeNull();
       await sendInMain("Hi Priya");
       expect(deleteDraft()).toBeNull();
-      expect(buttonText(mainColumn(), /Discard draft/)).toBeFalsy();
-      const outcome = mainColumn().querySelector<HTMLElement>('[aria-label="Outcome"]')!;
+      expect(buttonText(sessionRow(), /Discard draft/)).toBeFalsy();
+      const outcome = sessionRow().querySelector<HTMLElement>('[aria-label="Outcome"]')!;
       expect(outcome).not.toBeNull();
       await h.click(outcome);
       await saveAndDismiss();
