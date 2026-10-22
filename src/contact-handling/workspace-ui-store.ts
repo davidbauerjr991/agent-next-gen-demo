@@ -36,18 +36,23 @@ export interface WorkspaceUiState {
   /** P-CANVAS: text for a thread's chat composer to take once (a Next Best
    *  Action's "Insert into reply"), `${cardId}:${threadKey}`; cleared when taken. */
   composerPrefill: Readonly<Record<string, string>>;
-  /** P-CANVAS: the Next Best Action last used on each contact (provider
-   *  interaction id), shown as the card's "Used" frame until the next suggestion. */
-  nbaUsedByContact: Readonly<Record<string, { title: string; at: string }>>;
-  /** P-CANVAS: each card's reference column — the one open card (single-open
-   *  accordion; absent = the Real-Time Summary), the guidance step a manual
-   *  header click happened on (AI focus waits until the step advances), and
-   *  the card the AI just brought forward (highlighted briefly). */
+  /** P-CANVAS: contacts (provider interaction ids) whose Next Best Action the
+   *  agent asked for and that haven't answered yet: their "Nothing to suggest" shows as a row. */
+  nbaRequested: ReadonlySet<string>;
+  /** P-CANVAS: the Next Best Action steps already put in the conversation as a row, `${contactId}:${stepId}`. */
+  nbaRowsShown: ReadonlySet<string>;
+  /** P-CANVAS: when the Journey Summary's lookup started for each contact (first shown); it resolves 800ms later. */
+  journeyLookupStartedAt: Readonly<Record<string, number>>;
+  /** P-CANVAS: each card's reference column — which cards are open and who
+   *  opened each (absent = the Real-Time Summary, opened by the AI), the
+   *  guidance step a manual header click happened on (AI focus waits until
+   *  the step advances), and the card the AI just brought forward
+   *  (highlighted briefly). */
   referenceFocusByCard: Readonly<Record<string, ReferenceFocusState>>;
 }
 
 export interface ReferenceFocusState {
-  open: ReferenceCardFocus | null;
+  open: Readonly<Partial<Record<ReferenceCardFocus, "ai" | "user">>>;
   manualStepId?: string;
   highlight?: { card: ReferenceCardFocus; at: number };
 }
@@ -62,7 +67,9 @@ export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
   regionsRowWidth: 0,
   summariesOverlayOpen: false,
   composerPrefill: Object.freeze({}),
-  nbaUsedByContact: Object.freeze({}),
+  nbaRequested: new Set<string>(),
+  nbaRowsShown: new Set<string>(),
+  journeyLookupStartedAt: Object.freeze({}),
   referenceFocusByCard: Object.freeze({}),
 });
 

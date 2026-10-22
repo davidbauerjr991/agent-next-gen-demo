@@ -12,6 +12,7 @@ import { useReplyBlockedReason, copilotSuggestionsFor, useChannelThreadMenu, typ
 import type { CustomerPanelTabLabel } from "@/components/agent-next-gen-customer-info-panel";
 import { LUCAS_THOMAS_ID } from "@/contact-handling/scenario-cases";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
+import { useRequestNextBestAction, withNextBestActionChip } from "@/contact-handling/next-best-action";
 import { headerPatchForPin, homeTabApps, pinnedKeysFromHeader, useSettings } from "@/settings";
 import { useHomeTabs } from "@/components/home-tabs-state";
 import type { LucasThomasPanelKey, LucasThomasMemoryFocus } from "@/components/agent-next-gen-lucas-thomas-panels";
@@ -29,7 +30,7 @@ import type { WsDetails } from "./useWsDetails";
 
 export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
   const {
-    activeChannelKey, activeInteraction, activeInteractionId, channelPreviewThreadKey, customerPanelActiveTab,
+    activeChannelKey, activeInteraction, activeInteractionId, aiInPanel, channelPreviewThreadKey, customerPanelActiveTab,
     handleCopilotAsk, interactions, omni, openDetailPanelContent, panelPlacement, pendingCustomerPanelTabRef,
     restoredCustomerPanelTabRef, scenarioCases, scenarioKeyOf, setActiveInteractionId, setCustomerPanelActiveTab,
     setHistoryConversationTab, setLinkCustomerPanelOpen, setSelectedDetailPanelContent, setVoiceVideoFullScreen,
@@ -38,7 +39,13 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
   const replyBlockedReason = useReplyBlockedReason();
   // A Next Best Action's "Insert into reply" (P-CANVAS): the thread's chat composer takes it once.
   const [composerPrefill, setComposerPrefill] = useWorkspaceUiField("composerPrefill");
+  // The Next Best Action on request (P-CANVAS; AI display inline and main): the "What should I do next?" chip.
+  const requestNextBestAction = useRequestNextBestAction(interactions);
   const copilotComposerProps = (interactionId: string, threadKey: string): CopilotComposerProps => {
+    const props = baseCopilotComposerProps(interactionId, threadKey);
+    return aiInPanel ? props : withNextBestActionChip(props, () => requestNextBestAction(interactionId, threadKey));
+  };
+  const baseCopilotComposerProps = (interactionId: string, threadKey: string): CopilotComposerProps => {
     const isLucas = scenarioKeyOf(interactionId) === LUCAS_THOMAS_ID;
     const channel = interactions.find((i) => i.id === interactionId)?.threads.find((t) => (t.id ?? t.type) === threadKey)?.type;
     const prefillKey = `${interactionId}:${threadKey}`;
@@ -924,7 +931,7 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
 
   return {
     ...prev,
-    replyBlockedReason, copilotComposerProps, sessionDetailsPick, setSessionDetailsPick, viewSessionDetails,
+    replyBlockedReason, copilotComposerProps, requestNextBestAction, sessionDetailsPick, setSessionDetailsPick, viewSessionDetails,
     panelMounted, setPanelMounted, panelState, setPanelState, activePanelKey, setActivePanelKey, panelVariant,
     setPanelVariant, panelWidth, setPanelWidth, panelHeight, setPanelHeight, panelIsResizing, setPanelIsResizing,
     panelFullScreen, setPanelFullScreen, fullScreenRendered, setFullScreenRendered, fullScreenVisible,

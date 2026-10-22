@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import type { ApprovalDecisionDef, TranscriptApprovalSummary, TranscriptMessage } from "../transcript-types";
 import { InstructionInterstitial } from "./InstructionInterstitial";
 import { NbaOutcomeRow } from "./NbaOutcomeRow";
+import { NextBestActionRow } from "@/contact-handling/NextBestActionRow";
 
 /**
  * Settings → AI display "In the Contact Details panel" (P-SETTINGS, ported
@@ -92,6 +93,7 @@ export function AiActionCard({
   if (message.wrapUp) return <WrapUpAccordion message={message} onComplete={onWrapUpComplete} />;
   if (message.saveAddress) return <SaveAddressCard id={message.id} offer={message.saveAddress} timestamp={message.timestamp} />;
   if (message.nbaOutcome) return <NbaOutcomeRow outcome={message.nbaOutcome} />;
+  if (message.nba) return <NextBestActionRow id={message.id} nba={message.nba} />;
   return (
     <ApprovalSummaryAccordion
       message={message}

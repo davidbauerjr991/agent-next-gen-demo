@@ -14,6 +14,8 @@ import type {
 import type {
   AssistCardResolution,
   AssistEvents,
+  AssistRequestId,
+  SuggestRequest,
   DialRequest,
   InteractionEvents,
   OutboundSkill,
@@ -59,7 +61,9 @@ export type SimCommand =
   | { name: "takeOver"; interactionId: InteractionId; handoff?: boolean }
   | { name: "respondToRequest"; interactionId: InteractionId; response: RequestResponse }
   /** `AssistProvider.resolveCard` (P-CANVAS): the sim's assist provider is a client of the same engine. */
-  | { name: "resolveCard"; cardId: string; resolution: AssistCardResolution };
+  | { name: "resolveCard"; cardId: string; resolution: AssistCardResolution }
+  /** `AssistProvider.suggest` for the Next Best Action triggers ("next-best-action", "pause"). */
+  | { name: "suggest"; requestId: AssistRequestId; request: SuggestRequest };
 
 export type SimCommandName = SimCommand["name"];
 
@@ -92,6 +96,7 @@ export interface SimCommandResults {
   takeOver: void;
   respondToRequest: void;
   resolveCard: void;
+  suggest: AssistRequestId;
 }
 
 /** An `InteractionProvider` event, derived from the contract so it can't drift. */

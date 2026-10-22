@@ -79,6 +79,7 @@ export function InteractionComposer({
   copilotSuggestions,
   copilotSuggestionLinks,
   copilotSuggestionReplacements,
+  copilotPinnedSuggestion,
   onCopilotSuggestionLink,
   onCopilotAsk,
   copilotOnly,
@@ -124,6 +125,8 @@ export function InteractionComposer({
   copilotSuggestionLinks?: Record<string, string>;
   /** A used link chip is swapped for this replacement (label → replacement label). */
   copilotSuggestionReplacements?: Record<string, string>;
+  /** A chip that always shows after the rotating ones and stays after use (P-CANVAS: "What should I do next?"). */
+  copilotPinnedSuggestion?: string;
   onCopilotSuggestionLink?: (link: string) => void;
   /** Fired whenever the agent asks Copilot something (submits a question, or uses a chip that runs a lookup) —
    *  the caller adds a matching interstitial row to the chat. */
@@ -455,6 +458,7 @@ export function InteractionComposer({
       onChange={setCopilotQuestion}
       onSubmit={submitCopilot}
       suggestions={activeCopilotSuggestions}
+      pinnedSuggestion={copilotPinnedSuggestion}
       onActivateSuggestion={activateCopilotSuggestion}
       takeover={takeover}
       focusable={placement === "panel" || composerTab === "copilot"}

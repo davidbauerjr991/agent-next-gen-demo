@@ -12,6 +12,7 @@ export type CopilotComposerProps = Pick<
   | "copilotSuggestions"
   | "copilotSuggestionLinks"
   | "copilotSuggestionReplacements"
+  | "copilotPinnedSuggestion"
   | "onCopilotSuggestionLink"
   | "onCopilotAsk"
   | "replyBlockedReason"

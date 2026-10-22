@@ -19,16 +19,20 @@ const chipIcon = <Sparkles className="h-3 w-3" strokeWidth={1.5} aria-hidden="tr
  */
 function CopilotChipRow({
   suggestions,
+  pinned,
   focusable,
   onActivate,
 }: {
   suggestions: string[];
+  /** A chip that always shows, after the rotating ones (P-CANVAS: "What should I do next?"). */
+  pinned?: string;
   focusable: boolean;
   onActivate: (suggestion: string) => void;
 }) {
   const rowRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);
   const refreshRef = useRef<HTMLDivElement>(null);
+  const pinnedRef = useRef<HTMLSpanElement>(null);
   const [offset, setOffset] = useState(0);
   const [count, setCount] = useState(Math.min(COPILOT_CHIPS_MAX, suggestions.length));
   const n = suggestions.length;
@@ -38,9 +42,11 @@ function CopilotChipRow({
     const row = rowRef.current;
     if (!row) return;
     const measure = () => {
+      const pinnedWidth = pinnedRef.current ? pinnedRef.current.getBoundingClientRect().width + COPILOT_CHIPS_GAP_PX : 0;
       const available =
         row.getBoundingClientRect().width -
         (refreshRef.current?.getBoundingClientRect().width ?? 0) -
+        pinnedWidth -
         COPILOT_CHIPS_GAP_PX;
       const widths = [...(measureRef.current?.children ?? [])].map((el) => el.getBoundingClientRect().width);
       let used = 0;
@@ -60,33 +66,37 @@ function CopilotChipRow({
     return () => ro.disconnect();
     // Keyed on the suggestions' text, not the array (a new one each render).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [n, start, suggestions.join("\n")]);
+  }, [n, start, suggestions.join("\n"), pinned]);
 
-  if (n === 0) return null;
-  const visible = Array.from({ length: Math.min(count, n) }, (_, i) => suggestions[(start + i) % n]);
+  if (n === 0 && !pinned) return null;
+  const visible = n > 0 ? Array.from({ length: Math.min(count, n) }, (_, i) => suggestions[(start + i) % n]) : [];
+  const chip = (suggestion: string, extra?: { ref?: React.Ref<HTMLSpanElement>; slot?: string }) => (
+    <Tag
+      key={suggestion}
+      ref={extra?.ref}
+      data-slot={extra?.slot}
+      label={suggestion}
+      variant="purple"
+      icon={chipIcon}
+      shape="pill"
+      role="button"
+      tabIndex={focusable ? 0 : -1}
+      className="shrink-0 cursor-pointer"
+      onClick={() => onActivate(suggestion)}
+      onKeyDown={(e: React.KeyboardEvent<HTMLSpanElement>) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onActivate(suggestion);
+        }
+      }}
+    />
+  );
 
   return (
     <div ref={rowRef} data-slot="copilot-chips" className="relative flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-hidden">
-      {visible.map((suggestion) => (
-        <Tag
-          key={suggestion}
-          label={suggestion}
-          variant="purple"
-          icon={chipIcon}
-          shape="pill"
-          role="button"
-          tabIndex={focusable ? 0 : -1}
-          className="shrink-0 cursor-pointer"
-          onClick={() => onActivate(suggestion)}
-          onKeyDown={(e: React.KeyboardEvent<HTMLSpanElement>) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              onActivate(suggestion);
-            }
-          }}
-        />
-      ))}
-      <div ref={refreshRef} data-slot="copilot-chips-refresh" className="shrink-0">
+      {visible.map((suggestion) => chip(suggestion))}
+      {pinned && chip(pinned, { ref: pinnedRef, slot: "copilot-chip-pinned" })}
+      {n > 0 && <div ref={refreshRef} data-slot="copilot-chips-refresh" className="shrink-0">
         <ActionIconButton
           size="xs"
           title="More suggestions"
@@ -95,7 +105,7 @@ function CopilotChipRow({
         >
           <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.5} />
         </ActionIconButton>
-      </div>
+      </div>}
       {/* Natural widths of every chip, for the fit above. */}
       <div ref={measureRef} aria-hidden="true" className="pointer-events-none invisible absolute left-0 top-0 flex gap-2 whitespace-nowrap">
         {suggestions.map((suggestion) => (
@@ -130,6 +140,7 @@ export function CopilotComposer({
   onChange,
   onSubmit,
   suggestions,
+  pinnedSuggestion,
   onActivateSuggestion,
   takeover,
   focusable = true,
@@ -142,6 +153,8 @@ export function CopilotComposer({
   onChange: (value: string) => void;
   onSubmit: (value: string) => void;
   suggestions: string[];
+  /** A chip that always shows after the rotating ones. */
+  pinnedSuggestion?: string;
   onActivateSuggestion: (suggestion: string) => void;
   takeover?: CopilotTakeover;
   /** Off while the inline pane is hidden behind the chat input. */
@@ -176,8 +189,8 @@ export function CopilotComposer({
 
   const layout = takeover && !wide ? "stacked" : "row";
   const chips =
-    suggestions.length > 0 ? (
-      <CopilotChipRow suggestions={suggestions} focusable={focusable} onActivate={onActivateSuggestion} />
+    suggestions.length > 0 || pinnedSuggestion ? (
+      <CopilotChipRow suggestions={suggestions} pinned={pinnedSuggestion} focusable={focusable} onActivate={onActivateSuggestion} />
     ) : null;
   const takeoverButton = (stacked: boolean) =>
     takeover && (

@@ -32,6 +32,9 @@ export interface TranscriptMessage {
   saveAddress?: SaveAddressOffer;
   /** A compact AI row (P-CANVAS): a Next Best Action the agent used or put aside ("Used at 9:15 AM — …"). */
   nbaOutcome?: { outcome: "used" | "dismissed"; title: string; at: string };
+  /** The Next Best Action, surfaced in the conversation on a pause or the agent's request (P-CANVAS):
+   *  the suggestion `stepId` of `contactId`'s nba card while it's showing, or "Nothing to suggest" (`nothing`). */
+  nba?: { contactId: string; stepId: string; nothing?: true };
 }
 
 export interface TranscriptApprovalSummary {

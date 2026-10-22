@@ -229,8 +229,8 @@ test("main with the card's thread open in the docked panel: the column is the ov
 });
 
 for (const [displayLocation, tabs] of [
-  ["inline", ["Customer Information", "Notes", "Detail", "Transcript", "Session"]],
-  ["main", ["Customer Information", "Notes", "Detail", "Transcript", "Session"]],
+  ["inline", ["Overview", "Notes", "Detail", "Transcript", "Session"]],
+  ["main", ["Overview", "Notes", "Detail", "Transcript", "Session"]],
   ["panel", ["Overview", "Customer Information", "Notes", "Detail", "Transcript", "Session"]],
 ] as const) {
   test(`${displayLocation}: Contact Details' tab set`, async ({ page }) => {
@@ -269,22 +269,51 @@ const slideOver = "[data-slot=reference-slide-over]";
 const composerSel = "[data-canvas-region=action] [data-slot=copilot-composer]";
 
 for (const displayLocation of ["inline", "main"] as const) {
-  test(`${displayLocation}: a slide-over takes the reference slot below the header, and dragging it pushes the action area`, async ({ page }) => {
+  test(`${displayLocation}: a slide-over slides in over the reference cards below the header, and dragging it pushes the action area`, async ({ page }) => {
     await mayaLive(page, displayLocation, displayLocation === "main" ? 2200 : 1600);
     const column = (await rect(page, "[data-canvas-region=reference]"))!;
     const rowBefore = await row(page);
     const actionBefore = (await rect(page, "[data-canvas-region=action]"))!;
+    // Mark the reference cards' DOM nodes: they must be the same nodes before, during and after.
+    const markCards = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll("[data-canvas-region=reference] [data-canvas-cell]")].forEach((el, i) => el.setAttribute("data-test-node", String(i))),
+      );
+    const sameCards = () =>
+      page.evaluate(() => {
+        const cells = [...document.querySelectorAll("[data-canvas-region=reference] [data-canvas-cell]")];
+        return cells.length > 0 && cells.every((el, i) => el.getAttribute("data-test-node") === String(i));
+      });
+    await markCards();
+    // It slides in: sampled in the page the moment it mounts (the chip opens it after its spinner) and 300ms later.
+    const widths = page.evaluate(
+      (s) =>
+        new Promise<{ atMount: number; at300: number }>((resolve) => {
+          const sample = () => document.querySelector(s)!.getBoundingClientRect().width;
+          const observer = new MutationObserver(() => {
+            if (!document.querySelector(s)) return;
+            observer.disconnect();
+            const atMount = sample();
+            window.setTimeout(() => resolve({ atMount, at300: sample() }), 300);
+          });
+          observer.observe(document.body, { childList: true, subtree: true });
+        }),
+      slideOver,
+    );
     await page.locator(composerSel).getByRole("button", { name: "Show the card on file" }).click();
-    await expect(page.locator(slideOver)).toBeVisible();
-    await page.waitForTimeout(400);
+    const { atMount, at300 } = await widths;
+    // Closed it's 0 wide (plus lyra's 1px border, kept through its close transition).
+    expect(atMount).toBeLessThanOrEqual(1);
+    expect(at300).toBeGreaterThan(100);
+    await page.waitForTimeout(200);
 
-    // Where the column was, from the header's bottom down; no reference card while it's open.
+    // Over the column's slot, from the header's bottom down; the cards stay mounted underneath.
     const so = (await rect(page, slideOver))!;
     const header = (await rect(page, "[data-slot=record-header]"))!;
     expect(Math.round(so.left)).toBe(Math.round(column.left));
     expect(Math.round(so.right)).toBe(Math.round(column.right));
     expect(Math.abs(so.top - header.bottom)).toBeLessThanOrEqual(1);
-    await expect(page.locator("[data-canvas-region=reference]")).toHaveCount(0);
+    expect(await sameCards()).toBe(true);
 
     // Drag the handle 200px wider: the action area gives up exactly that, scroll kept. (The composer is
     // centered at most 768px wide inside the action area, so it shrinks only once the area is narrower.)
@@ -323,11 +352,14 @@ for (const displayLocation of ["inline", "main"] as const) {
     await page.waitForTimeout(400);
     expect(Math.round((await rect(page, slideOver))!.width)).toBe(Math.round(dragged.width));
 
-    // Close: the reference cards are back and the action area has its width again.
+    expect(await sameCards()).toBe(true);
+
+    // Close: the panel slides out and goes; the cards were never re-mounted; the action area has its width again.
     await page.locator(slideOver).getByRole("button", { name: /^Close / }).click();
     await page.waitForTimeout(600);
     await expect(page.locator(slideOver)).toHaveCount(0);
     await expect(page.locator("[data-canvas-region=reference]")).toBeVisible();
+    expect(await sameCards()).toBe(true);
     expect(Math.round((await rect(page, "[data-canvas-region=action]"))!.width)).toBe(Math.round(actionBefore.width));
     expect(Math.round((await row(page)).width)).toBe(Math.round(rowBefore.width));
   });

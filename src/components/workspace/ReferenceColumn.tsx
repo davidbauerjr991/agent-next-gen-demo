@@ -14,7 +14,16 @@ import { t } from "@/i18n";
  *  never a setting. `ReferenceSlot` mounts it (the last child of the main
  *  column's row, which must be `relative`: the overlay positions against it)
  *  and measures the row. */
-export function ReferenceColumn({ children }: { children: ReactNode }) {
+export function ReferenceColumn({
+  children,
+  width = LYRA_CARD_MAX_WIDTH,
+  transition,
+}: {
+  children: ReactNode;
+  /** The docked slot's width: the card width, or wider while a slide-over over it is (ReferenceSlot). */
+  width?: number;
+  transition?: string;
+}) {
   const { activeInteraction } = useWorkspace();
   // Measured by `ReferenceSlot`, which mounts this column.
   const [fits] = useWorkspaceUiField("referenceColumnFits");
@@ -49,7 +58,7 @@ export function ReferenceColumn({ children }: { children: ReactNode }) {
         <div
           ref={columnRef}
           className="h-full shrink-0 overflow-y-auto"
-          style={{ width: LYRA_CARD_MAX_WIDTH }}
+          style={{ width, transition }}
           data-canvas-region="reference"
           data-docked="true"
         >

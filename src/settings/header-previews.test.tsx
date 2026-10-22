@@ -239,16 +239,19 @@ describe("AI cards", () => {
   });
 
   for (const ai of ["inline", "panel", "main"] as const) {
-    // P-CANVAS: under inline and main the Next Best Action takes the Autosummary's place; panel mode keeps the Autosummary.
-    const slot = ai === "panel" ? "autosummary" : "next-best-action";
-    it(`the AI overview is one ${slot} card (AI display ${ai}), once, where the mode puts it`, async () => {
+    // P-CANVAS: panel mode keeps its one Autosummary; under inline and main there's none, and no Next Best Action
+    // until a pause or the agent's request surfaces one in the conversation (next-best-action.test).
+    it(`the AI overview (AI display ${ai}): ${ai === "panel" ? "one Autosummary, in the panel" : "no Autosummary, no Next Best Action at first"}`, async () => {
       await whatsAppAndEmail(ai);
       if (ai === "panel" && h.container.querySelector("[data-slot=right-panel]")?.getAttribute("data-thread") !== "details") await h.click(contactDetailsButton());
-      const cards = [...h.container.querySelectorAll(`[data-slot=${slot}]`)];
-      expect(cards).toHaveLength(1);
-      const where = ai === "panel" ? "[data-slot=right-panel]" : "[data-main-thread]";
-      expect(cards[0].closest(where)).not.toBeNull();
-      if (ai !== "panel") expect(h.container.querySelector("[data-slot=autosummary]")).toBeNull();
+      if (ai === "panel") {
+        const cards = [...h.container.querySelectorAll("[data-slot=autosummary]")];
+        expect(cards).toHaveLength(1);
+        expect(cards[0].closest("[data-slot=right-panel]")).not.toBeNull();
+      } else {
+        expect(h.container.querySelector("[data-slot=autosummary]")).toBeNull();
+        expect(h.container.querySelector("[data-slot=next-best-action]")).toBeNull();
+      }
     });
   }
 

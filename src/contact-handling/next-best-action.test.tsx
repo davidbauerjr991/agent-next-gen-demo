@@ -1,21 +1,26 @@
 // @vitest-environment jsdom
-// P-CANVAS: the Next Best Action pinned first in the action area (AI display
-// inline and main) and the reference column's three Agentic AI cards. The
-// card's footer follows the suggestion and the channel; using a suggestion
-// or putting it aside logs a compact AI row and moves the card on.
+// P-CANVAS: the Next Best Action is inline and on demand — a row in the
+// conversation that surfaces only on a pause (no customer or agent turn for
+// Settings → AI's pause) or the agent's request ("What should I do next?"),
+// never while a bot holds the chat. Using it or putting it aside replaces it
+// with a compact Used/Dismissed row. Plus the reference column's cards: any
+// number open, the AI focusing, the Journey Summary always resolving, and
+// Customer Info's identity block.
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
 import { SIM_DEMO_SEED } from "@/adapters/sim/sim-fixtures";
 import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
+import { DEFAULT_CANVAS_CELLS } from "@/components/workspace/canvas-cells";
+import { LUCAS_THOMAS_SCRIPT } from "@/scenarios/scripts/lucas-thomas";
 import { MAYA_CHEN_SCRIPT } from "@/scenarios/scripts/maya-chen";
 import { MARCUS_WEBB_SCRIPT } from "@/scenarios/scripts/marcus-webb";
 import { profileValues } from "@/settings/profiles";
 import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
 import type { AiSettings } from "@/settings/settings-schema";
-import { DEFAULT_CANVAS_CELLS } from "@/components/workspace/canvas-cells";
 import { canvasCellDefinition, resetCanvasRegistry } from "./canvas-registry";
+import { NBA_CHIP } from "./next-best-action";
 
 const h = createWorkspaceHarness({ seed: SIM_DEMO_SEED });
 const priya = CREATE_NEW_CUSTOMERS.find((c) => c.id === "priya-shah-history")!;
@@ -31,7 +36,7 @@ afterEach(async () => {
   await h.tearDown();
 });
 
-async function open(ai: AiSettings) {
+async function open(ai: Partial<AiSettings>) {
   await act(async () => {
     getSettingsStore().updateMany(profileValues("phase2"));
     getSettingsStore().update("ai", ai);
@@ -55,52 +60,158 @@ async function priyaChat() {
   await h.advance(300);
 }
 
+const main = () => h.container.querySelector<HTMLElement>("[data-main-thread]")!;
 const nba = () => h.container.querySelector<HTMLElement>("[data-slot=next-best-action]");
 const frame = () => nba()?.getAttribute("data-frame");
 const button = (label: string, scope: Element | null = nba()) =>
   [...(scope?.querySelectorAll<HTMLElement>("button") ?? [])].find((b) => b.textContent?.trim() === label);
 const outcomes = () => [...h.container.querySelectorAll<HTMLElement>("[data-slot=nba-outcome]")].map((r) => `${r.dataset.outcome}: ${r.textContent}`);
-const action = () => h.container.querySelector<HTMLElement>("[data-canvas-region=action]");
+const chip = () => document.body.querySelector<HTMLElement>("[data-slot=copilot-chip-pinned]");
+
+async function sendChat(text: string) {
+  const input = main().querySelector<HTMLTextAreaElement>('textarea[placeholder^="Type a message"]')!;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(input, text);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(10);
+  });
+  await h.click(button("Send", main())!);
+}
 
 describe("the registry", () => {
-  it("has the Next Best Action at action order 0 and exactly the three reference cells", () => {
-    expect(canvasCellDefinition("next-best-action")).toMatchObject({ region: "action", order: 0 });
+  it("has no Next Best Action cell, and exactly the three reference cells", () => {
+    expect(canvasCellDefinition("next-best-action")).toBeUndefined();
     expect(canvasCellDefinition("autosummary")).toBeUndefined();
-    expect(canvasCellDefinition("artifacts")).toBeUndefined();
     const reference = DEFAULT_CANVAS_CELLS.filter((c) => c.region === "reference").sort((a, b) => a.order - b.order).map((c) => c.id);
     expect(reference).toEqual(["real-time-summary", "journey-summary", "customer-info"]);
   });
 });
 
-describe("the Next Best Action", () => {
+describe("the Next Best Action surfaces on a pause or on request", () => {
   for (const displayLocation of ["inline", "main"] as const) {
-    it(`AI display ${displayLocation}: first in the action area, above the thread, opening with the greeting`, async () => {
-      await open({ displayLocation, canvasLayout: "twoColumn" });
-      await maya();
-      const cells = [...action()!.querySelectorAll("[data-canvas-cell]")].map((c) => c.getAttribute("data-canvas-cell"));
-      expect(cells[0]).toBe("next-best-action");
+    it(`AI display ${displayLocation}: no row before the pause; after it, the greeting as a row in the conversation`, async () => {
+      await open({ displayLocation });
+      await priyaChat();
+      await h.advance(5_000);
+      expect(nba()).toBeNull();
+      await h.advance(1_500);
       expect(frame()).toBe("say");
-      expect(nba()!.textContent).toContain("Greet Maya and say the call is recorded");
+      expect(nba()!.textContent).toContain("Greet Priya and say the chat is recorded");
+      // In the conversation (inline) or the AI feed ("main"), not a canvas cell.
+      expect(nba()!.closest("[data-main-thread]")).not.toBeNull();
+      expect(nba()!.closest("[data-canvas-cell]")).toBeNull();
     });
   }
 
-  it("a call: Say → Said it (logged as used) → its queued Ask → Do → Run it opens its panel and plays its branch → nothing at wrap-up", async () => {
-    await open({ displayLocation: "inline", canvasLayout: "twoColumn" });
-    await maya();
-    expect(button("Said it")).toBeDefined();
-    expect(button("Insert into reply")).toBeUndefined();
-    // The Ask is queued behind the greeting once its step plays.
-    await h.advance(2_500);
+  it("a turn before the pause resets the timer", async () => {
+    await open({ displayLocation: "inline" });
+    await priyaChat();
+    await h.advance(4_000);
+    // The agent's line (and the customer's reply 2.5s later) are turns.
+    await sendChat("Hi Priya, one moment please.");
+    await h.advance(5_000);
+    expect(nba()).toBeNull();
+    await h.advance(5_000);
     expect(frame()).toBe("say");
-    await h.click(button("Said it")!);
+  });
+
+  it("the pause is a setting (voice: 8s by default; here 3s)", async () => {
+    await open({ displayLocation: "inline", nbaPauseVoiceMs: 3000 });
+    await act(async () => {
+      const dialed = h.provider.dial({ channel: "voice", address: "(161) 474-9179", skillId: "general" });
+      await vi.advanceTimersByTimeAsync(500);
+      await dialed;
+    });
+    await h.click(h.navCard("(161) 474-9179"));
+    await h.advance(2_000);
+    expect(nba()).toBeNull();
+    await h.advance(1_500);
+    expect(frame()).toBe("say");
+    expect(button("Said it")).toBeDefined();
+  });
+
+  it("the chip surfaces it at once; asked again with nothing queued, it answers Nothing to suggest", async () => {
+    await open({ displayLocation: "inline" });
+    await priyaChat();
+    expect(chip()?.textContent).toContain(NBA_CHIP);
+    await h.click(chip()!);
+    await h.advance(50);
+    expect(frame()).toBe("say");
+    // Not now: a Dismissed row in its place; the reason is next, on request.
+    await h.click(button("Not now")!);
+    await h.advance(50);
+    expect(nba()).toBeNull();
+    expect(outcomes()).toEqual([expect.stringMatching(/^dismissed: Dismissed at .* — Greet Priya/)]);
+    // The chip's spinner (1.4s) ends before it can be used again.
+    await h.advance(1_500);
+    await h.click(chip()!);
+    await h.advance(50);
+    expect(frame()).toBe("ask");
+    await h.click(button("Not now")!);
+    await h.advance(1_500);
+    await h.click(chip()!);
+    await h.advance(50);
+    expect(frame()).toBe("nothing");
+    expect(nba()!.textContent).toContain("Nothing to suggest");
+  });
+
+  it("asking Copilot what to do next surfaces it too", async () => {
+    await open({ displayLocation: "inline" });
+    await priyaChat();
+    const composer = document.body.querySelector<HTMLElement>("[data-slot=copilot-composer]")!;
+    const input = composer.querySelector<HTMLTextAreaElement>("textarea")!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(input, "What should I do next?");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(10);
+    });
+    await h.click(composer.querySelector('button[aria-label="Submit"]')!);
+    await h.advance(50);
+    expect(frame()).toBe("say");
+  });
+
+  it("Insert into reply fills the chat composer and leaves a Used row", async () => {
+    await open({ displayLocation: "inline" });
+    await priyaChat();
+    await h.click(chip()!);
+    await h.advance(50);
+    const text = nba()!.querySelector("[role=note]")!.textContent!;
+    await h.click(button("Insert into reply")!);
     await h.advance(300);
-    expect(outcomes()).toEqual([expect.stringMatching(/^used: Used at .* — Greet Maya and say the call is recorded$/)]);
+    const textarea = [...main().querySelectorAll<HTMLTextAreaElement>("textarea")].find((el) => el.value);
+    expect(textarea?.value).toBe(text);
+    expect(nba()).toBeNull();
+    expect(outcomes()).toEqual([expect.stringMatching(/^used: Used at .* — Greet Priya/)]);
+  });
+
+  it("Hide AI Actions hides its row like the other AI rows", async () => {
+    await open({ displayLocation: "inline" });
+    await priyaChat();
+    await h.click(chip()!);
+    await h.advance(50);
+    expect(nba()!.closest("[aria-hidden=true]")).toBeNull();
+    const label = [...document.body.querySelectorAll<HTMLElement>("label")].find((l) => l.textContent?.trim() === "Hide AI Actions")!;
+    const toggle = label.querySelector<HTMLElement>("[role=switch], button") ?? label.parentElement!.querySelector<HTMLElement>("[role=switch], button")!;
+    await h.click(toggle);
+    expect(nba()!.closest("[aria-hidden=true]")).not.toBeNull();
+  });
+
+  it("a call (Maya): Said it, then on request her Ask, then the Do — Run it opens its panel and plays its branch", async () => {
+    await open({ displayLocation: "inline" });
+    await maya();
+    await h.click(chip()!);
+    await h.advance(50);
+    expect(frame()).toBe("say");
+    expect(button("Insert into reply")).toBeUndefined();
+    await h.click(button("Said it")!);
+    await h.advance(2_500);
+    await h.click(chip()!);
+    await h.advance(50);
     expect(frame()).toBe("ask");
     await h.click(button("Said it")!);
-    await h.advance(300);
-    // Nothing queued yet: the last used one shows until the Do arrives.
-    expect(frame()).toBe("used");
     await h.advance(14_000);
+    await h.click(chip()!);
+    await h.advance(50);
     expect(frame()).toBe("do");
     await h.click(button("Run it")!);
     await h.advance(600);
@@ -108,51 +219,32 @@ describe("the Next Best Action", () => {
     await h.advance(2_000);
     expect(h.container.textContent).toContain("Refund of $412.00 to Visa 4417 issued");
     expect(outcomes()).toHaveLength(3);
-    // Hang up: wrap-up leaves nothing to suggest.
-    await act(async () => {
-      const snapshot = h.provider.getSnapshot();
-      await vi.advanceTimersByTimeAsync(50);
-      const id = (await snapshot).interactions.find((i) => i.caseId === "CASE-30402")!.id;
-      const ended = h.provider.end(id);
-      await vi.advanceTimersByTimeAsync(300);
-      await ended;
-    });
-    expect(frame()).toBe("nothing");
   });
 
-  it("a chat: Insert into reply fills the chat composer, logs it, and the next suggestion is the Ask", async () => {
-    await open({ displayLocation: "inline", canvasLayout: "twoColumn" });
-    await priyaChat();
+  it("while the bot holds the chat (Lucas before takeover), nothing surfaces, on a pause or on request; after takeover the greeting does", async () => {
+    await open({ displayLocation: "inline" });
+    await h.play(LUCAS_THOMAS_SCRIPT.id);
+    await h.click(h.navCard("Lucas Thomas"));
+    await h.advance(20_000);
+    expect(nba()).toBeNull();
+    if (chip()) {
+      await h.click(chip()!);
+      await h.advance(50);
+    }
+    expect(nba()).toBeNull();
+    await h.click(button("Takeover Chat", document.body)!);
+    // The handoff lines play, then the conversation pauses.
+    await h.advance(15_000);
     expect(frame()).toBe("say");
-    expect(button("Said it")).toBeUndefined();
-    const text = nba()!.querySelector("[role=note]")!.textContent!;
-    await h.click(button("Insert into reply")!);
-    await h.advance(300);
-    const textarea = [...h.container.querySelectorAll<HTMLTextAreaElement>("[data-main-thread] textarea")].find((el) => el.value);
-    expect(textarea?.value).toBe(text);
-    expect(outcomes()).toEqual([expect.stringMatching(/^used: Used at .* — Greet Priya/)]);
-    expect(frame()).toBe("ask");
+    expect(nba()!.textContent).toContain("Greet Lucas");
   });
 
-  it("Not now logs it as dismissed and moves on; the rule set ends with nothing to suggest", async () => {
-    await open({ displayLocation: "main", canvasLayout: "twoColumn" });
-    await priyaChat();
-    await h.click(button("Not now")!);
-    await h.advance(300);
-    expect(outcomes()).toEqual([expect.stringMatching(/^dismissed: Dismissed at .* — Greet Priya/)]);
-    expect(frame()).toBe("ask");
-    await h.click(button("Not now")!);
-    await h.advance(300);
-    expect(frame()).toBe("nothing");
-  });
-
-  it("Marcus Webb keeps his own card: no generic Next Best Action", async () => {
-    await open({ displayLocation: "inline", canvasLayout: "twoColumn" });
+  it("Marcus Webb keeps his own card", async () => {
+    await open({ displayLocation: "inline" });
     await h.play(MARCUS_WEBB_SCRIPT.id);
     await h.click(h.navCard("Marcus Webb"));
     await h.advance(500);
-    expect(nba()).toBeNull();
-    expect(action()!.querySelector("[data-canvas-cell=marcus-card]")).not.toBeNull();
+    expect(main().closest("[data-canvas-region=action]")?.querySelector("[data-canvas-cell=marcus-card]") ?? h.container.querySelector("[data-canvas-cell=marcus-card]")).not.toBeNull();
   });
 });
 
@@ -162,77 +254,45 @@ describe("the reference column", () => {
       (slot) => h.container.querySelector(`[data-slot=${slot}] [aria-expanded]`)?.getAttribute("aria-expanded") === "true",
     );
   const header = (slot: string) => h.container.querySelector<HTMLElement>(`[data-slot=${slot}] [aria-expanded]`)!;
+  const highlighted = () => [...h.container.querySelectorAll("[data-highlighted] [data-slot]")].map((el) => el.getAttribute("data-slot"));
 
-  it("is a single-open accordion: the Real-Time Summary open at first; opening another closes it", async () => {
-    await open({ displayLocation: "inline", canvasLayout: "twoColumn" });
+  it("any number open: the Real-Time Summary at first; manual opens add, closes remove", async () => {
+    await open({ displayLocation: "inline" });
     await maya();
     expect(expanded()).toEqual(["real-time-summary"]);
     await h.click(header("journey-summary"));
-    expect(expanded()).toEqual(["journey-summary"]);
+    expect(expanded()).toEqual(["real-time-summary", "journey-summary"]);
     await h.click(header("customer-info-card"));
-    expect(expanded()).toEqual(["customer-info-card"]);
-    await h.click(header("customer-info-card"));
-    expect(expanded()).toEqual([]);
-  });
-
-  it("Maya's cards: the summary follows her turns; her journey is found after the lookup; Customer Info is a link", async () => {
-    await open({ displayLocation: "inline", canvasLayout: "twoColumn" });
-    await h.play(MAYA_CHEN_SCRIPT.id);
-    await h.click(h.navCard("Maya Chen"));
-    expect(h.container.querySelector("[data-slot=journey-summary]")!.getAttribute("data-frame")).toBe("looking-up");
-    await h.advance(1_000);
-    expect(h.container.querySelector("[data-slot=journey-summary]")!.getAttribute("data-frame")).toBe("found");
-    await h.advance(1_000);
-    const summary = h.container.querySelector<HTMLElement>("[data-slot=real-time-summary]")!;
-    expect(summary.getAttribute("data-frame")).toBe("live");
-    expect(summary.textContent).toContain("cracked water tank");
-    expect(summary.textContent).not.toContain("Wants a refund, not a replacement");
-    // Her second turn (12s after answer) adds the next line.
-    await h.advance(11_000);
-    // That turn names her card on file: Customer Info comes forward (P-CANVAS 3).
-    expect(expanded()).toEqual(["customer-info-card"]);
-    expect(h.container.querySelector("[data-slot=customer-info-card]")!.textContent).toContain("View customer info");
+    expect(expanded()).toEqual(["real-time-summary", "journey-summary", "customer-info-card"]);
     await h.click(header("real-time-summary"));
-    expect(h.container.querySelector("[data-slot=real-time-summary]")!.textContent).toContain("Wants a refund, not a replacement");
+    expect(expanded()).toEqual(["journey-summary", "customer-info-card"]);
   });
-});
 
-describe("the AI drives the reference column", () => {
-  const expanded = () =>
-    ["real-time-summary", "journey-summary", "customer-info-card"].filter(
-      (slot) => h.container.querySelector(`[data-slot=${slot}] [aria-expanded]`)?.getAttribute("aria-expanded") === "true",
-    );
-  const header = (slot: string) => h.container.querySelector<HTMLElement>(`[data-slot=${slot}] [aria-expanded]`)!;
-  const highlighted = () => [...h.container.querySelectorAll("[data-highlighted] [data-slot]")].map((el) => el.getAttribute("data-slot"));
-
-  it("Maya: her card-on-file turn expands Customer Info, highlighted for a moment", async () => {
-    await open({ displayLocation: "inline", canvasLayout: "twoColumn" });
+  it("Maya's card-on-file turn expands Customer Info (highlighted), collapsing the AI-opened summary, not the agent's Journey Summary", async () => {
+    await open({ displayLocation: "inline" });
     await maya();
-    expect(expanded()).toEqual(["real-time-summary"]);
+    await h.click(header("journey-summary"));
     await h.advance(12_000);
-    expect(expanded()).toEqual(["customer-info-card"]);
+    expect(expanded()).toEqual(["journey-summary", "customer-info-card"]);
     expect(highlighted()).toContain("customer-info-card");
     await h.advance(1_500);
     expect(highlighted()).toEqual([]);
   });
 
-  it("a manual click survives the summary's next refresh (a summary update never takes focus)", async () => {
-    await open({ displayLocation: "inline", canvasLayout: "twoColumn" });
+  it("a summary refresh never takes focus", async () => {
+    await open({ displayLocation: "inline" });
     await maya();
     await h.advance(12_500);
     expect(expanded()).toEqual(["customer-info-card"]);
-    await h.click(header("journey-summary"));
-    expect(expanded()).toEqual(["journey-summary"]);
     const words = () => h.container.querySelector("[data-slot=real-time-summary]")!.getAttribute("data-words");
     const before = words();
-    // Her next turn (20s after answer) refreshes the summary.
     await h.advance(8_000);
     expect(words()).not.toBe(before);
-    expect(expanded()).toEqual(["journey-summary"]);
+    expect(expanded()).toEqual(["customer-info-card"]);
   });
 
   it("a known customer's sim contact: the journey lookup brings the Journey Summary forward", async () => {
-    await open({ displayLocation: "main", canvasLayout: "twoColumn" });
+    await open({ displayLocation: "main" });
     await act(async () => {
       const dialed = h.provider.dial({ channel: "whatsapp", address: "(200) 200-1000", skillId: "general", entityId: "customer-1" as never, contactName: "Alex Miller" });
       await vi.advanceTimersByTimeAsync(300);
@@ -242,5 +302,55 @@ describe("the AI drives the reference column", () => {
     expect(expanded()).toEqual(["real-time-summary"]);
     await h.advance(1_000);
     expect(expanded()).toEqual(["journey-summary"]);
+  });
+
+  const journeyFrame = () => h.container.querySelector("[data-slot=journey-summary]")?.getAttribute("data-frame");
+  const CASES = {
+    maya,
+    lucas: async () => {
+      await h.play(LUCAS_THOMAS_SCRIPT.id);
+      await h.click(h.navCard("Lucas Thomas"));
+    },
+    tom: async () => {
+      await h.play("tom-lewis-void-call");
+      await h.click(h.navCard("Tom Lewis"));
+    },
+    noah: async () => h.click(h.navCard("Noah Patel")),
+    simChat: priyaChat,
+    dialed: async () => {
+      await act(async () => {
+        const dialed = h.provider.dial({ channel: "voice", address: "(161) 474-9179", skillId: "general" });
+        await vi.advanceTimersByTimeAsync(500);
+        await dialed;
+      });
+      await h.click(h.navCard("(161) 474-9179"));
+    },
+  };
+  for (const [name, run] of Object.entries(CASES)) {
+    it(`${name}: the Journey Summary looks up, then resolves after 800ms`, async () => {
+      await open({ displayLocation: "inline" });
+      await run();
+      await h.advance(1_000);
+      expect(journeyFrame()).not.toBe("looking-up");
+      expect(["found", "none"]).toContain(journeyFrame());
+      if (name === "maya" || name === "lucas" || name === "tom") expect(journeyFrame()).toBe("found");
+    });
+  }
+
+  it("Customer Info is the identity block: avatar, name, subline and chips from the record, no narrative", async () => {
+    await open({ displayLocation: "inline" });
+    await maya();
+    await h.click(header("customer-info-card"));
+    const card = h.container.querySelector<HTMLElement>("[data-slot=customer-info-card]")!;
+    const overview = MAYA_CHEN_SCRIPT.content.overview!;
+    expect(card.querySelector("[data-slot=customer-identity]")!.textContent).toContain("Maya Chen");
+    expect(card.querySelector("[data-slot=customer-identity]")!.textContent).toContain(overview.subtitle);
+    // lyra's conversational story: the subline at lyra-body-md, the block a gap-3 column.
+    expect(card.querySelector("[data-slot=customer-subline]")!.className).toContain("lyra-body-md");
+    expect(card.querySelector("[data-slot=customer-block]")!.className).toContain("gap-3");
+    const chips = [...card.querySelectorAll("[data-slot=customer-chips] > *")].map((el) => el.textContent?.trim());
+    expect(chips).toEqual([expect.stringContaining("Disappointed"), ...overview.tags]);
+    expect(card.textContent).toContain("View customer info");
+    for (const paragraph of overview.detailedSummary) expect(card.textContent).not.toContain(paragraph.slice(0, 40));
   });
 });

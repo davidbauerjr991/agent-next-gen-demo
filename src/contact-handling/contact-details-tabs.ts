@@ -28,6 +28,8 @@ export interface ContactDetailsTab {
   id: ContactDetailsTabId;
   /** English source text; the tab row passes it through `t()`. */
   label: string;
+  /** The label under AI display "panel", when it differs (panel mode has its own Overview tab). */
+  panelLabel?: string;
   order: number;
   applies?: (ctx: ContactDetailsTabContext) => boolean;
   /** The tab's body; reads the workspace. `inPreview`: the record header's hover preview. */

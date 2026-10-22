@@ -7,6 +7,7 @@ import { useWsLaunch } from "./useWsLaunch";
 import { useWsOutbound } from "./useWsOutbound";
 import { useWsHeaderApps } from "./useWsHeaderApps";
 import { useGuidanceFocus } from "../../reference-cards";
+import { useNbaPause, useNbaSurfacing } from "../../next-best-action";
 
 /** The agent workspace's controller (P-EXTRACT C8b): everything the page's
  *  body computed, in the same order (so the hooks run in the same order),
@@ -35,8 +36,12 @@ export function useWorkspaceController(props: WorkspaceControllerProps) {
   late.handleOutcomeSaveAndDismissChannel = outbound.handleOutcomeSaveAndDismissChannel;
   const workspace = useWsHeaderApps(outbound);
   late.handlePanelButtonClick = workspace.handlePanelButtonClick;
-  // P-CANVAS: the guidance's focus calls open a reference card on each contact's card.
+  // P-CANVAS: the guidance's focus calls open a reference card on each contact's card; under AI display
+  // inline and main its Next Best Action surfaces in the conversation on a pause or the agent's request.
   useGuidanceFocus(workspace.interactions);
+  const nbaEnabled = !workspace.aiInPanel;
+  useNbaSurfacing(workspace.interactions, workspace.setInteractions, nbaEnabled);
+  useNbaPause(workspace.interactions, nbaEnabled);
   return workspace;
 }
 

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { InteractionId } from "@/domain";
 import type { ReferenceCardFocus } from "@/providers";
-import { useAssistCardsByContact, useContactAssistCards, useInteraction } from "@/provider-context";
+import { useAssistCardsByContact, useContactAssistCards } from "@/provider-context";
 import { journeySummaryFor } from "./journey-summary";
 import { useWorkspaceUiField, useWorkspaceUiStore, type ReferenceFocusState, type WorkspaceUiStore } from "./workspace-ui-store";
 import { useWorkspace } from "./workspace/WorkspaceContext";
@@ -12,11 +11,11 @@ export const JOURNEY_LOOKUP_MS = 800;
 /** How long a card the AI brings forward stays highlighted. */
 export const REFERENCE_HIGHLIGHT_MS = 1200;
 
-/** The reference column's cards in order (P-CANVAS); the column is a single-open accordion over them. */
+/** The reference column's cards in order (P-CANVAS); any number may be open. */
 export const REFERENCE_CARD_ORDER: readonly ReferenceCardFocus[] = ["summary", "journey", "customer"];
 
-/** A card's reference column before anything was opened: the Real-Time Summary. */
-const INITIAL: ReferenceFocusState = { open: "summary" };
+/** A card's reference column before anything was opened: the Real-Time Summary, opened by the AI. */
+const INITIAL: ReferenceFocusState = { open: { summary: "ai" } };
 
 const focusOf = (store: WorkspaceUiStore, cardId: string) => store.getState().referenceFocusByCard[cardId] ?? INITIAL;
 
@@ -24,19 +23,27 @@ function write(store: WorkspaceUiStore, cardId: string, next: ReferenceFocusStat
   store.update((s) => ({ ...s, referenceFocusByCard: { ...s.referenceFocusByCard, [cardId]: next } }));
 }
 
-/** The AI brings `card` forward on `cardId` (P-CANVAS): it opens, the others
- *  close, and it's highlighted briefly — unless the agent opened or closed a
- *  card by hand on this same guidance step, which wins until the step advances. */
+/** The AI brings `card` forward on `cardId` (P-CANVAS): it opens and is
+ *  highlighted briefly, and the cards the AI opened earlier collapse — never
+ *  ones the agent opened. Unless the agent opened or closed a card by hand on
+ *  this same guidance step, which wins until the step advances. */
 export function focusReferenceCard(store: WorkspaceUiStore, cardId: string, card: ReferenceCardFocus, stepId: string, now = Date.now()) {
   const current = focusOf(store, cardId);
   if (current.manualStepId !== undefined && current.manualStepId === stepId) return;
-  write(store, cardId, { open: card, highlight: { card, at: now } });
+  const open: Partial<Record<ReferenceCardFocus, "ai" | "user">> = {};
+  for (const [id, by] of Object.entries(current.open) as [ReferenceCardFocus, "ai" | "user"][]) if (by === "user") open[id] = by;
+  open[card] = current.open[card] === "user" ? "user" : "ai";
+  write(store, cardId, { open, highlight: { card, at: now } });
 }
 
-/** The agent opens (or closes) a card by hand on guidance step `stepId`: opening one closes the others. */
+/** The agent opens or closes a card by hand on guidance step `stepId`. Opens
+ *  are additive (the others stay open); a close, even of a card the AI
+ *  opened, counts as the agent's choice for that step. */
 export function setReferenceCardOpen(store: WorkspaceUiStore, cardId: string, card: ReferenceCardFocus, open: boolean, stepId: string | undefined) {
   const current = focusOf(store, cardId);
-  const next = open ? card : current.open === card ? null : current.open;
+  const next = { ...current.open };
+  if (open) next[card] = "user";
+  else delete next[card];
   write(store, cardId, { open: next, ...(stepId !== undefined ? { manualStepId: stepId } : {}) });
 }
 
@@ -63,7 +70,7 @@ export function useReferenceAccordion(id: ReferenceCardFocus) {
     return () => window.clearTimeout(timer);
   }, [remaining]);
   return {
-    open: state.open === id,
+    open: !!state.open[id],
     onOpenChange: (open: boolean) => {
       if (cardId) setReferenceCardOpen(store, cardId, id, open, nba?.stepId);
     },
@@ -97,24 +104,38 @@ export function useActiveContactSummary() {
   return useContactAssistCards(activeChannel?.providerInteractionId).summary;
 }
 
-/** The active card's journey (its script's, else its Contact History) and
- *  whether the lookup is still "running" (the contact's first moments). */
+/** The active card's journey (its script's, else its Contact History; null:
+ *  No history) and whether its lookup is still "running": the first
+ *  `JOURNEY_LOOKUP_MS` after the workspace first showed this contact. Timed
+ *  from that moment (kept per contact in the workspace UI store), never from
+ *  the contact's own timestamps, so every contact resolves. */
 export function useActiveJourney() {
   const { activeChannel, activeInteraction, scenarioCases, scenarioKeyOf } = useWorkspace();
-  const contact = useInteraction(activeChannel?.providerInteractionId as InteractionId | undefined);
+  const store = useWorkspaceUiStore();
+  const [lookups] = useWorkspaceUiField("journeyLookupStartedAt");
+  const lookupKey = activeChannel?.providerInteractionId ?? activeInteraction?.id;
   const key = activeInteraction ? scenarioKeyOf(activeInteraction.id) : undefined;
   const script = key ? scenarioCases.byKey[key]?.script : undefined;
   const journey = useMemo(
     () => journeySummaryFor({ script, customerName: activeInteraction?.customerName, customerId: activeInteraction?.customerId }),
     [script, activeInteraction?.customerName, activeInteraction?.customerId],
   );
-  const arrivedAt = contact ? (contact.acceptedAt ?? contact.startedAt) : undefined;
-  const [now, setNow] = useState(() => Date.now());
-  const remaining = arrivedAt !== undefined ? arrivedAt + JOURNEY_LOOKUP_MS - now : 0;
+  const startedAt = lookupKey ? lookups[lookupKey] : undefined;
   useEffect(() => {
-    if (remaining <= 0) return;
-    const timer = window.setTimeout(() => setNow(Date.now()), remaining);
+    if (!lookupKey || store.getState().journeyLookupStartedAt[lookupKey] !== undefined) return;
+    store.update((s) => ({ ...s, journeyLookupStartedAt: { ...s.journeyLookupStartedAt, [lookupKey]: Date.now() } }));
+  }, [lookupKey, store]);
+  const [now, setNow] = useState(() => Date.now());
+  const remaining = startedAt === undefined ? (lookupKey ? JOURNEY_LOOKUP_MS : 0) : startedAt + JOURNEY_LOOKUP_MS - now;
+  useEffect(() => {
+    if (startedAt === undefined) return;
+    const left = startedAt + JOURNEY_LOOKUP_MS - Date.now();
+    if (left <= 0) {
+      setNow(Date.now());
+      return;
+    }
+    const timer = window.setTimeout(() => setNow(Date.now()), left);
     return () => window.clearTimeout(timer);
-  }, [remaining]);
+  }, [startedAt]);
   return { journey, lookingUp: remaining > 0 };
 }

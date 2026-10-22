@@ -52,7 +52,8 @@ function SessionBody({ inPreview }: { inPreview: boolean }) {
 
 export const DEFAULT_CONTACT_DETAILS_TABS: readonly ContactDetailsTab[] = [
   { id: "Details", label: "Overview", order: 0, applies: panelOnly, Body: OverviewBody },
-  { id: "Customer Information", label: "Customer Information", order: 10, applies: withRecord, Body: CustomerRecordBody },
+  // Under inline and main the customer's record is the first tab, "Overview"; panel mode keeps its own Overview tab.
+  { id: "Customer Information", label: "Overview", panelLabel: "Customer Information", order: 10, applies: withRecord, Body: CustomerRecordBody },
   { id: "Notes", label: "Notes", order: 20, applies: withRecord, Body: CustomerRecordBody },
   { id: "Detail", label: "Detail", order: 30, Body: CustomerRecordBody },
   { id: "Transcript", label: "Transcript", order: 40, Body: TranscriptBody },
@@ -67,7 +68,7 @@ export function ContactDetailsTabRow() {
     <TabList className="px-4" overflowMenu overflowBreakpoint="compact" data-slot="contact-details-tabs">
       {contactDetailsTabs({ aiInPanel, realCustomer: activeInteractionIsRealCustomer }).map((tab) => (
         <Tab key={tab.id} active={contactDetailsView === tab.id} onClick={() => setCustomerPanelActiveTab(tab.id)}>
-          {t(tab.label)}
+          {t(aiInPanel && tab.panelLabel ? tab.panelLabel : tab.label)}
         </Tab>
       ))}
     </TabList>

@@ -18,7 +18,13 @@ export type AssistRequestId = Brand<string, "AssistRequestId">;
 export type SuggestTrigger =
   | { kind: "utterance"; sourceId: UtteranceId | MessageId; text: string }
   /** The agent's ask box. */
-  | { kind: "ask"; text: string };
+  | { kind: "ask"; text: string }
+  /** The agent asked what to do next (P-CANVAS): the contact's Next Best
+   *  Action surfaces at once, or "nothing" when there's none. */
+  | { kind: "next-best-action" }
+  /** The conversation paused (no customer or agent turn for `idleMs`): the
+   *  Next Best Action surfaces if there is one; nothing otherwise. */
+  | { kind: "pause"; idleMs: number };
 
 /** Asks for AI help on an interaction. The provider gathers conversation
  *  context itself from the interaction id; the UI never builds prompts. */
@@ -96,10 +102,12 @@ export type ReferenceCardFocus = "summary" | "journey" | "customer";
 
 /** A card. Records cards show the actual rows; text cards carry streamed
  *  Tier 2 synthesis; hint cards are the no-match fallback; the nba card is
- *  the contact's one pinned Next Best Action — "listening" while there's
- *  nothing yet, "nothing" once the contact is on track or wrapping up.
- *  `stepId` changes with every new suggestion (or AI focus), so the agent UI
- *  can tell one step from the next. */
+ *  the contact's Next Best Action. It shows a suggestion only once one has
+ *  surfaced (`suggest` with a "next-best-action" or "pause" trigger);
+ *  otherwise it's "listening" (nothing showing), or "nothing" (nothing to
+ *  suggest: the answer to a request, or the contact is over). `stepId`
+ *  changes with every new state (a surfaced suggestion, an AI focus), so the
+ *  agent UI can tell one step from the next. */
 export type AssistCard =
   | (AssistCardBase & { kind: "records"; collection: string; query: CollectionQuery; records: RelatedRecord[] })
   | (AssistCardBase & {

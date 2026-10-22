@@ -5,14 +5,12 @@
 import { VoiceWrapUpCard } from "@/contact-handling/VoiceWrapUpCard";
 import { HostSlot } from "@/contact-handling/portal-hosts";
 import { MARCUS_WEBB_ID } from "@/contact-handling/scenario-cases";
-import { useNextBestAction } from "@/contact-handling/next-best-action";
 import { useActiveContactSummary, useActiveJourney, useReferenceAccordion } from "@/contact-handling/reference-cards";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import type { CanvasCell } from "@/contact-handling/canvas-registry";
 import type { Workspace } from "@/contact-handling/workspace/controller/useWorkspaceController";
 import { CustomerInfoCard } from "@/components/ai-cards/CustomerInfoCard";
 import { JourneySummaryCard } from "@/components/ai-cards/JourneySummaryCard";
-import { NextBestActionCard } from "@/components/ai-cards/NextBestActionCard";
 import { RealTimeSummaryCard } from "@/components/ai-cards/RealTimeSummaryCard";
 import { hasCustomerInfo } from "@/components/customer-info/reference-sections";
 import { cn } from "@/lib/utils";
@@ -68,23 +66,14 @@ function CustomerInfoCell() {
   if (!p) return null;
   return (
     <FocusRing highlighted={highlighted}>
-      <CustomerInfoCard known={hasCustomerInfo(p)} onViewCustomerInfo={p.onViewCustomerInfo} onLinkCustomer={p.onLinkCustomer} {...accordion} />
+      <CustomerInfoCard
+        customerName={p.customerName}
+        customerCard={hasCustomerInfo(p) ? p.customerContextOverview?.customerCard : undefined}
+        onViewCustomerInfo={p.onViewCustomerInfo}
+        onLinkCustomer={p.onLinkCustomer}
+        {...accordion}
+      />
     </FocusRing>
-  );
-}
-
-function NextBestActionCell() {
-  const { card, used, use, onUse, onCopy, onNotNow, onUseAlternative } = useNextBestAction();
-  return (
-    <NextBestActionCard
-      card={card}
-      used={used}
-      use={use}
-      onUse={onUse}
-      onCopy={onCopy}
-      onNotNow={onNotNow}
-      onUseAlternative={onUseAlternative}
-    />
   );
 }
 
@@ -98,11 +87,11 @@ function VoiceWrapUpCell() {
   return <VoiceWrapUpCard outcome={outcomeConfigFor(activeInteraction, activeWrapUpThread, "inline")} />;
 }
 
-/** A case with its own scripted card (Marcus Webb's) shows that card, not the generic Next Best Action. */
+/** A case with its own scripted card (Marcus Webb's). */
 const hasCustomCaseCard = (ws: Workspace) => !!ws.activeInteraction && ws.scenarioKeyOf(ws.activeInteraction.id) === MARCUS_WEBB_ID;
 
 export const DEFAULT_CANVAS_CELLS: readonly CanvasCell[] = [
-  // Reference: what the agent consults, a single-open accordion.
+  // Reference: what the agent consults. The agent opens any number; the AI opens one at a time (reference-cards.ts).
   { id: "real-time-summary", region: "reference", order: 10, component: RealTimeSummaryCell },
   { id: "journey-summary", region: "reference", order: 20, component: JourneySummaryCell },
   {
@@ -113,15 +102,8 @@ export const DEFAULT_CANVAS_CELLS: readonly CanvasCell[] = [
     // A customer record, or an unmatched customer's "Link to existing customer".
     applies: ({ referenceCardProps: p }) => !!p && (hasCustomerInfo(p) || !!p.onLinkCustomer),
   },
-  // Action: what the agent must do now. The Next Best Action is pinned first, above the thread.
-  {
-    id: "next-best-action",
-    region: "action",
-    order: 0,
-    pinned: true,
-    component: NextBestActionCell,
-    applies: (ws) => !!ws.activeChannel?.providerInteractionId && !hasCustomCaseCard(ws),
-  },
+  // Action: what the agent must do now. (The Next Best Action isn't a cell: it surfaces in the
+  // conversation as a row on a pause or the agent's request, next-best-action.ts.)
   { id: "marcus-card", region: "action", order: 20, component: MarcusCardCell, applies: hasCustomCaseCard },
   { id: "conversation", region: "action", order: 30 },
   { id: "voice-wrap-up", region: "action", order: 40, component: VoiceWrapUpCell, applies: (ws) => !!ws.activeWrapUpThread },

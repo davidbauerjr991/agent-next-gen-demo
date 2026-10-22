@@ -118,16 +118,17 @@ describe("workspace profiles", () => {
     expect(store.getState().values.ai.displayLocation).toBe("main");
     expect(store.getState().values.ai.canvasLayout).toBe("twoColumn");
     expect(profile(store)).toBe("aifirst");
-    store.update("ai", { displayLocation: "inline", canvasLayout: "stacked" });
+    store.update("ai", { displayLocation: "inline" });
     expect(profile(store)).toBe("phase2");
   });
 
-  it("canvasLayout defaults to stacked (Phase 1 and 2); a stored ai section without it reads the default", () => {
-    expect(PROFILES.phase1.ai.canvasLayout).toBe("stacked");
-    expect(PROFILES.phase2.ai.canvasLayout).toBe("stacked");
+  it("canvasLayout defaults to twoColumn in every built-in; a stored ai section without it (or the pauses) reads the defaults", () => {
+    for (const id of ["phase1", "phase2", "aifirst"] as const) expect(PROFILES[id].ai.canvasLayout).toBe("twoColumn");
     const read = SECTIONS.ai.read({ displayLocation: "main" }, SECTIONS.ai.defaults);
-    expect(read).toEqual({ displayLocation: "main", canvasLayout: "stacked" });
-    expect(SECTIONS.ai.read({ displayLocation: "main", canvasLayout: "grid" }, SECTIONS.ai.defaults).canvasLayout).toBe("stacked");
+    expect(read).toEqual({ displayLocation: "main", canvasLayout: "twoColumn", nbaPauseChatMs: 6000, nbaPauseVoiceMs: 8000 });
+    expect(SECTIONS.ai.read({ displayLocation: "main", canvasLayout: "grid" }, SECTIONS.ai.defaults).canvasLayout).toBe("twoColumn");
+    // The pauses are whole numbers in range; anything else reads its default.
+    expect(SECTIONS.ai.read({ nbaPauseChatMs: 3000, nbaPauseVoiceMs: 10 }, SECTIONS.ai.defaults)).toMatchObject({ nbaPauseChatMs: 3000, nbaPauseVoiceMs: 8000 });
   });
 });
 

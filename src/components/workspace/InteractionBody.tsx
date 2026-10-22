@@ -11,6 +11,7 @@ import { HostSlot } from "@/contact-handling/portal-hosts";
 import { LUCAS_THOMAS_ID, MARCUS_WEBB_ID, MAYA_CHEN_CALL_ID } from "@/contact-handling/scenario-cases";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useCanvasRegions } from "@/contact-handling/useCanvasRegions";
+import { withNextBestActionChip } from "@/contact-handling/next-best-action";
 import { ReferenceSlot } from "./ReferenceSlot";
 import { HistoryConversationView } from "@/components/agent-next-gen-customer-info-panel";
 import { InteractionComposer, InteractionTranscript } from "@/components/agent-next-gen-transcript";
@@ -39,7 +40,7 @@ export function InteractionBody() {
     handleLucasTakeover, handleMarcusCopilotAsk, handleSendEmailDraft, handleSendMessage, hideAiActions, historyConversationForActive,
     isColdCallId, isHistoryConversationView, liveVoiceCallInteraction, lucasActiveLinkKey, lucasThomasReviewing,
     marcusCopilotRequestsRef, marcusQuestionHost, marcusWebbPhotoExpanded, marcusWebbReviewing,
-    openDetailPanelContent, outcomeConfigFor, outcomeDrafts, panelPlacement, renderAiPanelFeed,
+    openDetailPanelContent, outcomeConfigFor, outcomeDrafts, panelPlacement, renderAiPanelFeed, requestNextBestAction,
     scenarioCases, scenarioKeyOf, scenarioThreadOf, setHideAiActions, setMarcusWebbPhotoExpanded,
     setVoiceVideoFullScreen, setVoiceVideoWindowOpen, snapshotLinkHandlerFor, stripAiInPanel, threadOutcomeProps,
     viewSessionDetails, voiceVideoFullScreen, voiceVideoWindowOpen, sessionRowHost, sessionRowInHeader,
@@ -503,7 +504,8 @@ export function InteractionBody() {
                         )}
                         {aiWorkspaceMain && (
                           <AiWorkspaceColumn
-                            feed={renderAiPanelFeed(canvas.top)}
+                            // `null`, not undefined, when the canvas has no top cells: undefined would fall back to the Autosummary.
+                            feed={renderAiPanelFeed(canvas.top ?? null)}
                             feedCount={aiFeedCount}
                             followSignal={aiFollowSignal}
                             customerName={activeInteraction.customerName}
@@ -656,12 +658,16 @@ export function InteractionBody() {
                             copilotOnly
                             copilotDock={copilotDock}
                             onSend={() => {}}
-                            copilotSuggestions={scenarioKeyOf(activeInteraction.id) === MAYA_CHEN_CALL_ID ? MAYA_CHEN_CALL_COPILOT_SUGGESTIONS : TOM_LEWIS_CALL_COPILOT_SUGGESTIONS}
-                            copilotSuggestionLinks={scenarioKeyOf(activeInteraction.id) === MAYA_CHEN_CALL_ID ? MAYA_CHEN_CALL_COPILOT_LINKS : TOM_LEWIS_CALL_COPILOT_LINKS}
-                            onCopilotSuggestionLink={(key: string) =>
-                              openDetailPanelContent({ kind: "tom-call", panel: key as TomLewisCallPanelKey })
-                            }
-                            onCopilotAsk={(text: string) => handleCopilotAsk(activeInteraction.id, activeChannelKey, text)}
+                            {...(() => {
+                              const chips = {
+                                copilotSuggestions: scenarioKeyOf(activeInteraction.id) === MAYA_CHEN_CALL_ID ? MAYA_CHEN_CALL_COPILOT_SUGGESTIONS : TOM_LEWIS_CALL_COPILOT_SUGGESTIONS,
+                                copilotSuggestionLinks: scenarioKeyOf(activeInteraction.id) === MAYA_CHEN_CALL_ID ? MAYA_CHEN_CALL_COPILOT_LINKS : TOM_LEWIS_CALL_COPILOT_LINKS,
+                                onCopilotSuggestionLink: (key: string) => openDetailPanelContent({ kind: "tom-call", panel: key as TomLewisCallPanelKey }),
+                                onCopilotAsk: (text: string) => handleCopilotAsk(activeInteraction.id, activeChannelKey, text),
+                              };
+                              // The Next Best Action on request (P-CANVAS; inline and main).
+                              return aiInPanel ? chips : withNextBestActionChip(chips, () => requestNextBestAction(activeInteraction.id, activeChannelKey));
+                            })()}
                           />
                         )}
                         {scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID && (

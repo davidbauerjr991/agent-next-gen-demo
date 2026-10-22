@@ -38,7 +38,7 @@ const cellsIn = (el: HTMLElement | null) =>
   el ? [...el.querySelectorAll("[data-canvas-cell]")].map((c) => c.getAttribute("data-canvas-cell")) : [];
 
 /** Phase 2 (every channel on) with this AI display and canvas layout. */
-async function open(ai: AiSettings) {
+async function open(ai: Partial<AiSettings>) {
   await act(async () => {
     getSettingsStore().updateMany(profileValues("phase2"));
     getSettingsStore().update("ai", ai);
@@ -82,10 +82,11 @@ const linkCustomer = () => [...(region("reference")?.querySelectorAll("button") 
  *  unmatched customer (Customer Info is then "Link to existing customer"). */
 const REFERENCE = ["real-time-summary", "journey-summary", "customer-info"];
 const EXPECTED: Record<keyof typeof CASES, { action: string[]; reference: string[]; unmatched: boolean }> = {
-  lucas: { action: ["next-best-action"], reference: REFERENCE, unmatched: false },
-  noah: { action: ["next-best-action"], reference: REFERENCE, unmatched: false },
-  simChat: { action: ["next-best-action"], reference: REFERENCE, unmatched: true },
-  dialed: { action: ["next-best-action"], reference: REFERENCE, unmatched: true },
+  // The Next Best Action isn't a cell: it surfaces in the conversation (next-best-action.test).
+  lucas: { action: [], reference: REFERENCE, unmatched: false },
+  noah: { action: [], reference: REFERENCE, unmatched: false },
+  simChat: { action: [], reference: REFERENCE, unmatched: true },
+  dialed: { action: [], reference: REFERENCE, unmatched: true },
 };
 
 describe("two-column canvas: both regions on every kind of card, each with its own cells", () => {
@@ -122,8 +123,7 @@ describe("stacked canvas and panel mode", () => {
       await open({ displayLocation, canvasLayout: "stacked" });
       await CASES.noah();
       expect(region("reference")).toBeNull();
-      // The Next Best Action is pinned above the conversation; the reference cells head its scroll.
-      expect(cellsIn(region("action"))).toEqual(["next-best-action", ...REFERENCE]);
+      expect(cellsIn(region("action"))).toEqual(REFERENCE);
     });
   }
 
@@ -176,13 +176,13 @@ describe("the record header's second line and the docked column (browser pass, 2
 });
 
 describe("the registry decides the region", () => {
-  it("re-registering the Next Best Action as reference moves it into the reference column, with no other change", async () => {
-    registerCanvasCell({ ...canvasCellDefinition("next-best-action")!, region: "reference", order: 25 });
+  it("re-registering the Journey Summary as an action cell moves it into the action area, with no other change", async () => {
+    registerCanvasCell({ ...canvasCellDefinition("journey-summary")!, region: "action", order: 25 });
     await open({ displayLocation: "main", canvasLayout: "twoColumn" });
     await CASES.noah();
-    expect(cellsIn(region("action"))).toEqual([]);
-    expect(cellsIn(region("reference"))).toEqual(["real-time-summary", "journey-summary", "next-best-action", "customer-info"]);
-    expect(region("reference")!.querySelector("[data-slot=next-best-action]")).not.toBeNull();
+    expect(cellsIn(region("action"))).toEqual(["journey-summary"]);
+    expect(cellsIn(region("reference"))).toEqual(["real-time-summary", "customer-info"]);
+    expect(region("action")!.querySelector("[data-slot=journey-summary]")).not.toBeNull();
   });
 
   it("the conversation can't leave the action area", () => {
@@ -199,11 +199,12 @@ describe("a slide-over takes the reference slot (inline and main)", () => {
     )!;
 
   for (const displayLocation of ["inline", "main"] as const) {
-    it(`AI display ${displayLocation}: the reference cards give way while it's open and come back after its close`, async () => {
+    it(`AI display ${displayLocation}: it overlays the reference cards, which stay mounted (the same nodes) before, during and after`, async () => {
       await open({ displayLocation, canvasLayout: "twoColumn" });
       await CASES.noah();
       expect(region("reference")).not.toBeNull();
       expect(slideOver()).toBeNull();
+      const cards = [...region("reference")!.querySelectorAll("[data-canvas-cell]")];
 
       // Ask Copilot with the first chip, then open its result row's slide-over.
       const chip = composer().querySelector<HTMLElement>("[data-slot=copilot-chips] [role=button]")!;
@@ -212,18 +213,20 @@ describe("a slide-over takes the reference slot (inline and main)", () => {
       await h.click(composer().querySelector('button[aria-label="Submit"]')!);
       await h.advance(2_500);
       await h.click(resultRow(text));
+      await h.advance(50);
       expect(slideOver()).not.toBeNull();
       expect(slideOver()!.textContent).toContain(text);
-      expect(region("reference")).toBeNull();
-      // The action area's sibling in the row, not inside it.
+      // The action area's sibling in the row, not inside it; lyra's overlay layout, over the cards.
       expect(slideOver()!.parentElement).toBe(region("action")!.parentElement);
+      expect(slideOver()!.className).toContain("absolute");
+      expect([...region("reference")!.querySelectorAll("[data-canvas-cell]")]).toEqual(cards);
 
-      // Close: still mounted (closed) through the transition, then the cards are back.
+      // Close: still mounted (closed) through the transition, then gone; the cards were never re-mounted.
       await h.click(resultRow(text));
-      expect(region("reference")).toBeNull();
+      expect(slideOver()).not.toBeNull();
       await h.advance(300);
       expect(slideOver()).toBeNull();
-      expect(region("reference")).not.toBeNull();
+      expect([...region("reference")!.querySelectorAll("[data-canvas-cell]")]).toEqual(cards);
     });
   }
 });

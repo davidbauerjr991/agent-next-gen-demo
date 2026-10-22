@@ -23,6 +23,7 @@ import {
 import { readSimLatency, useInteractions, useProviderKind } from "@/provider-context";
 import { BrandSettings } from "./BrandSettings";
 import { DisabledReason } from "@/contact-handling/DisabledReason";
+import { IntSettingInput } from "./IntSettingInput";
 import { t } from "@/i18n";
 import {
   CONTACT_CHANNELS,
@@ -49,6 +50,8 @@ import {
   PROFILE_IDS,
   type AiDisplayLocation,
   AI_CANVAS_LAYOUT_FIELD,
+  AI_NBA_PAUSE_CHAT_FIELD,
+  AI_NBA_PAUSE_VOICE_FIELD,
   type AiCanvasLayout,
   AUTO_ACCEPT_CHANNELS,
   SOCIAL_CHANNELS,
@@ -586,6 +589,25 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
               />
             </DisabledReason>
           </div>
+          {/* Rendered from their declarations (label, description, range); the Next Best Action is a canvas row, unused under "panel". */}
+          {([
+            ["nbaPauseChatMs", AI_NBA_PAUSE_CHAT_FIELD],
+            ["nbaPauseVoiceMs", AI_NBA_PAUSE_VOICE_FIELD],
+          ] as const).map(([key, field]) => (
+            <div key={key} className="max-w-xs">
+              <DisabledReason
+                reason={ai.displayLocation === "panel" ? t("Not used when AI display is In the Contact Details panel") : undefined}
+                className="flex w-full"
+              >
+                <IntSettingInput
+                  field={field}
+                  value={ai[key]}
+                  disabled={ai.displayLocation === "panel"}
+                  onCommit={(value) => updateAi({ [key]: value })}
+                />
+              </DisabledReason>
+            </div>
+          ))}
         </Section>
 
         <Section title="Phone setup">

@@ -58,8 +58,9 @@ for (const ai of ["inline", "panel"] as const) {
     // The call's transcript, like a chat tab: no AI workspace in the main column.
     await expect(page.locator("[data-main-thread=voice] [data-slot=ai-workspace]")).toHaveCount(0);
     await expect(page.locator("[data-main-thread=voice] [data-slot=content-stack]").first()).toBeVisible();
-    // Inline: the Autosummary and composer in the main column; panel: in Contact Details.
-    await expect(page.locator("[data-main-thread=voice] [data-slot=autosummary]")).toHaveCount(ai === "inline" ? 1 : 0);
+    // Inline: the composer in the main column (no Autosummary: the Next Best Action surfaces in the transcript on a
+    // pause or request, P-CANVAS); panel: the Autosummary and composer in Contact Details.
+    await expect(page.locator("[data-main-thread=voice] [data-slot=autosummary]")).toHaveCount(0);
     await expect(page.locator("[data-main-thread=voice] [data-slot=copilot-composer]")).toHaveCount(ai === "inline" ? 1 : 0);
     await expect(page.locator("[data-slot=voice-bar]")).toHaveCount(1);
     await icon(page, "Email").click();

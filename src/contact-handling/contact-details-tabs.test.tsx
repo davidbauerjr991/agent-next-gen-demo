@@ -78,13 +78,13 @@ async function priyaChat() {
 
 describe("the tab set", () => {
   for (const displayLocation of ["inline", "main"] as const) {
-    it(`AI display ${displayLocation}: Customer Information, Notes, Detail, Transcript, Session — no Overview`, async () => {
+    it(`AI display ${displayLocation}: Overview (the customer's record), Notes, Detail, Transcript, Session`, async () => {
       await open(displayLocation);
       await noah();
       await showContactDetails();
-      expect(tabRow()).toEqual(["Customer Information", "Notes", "Detail", "Transcript", "Session"]);
-      // It opens on Customer Information (the record's own body).
-      expect(tab("Customer Information").getAttribute("aria-selected")).toBe("true");
+      expect(tabRow()).toEqual(["Overview", "Notes", "Detail", "Transcript", "Session"]);
+      // It opens on the first tab, labelled Overview: the record's own body (Customer Information's).
+      expect(tab("Overview").getAttribute("aria-selected")).toBe("true");
     });
 
     it(`AI display ${displayLocation}: an unknown contact has Detail, Transcript, Session`, async () => {

@@ -12,14 +12,16 @@ import { providerError } from "../provider-error";
 import { SIM_AGENT } from "./sim-fixtures";
 
 // The simulated AI's guidance (P-CANVAS), inside the sim engine: each live
-// contact's one pinned Next Best Action (an assist `nba` card) and its
-// Real-Time Summary (an assist `text` card). Scripted contacts take their
-// suggestions from the script's steps (`nba`), queued so the agent sees one
-// at a time; every other contact follows a small rule set — greet the
-// customer (and say the contact is recorded), then ask what they need, then
-// nothing to suggest. Wrap-up or the end of the contact leaves "nothing to
-// suggest". The agent's answer (`resolveCard`) moves the card on, and a used
-// suggestion with a `branch` starts that action branch of the script.
+// contact's Next Best Action (an assist `nba` card) and its Real-Time Summary
+// (an assist `text` card). Scripted contacts queue suggestions from the
+// script's steps (`nba`); every other contact follows a small rule set —
+// greet the customer (and say the contact is recorded), then ask what they
+// need. A queued suggestion surfaces only when the agent asks
+// (`surface("request")`; "nothing to suggest" if the queue is empty) or the
+// conversation pauses (`surface("pause")`, which the agent UI times from its
+// settings), one at a time, never while a bot holds the contact. The agent's
+// answer (`resolveCard`) clears it, and a used suggestion with a `branch`
+// starts that action branch of the script.
 
 export interface GuidanceHost {
   now(): number;
@@ -47,6 +49,11 @@ export interface Guidance {
   onStep(id: InteractionId, step: ScenarioStep): void;
   /** The agent answered a card (`AssistProvider.resolveCard`). */
   resolve(cardId: string, resolution: AssistCardResolution): void;
+  /** Surfaces the queue's head (`AssistProvider.suggest`): on the agent's
+   *  request ("Nothing to suggest" when the queue is empty) or after a pause
+   *  in the conversation (nothing when it's empty). Never while a bot holds
+   *  the contact, or while a suggestion is already showing. */
+  surface(id: InteractionId, reason: "request" | "pause", requestId: AssistRequestId): void;
   dispose(): void;
 }
 
@@ -62,10 +69,10 @@ interface Guide {
   live: boolean;
   /** Wrap-up or ended: nothing more to suggest. */
   over: boolean;
+  /** Suggestions not yet surfaced, oldest first. */
   queue: Queued[];
+  /** The surfaced suggestion, until the agent answers it. */
   current?: Queued;
-  /** Plain contacts: the rule set's next suggestion once the current one is answered. */
-  rule: "greeting" | "reason" | "done";
   /** Bumped per card state, so a "listening" or "nothing" card has its own step id. */
   seq: number;
   summary: { lines: string[]; revealed: number };
@@ -123,7 +130,7 @@ export function createGuidance(host: GuidanceHost): Guidance {
   function guideFor(id: InteractionId): Guide {
     let g = guides.get(id);
     if (!g) {
-      g = { id, scripted: false, live: false, over: false, queue: [], rule: "greeting", seq: 0, summary: { lines: [], revealed: 0 } };
+      g = { id, scripted: false, live: false, over: false, queue: [], seq: 0, summary: { lines: [], revealed: 0 } };
       guides.set(id, g);
     }
     return g;
@@ -141,11 +148,14 @@ export function createGuidance(host: GuidanceHost): Guidance {
     at: host.now(),
   });
 
-  /** The card's current state. A focus call is a step of its own: its step
-   *  id, the suggestion showing unchanged, and the card to bring forward. */
-  function sendNba(g: Guide, focus?: { stepId: string; card: ReferenceCardFocus }) {
+  /** The card's current state: the surfaced suggestion, else listening
+   *  (nothing showing), or "nothing" (`nothing`: the answer to a request with
+   *  none, or the contact is over). A focus call is a step of its own: its
+   *  step id, the suggestion showing unchanged, and the card to bring forward. */
+  function sendNba(g: Guide, options: { focus?: { stepId: string; card: ReferenceCardFocus }; nothing?: boolean; requestId?: AssistRequestId } = {}) {
     g.seq += 1;
-    const frame = g.current ? "suggestion" : g.over || (!g.scripted && g.rule === "done") ? "nothing" : "listening";
+    const { focus, nothing, requestId } = options;
+    const frame = g.current ? "suggestion" : nothing || g.over ? "nothing" : "listening";
     const card: AssistCard = {
       id: nbaCardId(g.id),
       kind: "nba",
@@ -157,7 +167,7 @@ export function createGuidance(host: GuidanceHost): Guidance {
       ...(g.current ? { suggestion: g.current.suggestion } : {}),
       ...(focus ? { focus: focus.card } : {}),
     };
-    host.send({ requestId: requestIdOf(g.id), interactionId: g.id, card });
+    host.send({ requestId: requestId ?? requestIdOf(g.id), interactionId: g.id, card });
   }
 
   function sendSummary(g: Guide) {
@@ -175,23 +185,10 @@ export function createGuidance(host: GuidanceHost): Guidance {
     host.send({ requestId: requestIdOf(g.id), interactionId: g.id, card });
   }
 
-  /** Shows the next queued suggestion (or the rule set's), else listening / nothing. */
-  function advance(g: Guide) {
-    g.current = undefined;
-    if (!g.over) {
-      const queued = g.queue.shift();
-      if (queued) g.current = queued;
-      else if (!g.scripted && g.rule === "reason") {
-        g.current = { stepId: `rule-reason`, suggestion: suggestion(reasonNba(host.customerName(g.id))) };
-      }
-    }
-    sendNba(g);
-  }
-
+  /** Queues a suggestion; it surfaces only on a request or a pause (`surface`). */
   function enqueue(g: Guide, stepId: string, nba: ScenarioNba) {
     if (g.over) return;
     g.queue.push({ stepId, suggestion: suggestion(nba) });
-    if (!g.current) advance(g);
   }
 
   return {
@@ -211,15 +208,15 @@ export function createGuidance(host: GuidanceHost): Guidance {
         if (!g.live) return;
         g.over = true;
         g.queue = [];
-        advance(g);
+        g.current = undefined;
+        sendNba(g);
         sendSummary(g);
         return;
       }
       if (g.live || !LIVE.includes(interaction.state)) return;
       g.live = true;
       if (g.scripted) {
-        // A scripted contact's guidance comes from its steps; until the first, it's listening.
-        if (!g.current) sendNba(g);
+        // A scripted contact's guidance comes from its steps.
         sendSummary(g);
         return;
       }
@@ -229,12 +226,11 @@ export function createGuidance(host: GuidanceHost): Guidance {
         g.summary.revealed = g.summary.lines.length;
         sendSummary(g);
       }
-      g.rule = "reason";
       enqueue(g, "rule-greeting", greetingNba(interaction.channel, host.customerName(interaction.id) ?? interaction.contactName));
       // A known customer's journey lookup completes a moment later and brings the Journey Summary forward.
       if (interaction.entityId) {
         host.later(SIM_JOURNEY_LOOKUP_MS, () => {
-          if (!g.over) sendNba(g, { stepId: `rule-journey`, card: "journey" });
+          if (!g.over) sendNba(g, { focus: { stepId: `rule-journey`, card: "journey" } });
         });
       }
     },
@@ -243,7 +239,7 @@ export function createGuidance(host: GuidanceHost): Guidance {
       const g = guides.get(id);
       if (!g?.scripted || g.over) return;
       if (step.nba) enqueue(g, step.id, step.nba);
-      if (step.focus) sendNba(g, { stepId: step.id, card: step.focus });
+      if (step.focus) sendNba(g, { focus: { stepId: step.id, card: step.focus } });
       if (step.kind === "say" && step.speaker === "customer" && g.summary.revealed < g.summary.lines.length) {
         g.summary.revealed += 1;
         sendSummary(g);
@@ -259,9 +255,24 @@ export function createGuidance(host: GuidanceHost): Guidance {
         throw providerError("not-found", `resolveCard: ${cardId} has no alternative ${resolution.alternative}`);
       }
       const branch = resolution.outcome === "used" ? (alternative ? alternative.branch : current.suggestion.branch) : undefined;
-      if (!g.scripted) g.rule = g.rule === "reason" && current.stepId === "rule-reason" ? "done" : g.rule;
-      advance(g);
+      g.current = undefined;
+      // The rule set: once the greeting is answered, asking the reason is next.
+      if (!g.scripted && current.stepId === "rule-greeting") enqueue(g, "rule-reason", reasonNba(host.customerName(g.id)));
+      sendNba(g);
       if (branch) host.startBranch(g.id, branch);
+    },
+
+    surface(id, reason, requestId) {
+      const g = guideFor(id);
+      // While a bot holds the contact (review), nothing surfaces; nor while one is already showing.
+      if (host.get(id)?.review || g.current) return;
+      const next = g.over ? undefined : g.queue.shift();
+      if (next) {
+        g.current = next;
+        sendNba(g, { requestId });
+      } else if (reason === "request") {
+        sendNba(g, { nothing: true, requestId });
+      }
     },
 
     dispose() {

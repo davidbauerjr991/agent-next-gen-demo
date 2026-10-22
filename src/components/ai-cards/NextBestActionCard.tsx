@@ -1,6 +1,6 @@
-import { Alternatives, AgenticAICard, Button, SuggestedReply, SuggestionTag, WaitingState } from "@nicecxone/lyra-ui";
-import { CircleCheck, Compass, Copy, CornerDownLeft, Lightbulb, MessageSquareQuote, Play, Workflow, X } from "lucide-react";
-import type { NextBestActionCard as NbaCard } from "@/provider-context";
+import { Alternatives, AgenticAICard, Button, SuggestedReply, SuggestionTag } from "@nicecxone/lyra-ui";
+import { Compass, Copy, CornerDownLeft, Lightbulb, MessageSquareQuote, Play, Workflow, X } from "lucide-react";
+import type { NextBestActionSuggestion } from "@/providers";
 import { t } from "@/i18n";
 import { aiCardIcon as ic, timeLabel } from "./ai-card-icon";
 
@@ -9,60 +9,27 @@ import { aiCardIcon as ic, timeLabel } from "./ai-card-icon";
 export type NextBestActionUse = "insert" | "said" | "copy";
 
 export interface NextBestActionCardProps {
-  /** The contact's nba card; none yet reads as listening. */
-  card?: NbaCard;
-  /** The suggestion the agent last used, shown until the next one arrives. */
-  used?: { title: string; at: string };
-  use: NextBestActionUse;
-  onUse: () => void;
-  onCopy: () => void;
-  onNotNow: () => void;
-  onUseAlternative: (index: number) => void;
+  /** The surfaced suggestion; none reads "Nothing to suggest" (the answer to the agent's request). */
+  suggestion?: NextBestActionSuggestion;
+  stepId?: string;
+  use?: NextBestActionUse;
+  onUse?: () => void;
+  onCopy?: () => void;
+  onNotNow?: () => void;
+  onUseAlternative?: (index: number) => void;
 }
 
 /** Next Best Action (P-CANVAS), lyra's Agentic AI card as its story mirrors
- *  it (AgenticAICard.shared.tsx): Listening → Say | Ask | Do → Used →
- *  Nothing to suggest. Pinned first in the action area. */
-export function NextBestActionCard({ card, used, use, onUse, onCopy, onNotNow, onUseAlternative }: NextBestActionCardProps) {
+ *  it (AgenticAICard.shared.tsx): a Say | Ask | Do suggestion, or Nothing to
+ *  suggest. A row in the conversation, surfaced on a pause or on request. */
+export function NextBestActionCard({ suggestion, stepId, use = "copy", onUse, onCopy, onNotNow, onUseAlternative }: NextBestActionCardProps) {
   const base = { title: t("Next Best Action"), icon: ic(Compass), forYou: true } as const;
-  const suggestion = card?.frame === "suggestion" ? card.suggestion : undefined;
 
-  if (card?.frame === "nothing") {
+  if (!suggestion) {
     return (
       <div data-slot="next-best-action" data-frame="nothing">
         <AgenticAICard {...base} status="waiting" statusLabel={t("On track")}>
           <p className="lyra-body-md text-lyra-fg-secondary">{t("Nothing to suggest right now — the conversation is on track.")}</p>
-        </AgenticAICard>
-      </div>
-    );
-  }
-
-  if (!suggestion && used) {
-    return (
-      <div data-slot="next-best-action" data-frame="used">
-        <AgenticAICard
-          {...base}
-          status="done"
-          statusLabel={t("Used")}
-          subhead={t("From a flow · {time}", { time: used.at })}
-          footer={
-            <span className="inline-flex items-center gap-1.5 lyra-body-sm text-lyra-status-success-strong">
-              {ic(CircleCheck)}
-              {t("Used at {time} — the next suggestion comes after the customer's next turn", { time: used.at })}
-            </span>
-          }
-        >
-          <p className="lyra-body-md-emphasis text-lyra-fg-default">{used.title}</p>
-        </AgenticAICard>
-      </div>
-    );
-  }
-
-  if (!suggestion) {
-    return (
-      <div data-slot="next-best-action" data-frame="listening">
-        <AgenticAICard {...base} status="waiting" statusLabel={t("Listening")} subhead={t("After each customer turn")}>
-          <WaitingState message={t("A suggestion appears once the conversation gives enough to go on.")} lines={2} />
         </AgenticAICard>
       </div>
     );
@@ -109,7 +76,7 @@ export function NextBestActionCard({ card, used, use, onUse, onCopy, onNotNow, o
   );
 
   return (
-    <div data-slot="next-best-action" data-frame={suggestion.type} data-step={card?.stepId}>
+    <div data-slot="next-best-action" data-frame={suggestion.type} data-step={stepId}>
       <AgenticAICard
         {...base}
         status={isDo ? "needs-you" : "suggested"}
@@ -136,7 +103,7 @@ export function NextBestActionCard({ card, used, use, onUse, onCopy, onNotNow, o
         {suggestion.alt.length > 0 && (
           <Alternatives
             label={t("Also consider")}
-            alternatives={suggestion.alt.map((a, i) => ({ type: a.type, text: a.text, onUse: () => onUseAlternative(i) }))}
+            alternatives={suggestion.alt.map((a, i) => ({ type: a.type, text: a.text, onUse: () => onUseAlternative?.(i) }))}
           />
         )}
       </AgenticAICard>

@@ -327,7 +327,7 @@ describe("AI: display location", () => {
     expect(occurrences(prompt)).toHaveLength(1);
   });
 
-  it("Main column (AI-first): Lucas's Next Best Action and approval fill the main column, his chat opens in the panel", async () => {
+  it("Main column (AI-first): Lucas's approval fills the main column, his chat opens in the panel", async () => {
     await h.show(AgentWorkspaceAdvancedPage);
     await h.play(LUCAS_THOMAS_SCRIPT.id);
     await h.click(h.navCard("Lucas Thomas"));
@@ -338,7 +338,8 @@ describe("AI: display location", () => {
     expect(occurrences).toHaveLength(1);
     const main = h.container.querySelector("[data-main-thread=ai]")!;
     expect(main.querySelector("[data-slot=ai-feed]")?.contains(occurrences[0])).toBe(true);
-    expect(main.querySelector("[data-slot=next-best-action]")).not.toBeNull();
+    // The bot still holds his chat: no Next Best Action surfaces (P-CANVAS).
+    expect(main.querySelector("[data-slot=next-best-action]")).toBeNull();
     const panel = h.container.querySelector("[data-slot=right-panel]")!;
     expect(panel.getAttribute("data-open")).toBe("true");
     expect(panel.getAttribute("data-thread")).toBe("chat");
@@ -550,13 +551,18 @@ describe("Contact Details Overview stack, events, composer fade", () => {
     expect(body().textContent).not.toContain("Customer Info");
   });
 
-  it("(10) inline mode (P-CANVAS): no Overview tab; Customer Info and Journey Summary head the main column; Session doesn't get them", async () => {
+  it("(10) inline mode (P-CANVAS): no panel Overview tab; Customer Info and Journey Summary are in the reference column; Session doesn't get them", async () => {
     await lucas("inline");
-    const main = h.container.querySelector<HTMLElement>("[data-main-thread]")!;
-    // The reference cards are canvas cells now (stacked: at the top of the action area).
-    expect(main.querySelector("[data-slot=journey-summary]"), "Journey Summary in the main column").not.toBeNull();
-    expect(main.querySelector("[data-slot=customer-info-card]")).not.toBeNull();
-    expect([...document.body.querySelectorAll("[role=tab]")].some((t) => t.textContent?.trim() === "Overview")).toBe(false);
+    // The reference cards are canvas cells now (two columns by default: the reference column).
+    const reference = h.container.querySelector<HTMLElement>("[data-canvas-region=reference]")!;
+    expect(reference.querySelector("[data-slot=journey-summary]"), "Journey Summary in the reference column").not.toBeNull();
+    expect(reference.querySelector("[data-slot=customer-info-card]")).not.toBeNull();
+    // The first tab is the customer's record, labelled Overview; panel mode's own Overview tab isn't there.
+    for (const row of document.body.querySelectorAll("[data-slot=contact-details-tabs]")) {
+      const tabs = [...row.querySelectorAll("[role=tab]")].map((t) => t.textContent?.trim());
+      expect(tabs.filter((label) => label === "Overview").length).toBeLessThanOrEqual(1);
+      expect(tabs).not.toContain("Customer Information");
+    }
     await clickTab("Session");
     expect(document.body.querySelector("[data-slot=right-panel] [data-slot=journey-summary]")).toBeNull();
   });

@@ -248,10 +248,9 @@ describe("Header tabs (AI display inline) and the panel's thread (\"main\")", ()
     await h.click(headerIcon("Voice Transcript")!);
     expect(mainThread()).toBe("voice");
     const main = h.container.querySelector("[data-main-thread]")!;
-    // k5: like a chat tab — the transcript (its content stack; the Next Best Action pinned above it, P-CANVAS) and the composer at the bottom.
+    // k5: like a chat tab — the transcript (its content stack) and the composer at the bottom.
     expect(main.querySelector("[data-slot=ai-workspace]")).toBeNull();
     expect(main.querySelector("[data-slot=content-stack]")).toBeTruthy();
-    expect(main.querySelector("[data-slot=canvas-pinned] [data-slot=next-best-action]")).toBeTruthy();
     expect(main.querySelector("[data-slot=copilot-composer]")).toBeTruthy();
     expect(panelShows()).toBeNull();
     // The email tab swaps back.
@@ -500,12 +499,9 @@ describe("the main column's content stack owns its top spacing", () => {
         expect(s.className).toMatch(/(^|\s)(p|pt)-4(\s|$)/);
         const first = s.firstElementChild as HTMLElement | null;
         if (first) expect(first.className).not.toMatch(TOP_SPACING);
-        // What leads the action area: the call's Next Best Action, pinned above the stack (inline and
-        // "main", P-CANVAS; "panel" has the Autosummary in the panel). The chat's transcript leads its stack
-        // (under "main" the chat is in the panel).
-        if (channel === "voice" && displayLocation !== "panel") {
-          expect(h.container.querySelector("[data-main-thread] [data-slot=canvas-pinned] [data-slot=next-best-action]")).toBeTruthy();
-        }
+        // Nothing is pinned above the stack: the Next Best Action surfaces in the conversation only on a pause or
+        // request (P-CANVAS). The chat's transcript leads its stack (under "main" the chat is in the panel).
+        expect(h.container.querySelector("[data-main-thread] [data-slot=canvas-pinned]")).toBeNull();
         if (channel === "chat" && displayLocation !== "main") expect(first?.textContent).toContain("Priya Shah");
       });
     }

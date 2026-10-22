@@ -28,6 +28,15 @@ export const oneOf = <const V extends string>(
   return Object.assign(read, { values, meta });
 };
 
+/** A whole number within `[min, max]`; anything else reads as the default. */
+export const int = (
+  meta: FieldMeta & { min: number; max: number },
+): Field<number> & { readonly meta: FieldMeta & { min: number; max: number } } => {
+  const read: Field<number> = (raw, fallback) =>
+    typeof raw === "number" && Number.isInteger(raw) && raw >= meta.min && raw <= meta.max ? raw : fallback;
+  return Object.assign(read, { meta });
+};
+
 export type Fields<T> = { [K in keyof T]: Field<T[K]> };
 
 /** An ordering of `values`: unknown and repeated keys are dropped, and
@@ -365,18 +374,39 @@ export const AI_CANVAS_LAYOUT_FIELD = oneOf(AI_CANVAS_LAYOUTS, {
   description:
     "Two columns puts the customer's reference cards in a column on the right of the main column; stacked shows them above the conversation or AI feed.",
 });
+/** P-CANVAS: how long a conversation pauses (no customer or agent turn)
+ *  before the Next Best Action surfaces in it on its own. */
+export const AI_NBA_PAUSE_CHAT_FIELD = int({
+  label: "Suggest after a pause (chat and email)",
+  description: "Milliseconds without a customer or agent turn before the Next Best Action appears in a chat or email conversation.",
+  min: 1000,
+  max: 120_000,
+});
+export const AI_NBA_PAUSE_VOICE_FIELD = int({
+  label: "Suggest after a pause (voice)",
+  description: "Milliseconds without a customer or agent turn before the Next Best Action appears in a call's transcript.",
+  min: 1000,
+  max: 120_000,
+});
 export interface AiSettings {
   /** P4.4a's pinned-vs-auto card placement hangs off this section later. */
   displayLocation: AiDisplayLocation;
   canvasLayout: AiCanvasLayout;
+  nbaPauseChatMs: number;
+  nbaPauseVoiceMs: number;
 }
 
-// No version bump for canvasLayout: a missing stored key reads as its default.
+// No version bump for canvasLayout or the pause fields: a missing stored key reads as its default.
 const ai = defineSection<AiSettings>({
   key: "ai",
   version: 1,
-  defaults: { displayLocation: "inline", canvasLayout: "stacked" },
-  fields: { displayLocation: oneOf(AI_DISPLAY_LOCATIONS), canvasLayout: AI_CANVAS_LAYOUT_FIELD },
+  defaults: { displayLocation: "inline", canvasLayout: "twoColumn", nbaPauseChatMs: 6000, nbaPauseVoiceMs: 8000 },
+  fields: {
+    displayLocation: oneOf(AI_DISPLAY_LOCATIONS),
+    canvasLayout: AI_CANVAS_LAYOUT_FIELD,
+    nbaPauseChatMs: AI_NBA_PAUSE_CHAT_FIELD,
+    nbaPauseVoiceMs: AI_NBA_PAUSE_VOICE_FIELD,
+  },
 });
 
 export const PHONE_SETUPS = ["soft-phone", "phone-number", "work-station"] as const;

@@ -1,20 +1,27 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// P-CANVAS: the Next Best Action is the action area's first element, above
-// the thread, on every kind of contact (a scripted call, a scripted chat the
-// bot hands over, a sim inbound chat, an agent-dialed call), under AI display
-// inline and main. It opens with the greeting; using it ("Said it" on a call,
-// "Insert into reply" on a chat) logs a Used row and the card moves on. The
-// reference column opens with exactly one card expanded. Layout order, so Chrome.
+// P-CANVAS: the Next Best Action is inline and on demand — a row in the
+// conversation that surfaces after a pause (no customer or agent turn for
+// Settings → AI's pause) or at once on the "What should I do next?" chip,
+// under AI display inline and main. The reference column: the AI focuses a
+// card; the agent's own opens stay. Real browser timing, so Chrome.
 
 type Mode = "inline" | "main";
+/** Short pauses so the spec doesn't wait 6–8s per case. */
+const PAUSE_MS = 3000;
 
 async function start(page: Page, displayLocation: Mode) {
   await page.setViewportSize({ width: displayLocation === "main" ? 2200 : 1600, height: 1000 });
-  await page.addInitScript((display) => {
-    localStorage.setItem("agent-next-gen:settings:ai", JSON.stringify({ v: 1, value: { displayLocation: display, canvasLayout: "twoColumn" } }));
-    localStorage.setItem("agent-next-gen:settings:channels", JSON.stringify({ v: 1, value: { voice: true, chat: true, email: true, sms: true } }));
-  }, displayLocation);
+  await page.addInitScript(
+    ([display, pause]) => {
+      localStorage.setItem(
+        "agent-next-gen:settings:ai",
+        JSON.stringify({ v: 1, value: { displayLocation: display, canvasLayout: "twoColumn", nbaPauseChatMs: pause, nbaPauseVoiceMs: pause } }),
+      );
+      localStorage.setItem("agent-next-gen:settings:channels", JSON.stringify({ v: 1, value: { voice: true, chat: true, email: true, sms: true } }));
+    },
+    [displayLocation, PAUSE_MS] as const,
+  );
   await page.goto("?provider=sim&latency=off#/agent-advanced");
   await page.getByRole("button", { name: "Go Available" }).click();
   await page.waitForTimeout(500);
@@ -27,28 +34,16 @@ async function openCard(page: Page, name: string) {
   await expect(page.locator("[data-canvas-region=action]")).toBeVisible();
 }
 
-const CONTACTS: Record<string, { use: "Said it" | "Insert into reply"; open: (page: Page) => Promise<string> }> = {
+const CONTACTS: Record<string, { who: string; open: (page: Page) => Promise<void> }> = {
   maya: {
-    use: "Said it",
+    who: "Maya",
     open: async (page) => {
       await page.keyboard.press("b");
       await openCard(page, "Maya Chen");
-      return "Maya";
-    },
-  },
-  lucas: {
-    use: "Insert into reply",
-    open: async (page) => {
-      await page.keyboard.press("a");
-      await openCard(page, "Lucas Thomas");
-      // The bot holds the chat until the agent takes over; then the chat composer is theirs.
-      await page.getByRole("button", { name: "Takeover Chat" }).first().click({ timeout: 20_000 });
-      await page.waitForTimeout(500);
-      return "Lucas";
     },
   },
   simChat: {
-    use: "Insert into reply",
+    who: "Priya",
     open: async (page) => {
       const failure = await page.evaluate(async () => {
         const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -64,18 +59,6 @@ const CONTACTS: Record<string, { use: "Said it" | "Insert into reply"; open: (pa
       });
       expect(failure).toBeNull();
       await openCard(page, "Priya Shah");
-      return "Priya";
-    },
-  },
-  dialed: {
-    use: "Said it",
-    open: async (page) => {
-      await page.evaluate(() =>
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (window as any).__providers.interaction.dial({ channel: "voice", address: "(161) 474-9179", skillId: "general" }),
-      );
-      await openCard(page, "(161) 474-9179");
-      return "the customer";
     },
   },
 };
@@ -84,48 +67,33 @@ const nba = (page: Page) => page.locator("[data-slot=next-best-action]");
 
 for (const displayLocation of ["inline", "main"] as const) {
   for (const [name, contact] of Object.entries(CONTACTS)) {
-    test(`${displayLocation}, ${name}: the Next Best Action leads the action area, opens with the greeting, and moves on once used`, async ({ page }) => {
+    test(`${displayLocation}, ${name}: no Next Best Action at first; after the pause it's a row in the conversation`, async ({ page }) => {
       await start(page, displayLocation);
-      const who = await contact.open(page);
-      await expect(nba(page)).toHaveAttribute("data-frame", "say", { timeout: 10_000 });
-      await expect(nba(page)).toContainText(`Greet ${who}`);
+      await contact.open(page);
+      await expect(nba(page)).toHaveCount(0);
+      await expect(nba(page)).toHaveAttribute("data-frame", "say", { timeout: 15_000 });
+      await expect(nba(page)).toContainText(`Greet ${contact.who}`);
+      // A row of the conversation (the transcript inline, the AI feed under "main"), not a canvas cell.
+      const placement = await nba(page).evaluate((el) => ({ inMain: !!el.closest("[data-main-thread]"), inCell: !!el.closest("[data-canvas-cell]") }));
+      expect(placement).toEqual({ inMain: true, inCell: false });
+      // Exactly one reference card is expanded at first.
+      expect(await page.locator("[data-canvas-region=reference] [aria-expanded=true]").count()).toBe(1);
+    });
 
-      // The first element in the action area, above the thread.
-      // Every other visible line of the thread (not the composer, not another cell) starts below the card.
-      const order = await page.evaluate(() => {
-        const area = document.querySelector("[data-canvas-region=action]")!;
-        const card = area.querySelector("[data-slot=next-best-action]")!;
-        const cardTop = card.getBoundingClientRect().top;
-        const above = [...area.querySelectorAll<HTMLElement>("*")].filter((el) => {
-          if (el.children.length > 0 || !el.textContent?.trim()) return false;
-          // Not the outgoing copy a tab switch fades out over the slot (ThreadCrossFade).
-          if (card.contains(el) || el.closest("[data-slot=copilot-composer], [data-canvas-cell], textarea, [data-slot=record-session-row], [data-slot=thread-crossfade-out]")) return false;
-          const r = el.getBoundingClientRect();
-          return r.height > 0 && r.top < cardTop - 1;
-        });
-        return { first: area.querySelector("[data-canvas-cell]")?.getAttribute("data-canvas-cell"), above: above.map((el) => el.textContent!.trim().slice(0, 40)) };
-      });
-      expect(order.first).toBe("next-best-action");
-      expect(order.above).toEqual([]);
-
-      // Exactly one reference card expanded at load.
-      const expanded = await page.locator("[data-canvas-region=reference] [aria-expanded=true]").count();
-      expect(expanded).toBe(1);
-
-      // Use it: a Used row in the thread, and the card shows its next frame.
-      const step = await nba(page).getAttribute("data-step");
-      await nba(page).getByRole("button", { name: contact.use }).click();
-      await expect(page.locator("[data-slot=nba-outcome][data-outcome=used]").first()).toBeVisible();
-      await expect(page.locator("[data-slot=nba-outcome][data-outcome=used]").first()).toContainText("Used at");
-      await expect.poll(async () => (await nba(page).getAttribute("data-step")) !== step || (await nba(page).getAttribute("data-frame")) !== "say").toBe(true);
+    test(`${displayLocation}, ${name}: the chip surfaces it at once`, async ({ page }) => {
+      await start(page, displayLocation);
+      await contact.open(page);
+      await expect(nba(page)).toHaveCount(0);
+      const chip = page.locator("[data-slot=copilot-chip-pinned]:visible").first();
+      // An inline chat shows its chat input first; the chip is in the Ask Copilot pane.
+      if (!(await chip.isVisible())) await page.getByRole("radio", { name: "Ask Copilot" }).or(page.getByRole("button", { name: "Ask Copilot" })).first().click();
+      await chip.click();
+      await expect(nba(page)).toHaveAttribute("data-frame", "say", { timeout: 1_500 });
     });
   }
 }
 
-// P-CANVAS 3: the AI drives the reference column. Maya's turn that names her
-// card on file expands Customer Info; a manual click on Journey Summary then
-// survives the summary's next refresh (a summary update never takes focus).
-test("inline, Maya: her card-on-file turn expands Customer Info; a manual Journey Summary click survives the next summary refresh", async ({ page }) => {
+test("inline, Maya: her card-on-file turn expands Customer Info beside the agent's own Journey Summary; a summary refresh changes nothing", async ({ page }) => {
   await start(page, "inline");
   await CONTACTS.maya.open(page);
   const expanded = () =>
@@ -135,13 +103,14 @@ test("inline, Maya: her card-on-file turn expands Customer Info; a manual Journe
       ),
     );
   expect(await expanded()).toEqual(["real-time-summary"]);
-  // Maya names her Visa about 12s after the call connects.
-  await expect.poll(expanded, { timeout: 20_000 }).toEqual(["customer-info-card"]);
+  // The agent opens the Journey Summary: additive.
   await page.locator("[data-slot=journey-summary] [aria-expanded]").click();
-  expect(await expanded()).toEqual(["journey-summary"]);
+  expect(await expanded()).toEqual(["real-time-summary", "journey-summary"]);
+  // Maya names her Visa about 12s after the call connects: Customer Info opens; the AI's summary closes; the agent's card stays.
+  await expect.poll(expanded, { timeout: 20_000 }).toEqual(["journey-summary", "customer-info-card"]);
   const words = () => page.locator("[data-slot=real-time-summary]").getAttribute("data-words");
   const before = await words();
-  // Her next turn (20s after answer) refreshes the summary; Journey Summary stays open.
+  // Her next turn (20s after answer) refreshes the summary; nothing else changes.
   await expect.poll(words, { timeout: 15_000 }).not.toBe(before);
-  expect(await expanded()).toEqual(["journey-summary"]);
+  expect(await expanded()).toEqual(["journey-summary", "customer-info-card"]);
 });

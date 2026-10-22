@@ -628,6 +628,16 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
       case "resolveCard":
         guidance.resolve(command.cardId, command.resolution);
         return undefined;
+
+      case "suggest": {
+        const { interactionId, trigger } = command.request;
+        get(interactionId);
+        if (trigger.kind !== "next-best-action" && trigger.kind !== "pause") {
+          throw providerError("not-supported", `suggest: "${trigger.kind}" isn't simulated yet`);
+        }
+        guidance.surface(interactionId, trigger.kind === "pause" ? "pause" : "request", command.requestId);
+        return command.requestId;
+      }
     }
   }
 
