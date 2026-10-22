@@ -30,6 +30,8 @@ export interface TranscriptMessage {
   wrapUp?: { title: string; summary: string; disposition: string; buttonLabel: string; exiting?: boolean };
   /** Renders the "Add {address} as … for {customer}?" card (k8 8): a thread started on an address not on the record. */
   saveAddress?: SaveAddressOffer;
+  /** A compact AI row (P-CANVAS): a Next Best Action the agent used or put aside ("Used at 9:15 AM — …"). */
+  nbaOutcome?: { outcome: "used" | "dismissed"; title: string; at: string };
 }
 
 export interface TranscriptApprovalSummary {

@@ -12,6 +12,8 @@ import type {
   Utterance,
 } from "../../domain";
 import type {
+  AssistCardResolution,
+  AssistEvents,
   DialRequest,
   InteractionEvents,
   OutboundSkill,
@@ -55,7 +57,9 @@ export type SimCommand =
   | { name: "setCaseStatus"; interactionId: InteractionId; status: string }
   | { name: "associateEntity"; interactionId: InteractionId; entityId: EntityId }
   | { name: "takeOver"; interactionId: InteractionId; handoff?: boolean }
-  | { name: "respondToRequest"; interactionId: InteractionId; response: RequestResponse };
+  | { name: "respondToRequest"; interactionId: InteractionId; response: RequestResponse }
+  /** `AssistProvider.resolveCard` (P-CANVAS): the sim's assist provider is a client of the same engine. */
+  | { name: "resolveCard"; cardId: string; resolution: AssistCardResolution };
 
 export type SimCommandName = SimCommand["name"];
 
@@ -87,6 +91,7 @@ export interface SimCommandResults {
   associateEntity: void;
   takeOver: void;
   respondToRequest: void;
+  resolveCard: void;
 }
 
 /** An `InteractionProvider` event, derived from the contract so it can't drift. */
@@ -127,6 +132,8 @@ export type SimMessage =
   | { type: "reply"; requestId: string; ok: true; result: unknown }
   | { type: "reply"; requestId: string; ok: false; error: ProviderError }
   | { type: "event"; event: SimEvent }
+  /** An `AssistProvider` card event (the engine's guidance: nba and Real-Time Summary cards). */
+  | { type: "assist"; payload: AssistEvents["card"] }
   | { type: "customer"; action: SimCustomerAction };
 
 /** Every message on the bus. `sessionId` scopes it to one agent session, so

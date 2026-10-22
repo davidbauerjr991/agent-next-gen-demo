@@ -6,4 +6,4 @@ import type { TranscriptMessage } from "@/components/agent-next-gen-transcript";
  *  these out of the transcript into the panel. Event rows ("Chat started",
  *  "Payment link sent", …) and bot or agent lines are the conversation
  *  record and always stay in the transcript, in both modes. */
-export const isAiActionMessage = (m: TranscriptMessage) => !!(m.instruction || m.wrapUp || m.summary || m.saveAddress);
+export const isAiActionMessage = (m: TranscriptMessage) => !!(m.instruction || m.wrapUp || m.summary || m.saveAddress || m.nbaOutcome);

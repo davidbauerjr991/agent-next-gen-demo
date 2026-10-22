@@ -19,6 +19,22 @@ export const MAYA_CHEN_SCRIPT = {
   launch: { hotkey: "B" },
   steps: [
     {
+      id: "mcc-greet",
+      kind: "guide",
+      anchor: "answered",
+      at: 0,
+      nba: {
+        type: "say",
+        title: "Greet Maya and say the call is recorded",
+        why: "Every contact opens with a greeting and the recording notice.",
+        text: "Hi Maya, thanks for calling. My name is John. This call is recorded for quality and training.",
+        alt: [
+          { type: "say", text: "Identify yourself" },
+          { type: "ask", text: "Confirm the callback number" },
+        ],
+      },
+    },
+    {
       id: "mcc-1",
       kind: "say",
       speaker: "customer",
@@ -42,7 +58,52 @@ export const MAYA_CHEN_SCRIPT = {
       at: 12000,
       text: "It's order NR-10871, the $412 espresso machine, paid with my Visa. I'll buy a different model instead.",
     },
+    {
+      id: "mcc-ask",
+      kind: "guide",
+      anchor: "answered",
+      at: 2500,
+      nba: {
+        type: "ask",
+        title: "Confirm the order number and the damage photo",
+        why: "A refund for a damaged item needs the order and a photo check that passed (RET-1.3).",
+        text: "Could you confirm the order number, and that you sent us a photo of the cracked tank?",
+        alt: [{ type: "say", text: "Tell Maya a refund is within your limit" }],
+      },
+    },
+    {
+      id: "mcc-do",
+      kind: "guide",
+      anchor: "answered",
+      at: 13_500,
+      nba: {
+        type: "do",
+        title: "Refund $412.00 to Visa 4417",
+        why: "The photo check passed and $412.00 is within your $500 refund limit.",
+        action: "Runs the refund flow under RET-1.3 and opens its steps",
+        link: "maya-refund-steps",
+        branch: "refund",
+        alt: [{ type: "say", text: "Tell Maya the refund posts in 3 to 5 business days" }],
+      },
+    },
   ],
+  branches: {
+    refund: {
+      label: "The agent refunds Maya",
+      trigger: "action",
+      steps: [
+        { id: "refund-1", kind: "event", at: 300, text: "Refund of $412.00 to Visa 4417 issued" },
+        {
+          id: "refund-2",
+          kind: "say",
+          speaker: "agent",
+          at: 1500,
+          text: "I've refunded $412.00 to your Visa ending 4417. It usually posts in 3 to 5 business days, and I'll email you a prepaid return label.",
+        },
+        { id: "refund-3", kind: "say", speaker: "customer", at: 5000, text: "Perfect, thank you. I'll watch for the label." },
+      ],
+    },
+  },
   content: {
     panelKeys: ["maya-order", "maya-card", "maya-refund-steps"],
     overview: {
@@ -61,6 +122,14 @@ export const MAYA_CHEN_SCRIPT = {
       ],
       nextBestAction:
         "Refund $412.00 to Visa 4417 under RET-1.3, email the prepaid return label, and tell Maya the refund usually posts in 3 to 5 business days.",
+    },
+    journey: {
+      summary: "Maya filed a return request in the app this morning; it's her first damage claim in 2 years.",
+      rows: [
+        { name: "Today · App", detail: "Return request for NR-10871 with a photo of the cracked tank" },
+        { name: "27 Sep · Email", detail: "NR-10871 delivered; no issue reported then" },
+        { name: "25 Sep · Web", detail: "Ordered the espresso machine ($412.00) with Visa 4417" },
+      ],
     },
     copilot: {
       suggestions: ["Show the order", "Show the card on file", "How do I refund a damaged item?"],

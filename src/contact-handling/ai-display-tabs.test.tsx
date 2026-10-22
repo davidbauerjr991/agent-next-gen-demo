@@ -222,8 +222,9 @@ describe("AI display inline and panel: tabs", () => {
       expect(mainColumn.querySelector("[data-slot=ai-workspace]")).toBeNull();
       expect(mainColumn.querySelector("[data-slot=content-stack]")).toBeTruthy();
       if (panelShows() !== "details") await h.click(contactDetailsButton());
-      // Inline: the Autosummary and the composer in the main column. Panel: both in Contact Details.
-      expect(!!mainColumn.querySelector("[data-slot=autosummary]")).toBe(ai === "inline");
+      // Inline: the Next Best Action (P-CANVAS) and the composer in the main column. Panel: the Autosummary and the composer in Contact Details.
+      expect(!!mainColumn.querySelector("[data-slot=next-best-action]")).toBe(ai === "inline");
+      expect(!!mainColumn.querySelector("[data-slot=autosummary]")).toBe(false);
       expect(!!mainColumn.querySelector("[data-slot=copilot-composer]")).toBe(ai === "inline");
       expect(!!panel()!.querySelector("[data-slot=ai-feed]")).toBe(ai === "panel");
       expect(document.body.querySelectorAll("[data-slot=copilot-composer]")).toHaveLength(1);

@@ -182,6 +182,8 @@ describe("canned lines", () => {
     expect(cannedLines(SCENARIOS, { entityKey: "tom-lewis-void-call" }).map((l) => l.text)).toEqual([
       expect.stringContaining("Hi, this is Tom Lewis"),
       expect.stringContaining("It's order NR-50877"),
+      // The void branch's line (started by the Next Best Action).
+      "Great, thanks for fixing that.",
     ]);
     expect(cannedLines(SCENARIOS, { entityKey: "nobody" })).toEqual([]);
   });
@@ -189,8 +191,10 @@ describe("canned lines", () => {
   it("adds a script's extra lines, skips canned: false and honors onlyOn", () => {
     const script = clone(TOM_LEWIS_SCRIPT) as ScenarioScript;
     script.canned = [{ label: "Hold", text: "Can you hold, please?" }];
-    script.steps[0] = { ...script.steps[0], canned: false } as ScenarioScript["steps"][number];
-    script.steps[2] = { ...script.steps[2], onlyOn: ["chat"] } as ScenarioScript["steps"][number];
+    delete script.branches;
+    const step = (id: string) => script.steps.findIndex((s) => s.id === id);
+    script.steps[step("tlc-1")] = { ...script.steps[step("tlc-1")], canned: false } as ScenarioScript["steps"][number];
+    script.steps[step("tlc-3")] = { ...script.steps[step("tlc-3")], onlyOn: ["chat"] } as ScenarioScript["steps"][number];
     expect(cannedLines([script], { channel: "voice" })).toEqual([{ scenarioId: script.id, label: "Hold", text: "Can you hold, please?" }]);
     expect(cannedLines([script], { channel: "chat" }).map((l) => l.text)).toEqual([
       "It's order NR-50877, $86.40. I only placed it once, and I'd rather keep the Mastercard charge since that's my default card.",

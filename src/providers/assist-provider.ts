@@ -1,5 +1,6 @@
 import type {
   Brand,
+  EpochMs,
   FieldValue,
   InteractionId,
   MessageId,
@@ -60,12 +61,69 @@ interface AssistCardBase {
   actions?: AssistCardAction[];
 }
 
+/** What a Next Best Action asks of the agent: a line to say, a question to
+ *  ask, or something to run. */
+export type NextBestActionType = "say" | "ask" | "do";
+
+/** A lesser option offered beside the suggestion ("Also consider"). */
+export interface NextBestActionAlternative {
+  type: NextBestActionType;
+  text: string;
+  /** A provider-side action this option starts when used (opaque to the UI). */
+  branch?: string;
+}
+
+/** One Next Best Action. Say/Ask carry `text` (the suggested words); Do
+ *  carries `action` (what running it does). */
+export interface NextBestActionSuggestion {
+  type: NextBestActionType;
+  title: string;
+  /** Why it's suggested, shown under the title. */
+  why: string;
+  text?: string;
+  action?: string;
+  /** A panel key the agent UI opens when a Do is run (scenario content). */
+  link?: string;
+  /** A provider-side action using it starts (opaque to the UI). */
+  branch?: string;
+  alt: NextBestActionAlternative[];
+  /** When it was suggested. */
+  at: EpochMs;
+}
+
+/** A reference card the AI can bring forward (P-CANVAS). */
+export type ReferenceCardFocus = "summary" | "journey" | "customer";
+
 /** A card. Records cards show the actual rows; text cards carry streamed
- *  Tier 2 synthesis; hint cards are the no-match fallback. */
+ *  Tier 2 synthesis; hint cards are the no-match fallback; the nba card is
+ *  the contact's one pinned Next Best Action — "listening" while there's
+ *  nothing yet, "nothing" once the contact is on track or wrapping up.
+ *  `stepId` changes with every new suggestion (or AI focus), so the agent UI
+ *  can tell one step from the next. */
 export type AssistCard =
   | (AssistCardBase & { kind: "records"; collection: string; query: CollectionQuery; records: RelatedRecord[] })
-  | (AssistCardBase & { kind: "text"; text: string })
-  | (AssistCardBase & { kind: "hint"; text: string; collections: string[] });
+  | (AssistCardBase & {
+      kind: "text";
+      text: string;
+      /** "real-time-summary": the contact's one running summary, rewritten as it goes on (streaming while live). */
+      purpose?: "real-time-summary";
+    })
+  | (AssistCardBase & { kind: "hint"; text: string; collections: string[] })
+  | (AssistCardBase & {
+      kind: "nba";
+      stepId: string;
+      frame: "listening" | "suggestion" | "nothing";
+      suggestion?: NextBestActionSuggestion;
+      /** The reference card this step brings forward. */
+      focus?: ReferenceCardFocus;
+    });
+
+/** The agent's answer to a card that asks for one (the nba card). */
+export interface AssistCardResolution {
+  outcome: "used" | "dismissed";
+  /** The alternative used instead of the suggestion (an index into `alt`). */
+  alternative?: number;
+}
 
 /** One value detected for the Draft card. */
 export interface ExtractedField {
@@ -101,4 +159,8 @@ export interface AssistProvider extends EventSource<AssistEvents>, ProviderLifec
   extractEntities(request: ExtractRequest): Promise<AssistRequestId>;
   /** Stops a request; its cards end in "complete" or "error". No-op if done. */
   cancel(requestId: AssistRequestId): Promise<void>;
+  /** Answers a card that asks for one (the nba card: used or not now). The
+   *  next state arrives as a `card` event. Rejects `not-found` when the card
+   *  has nothing to answer. */
+  resolveCard(cardId: string, resolution: AssistCardResolution): Promise<void>;
 }

@@ -11,7 +11,7 @@ import type {
   UtteranceId,
 } from "../../domain";
 import { normalizePhone } from "../../domain";
-import type { EndReason, InteractionCapabilities, ProviderError } from "../../providers";
+import type { AssistEvents, EndReason, InteractionCapabilities, ProviderError } from "../../providers";
 import { isProviderError, providerError } from "../provider-error";
 import {
   DEFAULT_INBOUND_SKILL_ID,
@@ -40,6 +40,7 @@ import { caseNumber, contactNumber, journeyNumber, sampleMs, simId, unsupportedR
 import type { ScenarioScript } from "../../scenarios/scenario-script";
 import { startRequest } from "../../scenarios/validate";
 import { createScenarioPlayer, LIVE_PRESENCE } from "./sim-scenario-player";
+import { createGuidance } from "./sim-guidance";
 
 // The simulated contact-center "switch" (P0.4). It owns all interaction and
 // agent state, answers commands from its session's provider over the bus,
@@ -103,10 +104,17 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
 
   /** Events raised while a command runs wait until its reply has gone out,
    *  so the ack always precedes the state it caused. */
-  let deferred: SimEvent[] | null = null;
+  let deferred: SimMessage[] | null = null;
   function emit(event: SimEvent) {
-    if (deferred) deferred.push(event);
+    if (deferred) deferred.push({ type: "event", event });
     else send({ type: "event", event });
+    // Guidance follows every interaction snapshot (going live, wrap-up, end).
+    if (event.name === "stateChanged" && event.payload.kind === "interaction") guidance.onInteraction(event.payload.interaction);
+  }
+  /** An assist card event (the guidance's nba and summary cards), deferred like `emit`. */
+  function emitAssist(payload: AssistEvents["card"]) {
+    if (deferred) deferred.push({ type: "assist", payload });
+    else send({ type: "assist", payload });
   }
 
   function schedule(range: { minMs: number; maxMs: number }, run: () => void) {
@@ -616,6 +624,10 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
         player.respond(interaction.id, command.response);
         return undefined;
       }
+
+      case "resolveCard":
+        guidance.resolve(command.cardId, command.resolution);
+        return undefined;
     }
   }
 
@@ -624,7 +636,7 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
     try {
       const result = run(command);
       send({ type: "reply", requestId, ok: true, result });
-      for (const event of deferred) send({ type: "event", event });
+      for (const message of deferred) send(message);
     } catch (err) {
       const error: ProviderError = isProviderError(err)
         ? err
@@ -698,6 +710,7 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
       interactionId: action.interactionId,
       startedAt: now() - (script.start.ageMs ?? 0),
     });
+    guidance.startScript(interaction.id, script);
     player.backfill(interaction, script);
     switch (script.start.answer) {
       case "agent":
@@ -816,10 +829,21 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
       end: (interaction) => {
         if (LIVE.includes(interaction.state)) disconnect(interaction, "agent");
       },
+      onStep: (id, step) => guidance.onStep(id, step),
     },
     options.scripts ?? [],
     () => agent.presence.code,
   );
+
+  // ── Guidance (P-CANVAS): the nba and Real-Time Summary cards ────────────
+
+  const guidance = createGuidance({
+    now,
+    get: (id) => interactions.get(id),
+    customerName: (id) => customerNames.get(id) ?? interactions.get(id)?.contactName,
+    send: emitAssist,
+    startBranch: (id, branch) => player.startAction(id, branch),
+  });
 
   // ── Seed ────────────────────────────────────────────────────────────────
   // Loaded once per engine, which lives once per provider-cache key (one per
@@ -868,6 +892,7 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
       if (disposed) return;
       disposed = true;
       player.dispose();
+      guidance.dispose();
       for (const timer of timers) clearTimeout(timer);
       timers.clear();
       unsubscribe();

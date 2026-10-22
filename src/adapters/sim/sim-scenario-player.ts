@@ -39,6 +39,8 @@ export interface ScenarioHost {
   /** The bot ends the contact on the agent's behalf: wrap-up (the agent's
    *  outcome closes it), or straight to ended without wrap-up support. */
   end(interaction: Interaction): void;
+  /** A step just played (not skipped). */
+  onStep?(id: InteractionId, step: ScenarioStep, script: ScenarioScript): void;
 }
 
 export interface ScenarioPlayer {
@@ -52,6 +54,8 @@ export interface ScenarioPlayer {
   onInteraction(interaction: Interaction): void;
   onTakeOver(id: InteractionId, handoff: boolean): void;
   respond(id: InteractionId, response: RequestResponse): void;
+  /** Starts an action branch (`trigger: "action"`) a used Next Best Action names; a no-op for anything else. */
+  startAction(id: InteractionId, branch: string): void;
   isScripted(id: InteractionId): boolean;
   dispose(): void;
 }
@@ -201,6 +205,8 @@ export function createScenarioPlayer(
       case "hangUp":
         host.customer({ kind: "hangUp", interactionId: id });
         return;
+      case "guide":
+        return;
       case "beat":
         switch (step.beat) {
           case "instruction":
@@ -235,7 +241,14 @@ export function createScenarioPlayer(
   }
 
   function schedule(run: Run, steps: ScenarioStep[], inputs: Inputs = {}) {
-    for (const step of steps) later(run, step.at, () => play(run, step, inputs));
+    for (const step of steps) {
+      later(run, step.at, () => {
+        if (!host.get(run.interactionId) || skipped(run, step, inputs)) return;
+        play(run, step, inputs);
+        // Guidance (the nba card, the running summary) follows what played.
+        host.onStep?.(run.interactionId, step, run.script);
+      });
+    }
   }
 
   function anchored(run: Run, anchor: "launch" | "answered" | "takeover"): ScenarioStep[] {
@@ -353,6 +366,13 @@ export function createScenarioPlayer(
       }
       const branch = branchKey !== undefined ? branches[branchKey] : undefined;
       if (branch) schedule(run, stepsFor(run.script, run.channel, branch.steps), { note: response.note, vars: response.vars, branch: branchKey });
+    },
+
+    startAction(id, branchKey) {
+      const run = runs.get(id);
+      const branch = run && !run.stopped ? run.script.branches?.[branchKey] : undefined;
+      if (!run || branch?.trigger !== "action") return;
+      schedule(run, stepsFor(run.script, run.channel, branch.steps), { branch: branchKey });
     },
 
     isScripted: (id) => runs.has(id),

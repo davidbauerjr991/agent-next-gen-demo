@@ -9,7 +9,14 @@ import { isDraftThread, threadKeyOf } from "./channel-thread";
  *  the presence block on replying (`useReplyBlockedReason`). */
 export type CopilotComposerProps = Pick<
   ComponentProps<typeof InteractionComposer>,
-  "copilotSuggestions" | "copilotSuggestionLinks" | "copilotSuggestionReplacements" | "onCopilotSuggestionLink" | "onCopilotAsk" | "replyBlockedReason"
+  | "copilotSuggestions"
+  | "copilotSuggestionLinks"
+  | "copilotSuggestionReplacements"
+  | "onCopilotSuggestionLink"
+  | "onCopilotAsk"
+  | "replyBlockedReason"
+  | "prefill"
+  | "onPrefillConsumed"
 >;
 
 export interface ChannelThreadBodyProps {

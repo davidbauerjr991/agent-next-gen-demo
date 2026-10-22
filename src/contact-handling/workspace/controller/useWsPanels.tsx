@@ -11,6 +11,7 @@ import type { ContactHistoryEntry } from "@/components/agent-next-gen-contact-hi
 import { useReplyBlockedReason, copilotSuggestionsFor, useChannelThreadMenu, type CopilotComposerProps } from "@/contact-handling";
 import type { CustomerPanelTabLabel } from "@/components/agent-next-gen-customer-info-panel";
 import { LUCAS_THOMAS_ID } from "@/contact-handling/scenario-cases";
+import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { headerPatchForPin, homeTabApps, pinnedKeysFromHeader, useSettings } from "@/settings";
 import { useHomeTabs } from "@/components/home-tabs-state";
 import type { LucasThomasPanelKey, LucasThomasMemoryFocus } from "@/components/agent-next-gen-lucas-thomas-panels";
@@ -35,10 +36,20 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
     setVoiceVideoWindowOpen, setWindowWidth, showSettings,
   } = prev;
   const replyBlockedReason = useReplyBlockedReason();
+  // A Next Best Action's "Insert into reply" (P-CANVAS): the thread's chat composer takes it once.
+  const [composerPrefill, setComposerPrefill] = useWorkspaceUiField("composerPrefill");
   const copilotComposerProps = (interactionId: string, threadKey: string): CopilotComposerProps => {
     const isLucas = scenarioKeyOf(interactionId) === LUCAS_THOMAS_ID;
     const channel = interactions.find((i) => i.id === interactionId)?.threads.find((t) => (t.id ?? t.type) === threadKey)?.type;
+    const prefillKey = `${interactionId}:${threadKey}`;
     return {
+      prefill: composerPrefill[prefillKey],
+      onPrefillConsumed: () =>
+        setComposerPrefill((prev) => {
+          if (!(prefillKey in prev)) return prev;
+          const { [prefillKey]: _taken, ...rest } = prev;
+          return rest;
+        }),
       copilotSuggestions: isLucas ? LUCAS_THOMAS_COPILOT_SUGGESTIONS : copilotSuggestionsFor(channel),
       copilotSuggestionLinks: isLucas ? LUCAS_THOMAS_COPILOT_SUGGESTION_LINKS : undefined,
       copilotSuggestionReplacements: isLucas ? LUCAS_THOMAS_COPILOT_SUGGESTION_REPLACEMENTS : undefined,

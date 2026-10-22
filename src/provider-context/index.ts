@@ -26,6 +26,9 @@ export {
   useInteractionStoreStatus,
 } from "./interaction-store-hooks";
 export type { InteractionStoreStatus, TranscriptState, TypingState } from "./interaction-store-state";
+// Assist card store hook (P-CANVAS): a contact's Next Best Action and Real-Time Summary cards.
+export { useContactAssistCards } from "./assist-card-store";
+export type { ContactAssistCards, NextBestActionCard, RealTimeSummaryCard, RealTimeSummaryState } from "./assist-card-store";
 export { readProviderKind, readSimLatency, type ProviderKind, type SimLatencyPreset } from "./provider-kind";
 export type { ProviderFactory } from "./factories";
 export type { ProviderContextValue } from "./context";

@@ -80,11 +80,12 @@ const linkCustomer = () => [...(region("reference")?.querySelectorAll("button") 
 
 /** Each card's own cells under the two-column canvas, and whether it's an
  *  unmatched customer (Customer Info is then "Link to existing customer"). */
+const REFERENCE = ["real-time-summary", "journey-summary", "customer-info"];
 const EXPECTED: Record<keyof typeof CASES, { action: string[]; reference: string[]; unmatched: boolean }> = {
-  lucas: { action: ["autosummary"], reference: ["customer-info", "journey-summary"], unmatched: false },
-  noah: { action: ["autosummary"], reference: ["customer-info", "journey-summary"], unmatched: false },
-  simChat: { action: [], reference: ["customer-info", "journey-summary"], unmatched: true },
-  dialed: { action: [], reference: ["customer-info", "journey-summary"], unmatched: true },
+  lucas: { action: ["next-best-action"], reference: REFERENCE, unmatched: false },
+  noah: { action: ["next-best-action"], reference: REFERENCE, unmatched: false },
+  simChat: { action: ["next-best-action"], reference: REFERENCE, unmatched: true },
+  dialed: { action: ["next-best-action"], reference: REFERENCE, unmatched: true },
 };
 
 describe("two-column canvas: both regions on every kind of card, each with its own cells", () => {
@@ -121,7 +122,8 @@ describe("stacked canvas and panel mode", () => {
       await open({ displayLocation, canvasLayout: "stacked" });
       await CASES.noah();
       expect(region("reference")).toBeNull();
-      expect(cellsIn(region("action"))).toEqual(["customer-info", "journey-summary", "autosummary"]);
+      // The Next Best Action is pinned above the conversation; the reference cells head its scroll.
+      expect(cellsIn(region("action"))).toEqual(["next-best-action", ...REFERENCE]);
     });
   }
 
@@ -174,13 +176,13 @@ describe("the record header's second line and the docked column (browser pass, 2
 });
 
 describe("the registry decides the region", () => {
-  it("re-registering the Autosummary as reference moves it into the reference column, with no other change", async () => {
-    registerCanvasCell({ ...canvasCellDefinition("autosummary")!, region: "reference", order: 25 });
+  it("re-registering the Next Best Action as reference moves it into the reference column, with no other change", async () => {
+    registerCanvasCell({ ...canvasCellDefinition("next-best-action")!, region: "reference", order: 25 });
     await open({ displayLocation: "main", canvasLayout: "twoColumn" });
     await CASES.noah();
     expect(cellsIn(region("action"))).toEqual([]);
-    expect(cellsIn(region("reference"))).toEqual(["customer-info", "journey-summary", "autosummary"]);
-    expect(region("reference")!.querySelector("[data-slot=autosummary]")).not.toBeNull();
+    expect(cellsIn(region("reference"))).toEqual(["real-time-summary", "journey-summary", "next-best-action", "customer-info"]);
+    expect(region("reference")!.querySelector("[data-slot=next-best-action]")).not.toBeNull();
   });
 
   it("the conversation can't leave the action area", () => {

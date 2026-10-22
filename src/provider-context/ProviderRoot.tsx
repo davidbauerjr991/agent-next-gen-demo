@@ -4,6 +4,7 @@ import type { ContactCenterProfile } from "../profiles/contact-center-profile";
 import { ProviderContext, type ProviderContextValue } from "./context";
 import { PROVIDER_FACTORIES, type ProviderFactory } from "./factories";
 import { getInteractionStore } from "./interaction-store";
+import { getAssistCardStore } from "./assist-card-store";
 import { peekProviderSet, releaseProviderSet, retainProviderSet } from "./provider-cache";
 import type { ProviderKind, SimLatencyPreset } from "./provider-kind";
 
@@ -36,6 +37,12 @@ export function ProviderRoot({ kind, profile, database, factory, simLatency, chi
   // hydrated while mounted, unsubscribed before the cache's deferred dispose.
   useEffect(() => {
     const store = getInteractionStore(providers.interaction);
+    store.start();
+    return () => store.stop();
+  }, [providers]);
+  // The assist card store (P-CANVAS) the same way, so no guidance card is missed.
+  useEffect(() => {
+    const store = getAssistCardStore(providers.assist);
     store.start();
     return () => store.stop();
   }, [providers]);

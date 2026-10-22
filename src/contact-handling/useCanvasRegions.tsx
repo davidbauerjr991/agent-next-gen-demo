@@ -8,6 +8,9 @@ export interface CanvasRegions {
   enabled: boolean;
   /** `ai.canvasLayout` "twoColumn": the reference cells sit in the reference column. */
   twoColumn: boolean;
+  /** Mounted at the top of the action area, above the conversation and
+   *  outside its scroll: the pinned action cells (the Next Best Action). */
+  pinned: ReactNode;
   /** Mounted at the top of the conversation (the transcript's / AI feed's
    *  overview slot): the action cells before the anchor, preceded under
    *  "stacked" by the reference cells. */
@@ -25,15 +28,16 @@ export function useCanvasRegions(): CanvasRegions {
   const ws = useWorkspace();
   const [ai] = useSettings("ai");
   const enabled = !!ws.activeInteraction && ai.displayLocation !== "panel";
-  if (!enabled) return { enabled, twoColumn: false, top: undefined, bottom: undefined, reference: undefined };
+  if (!enabled) return { enabled, twoColumn: false, pinned: undefined, top: undefined, bottom: undefined, reference: undefined };
   const twoColumn = ai.canvasLayout === "twoColumn";
   const anchor = conversationOrder();
   const action = canvasCells("action", ws).filter((cell) => cell.component);
   const reference = canvasCells("reference", ws);
-  const before = action.filter((cell) => cell.order < anchor);
+  const before = action.filter((cell) => cell.order < anchor && !cell.pinned);
   return {
     enabled,
     twoColumn,
+    pinned: mount(action.filter((cell) => cell.order < anchor && cell.pinned)),
     top: mount(twoColumn ? before : [...reference, ...before]),
     bottom: mount(action.filter((cell) => cell.order > anchor)),
     reference: twoColumn ? mount(reference) : undefined,

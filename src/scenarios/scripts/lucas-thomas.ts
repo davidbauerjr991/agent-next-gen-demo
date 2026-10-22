@@ -36,6 +36,22 @@ export const LUCAS_THOMAS_SCRIPT = {
     { id: "lt-3", kind: "say", speaker: "bot", at: -190_000, text: "Here's a secure link to pay another way." },
     { id: "lt-3-event", kind: "event", at: -189_000, text: "Payment link sent" },
     // Plays live after launch.
+    {
+      // The agent's opening line for when they take the chat over from the bot.
+      id: "lt-greet",
+      kind: "guide",
+      at: 0,
+      nba: {
+        type: "say",
+        title: "Greet Lucas and say the chat is recorded",
+        why: "The bot is handing Lucas to you: open with a greeting and the recording notice.",
+        text: "Hi Lucas, this is John, picking up from our virtual agent. This chat is recorded for quality and training.",
+        alt: [
+          { type: "say", text: "Identify yourself" },
+          { type: "ask", text: "Confirm the callback number" },
+        ],
+      },
+    },
     { id: "lt-4-typing", kind: "typing", speaker: "customer", at: 1500, durationMs: 3000 },
     { id: "lt-4", kind: "say", speaker: "customer", at: 4500, text: "That failed too. Can someone just place it for me?" },
     { id: "lt-5-typing", kind: "typing", speaker: "bot", at: 5200, durationMs: 2800 },
@@ -90,6 +106,18 @@ export const LUCAS_THOMAS_SCRIPT = {
         // Lucas follows up, so the chat stays open for the agent to answer.
         { id: "accept-7-typing", kind: "typing", speaker: "customer", at: 12_400, durationMs: 2800 },
         { id: "accept-7", kind: "say", speaker: "customer", at: 15_200, text: "Will it still ship today? It's a birthday present for Friday." },
+        {
+          id: "accept-ask",
+          kind: "guide",
+          at: 15_600,
+          nba: {
+            type: "ask",
+            title: "Ask whether Friday delivery is a must",
+            why: "Lucas says it's a birthday present for Friday; standard delivery arrives Monday.",
+            text: "Does it need to arrive by Friday, or would Monday still work for you?",
+            alt: [{ type: "say", text: "Offer priority shipping for $15" }],
+          },
+        },
         { id: "accept-8-typing", kind: "typing", speaker: "bot", at: 16_200, durationMs: 2400 },
         { id: "accept-8", kind: "say", speaker: "bot", at: 18_600, text: "I understand your concern. Let me check that for you." },
         // The bot checks, logging it as a row that opens the shipping details.
@@ -128,6 +156,19 @@ export const LUCAS_THOMAS_SCRIPT = {
         },
         // A second approval request: waive the $15.00 priority shipping.
         { id: "accept-13", kind: "beat", beat: "approval", ref: "shipping", at: 37_000 },
+        {
+          id: "accept-do",
+          kind: "guide",
+          at: 37_500,
+          nba: {
+            type: "do",
+            title: "Review the shipping check before deciding",
+            why: "The override waives $15.00; the check shows when priority shipping would arrive.",
+            action: "Opens the shipping check for NR-11056",
+            link: "shipping-check",
+            alt: [{ type: "ask", text: "Ask Lucas if Thursday delivery works" }],
+          },
+        },
       ],
     },
     "ship-accept": {
@@ -298,7 +339,35 @@ export const LUCAS_THOMAS_SCRIPT = {
       "memory:order",
       "memory:link-requested",
       "memory:payment-review",
+      "product",
+      "payment-link",
     ],
+    // Customer card + summaries for Lucas's own assignment (CASE-30418), not the generic hashed profile.
+    overview: {
+      subtitle: "Insider since 2023 · 14 orders",
+      tags: ["Insider", "Launch edition pre-orders", "Prefers text"],
+      detailedSummary: [
+        "Insider member since 2023 with 14 orders. Pre-orders launch editions and prefers text for updates. Paid by PayPal on 3 of his last 5 orders.",
+        "Today he tried to buy the Aurora X2 launch edition at $189.00. Card checkout failed twice during payment incident INC-2207, and the pay-another-way link failed too.",
+      ],
+      journeySummary:
+        "Aurora X2 launch order NR-11056 failed twice during payment incident INC-2207: the card was declined and the pay-another-way link also failed. Checkout AI Agent hit its authorization limit and is requesting an exception. The $189.00 launch price and his unit are held for 24 h. Lucas is frustrated.",
+      snapshot: [
+        "[Aurora X2 launch](product) order NR-11056 not placed — [card declined twice](payments) during payment incident INC-2207.",
+        "Launch price ($189.00) and unit held for 24 h; [pay-another-way](payment-link) link sent and also failed.",
+        "Checkout AI Agent hit its authorization limit and is requesting an exception.",
+      ],
+      nextBestAction:
+        "Review the approval request and approve placing order NR-11056 with another payment method at the held launch price.",
+    },
+    journey: {
+      summary: "Lucas pre-orders launch editions; this is the first failed checkout on his 14 orders.",
+      rows: [
+        { name: "Today · Chat", detail: "Card declined twice on NR-11056; the pay-another-way link failed" },
+        { name: "2 Sep · Web", detail: "Pre-ordered a launch edition, paid by PayPal" },
+        { name: "14 Aug · Chat", detail: "Asked about launch-day shipping; answered by the virtual agent" },
+      ],
+    },
     caseContext: {
       priority: "P1",
       status: "Queued",

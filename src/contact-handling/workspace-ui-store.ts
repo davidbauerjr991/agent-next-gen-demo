@@ -1,5 +1,6 @@
 import { useCallback, useSyncExternalStore } from "react";
 import { useInteractionProvider } from "@/provider-context";
+import type { ReferenceCardFocus } from "@/providers";
 import type { DetailPanelContent, OutcomeKey, PanelArtifact } from "./workspace/workspace-types";
 
 // The Workspace's UI state keyed by card or thread id (P-EXTRACT). State that
@@ -32,6 +33,14 @@ export interface WorkspaceUiState {
   regionsRowWidth: number;
   /** P-CANVAS: the reference column's overlay is open (only while it doesn't fit). */
   summariesOverlayOpen: boolean;
+  /** P-CANVAS: text for a thread's chat composer to take once (a Next Best
+   *  Action's "Insert into reply"), `${cardId}:${threadKey}`; cleared when taken. */
+  composerPrefill: Readonly<Record<string, string>>;
+  /** P-CANVAS: the Next Best Action last used on each contact (provider
+   *  interaction id), shown as the card's "Used" frame until the next suggestion. */
+  nbaUsedByContact: Readonly<Record<string, { title: string; at: string }>>;
+  /** P-CANVAS: the one open reference card per card (single-open accordion); absent = the Real-Time Summary. */
+  referenceOpenByCard: Readonly<Record<string, ReferenceCardFocus | null>>;
 }
 
 export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
@@ -43,6 +52,9 @@ export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
   referenceColumnFits: true,
   regionsRowWidth: 0,
   summariesOverlayOpen: false,
+  composerPrefill: Object.freeze({}),
+  nbaUsedByContact: Object.freeze({}),
+  referenceOpenByCard: Object.freeze({}),
 });
 
 export interface WorkspaceUiStore {

@@ -130,6 +130,7 @@ export function createPlaceholderAssistProvider(): AssistProvider {
     suggest: reject("suggest"),
     extractEntities: reject("extractEntities"),
     cancel: reject("cancel"),
+    resolveCard: reject("resolveCard"),
   } satisfies AssistProvider;
 }
 

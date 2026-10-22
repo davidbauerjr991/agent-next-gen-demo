@@ -226,9 +226,10 @@ describe("header hover previews", () => {
 });
 
 describe("AI cards", () => {
-  it("the Autosummary header uses Customer Info's header token and the shared enter animation", async () => {
-    await whatsAppAndEmail();
-    const title = [...h.container.querySelectorAll("[data-main-thread] *")].find(
+  it("the Autosummary header uses Customer Info's header token and the shared enter animation (AI display panel, where it stays)", async () => {
+    await whatsAppAndEmail("panel");
+    if (h.container.querySelector("[data-slot=right-panel]")?.getAttribute("data-thread") !== "details") await h.click(contactDetailsButton());
+    const title = [...h.container.querySelectorAll("[data-slot=right-panel] *")].find(
       (el) => el.children.length === 0 && el.textContent?.trim() === "Autosummary",
     )!;
     expect(title).toBeDefined();
@@ -238,13 +239,16 @@ describe("AI cards", () => {
   });
 
   for (const ai of ["inline", "panel", "main"] as const) {
-    it(`the Autosummary is one AutosummaryCard (AI display ${ai}), once, where the mode puts the AI overview`, async () => {
+    // P-CANVAS: under inline and main the Next Best Action takes the Autosummary's place; panel mode keeps the Autosummary.
+    const slot = ai === "panel" ? "autosummary" : "next-best-action";
+    it(`the AI overview is one ${slot} card (AI display ${ai}), once, where the mode puts it`, async () => {
       await whatsAppAndEmail(ai);
       if (ai === "panel" && h.container.querySelector("[data-slot=right-panel]")?.getAttribute("data-thread") !== "details") await h.click(contactDetailsButton());
-      const cards = [...h.container.querySelectorAll("[data-slot=autosummary]")];
+      const cards = [...h.container.querySelectorAll(`[data-slot=${slot}]`)];
       expect(cards).toHaveLength(1);
       const where = ai === "panel" ? "[data-slot=right-panel]" : "[data-main-thread]";
       expect(cards[0].closest(where)).not.toBeNull();
+      if (ai !== "panel") expect(h.container.querySelector("[data-slot=autosummary]")).toBeNull();
     });
   }
 

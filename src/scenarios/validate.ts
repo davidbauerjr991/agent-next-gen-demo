@@ -9,6 +9,7 @@ const CHANNELS: readonly ChannelKind[] = ["voice", "chat", "sms", "whatsapp", "e
 const SPEAKERS = ["customer", "bot", "agent"];
 const ANCHORS = ["launch", "answered", "takeover"];
 const BEATS = ["instruction", "approval", "wrap-up", "close", "dismiss"];
+const NBA_TYPES = ["say", "ask", "do"];
 const ANSWERS = ["agent", "auto", "delivered"];
 const CONDITIONS = ["note-addresses-customer"];
 
@@ -197,6 +198,9 @@ export function validateScenario(input: unknown, options: { channel?: ChannelKin
           break;
         case "hangUp":
           break;
+        case "guide":
+          if (!step.nba) err(`${at}: guide needs an nba`);
+          break;
         case "beat":
           if (!BEATS.includes(step.beat)) err(`${at}: unknown beat`);
           if (step.beat === "instruction" && !isStr(step.text)) err(`${at}: instruction needs text`);
@@ -206,6 +210,15 @@ export function validateScenario(input: unknown, options: { channel?: ChannelKin
           break;
         default:
           err(`${at}: unknown kind`);
+      }
+      if (step.nba) {
+        const nba = step.nba;
+        if (!NBA_TYPES.includes(nba.type) || !isStr(nba.title) || !isStr(nba.why)) err(`${at}: nba needs a type, title and why`);
+        else if (nba.type === "do" ? !isStr(nba.action) : !isStr(nba.text)) err(`${at}: a ${nba.type} nba needs ${nba.type === "do" ? "an action" : "text"}`);
+        checkLink(nba.link, `${at} nba`);
+        for (const branch of [nba.branch, ...(nba.alt ?? []).map((a) => a.branch)]) {
+          if (branch !== undefined && branches[branch]?.trigger !== "action") err(`${at}: nba branch "${branch}" isn't an action branch`);
+        }
       }
       const text = "text" in step && typeof step.text === "string" ? step.text : "";
       for (const [, name] of text.matchAll(/\{(\w+)\}/g)) {

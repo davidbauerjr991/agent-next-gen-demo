@@ -92,7 +92,7 @@ export function TranscriptLiveMessages({
     />
   );
   const renderLiveMessage = (message: TranscriptMessage) => {
-    const rendered = message.instruction || message.wrapUp || message.saveAddress ? (
+    const rendered = message.instruction || message.wrapUp || message.saveAddress || message.nbaOutcome ? (
       <AiActionCard key={message.id} message={message} {...aiCardHandlers} />
     ) : message.summary ? (
       <div key={message.id} className="flex flex-col gap-5">
@@ -111,7 +111,7 @@ export function TranscriptLiveMessages({
     ) : (
       renderBubble(message)
     );
-    const isAiAction = !!(message.instruction || message.wrapUp || message.summary || message.saveAddress || message.event);
+    const isAiAction = !!(message.instruction || message.wrapUp || message.summary || message.saveAddress || message.nbaOutcome || message.event);
     const entered = initialMessageIds?.has(message.id) ? (
       rendered
     ) : (

@@ -22,6 +22,10 @@ export interface CanvasCell {
   /** Whether this card has the cell (default yes): the cell set varies by
    *  card, e.g. an unknown customer has no Customer Info record. */
   applies?: (ws: Workspace) => boolean;
+  /** An action cell before the anchor that stays at the top of the action
+   *  area, outside the conversation's scroll (the Next Best Action), rather
+   *  than scrolling with the conversation's top. */
+  pinned?: boolean;
 }
 
 /** The action area's anchor: the conversation itself under inline (the

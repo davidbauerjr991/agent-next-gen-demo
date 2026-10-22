@@ -197,7 +197,7 @@ describe("answer modes and live timing", () => {
     expect(latest(id)).toMatchObject({ state: "active", autoAnswered: true, skill: { name: "Returns" } });
     expect(Date.now() - latest(id)!.acceptedAt!).toBeLessThan(10);
     await advance(12_000);
-    expect(utterances(id).map((u) => u.text)).toEqual(MAYA_CHEN_SCRIPT.steps.map((s) => (s.kind === "say" ? s.text : "")));
+    expect(utterances(id).map((u) => u.text)).toEqual(MAYA_CHEN_SCRIPT.steps.flatMap((s) => (s.kind === "say" ? [s.text] : [])));
   });
 
   it("hold pauses the run and resume plays the rest with the remaining delays", async () => {

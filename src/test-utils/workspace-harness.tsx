@@ -5,12 +5,9 @@
 import { act, type ComponentType, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { vi } from "vitest";
-import {
-  createPlaceholderAssistProvider,
-  createPlaceholderCustomerDataProvider,
-  createPlaceholderMediaProvider,
-} from "@/adapters/placeholder/placeholder-providers";
+import { createPlaceholderCustomerDataProvider, createPlaceholderMediaProvider } from "@/adapters/placeholder/placeholder-providers";
 import { createMemoryBus } from "@/adapters/sim/memory-transport";
+import { createSimAssistProvider } from "@/adapters/sim/sim-assist-provider";
 import { SIM_DEMO_DIRECTORY } from "@/adapters/sim/sim-demo-directory";
 import type { SimSeedContact } from "@/adapters/sim/sim-fixtures";
 import { createSimCustomerClient, type SimCustomerClient } from "@/adapters/sim/sim-customer-client";
@@ -118,7 +115,7 @@ export function createWorkspaceHarness(options: { seed?: readonly SimSeedContact
               interaction: provider,
               media: createPlaceholderMediaProvider(),
               customerData: createPlaceholderCustomerDataProvider(),
-              assist: createPlaceholderAssistProvider(),
+              assist: createSimAssistProvider({ sessionId: provider.sessionId, transport: bus.createTransport() }),
             };
           }}
         >

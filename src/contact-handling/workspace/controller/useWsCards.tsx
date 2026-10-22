@@ -42,7 +42,7 @@ import { CONTACT_CHANNELS, useSettings } from "@/settings";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { usePortalHost } from "@/contact-handling/portal-hosts";
 import { findContactHistoryMatch, extractPriorContactInfo } from "@/contact-handling/workspace/active-channel-labels";
-import { TOM_LEWIS_CALL_OVERVIEW, MAYA_CHEN_CALL_OVERVIEW } from "@/components/workspace/workspace-constants";
+import { TOM_LEWIS_CALL_OVERVIEW, MAYA_CHEN_CALL_OVERVIEW, LUCAS_THOMAS_OVERVIEW } from "@/components/workspace/workspace-constants";
 import type { WorkspaceControllerProps, WorkspaceLate } from "./workspace-late";
 
 export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate) {
@@ -992,29 +992,20 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
       };
     }
     if (activeScenarioKey === LUCAS_THOMAS_ID) {
+      // Customer card + summaries reflect Lucas's own assignment (CASE-30418), from his script.
       return {
         ...base,
-        // Customer card + summaries reflect Lucas's own assignment (CASE-30418), not the generic hashed profile.
         customerCard: {
           ...base.customerCard,
           avatarInitials: "LT",
-          subtitle: "Insider since 2023 · 14 orders",
-          tags: ["Insider", "Launch edition pre-orders", "Prefers text"],
+          subtitle: LUCAS_THOMAS_OVERVIEW.subtitle,
+          tags: LUCAS_THOMAS_OVERVIEW.tags,
           sentiment: { value: "Frustrated" },
         },
-        detailedSummary: [
-          "Insider member since 2023 with 14 orders. Pre-orders launch editions and prefers text for updates. Paid by PayPal on 3 of his last 5 orders.",
-          "Today he tried to buy the Aurora X2 launch edition at $189.00. Card checkout failed twice during payment incident INC-2207, and the pay-another-way link failed too.",
-        ],
-        journeySummary:
-          "Aurora X2 launch order NR-11056 failed twice during payment incident INC-2207: the card was declined and the pay-another-way link also failed. Checkout AI Agent hit its authorization limit and is requesting an exception. The $189.00 launch price and his unit are held for 24 h. Lucas is frustrated.",
-        snapshot: [
-          "[Aurora X2 launch](product) order NR-11056 not placed — [card declined twice](payments) during payment incident INC-2207.",
-          "Launch price ($189.00) and unit held for 24 h; [pay-another-way](payment-link) link sent and also failed.",
-          "Checkout AI Agent hit its authorization limit and is requesting an exception.",
-        ],
-        nextBestAction:
-          "Review the approval request and approve placing order NR-11056 with another payment method at the held launch price.",
+        detailedSummary: LUCAS_THOMAS_OVERVIEW.detailedSummary,
+        journeySummary: LUCAS_THOMAS_OVERVIEW.journeySummary,
+        snapshot: LUCAS_THOMAS_OVERVIEW.snapshot,
+        nextBestAction: LUCAS_THOMAS_OVERVIEW.nextBestAction,
       };
     }
     return base;

@@ -31,7 +31,8 @@ function fakeSet() {
     },
     media: { capabilities: {}, dispose: dispose.media },
     customerData: { dispose: dispose.customerData },
-    assist: { dispose: dispose.assist },
+    // `on`: ProviderRoot also starts the assist card store (P-CANVAS).
+    assist: { dispose: dispose.assist, on: () => () => {} },
   } as unknown as ProviderSet;
   return { set, dispose };
 }

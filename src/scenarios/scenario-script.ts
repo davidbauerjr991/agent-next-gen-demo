@@ -34,6 +34,24 @@ interface StepBase {
    *  (`noteAddressesCustomer`, ./note-rules.ts); otherwise the step is
    *  skipped, so an internal instruction gets no customer-facing reply. */
   onlyIf?: "note-addresses-customer";
+  /** A Next Best Action this step suggests once it plays (P-CANVAS): queued
+   *  behind the one showing, so the agent sees one at a time. */
+  nba?: ScenarioNba;
+}
+
+/** A scripted Next Best Action (the assist provider's nba card). Say and Ask
+ *  carry `text`, the words to use; Do carries `action`, what running it does,
+ *  and may `link` a panel key to open. `branch` (and an alternative's) is an
+ *  action branch using it starts. */
+export interface ScenarioNba {
+  type: "say" | "ask" | "do";
+  title: string;
+  why: string;
+  text?: string;
+  action?: string;
+  link?: string;
+  branch?: string;
+  alt?: { type: "say" | "ask" | "do"; text: string; branch?: string }[];
 }
 
 export type ScenarioStep = StepBase &
@@ -49,6 +67,8 @@ export type ScenarioStep = StepBase &
     /** A system line in the thread ("Chat started", "Order placed"). */
     | { kind: "event"; text: string }
     | { kind: "hangUp" }
+    /** Guidance only: nothing in the thread, just its `nba` (P-CANVAS). */
+    | { kind: "guide" }
     /** A presentation beat: `instruction` is an interstitial row (`text`,
      *  `by`, `link` = side-panel key); `approval` and `wrap-up` are cards
      *  (`ref` into `content`); `close` closes the chat; `dismiss`
@@ -171,6 +191,12 @@ export interface ScenarioContent {
     journeySummary: string;
     snapshot: string[];
     nextBestAction?: string;
+  };
+  /** The Journey Summary card (P-CANVAS): the customer's recent contacts. */
+  journey?: {
+    summary: string;
+    /** Newest first: "19 Feb · Chat" and what happened. */
+    rows: { name: string; detail?: string }[];
   };
   caseContext?: {
     priority: string;

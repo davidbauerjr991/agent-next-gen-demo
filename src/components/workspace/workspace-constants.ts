@@ -116,6 +116,7 @@ export const ADVANCED_ASSIGNMENT_SORT_OPTIONS = ASSIGNMENT_SORT_OPTIONS.filter((
 export const LUCAS_THOMAS_COPILOT_SUGGESTIONS: string[] = LUCAS_THOMAS_SCRIPT.content.copilot!.suggestions;
 export const LUCAS_THOMAS_COPILOT_SUGGESTION_LINKS: Record<string, string> = LUCAS_THOMAS_SCRIPT.content.copilot!.links;
 export const LUCAS_THOMAS_COPILOT_SUGGESTION_REPLACEMENTS: Record<string, string> = LUCAS_THOMAS_SCRIPT.content.copilot!.replacements ?? {};
+export const LUCAS_THOMAS_OVERVIEW = LUCAS_THOMAS_SCRIPT.content.overview!;
 export const TOM_LEWIS_CALL_OVERVIEW = TOM_LEWIS_SCRIPT.content.overview!;
 export const TOM_LEWIS_CALL_COPILOT_SUGGESTIONS: string[] = TOM_LEWIS_SCRIPT.content.copilot!.suggestions;
 export const TOM_LEWIS_CALL_COPILOT_LINKS: Record<string, string> = TOM_LEWIS_SCRIPT.content.copilot!.links;

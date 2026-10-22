@@ -17,6 +17,22 @@ export const TOM_LEWIS_SCRIPT = {
   launch: { hotkey: "C" },
   steps: [
     {
+      id: "tlc-greet",
+      kind: "guide",
+      anchor: "answered",
+      at: 0,
+      nba: {
+        type: "say",
+        title: "Greet Tom and say the call is recorded",
+        why: "Every contact opens with a greeting and the recording notice.",
+        text: "Hi Tom, thanks for calling. My name is John. This call is recorded for quality and training.",
+        alt: [
+          { type: "say", text: "Identify yourself" },
+          { type: "ask", text: "Confirm the callback number" },
+        ],
+      },
+    },
+    {
       id: "tlc-1",
       kind: "say",
       speaker: "customer",
@@ -40,7 +56,52 @@ export const TOM_LEWIS_SCRIPT = {
       at: 12000,
       text: "It's order NR-50877, $86.40. I only placed it once, and I'd rather keep the Mastercard charge since that's my default card.",
     },
+    {
+      id: "tlc-ask",
+      kind: "guide",
+      anchor: "answered",
+      at: 2500,
+      nba: {
+        type: "ask",
+        title: "Ask which charge Tom wants to keep",
+        why: "Both cards were charged $86.40 for one order; void the one he doesn't want.",
+        text: "I can see both charges. Which card would you like to keep the charge on?",
+        alt: [{ type: "say", text: "Tell Tom only one order was placed" }],
+      },
+    },
+    {
+      id: "tlc-do",
+      kind: "guide",
+      anchor: "answered",
+      at: 13_500,
+      nba: {
+        type: "do",
+        title: "Void the $86.40 charge on Visa 2210",
+        why: "Tom keeps the Mastercard 9031 charge, his default card; the Visa charge is the duplicate.",
+        action: "Runs the void flow on NR-50877 and opens its steps",
+        link: "void-steps",
+        branch: "void",
+        alt: [{ type: "say", text: "Tell Tom the refund takes 3 to 5 business days" }],
+      },
+    },
   ],
+  branches: {
+    void: {
+      label: "The agent voids the duplicate charge",
+      trigger: "action",
+      steps: [
+        { id: "void-1", kind: "event", at: 300, text: "Visa 2210 charge of $86.40 voided" },
+        {
+          id: "void-2",
+          kind: "say",
+          speaker: "agent",
+          at: 1500,
+          text: "I've voided the $86.40 charge on your Visa ending 2210. The Mastercard charge stays, and the Visa refund shows in 3 to 5 business days.",
+        },
+        { id: "void-3", kind: "say", speaker: "customer", at: 5000, text: "Great, thanks for fixing that." },
+      ],
+    },
+  },
   content: {
     panelKeys: ["order", "card", "void-steps"],
     overview: {
@@ -59,6 +120,14 @@ export const TOM_LEWIS_SCRIPT = {
       ],
       nextBestAction:
         "Confirm both $86.40 charges in payments, then void the Visa 2210 charge on NR-50877 and tell Tom how long the refund will take.",
+    },
+    journey: {
+      summary: "Tom requested a refund in the app this morning; he asked for a person on his last 2 calls.",
+      rows: [
+        { name: "Today · App", detail: "Refund request for the duplicate charge on NR-50877" },
+        { name: "27 Sep · Web", detail: "Made Mastercard 9031 his default card" },
+        { name: "12 Sep · Voice", detail: "Asked for a person; delivery question answered" },
+      ],
     },
     copilot: {
       suggestions: ["Show the charges", "Show the card on file", "How do I void a charge?"],
