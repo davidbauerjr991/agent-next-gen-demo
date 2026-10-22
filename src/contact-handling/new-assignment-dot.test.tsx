@@ -13,11 +13,12 @@ afterEach(async () => {
   await h.tearDown();
 });
 
-/** The dot's tier, read from its ping ring's color. */
+/** The dot's tier, read from the dot's own color; its ping ring (lyra
+ *  `Badge pulse`, since b199ec9) inherits that background. */
 function dotTier(name: string): string | undefined {
   const dot = h.navCard(name).closest("aside")!.querySelector('[aria-label="New assignment"]');
-  const ping = dot?.parentElement?.querySelector(".animate-ping");
-  return ping?.className.match(/bg-lyra-status-(success|warning|critical)-strong/)?.[1];
+  if (!dot?.querySelector(".animate-ping")) return undefined;
+  return dot.className.match(/bg-lyra-status-(success|warning|critical)-strong/)?.[1];
 }
 
 describe("new-assignment dot", () => {
