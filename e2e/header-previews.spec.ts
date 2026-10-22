@@ -46,8 +46,9 @@ test("AI display main: the Contact Details hover action selects Contact Details:
   await expect(page.locator("[data-slot=right-panel][data-open=true][data-thread=chat]")).toBeVisible();
   await contactDetails(page).hover();
   await expect(preview(page)).toBeVisible();
-  // Its action (Link to existing customer for an unmatched contact, View customer info for a matched one).
-  const action = preview(page).locator("button.text-lyra-fg-link, button:has-text('Link to existing customer')").first();
+  // An action in a tab's body: since P-CANVAS Overview's cards are on the canvas, so the Session tab's Edit.
+  await preview(page).getByRole("tab", { name: "Session" }).click();
+  const action = preview(page).getByRole("button", { name: "Edit" }).first();
   await action.click();
   await expect(page.locator("[data-slot=right-panel][data-open=true][data-thread=details]")).toBeVisible();
   await expect(contactDetails(page)).toHaveAttribute("aria-pressed", "true");

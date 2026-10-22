@@ -79,6 +79,7 @@ export function useCustomerDetailsInteriorPanel({
   onBack,
   matchState,
   copilotExtra,
+  activeTab: activeTabProp,
 }: {
   customerName?: string;
   recordId: string;
@@ -118,11 +119,15 @@ export function useCustomerDetailsInteriorPanel({
    *  interaction except the Marcus Webb scripted scenario
    *  (AgentWorkspace2WithDeskPage.tsx). */
   copilotExtra?: React.ReactNode;
+  /** Controls which tab's body shows (Contact Details' Customer Information,
+   *  Notes and Detail tabs, P-CANVAS); omitted, the drill-in's own tab row does. */
+  activeTab?: CustomerPanelTabLabel;
 }) {
-  const [activeTab, setActiveTab] = useState(() => CUSTOMER_PANEL_TABS.indexOf("Overview"));
+  const [ownActiveTab, setActiveTab] = useState(() => CUSTOMER_PANEL_TABS.indexOf("Overview"));
   useEffect(() => {
     setActiveTab(CUSTOMER_PANEL_TABS.indexOf("Overview"));
   }, [recordId]);
+  const activeTab = activeTabProp !== undefined ? CUSTOMER_PANEL_TABS.indexOf(activeTabProp) : ownActiveTab;
   // Copilot always stripped, same as every other consumer of this body —
   // see `CustomerInformationSidePanel`'s own `visibleTabs` doc comment.
   const visibleTabs = tabs.filter((t) => t !== "Copilot");

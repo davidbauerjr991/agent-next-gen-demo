@@ -1,4 +1,5 @@
-import { PanelFooter, Tab, TabList } from "@nicecxone/lyra-ui";
+import { PanelFooter } from "@nicecxone/lyra-ui";
+import { ContactDetailsTabBody, ContactDetailsTabRow } from "./contact-details-tab-bodies";
 import { ArrowLeft } from "lucide-react";
 import {
   ChannelThreadBody,
@@ -16,7 +17,7 @@ import {
   ArtifactsListBody,
   CustomerInformationSidePanel,
 } from "@/components/agent-next-gen-customer-info-panel";
-import { ComposerFade, InteractionTranscript } from "@/components/agent-next-gen-transcript";
+import { ComposerFade } from "@/components/agent-next-gen-transcript";
 import {
   LucasThomasMemoryPanelBody,
   MarcusWebbMemoryPanelBody,
@@ -31,17 +32,18 @@ import { cn } from "@/lib/utils";
  *  slide-over's host in the panel (`rightPanelRef`). */
 export function WorkspaceRightPanel() {
   const {
-    activeChannel, activeChannelStatus, activeCustomerOverviewEditing, activeCustomerRecordDraft, activeInteraction,
+    activeCustomerOverviewEditing, activeCustomerRecordDraft, activeInteraction,
     activeInteractionIsAgentCall, activeInteractionIsRealCustomer, addToast, channelPreviewMeta, channelPreviewThread,
     channelPreviewThreadKey, channelPreviewThreadStableKey, confirmDismiss, copilotComposerProps,
     copilotDockConcealed, copilotDockShown, copilotHost, copilotSlot, customerInfoOverlayContent,
-    customerMatchQuery, customerMatchStep, customerPanelActiveTab, customerPanelFocusTab, customerSearchResults,
+    // What the panel shows: the tab state resolved for this card and AI display (P-CANVAS).
+    customerMatchQuery, customerMatchStep, contactDetailsView: customerPanelActiveTab, customerPanelFocusTab, customerSearchResults,
     effectiveSidePanelPinned, experienceMemoryFocus, focusCustomerPanelTab, handleBackToCustomerSearch,
     handleInteractionStatusChange, handleLinkCustomerRecord, handleOutcomeSaveAndDismissChannel,
     handleSaveNewCustomer, handleSendEmailDraft, handleSendMessage, handleSidePanelClose, handleStartCall, handleStartCreateCustomer,
     hideAiActions, isSidePanelAtMinimalThreshold, linkCustomerPanelOpen, lucasThomasReviewing, marcusMemoryFocus,
     onSidePanelHoverEnd, onSidePanelHoverStart, openDetailPanelContent, outcomeDrafts, panelArtifacts,
-    panelPlacement, panelVoiceThread, possibleCustomerMatches, renderContactDetailsTab, reopenPanelArtifact,
+    panelPlacement, possibleCustomerMatches, reopenPanelArtifact,
     rightPanelRef, scenarioKeyOf, sessionDetailsTabContent, setActiveCustomerOverviewEditing,
     setCustomerMatchQuery, setCustomerPanelActiveTab, setHistoryConversationTab, setLinkCustomerPanelOpen,
     setSidePanelFullScreen, setSidePanelResizing, setSidePanelWidth, showPanelToggle, sidePanelContainerWidth,
@@ -381,24 +383,8 @@ export function WorkspaceRightPanel() {
                         </div>
                       )
                       : (
-                        <TabList className="px-4">
-                          {(panelVoiceThread
-                            ?(["Details", "Transcript", "Session Details"] as const)
-                            : (["Details", "Session Details"] as const)
-                          ).map((label) => (
-                            <Tab
-                              key={label}
-                              active={customerPanelActiveTab === label}
-                              onClick={() => setCustomerPanelActiveTab(label)}
-                            >
-                              {/* Displayed as "Overview"/"Session" — the
-                                  underlying identifiers stay "Details"/"Session
-                                  Details" (used throughout for state/
-                                  comparisons). */}
-                              {label === "Session Details" ? "Session" : label === "Details" ? "Overview" : label}
-                            </Tab>
-                          ))}
-                        </TabList>
+                        // The tab set from the registry (contact-details-tabs.ts, P-CANVAS).
+                        <ContactDetailsTabRow />
                       )
                   }
                   // A channel preview's own composer lives here, in
@@ -428,7 +414,10 @@ export function WorkspaceRightPanel() {
                           />
                         )
                         : undefined
-                      : customerPanelActiveTab === "Customer Info"
+                      : customerPanelActiveTab === "Customer Info" ||
+                        customerPanelActiveTab === "Customer Information" ||
+                        customerPanelActiveTab === "Notes" ||
+                        customerPanelActiveTab === "Detail"
                       ? customerInfoOverlayContent.footer
                       : customerPanelActiveTab === "Session Details"
                       ? sessionDetailsTabContent.footer
@@ -500,41 +489,9 @@ export function WorkspaceRightPanel() {
                       <div className="animate-in fade-in-0 duration-200">
                         {customerInfoOverlayContent.body}
                       </div>
-                    ) : customerPanelActiveTab === "Transcript" && panelVoiceThread ? (
-                      // A fresh `InteractionTranscript` instance, same as
-                      // this tab always rendered back when it lived in the
-                      // separate "Session Details" overlay — see that
-                      // render site's own former doc comment (git history)
-                      // for the full "why a second instance, not the main
-                      // column's own".
-                      <InteractionTranscript
- hideAiActions={hideAiActions}
-                        hideMockFollowUpMessages={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID}
-                        channelType="voice"
-                        direction={panelVoiceThread?.direction}
-                        customerName={activeInteraction.customerName}
-                        contactId={panelVoiceThread?.contactId ?? activeInteraction.customerId}
-                        // Per explicit request ("display the phone number
-                        // instead of the contact ID in the session row")
-                        // — see `InteractionTranscript`'s own
-                        // `channelAddressLabel` prop doc comment
-                        // (agent-next-gen-transcript.tsx).
-                        channelAddressLabel={panelVoiceThread?.addressLabel}
-                        skillLabel={panelVoiceThread?.preview}
-                        isFreshLaunch={!!panelVoiceThread?.startedFresh}
-                        liveMessages={activeInteraction.liveMessages?.[panelVoiceThread?.id ?? "voice"] ?? []}
-                        dimmed={!!activeInteraction.closed || activeChannelStatus === "Closed"}
-                        currentStatus={activeChannelStatus}
-                        onCurrentStatusChange={(status) =>
-                          activeChannel && handleInteractionStatusChange(activeInteraction.id, activeChannel.id, status)
-                        }
-                        showSessionActionCluster={false}
-                        showViewDetails={false}
-                      />
-                    ) : customerPanelActiveTab === "Session Details" ? (
-                      renderContactDetailsTab("Session")
                     ) : (
-                      renderContactDetailsTab("Overview")
+                      // A tab from the registry (contact-details-tabs.ts, P-CANVAS).
+                      <ContactDetailsTabBody />
                     )
                   }
                 />

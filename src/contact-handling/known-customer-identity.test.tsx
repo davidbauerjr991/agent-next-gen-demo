@@ -283,7 +283,8 @@ describe("Bug 3: a card with no identity", () => {
     await h.click(headerPlus());
     expect(adHocInput()).toBeNull();
     await h.click(radio("SMS")!);
-    await h.click([...document.body.querySelectorAll<HTMLElement>('[role="combobox"]')][0]!);
+    // The picker's address combobox (not Contact Details' Detail tab, an unknown customer's first tab since P-CANVAS).
+    await h.click([...document.body.querySelectorAll<HTMLElement>('[role="combobox"]')].find((c) => !c.closest("[data-slot=right-panel]"))!);
     expect([...document.body.querySelectorAll('[role="option"]')].some((o) => o.textContent?.includes(NEW_NUMBER))).toBe(true);
   });
 });

@@ -33,8 +33,12 @@ import { SCENARIOS } from "@/scenarios";
 import type { Interaction } from "@/components/agent-next-gen-interaction-dashboard";
 import { usePresenceSync } from "@/contact-handling/usePresenceSync";
 import { useThreadCurrentSession } from "@/contact-handling/useThreadCurrentSession";
+import { resolveContactDetailsView } from "@/contact-handling/contact-details-tabs";
 import type { WorkspaceLate } from "./workspace-late";
 import type { WsPanels } from "./useWsPanels";
+
+/** Contact Details' tabs that are the customer record's own bodies, and the record panel's tab each shows. */
+const CUSTOMER_RECORD_TAB = { "Customer Information": "Overview", Notes: "Notes", Detail: "Detail" } as const;
 
 export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
   const {
@@ -46,8 +50,14 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
     scenarioKeyOf, seedOverlay, sessionDetailsPick, setActiveCustomerOverviewEditing, setAgentLegDisconnectedToastOpen,
     setAgentStatus, setCustomerPanelActiveTab, setDismissedContactHistory, setHistoryConversationTab, setInteractions,
     setNavOpen, setOutcomeDraft, setSelectedContactHistoryEntry, setSidePanelOpen, setStatusSinceTick,
-    sidePanelStateByAssignmentId, switchActiveInteraction, windowWidth,
+    sidePanelStateByAssignmentId, switchActiveInteraction, windowWidth, customerPanelActiveTab, aiInPanel,
+    activeInteractionIsRealCustomer,
   } = prev;
+  // What Contact Details shows: the tab state resolved for this card and AI display (P-CANVAS).
+  const contactDetailsView = resolveContactDetailsView(customerPanelActiveTab, {
+    aiInPanel,
+    realCustomer: activeInteractionIsRealCustomer,
+  });
   const isCompactHeader = windowWidth < 760;
 
   // Auto-collapse the expanded nav when the container drops below 768px
@@ -305,6 +315,8 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
     // own normal "Details"/Overview tab instead of closing a separate
     // overlay.
     onBack: () => setCustomerPanelActiveTab("Details"),
+    // Contact Details' Customer Information / Notes / Detail tabs drive which body it renders.
+    activeTab: CUSTOMER_RECORD_TAB[contactDetailsView as keyof typeof CUSTOMER_RECORD_TAB],
   });
 
   // Feeds the "Session" tab's body/footer at BOTH of this page's own render
@@ -820,7 +832,7 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
     isCompactHeader, narrowActiveRegion, setNarrowActiveRegion, MAX_PANEL_HEIGHT, BOTTOM_PADDING, SHARED_PANEL_MAX_WIDTH,
     computePanelHeight, handleStatusChange, isOnVoiceCall, preCallStatusRef, handleStartCall, handleContactActivated,
     activateWhenReady, allOutboundSkills, skillIdForName, findDirectoryCustomer, cardContactMethodsOf, offerToSaveAddress, outboundDial,
-    contactReopen, customerInfoOverlayContent, detailsThreadKey, detailsFromPanelRow, detailsCurrentSession,
+    contactReopen, customerInfoOverlayContent, contactDetailsView, detailsThreadKey, detailsFromPanelRow, detailsCurrentSession,
     sessionDetailsTabContent, handleRedialButtonClick, handleDialpadSubmit, handleAddAdHocChannel,
     handleReopenContactHistoryEntry, handleDismissInteraction, handleDismissChannel, handleChannelSelect,
     marcusWebbSays, handleMarcusWebbResolved, handleMarcusWebbEscalated,

@@ -57,18 +57,18 @@ export function useWsHeaderApps(prev: WsOutbound) {
     SHARED_PANEL_MAX_WIDTH, activeChannelKey, activeInteraction, activeInteractionId, activeInteractionIsRealCustomer,
     activePanelKey, activePreContactSummary, addToast, aiFollowSignal, aiInPanel, aiWorkspaceMain, blankPanelContent,
     bodyContainerWidth, calling, channelPreviewThread, copilotFollows, copilotHost, customerContextOverviewInfo,
-    customerInfoPreviewOpen, customerInfoPreviewTimer, customerPanelActiveTab, customerTable, fullScreenRendered,
+    customerInfoPreviewOpen, customerInfoPreviewTimer, contactDetailsView, customerTable, fullScreenRendered,
     fullScreenVisible, handleCopilotAsk, handleDialpadSubmit, handleFullScreenToDragMode, handleLucasApprovalDecision,
     handleLucasCallRequest, handleOpenInteractionRow, handlePanelVariantChange, handleStartCall, headerSettings,
     hoverDockMounted, interactions, isColdCallId, isNavNarrow, journeySummaryUpdatedAtTick, leftNavPage,
     lucasActiveLinkKey, lucasThomasReviewing, marcusCardHost, navOpen, notifContent, notifications,
     openDetailPanelContent, openExperienceMemoryInSidePanel, outboundConfig, outboundDial, outboundSettings,
-    panelArtifacts, panelHeight, panelMounted, panelOpen, panelPlacement, panelRef, panelVariant, panelVoiceThread,
+    panelArtifacts, panelHeight, panelMounted, panelOpen, panelPlacement, panelRef, panelVariant,
     panelWidth, pinnedKeys, reopenPanelArtifact, scenarioCases, scenarioKeyOf, scheduleContent, screenPopContent,
     selectedDetailPanelContent, sessionDetailsTabContent, setActivePanelKey, setCustomerInfoPreviewOpen,
     setCustomerPanelActiveTab, setLeftNavPage, setLinkCustomerPanelOpen, setNarrowActiveRegion, setPanelFullScreen,
     setPanelIsResizing, setPanelOpen, setPanelWidth, setSelectedDetailPanelContent, setShowAllContacts,
-    setShowSettings, setSidePanelOpen, showAllContacts, showContactDetails, showSettings, switchActiveInteraction,
+    setShowSettings, setSidePanelOpen, showAllContacts, showSettings, switchActiveInteraction,
     togglePinnedKey, focusCustomerPanelTab, handleLinkCustomerFromPreview,
   } = prev;
   // Search — per explicit request, the Interactions table (previously its
@@ -917,22 +917,8 @@ export function useWsHeaderApps(prev: WsOutbound) {
         onLinkCustomer={onLinkCustomer}
       />
     );
-    // In the hover preview an action (an interstitial row, a card's button or link; not an expand toggle)
-    // hands off to the docked panel: the action runs, then the preview closes and Contact Details opens (k5 G). After
-    // the click (k6 6): closing it in the capture phase unmounts the row before its own onClick in a real browser.
-    return inPreview ? (
-      <div
-        className="contents"
-        onClickCapture={(e) => {
-          const action = (e.target as Element).closest("button, a, [role=button], [role=link]");
-          if (action && !action.hasAttribute("aria-expanded")) window.setTimeout(showContactDetails);
-        }}
-      >
-        {overview}
-      </div>
-    ) : (
-      overview
-    );
+    // In the hover preview, `ContactDetailsTabBody` hands an action off to the docked panel (k5 G), for every tab.
+    return overview;
   };
   // How many AI items the panel feed holds (the overview counts as one); a
   // change scrolls the panel to the newest when the agent is at the bottom.
@@ -943,7 +929,7 @@ export function useWsHeaderApps(prev: WsOutbound) {
   // overview (the AI feed): not on Session Details, Customer Info,
   // Experience Memory or Artifacts, not over a channel preview, and not
   // while a card link's sub-page is open.
-  const copilotDockShown = aiInPanel && customerPanelActiveTab === "Details" && !channelPreviewThread;
+  const copilotDockShown = aiInPanel && contactDetailsView === "Details" && !channelPreviewThread;
   // While a card link's slide-over is open over the Overview, the composer is
   // hidden but keeps its place (`invisible` + `inert`): unmounting it would
   // grow the body and move its scroll position behind the slide-over.
@@ -971,10 +957,6 @@ export function useWsHeaderApps(prev: WsOutbound) {
   // Journey Summary and Artifacts. Inline mode shows everything on Overview.
   const PANEL_OVERVIEW_SECTIONS = { customerInfo: true, journeySummary: false, artifacts: false };
   const PANEL_SESSION_SECTIONS = { customerInfo: false, journeySummary: true, artifacts: true };
-  // No call to show in Contact Details' Transcript tab (it's a tab or a panel thread): it can't stay selected.
-  useEffect(() => {
-    if (!panelVoiceThread && customerPanelActiveTab === "Transcript") setCustomerPanelActiveTab("Details");
-  }, [panelVoiceThread, customerPanelActiveTab]);
   // "AI in panel": the Contact Details panel opens on Details whenever an
   // interaction becomes active. Declared after the interaction-switch panel
   // save/restore effects so it wins (v3).

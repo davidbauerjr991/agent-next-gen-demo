@@ -10,8 +10,6 @@ import {
   PanelHeader,
   PlainToggleTab,
   Popover,
-  Tab,
-  TabList,
   Tooltip,
 } from "@nicecxone/lyra-ui";
 import { Check, Headphones, History, IdCard, X } from "lucide-react";
@@ -32,7 +30,6 @@ import { LUCAS_THOMAS_ID } from "@/contact-handling/scenario-cases";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { ClockTick } from "@/components/agent-next-gen-clock-tick";
 import {
-  InteractionTranscript,
   OUTCOME_DISPOSITION_OPTIONS,
   OUTCOME_TAG_OPTIONS,
   TRANSCRIPT_SESSION_STATUS_OPTIONS,
@@ -41,23 +38,24 @@ import { formatElapsedTime, getAwaitingSeverity, initialsFor } from "@/component
 import { cn } from "@/lib/utils";
 import { SHOW_CHANNEL_TOGGLE_GROUP } from "./workspace-constants";
 import { SummariesToggle } from "./SummariesToggle";
+import { ContactDetailsTabBody, ContactDetailsTabRow } from "./contact-details-tab-bodies";
 
 /** The active interaction's record header (P-EXTRACT C8, from the page):
  *  the avatar, call badge, add-channel "+", one icon per channel with its
  *  hover preview, and the Contact Details toggle with its own. */
 export function RecordHeader() {
   const {
-    SHOW_RECORD_HEADER_SUBTITLE, activeChannel, activeChannelDateTime, activeChannelKey, activeChannelStatus,
+    SHOW_RECORD_HEADER_SUBTITLE, activeChannelDateTime, activeChannelKey,
     activeChannelType, activeInteraction, activeInteractionIsAgentCall, activeInteractionIsRealCustomer,
     addChannelActionFor, aiInPanel, caseStatusCapable, channelHoverPreviewKey, channelPreviewThreadKey,
-    contactDetailsShowing, copilotHost, copilotSlot, customerInfoPreviewOpen, customerPanelActiveTab,
+    contactDetailsShowing, copilotHost, copilotSlot, customerInfoPreviewOpen, contactDetailsView,
     focusCustomerPanelTab, handleChannelSelect, handleDismissChannel, handleDismissInteraction,
     handleInteractionStatusChange, handleOutcomeCancel, handleOutcomeOpenChange, handleOutcomeSave,
     handleSendMessage, hasOpenChatThread, hideAiActions, historyConversationForActive, isHistoryConversationView,
     lastCustomerResponseLabel, lucasThomasReviewing, omni, openChannelHoverPreview, openCustomerInfoPreview,
-    outcomeDraft, outcomeDraftKey, panelPlacement, panelVoiceThread, recordHeaderRef, recordHeaderWidth,
-    renderContactDetailsTab, replyBlockedReason, scenarioKeyOf, scheduleCloseChannelHoverPreview,
-    scheduleCloseCustomerInfoPreview, selectPanel, setChannelHoverPreviewKey, setCustomerPanelActiveTab,
+    outcomeDraft, outcomeDraftKey, panelPlacement, recordHeaderRef, recordHeaderWidth,
+    replyBlockedReason, scenarioKeyOf, scheduleCloseChannelHoverPreview,
+    scheduleCloseCustomerInfoPreview, selectPanel, setChannelHoverPreviewKey,
     setHistoryConversationTab, setHoverDockMounted, setOutcomeDraft, showChannelTabRow, sidePanelToggleLabel,
     storeContacts, tabs, threadMenu,
   } = useWorkspace();
@@ -754,71 +752,16 @@ export function RecordHeader() {
                                         activeInteraction.customerName
                                       )
                                     }
-                                    tabs={
-                                      <TabList className="px-4">
-                                        {(panelVoiceThread
-                                          ? (["Details", "Transcript", "Session Details"] as const)
-                                          : (["Details", "Session Details"] as const)
-                                        ).map((label) => (
-                                          <Tab
-                                            key={label}
-                                            active={customerPanelActiveTab === label}
-                                            onClick={() => setCustomerPanelActiveTab(label)}
-                                          >
-                                            {/* Displayed as "Overview"/"Session"
-                                                — same underlying identifiers as
-                                                the docked panel's own identical
-                                                tab row (that render site's own
-                                                comment); "Details" stays the
-                                                real state value everywhere else
-                                                in the file references/compares
-                                                it against. */}
-                                            {label === "Session Details" ? "Session" : label === "Details" ? "Overview" : label}
-                                          </Tab>
-                                        ))}
-                                      </TabList>
-                                    }
+                                    tabs={<ContactDetailsTabRow />}
                                   />}
                                 >
                                   <div className="min-h-0 flex-1 overflow-y-auto">
-                                    {customerPanelActiveTab === "Transcript" && panelVoiceThread ? (
-                                      <InteractionTranscript
- hideAiActions={hideAiActions}
-                                        hideMockFollowUpMessages={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID}
-                                        channelType="voice"
-                                        direction={panelVoiceThread?.direction}
-                                        customerName={activeInteraction.customerName}
-                                        contactId={panelVoiceThread?.contactId ?? activeInteraction.customerId}
-                                        // Per explicit request ("display
-                                        // the phone number instead of the
-                                        // contact ID in the session row")
-                                        // — see `InteractionTranscript`'s
-                                        // own `channelAddressLabel` prop
-                                        // doc comment (agent-next-gen-
-                                        // transcript.tsx) and
-                                        // AgentWorkspace2WithDeskPage.tsx's
-                                        // identical wiring.
-                                        channelAddressLabel={panelVoiceThread?.addressLabel}
-                                        skillLabel={panelVoiceThread?.preview}
-                                        isFreshLaunch={!!panelVoiceThread?.startedFresh}
-                                        liveMessages={activeInteraction.liveMessages?.[panelVoiceThread?.id ?? "voice"] ?? []}
-                                        dimmed={!!activeInteraction.closed || activeChannelStatus === "Closed"}
-                                        currentStatus={activeChannelStatus}
-                                        onCurrentStatusChange={(status) =>
-                                          activeChannel &&
-                                          handleInteractionStatusChange(activeInteraction.id, activeChannel.id, status)
-                                        }
-                                        showSessionActionCluster={false}
-                                        showViewDetails={false}
-                                      />
-                                    ) : (
-                                      // The docked panel's own tab renders (`renderContactDetailsTab`).
-                                      renderContactDetailsTab(customerPanelActiveTab === "Session Details" ? "Session" : "Overview", true)
-                                    )}
+                                    {/* The docked panel's own tab bodies, from the registry (P-CANVAS). */}
+                                    <ContactDetailsTabBody inPreview />
                                   </div>
                                   {/* AI display "panel": the Copilot composer docks here while the
                                       preview is open, as in the docked panel's footer (one on screen). */}
-                                  {aiInPanel && customerPanelActiveTab === "Details" && (
+                                  {aiInPanel && contactDetailsView === "Details" && (
                                     <div className="relative shrink-0 px-4 pb-3 pt-2">
                                       <div data-slot="copilot-dock" className="w-full">
                                         <HostSlot host={copilotHost} active={copilotSlot === "hover-footer"} onMountedChange={setHoverDockMounted} />

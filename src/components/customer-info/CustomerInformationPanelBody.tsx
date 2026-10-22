@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { t } from "@/i18n";
 import {
   Label,
   Button,
@@ -842,6 +843,13 @@ export function CustomerInformationPanelBody({
            comment for why these needed to stop pointing at two different
            copies of the same values. */
         <CustomerDetailTabContent fields={draft.overviewFields} draft={draft} onDraftChange={onDraftChange} />
+      )}
+
+      {/* No notes source yet (a customer-data seam); the tab says so rather than rendering blank. */}
+      {activeTab === CUSTOMER_PANEL_TABS.indexOf("Notes") && (
+        <p className="lyra-body-md text-lyra-fg-secondary" data-slot="customer-notes-empty">
+          {t("No notes on this customer yet.")}
+        </p>
       )}
 
       {activeTab === CUSTOMER_PANEL_TABS.indexOf("Directory") && (

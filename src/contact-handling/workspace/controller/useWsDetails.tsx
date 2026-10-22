@@ -5,6 +5,7 @@
 // selection and artifacts. The page's body, moved in order (hook order
 // unchanged); see `useWorkspaceController`.
 import { useState, useEffect, useMemo, useRef } from "react";
+import type { ContactDetailsView } from "@/contact-handling/contact-details-tabs";
 import { CHANNEL_TYPE_META, getHoldSeverity } from "@nicecxone/lyra-ui";
 import { CREATE_NEW_CUSTOMERS, type CreateNewCustomerRecord } from "@nicecxone/lyra-ui/customers-data";
 import { getAwaitingSeverity, CURRENT_AGENT_FIRST_NAME, CURRENT_AGENT_LAST_NAME, synthesizeChannelAddress } from "@/components/agent-next-gen-shared-utils";
@@ -667,9 +668,9 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
   // own overrides further down) — only reached via `focusCustomerPanelTab`
   // (its own doc comment) and left via that same back arrow, which lands
   // back on "Details".
-  const [customerPanelActiveTab, setCustomerPanelActiveTab] = useState<
-    "Details" | "Transcript" | "Session Details" | "Customer Info" | "Artifacts" | "Experience Memory"
-  >("Details");
+  // A Contact Details tab (`ContactDetailsTabId`) or sub-page; what the panel
+  // shows is this resolved for the card and mode (`contactDetailsView`, P-CANVAS).
+  const [customerPanelActiveTab, setCustomerPanelActiveTab] = useState<ContactDetailsView>("Details");
   // Per explicit request ("when the agent confirms navigating away to view
   // the transcript, it should display the Transcript tab once it
   // transitions to the contact"): the interaction-switch effect just below

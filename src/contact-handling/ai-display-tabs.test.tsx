@@ -227,8 +227,8 @@ describe("AI display inline and panel: tabs", () => {
       expect(!!mainColumn.querySelector("[data-slot=copilot-composer]")).toBe(ai === "inline");
       expect(!!panel()!.querySelector("[data-slot=ai-feed]")).toBe(ai === "panel");
       expect(document.body.querySelectorAll("[data-slot=copilot-composer]")).toHaveLength(1);
-      // No separate Transcript tab: the call's transcript is its tab.
-      expect([...panel()!.querySelectorAll("[role=tab], button")].some((el) => el.textContent?.trim() === "Transcript")).toBe(false);
+      // The call's live transcript is its tab; Contact Details' Transcript tab is its read-only copy (P-CANVAS, every mode).
+      expect([...panel()!.querySelectorAll("[role=tab], button")].some((el) => el.textContent?.trim() === "Transcript")).toBe(true);
       // The email tab: the same placement rules.
       await h.click(headerIcon("Email")!);
       expect(main()).toBe("email");

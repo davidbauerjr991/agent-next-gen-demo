@@ -550,16 +550,15 @@ describe("Contact Details Overview stack, events, composer fade", () => {
     expect(body().textContent).not.toContain("Customer Info");
   });
 
-  it("(10) inline mode: Overview keeps Customer Info, Journey Summary and Artifacts; Session doesn't get them", async () => {
+  it("(10) inline mode (P-CANVAS): no Overview tab; Customer Info and Journey Summary head the main column; Session doesn't get them", async () => {
     await lucas("inline");
-    // Lucas's case opens the Contact Details panel on its own.
-    expect(body()).toBeTruthy();
-    for (const title of ["Journey Summary", "Artifacts"]) {
-      expect(aiCard(title, body()), `${title} AICard on Overview`).not.toBeNull();
-    }
-    expect(body().textContent).toContain("Customer Info");
+    const main = h.container.querySelector<HTMLElement>("[data-main-thread]")!;
+    // The reference cards are canvas cells now (stacked: at the top of the action area).
+    expect(aiCard("Journey Summary", main), "Journey Summary in the main column").not.toBeNull();
+    expect(main.textContent).toContain("Customer Info");
+    expect([...document.body.querySelectorAll("[role=tab]")].some((t) => t.textContent?.trim() === "Overview")).toBe(false);
     await clickTab("Session");
-    expect(document.body.querySelector("[data-slot=details-panel-body]")).toBeNull();
+    expect(document.body.querySelector("[data-slot=right-panel] [data-slot=journey-summary]")).toBeNull();
   });
 
   it("(5) the stack is spaced only by its gap: no card or wrapper carries its own margin or top padding", async () => {
@@ -635,13 +634,17 @@ describe("(14) voice transcript placement", () => {
 
   // (k5): a call's tab follows AI display like every other thread: its
   // transcript (spoken lines) in the main column, with the AI rows inline
-  // (inline) or in Contact Details (panel); no separate Transcript tab.
+  // (inline) or in Contact Details (panel). P-CANVAS: Contact Details' own
+  // Transcript tab (every mode) shows the same call read-only.
   for (const display of ["inline", "panel"] as const) {
-    it(`${display} mode: the call's transcript is in the main column; Contact Details has no Transcript tab`, async () => {
+    it(`${display} mode: the call's transcript is in the main column; Contact Details' Transcript tab shows it read-only`, async () => {
       await marcus(display);
       expect(document.body.querySelector("[data-main-thread=voice] [data-slot=ai-workspace]")).toBeNull();
       expect(lineInMain()).toBe(true);
-      expect(transcriptTab()).toBeUndefined();
+      await h.click(transcriptTab() as HTMLElement);
+      const tab = panel().querySelector("[data-slot=contact-details-transcript]")!;
+      expect(tab.textContent).toContain(LINE);
+      expect(tab.querySelector("textarea")).toBeNull();
     });
   }
 });
