@@ -85,6 +85,10 @@ test("chat in the panel, AI in the main column; a nav row swaps the panel's thre
 });
 
 test("digital assignments load as cards: the demo's seeded email and SMS offers are cards on load", async ({ page }) => {
+  // Since P-POLISH 1 a seed is a card only while its channel is on (Settings → Channels).
+  await page.addInitScript(() => {
+    localStorage.setItem("agent-next-gen:settings:channels", JSON.stringify({ v: 1, value: { voice: true, email: true, sms: true } }));
+  });
   await page.goto("?provider=sim&latency=off#/agent-advanced");
   await page.getByRole("button", { name: "Go Available" }).click();
   for (const name of ["Noah Patel", "Lauren Kim", "Ethan Zhang"]) {
