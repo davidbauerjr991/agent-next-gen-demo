@@ -708,7 +708,7 @@ const PRIOR_CONTACT_INSIGHT: Record<PriorContactCategory, string> = {
  *  live" line, per explicit request ("in the customer snapshot add
  *  information such as where they may live, what time it is where they
  *  are and any other geographical information"). */
-interface CustomerLocation {
+export interface CustomerLocation {
   city: string;
   region: string;
   timeZone: string;
@@ -723,7 +723,7 @@ interface CustomerLocation {
  *  `CUSTOMER_LOCATION_POOL`. Deliberately representative rather than a
  *  complete NANP area-code list (hundreds of entries) — this only needs to
  *  be plausible for a demo, not authoritative. */
-const AREA_CODE_LOCATIONS: Record<string, CustomerLocation> = {
+export const AREA_CODE_LOCATIONS: Record<string, CustomerLocation> = {
   "212": { city: "New York", region: "NY", timeZone: "America/New_York" },
   "617": { city: "Boston", region: "MA", timeZone: "America/New_York" },
   "202": { city: "Washington", region: "DC", timeZone: "America/New_York" },
@@ -758,7 +758,7 @@ const AREA_CODE_LOCATIONS: Record<string, CustomerLocation> = {
   "702": { city: "Las Vegas", region: "NV", timeZone: "America/Los_Angeles" },
   "916": { city: "Sacramento", region: "CA", timeZone: "America/Los_Angeles" },
   "907": { city: "Anchorage", region: "AK", timeZone: "America/Anchorage" },
-  "808": { city: "Honolulu", region: "HI", timeZone: "America/Honolulu" },
+  "808": { city: "Honolulu", region: "HI", timeZone: "Pacific/Honolulu" },
 };
 
 /** Hash-selectable fallback pool for a caller whose (synthetic) area code
@@ -799,19 +799,32 @@ function resolveCustomerLocation(rawAddress: string, hash: number): CustomerLoca
  *  region drawn from the phone number's area code, plus that area's
  *  current local time (computed live via `Intl.DateTimeFormat`, not
  *  baked in, so it's always accurate to when the agent is actually
- *  looking at it). */
-function buildLocationSnapshotLines(location: CustomerLocation): string[] {
-  const timeString = new Intl.DateTimeFormat("en-US", {
-    timeZone: location.timeZone,
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-    timeZoneName: "short",
-  }).format(new Date());
-  return [
-    `Likely located near ${location.city}, ${location.region}, based on the phone number's area code.`,
-    `Local time there is currently ${timeString}.`,
-  ];
+ *  looking at it). It runs inside the workspace controller's render, so
+ *  it never throws: a time zone `Intl` rejects drops the local-time line
+ *  instead of taking the workspace down. (Honolulu's entry once read
+ *  "America/Honolulu", not an IANA zone; an unknown caller whose
+ *  randomUUID-seeded pick landed on it crashed the render — 2026-10-22,
+ *  found as a flaky copilot-result-rows test. Real customer data can carry
+ *  bad zones too.) Formatters are built once per zone; a failure isn't
+ *  cached. */
+export function buildLocationSnapshotLines(location: CustomerLocation): string[] {
+  const near = `Likely located near ${location.city}, ${location.region}, based on the phone number's area code.`;
+  const formatter = localTimeFormatter(location.timeZone);
+  return formatter ? [near, `Local time there is currently ${formatter.format(new Date())}.`] : [near];
+}
+
+const LOCAL_TIME_FORMATTERS = new Map<string, Intl.DateTimeFormat>();
+
+function localTimeFormatter(timeZone: string): Intl.DateTimeFormat | undefined {
+  const cached = LOCAL_TIME_FORMATTERS.get(timeZone);
+  if (cached) return cached;
+  try {
+    const formatter = new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", minute: "2-digit", hour12: true, timeZoneName: "short" });
+    LOCAL_TIME_FORMATTERS.set(timeZone, formatter);
+    return formatter;
+  } catch {
+    return undefined;
+  }
 }
 
 /** Deterministic (hashed via `hashSeed`, no `Math.random`) mock "Customer
