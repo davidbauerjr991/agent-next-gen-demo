@@ -6,7 +6,8 @@
 // Autosummary, the AI overview and feed, Contact Details' tabs), the docked
 // Copilot composer's slot, and the New Outbound launcher. The page's body,
 // moved in order (hook order unchanged); see `useWorkspaceController`.
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+import type { ReferenceCardProps } from "@/components/customer-info/reference-sections";
 import {
   ActionIconButton,
   Badge,
@@ -839,13 +840,16 @@ export function useWsHeaderApps(prev: WsOutbound) {
       </>
     ) : undefined;
   };
-  const renderAiPanelFeed = () => {
+  // `overview` replaces the AI overview at the top of the feed: under AI
+  // display "main" the canvas passes the action cells that precede the
+  // conversation (P-CANVAS); panel mode keeps `renderAiOverview()`.
+  const renderAiPanelFeed = (overview: ReactNode = renderAiOverview()) => {
     if (!activeInteraction) return null;
     const isLucas = scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID;
     return (
       <AiActionsFeed
         messages={Object.values(activeInteraction.liveMessages ?? {}).flat()}
-        overview={renderAiOverview()}
+        overview={overview}
         onApprovalDecision={isLucas ? handleLucasApprovalDecision : undefined}
         onApprovalCallRequest={isLucas && calling.elevation ? handleLucasCallRequest : undefined}
         onApprovalSuggestionAsk={isLucas ? (text: string) => handleCopilotAsk(activeInteraction.id, activeChannelKey, text) : undefined}
@@ -859,13 +863,15 @@ export function useWsHeaderApps(prev: WsOutbound) {
   // Contact Details' Overview and Session tab, one render each: the docked
   // panel and its hover preview mount the same thing (the preview only also
   // closes itself when it hands off to the panel).
-  const renderContactDetailsTab = (tab: "Overview" | "Session", inPreview = false) => {
-    if (!activeInteraction) return null;
+  // What the reference cards (Customer Info, Journey Summary, Artifacts) read,
+  // wherever they mount: Contact Details' tabs, its hover preview, the canvas.
+  const referenceCardPropsFor = (inPreview: boolean): ReferenceCardProps | undefined => {
+    if (!activeInteraction) return undefined;
     const closePreview = () => {
       clearTimeout(customerInfoPreviewTimer.current);
       setCustomerInfoPreviewOpen(false);
     };
-    const shared = {
+    return {
       artifacts: panelArtifacts,
       onOpenArtifact: (id: string) => {
         if (inPreview) closePreview();
@@ -880,7 +886,15 @@ export function useWsHeaderApps(prev: WsOutbound) {
       customerContextOverview: customerContextOverviewInfo,
       showJourneySummary: true,
       journeySummaryUpdatedAtTick,
+      onViewCustomerInfo: activeInteractionIsRealCustomer ? focusCustomerPanelTab : undefined,
+      // The on-demand search/create-new overlay (`linkCustomerPanelOpen`); nothing to link once matched.
+      onLinkCustomer: activeInteractionIsRealCustomer ? undefined : inPreview ? handleLinkCustomerFromPreview : () => setLinkCustomerPanelOpen(true),
     };
+  };
+  const referenceCardProps = referenceCardPropsFor(false);
+  const renderContactDetailsTab = (tab: "Overview" | "Session", inPreview = false) => {
+    if (!activeInteraction) return null;
+    const { onViewCustomerInfo, onLinkCustomer, ...shared } = referenceCardPropsFor(inPreview)!;
     if (tab === "Session") {
       // AI display "panel": the Session tab also holds the Journey Summary and Artifacts.
       return aiInPanel ? (
@@ -899,9 +913,8 @@ export function useWsHeaderApps(prev: WsOutbound) {
         aiFeed={aiInPanel && !aiWorkspaceMain ? renderAiPanelFeed() : undefined}
         aiFeedCount={aiFeedCount}
         followSignal={inPreview ? undefined : aiFollowSignal}
-        onViewCustomerInfo={activeInteractionIsRealCustomer ? focusCustomerPanelTab : undefined}
-        // The on-demand search/create-new overlay (`linkCustomerPanelOpen`); nothing to link once matched.
-        onLinkCustomer={activeInteractionIsRealCustomer ? undefined : inPreview ? handleLinkCustomerFromPreview : () => setLinkCustomerPanelOpen(true)}
+        onViewCustomerInfo={onViewCustomerInfo}
+        onLinkCustomer={onLinkCustomer}
       />
     );
     // In the hover preview an action (an interstitial row, a card's button or link; not an expand toggle)
@@ -999,7 +1012,7 @@ export function useWsHeaderApps(prev: WsOutbound) {
     pinnedKeysInHeaderOrder, appHeaderRef, appNameMeasureRef, headerIconsMeasureRef, autoHiddenCount,
     setAutoHiddenCount, responsivelyHiddenKeys, showHeaderIcon, leftNavRenderWidth, maxDockedWidthForMainFloor,
     sharedPanel, sharedPanelFullScreenOverlay, leftNavKeys, leftNavPageShown, leftNavAppItems, homeNavItem,
-    restNavItems, navRailItems, snapshotLinkHandlerFor, renderAutosummary, renderAiOverview, renderAiPanelFeed,
+    restNavItems, navRailItems, snapshotLinkHandlerFor, renderAutosummary, renderAiOverview, renderAiPanelFeed, referenceCardProps,
     renderContactDetailsTab, aiFeedCount, copilotDockShown, copilotDockConcealed, copilotSlot, copilotDock,
     threadOverview, PANEL_OVERVIEW_SECTIONS, PANEL_SESSION_SECTIONS, newOutboundLauncher,
   };

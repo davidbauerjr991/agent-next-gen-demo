@@ -40,6 +40,7 @@ import {
 import { formatElapsedTime, getAwaitingSeverity, initialsFor } from "@/components/agent-next-gen-shared-utils";
 import { cn } from "@/lib/utils";
 import { SHOW_CHANNEL_TOGGLE_GROUP } from "./workspace-constants";
+import { SummariesToggle } from "./SummariesToggle";
 
 /** The active interaction's record header (P-EXTRACT C8, from the page):
  *  the avatar, call badge, add-channel "+", one icon per channel with its
@@ -848,6 +849,8 @@ export function RecordHeader() {
                             </Popover>
                           </div>
                         )}
+                        {/* Outside the wrapper above: hovering it must not open the Contact Details preview. */}
+                        <SummariesToggle />
                         </div>
                       }
                     />

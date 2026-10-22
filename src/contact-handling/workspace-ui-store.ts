@@ -22,6 +22,12 @@ export interface WorkspaceUiState {
   revealedApprovals: ReadonlySet<string>;
   /** Threads the agent touched (opened, sent on, opened Outcome on), `${cardId}:${threadKey}` (touched-threads.ts). */
   touchedThreads: ReadonlySet<string>;
+  /** P-CANVAS: whether the main column is wide enough to dock the reference
+   *  column beside the action area (measured by `ReferenceColumn`). False:
+   *  the column is an overlay behind the record header's "Summaries" button. */
+  referenceColumnFits: boolean;
+  /** P-CANVAS: the reference column's overlay is open (only while it doesn't fit). */
+  summariesOverlayOpen: boolean;
 }
 
 export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
@@ -30,6 +36,8 @@ export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
   artifactsByCard: Object.freeze({}),
   revealedApprovals: new Set<string>(),
   touchedThreads: new Set<string>(),
+  referenceColumnFits: true,
+  summariesOverlayOpen: false,
 });
 
 export interface WorkspaceUiStore {

@@ -10,6 +10,8 @@ import {
 import { HostSlot } from "@/contact-handling/portal-hosts";
 import { LUCAS_THOMAS_ID, MARCUS_WEBB_ID, MAYA_CHEN_CALL_ID } from "@/contact-handling/scenario-cases";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
+import { useCanvasRegions } from "@/contact-handling/useCanvasRegions";
+import { ReferenceColumn } from "./ReferenceColumn";
 import { HistoryConversationView } from "@/components/agent-next-gen-customer-info-panel";
 import { InteractionComposer, InteractionTranscript } from "@/components/agent-next-gen-transcript";
 import type { TomLewisCallPanelKey } from "@/components/agent-next-gen-lucas-thomas-panels";
@@ -37,15 +39,22 @@ export function InteractionBody() {
     handleLucasTakeover, handleMarcusCopilotAsk, handleSendEmailDraft, handleSendMessage, hideAiActions, historyConversationForActive,
     isColdCallId, isHistoryConversationView, liveVoiceCallInteraction, lucasActiveLinkKey, lucasThomasReviewing,
     marcusCopilotRequestsRef, marcusQuestionHost, marcusWebbPhotoExpanded, marcusWebbReviewing,
-    openDetailPanelContent, outcomeConfigFor, outcomeDrafts, panelPlacement, renderAiOverview, renderAiPanelFeed,
+    openDetailPanelContent, outcomeConfigFor, outcomeDrafts, panelPlacement, renderAiPanelFeed,
     scenarioCases, scenarioKeyOf, scenarioThreadOf, setHideAiActions, setMarcusWebbPhotoExpanded,
     setVoiceVideoFullScreen, setVoiceVideoWindowOpen, snapshotLinkHandlerFor, stripAiInPanel, threadOutcomeProps,
     viewSessionDetails, voiceVideoFullScreen, voiceVideoWindowOpen,
   } = useWorkspace();
+  // P-CANVAS: under AI display inline and main, the action cells around the
+  // conversation and the reference column come from the canvas registry.
+  const canvas = useCanvasRegions();
   if (!activeInteraction) return null;
   return (
                   <div className="relative flex flex-1 overflow-hidden">
-                      <div className="relative flex flex-1 flex-col min-w-0 overflow-hidden" data-main-thread={panelPlacement ? "ai" : activeChannelType}>
+                      <div
+                        className="relative flex flex-1 flex-col min-w-0 overflow-hidden"
+                        data-main-thread={panelPlacement ? "ai" : activeChannelType}
+                        data-canvas-region={canvas.enabled ? "action" : undefined}
+                      >
                         <ThreadCrossFade transitionKey={panelPlacement ? undefined : activeChannelKey} groupKey={activeInteraction.id} />
                         {isHistoryConversationView && historyConversationForActive ? (
                           /* Past-session conversation, opened as its own tab in
@@ -151,8 +160,11 @@ export function InteractionBody() {
                           // content, whichever channel is selected; it
                           // scrolls into view once, then scrolls with the
                           // conversation. It leaves once the outcome is saved.
+                          // Under inline it's the canvas's bottom cells (the wrap-up card is one).
                           trailingContent={
-                            activeWrapUpThread ? (
+                            canvas.enabled ? (
+                              canvas.bottom
+                            ) : activeWrapUpThread ? (
                               <VoiceWrapUpCard outcome={outcomeConfigFor(activeInteraction, activeWrapUpThread, "inline")} />
                             ) : undefined
                           }
@@ -245,7 +257,8 @@ export function InteractionBody() {
                           // card), the same as the AI feed's; an unknown caller
                           // gets it when the call carried a pre-contact summary
                           // (P0.5d.1). AI display "panel" moves it to the panel.
-                          overview={!aiInPanel ? renderAiOverview() : undefined}
+                          // Under inline it's the canvas's top cells (P-CANVAS), which include it.
+                          overview={canvas.enabled ? canvas.top : undefined}
                           // "View customer info" — per explicit request
                           // ("match the customer info side panel content
                           // to what is currently in phase 1 (clicking
@@ -482,12 +495,12 @@ export function InteractionBody() {
                         )}
                         {aiWorkspaceMain && (
                           <AiWorkspaceColumn
-                            feed={renderAiPanelFeed()}
+                            feed={renderAiPanelFeed(canvas.top)}
                             feedCount={aiFeedCount}
                             followSignal={aiFollowSignal}
                             customerName={activeInteraction.customerName}
                             customerContextOverview={customerContextOverviewInfo}
-                            trailing={activeWrapUpThread && <VoiceWrapUpCard outcome={outcomeConfigFor(activeInteraction, activeWrapUpThread, "inline")} />}
+                            trailing={canvas.bottom}
                             dock={<HostSlot host={copilotHost} active={copilotSlot === "main"} />}
                           />
                         )}
@@ -674,6 +687,8 @@ export function InteractionBody() {
                         </>
                         )}
                       </div>
+                      {/* P-CANVAS: the reference column (two-column canvas only). */}
+                      {canvas.reference && <ReferenceColumn>{canvas.reference}</ReferenceColumn>}
                       {/* The separate voice/non-voice "Session Details"
                           `InteriorPanel` overlay that used to render here
                           (portaled beside `CustomerInformationSidePanel`)

@@ -1,16 +1,6 @@
-import { useState, useEffect, useRef, useLayoutEffect } from "react";
-import { Button, CustomerContextOverview, AICard, Link } from "@nicecxone/lyra-ui";
-import { Paperclip } from "lucide-react";
-import { formatJourneySummaryUpdatedLabel, type OverviewInfo } from "@/components/agent-next-gen-shared-utils";
-import { ClockValue } from "@/components/agent-next-gen-clock-tick";
-import { AI_CARD_ENTER } from "@/components/transcript/ai-rows/ai-card-enter";
-import { cn } from "@/lib/utils";
-
-/** Per explicit request ("Files gets a placeholder"); text updated to
- *  match this section's later rename ("Files" → "Artifacts" in the
- *  Details panel) — constant name kept as-is (internal identifier, not
- *  user-facing) rather than churned for no reason. */
-const FILES_EMPTY_TEXT = "No artifacts on this interaction yet.";
+import { useState, useRef, useLayoutEffect } from "react";
+import type { OverviewInfo } from "@/components/agent-next-gen-shared-utils";
+import { ArtifactsSection, CustomerInfoSection, JourneySummarySection, LinkCustomerButton } from "./reference-sections";
 
 /** "AI in panel": bottom padding that keeps the last card clear of the
  *  docked composer's top fade (`ComposerFade`, 32px). */
@@ -124,35 +114,22 @@ export function DetailsPanelAccordions({
    *  match status. */
   onLinkCustomer?: () => void;
 }) {
-  // Plain `lyra-body-md` + `text-lyra-fg-link` — this accordion's own
-  // "View All" link (only consumer of this local const) per two explicit
-  // requests: "increase the font size in the ... artifact ... accordion
-  // content to md" (this was `-sm-emphasis`), then "make sure the view all
-  // matches the link font in the view customer info" (dropped the
-  // `-emphasis` weight — `CustomerContextOverview`'s own "View customer
-  // info" link, lyra-ui/contact-overview.tsx, is plain `lyra-body-md`, not
-  // emphasized), and finally "remove the accent tint on view all" — this
-  // link never had a color explicitly requested; `text-lyra-status-info-
-  // strong` was pre-existing and is replaced here with the same plain
-  // `text-lyra-fg-link` every other "View ..." link in this file/
-  // lyra-ui/contact-overview.tsx already uses, rather than a special tint.
-  const viewAllLinkClassName = "lyra-body-md text-lyra-fg-link text-left hover:underline w-fit";
-
-  // Files joins the same staggered fade/slide-up entrance
-  // `CustomerContextOverview` drives for its own Customer Profile/
-  // Snapshot cards (lyra-ui/contact-overview.tsx: 200ms + i*260ms per
-  // section, 700ms duration) — continuing that sequence at the next
-  // index so Files fades in right after Customer Profile (i=0) and
-  // Customer Snapshot (i=1) have, or at the first slot's own timing
-  // when those are hidden (`showCustomerContextOverview={false}`,
-  // Phase 1) since there's nothing ahead of it to follow.
+  // Artifacts continues the cards' staggered entrance after Customer Profile
+  // (i=0) and the snapshot (i=1), or takes the first slot when those are
+  // hidden (`showCustomerContextOverview={false}`, Phase 1).
   const filesEntranceIndex = showCustomerContextOverview && customerContextOverview ? 2 : 0;
-  const [filesEntered, setFilesEntered] = useState(false);
-  useEffect(() => {
-    const timer = window.setTimeout(() => setFilesEntered(true), 200 + filesEntranceIndex * 260);
-    return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const cardProps = {
+    customerName,
+    customerContextOverview,
+    showJourneySummary,
+    journeySummaryUpdatedAtTick,
+    onViewExperienceMemory,
+    onViewCustomerInfo,
+    onViewInteractionHistory,
+    artifacts,
+    onOpenArtifact,
+    onViewAllArtifacts,
+  };
 
   // "AI in panel" (Settings → AI display): the docked Copilot composer is the
   // panel's footer, a sibling below the scroll area (lyra `SidePanel`'s
@@ -234,116 +211,14 @@ export function DetailsPanelAccordions({
       className="flex flex-col gap-3 p-4 overflow-y-auto"
       style={aiDocked ? { paddingBottom: AI_FEED_BOTTOM_PADDING_PX } : undefined}
     >
-      {onLinkCustomer && (
-        <Button variant="outline" className="w-full" onClick={onLinkCustomer}>
-          Link to existing customer
-        </Button>
-      )}
+      <LinkCustomerButton onLinkCustomer={onLinkCustomer} />
       {/* The Overview stack: one flat column, every card spaced only by
-          this root's `gap-3` (no per-card margin or top padding). Customer
-          Info is a plain accordion (not AI content); every AI-generated card
-          (Journey Summary / Autosummary, Artifacts, and the AI feed's
-          approval, wrap-up and Next Best Action) is a lyra AICard, radius
-          md, compact. Customer Info is shown only when there's a customer
-          record ("if a new call is made or the customer does not have any
-          information, do not display the customer profile"). */}
-      {show.customerInfo && showCustomerContextOverview && customerContextOverview?.customerCard && (
-        <CustomerContextOverview
-          customerName={customerName ?? ""}
-          customerCard={customerContextOverview.customerCard}
-          // Per explicit request ("put the customer summary content inside
-          // the customer profile accordion") — see `detailedSummary`'s own
-          // doc comment (lyra-ui/contact-overview.tsx) for what this renders.
-          detailedSummary={customerContextOverview.detailedSummary}
-          showCustomerProfile
-          showContactSnapshot={false}
-          showNextBestAction={false}
-          onViewCustomerInfo={onViewCustomerInfo}
-          onViewInteractionHistory={onViewInteractionHistory}
-          className="pt-0"
-        />
-      )}
-      {show.journeySummary && showCustomerContextOverview && customerContextOverview && (
-        // Only this card re-renders for the "Updated N seconds ago"
-        // caption, and only when the label text changes (every second for
-        // the first minute, then every minute) — see
-        // `journeySummaryUpdatedAtTick`'s own doc comment.
-        <ClockValue
-          select={(clockTick) =>
-            journeySummaryUpdatedAtTick === undefined
-              ? undefined
-              : formatJourneySummaryUpdatedLabel(clockTick - journeySummaryUpdatedAtTick)
-          }
-        >
-          {(journeySummaryUpdatedLabel) => (
-        // lyra's `aiCards` mode (71160d3): the Journey Summary (or the
-        // Autosummary) as an AICard. `customerContextOverview.journeySummary`
-        // is the same per-contact facts `snapshot` carries, joined into one
-        // paragraph by `buildCustomerContextOverviewInfo`. lyra's own prop
-        // names still say "realTimeSummary". Enters with the other AI cards
-        // (`AI_CARD_ENTER`, P-AIFIRST (k5)).
-        <div className={AI_CARD_ENTER} data-slot="journey-summary">
-        <CustomerContextOverview
-          aiCards
-          customerName={customerName ?? ""}
-          snapshot={customerContextOverview.snapshot}
-          showRealTimeSummary={showJourneySummary}
-          showContactSnapshot={!showJourneySummary}
-          realTimeSummary={customerContextOverview.journeySummary}
-          realTimeSummaryUpdatedLabel={journeySummaryUpdatedLabel}
-          onViewExperienceMemory={onViewExperienceMemory}
-          showNextBestAction={false}
-          showCustomerProfile={false}
-          className="pt-0"
-        />
-        </div>
-          )}
-        </ClockValue>
-      )}
-      {/* Artifacts: a blue lyra AICard (as v3 since lyra 71160d3), open by
-          default (`DetailsPanelAccordions` is keyed per interaction, so it
-          reopens for each new contact). */}
-      {show.artifacts && (
-      <AICard
-        title="Artifacts"
-        color="blue"
-        radius="md"
-        density="compact"
-        icon={<Paperclip className="h-4 w-4" strokeWidth={1.5} />}
-        defaultOpen
-        className={cn(
-          "transition-[opacity,transform] duration-700 ease-out",
-          filesEntered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
-        )}
-      >
-              <div className="flex flex-col gap-3">
-                {/* lyra-body-md, not -sm — see `viewAllLinkClassName`'s own
-                    comment just above for the same request. */}
-                {artifacts && artifacts.length > 0 ? (
-                  <ul className="flex flex-col gap-1.5">
-                    {artifacts.slice(0, 10).map((a) => (
-                      <li key={a.id} className="flex min-w-0 items-center gap-2">
-                        <Paperclip className="h-3.5 w-3.5 shrink-0 text-lyra-fg-secondary" strokeWidth={1.5} aria-hidden="true" />
-                        <Link onClick={() => onOpenArtifact?.(a.id)} className="min-w-0 truncate text-left">
-                          {a.label}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="lyra-body-md text-lyra-fg-secondary">{FILES_EMPTY_TEXT}</p>
-                )}
-                {/* "View All" sits below the artifact list (here, the empty-
-                    state text above) per explicit request, rather than above
-                    it. */}
-                {artifacts && artifacts.length > 10 && (
-                  <Link onClick={onViewAllArtifacts} className="self-start">
-                    View All
-                  </Link>
-                )}
-              </div>
-      </AICard>
-      )}
+          this root's `gap-3`. The cards are the reference sections
+          (reference-sections.tsx), which the canvas also mounts one by one. */}
+      {show.customerInfo && showCustomerContextOverview && <CustomerInfoSection {...cardProps} />}
+      {show.journeySummary && showCustomerContextOverview && <JourneySummarySection {...cardProps} />}
+      {/* Keyed per interaction by its callers, so it reopens for each new contact. */}
+      {show.artifacts && <ArtifactsSection {...cardProps} entranceIndex={filesEntranceIndex} />}
       {/* Settings → AI display "In the Contact Details panel" (P-SETTINGS,
           ported from v3): the AI cards and interstitials sit below the
           original items. */}
