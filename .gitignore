@@ -38,3 +38,6 @@ pnpm-debug.log*
 # Playwright output
 test-results/
 playwright-report/
+
+# Claude Code local state
+.claude/
