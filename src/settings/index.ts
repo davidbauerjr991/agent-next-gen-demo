@@ -64,6 +64,8 @@ export {
   ASSIGNMENT_CHANNEL_CHIPS,
   ASSIGNMENT_CHANNEL_CHIPS_FIELD,
   type AssignmentChannelChips,
+  ASSIGNMENTS_PLACEMENT_FIELD,
+  type AssignmentsPlacement,
   CANVAS_REGIONS,
   type CanvasCellOverride,
   type CanvasSettings,

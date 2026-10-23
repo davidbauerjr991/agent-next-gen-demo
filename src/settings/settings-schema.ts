@@ -272,7 +272,18 @@ export interface AssignmentsSettings {
   /** The channel chip on each card's rows: "auto" shows it in the left nav
    *  and hides it in the interior panel. */
   channelChips: AssignmentChannelChips;
+  /** Where the assignment cards show: the left nav, or lyra's left interior
+   *  panel inside the content card (P-PROFILES 0c). */
+  placement: AssignmentsPlacement;
 }
+
+export const ASSIGNMENTS_PLACEMENTS = ["leftNav", "interiorPanel"] as const;
+export type AssignmentsPlacement = (typeof ASSIGNMENTS_PLACEMENTS)[number];
+export const ASSIGNMENTS_PLACEMENT_FIELD = oneOf(ASSIGNMENTS_PLACEMENTS, {
+  label: "Show as interior panel",
+  description:
+    "Shows the assignment cards in a panel inside the workspace, beside the conversation and the reference cards, instead of in the left nav. When there isn't room for all three, the panel opens from the Assignments item in the left nav.",
+});
 
 /** "startDate" reads "Create Date" (the key predates the label). */
 export const ASSIGNMENT_SORT_MODES = ["lastUpdated", "startDate", "channel", "custom"] as const;
@@ -299,7 +310,7 @@ export const ASSIGNMENT_LEGS_FIELD = oneOf(ASSIGNMENT_LEGS, {
   description: "Separate tabs shows one thread per channel; one stream shows every channel in one transcript, filtered by the header icons.",
 });
 
-// No version bump for `legs`, `sort` or `channelChips`: a missing stored key reads as its default.
+// No version bump for `legs`, `sort`, `channelChips` or `placement`: a missing stored key reads as its default.
 const assignments = defineSection<AssignmentsSettings>({
   key: "assignments",
   version: 2,
@@ -314,6 +325,7 @@ const assignments = defineSection<AssignmentsSettings>({
     legs: "tabs",
     sort: { mode: "lastUpdated", direction: "desc" },
     channelChips: "auto",
+    placement: "leftNav",
   },
   fields: {
     autoAccept: group<Record<AutoAcceptChannel, boolean>>(
@@ -328,6 +340,7 @@ const assignments = defineSection<AssignmentsSettings>({
     legs: ASSIGNMENT_LEGS_FIELD,
     sort: group<AssignmentSortSettings>({ mode: oneOf(ASSIGNMENT_SORT_MODES), direction: oneOf(ASSIGNMENT_SORT_DIRECTIONS) }),
     channelChips: ASSIGNMENT_CHANNEL_CHIPS_FIELD,
+    placement: ASSIGNMENTS_PLACEMENT_FIELD,
   },
 });
 

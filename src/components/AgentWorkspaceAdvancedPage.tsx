@@ -26,6 +26,7 @@ import { RecordHeader } from "@/components/workspace/RecordHeader";
 import { InteractionBody } from "@/components/workspace/InteractionBody";
 import { WorkspaceHome } from "@/components/workspace/WorkspaceHome";
 import { WorkspaceRightPanel } from "@/components/workspace/WorkspaceRightPanel";
+import { AssignmentsPanelRow } from "@/components/workspace/AssignmentsInteriorPanel";
 import { DetailSlideOver } from "@/components/workspace/DetailSlideOver";
 import { WorkspaceVoiceBar } from "@/components/workspace/WorkspaceVoiceBar";
 import { WorkspaceModals } from "@/components/workspace/WorkspaceModals";
@@ -107,12 +108,10 @@ export function AgentWorkspaceAdvancedPage({
               one level in. */}
           <Container className="flex flex-col flex-1 overflow-hidden relative" data-slot="content-card">
 
-            {/* Row: Customer Information panel (left) + everything else
-                (tab row + content column, stacked). Not flattened into
-                Container itself since `isCombinedPanelMode`'s tab row must
-                stay OUTSIDE the panel's reach — only the column to its
-                right stacks vertically. */}
-            <div className="flex flex-1 overflow-hidden min-h-0">
+            {/* Row: (the assignments interior panel, P-PROFILES) + the content column + the docked right panel.
+                Not flattened into Container: `isCombinedPanelMode`'s tab row
+                stays outside the panels' reach. */}
+            <AssignmentsPanelRow>
               <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
 
                 {/* Below 768px with a docked panel open: a second region
@@ -385,7 +384,7 @@ export function AgentWorkspaceAdvancedPage({
                   "unknown contact" fallback. */}
               <WorkspaceRightPanel />
 
-            </div>
+            </AssignmentsPanelRow>
 
             {/* The "View customer info" floating overlay that used to
                 render here is gone — per explicit request ("move the

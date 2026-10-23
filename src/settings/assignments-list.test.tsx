@@ -84,6 +84,63 @@ describe("assignment sort modes", () => {
   });
 });
 
+describe("Show as interior panel (0c)", () => {
+  const panel = () => h.container.querySelector<HTMLElement>("[data-slot=assignments-panel]");
+  /** The rail's Assignments item: the expanded rail is a TreeMenu (a text
+   *  label, then the badge's count); collapsed, an icon button named "Assignments, N". */
+  const railItem = () =>
+    [...h.container.querySelectorAll<HTMLElement>("aside button")].find(
+      (b) => b.getAttribute("aria-label")?.startsWith("Assignments") || /^Assignments\d*$/.test(b.textContent?.trim() ?? ""),
+    ) ?? null;
+  const panelChips = () =>
+    [...(panel()?.querySelectorAll("[data-slot=assignment-card] span") ?? [])].filter(
+      (el) => el.textContent === "Chat" && !el.classList.contains("sr-only"),
+    );
+
+  async function inPanel() {
+    await act(async () => {
+      store().update("channels", { chat: true });
+      store().update("assignments", { placement: "interiorPanel" });
+    });
+    await h.show(AgentWorkspaceAdvancedPage);
+    await h.goAvailable();
+    await h.accept(await h.startInbound("chat", "ana@example.com", "Ana Ruiz"));
+    await h.advance(1000);
+  }
+
+  it("the cards move from the left nav into a docked left panel; the rail gains Assignments", async () => {
+    await inPanel();
+    expect(panel()).not.toBeNull();
+    expect(panel()!.getAttribute("data-docked")).toBe("true");
+    expect(panel()!.querySelectorAll("[data-slot=assignment-card]")).toHaveLength(1);
+    expect(h.container.querySelectorAll("aside [data-slot=assignment-card]")).toHaveLength(0);
+    expect(railItem()).not.toBeNull();
+    // "auto" hides the channel chip in the panel.
+    expect(panelChips()).toHaveLength(0);
+  });
+
+  it("the rail item's badge counts cards that need the agent; it toggles the panel", async () => {
+    await inPanel();
+    // A new assignment: the expanded rail shows the count after the label.
+    expect(railItem()!.textContent?.trim()).toBe("Assignments1");
+    await h.click(railItem()!);
+    // Closing a docked panel unpins it.
+    expect(panel()!.hasAttribute("data-docked")).toBe(false);
+    await h.click(railItem()!);
+    expect(panel()!.getAttribute("data-docked")).toBe("true");
+  });
+
+  it("off again: the cards are back in the left nav and the rail item goes", async () => {
+    await inPanel();
+    await act(async () => {
+      store().update("assignments", { placement: "leftNav" });
+    });
+    expect(panel()).toBeNull();
+    expect(railItem()).toBeNull();
+    expect(h.container.querySelectorAll("aside [data-slot=assignment-card]")).toHaveLength(1);
+  });
+});
+
 describe("channel chips", () => {
   /** The visible "Chat" pill on the card's rows. */
   const chips = () =>

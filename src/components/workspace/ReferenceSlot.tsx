@@ -66,6 +66,12 @@ export function ReferenceSlot({ reference }: { reference?: ReactNode }) {
     if (!mounted) setPanelWidth(LYRA_CARD_MAX_WIDTH);
   }, [mounted]);
   const slotWidth = open ? Math.max(LYRA_CARD_MAX_WIDTH, panelWidth) : LYRA_CARD_MAX_WIDTH;
+  // P-PROFILES: the assignments interior panel's dock rule counts this slot.
+  const [, setReferenceSlotWidth] = useWorkspaceUiField("referenceSlotWidth");
+  useEffect(() => {
+    setReferenceSlotWidth(reference ? slotWidth : 0);
+  }, [reference, slotWidth, setReferenceSlotWidth]);
+  useEffect(() => () => setReferenceSlotWidth(null), [setReferenceSlotWidth]);
 
   return (
     <>

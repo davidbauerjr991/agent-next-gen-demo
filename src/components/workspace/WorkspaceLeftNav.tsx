@@ -2,14 +2,13 @@ import { EmptyState, LeftNav, NavRail } from "@nicecxone/lyra-ui";
 import { Inbox } from "lucide-react";
 import { HostSlot } from "@/contact-handling/portal-hosts";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
-import { AssignmentsSectionCaption } from "@/components/agent-next-gen-interaction-dashboard";
 import { ClockTick } from "@/components/agent-next-gen-clock-tick";
-import { useSettings, type AssignmentSortMode } from "@/settings";
+import { t } from "@/i18n";
 import { useAssignmentCards, useChannelChipsShown } from "@/contact-handling/useAssignmentCards";
-import { DraggableAssignment } from "./AssignmentCardList";
+import { useAssignmentsPanel } from "@/contact-handling/useAssignmentsPanel";
+import { AssignmentsCaption, DraggableAssignment } from "./AssignmentCardList";
 import { LeftNavFooterColumn, LeftNavFooterSpacer, LeftNavSlot } from "./left-nav-parts";
 import { NavCardItem } from "./NavCardItem";
-import { ADVANCED_ASSIGNMENT_SORT_OPTIONS } from "./workspace-constants";
 
 /** The workspace's left nav (P-EXTRACT C8, from the page): the rail, the
  *  Assignments caption and one `NavCardItem` per card. The card `.map` stays
@@ -17,16 +16,27 @@ import { ADVANCED_ASSIGNMENT_SORT_OPTIONS } from "./workspace-constants";
  *  `header`'s top-level children only. */
 export function WorkspaceLeftNav() {
   const {
-    assignmentSort, assignmentSortDirection, channelsAllExpanded, handleToggleAllChannelsExpanded, interactions,
-    isNavNarrow, navItemsAtTop, navOpen, navRailItems, newOutboundAtBottom, newOutboundLauncher,
-    noInteractionCollapse, setAssignmentSort, setAssignmentSortDirection, setNavOpen, setVoiceNavSlotMounted,
-    voiceBarHost, voiceSettings,
+    interactions, isNavNarrow, navItemsAtTop, navOpen, navRailItems: workspaceRailItems, newOutboundAtBottom,
+    newOutboundLauncher, setNavOpen, setVoiceNavSlotMounted, voiceBarHost, voiceSettings,
   } = useWorkspace();
-  // P-PROFILES 0b: the cards' order (Custom drags only while the nav is open),
-  // and the channel chips' show / hide from the sort popover.
+  // P-PROFILES 0b: the cards' order (Custom drags only while the nav is open).
   const { cards, itemProps } = useAssignmentCards(navOpen && !isNavNarrow);
   const chipsShown = useChannelChipsShown("leftNav");
-  const [, updateAssignments] = useSettings("assignments");
+  // P-PROFILES 0c: with the cards in the interior panel, the rail's first
+  // item opens it, badged with the cards that need the agent.
+  const panel = useAssignmentsPanel();
+  const navRailItems = panel.inPanel
+    ? [
+        {
+          icon: <Inbox className="h-5 w-5" strokeWidth={1.5} />,
+          label: t("Assignments"),
+          active: panel.open,
+          badge: panel.attentionCount,
+          onClick: panel.toggle,
+        },
+        ...workspaceRailItems,
+      ]
+    : workspaceRailItems;
   return (
         <LeftNav
           // Home and Settings — per explicit request ("move the home button
@@ -67,28 +77,9 @@ export function WorkspaceLeftNav() {
           // writeup): rendered via `stickyCaption` now, the same sticky-top
           // box as `items` (Home), so it stays pinned with Home instead of
           // scrolling away with the cards under it.
-          stickyCaption={
-            <AssignmentsSectionCaption
-              expanded={navOpen}
-              count={interactions.length}
-              sort={assignmentSort}
-              // The options exclude Longest Wait, so every value is a settings mode.
-              onSortChange={(value) => setAssignmentSort(value as AssignmentSortMode)}
-              // Per explicit request — see `ADVANCED_ASSIGNMENT_SORT_
-              // OPTIONS`'s own doc comment above.
-              sortOptions={ADVANCED_ASSIGNMENT_SORT_OPTIONS}
-              sortDirection={assignmentSortDirection}
-              onSortDirectionChange={setAssignmentSortDirection}
-              showChannelChips={chipsShown}
-              onShowChannelChipsChange={(show) => updateAssignments({ channelChips: show ? "show" : "hide" })}
-              allExpanded={channelsAllExpanded}
-              onToggleAllExpanded={handleToggleAllChannelsExpanded}
-              hideExpandCollapseAll={noInteractionCollapse}
-              // See `AssignmentsSectionCaption`'s own doc comment on
-              // `compact` — see 2.0's own copy for the full reasoning.
-              compact
-            />
-          }
+          // P-PROFILES 0c: under "Show as interior panel" the caption and
+          // the cards are the panel's, and the rail gains Assignments.
+          stickyCaption={panel.inPanel ? undefined : <AssignmentsCaption expanded={navOpen} mount="leftNav" />}
           // Home + Settings — per explicit request ("move the home button
           // above the settings like in phase 1 left nav (match to phase
           // 1)"), both render together in `footer`, Home first, genuinely
@@ -188,7 +179,7 @@ export function WorkspaceLeftNav() {
                   Close needs no equivalent — this block unmounts instantly
                   when `navOpen` goes false, before the aside starts
                   collapsing, so nothing is ever visible to reflow. */}
-              {interactions.length === 0 && navOpen && (
+              {!panel.inPanel && interactions.length === 0 && navOpen && (
                 <div className="flex flex-1 min-h-0 items-center justify-center animate-in fade-in-0 duration-150 delay-200 fill-mode-backwards">
                   <EmptyState
                     icon={<Inbox className="h-8 w-8" strokeWidth={1.5} />}
@@ -219,7 +210,7 @@ export function WorkspaceLeftNav() {
                   re-renders that card (its elapsed/hold/awaiting timers)
                   and not the page. The card body is `NavCardItem`; its
                   wrapper is the drag target (P-PROFILES: Sort → Custom). */}
-              {cards.map((interaction) => (
+              {!panel.inPanel && cards.map((interaction) => (
                 // `LeftNavSlot` is the top-level element LeftNav's overlay
                 // mode clones its hover `expanded` onto (`injectExpanded`
                 // reaches only top-level children); it hands that value

@@ -55,6 +55,16 @@ export interface WorkspaceUiState {
   /** P-CANVAS: cards whose call transcript the agent hid ("Hide Transcript", AI display inline, voice): the main
    *  column keeps only the AI rows, and Contact Details offers the Transcript tab. */
   transcriptHiddenByCard: Readonly<Record<string, boolean>>;
+  /** P-PROFILES: the reference slot's width while `ReferenceSlot` shows the
+   *  reference column (the card width, or the open slide-over's slot width);
+   *  0 with no column (stacked); null while the slot isn't mounted (no canvas). */
+  referenceSlotWidth: number | null;
+  /** P-PROFILES: the assignments interior panel fits docked beside the action
+   *  area and the reference slot (`assignmentsPanelDocks`); false: an overlay. */
+  assignmentsPanelDocks: boolean;
+  /** P-PROFILES: the assignments panel is open as an overlay (it doesn't dock,
+   *  or the agent unpinned it), from the rail's Assignments item. */
+  assignmentsPanelOverlayOpen: boolean;
 }
 
 export interface ReferenceFocusState {
@@ -79,6 +89,9 @@ export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
   journeyLookupStartedAt: Object.freeze({}),
   referenceFocusByCard: Object.freeze({}),
   transcriptHiddenByCard: Object.freeze({}),
+  referenceSlotWidth: null,
+  assignmentsPanelDocks: true,
+  assignmentsPanelOverlayOpen: false,
 });
 
 export interface WorkspaceUiStore {
