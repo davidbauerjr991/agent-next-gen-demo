@@ -4,7 +4,7 @@
 // "AI-first" are the built-in profiles. The active profile isn't stored: it's
 // whichever built-in profile the current values equal, else "custom", so
 // changing any setting reads Custom and applying a profile clears it.
-// P-PROFILES adds saved profiles and per-section locks on top of this.
+// Saved profiles and per-section locks (P-PROFILES) are ./saved-profiles.ts.
 import { agentSettings, deepEqual, type AgentSettings } from "./scope";
 import {
   LAUNCHER_TABS,
@@ -16,7 +16,9 @@ import {
 } from "./settings-schema";
 
 export type ProfileId = "phase1" | "phase2" | "aifirst";
-export type WorkspaceProfile = ProfileId | "custom";
+/** A built-in profile, a saved one (`saved:…`, ./saved-profiles.ts), or
+ *  "custom" (differs from every profile). */
+export type WorkspaceProfile = ProfileId | `saved:${string}` | "custom";
 
 const app = (enabled: boolean, placement: AppDisplay["placement"] = "header"): AppDisplay => ({ enabled, placement });
 
@@ -62,7 +64,7 @@ export const PROFILES: Record<ProfileId, SettingsState> = { phase1: phase1(), ph
 
 export const PROFILE_IDS = Object.keys(PROFILES) as ProfileId[];
 
-export const PROFILE_LABELS: Record<WorkspaceProfile, string> = {
+export const PROFILE_LABELS: Record<ProfileId | "custom", string> = {
   phase1: "Phase 1",
   phase2: "Phase 2",
   aifirst: "AI-first",
@@ -74,10 +76,18 @@ export function profileValues(id: ProfileId): AgentSettings {
   return agentSettings(PROFILES[id]);
 }
 
-export function deriveProfile(values: SettingsState): WorkspaceProfile {
+/** Whichever profile the values equal: a built-in first (they win a tie),
+ *  then a saved one in list order, else "custom". */
+export function deriveProfile(
+  values: SettingsState,
+  saved: readonly { id: `saved:${string}`; values: AgentSettings }[] = [],
+): WorkspaceProfile {
   const current = agentSettings(values);
   for (const id of PROFILE_IDS) {
     if (deepEqual(current, profileValues(id))) return id;
+  }
+  for (const profile of saved) {
+    if (deepEqual(current, profile.values)) return profile.id;
   }
   return "custom";
 }

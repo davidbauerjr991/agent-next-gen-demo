@@ -6,6 +6,8 @@ export {
   useSetting,
   useSectionStored,
   useWorkspaceProfile,
+  useProfileLibrary,
+  type WorkspaceProfileApi,
   applyProfile,
   useResetSettings,
   useApplyTheme,
@@ -15,6 +17,15 @@ export {
 export { readLogoFile, sanitizeSvg, LOGO_ERROR_MESSAGES, type LogoReadResult } from "./brand";
 export { primaryContrastFailures, type Theme as BrandTheme } from "./brand-colors";
 export { PROFILE_LABELS, PROFILE_IDS, type ProfileId, type WorkspaceProfile } from "./profiles";
+export {
+  isSavedProfileId,
+  profileSectionKeys,
+  type SavedProfile,
+  type SavedProfileId,
+  type ProfileReadWarning,
+  type ProfileImportError,
+} from "./saved-profiles";
+export { standaloneProfileAssignment, type ProfileAssignmentSource } from "./profile-assignment";
 export {
   pinnedKeysFromHeader,
   leftNavKeysFromHeader,
