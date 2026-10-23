@@ -1,9 +1,10 @@
 // Contact Details' tab set as a registry (P-CANVAS; PLAN "The main column as
 // a work surface"), so P1.7's Contact Details configuration can make it
 // admin-configurable without re-plumbing. Under AI display inline and main:
-// Customer Information, Notes, Detail, Transcript, Session (Overview's cards
-// moved to the canvas). AI display "panel" keeps Overview first: it is where
-// that mode's AI feed and Copilot composer live.
+// Customer Information (labelled Overview), Notes, Detail, Transcript (only
+// when the thread isn't already on screen), Session. AI display "panel" keeps
+// its own Overview first: the Agentic reference cards, that mode's AI feed and
+// its Copilot composer.
 import type { ComponentType } from "react";
 import { DEFAULT_CONTACT_DETAILS_TABS } from "@/components/workspace/contact-details-tab-bodies";
 
@@ -22,6 +23,10 @@ export interface ContactDetailsTabContext {
   aiInPanel: boolean;
   /** The card has a customer record (an unknown contact has Detail, Transcript and Session). */
   realCustomer: boolean;
+  /** Under inline and main: a live contact whose thread is already on screen (the main column, or the docked
+   *  panel), so the Transcript tab would repeat it. False for a closed card or a past session's view, while the
+   *  agent hid a call's transcript, and always under panel. */
+  threadOnScreen?: boolean;
 }
 
 export interface ContactDetailsTab {
@@ -34,6 +39,23 @@ export interface ContactDetailsTab {
   applies?: (ctx: ContactDetailsTabContext) => boolean;
   /** The tab's body; reads the workspace. `inPreview`: the record header's hover preview. */
   Body: ComponentType<{ inPreview: boolean }>;
+}
+
+/** `threadOnScreen`: under inline and main, a live contact's thread is on screen beside Contact Details (the main
+ *  column, or the docked panel), unless the agent hid the call's transcript or the call isn't a thread there
+ *  (`callOffScreen`: Lucas's call beside his chat). A closed card or a past session's view (`live` false) isn't. */
+export function isThreadOnScreen({
+  aiInPanel,
+  live,
+  transcriptHidden,
+  callOffScreen,
+}: {
+  aiInPanel: boolean;
+  live: boolean;
+  transcriptHidden: boolean;
+  callOffScreen: boolean;
+}): boolean {
+  return !aiInPanel && live && !transcriptHidden && !callOffScreen;
 }
 
 let tabs = new Map<ContactDetailsTabId, ContactDetailsTab>();

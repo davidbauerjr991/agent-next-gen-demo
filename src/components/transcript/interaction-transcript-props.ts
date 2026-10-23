@@ -100,6 +100,8 @@ export interface InteractionTranscriptProps {
   contactOverview?: ContactOverviewInfo;
   /** When true, only chat bubbles show: no autosummary/context overview, interstitials, approval summaries, events or wrap-up cards. */
   hideAiActions?: boolean;
+  /** The reverse (a call's "Hide Transcript", P-CANVAS): only the AI rows show — no utterances or messages. */
+  hideTranscript?: boolean;
   /**
    * The overview block, rendered where the transcript places its overview
    * (above the conversation, or where `contactOverviewPosition` says): the

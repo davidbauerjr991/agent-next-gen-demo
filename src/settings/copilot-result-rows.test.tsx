@@ -44,14 +44,14 @@ async function emailContact(displayLocation: AiSettings["displayLocation"]) {
 
 const composer = () => document.body.querySelector<HTMLElement>("[data-slot=copilot-composer]")!;
 
-/** Asks Copilot with the composer's first chip (it fills the input), then
- *  Submit; `rotate` first moves the chips on with the refresh button. */
+/** Asks Copilot with the composer's first chip (Settings → AI's default chip
+ *  behaviour, "run": the click asks it); `rotate` first moves the chips on
+ *  with the refresh button. */
 async function ask(rotate = false): Promise<string> {
   if (rotate) await h.click(composer().querySelector('[data-slot=copilot-chips-refresh] button')!);
   const chip = composer().querySelector<HTMLElement>("[data-slot=copilot-chips] [role=button]")!;
   const text = chip.textContent!.trim();
   await h.click(chip);
-  await h.click(composer().querySelector('button[aria-label="Submit"]')!);
   await h.advance(2_500);
   return text;
 }
@@ -144,8 +144,8 @@ describe("an unscripted voice call has an AI feed for its Copilot rows", () => {
         (c) => c.textContent?.trim() === "Summarize this call",
       )!;
       expect(chip).toBeTruthy();
+      // The chip asks on the click ("run").
       await h.click(chip);
-      await h.click(composer().querySelector('button[aria-label="Submit"]')!);
       await h.advance(2_500);
 
       // The interstitial row, in the feed: the main column inline and main, the panel in panel mode (k5: a call follows AI display).

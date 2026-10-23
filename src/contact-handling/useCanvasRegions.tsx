@@ -44,6 +44,13 @@ export function useCanvasRegions(): CanvasRegions {
   };
 }
 
+/** The reference cells on their own, whatever the AI display: panel mode's Contact Details Overview mounts the same
+ *  cards (one implementation each) that the reference column does under inline and main. */
+export function useReferenceCells(): ReactNode {
+  const ws = useWorkspace();
+  return ws.activeInteraction ? mount(canvasCells("reference", ws)) : undefined;
+}
+
 function mount(cells: CanvasCell[]): ReactNode {
   if (cells.length === 0) return undefined;
   return cells.map(({ id, component: Cell }) => (

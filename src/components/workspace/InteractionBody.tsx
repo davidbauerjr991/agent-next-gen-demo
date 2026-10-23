@@ -35,7 +35,7 @@ export function InteractionBody() {
     activeChannelKey, activeChannelStatus, activeChannelType, activeInteraction, activeInteractionIsRealCustomer,
     activeWrapUpThread, aiFeedCount, aiFollowSignal, aiInPanel, aiWorkspaceMain, assignmentsSettings, calling,
     confirmDismiss, contactStateById, copilotComposerProps, copilotDock, copilotHost, copilotSlot,
-    customerContextOverviewInfo, customerTyping, focusCustomerPanelTab, handleCopilotAsk, handleDismissChannel,
+    customerTyping, focusCustomerPanelTab, handleCopilotAsk, handleDismissChannel,
     handleDismissInteraction, handleInteractionStatusChange, handleLucasApprovalDecision, handleLucasCallRequest,
     handleLucasTakeover, handleMarcusCopilotAsk, handleSendEmailDraft, handleSendMessage, hideAiActions, historyConversationForActive,
     isColdCallId, isHistoryConversationView, liveVoiceCallInteraction, lucasActiveLinkKey, lucasThomasReviewing,
@@ -44,7 +44,10 @@ export function InteractionBody() {
     scenarioCases, scenarioKeyOf, scenarioThreadOf, setHideAiActions, setMarcusWebbPhotoExpanded,
     setVoiceVideoFullScreen, setVoiceVideoWindowOpen, snapshotLinkHandlerFor, stripAiInPanel, threadOutcomeProps,
     viewSessionDetails, voiceVideoFullScreen, voiceVideoWindowOpen, sessionRowHost, sessionRowInHeader,
+    transcriptHidden, setTranscriptHidden, transcriptToggleShown,
   } = useWorkspace();
+  // A call's "Hide Transcript" switch (AI display inline, voice; P-CANVAS), beside "Hide AI Actions".
+  const transcriptSwitch = { hideTranscript: transcriptHidden, onHideTranscriptChange: transcriptToggleShown ? setTranscriptHidden : undefined };
   // P-CANVAS: under AI display inline and main, the action cells around the
   // conversation and the reference column come from the canvas registry.
   const canvas = useCanvasRegions();
@@ -159,7 +162,8 @@ export function InteractionBody() {
                             (`currentSessionOf`) instead of a hidden copy of this transcript reporting it (P-EXTRACT, Bug 1). */}
                         {!aiWorkspaceMain && (
                         <InteractionTranscript
- hideAiActions={hideAiActions}
+                          hideAiActions={hideAiActions}
+                          hideTranscript={transcriptHidden}
                           hideMockFollowUpMessages={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID}
                           // The current session's row is the record header's second line (its own host there).
                           sessionRowPortalTarget={sessionRowInHeader ? sessionRowHost : undefined}
@@ -262,11 +266,8 @@ export function InteractionBody() {
                           // no equivalent slot for it, and fully mirroring
                           // Phase 1 (as explicitly requested) means this
                           // content no longer renders here.
-                          // The AI overview (the Autosummary card, then Marcus's
-                          // card), the same as the AI feed's; an unknown caller
-                          // gets it when the call carried a pre-contact summary
-                          // (P0.5d.1). AI display "panel" moves it to the panel.
-                          // Under inline it's the canvas's top cells (P-CANVAS), which include it.
+                          // The AI overview: under inline the canvas's top cells (P-CANVAS: Marcus's card, and under
+                          // "stacked" the reference cards). AI display "panel" moves it to the panel.
                           overview={canvas.enabled ? canvas.top : undefined}
                           // "View customer info" — per explicit request
                           // ("match the customer info side panel content
@@ -504,12 +505,10 @@ export function InteractionBody() {
                         )}
                         {aiWorkspaceMain && (
                           <AiWorkspaceColumn
-                            // `null`, not undefined, when the canvas has no top cells: undefined would fall back to the Autosummary.
+                            // `null`, not undefined, when the canvas has no top cells: undefined would fall back to panel mode's overview.
                             feed={renderAiPanelFeed(canvas.top ?? null)}
                             feedCount={aiFeedCount}
                             followSignal={aiFollowSignal}
-                            customerName={activeInteraction.customerName}
-                            customerContextOverview={customerContextOverviewInfo}
                             trailing={canvas.bottom}
                             dock={<HostSlot host={copilotHost} active={copilotSlot === "main"} />}
                           />
@@ -638,6 +637,7 @@ export function InteractionBody() {
                               // Only where AI rows interleave with a chat transcript.
                               // Every digital thread in the main column with AI display inline; not voice, panel or "main".
                               onHideAiActionsChange={activeChannelType !== "voice" && !aiInPanel && !panelPlacement ? setHideAiActions : undefined}
+                              {...transcriptSwitch}
                               copilotDock={copilotDock}
                               copilotOnly={
                                 // Placement "panel": the chat input lives with the thread in the panel.
@@ -657,6 +657,7 @@ export function InteractionBody() {
                           <InteractionComposer
                             copilotOnly
                             copilotDock={copilotDock}
+                            {...transcriptSwitch}
                             onSend={() => {}}
                             {...(() => {
                               const chips = {
@@ -665,8 +666,8 @@ export function InteractionBody() {
                                 onCopilotSuggestionLink: (key: string) => openDetailPanelContent({ kind: "tom-call", panel: key as TomLewisCallPanelKey }),
                                 onCopilotAsk: (text: string) => handleCopilotAsk(activeInteraction.id, activeChannelKey, text),
                               };
-                              // The Next Best Action on request (P-CANVAS; inline and main).
-                              return aiInPanel ? chips : withNextBestActionChip(chips, () => requestNextBestAction(activeInteraction.id, activeChannelKey));
+                              // The Next Best Action on request (P-CANVAS; every AI display).
+                              return withNextBestActionChip(chips, () => requestNextBestAction(activeInteraction.id, activeChannelKey));
                             })()}
                           />
                         )}
@@ -675,6 +676,7 @@ export function InteractionBody() {
                           <InteractionComposer
                             copilotOnly
                             copilotDock={copilotDock}
+                            {...transcriptSwitch}
                             takeoverLabel="Takeover Call"
                             takeoverDisabled={!!liveVoiceCallInteraction && scenarioKeyOf(liveVoiceCallInteraction.id) !== MARCUS_WEBB_ID}
                             takeoverDisabledReason="A call is already in progress"

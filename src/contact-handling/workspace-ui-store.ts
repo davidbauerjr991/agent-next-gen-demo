@@ -52,6 +52,9 @@ export interface WorkspaceUiState {
    *  the step advances), and the card the AI just brought forward
    *  (highlighted briefly). */
   referenceFocusByCard: Readonly<Record<string, ReferenceFocusState>>;
+  /** P-CANVAS: cards whose call transcript the agent hid ("Hide Transcript", AI display inline, voice): the main
+   *  column keeps only the AI rows, and Contact Details offers the Transcript tab. */
+  transcriptHiddenByCard: Readonly<Record<string, boolean>>;
 }
 
 export interface ReferenceFocusState {
@@ -75,6 +78,7 @@ export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
   nbaAwaitingSend: Object.freeze({}),
   journeyLookupStartedAt: Object.freeze({}),
   referenceFocusByCard: Object.freeze({}),
+  transcriptHiddenByCard: Object.freeze({}),
 });
 
 export interface WorkspaceUiStore {

@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactNode } from "react";
+import type { ComponentProps } from "react";
 import { Button } from "@nicecxone/lyra-ui";
 import { InteractionComposer, InteractionTranscript } from "@/components/agent-next-gen-transcript";
 import type { Interaction, Thread } from "@/components/agent-next-gen-interaction-dashboard";
@@ -28,10 +28,6 @@ export interface ChannelThreadBodyProps {
   onStatusChange: (status: string) => void;
   /** Leave the AI rows out (AI display "main": they're the main column's). */
   withoutAiActions?: boolean;
-  /** The Autosummary (`AutosummaryCard`) above the transcript, AI display
-   *  inline: the thread view only (Customer Info and the rest belong to
-   *  Contact Details); the panel and the hover preview show the same body. */
-  overview?: ReactNode;
   /** The current session's row is in the panel's header (`ChannelThreadSessionRow`, AI display "main"). */
   sessionRowInHeader?: boolean;
   /** An outbound email draft's temporary Send under "Coming soon" (E2; P-PARKED's composer replaces it). */
@@ -48,7 +44,6 @@ export function ChannelThreadBody({
   hideMockFollowUpMessages,
   onStatusChange,
   withoutAiActions,
-  overview,
   sessionRowInHeader,
   onSendDraft,
 }: ChannelThreadBodyProps) {
@@ -76,7 +71,6 @@ export function ChannelThreadBody({
       skillLabel={thread.preview}
       isFreshLaunch={!!thread.startedFresh}
       liveMessages={withoutAiActions ? messages.filter((m) => !isAiActionMessage(m)) : messages}
-      overview={overview}
       currentStatus={interaction.threadStatuses?.[key]}
       onCurrentStatusChange={onStatusChange}
       showSessionActionCluster={false}

@@ -39,12 +39,10 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
   const replyBlockedReason = useReplyBlockedReason();
   // A Next Best Action's "Insert into reply" (P-CANVAS): the thread's chat composer takes it once.
   const [composerPrefill, setComposerPrefill] = useWorkspaceUiField("composerPrefill");
-  // The Next Best Action on request (P-CANVAS; AI display inline and main): the "What should I do next?" chip.
+  // The Next Best Action on request (P-CANVAS; every AI display): the "What should I do next?" chip.
   const requestNextBestAction = useRequestNextBestAction(interactions);
-  const copilotComposerProps = (interactionId: string, threadKey: string): CopilotComposerProps => {
-    const props = baseCopilotComposerProps(interactionId, threadKey);
-    return aiInPanel ? props : withNextBestActionChip(props, () => requestNextBestAction(interactionId, threadKey));
-  };
+  const copilotComposerProps = (interactionId: string, threadKey: string): CopilotComposerProps =>
+    withNextBestActionChip(baseCopilotComposerProps(interactionId, threadKey), () => requestNextBestAction(interactionId, threadKey));
   const baseCopilotComposerProps = (interactionId: string, threadKey: string): CopilotComposerProps => {
     const isLucas = scenarioKeyOf(interactionId) === LUCAS_THOMAS_ID;
     const channel = interactions.find((i) => i.id === interactionId)?.threads.find((t) => (t.id ?? t.type) === threadKey)?.type;

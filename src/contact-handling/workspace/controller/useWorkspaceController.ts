@@ -8,6 +8,7 @@ import { useWsOutbound } from "./useWsOutbound";
 import { useWsHeaderApps } from "./useWsHeaderApps";
 import { useGuidanceFocus } from "../../reference-cards";
 import { useNbaPause, useNbaSurfacing, useNbaTurns } from "../../next-best-action";
+import { useCannedVoiceReplies } from "../../canned-voice-replies";
 
 /** The agent workspace's controller (P-EXTRACT C8b): everything the page's
  *  body computed, in the same order (so the hooks run in the same order),
@@ -36,18 +37,20 @@ export function useWorkspaceController(props: WorkspaceControllerProps) {
   late.handleOutcomeSaveAndDismissChannel = outbound.handleOutcomeSaveAndDismissChannel;
   const workspace = useWsHeaderApps(outbound);
   late.handlePanelButtonClick = workspace.handlePanelButtonClick;
-  // P-CANVAS: the guidance's focus calls open a reference card on each contact's card; under AI display
-  // inline and main its Next Best Action surfaces in the conversation on a pause or the agent's request.
+  // P-CANVAS: the guidance's focus calls open a reference card on each contact's card; under every AI display
+  // its Next Best Action surfaces in the conversation (panel mode: its AI feed) on connect, a pause or the agent's
+  // request.
   useGuidanceFocus(workspace.interactions);
-  // Scripted cases gate on their agent lines (`useNbaTurns`); the pause rule is for unscripted sim contacts only.
-  const nbaEnabled = !workspace.aiInPanel;
+  // Scripted cases gate on their agent lines (`useNbaTurns`); the pause rule is for unscripted sim contacts only,
+  // and an unscripted call's caller answers with canned lines.
   const scriptedContactIds = useMemo(
     () => new Set(Object.values(workspace.scenarioCases.byKey).flatMap((c) => (c?.contact ? [c.contact.id as string] : []))),
     [workspace.scenarioCases.byKey],
   );
-  useNbaSurfacing(workspace.interactions, workspace.setInteractions, nbaEnabled);
-  useNbaPause(workspace.interactions, nbaEnabled, scriptedContactIds);
-  useNbaTurns(nbaEnabled);
+  useNbaSurfacing(workspace.interactions, workspace.setInteractions);
+  const onQuietPause = useCannedVoiceReplies(workspace.interactions, workspace.setInteractions, scriptedContactIds);
+  useNbaPause(workspace.interactions, scriptedContactIds, onQuietPause);
+  useNbaTurns();
   return workspace;
 }
 

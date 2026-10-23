@@ -14,6 +14,8 @@ import {
 } from "@nicecxone/lyra-ui";
 import { Bold, ChevronDown, FileText, Italic, Paperclip, Send, Smile, Zap } from "lucide-react";
 import { CopilotComposer } from "@/components/copilot-composer";
+import { t } from "@/i18n";
+import { useSettings } from "@/settings";
 import { ComposerFade } from "./ComposerFade";
 import {
   QUICK_REPLIES,
@@ -89,6 +91,8 @@ export function InteractionComposer({
   takeoverDisabledReason,
   hideAiActions,
   onHideAiActionsChange,
+  hideTranscript,
+  onHideTranscriptChange,
   copilotDock,
   floatingMenus = false,
   replyBlockedReason,
@@ -112,6 +116,9 @@ export function InteractionComposer({
   /** Shows a "Hide AI Actions" switch at the right of the mode toggle row. */
   hideAiActions?: boolean;
   onHideAiActionsChange?: (hide: boolean) => void;
+  /** Shows a "Hide Transcript" switch in the same row (a call under AI display inline, P-CANVAS). */
+  hideTranscript?: boolean;
+  onHideTranscriptChange?: (hide: boolean) => void;
   takeoverLabel?: string;
   takeoverDisabled?: boolean;
   takeoverDisabledReason?: string;
@@ -119,7 +126,8 @@ export function InteractionComposer({
   copilotOnly?: boolean;
   /** With `copilotOnly`: shows a "Take over" button in place of the toggle. */
   onTakeover?: () => void;
-  /** Suggestion chips shown under the "Ask Copilot" input; clicking one fills the question. */
+  /** Suggestion chips shown under the "Ask Copilot" input; clicking one asks it, or fills the question
+   *  (Settings → AI's chip behaviour). */
   copilotSuggestions?: string[];
   /** label → link key for chips that open a side panel (after a brief spinner) instead of filling the input. */
   copilotSuggestionLinks?: Record<string, string>;
@@ -176,10 +184,13 @@ export function InteractionComposer({
     }
   }, [composerTab]);
   const [copilotUsed, setCopilotUsed] = useState<string[]>([]);
+  // Settings → AI's chip behaviour (P-CANVAS): "run" asks a chip's question on the click, "fill" puts it in the input.
+  const [{ chipBehavior }] = useSettings("ai");
   const activateCopilotSuggestion = (suggestion: string) => {
     const link = copilotSuggestionLinks?.[suggestion];
     if (!link) {
-      setCopilotQuestion(suggestion);
+      if (chipBehavior === "run") submitCopilot(suggestion);
+      else setCopilotQuestion(suggestion);
       return;
     }
     if (copilotLoading) return;
@@ -472,6 +483,19 @@ export function InteractionComposer({
     />
   );
 
+  // The transcript's view switches, one row at the right of the mode toggle (or alone, Copilot-only).
+  const viewSwitches =
+    onHideAiActionsChange || onHideTranscriptChange ? (
+      <div className="flex items-center gap-4">
+        {onHideAiActionsChange && (
+          <Switch size="sm" label="Hide AI Actions" checked={!!hideAiActions} onCheckedChange={onHideAiActionsChange} />
+        )}
+        {onHideTranscriptChange && (
+          <Switch size="sm" label={t("Hide Transcript")} checked={!!hideTranscript} onCheckedChange={onHideTranscriptChange} />
+        )}
+      </div>
+    ) : null;
+
   // Docked (AI in the Contact Details panel): the same composer, portaled
   // into the panel's footer.
   const dockedCopilot = copilotDock?.mount
@@ -547,12 +571,8 @@ export function InteractionComposer({
         {/* "Chat with Customer" / "Ask Copilot" tabs: the chat input stays mounted (just hidden) while Copilot is showing so a draft is kept. */}
         {/* Docked Copilot: no mode toggle here, the chat input stands alone. */}
         {copilotDocked ? null : copilotOnly ? (
-          // Copilot-only (agent reviewing an AI-led chat): no mode toggle, just the switch at the right.
-          onHideAiActionsChange && (
-            <div className="mb-3 flex justify-end">
-              <Switch size="sm" label="Hide AI Actions" checked={!!hideAiActions} onCheckedChange={onHideAiActionsChange} />
-            </div>
-          )
+          // Copilot-only (agent reviewing an AI-led chat, or a call): no mode toggle, just the switches at the right.
+          viewSwitches && <div className="mb-3 flex justify-end">{viewSwitches}</div>
         ) : (
         <div className="mb-3 flex items-center justify-between gap-3">
         <ToggleGroup
@@ -568,14 +588,7 @@ export function InteractionComposer({
             if (next === "chat" || next === "copilot") setComposerTab(next);
           }}
         />
-        {onHideAiActionsChange && (
-          <Switch
-            size="sm"
-            label="Hide AI Actions"
-            checked={!!hideAiActions}
-            onCheckedChange={onHideAiActionsChange}
-          />
-        )}
+        {viewSwitches}
         </div>
         )}
         {/* Both panes stay mounted in one grid cell (the chat draft and the Copilot question are kept); the inactive

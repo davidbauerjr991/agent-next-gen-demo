@@ -53,6 +53,8 @@ import {
   AI_NBA_PAUSE_CHAT_FIELD,
   AI_NBA_PAUSE_VOICE_FIELD,
   AI_NBA_SCRIPTED_DELAY_FIELD,
+  AI_CHIP_BEHAVIOR_FIELD,
+  type AiChipBehavior,
   type AiCanvasLayout,
   AUTO_ACCEPT_CHANNELS,
   SOCIAL_CHANNELS,
@@ -590,26 +592,28 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
               />
             </DisabledReason>
           </div>
-          {/* Rendered from their declarations (label, description, range); the Next Best Action is a canvas row, unused under "panel". */}
+          {/* Rendered from their declarations (label, description, range); the Next Best Action is a conversation row under every AI display. */}
           {([
             ["nbaPauseChatMs", AI_NBA_PAUSE_CHAT_FIELD],
             ["nbaPauseVoiceMs", AI_NBA_PAUSE_VOICE_FIELD],
             ["nbaScriptedDelayMs", AI_NBA_SCRIPTED_DELAY_FIELD],
           ] as const).map(([key, field]) => (
             <div key={key} className="max-w-xs">
-              <DisabledReason
-                reason={ai.displayLocation === "panel" ? t("Not used when AI display is In the Contact Details panel") : undefined}
-                className="flex w-full"
-              >
-                <IntSettingInput
-                  field={field}
-                  value={ai[key]}
-                  disabled={ai.displayLocation === "panel"}
-                  onCommit={(value) => updateAi({ [key]: value })}
-                />
-              </DisabledReason>
+              <IntSettingInput field={field} value={ai[key]} onCommit={(value) => updateAi({ [key]: value })} />
             </div>
           ))}
+          <div className="max-w-xs">
+            <Select
+              label={t(AI_CHIP_BEHAVIOR_FIELD.meta!.label)}
+              labelHelpText={t(AI_CHIP_BEHAVIOR_FIELD.meta!.description)}
+              options={[
+                { value: "run", label: t("Run") },
+                { value: "fill", label: t("Fill the input") },
+              ]}
+              value={ai.chipBehavior}
+              onValueChange={(value) => updateAi({ chipBehavior: value as AiChipBehavior })}
+            />
+          </div>
         </Section>
 
         <Section title="Phone setup">

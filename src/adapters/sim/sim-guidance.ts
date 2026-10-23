@@ -16,8 +16,8 @@ import { isAgentTurn } from "./sim-scenario-player";
 // contact's Next Best Action (an assist `nba` card) and its Real-Time Summary
 // (an assist `text` card). Scripted contacts queue suggestions from the
 // script's steps (`nba`); every other contact follows a small rule set —
-// greet the customer (and say the contact is recorded), then ask what they
-// need. A queued suggestion surfaces only when the agent asks
+// greet the customer (and say the contact is recorded), surfaced at once on
+// connect, then ask what they need. A queued suggestion surfaces only when the agent asks
 // (`surface("request")`; "nothing to suggest" if the queue is empty) or the
 // conversation pauses (`surface("pause")`, which the agent UI times from its
 // settings), one at a time, never while a bot holds the contact. The agent's
@@ -79,7 +79,8 @@ interface Guide {
   queue: Queued[];
   /** The surfaced suggestion, until the agent answers it. */
   current?: Queued;
-  /** The agent's turn a scripted run waits on, not yet surfaced (it goes first). */
+  /** The agent's turn, not yet surfaced (it goes first): one a scripted run waits on, or an unscripted contact's
+   *  opening greeting. */
   turn?: Queued;
   /** Bumped per card state, so a "listening" or "nothing" card has its own step id. */
   seq: number;
@@ -236,7 +237,15 @@ export function createGuidance(host: GuidanceHost): Guidance {
         g.summary.revealed = g.summary.lines.length;
         sendSummary(g);
       }
-      enqueue(g, "rule-greeting", greetingNba(interaction.channel, host.customerName(interaction.id) ?? interaction.contactName));
+      const greeting = greetingNba(interaction.channel, host.customerName(interaction.id) ?? interaction.contactName);
+      // Every new assignment opens on the greeting at once (an inbound connect, a dialed outbound once the far end
+      // answers): it waits as the agent's turn, which the agent UI surfaces after the scripted beat. A bot holding
+      // the chat keeps it queued, for the pause after takeover.
+      if (interaction.review) enqueue(g, "rule-greeting", greeting);
+      else {
+        g.turn = { stepId: "rule-greeting", suggestion: suggestion(greeting) };
+        sendNba(g);
+      }
       // A known customer's journey lookup completes a moment later and brings the Journey Summary forward.
       if (interaction.entityId) {
         host.later(SIM_JOURNEY_LOOKUP_MS, () => {

@@ -37,3 +37,40 @@ export function simCustomerAutoReply(agentMessageText: string, acknowledgeTempla
   }
   return CUSTOMER_AUTO_REPLY_POOL[Math.floor(Math.random() * CUSTOMER_AUTO_REPLY_POOL.length)];
 }
+
+/** The simulated caller's lines on an unscripted call (P-CANVAS), per skill,
+ *  said in order — one after each Next Best Action the agent answers, or on a
+ *  pause with nothing to suggest — until the pool runs out and the caller
+ *  goes quiet. Voice's counterpart of `CUSTOMER_AUTO_REPLY_POOL` (TTS waits
+ *  for Phase 3: the lines are transcript utterances only). */
+export const VOICE_CUSTOMER_LINE_POOLS: Readonly<Record<string, readonly string[]>> = {
+  general: [
+    "Hi, thanks. I'm calling about my account.",
+    "I got a notice about a change and I'm not sure what it means.",
+    "Okay. Can you check that for me?",
+    "Great, that's all I needed. Thanks.",
+  ],
+  technical: [
+    "Hi. My device stopped connecting this morning.",
+    "I've already tried restarting it twice.",
+    "Okay, I'll try that now.",
+    "That worked. Thanks for the help.",
+  ],
+  billing: [
+    "Hi, thanks. I have a question about my last bill.",
+    "There's a charge on it I don't recognise.",
+    "Okay, can you take that off?",
+    "Perfect, thank you.",
+  ],
+  sales: [
+    "Hi. I'm looking at upgrading my plan.",
+    "What would that cost each month?",
+    "Okay, let's go ahead with that.",
+    "Great, thanks.",
+  ],
+};
+
+/** The caller's lines for a call on `skillId` (General Support's for a skill with no pool of its own). */
+export function simVoiceCustomerLines(skillId: string | undefined): readonly string[] {
+  return (skillId && VOICE_CUSTOMER_LINE_POOLS[skillId]) || VOICE_CUSTOMER_LINE_POOLS.general;
+}

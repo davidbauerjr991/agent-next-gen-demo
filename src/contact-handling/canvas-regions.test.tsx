@@ -127,12 +127,14 @@ describe("stacked canvas and panel mode", () => {
     });
   }
 
-  it("AI display panel: no canvas, whatever the layout setting", async () => {
+  it("AI display panel: no canvas, whatever the layout setting; the reference cells are Contact Details' Overview", async () => {
     await open({ displayLocation: "panel", canvasLayout: "twoColumn" });
     await CASES.noah();
     expect(region("action")).toBeNull();
     expect(region("reference")).toBeNull();
-    expect(h.container.querySelector("[data-canvas-cell]")).toBeNull();
+    const cells = [...h.container.querySelectorAll("[data-canvas-cell]")];
+    expect(cells.map((c) => c.getAttribute("data-canvas-cell"))).toEqual(REFERENCE);
+    for (const cell of cells) expect(cell.closest("[data-slot=right-panel]")).not.toBeNull();
   });
 });
 
@@ -206,11 +208,10 @@ describe("a slide-over takes the reference slot (inline and main)", () => {
       expect(slideOver()).toBeNull();
       const cards = [...region("reference")!.querySelectorAll("[data-canvas-cell]")];
 
-      // Ask Copilot with the first chip, then open its result row's slide-over.
+      // Ask Copilot with the first chip (the click asks it), then open its result row's slide-over.
       const chip = composer().querySelector<HTMLElement>("[data-slot=copilot-chips] [role=button]")!;
       const text = chip.textContent!.trim();
       await h.click(chip);
-      await h.click(composer().querySelector('button[aria-label="Submit"]')!);
       await h.advance(2_500);
       await h.click(resultRow(text));
       await h.advance(50);

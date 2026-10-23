@@ -65,7 +65,6 @@ export { ALREADY_OPEN_REASON, ON_A_CALL_REASON, alreadyOpenReasons, onCallReason
 export { panelToggleClass, PANEL_TOGGLE_ACTIVE } from "./panel-toggle";
 export { DisabledReason } from "./DisabledReason";
 export { useAgentAvailable, useChannelDisabledReasons, useReplyBlockedReason, UNAVAILABLE_REPLY_REASON, UNAVAILABLE_CALL_TOOLTIP } from "./presence-gates";
-export { AutosummaryCard } from "./AutosummaryCard";
 export { AiWorkspaceColumn, type AiWorkspaceColumnProps } from "./AiWorkspaceColumn";
 export { ConfirmCloseDialog } from "./ConfirmCloseDialog";
 export { useChannelSync } from "./useChannelSync";

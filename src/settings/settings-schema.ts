@@ -396,6 +396,16 @@ export const AI_NBA_SCRIPTED_DELAY_FIELD = int({
   min: 0,
   max: 10_000,
 });
+/** P-CANVAS: what an Ask Copilot chip does on click — "run" posts its
+ *  question at once (the "What should I do next?" chip surfaces the Next
+ *  Best Action), "fill" puts it in the input for the agent to send. A chip
+ *  that opens a panel opens it either way. */
+export const AI_CHIP_BEHAVIORS = ["run", "fill"] as const;
+export type AiChipBehavior = (typeof AI_CHIP_BEHAVIORS)[number];
+export const AI_CHIP_BEHAVIOR_FIELD = oneOf(AI_CHIP_BEHAVIORS, {
+  label: "Copilot chips",
+  description: "Run asks the chip's question as soon as it's clicked; fill puts the question in the Ask Copilot input to send yourself.",
+});
 export interface AiSettings {
   /** P4.4a's pinned-vs-auto card placement hangs off this section later. */
   displayLocation: AiDisplayLocation;
@@ -403,19 +413,28 @@ export interface AiSettings {
   nbaPauseChatMs: number;
   nbaPauseVoiceMs: number;
   nbaScriptedDelayMs: number;
+  chipBehavior: AiChipBehavior;
 }
 
-// No version bump for canvasLayout or the pause fields: a missing stored key reads as its default.
+// No version bump for canvasLayout, the pause fields or chipBehavior: a missing stored key reads as its default.
 const ai = defineSection<AiSettings>({
   key: "ai",
   version: 1,
-  defaults: { displayLocation: "inline", canvasLayout: "twoColumn", nbaPauseChatMs: 6000, nbaPauseVoiceMs: 8000, nbaScriptedDelayMs: 900 },
+  defaults: {
+    displayLocation: "inline",
+    canvasLayout: "twoColumn",
+    nbaPauseChatMs: 6000,
+    nbaPauseVoiceMs: 8000,
+    nbaScriptedDelayMs: 900,
+    chipBehavior: "run",
+  },
   fields: {
     displayLocation: oneOf(AI_DISPLAY_LOCATIONS),
     canvasLayout: AI_CANVAS_LAYOUT_FIELD,
     nbaPauseChatMs: AI_NBA_PAUSE_CHAT_FIELD,
     nbaPauseVoiceMs: AI_NBA_PAUSE_VOICE_FIELD,
     nbaScriptedDelayMs: AI_NBA_SCRIPTED_DELAY_FIELD,
+    chipBehavior: AI_CHIP_BEHAVIOR_FIELD,
   },
 });
 

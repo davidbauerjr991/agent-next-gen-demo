@@ -130,6 +130,7 @@ export function InteractionTranscript({
   contactOverview: contactOverviewIn,
   overview: overviewIn,
   hideAiActions = false,
+  hideTranscript = false,
   contactOverviewPosition,
   onViewCustomerInfo,
   onViewInteractionHistory,
@@ -755,7 +756,7 @@ export function InteractionTranscript({
                   !contactOverviewAtBottom &&
                   !overviewBeforeApproval &&
                   renderContactOverviewBlock(true)}
-                {messages.length > 0 && (
+                {messages.length > 0 && !hideTranscript && (
                   <div className="flex min-w-0 flex-col gap-5 pb-4">
                     {messages.map((message) => (
                       <TranscriptMessageBubble
@@ -882,6 +883,7 @@ export function InteractionTranscript({
                       bubbleFullWidth={transcriptBubbleFullWidth}
                       initialMessageIds={initialMessageIdsRef.current}
                       hideAiActions={hideAiActions}
+                      hideTranscript={hideTranscript}
                       aiCardHandlers={{ onApprovalDecision, onApprovalCallRequest, onApprovalSuggestionAsk, approvalTakenOver, onWrapUpComplete, onSnapshotLink, activeSnapshotLink }}
                     />
                   );

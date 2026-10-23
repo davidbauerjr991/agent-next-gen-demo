@@ -42,7 +42,7 @@ import { isAiActionMessage } from "@/components/agent-next-gen-ai-messages";
 import { buildNavItems } from "@/components/agent-next-gen-interaction-dashboard";
 import { useSearchPanelContent } from "@/components/agent-next-gen-search-panel";
 import { AGENT_WORKSPACE_CUSTOMER_PANEL_TABS, DetailsPanelAccordions } from "@/components/agent-next-gen-customer-info-panel";
-import { ADDRESS_BOOKS, AutosummaryCard, NewOutboundLauncher } from "@/contact-handling";
+import { ADDRESS_BOOKS, NewOutboundLauncher } from "@/contact-handling";
 import { LUCAS_THOMAS_ID, MARCUS_WEBB_ID } from "@/contact-handling/scenario-cases";
 import { leftNavKeysFromHeader, type ExtraHeaderApp } from "@/settings";
 import { MARCUS_WEBB_ORDER } from "@/components/agent-next-gen-marcus-webb-next-best-action-card";
@@ -55,15 +55,15 @@ import type { WsOutbound } from "./useWsOutbound";
 export function useWsHeaderApps(prev: WsOutbound) {
   const {
     SHARED_PANEL_MAX_WIDTH, activeChannelKey, activeInteraction, activeInteractionId, activeInteractionIsRealCustomer,
-    activePanelKey, activePreContactSummary, addToast, aiFollowSignal, aiInPanel, aiWorkspaceMain, blankPanelContent,
+    activePanelKey, addToast, aiFollowSignal, aiInPanel, aiWorkspaceMain, blankPanelContent,
     bodyContainerWidth, calling, channelPreviewThread, copilotFollows, copilotHost, customerContextOverviewInfo,
     customerInfoPreviewOpen, customerInfoPreviewTimer, contactDetailsView, customerTable, fullScreenRendered,
     fullScreenVisible, handleCopilotAsk, handleDialpadSubmit, handleFullScreenToDragMode, handleLucasApprovalDecision,
     handleLucasCallRequest, handleOpenInteractionRow, handlePanelVariantChange, handleStartCall, headerSettings,
-    hoverDockMounted, interactions, isColdCallId, isNavNarrow, journeySummaryUpdatedAtTick, leftNavPage,
+    hoverDockMounted, interactions, isColdCallId, isNavNarrow, leftNavPage,
     lucasActiveLinkKey, lucasThomasReviewing, marcusCardHost, navOpen, notifContent, notifications,
     openDetailPanelContent, openExperienceMemoryInSidePanel, outboundConfig, outboundDial, outboundSettings,
-    panelArtifacts, panelHeight, panelMounted, panelOpen, panelPlacement, panelRef, panelVariant,
+    panelArtifacts, panelHeight, panelMounted, panelOpen, panelRef, panelVariant,
     panelWidth, pinnedKeys, reopenPanelArtifact, scenarioCases, scenarioKeyOf, scheduleContent, screenPopContent,
     selectedDetailPanelContent, sessionDetailsTabContent, setActivePanelKey, setCustomerInfoPreviewOpen,
     setCustomerPanelActiveTab, setLeftNavPage, setLinkCustomerPanelOpen, setNarrowActiveRegion, setPanelFullScreen,
@@ -811,35 +811,15 @@ export function useWsHeaderApps(prev: WsOutbound) {
   };
 
   // Settings → AI display "In the Contact Details panel" (P-SETTINGS, ported
-  // from v3): the Autosummary and the AI rows (interstitials, approval
-  // requests, wrap-up cards, event lines) leave the transcript and render as
-  // a feed at the bottom of the docked Contact Details panel, with the same
-  // handlers the inline transcript uses.
-  // The Autosummary card (one `AutosummaryCard` everywhere), when there's a
-  // summary to show.
-  const renderAutosummary = () =>
-    activeInteraction && (activeInteractionIsRealCustomer || activePreContactSummary) && customerContextOverviewInfo ? (
-      <AutosummaryCard
-        cardKey={activeInteraction.id}
-        customerName={activeInteraction.customerName ?? ""}
-        snapshot={customerContextOverviewInfo.snapshot ?? []}
-        onSnapshotLink={snapshotLinkHandlerFor(activeInteraction.id)}
-      />
-    ) : undefined;
-  // The AI overview, the same in the AI feed (panel and "main") and at the top
-  // of the inline main column: the Autosummary, then Marcus's card, whose
-  // approval request is its own AI card like Lucas's (no Next Best Action slot).
-  const renderAiOverview = () => {
-    if (!activeInteraction) return undefined;
-    const autosummary = renderAutosummary();
-    const marcus = scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID && <HostSlot host={marcusCardHost} />;
-    return autosummary || marcus ? (
-      <>
-        {autosummary}
-        {marcus}
-      </>
-    ) : undefined;
-  };
+  // from v3): the AI rows (interstitials, approval requests, Next Best Action
+  // rows, wrap-up cards, event lines) leave the transcript and render as a
+  // feed at the bottom of the docked Contact Details panel, under the Agentic
+  // reference cards, with the same handlers the inline transcript uses.
+  // Panel mode's AI overview at the top of the feed: Marcus's card, whose
+  // approval request is its own AI card like Lucas's. (Under inline and
+  // "main" it's the canvas's action cells that precede the conversation.)
+  const renderAiOverview = () =>
+    activeInteraction && scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID ? <HostSlot host={marcusCardHost} /> : undefined;
   // `overview` replaces the AI overview at the top of the feed: under AI
   // display "main" the canvas passes the action cells that precede the
   // conversation (P-CANVAS); panel mode keeps `renderAiOverview()`.
@@ -860,11 +840,9 @@ export function useWsHeaderApps(prev: WsOutbound) {
       />
     );
   };
-  // Contact Details' Overview and Session tab, one render each: the docked
-  // panel and its hover preview mount the same thing (the preview only also
-  // closes itself when it hands off to the panel).
-  // What the reference cards (Customer Info, Journey Summary, Artifacts) read,
-  // wherever they mount: Contact Details' tabs, its hover preview, the canvas.
+  // What the reference cards (Real-Time Summary, Journey Summary with its
+  // Artifacts, Customer Info) read, wherever they mount: the canvas, or panel
+  // mode's Contact Details Overview and its hover preview.
   const referenceCardPropsFor = (inPreview: boolean): ReferenceCardProps | undefined => {
     if (!activeInteraction) return undefined;
     const closePreview = () => {
@@ -884,41 +862,27 @@ export function useWsHeaderApps(prev: WsOutbound) {
           : undefined,
       customerName: activeInteraction.customerName,
       customerContextOverview: customerContextOverviewInfo,
-      showJourneySummary: true,
-      journeySummaryUpdatedAtTick,
       onViewCustomerInfo: activeInteractionIsRealCustomer ? focusCustomerPanelTab : undefined,
       // The on-demand search/create-new overlay (`linkCustomerPanelOpen`); nothing to link once matched.
       onLinkCustomer: activeInteractionIsRealCustomer ? undefined : inPreview ? handleLinkCustomerFromPreview : () => setLinkCustomerPanelOpen(true),
     };
   };
   const referenceCardProps = referenceCardPropsFor(false);
-  const renderContactDetailsTab = (tab: "Overview" | "Session", inPreview = false) => {
+  // Contact Details' Overview (panel mode) and Session tab, one render each: the docked panel and its hover preview
+  // mount the same thing (the preview only also closes itself when it hands off to the panel, k5 G). Overview is the
+  // reference cards (`cards`: the canvas registry's reference cells, the same as the reference column's) above the AI
+  // feed.
+  const renderContactDetailsTab = (tab: "Overview" | "Session", inPreview = false, cards?: ReactNode) => {
     if (!activeInteraction) return null;
-    const { onViewCustomerInfo, onLinkCustomer, ...shared } = referenceCardPropsFor(inPreview)!;
-    if (tab === "Session") {
-      // AI display "panel": the Session tab also holds the Journey Summary and Artifacts.
-      return aiInPanel ? (
-        <>
-          <DetailsPanelAccordions show={PANEL_SESSION_SECTIONS} {...shared} />
-          {sessionDetailsTabContent.body}
-        </>
-      ) : (
-        sessionDetailsTabContent.body
-      );
-    }
-    const overview = (
+    if (tab === "Session") return sessionDetailsTabContent.body;
+    return (
       <DetailsPanelAccordions
-        {...shared}
-        show={aiInPanel ? PANEL_OVERVIEW_SECTIONS : undefined}
+        cards={cards}
         aiFeed={aiInPanel && !aiWorkspaceMain ? renderAiPanelFeed() : undefined}
         aiFeedCount={aiFeedCount}
         followSignal={inPreview ? undefined : aiFollowSignal}
-        onViewCustomerInfo={onViewCustomerInfo}
-        onLinkCustomer={onLinkCustomer}
       />
     );
-    // In the hover preview, `ContactDetailsTabBody` hands an action off to the docked panel (k5 G), for every tab.
-    return overview;
   };
   // How many AI items the panel feed holds (the overview counts as one); a
   // change scrolls the panel to the newest when the agent is at the bottom.
@@ -946,20 +910,9 @@ export function useWsHeaderApps(prev: WsOutbound) {
   copilotFollows.current = copilotSlot === "main" || copilotSlot === "panel-footer";
   // The composer always portals into the same host while docked; no slot holding it hides it without unmounting it.
   const copilotDock = aiWorkspaceMain || aiInPanel ? { mount: copilotHost } : undefined;
-  // A thread outside the main column (the panel, the header icon's hover
-  // preview) is the thread view only: its transcript with the Autosummary
-  // (AI display inline; elsewhere the AI feed holds it) and its composer.
-  // Customer Info, the Next Best Action text and the rest of Contact Details
-  // belong to the Contact Details preview alone.
-  const threadOverview = !aiInPanel && !panelPlacement ? renderAutosummary() : undefined;
   // The main transcript's current session row is the record header's second line (AI display inline and panel;
   // under "main" it's the panel thread's, in the panel header, k5 B). A past session's view has no transcript.
   const sessionRowInHeader = !!activeInteraction && !aiWorkspaceMain && !isHistoryConversationView;
-  // "AI in panel": Overview holds Customer Info (plus the AI feed: the
-  // Autosummary, approvals, Next Best Action); the Session tab holds the
-  // Journey Summary and Artifacts. Inline mode shows everything on Overview.
-  const PANEL_OVERVIEW_SECTIONS = { customerInfo: true, journeySummary: false, artifacts: false };
-  const PANEL_SESSION_SECTIONS = { customerInfo: false, journeySummary: true, artifacts: true };
   // "AI in panel": the Contact Details panel opens on Details whenever an
   // interaction becomes active. Declared after the interaction-switch panel
   // save/restore effects so it wins (v3).
@@ -997,9 +950,9 @@ export function useWsHeaderApps(prev: WsOutbound) {
     pinnedKeysInHeaderOrder, appHeaderRef, appNameMeasureRef, headerIconsMeasureRef, autoHiddenCount,
     setAutoHiddenCount, responsivelyHiddenKeys, showHeaderIcon, leftNavRenderWidth, maxDockedWidthForMainFloor,
     sharedPanel, sharedPanelFullScreenOverlay, leftNavKeys, leftNavPageShown, leftNavAppItems, homeNavItem,
-    restNavItems, navRailItems, snapshotLinkHandlerFor, renderAutosummary, renderAiOverview, renderAiPanelFeed, referenceCardProps,
+    restNavItems, navRailItems, snapshotLinkHandlerFor, renderAiOverview, renderAiPanelFeed, referenceCardProps,
     renderContactDetailsTab, aiFeedCount, copilotDockShown, copilotDockConcealed, copilotSlot, copilotDock,
-    threadOverview, sessionRowInHeader, PANEL_OVERVIEW_SECTIONS, PANEL_SESSION_SECTIONS, newOutboundLauncher,
+    sessionRowInHeader, newOutboundLauncher,
   };
 }
 

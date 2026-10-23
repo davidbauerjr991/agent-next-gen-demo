@@ -4,6 +4,7 @@
 import { Tab, TabList } from "@nicecxone/lyra-ui";
 import { ChannelThreadBody } from "@/contact-handling/ChannelThreadPane";
 import { LUCAS_THOMAS_ID } from "@/contact-handling/scenario-cases";
+import { useReferenceCells } from "@/contact-handling/useCanvasRegions";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import type { ContactDetailsTab, ContactDetailsTabContext } from "@/contact-handling/contact-details-tabs";
 import { contactDetailsTab, contactDetailsTabs } from "@/contact-handling/contact-details-tabs";
@@ -12,9 +13,11 @@ import { t } from "@/i18n";
 const panelOnly = ({ aiInPanel }: ContactDetailsTabContext) => aiInPanel;
 const withRecord = ({ realCustomer }: ContactDetailsTabContext) => realCustomer;
 
-/** Panel mode's Overview: Customer Info and the AI feed (unchanged). */
+/** Panel mode's Overview: the Agentic reference cards (the canvas registry's reference cells, the reference
+ *  column's own) above the AI feed. */
 function OverviewBody({ inPreview }: { inPreview: boolean }) {
-  return <>{useWorkspace().renderContactDetailsTab("Overview", inPreview)}</>;
+  const cards = useReferenceCells();
+  return <>{useWorkspace().renderContactDetailsTab("Overview", inPreview, cards)}</>;
 }
 
 /** Customer Information, Notes and Detail: the customer record's own bodies
@@ -56,17 +59,18 @@ export const DEFAULT_CONTACT_DETAILS_TABS: readonly ContactDetailsTab[] = [
   { id: "Customer Information", label: "Overview", panelLabel: "Customer Information", order: 10, applies: withRecord, Body: CustomerRecordBody },
   { id: "Notes", label: "Notes", order: 20, applies: withRecord, Body: CustomerRecordBody },
   { id: "Detail", label: "Detail", order: 30, Body: CustomerRecordBody },
-  { id: "Transcript", label: "Transcript", order: 40, Body: TranscriptBody },
+  // Only when the thread isn't already on screen: a closed card, a past session, a call whose transcript is hidden.
+  { id: "Transcript", label: "Transcript", order: 40, applies: ({ threadOnScreen }) => !threadOnScreen, Body: TranscriptBody },
   { id: "Session Details", label: "Session", order: 50, Body: SessionBody },
 ];
 
 /** The tab row, from the registry. */
 export function ContactDetailsTabRow() {
-  const { aiInPanel, activeInteractionIsRealCustomer, contactDetailsView, setCustomerPanelActiveTab } = useWorkspace();
+  const { aiInPanel, contactDetailsTabContext, contactDetailsView, setCustomerPanelActiveTab } = useWorkspace();
   return (
     // "compact": collapse into "N More" only when the tabs don't fit (a narrow panel or preview), not below a fixed width.
     <TabList className="px-4" overflowMenu overflowBreakpoint="compact" data-slot="contact-details-tabs">
-      {contactDetailsTabs({ aiInPanel, realCustomer: activeInteractionIsRealCustomer }).map((tab) => (
+      {contactDetailsTabs(contactDetailsTabContext).map((tab) => (
         <Tab key={tab.id} active={contactDetailsView === tab.id} onClick={() => setCustomerPanelActiveTab(tab.id)}>
           {t(aiInPanel && tab.panelLabel ? tab.panelLabel : tab.label)}
         </Tab>

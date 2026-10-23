@@ -297,7 +297,7 @@ describe("Voice: controls location", () => {
 });
 
 describe("AI: display location", () => {
-  it("In the Contact Details panel moves Lucas's Autosummary and approval card out of the transcript", async () => {
+  it("In the Contact Details panel moves Lucas's approval card out of the transcript, below the Agentic reference cards", async () => {
     await h.show(AgentWorkspaceAdvancedPage);
     await h.play(LUCAS_THOMAS_SCRIPT.id);
     await h.click(h.navCard("Lucas Thomas"));
@@ -314,7 +314,11 @@ describe("AI: display location", () => {
     // One approval card, and it's in the panel's feed.
     expect(occurrences(prompt)).toHaveLength(1);
     expect(feed()!.contains(occurrences(prompt)[0])).toBe(true);
-    expect(feed()!.textContent).toContain("Autosummary");
+    // No Autosummary (P-CANVAS): the Real-Time Summary is a reference card above the feed.
+    expect(h.container.querySelector("[data-slot=autosummary]")).toBeNull();
+    const summary = h.container.querySelector("[data-slot=right-panel] [data-canvas-cell=real-time-summary]")!;
+    expect(summary).not.toBeNull();
+    expect(summary.compareDocumentPosition(feed()!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     // Deciding from the panel reaches the provider like the inline card.
     const approve = [...feed()!.querySelectorAll("button, [role=radio], label")].find((el) =>
@@ -480,14 +484,16 @@ describe("AI display panel: docked Copilot composer", () => {
     await clickText("Overview");
     expect(composer()).not.toBeNull();
 
+    // Customer Info is an Overview card (P-CANVAS): open it (its header also reads its status), then follow its link.
+    await h.click(document.body.querySelector("[data-slot=right-panel] [data-slot=customer-info-card] [aria-expanded]")!);
     await clickText("View customer info");
     expect(composer()).toBeNull();
     await clickText("Back to Details");
     expect(composer()).not.toBeNull();
 
-    // In panel mode the Journey Summary (with its "View Experience Memory"
-    // link) is on the Session tab.
-    await clickText("Session");
+    // The Journey Summary (with its "View Experience Memory" link) is an
+    // Overview card (P-CANVAS): open it, then follow the link.
+    await h.click(document.body.querySelector("[data-slot=right-panel] [data-slot=journey-summary] [aria-expanded]")!);
     await clickText("View Experience Memory");
     expect(composer()).toBeNull();
     await clickText("Back to Contact Details");
@@ -532,23 +538,23 @@ describe("Contact Details Overview stack, events, composer fade", () => {
     await h.click(tab);
   };
 
-  it("(5, 10) panel mode: Overview = Customer Info + Autosummary + AI feed; Session = Journey Summary + Artifacts; all AICards radius md", async () => {
+  it("(5, 10) panel mode: Overview = the Agentic reference cards (Real-Time Summary, Journey Summary, Customer Info) + the AI feed; Session has none of them; the feed's AICards radius md", async () => {
     await lucas("panel");
-    for (const title of ["Autosummary", "Approval request"]) {
-      expect(aiCard(title, body()), `${title} AICard on Overview`).not.toBeNull();
-    }
-    for (const title of ["Journey Summary", "Artifacts"]) {
-      expect(aiCard(title, body()), `${title} not on Overview`).toBeNull();
-    }
-    // Customer Info: lyra's plain accordion, not an AICard.
-    expect(aiCard("Customer Info", body())).toBeNull();
-    expect(body().textContent).toContain("Customer Info");
+    // The reference column's own cells, in its order, then the feed.
+    const order = [...body().querySelectorAll("[data-slot=real-time-summary], [data-slot=journey-summary], [data-slot=customer-info-card], [data-slot=ai-feed]")].map(
+      (el) => el.getAttribute("data-slot"),
+    );
+    expect(order).toEqual(["real-time-summary", "journey-summary", "customer-info-card", "ai-feed"]);
+    expect(body().querySelector("[data-slot=autosummary]")).toBeNull();
+    expect(aiCard("Approval request", body()), "Approval request AICard on Overview").not.toBeNull();
+    // The Journey Summary carries the Artifacts; no separate Artifacts card.
+    expect(aiCard("Artifacts", body())).toBeNull();
 
     await clickTab("Session");
-    for (const title of ["Journey Summary", "Artifacts"]) {
-      expect(aiCard(title, body()), `${title} AICard on Session`).not.toBeNull();
+    const rightPanel = document.body.querySelector("[data-slot=right-panel]")!;
+    for (const slot of ["real-time-summary", "journey-summary", "customer-info-card"]) {
+      expect(rightPanel.querySelector(`[data-slot=${slot}]`), `${slot} not on Session`).toBeNull();
     }
-    expect(body().textContent).not.toContain("Customer Info");
   });
 
   it("(10) inline mode (P-CANVAS): no panel Overview tab; Customer Info and Journey Summary are in the reference column; Session doesn't get them", async () => {
@@ -576,12 +582,15 @@ describe("Contact Details Overview stack, events, composer fade", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("(5) says Journey Summary, never Real-Time Summary", async () => {
+  it("(5) panel mode: Overview names both summaries, the Real-Time Summary and the Journey Summary, once each; Session neither", async () => {
     await lucas("panel");
-    expect(document.body.textContent).not.toContain("Real-Time Summary");
+    const rightPanel = () => document.body.querySelector<HTMLElement>("[data-slot=right-panel]")!;
+    for (const title of ["Real-Time Summary", "Journey Summary"]) {
+      expect(leaves(title).filter((el) => rightPanel().contains(el)), title).toHaveLength(1);
+    }
     await clickTab("Session");
-    expect(document.body.textContent).toContain("Journey Summary");
-    expect(document.body.textContent).not.toContain("Real-Time Summary");
+    expect(rightPanel().textContent).not.toContain("Journey Summary");
+    expect(rightPanel().textContent).not.toContain("Real-Time Summary");
   });
 
   it("(6) panel mode: the event rows stay in the transcript; the approval card moves to the panel", async () => {
@@ -641,12 +650,19 @@ describe("(14) voice transcript placement", () => {
   // (k5): a call's tab follows AI display like every other thread: its
   // transcript (spoken lines) in the main column, with the AI rows inline
   // (inline) or in Contact Details (panel). P-CANVAS: Contact Details' own
-  // Transcript tab (every mode) shows the same call read-only.
+  // Transcript tab shows the same call read-only — under panel always, under
+  // inline once Hide Transcript has taken it out of the main column.
   for (const display of ["inline", "panel"] as const) {
-    it(`${display} mode: the call's transcript is in the main column; Contact Details' Transcript tab shows it read-only`, async () => {
+    it(`${display} mode: the call's transcript is in the main column; Contact Details' Transcript tab shows it read-only${display === "inline" ? " (after Hide Transcript)" : ""}`, async () => {
       await marcus(display);
       expect(document.body.querySelector("[data-main-thread=voice] [data-slot=ai-workspace]")).toBeNull();
       expect(lineInMain()).toBe(true);
+      if (display === "inline") {
+        expect(transcriptTab()).toBeUndefined();
+        const label = [...document.body.querySelectorAll<HTMLElement>("label")].find((l) => l.textContent?.trim() === "Hide Transcript")!;
+        await h.click(label.querySelector<HTMLElement>("[role=switch], button") ?? label.parentElement!.querySelector<HTMLElement>("[role=switch], button")!);
+        expect(lineInMain()).toBe(false);
+      }
       await h.click(transcriptTab() as HTMLElement);
       const tab = panel().querySelector("[data-slot=contact-details-transcript]")!;
       expect(tab.textContent).toContain(LINE);

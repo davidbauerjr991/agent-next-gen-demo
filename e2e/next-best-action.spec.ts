@@ -65,14 +65,14 @@ const CONTACTS: Record<string, { who: string; open: (page: Page) => Promise<void
 
 const nba = (page: Page) => page.locator("[data-slot=next-best-action]");
 
-// Unscripted sim contacts: the pause rule and the chip.
+// Unscripted sim contacts: the greeting on connect, then the pause rule and the chip.
 for (const displayLocation of ["inline", "main"] as const) {
   const contact = CONTACTS.simChat;
-  test(`${displayLocation}, sim chat: no Next Best Action at first; after the pause it's a row in the conversation`, async ({ page }) => {
+  test(`${displayLocation}, sim chat: the greeting surfaces at once on connect (no pause), as a row in the conversation`, async ({ page }) => {
     await start(page, displayLocation);
     await contact.open(page);
-    await expect(nba(page)).toHaveCount(0);
-    await expect(nba(page)).toHaveAttribute("data-frame", "say", { timeout: 15_000 });
+    // The scripted beat (0.9s), well inside the 3s pause; a loaded machine gets a margin.
+    await expect(nba(page)).toHaveAttribute("data-frame", "say", { timeout: 2_500 });
     await expect(nba(page)).toContainText(`Greet ${contact.who}`);
     // A row of the conversation (the transcript inline, the AI feed under "main"), not a canvas cell.
     const placement = await nba(page).evaluate((el) => ({ inMain: !!el.closest("[data-main-thread]"), inCell: !!el.closest("[data-canvas-cell]") }));
@@ -81,15 +81,17 @@ for (const displayLocation of ["inline", "main"] as const) {
     expect(await page.locator("[data-canvas-region=reference] [aria-expanded=true]").count()).toBe(1);
   });
 
-  test(`${displayLocation}, sim chat: the chip surfaces it at once`, async ({ page }) => {
+  test(`${displayLocation}, sim chat: after the greeting, the chip surfaces the next one at once`, async ({ page }) => {
     await start(page, displayLocation);
     await contact.open(page);
+    await expect(nba(page)).toHaveAttribute("data-frame", "say", { timeout: 5_000 });
+    await nba(page).getByRole("button", { name: "Not now" }).click();
     await expect(nba(page)).toHaveCount(0);
     const chip = page.locator("[data-slot=copilot-chip-pinned]:visible").first();
     // An inline chat shows its chat input first; the chip is in the Ask Copilot pane.
     if (!(await chip.isVisible())) await page.getByRole("radio", { name: "Ask Copilot" }).or(page.getByRole("button", { name: "Ask Copilot" })).first().click();
     await chip.click();
-    await expect(nba(page)).toHaveAttribute("data-frame", "say", { timeout: 1_500 });
+    await expect(nba(page)).toHaveAttribute("data-frame", "ask", { timeout: 1_500 });
   });
 }
 

@@ -28,6 +28,7 @@ export function TranscriptLiveMessages({
   bubbleFullWidth,
   initialMessageIds,
   hideAiActions,
+  hideTranscript = false,
   aiCardHandlers,
 }: {
   /** The session's live messages that already existed when the contact loaded (above the overview). */
@@ -56,6 +57,8 @@ export function TranscriptLiveMessages({
   /** Ids present at first render: those render without the entrance animation. */
   initialMessageIds: Set<string> | null;
   hideAiActions: boolean;
+  /** A call's "Hide Transcript" (P-CANVAS): only the AI rows render. */
+  hideTranscript?: boolean;
   aiCardHandlers: AiActionCardHandlers;
 }) {
   const renderBubble = (message: TranscriptMessage) => (
@@ -92,6 +95,8 @@ export function TranscriptLiveMessages({
     />
   );
   const renderLiveMessage = (message: TranscriptMessage) => {
+    const isAiAction = !!(message.instruction || message.wrapUp || message.summary || message.saveAddress || message.nbaOutcome || message.nba || message.event);
+    if (hideTranscript && !isAiAction) return null;
     const rendered = message.instruction || message.wrapUp || message.saveAddress || message.nbaOutcome || message.nba ? (
       <AiActionCard key={message.id} message={message} {...aiCardHandlers} />
     ) : message.summary ? (
@@ -111,7 +116,6 @@ export function TranscriptLiveMessages({
     ) : (
       renderBubble(message)
     );
-    const isAiAction = !!(message.instruction || message.wrapUp || message.summary || message.saveAddress || message.nbaOutcome || message.nba || message.event);
     const entered = initialMessageIds?.has(message.id) ? (
       rendered
     ) : (

@@ -47,7 +47,7 @@ export function WorkspaceRightPanel() {
     rightPanelRef, scenarioKeyOf, sessionDetailsTabContent, setActiveCustomerOverviewEditing,
     setCustomerMatchQuery, setCustomerPanelActiveTab, setHistoryConversationTab, setLinkCustomerPanelOpen,
     setSidePanelFullScreen, setSidePanelResizing, setSidePanelWidth, showPanelToggle, sidePanelContainerWidth,
-    sidePanelFullScreen, sidePanelOpen, sidePanelResizing, sidePanelWidth, threadOutcomeProps, threadOverview,
+    sidePanelFullScreen, sidePanelOpen, sidePanelResizing, sidePanelWidth, threadOutcomeProps,
     viewSessionDetails,
   } = useWorkspace();
   return (
@@ -452,7 +452,6 @@ export function WorkspaceRightPanel() {
                         hideAiActions={hideAiActions}
                         withoutAiActions={panelPlacement}
                         sessionRowInHeader={panelPlacement}
-                        overview={threadOverview}
                         onSendDraft={() => handleSendEmailDraft(activeInteraction.id, channelPreviewThreadStableKey!)}
                         hideMockFollowUpMessages={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID}
                         onStatusChange={(status) =>

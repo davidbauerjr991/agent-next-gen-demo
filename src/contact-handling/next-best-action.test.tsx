@@ -1,11 +1,14 @@
 // @vitest-environment jsdom
 // P-CANVAS: the Next Best Action is inline and on demand — a row in the
-// conversation that surfaces only on a pause (no customer or agent turn for
-// Settings → AI's pause) or the agent's request ("What should I do next?"),
-// never while a bot holds the chat. Using it or putting it aside replaces it
-// with a compact Used/Dismissed row. Plus the reference column's cards: any
-// number open, the AI focusing, the Journey Summary always resolving, and
-// Customer Info's identity block.
+// conversation (every AI display) that surfaces on the agent's turn (a new
+// assignment's greeting at once, a scripted agent line), on a pause (no
+// customer or agent turn for Settings → AI's pause) or the agent's request
+// ("What should I do next?"), never while a bot holds the chat. Using it or
+// putting it aside replaces it with a compact Used/Dismissed row. An
+// unscripted call's caller answers with canned lines. Chips run or fill
+// (Settings → AI). A call's Hide Transcript. Plus the reference column's
+// cards: any number open, the AI focusing, the Journey Summary always
+// resolving, and Customer Info's identity block.
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
@@ -20,6 +23,7 @@ import { profileValues } from "@/settings/profiles";
 import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
 import type { AiSettings } from "@/settings/settings-schema";
 import { canvasCellDefinition, resetCanvasRegistry } from "./canvas-registry";
+import { simVoiceCustomerLines } from "@/adapters/sim/sim-auto-replies";
 import { NBA_CHIP } from "./next-best-action";
 
 const h = createWorkspaceHarness({ seed: SIM_DEMO_SEED });
@@ -87,46 +91,74 @@ describe("the registry", () => {
   });
 });
 
-describe("the Next Best Action surfaces on a pause or on request", () => {
-  for (const displayLocation of ["inline", "main"] as const) {
-    it(`AI display ${displayLocation}: no row before the pause; after it, the greeting as a row in the conversation`, async () => {
+/** The beat between reaching the agent's turn and its suggestion (Settings → AI's default), plus a margin. */
+const BEAT_MS = 900 + 100;
+const UNKNOWN = "(161) 474-9179";
+
+/** An outbound call to an unknown number, its card selected. The harness rings for 0ms, so the far end answers at
+ *  once (that nothing surfaces while a call rings is sim-guidance.test.ts's). */
+async function dialUnknown() {
+  await act(async () => {
+    const dialed = h.provider.dial({ channel: "voice", address: UNKNOWN, skillId: "general" });
+    await vi.advanceTimersByTimeAsync(50);
+    await dialed;
+  });
+  await h.click(h.navCard(UNKNOWN));
+}
+
+/** The caller's canned lines in the call's transcript, in order. */
+const callerLines = () => simVoiceCustomerLines("general").filter((line) => main().textContent?.includes(line));
+
+describe("the Next Best Action: the greeting on connect, then on a pause or on request", () => {
+  for (const displayLocation of ["inline", "main", "panel"] as const) {
+    it(`AI display ${displayLocation}: an inbound chat's greeting surfaces at once on connect (the beat, no pause), as a row in the conversation`, async () => {
       await open({ displayLocation });
       await priyaChat();
-      await h.advance(5_000);
-      expect(nba()).toBeNull();
-      await h.advance(1_500);
+      await h.advance(BEAT_MS);
       expect(frame()).toBe("say");
       expect(nba()!.textContent).toContain("Greet Priya and say the chat is recorded");
-      // In the conversation (inline) or the AI feed ("main"), not a canvas cell.
-      expect(nba()!.closest("[data-main-thread]")).not.toBeNull();
+      // In the conversation (inline) or the AI feed ("main": the main column; panel: Contact Details), not a canvas cell.
+      expect(nba()!.closest(displayLocation === "panel" ? "[data-slot=right-panel] [data-slot=ai-feed]" : "[data-main-thread]")).not.toBeNull();
       expect(nba()!.closest("[data-canvas-cell]")).toBeNull();
     });
   }
 
-  it("a turn before the pause resets the timer", async () => {
+  it("a dialed outbound: answered → the greeting within the beat (not before it); Said it", async () => {
+    await open({ displayLocation: "inline" });
+    await dialUnknown();
+    expect(nba()).toBeNull();
+    await h.advance(BEAT_MS);
+    expect(frame()).toBe("say");
+    expect(nba()!.textContent).toContain("Greet the customer and say the call is recorded");
+    expect(button("Said it")).toBeDefined();
+  });
+
+  it("after the greeting, a turn before the pause resets the timer; then the reason surfaces", async () => {
     await open({ displayLocation: "inline" });
     await priyaChat();
+    await h.advance(BEAT_MS);
+    await h.click(button("Not now")!);
     await h.advance(4_000);
     // The agent's line (and the customer's reply 2.5s later) are turns.
     await sendChat("Hi Priya, one moment please.");
     await h.advance(5_000);
     expect(nba()).toBeNull();
     await h.advance(5_000);
-    expect(frame()).toBe("say");
+    expect(frame()).toBe("ask");
   });
 
-  it("the pause is a setting (voice: 8s by default; here 3s)", async () => {
-    await open({ displayLocation: "inline", nbaPauseVoiceMs: 3000 });
-    await act(async () => {
-      const dialed = h.provider.dial({ channel: "voice", address: "(161) 474-9179", skillId: "general" });
-      await vi.advanceTimersByTimeAsync(500);
-      await dialed;
-    });
-    await h.click(h.navCard("(161) 474-9179"));
+  it("the pause is a setting (voice: 8s by default; here 4s)", async () => {
+    await open({ displayLocation: "inline", nbaPauseVoiceMs: 4000 });
+    await dialUnknown();
+    await h.advance(BEAT_MS);
+    await h.click(button("Said it")!);
+    // The caller's reply (1.5–3s) is a turn; the reason surfaces a pause (4s) after it: 5.5–7s from Said it.
+    await h.advance(3_000);
+    expect(callerLines()).toHaveLength(1);
     await h.advance(2_000);
     expect(nba()).toBeNull();
-    await h.advance(1_500);
-    expect(frame()).toBe("say");
+    await h.advance(2_100);
+    expect(frame()).toBe("ask");
     expect(button("Said it")).toBeDefined();
   });
 
@@ -134,6 +166,7 @@ describe("the Next Best Action surfaces on a pause or on request", () => {
     await open({ displayLocation: "inline" });
     await priyaChat();
     expect(chip()?.textContent).toContain(NBA_CHIP);
+    // The greeting is already showing (on connect); the chip asks before the beat ends.
     await h.click(chip()!);
     await h.advance(50);
     expect(frame()).toBe("say");
@@ -213,6 +246,127 @@ describe("the Next Best Action surfaces on a pause or on request", () => {
     expect(frame()).toBe("say");
     expect(nba()!.textContent).toContain("Greet Lucas");
   });
+});
+
+describe("an unscripted call's caller answers with canned lines", () => {
+  it("each answered suggestion gets the next line from the skill's pool (1.5–3s), and so does a pause with nothing queued; once the pool is used up the caller goes quiet", async () => {
+    // A 4s pause, so each line (1.5–3s) lands before the pause it restarts.
+    await open({ displayLocation: "inline", nbaPauseVoiceMs: 4000 });
+    await dialUnknown();
+    await h.advance(BEAT_MS);
+    // Said it on the greeting: the first line, not before 1.5s, by 3s.
+    await h.click(button("Said it")!);
+    await h.advance(1_400);
+    expect(callerLines()).toHaveLength(0);
+    await h.advance(1_600);
+    expect(callerLines()).toEqual(simVoiceCustomerLines("general").slice(0, 1));
+    // The reason a pause after that line; Not now answers it too.
+    await h.advance(4_100);
+    expect(frame()).toBe("ask");
+    await h.click(button("Not now")!);
+    await h.advance(3_000);
+    expect(callerLines()).toHaveLength(2);
+    // Nothing queued now: each pause (4s) is the caller's next line (1.5–3s later), until the pool runs out.
+    await h.advance(16_000);
+    expect(callerLines()).toEqual([...simVoiceCustomerLines("general")]);
+    await h.advance(30_000);
+    expect(callerLines()).toHaveLength(simVoiceCustomerLines("general").length);
+    expect(nba()).toBeNull();
+  });
+});
+
+describe("Settings → AI: chip behaviour", () => {
+  const firstChip = () => document.body.querySelector<HTMLElement>("[data-slot=copilot-chips] [role=button]")!;
+  const askInput = () => document.body.querySelector<HTMLTextAreaElement>("[data-slot=copilot-composer] textarea")!;
+  const resultRow = (text: string) =>
+    [...main().querySelectorAll<HTMLElement>("button")].find((b) => b.textContent?.startsWith(text) && b.textContent.includes("John Smith"));
+
+  it("run (the default): a chip posts its question on the click, with no send", async () => {
+    expect(getSettingsStore().getState().values.ai.chipBehavior).toBe("run");
+    await open({ displayLocation: "inline" });
+    await priyaChat();
+    const text = firstChip().textContent!.trim();
+    await h.click(firstChip());
+    await h.advance(2_500);
+    expect(resultRow(text)).toBeDefined();
+    expect(askInput().value).toBe("");
+  });
+
+  it("fill: a chip fills the Ask Copilot input and doesn't post", async () => {
+    await open({ displayLocation: "inline", chipBehavior: "fill" });
+    await priyaChat();
+    const text = firstChip().textContent!.trim();
+    await h.click(firstChip());
+    await h.advance(2_500);
+    expect(askInput().value).toBe(text);
+    expect(resultRow(text)).toBeUndefined();
+  });
+
+  it("run: the Next Best Action chip surfaces it at once in panel mode too", async () => {
+    await open({ displayLocation: "panel" });
+    await priyaChat();
+    await h.advance(BEAT_MS);
+    await h.click(button("Not now")!);
+    await h.advance(50);
+    await h.click(chip()!);
+    await h.advance(50);
+    expect(frame()).toBe("ask");
+  });
+});
+
+describe("Hide Transcript (a call under AI display inline)", () => {
+  const toggle = (label: string) => {
+    const el = [...document.body.querySelectorAll<HTMLElement>("label")].find((l) => l.textContent?.trim() === label);
+    return el && (el.querySelector<HTMLElement>("[role=switch], button") ?? el.parentElement!.querySelector<HTMLElement>("[role=switch], button")!);
+  };
+  const contactDetailsTabs = () =>
+    [...document.body.querySelectorAll("[data-slot=right-panel] [data-slot=contact-details-tabs] [role=tab]")].map((t) => t.textContent?.trim());
+  async function showContactDetails() {
+    const panel = document.body.querySelector<HTMLElement>("[data-slot=right-panel]")!;
+    if (panel.getAttribute("data-open") === "true" && panel.getAttribute("data-thread") === "details") return;
+    const button = [...document.body.querySelectorAll<HTMLElement>("button[aria-label]")].find(
+      (b) => /Contact Details$/.test(b.getAttribute("aria-label")!) && !b.closest("[data-slot=right-panel]"),
+    )!;
+    await h.click(button);
+  }
+
+  it("on: the utterances leave the main column and only the AI rows stay; the Transcript tab appears; off restores both; kept per card", async () => {
+    await open({ displayLocation: "inline" });
+    await dialUnknown();
+    await h.advance(BEAT_MS);
+    await h.click(button("Said it")!);
+    await h.advance(3_000);
+    expect(callerLines()).toHaveLength(1);
+    await showContactDetails();
+    expect(contactDetailsTabs()).not.toContain("Transcript");
+
+    await h.click(toggle("Hide Transcript")!);
+    expect(callerLines()).toHaveLength(0);
+    expect(outcomes()).toEqual([expect.stringMatching(/^used: Used at .* — Greet the customer/)]);
+    expect(contactDetailsTabs()).toContain("Transcript");
+
+    // Another card and back: still hidden. A chat has no toggle.
+    await priyaChat();
+    expect(toggle("Hide Transcript")).toBeUndefined();
+    await h.click(h.navCard(UNKNOWN));
+    await h.advance(300);
+    expect(callerLines()).toHaveLength(0);
+    expect(toggle("Hide Transcript")!.getAttribute("aria-checked") ?? toggle("Hide Transcript")!.getAttribute("data-state")).toMatch(/true|checked/);
+
+    await h.click(toggle("Hide Transcript")!);
+    expect(callerLines()).toHaveLength(1);
+    await showContactDetails();
+    expect(contactDetailsTabs()).not.toContain("Transcript");
+  });
+
+  for (const displayLocation of ["main", "panel"] as const) {
+    it(`no toggle under AI display ${displayLocation}`, async () => {
+      await open({ displayLocation });
+      await dialUnknown();
+      await h.advance(BEAT_MS);
+      expect(toggle("Hide Transcript")).toBeUndefined();
+    });
+  }
 });
 
 describe("scripted cases: the Next Best Action gates the agent's turn", () => {

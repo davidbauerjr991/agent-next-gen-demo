@@ -6,7 +6,7 @@ import { timeLabel } from "@/components/ai-cards/ai-card-icon";
 import { isAiActionMessage } from "@/components/agent-next-gen-ai-messages";
 import { CURRENT_AGENT_FIRST_NAME, CURRENT_AGENT_LAST_NAME } from "@/components/agent-next-gen-shared-utils";
 import type { InteractionId } from "@/domain";
-import { useAssistCardsByContact, useAssistProvider, useContactAssistCards, useInteraction, useInteractions } from "@/provider-context";
+import { getAssistCardStore, useAssistCardsByContact, useAssistProvider, useContactAssistCards, useInteraction, useInteractions } from "@/provider-context";
 import { useSettings } from "@/settings";
 import { useWorkspaceUiField, useWorkspaceUiStore } from "./workspace-ui-store";
 import { useWorkspace } from "./workspace/WorkspaceContext";
@@ -14,11 +14,12 @@ import { useWorkspace } from "./workspace/WorkspaceContext";
 // The Next Best Action (P-CANVAS), inline and on demand: the assist
 // provider queues suggestions per contact; one surfaces as a row in the
 // conversation (the same insertion path as Copilot result rows) when the
-// agent asks ("What should I do next?") or the conversation pauses — no
+// agent's turn comes (a new assignment's greeting, a scripted agent line),
+// the agent asks ("What should I do next?") or the conversation pauses — no
 // customer or agent turn for Settings → AI's pause (chat/email or voice).
 // Using it (Insert into reply, Said it, Run it, an alternative) or putting it
 // aside (Not now) replaces the row with a compact Used/Dismissed row and
-// answers the provider. Under AI display inline and main only.
+// answers the provider. Under every AI display (panel mode: in its AI feed).
 
 const TEXT_CHANNELS = new Set(["chat", "sms", "whatsapp"]);
 const AGENT_NAME = `${CURRENT_AGENT_FIRST_NAME} ${CURRENT_AGENT_LAST_NAME}`;
@@ -63,11 +64,10 @@ const appendRow = (cards: NavCard[], cardId: string, threadKey: string, message:
 
 /** Puts each surfaced suggestion (and the "Nothing to suggest" answer to a
  *  request) into its contact's thread as a row, once per step. */
-export function useNbaSurfacing(cards: Cards, setCards: SetCards, enabled: boolean) {
+export function useNbaSurfacing(cards: Cards, setCards: SetCards) {
   const byContact = useAssistCardsByContact();
   const store = useWorkspaceUiStore();
   useEffect(() => {
-    if (!enabled) return;
     const { nbaRequested, nbaRowsShown } = store.getState();
     const added: { cardId: string; threadKey: string; message: TranscriptMessage; key: string; contactId: string }[] = [];
     for (const [contactId, { nba }] of Object.entries(byContact)) {
@@ -97,21 +97,23 @@ export function useNbaSurfacing(cards: Cards, setCards: SetCards, enabled: boole
       return { ...s, nbaRowsShown: shown, nbaRequested: requested };
     });
     setCards((prev) => added.reduce((acc, a) => appendRow(acc, a.cardId, a.threadKey, a.message), prev));
-  }, [byContact, cards, enabled, setCards, store]);
+  }, [byContact, cards, setCards, store]);
 }
 
 /** Asks the provider for the Next Best Action when a live thread pauses: no
  *  customer or agent turn (nor an answered suggestion) for the setting's
  *  time. A new turn restarts the clock; a bot holding the contact
- *  (review) holds it, and taking over starts it again. */
-export function useNbaPause(cards: Cards, enabled: boolean, scriptedContactIds: ReadonlySet<string>) {
+ *  (review) holds it, and taking over starts it again. A pause that
+ *  surfaces nothing (none queued) is `onQuietPause`'s. */
+export function useNbaPause(cards: Cards, scriptedContactIds: ReadonlySet<string>, onQuietPause?: (contactId: string) => void) {
   const [ai] = useSettings("ai");
   const assist = useAssistProvider();
   const contacts = useInteractions();
+  const quiet = useRef(onQuietPause);
+  quiet.current = onQuietPause;
   // One entry per live unscripted contact (a scripted one's turns gate on its agent lines instead, `useNbaTurns`):
   // what counts as activity on its thread.
   const entries = useMemo(() => {
-    if (!enabled) return [];
     const byId = new Map(contacts.map((c) => [c.id as string, c]));
     const out: { contactId: string; idleMs: number; signature: string }[] = [];
     for (const card of cards) {
@@ -130,7 +132,7 @@ export function useNbaPause(cards: Cards, enabled: boolean, scriptedContactIds: 
       }
     }
     return out;
-  }, [enabled, contacts, cards, ai.nbaPauseChatMs, ai.nbaPauseVoiceMs, scriptedContactIds]);
+  }, [contacts, cards, ai.nbaPauseChatMs, ai.nbaPauseVoiceMs, scriptedContactIds]);
 
   // Since when each contact's signature has held (a ref: it outlives renders, not the controller).
   const since = useRef(new Map<string, { signature: string; at: number; asked: boolean }>());
@@ -153,6 +155,10 @@ export function useNbaPause(cards: Cards, enabled: boolean, scriptedContactIds: 
           current.asked = true;
           assist
             .suggest({ interactionId: contactId as InteractionId, trigger: { kind: "pause", idleMs } })
+            // The card event arrives before the reply, so the store already holds what the pause surfaced.
+            .then(() => {
+              if (getAssistCardStore(assist).getState()[contactId]?.nba?.frame !== "suggestion") quiet.current?.(contactId);
+            })
             .catch((err) => import.meta.env.DEV && console.warn("[nba] pause suggest failed", err));
         }, Math.max(0, current.at + idleMs - now)),
       );
@@ -167,7 +173,7 @@ export function useNbaPause(cards: Cards, enabled: boolean, scriptedContactIds: 
  *  `awaitingAgent`, not yet surfaced) gets that turn's suggestion after a
  *  short beat (Settings → AI's scripted delay): the provider is asked with a
  *  "turn" trigger. Once per waiting episode per contact. */
-export function useNbaTurns(enabled: boolean) {
+export function useNbaTurns() {
   const [ai] = useSettings("ai");
   const assist = useAssistProvider();
   const byContact = useAssistCardsByContact();
@@ -175,7 +181,7 @@ export function useNbaTurns(enabled: boolean) {
   useEffect(() => {
     const waiting = new Set<string>();
     for (const [contactId, { nba }] of Object.entries(byContact)) {
-      if (!enabled || !nba?.awaitingAgent || nba.frame === "suggestion") continue;
+      if (!nba?.awaitingAgent || nba.frame === "suggestion") continue;
       waiting.add(contactId);
       if (timers.current.has(contactId)) continue;
       timers.current.set(
@@ -195,7 +201,7 @@ export function useNbaTurns(enabled: boolean) {
         timers.current.delete(contactId);
       }
     }
-  }, [byContact, enabled, assist, ai.nbaScriptedDelayMs]);
+  }, [byContact, assist, ai.nbaScriptedDelayMs]);
   useEffect(() => {
     const pending = timers.current;
     return () => {

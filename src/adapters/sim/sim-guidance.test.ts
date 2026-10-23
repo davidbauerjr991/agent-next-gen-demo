@@ -42,14 +42,17 @@ function setUp(name = "Priya Shah") {
 }
 
 describe("the rule set (a contact with no script)", () => {
-  it("queues the greeting on going live and shows nothing until a pause surfaces it; then the reason; then nothing to suggest on request", () => {
-    const { contact, nba, nbaEvent, pause, request, resolve } = setUp();
+  it("on connect the greeting is the agent's turn (surfaced by the turn trigger, no pause); then the reason; then nothing to suggest on request", () => {
+    const { guidance, contact, nba, nbaEvent, pause, request, resolve } = setUp();
     contact("offered");
-    contact("active");
-    // Queued, not surfaced.
     expect(nba()).toBeUndefined();
-    pause();
+    contact("active");
+    // Waiting as the agent's turn: the agent UI surfaces it after the scripted beat.
+    expect(nba()).toMatchObject({ frame: "listening", awaitingAgent: true });
+    guidance.surface(ID, "turn", REQ);
     expect(nba()).toMatchObject({ frame: "suggestion", suggestion: { type: "say", title: "Greet Priya and say the chat is recorded" } });
+    // Not a scripted turn: nothing waits on it once it shows.
+    expect(nba()!.awaitingAgent).toBeUndefined();
     expect(nba()!.suggestion!.text).toContain("This chat is recorded");
     expect(nba()!.suggestion!.alt.map((a) => a.text)).toEqual(["Identify yourself", "Confirm the callback number"]);
     // One at a time: another pause while it shows changes nothing.
@@ -88,11 +91,22 @@ describe("the rule set (a contact with no script)", () => {
     expect(nba()!.suggestion!.text).toMatch(/^Hi there,/);
   });
 
+  it("a dialed outbound gets the greeting when the far end answers, not while it rings", () => {
+    const { guidance, contact, nba } = setUp("(646) 555-0143");
+    contact("connecting", { channel: "voice", direction: "outbound", origin: "agent-initiated" });
+    expect(nba()).toBeUndefined();
+    contact("active", { channel: "voice", direction: "outbound", origin: "agent-initiated" });
+    expect(nba()).toMatchObject({ frame: "listening", awaitingAgent: true });
+    guidance.surface(ID, "turn", REQ);
+    expect(nba()).toMatchObject({ stepId: "rule-greeting", frame: "suggestion", suggestion: { type: "say" } });
+  });
+
   it("while a bot holds the contact nothing surfaces, even on request; after takeover the queued greeting does", () => {
-    const { contact, nba, request, pause } = setUp();
+    const { guidance, contact, nba, request, pause } = setUp();
     contact("active", { review: { by: "Virtual agent", since: 0 } });
     request();
     pause();
+    guidance.surface(ID, "turn", REQ);
     expect(nba()).toBeUndefined();
     contact("active");
     pause();

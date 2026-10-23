@@ -222,14 +222,16 @@ describe("AI display inline and panel: tabs", () => {
       expect(mainColumn.querySelector("[data-slot=ai-workspace]")).toBeNull();
       expect(mainColumn.querySelector("[data-slot=content-stack]")).toBeTruthy();
       if (panelShows() !== "details") await h.click(contactDetailsButton());
-      // Inline: the composer in the main column (the Next Best Action surfaces there only on a pause or request,
-      // P-CANVAS). Panel: the Autosummary and the composer in Contact Details.
-      expect(!!mainColumn.querySelector("[data-slot=autosummary]")).toBe(false);
+      // Inline: the composer in the main column (no Autosummary anywhere, P-CANVAS). Panel: the Agentic cards, the AI
+      // feed and the composer in Contact Details.
+      expect(document.body.querySelector("[data-slot=autosummary]")).toBeNull();
       expect(!!mainColumn.querySelector("[data-slot=copilot-composer]")).toBe(ai === "inline");
       expect(!!panel()!.querySelector("[data-slot=ai-feed]")).toBe(ai === "panel");
+      expect(!!panel()!.querySelector("[data-canvas-cell=real-time-summary]")).toBe(ai === "panel");
       expect(document.body.querySelectorAll("[data-slot=copilot-composer]")).toHaveLength(1);
-      // The call's live transcript is its tab; Contact Details' Transcript tab is its read-only copy (P-CANVAS, every mode).
-      expect([...panel()!.querySelectorAll("[role=tab], button")].some((el) => el.textContent?.trim() === "Transcript")).toBe(true);
+      // The call's live transcript is its tab: Contact Details' Transcript tab only under panel (inline shows the
+      // live thread itself, P-CANVAS).
+      expect([...panel()!.querySelectorAll("[role=tab], button")].some((el) => el.textContent?.trim() === "Transcript")).toBe(ai === "panel");
       // The email tab: the same placement rules.
       await h.click(headerIcon("Email")!);
       expect(main()).toBe("email");

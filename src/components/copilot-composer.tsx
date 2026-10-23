@@ -9,6 +9,20 @@ const COPILOT_CHIPS_MAX = 3;
 const COPILOT_CHIPS_GAP_PX = 8;
 
 const chipIcon = <Sparkles className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />;
+/** AIInput's default `maxRows`. */
+const AI_INPUT_MAX_ROWS = 6;
+
+/** AIInput's own auto-size (ai-input.tsx `resize`): its rows up to `maxRows`, padding included. */
+function fitTextarea(el: HTMLTextAreaElement | null) {
+  if (!el) return;
+  el.style.height = "auto";
+  const cs = getComputedStyle(el);
+  const lineHeight = parseFloat(cs.lineHeight) || 20;
+  const padding = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+  const maxHeight = lineHeight * AI_INPUT_MAX_ROWS + padding;
+  el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
+  el.style.overflowY = el.scrollHeight > maxHeight ? "auto" : "hidden";
+}
 
 /**
  * Copilot suggestion chips on one line that never wraps: as many as fit
@@ -180,6 +194,22 @@ export function CopilotComposer({
     return () => ro.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!takeover, takeover?.label, chipsForMeasure.join("\n")]);
+
+  // Both of the inline composer's panes stay mounted (InteractionComposer); lyra's AIInput sizes its textarea from
+  // `scrollHeight`, which reads 0 while this pane is hidden, so the textarea came back collapsed (the placeholder low
+  // and clipped in the pill). Each time the pane becomes visible, measure it again with AIInput's own metrics.
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    let shown = false;
+    const ro = new ResizeObserver(() => {
+      const visible = root.getClientRects().length > 0;
+      if (visible && !shown) fitTextarea(root.querySelector("textarea"));
+      shown = visible;
+    });
+    ro.observe(root);
+    return () => ro.disconnect();
+  }, []);
 
   const setRoot = (el: HTMLDivElement | null) => {
     rootRef.current = el;

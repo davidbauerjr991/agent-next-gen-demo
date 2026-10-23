@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
 // P-CANVAS: Contact Details' tabs come from a registry. Inline and main:
-// Customer Information, Notes, Detail, Transcript, Session (an unknown
-// contact: Detail, Transcript, Session). Panel keeps Overview first, with the
-// AI feed and Copilot dock as before. Transcript is the thread read-only.
+// Customer Information (labelled Overview), Notes, Detail, Session, and
+// Transcript only when the thread isn't already on screen (an unknown
+// contact: Detail, Session). Panel keeps its Overview first: the Agentic
+// reference cards, the AI feed and the Copilot dock. Transcript is the thread
+// read-only.
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
@@ -12,7 +14,7 @@ import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedP
 import { profileValues } from "@/settings/profiles";
 import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
 import type { AiDisplayLocation } from "@/settings/settings-schema";
-import { resolveContactDetailsView } from "./contact-details-tabs";
+import { contactDetailsTabs, isThreadOnScreen, resolveContactDetailsView } from "./contact-details-tabs";
 
 const h = createWorkspaceHarness({ seed: SIM_DEMO_SEED });
 const priya = CREATE_NEW_CUSTOMERS.find((c) => c.id === "priya-shah-history")!;
@@ -78,37 +80,94 @@ async function priyaChat() {
 
 describe("the tab set", () => {
   for (const displayLocation of ["inline", "main"] as const) {
-    it(`AI display ${displayLocation}: Overview (the customer's record), Notes, Detail, Transcript, Session`, async () => {
+    it(`AI display ${displayLocation}: Overview (the customer's record), Notes, Detail, Session — no Transcript while the live thread is on screen`, async () => {
       await open(displayLocation);
       await noah();
       await showContactDetails();
-      expect(tabRow()).toEqual(["Overview", "Notes", "Detail", "Transcript", "Session"]);
+      expect(tabRow()).toEqual(["Overview", "Notes", "Detail", "Session"]);
       // It opens on the first tab, labelled Overview: the record's own body (Customer Information's).
       expect(tab("Overview").getAttribute("aria-selected")).toBe("true");
+      // The Agentic reference cards are the reference column's, not Contact Details'.
+      expect(panel().querySelector("[data-canvas-cell]")).toBeNull();
     });
 
-    it(`AI display ${displayLocation}: an unknown contact has Detail, Transcript, Session`, async () => {
+    it(`AI display ${displayLocation}: an unknown live contact has Detail, Session`, async () => {
       await open(displayLocation);
       await dialedUnknown();
       await showContactDetails();
-      expect(tabRow()).toEqual(["Detail", "Transcript", "Session"]);
+      expect(tabRow()).toEqual(["Detail", "Session"]);
     });
   }
 
-  it("AI display panel: Overview first, still holding the AI feed and the Copilot dock", async () => {
+  it("AI display panel: Overview first — the Agentic reference cards, then the AI feed and the Copilot dock; Transcript stays", async () => {
     await open("panel");
     await noah();
     await showContactDetails();
     expect(tabRow()).toEqual(["Overview", "Customer Information", "Notes", "Detail", "Transcript", "Session"]);
     expect(tab("Overview").getAttribute("aria-selected")).toBe("true");
+    // The same cells (one implementation each) the reference column mounts, in its order; no Autosummary.
+    expect([...panel().querySelectorAll("[data-canvas-cell]")].map((c) => c.getAttribute("data-canvas-cell"))).toEqual([
+      "real-time-summary",
+      "journey-summary",
+      "customer-info",
+    ]);
+    expect(panel().querySelector("[data-slot=real-time-summary]")).not.toBeNull();
+    expect(panel().querySelector("[data-slot=journey-summary]")).not.toBeNull();
+    expect(panel().querySelector("[data-slot=customer-info-card]")).not.toBeNull();
+    expect(h.container.querySelector("[data-slot=autosummary]")).toBeNull();
     expect(panel().querySelector("[data-slot=ai-feed]")).not.toBeNull();
     expect(panel().querySelector("[data-slot=copilot-dock]")).not.toBeNull();
+  });
+
+  it("AI display panel: an unknown contact's Overview has the summary cards and Customer Info's Link to existing customer", async () => {
+    await open("panel");
+    await dialedUnknown();
+    await showContactDetails();
+    expect(tabRow()).toEqual(["Overview", "Detail", "Transcript", "Session"]);
+    expect(panel().querySelector("[data-canvas-cell=real-time-summary]")).not.toBeNull();
+    expect(panel().querySelector("[data-canvas-cell=customer-info]")?.textContent).toContain("Link to existing customer");
+  });
+
+  it("AI display panel: the Session tab is the session alone (the Journey Summary and Artifacts are Overview's cards)", async () => {
+    await open("panel");
+    await noah();
+    await showContactDetails();
+    await h.click(tab("Session"));
+    expect(panel().querySelector("[data-slot=journey-summary]")).toBeNull();
+    expect(panel().textContent).not.toContain("Artifacts");
+  });
+});
+
+describe("the Transcript tab's rule", () => {
+  const ctx = (aiInPanel: boolean, threadOnScreen: boolean) => ({ aiInPanel, realCustomer: true, threadOnScreen });
+  const hasTranscript = (c: ReturnType<typeof ctx>) => contactDetailsTabs(c).some((tab) => tab.id === "Transcript");
+
+  it("per mode, contact state and toggle", () => {
+    const live = { live: true, transcriptHidden: false, callOffScreen: false };
+    // Inline and main: a live thread is on screen — no tab.
+    expect(isThreadOnScreen({ aiInPanel: false, ...live })).toBe(true);
+    // A closed card or a past session's view, a hidden call transcript, a call off screen (Lucas's): the tab.
+    expect(isThreadOnScreen({ aiInPanel: false, ...live, live: false })).toBe(false);
+    expect(isThreadOnScreen({ aiInPanel: false, ...live, transcriptHidden: true })).toBe(false);
+    expect(isThreadOnScreen({ aiInPanel: false, ...live, callOffScreen: true })).toBe(false);
+    // Panel mode: its existing rules (always the tab).
+    expect(isThreadOnScreen({ aiInPanel: true, ...live })).toBe(false);
+
+    expect(hasTranscript(ctx(false, true))).toBe(false);
+    expect(hasTranscript(ctx(false, false))).toBe(true);
+    expect(hasTranscript(ctx(true, false))).toBe(true);
+    // The default tab stays Overview.
+    expect(resolveContactDetailsView("Details", ctx(false, true))).toBe("Customer Information");
+    expect(resolveContactDetailsView("Details", ctx(true, false))).toBe("Details");
+    // On the Transcript tab when the thread comes back on screen: the first tab.
+    expect(resolveContactDetailsView("Transcript", ctx(false, true))).toBe("Customer Information");
   });
 });
 
 describe("the tabs' bodies", () => {
   it("Transcript: the chat read-only (its bubbles, no composer)", async () => {
-    await open("inline");
+    // Panel mode keeps the tab for a live chat (inline and main show the thread itself).
+    await open("panel");
     await priyaChat();
     await showContactDetails();
     await h.click(tab("Transcript"));

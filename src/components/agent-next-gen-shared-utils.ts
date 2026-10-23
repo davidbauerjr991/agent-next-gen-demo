@@ -92,20 +92,6 @@ function formatElapsedTime(totalSeconds: number): string {
 /** Same idea as `formatElapsedTime` above but "HH:MM:SS", for the home tab's
  *  queue widgets — their wait time can run past an hour (e.g. voicemail),
  *  unlike a just-started interaction's MM:SS elapsed display. */
-/** The Journey Summary's `"Updated 8 seconds ago"`/`"Updated 3 minutes
- *  ago"`-style caption, from seconds since it was last "updated" —
- *  deliberately plain seconds/minutes/hours (no relative-time library
- *  pulled in for one caption). Rendered by `DetailsPanelAccordions` inside
- *  a `<ClockValue>`, so it re-renders only when this string changes. */
-function formatJourneySummaryUpdatedLabel(elapsedSeconds: number): string {
-  const elapsed = Math.max(0, elapsedSeconds);
-  if (elapsed < 60) return `Updated ${elapsed} second${elapsed === 1 ? "" : "s"} ago`;
-  const minutes = Math.floor(elapsed / 60);
-  if (minutes < 60) return `Updated ${minutes} minute${minutes === 1 ? "" : "s"} ago`;
-  const hours = Math.floor(minutes / 60);
-  return `Updated ${hours} hour${hours === 1 ? "" : "s"} ago`;
-}
-
 function formatWaitTime(totalSeconds: number): string {
   const clamped = Math.max(0, totalSeconds);
   const hh = Math.floor(clamped / 3600);
@@ -1007,7 +993,6 @@ export {
   generateContactId,
   formatElapsedTime,
   formatWaitTime,
-  formatJourneySummaryUpdatedLabel,
   AWAITING_WARNING_SECONDS,
   AWAITING_CRITICAL_SECONDS,
   getAwaitingSeverity,

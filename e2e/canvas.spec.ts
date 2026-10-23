@@ -229,8 +229,9 @@ test("main with the card's thread open in the docked panel: the column is the ov
 });
 
 for (const [displayLocation, tabs] of [
-  ["inline", ["Overview", "Notes", "Detail", "Transcript", "Session"]],
-  ["main", ["Overview", "Notes", "Detail", "Transcript", "Session"]],
+  // Inline and main: no Transcript tab while the live thread is on screen (P-CANVAS); panel keeps it.
+  ["inline", ["Overview", "Notes", "Detail", "Session"]],
+  ["main", ["Overview", "Notes", "Detail", "Session"]],
   ["panel", ["Overview", "Customer Information", "Notes", "Detail", "Transcript", "Session"]],
 ] as const) {
   test(`${displayLocation}: Contact Details' tab set`, async ({ page }) => {

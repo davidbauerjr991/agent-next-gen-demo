@@ -138,14 +138,14 @@ async function davidsEmail(page: Page, ai: Ai) {
   await davidsCard(page).click({ force: true });
 }
 const davidsCard = (page: Page) => page.locator("aside").getByRole("button", { name: /^(David Santos|david\.santos@example\.com)/ }).first();
-/** Asks Copilot with the visible composer's first chip; `rotate` moves the chips on first. Returns the chip's text. */
+/** Asks Copilot with the visible composer's first chip (the click asks it: Settings → AI's default chip behaviour,
+ *  "run"); `rotate` moves the chips on first. Returns the chip's text. */
 async function askCopilot(page: Page, rotate = false) {
   const composer = page.locator("[data-slot=copilot-composer]").filter({ visible: true }).first();
   if (rotate) await composer.locator("[data-slot=copilot-chips-refresh] button").click();
   const chip = composer.locator("[data-slot=copilot-chips] [role=button]").first();
   const text = (await chip.textContent())!.trim();
   await chip.click();
-  await composer.locator('button[aria-label="Submit"]').click();
   return text;
 }
 const visibleRow = (page: Page, title: string) => row(page, title).filter({ visible: true });

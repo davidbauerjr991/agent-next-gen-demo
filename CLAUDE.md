@@ -160,7 +160,7 @@ Reference implementation: the Lucas Thomas case on the Advanced page (`src/scena
 - First show "AI agent is performing this now…" with a spinner (~1.8s), then replace it with the row alone — do NOT show an "AI agent finished performing this" line.
 - The row whose panel is open gets the selected look (`border-lyra-border-active bg-lyra-status-info-subtle`); clicking it again closes the panel.
 - Chip rows reopen the chip's own panel; typed free-form questions open the instruction panel with a "Copilot result" card and auto-open when finished.
-- Every panel the agent opens is added to the Artifacts card (a reference cell on the canvas under AI display inline and main, shown once there's an artifact; Contact Details' Session tab under panel) as a re-open link (Experience Memory excluded); "View All" appears only above 10 and opens an Artifacts list in the docked panel with a back arrow to Contact Details.
+- Every panel the agent opens is added to the Artifacts (the Journey Summary card's last section, shown once there's an artifact: the reference column under AI display inline and main, Contact Details' Overview under panel) as a re-open link (Experience Memory excluded); "View All" appears only above 10 and opens an Artifacts list in the docked panel with a back arrow to Contact Details.
 
 **Approval request box**
 - Header: light blue (`bg-lyra-status-info-subtle`), sparkle icon, "Approval request · {agent}" + time, "Copilot summary" + chevron; animates open/closed.

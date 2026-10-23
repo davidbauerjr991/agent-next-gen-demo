@@ -51,6 +51,8 @@ export {
   AI_NBA_PAUSE_CHAT_FIELD,
   AI_NBA_PAUSE_VOICE_FIELD,
   AI_NBA_SCRIPTED_DELAY_FIELD,
+  AI_CHIP_BEHAVIOR_FIELD,
+  type AiChipBehavior,
   type FieldMeta,
   type AiCanvasLayout,
   CONTACT_CHANNELS,

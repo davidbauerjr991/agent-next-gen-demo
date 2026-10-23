@@ -156,14 +156,13 @@ describe("Bug 2c: a Copilot result row asked before a mode switch still opens it
     const shell = result?.closest<HTMLElement>('[style*="visibility"]');
     return result && shell?.style.visibility === "visible" ? result : null;
   };
-  /** Asks Copilot with the composer's first chip ("Draft a reply" first on an email); the chips move on
-   *  once one is used. Returns the chip's text, which is the row's title. */
+  /** Asks Copilot with the composer's first chip ("Draft a reply" first on an email; the click asks it, Settings →
+   *  AI's default "run"); the chips move on once one is used. Returns the chip's text, which is the row's title. */
   async function ask(rotate = false): Promise<string> {
     if (rotate) await h.click(composer().querySelector("[data-slot=copilot-chips-refresh] button")!);
     const chip = composer().querySelector<HTMLElement>("[data-slot=copilot-chips] [role=button]")!;
     const text = chip.textContent!.trim();
     await h.click(chip);
-    await h.click(composer().querySelector('button[aria-label="Submit"]')!);
     await h.advance(2_500);
     return text;
   }

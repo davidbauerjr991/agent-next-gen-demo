@@ -297,26 +297,6 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
   // Same idea for the home tab's live queue widgets (4s random walk):
   // only `<QueueSubItems>` readers re-render (agent-next-gen-queue-sim.ts).
   const queueSim = useQueueSimSource();
-  // The Contact Details "Journey Summary" card's "Updated X ago" caption
-  // (`DetailsPanelAccordions`, through lyra `CustomerContextOverview`'s
-  // `realTimeSummaryUpdatedLabel` prop) needs a reference point to
-  // measure elapsed time FROM. Captured once per contact (reset whenever
-  // `activeInteractionId` changes, in the effect right below) rather than
-  // tracking every individual fact change that actually feeds the summary
-  // — this is a "freshness since you opened this contact's Details" clock,
-  // the same practical signal the reference screenshot's own ticking
-  // seconds counter conveys, not a literal per-field last-write timestamp
-  // (this app has no such timestamp to read for any of `snapshot`'s
-  // underlying facts). The page clock (just above) is what actually ticks
-  // every real second; this only stores WHICH tick to measure from.
-  // `DetailsPanelAccordions` turns it into the "Updated 8 seconds ago"
-  // caption itself (`formatJourneySummaryUpdatedLabel`, inside a
-  // `<ClockValue>`), so only that card re-renders as it ticks.
-  const [journeySummaryUpdatedAtTick, setJourneySummaryUpdatedAtTick] = useState(0);
-  useEffect(() => {
-    setJourneySummaryUpdatedAtTick(clock.now());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeInteractionId]);
   // Whether ANY assignment in the whole Personal Queue has a channel that's
   // actually breached SLA (red/"critical", not just "warning") — drives the
   // home header's "Personal Queue" chip color per explicit request ("make
@@ -905,7 +885,7 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
     SHOW_MARCUS_REVIEW_GUIDE_AND_TRANSFER, pageMountTimeRef, activeChannelLaunchedAt, activeChannelDateTime,
     lastCustomerResponseLabel, customerDirectoryPool, activeUnknownContactIdentifier, possibleCustomerMatches,
     customerSearchResults, handleLinkCustomerRecord, handleStartCreateCustomer, handleBackToCustomerSearch,
-    handleSaveNewCustomer, queueSim, journeySummaryUpdatedAtTick, setJourneySummaryUpdatedAtTick,
+    handleSaveNewCustomer, queueSim,
     hasBreachedSlaAssignment, activeChannelAwaitingSeverity, activeChannelHoldSeverity, showSettings, setShowSettings,
     showAllContacts, setShowAllContacts, selectedAllContactsRecord, setSelectedAllContactsRecord, ALL_CONTACTS_TABS,
     allContactsTab, setAllContactsTab, leftNavPage, setLeftNavPage, windowWidth, setWindowWidth, notifications,

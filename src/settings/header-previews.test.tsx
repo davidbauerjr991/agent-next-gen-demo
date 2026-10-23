@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 // Browser check round 2 (2026-10-16): the record header's hover previews and
-// the AI cards around them. The thread preview is the panel's own body (with
-// the Autosummary); the main column's thread previews nothing; a toggle click
-// closes any preview; a trigger keeps its hover look while its preview is
-// open; AI display "panel" docks the Copilot composer in the Contact Details
-// preview; the Autosummary is blue and enters like the other AI cards;
-// Marcus's case has no Next Best Action card.
+// the AI cards around them. The thread preview is the panel's own body; the
+// main column's thread previews nothing; a toggle click closes any preview; a
+// trigger keeps its hover look while its preview is open; AI display "panel"
+// docks the Copilot composer in the Contact Details preview; the Real-Time
+// Summary (P-CANVAS: no Autosummary) enters like the other AI cards; Marcus's
+// case has no Next Best Action card.
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
@@ -226,32 +226,27 @@ describe("header hover previews", () => {
 });
 
 describe("AI cards", () => {
-  it("the Autosummary header uses Customer Info's header token and the shared enter animation (AI display panel, where it stays)", async () => {
+  it("the Real-Time Summary (AI display panel: Contact Details' Overview) is lyra's Agentic AI card and enters with the shared animation", async () => {
     await whatsAppAndEmail("panel");
     if (h.container.querySelector("[data-slot=right-panel]")?.getAttribute("data-thread") !== "details") await h.click(contactDetailsButton());
-    const title = [...h.container.querySelectorAll("[data-slot=right-panel] *")].find(
-      (el) => el.children.length === 0 && el.textContent?.trim() === "Autosummary",
+    const title = [...h.container.querySelectorAll("[data-slot=right-panel] [data-slot=real-time-summary] *")].find(
+      (el) => el.children.length === 0 && el.textContent?.trim() === "Real-Time Summary",
     )!;
     expect(title).toBeDefined();
-    expect(title.closest(".bg-lyra-status-info-subtle")).not.toBeNull();
     expect(title.closest(".lyra-purple-soft-header-fix")).toBeNull();
     for (const cls of AI_CARD_ENTER.split(" ")) expect(title.closest(`.${cls.replace(/[^\w-]/g, "\\$&")}`)).not.toBeNull();
   });
 
   for (const ai of ["inline", "panel", "main"] as const) {
-    // P-CANVAS: panel mode keeps its one Autosummary; under inline and main there's none, and no Next Best Action
-    // until a pause or the agent's request surfaces one in the conversation (next-best-action.test).
-    it(`the AI overview (AI display ${ai}): ${ai === "panel" ? "one Autosummary, in the panel" : "no Autosummary, no Next Best Action at first"}`, async () => {
+    // P-CANVAS: no Autosummary in any mode; one Real-Time Summary, the reference column's (inline, main) or
+    // Contact Details' Overview's (panel).
+    it(`the AI overview (AI display ${ai}): no Autosummary; one Real-Time Summary, ${ai === "panel" ? "in the panel" : "in the reference column"}`, async () => {
       await whatsAppAndEmail(ai);
       if (ai === "panel" && h.container.querySelector("[data-slot=right-panel]")?.getAttribute("data-thread") !== "details") await h.click(contactDetailsButton());
-      if (ai === "panel") {
-        const cards = [...h.container.querySelectorAll("[data-slot=autosummary]")];
-        expect(cards).toHaveLength(1);
-        expect(cards[0].closest("[data-slot=right-panel]")).not.toBeNull();
-      } else {
-        expect(h.container.querySelector("[data-slot=autosummary]")).toBeNull();
-        expect(h.container.querySelector("[data-slot=next-best-action]")).toBeNull();
-      }
+      expect(h.container.querySelector("[data-slot=autosummary]")).toBeNull();
+      const cards = [...h.container.querySelectorAll("[data-slot=real-time-summary]")];
+      expect(cards).toHaveLength(1);
+      expect(cards[0].closest(ai === "panel" ? "[data-slot=right-panel]" : "[data-canvas-region=reference]")).not.toBeNull();
     });
   }
 

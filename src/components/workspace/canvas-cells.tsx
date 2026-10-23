@@ -1,7 +1,8 @@
 // The built-in canvas cells (P-CANVAS): each wraps the card's one
 // implementation and reads the workspace controller, so the registry
 // (`src/contact-handling/canvas-registry.ts`) can mount it in either region.
-// Panel mode doesn't use the registry: Contact Details keeps its own cards.
+// Panel mode has no canvas: Contact Details' Overview mounts the same
+// reference cells (`useReferenceCells`).
 import { VoiceWrapUpCard } from "@/contact-handling/VoiceWrapUpCard";
 import { HostSlot } from "@/contact-handling/portal-hosts";
 import { MARCUS_WEBB_ID } from "@/contact-handling/scenario-cases";
@@ -13,6 +14,7 @@ import { CustomerInfoCard } from "@/components/ai-cards/CustomerInfoCard";
 import { JourneySummaryCard } from "@/components/ai-cards/JourneySummaryCard";
 import { RealTimeSummaryCard } from "@/components/ai-cards/RealTimeSummaryCard";
 import { hasCustomerInfo } from "@/components/customer-info/reference-sections";
+import { AI_CARD_ENTER } from "@/components/transcript/ai-rows/ai-card-enter";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 
@@ -20,14 +22,17 @@ const copy = (text: string) => void navigator.clipboard?.writeText(text).catch((
 
 /** The highlight a card gets when the AI brings it forward: its border turns
  *  the active border colour for a moment (lyra's Agentic AI card has no
- *  highlight of its own). */
+ *  highlight of its own). The reference cards enter like the other AI cards. */
 function FocusRing({ highlighted, children }: { highlighted: boolean; children: ReactNode }) {
   return (
-    <div
-      className={cn("rounded-lyra-md border transition-colors duration-500", highlighted ? "border-lyra-border-active" : "border-transparent")}
-      data-highlighted={highlighted || undefined}
-    >
-      {children}
+    // The enter animation on its own box: its duration would merge with the ring's transition.
+    <div className={AI_CARD_ENTER}>
+      <div
+        className={cn("rounded-lyra-md border transition-colors duration-500", highlighted ? "border-lyra-border-active" : "border-transparent")}
+        data-highlighted={highlighted || undefined}
+      >
+        {children}
+      </div>
     </div>
   );
 }

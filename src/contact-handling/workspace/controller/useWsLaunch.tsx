@@ -33,7 +33,9 @@ import { SCENARIOS } from "@/scenarios";
 import type { Interaction } from "@/components/agent-next-gen-interaction-dashboard";
 import { usePresenceSync } from "@/contact-handling/usePresenceSync";
 import { useThreadCurrentSession } from "@/contact-handling/useThreadCurrentSession";
-import { resolveContactDetailsView } from "@/contact-handling/contact-details-tabs";
+import { isThreadOnScreen, resolveContactDetailsView, type ContactDetailsTabContext } from "@/contact-handling/contact-details-tabs";
+import { transcriptToggleApplies, useTranscriptHidden } from "@/contact-handling/transcript-visibility";
+import { useSettings } from "@/settings";
 import type { WorkspaceLate } from "./workspace-late";
 import type { WsPanels } from "./useWsPanels";
 
@@ -51,13 +53,25 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
     setAgentStatus, setCustomerPanelActiveTab, setDismissedContactHistory, setHistoryConversationTab, setInteractions,
     setNavOpen, setOutcomeDraft, setSelectedContactHistoryEntry, setSidePanelOpen, setStatusSinceTick,
     sidePanelStateByAssignmentId, switchActiveInteraction, windowWidth, customerPanelActiveTab, aiInPanel,
-    activeInteractionIsRealCustomer,
+    activeInteractionIsRealCustomer, activeChannelType, isHistoryConversationView, panelVoiceThread,
   } = prev;
-  // What Contact Details shows: the tab state resolved for this card and AI display (P-CANVAS).
-  const contactDetailsView = resolveContactDetailsView(customerPanelActiveTab, {
+  // A call's "Hide Transcript" (P-CANVAS; AI display inline, voice), per card.
+  const [{ displayLocation }] = useSettings("ai");
+  const transcriptToggleShown = transcriptToggleApplies(displayLocation, activeChannelType);
+  const [transcriptHidden, setTranscriptHidden] = useTranscriptHidden(activeInteraction?.id, transcriptToggleShown);
+  // What Contact Details shows: the tab state resolved for this card and AI display (P-CANVAS). The Transcript tab
+  // only when the thread isn't already on screen (`isThreadOnScreen`).
+  const contactDetailsTabContext: ContactDetailsTabContext = {
     aiInPanel,
     realCustomer: activeInteractionIsRealCustomer,
-  });
+    threadOnScreen: isThreadOnScreen({
+      aiInPanel,
+      live: !!activeInteraction && !activeInteraction.closed && !isHistoryConversationView,
+      transcriptHidden,
+      callOffScreen: !!panelVoiceThread,
+    }),
+  };
+  const contactDetailsView = resolveContactDetailsView(customerPanelActiveTab, contactDetailsTabContext);
   const isCompactHeader = windowWidth < 760;
 
   // Auto-collapse the expanded nav when the container drops below 768px
@@ -832,7 +846,8 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
     isCompactHeader, narrowActiveRegion, setNarrowActiveRegion, MAX_PANEL_HEIGHT, BOTTOM_PADDING, SHARED_PANEL_MAX_WIDTH,
     computePanelHeight, handleStatusChange, isOnVoiceCall, preCallStatusRef, handleStartCall, handleContactActivated,
     activateWhenReady, allOutboundSkills, skillIdForName, findDirectoryCustomer, cardContactMethodsOf, offerToSaveAddress, outboundDial,
-    contactReopen, customerInfoOverlayContent, contactDetailsView, detailsThreadKey, detailsFromPanelRow, detailsCurrentSession,
+    contactReopen, customerInfoOverlayContent, contactDetailsView, contactDetailsTabContext, transcriptToggleShown,
+    transcriptHidden, setTranscriptHidden, detailsThreadKey, detailsFromPanelRow, detailsCurrentSession,
     sessionDetailsTabContent, handleRedialButtonClick, handleDialpadSubmit, handleAddAdHocChannel,
     handleReopenContactHistoryEntry, handleDismissInteraction, handleDismissChannel, handleChannelSelect,
     marcusWebbSays, handleMarcusWebbResolved, handleMarcusWebbEscalated,

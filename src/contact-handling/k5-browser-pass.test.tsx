@@ -159,15 +159,17 @@ describe("C: Outcome and the status pill on every channel tab", () => {
 });
 
 describe("E: the Journey Summary enters with the other AI cards", () => {
-  it("its card carries the AI cards' enter animation", async () => {
+  it("its card carries the AI cards' enter animation (panel mode: on Contact Details' Overview, P-CANVAS)", async () => {
     await setUp("panel");
     await dial("email");
     await h.click(h.navCard(priya.name));
     if (panelShows() !== "details") await h.click(contactDetailsButton());
-    await h.click(tabByText(panel(), "Session")!);
+    await h.click(tabByText(panel(), "Overview")!);
     const card = panel().querySelector("[data-slot=journey-summary]");
     expect(card).not.toBeNull();
-    for (const c of AI_CARD_ENTER.split(" ")) expect(card!.className).toContain(c);
+    const entering = card!.closest(`.${"animate-in"}`);
+    expect(entering).not.toBeNull();
+    for (const c of AI_CARD_ENTER.split(" ")) expect(entering!.className).toContain(c);
   });
 });
 
