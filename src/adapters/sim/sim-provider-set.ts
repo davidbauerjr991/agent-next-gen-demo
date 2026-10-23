@@ -10,8 +10,8 @@ import { createSimulatedInteractionProvider, type SimOptions } from "./simulated
  *  their phases (P3.1, P1.4); Assist relays the engine's guidance cards
  *  (P-CANVAS) and its on-demand calls stay unconnected until P4.1. */
 export function createSimProviderSet(options?: SimOptions & {
-  /** The scenario hotkeys (`installScenarioHotkeys`): on whenever the URL asks for the sim (`?provider=sim`), in
-   *  any build. Default off. */
+  /** The scenario hotkeys (`installScenarioHotkeys`). The app's sim factory turns them on in every build: they
+   *  come with the sim as the active provider. Default off (tests that build a set directly). */
   scenarioHotkeys?: boolean;
 }): ProviderSet {
   const createTransport = options?.createTransport ?? (() => createBroadcastTransport());

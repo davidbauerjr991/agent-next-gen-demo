@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
-// The scenario hotkeys (a/b/c/l) are on whenever the URL asks for the sim
-// (`?provider=sim`), in any build, through the factory the app boots with;
-// without the flag (the sim is still the default provider) they're off. In a
-// production build there's still no `__simCustomer` global.
+// The sim is the default provider in every build (no `?provider=`), and its
+// scenario hotkeys (a/b/c/l) come with it, in dev and in production — no URL
+// flag. `?provider=<other>` selects another provider, without them.
+// `__simCustomer` stays a dev-only global.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PLACEHOLDER_DATABASE } from "../../data/database-handle";
 import { PLACEHOLDER_PROFILE } from "../../profiles/contact-center-profile";
 import { PROVIDER_FACTORIES } from "../../provider-context/factories";
+import { readProviderKind } from "../../provider-context/provider-kind";
 import type { ProviderSet } from "../../providers";
 
 let set: ProviderSet | undefined;
@@ -19,35 +20,40 @@ afterEach(async () => {
   window.history.replaceState(null, "", "/");
 });
 
-/** Boots the sim the way the app does at `url`, in a production build; returns how many keydown listeners it added. */
-function bootProduction(url: string): number {
-  vi.stubEnv("DEV", false);
-  vi.stubEnv("PROD", true);
+/** Boots at `url` the way main.tsx does (the provider from the URL), in a dev or production build. */
+function boot(url: string, build: "dev" | "prod") {
+  if (build === "prod") {
+    vi.stubEnv("DEV", false);
+    vi.stubEnv("PROD", true);
+  }
   window.history.replaceState(null, "", url);
   const add = vi.spyOn(window, "addEventListener");
-  set = PROVIDER_FACTORIES.sim({ profile: PLACEHOLDER_PROFILE, database: PLACEHOLDER_DATABASE, simLatency: "off" });
-  return add.mock.calls.filter(([type]) => type === "keydown").length;
+  const kind = readProviderKind(window.location.search);
+  set = PROVIDER_FACTORIES[kind]({ profile: PLACEHOLDER_PROFILE, database: PLACEHOLDER_DATABASE, simLatency: "off" });
+  return { kind, hotkeys: add.mock.calls.filter(([type]) => type === "keydown").length };
 }
 
-describe("the scenario hotkeys follow ?provider=sim, not the build", () => {
-  it("production build with ?provider=sim: the hotkeys are registered; no __simCustomer global", () => {
-    expect(import.meta.env.DEV).toBe(true);
-    expect(bootProduction("/?provider=sim#/agent-advanced")).toBe(1);
-    expect(import.meta.env.DEV).toBe(false);
-    expect(window.__simCustomer).toBeUndefined();
-  });
+describe("the sim is the default provider, and its scenario hotkeys come with it", () => {
+  for (const build of ["dev", "prod"] as const) {
+    it(`${build}: no ?provider= → the sim, hotkeys registered`, () => {
+      expect(boot("/#/agent-advanced", build)).toEqual({ kind: "sim", hotkeys: 1 });
+      expect(import.meta.env.DEV).toBe(build === "dev");
+      // The devtools handle only on the dev server.
+      expect(window.__simCustomer !== undefined).toBe(build === "dev");
+    });
 
-  it("production build without the flag (the sim by default): not registered", () => {
-    expect(bootProduction("/#/agent-advanced")).toBe(0);
-    expect(window.__simCustomer).toBeUndefined();
-  });
+    it(`${build}: ?provider=sim → the same`, () => {
+      expect(boot("/?provider=sim#/agent-advanced", build)).toEqual({ kind: "sim", hotkeys: 1 });
+    });
 
-  it("another provider's flag: not registered", () => {
-    expect(bootProduction("/?provider=twilio#/agent-advanced")).toBe(0);
-  });
+    it(`${build}: ?provider=<other> → that provider, no hotkeys`, () => {
+      expect(boot("/?provider=twilio#/agent-advanced", build)).toEqual({ kind: "twilio", hotkeys: 0 });
+      expect(boot("/?provider=cxone#/agent-advanced", build)).toEqual({ kind: "cxone", hotkeys: 0 });
+    });
+  }
 
-  it("disposing the set removes them", async () => {
-    bootProduction("/?provider=sim#/agent-advanced");
+  it("disposing the sim's set removes them", async () => {
+    boot("/#/agent-advanced", "prod");
     const remove = vi.spyOn(window, "removeEventListener");
     await set!.interaction.dispose();
     set = undefined;

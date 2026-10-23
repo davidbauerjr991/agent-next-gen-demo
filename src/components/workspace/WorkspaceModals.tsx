@@ -1,7 +1,7 @@
 import { AgentLegDisconnectedToast, AgentWelcomeMessage, Button, Modal, Toast, ToastContainer } from "@nicecxone/lyra-ui";
 import { ConfirmCloseDialog } from "@/contact-handling";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
-import { IfCapable, simRequested, useProviderKind } from "@/provider-context";
+import { IfCapable, useProviderKind } from "@/provider-context";
 import { t } from "@/i18n";
 import { CURRENT_AGENT_FIRST_NAME, CURRENT_AGENT_LAST_NAME } from "@/components/agent-next-gen-shared-utils";
 import { VideoCallWindow } from "@/components/agent-next-gen-video-window";
@@ -16,8 +16,8 @@ export function WorkspaceModals() {
     setAgentLegDisconnectedToastOpen, setPendingClose, setShowWelcomeModal, setVoiceVideoFullScreen,
     setVoiceVideoWindowOpen, showWelcomeModal, toasts, voiceVideoFullScreen, voiceVideoWindowOpen,
   } = useWorkspace();
-  // The sim's scenario hotkeys are on when the URL asks for the sim (the same check its provider set makes).
-  const scenarioHotkeysOn = useProviderKind() === "sim" && simRequested(window.location.search);
+  // The sim's scenario hotkeys are on whenever the sim is the active provider (any build, no URL flag).
+  const scenarioHotkeysOn = useProviderKind() === "sim";
   return (
     <>
       <ConfirmCloseDialog
@@ -91,7 +91,7 @@ export function WorkspaceModals() {
           // handleStartUnavailable's own doc comment above).
           onSecondaryClick={handleStartUnavailable}
         />
-        {/* The scenario hotkeys' key list, under the buttons, while they're on (`?provider=sim`, any build). */}
+        {/* The scenario hotkeys' key list, under the buttons, while they're on (the sim is the provider, any build). */}
         {scenarioHotkeysOn && (
           <p className="mt-4 text-center lyra-body-sm text-lyra-fg-secondary" data-slot="scenario-hotkeys-hint">
             {t("Demo: A Lucas · B Maya · C Tom · L Marcus")}

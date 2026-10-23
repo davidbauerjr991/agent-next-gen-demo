@@ -8,7 +8,8 @@ export type ProviderKind = "sim" | "twilio" | "cxone";
 const KINDS: readonly ProviderKind[] = ["sim", "twilio", "cxone"];
 
 /** Reads `?provider=sim|twilio|cxone` from a `location.search` string.
- *  Missing → "sim"; anything else → "sim" with a dev warning. Read once at
+ *  Missing → "sim", in every build (the demo's default; its scenario hotkeys
+ *  come with it); anything else → "sim" with a dev warning. Read once at
  *  boot — changing the flag takes a reload. */
 export function readProviderKind(search: string): ProviderKind {
   const value = new URLSearchParams(search).get("provider");
@@ -18,13 +19,6 @@ export function readProviderKind(search: string): ProviderKind {
     console.warn(`[providers] unknown ?provider=${value}; falling back to "sim" (expected ${KINDS.join("|")})`);
   }
   return "sim";
-}
-
-/** Whether the URL names the sim explicitly (`?provider=sim`), in any build:
- *  what turns on the demo's scenario hotkeys and their hint. A missing flag
- *  still runs the sim (`readProviderKind`) but without them. */
-export function simRequested(search: string): boolean {
-  return new URLSearchParams(search).get("provider") === "sim";
 }
 
 /** Reads `?latency=realistic|low|off` (P0.5b.2). Missing → "realistic" on

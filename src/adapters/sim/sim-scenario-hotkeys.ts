@@ -1,8 +1,9 @@
 import type { ScenarioScript } from "../../scenarios/scenario-script";
 import type { SimCustomerClient } from "./sim-customer-client";
 
-// The scenario launcher (P0.5c; on whenever the URL says `?provider=sim`, in
-// any build, so the deployed demo has it): a bare letter key plays a script as
+// The scenario launcher (P0.5c; on whenever the sim is the active provider —
+// the default with no `?provider=` — in any build, so the deployed demo has
+// it): a bare letter key plays a script as
 // the customer, through the same customer side as `__simCustomer` (and the
 // P0.6 console later). The agent UI never knows: these keys used to live in
 // the Advanced page, which built the cards itself. Routing (the engine)
