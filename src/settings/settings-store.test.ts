@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { SECTIONS, defaultSettings, defineSection, oneOf, type SectionSchemas } from "./settings-schema";
+import { SECTIONS, defaultSettings, defineSection, oneOf, type SectionKey, type SectionSchemas } from "./settings-schema";
 import { SETTINGS_KEY_PREFIX, safeStorage } from "./settings-storage";
 import { createSettingsStore, sectionStorageKey } from "./settings-store";
 
@@ -238,5 +238,52 @@ describe("settings store", () => {
     backing.clear();
     mine.syncFromStorage(null);
     expect(mine.getState().values.ai.displayLocation).toBe("inline");
+  });
+});
+
+describe("settings store: locks (P-PROFILES)", () => {
+  function lockedStore(locks: SectionKey[]) {
+    const current = { locks };
+    const store = createSettingsStore(safeStorage(() => memoryStorage()), SECTIONS, { lockedSections: () => current.locks });
+    return { store, current };
+  }
+
+  it("a locked section refuses agent-scope writes, with a dev warning", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { store } = lockedStore(["assignments"]);
+    const before = store.getState();
+    store.update("assignments", { confirmClose: true });
+    expect(store.getState()).toBe(before);
+    store.updateMany({ assignments: { navItemsAtTop: true }, voice: { controlsLocation: "top" } });
+    expect(store.getState().values.assignments).toEqual(SECTIONS.assignments.defaults);
+    // Another section in the same call still writes.
+    expect(store.getState().values.voice.controlsLocation).toBe("top");
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"assignments" is locked'));
+    warn.mockRestore();
+  });
+
+  it("personal and admin fields in a locked section stay writable", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { store } = lockedStore(["header", "appearance", "channels"]);
+    store.update("header", { tabOrder: ["tickets", "customers", "accounts", "wem", "schedule", "screenpop"], search: false });
+    expect(store.getState().values.header.tabOrder[0]).toBe("tickets");
+    expect(store.getState().values.header.search).toBe(true);
+    store.update("appearance", { theme: "dark" });
+    expect(store.getState().values.appearance.theme).toBe("dark");
+    store.update("channels", (c) => ({ social: { ...c.social, telegram: true }, chat: true }));
+    expect(store.getState().values.channels.social.telegram).toBe(true);
+    expect(store.getState().values.channels.chat).toBe(false);
+    warn.mockRestore();
+  });
+
+  it("lifting the lock lets writes through again", () => {
+    const { store, current } = lockedStore(["ai"]);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    store.update("ai", { displayLocation: "main" });
+    expect(store.getState().values.ai.displayLocation).toBe("inline");
+    current.locks = [];
+    store.update("ai", { displayLocation: "main" });
+    expect(store.getState().values.ai.displayLocation).toBe("main");
+    vi.restoreAllMocks();
   });
 });

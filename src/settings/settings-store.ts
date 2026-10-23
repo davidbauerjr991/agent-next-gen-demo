@@ -3,6 +3,8 @@
 // too. Same shape as the interaction store (a closure with getState /
 // subscribe and a same-reference early exit); only hooks are exported from
 // `index.ts`.
+import { getProfileLibrary, resetProfileLibraryForTests } from "./saved-profiles";
+import { profileFieldKeys } from "./scope";
 import { SECTIONS, defaultSettings, type SectionKey, type SectionSchemas, type SettingsState } from "./settings-schema";
 import { SETTINGS_KEY_PREFIX, safeStorage, type SettingsStorage } from "./settings-storage";
 
@@ -36,11 +38,36 @@ export interface SettingsStore {
 
 export const sectionStorageKey = (section: string) => `${SETTINGS_KEY_PREFIX}${section}`;
 
+export interface SettingsStoreOptions {
+  /** The sections the applied profile locks (P-PROFILES). A write to a locked
+   *  section keeps only its personal- and admin-scope fields; the rest is
+   *  dropped, with a dev warning. Applying a profile lifts the locks first. */
+  lockedSections?: () => readonly SectionKey[];
+}
+
 export function createSettingsStore(
   storage: SettingsStorage = safeStorage(),
   sections: SectionSchemas = SECTIONS,
+  storeOptions: SettingsStoreOptions = {},
 ): SettingsStore {
+  const isLocked = (key: SectionKey) => storeOptions.lockedSections?.().includes(key) ?? false;
   const keys = Object.keys(sections) as SectionKey[];
+  const lockedFields = Object.fromEntries(keys.map((k) => [k, new Set(profileFieldKeys(k, sections))])) as Record<SectionKey, Set<string>>;
+
+  /** `patch` without the fields a lock covers. */
+  function unlocked<K extends SectionKey>(key: K, patch: Partial<SettingsState[K]>): Partial<SettingsState[K]> {
+    if (!isLocked(key)) return patch;
+    const kept: Record<string, unknown> = {};
+    const dropped: string[] = [];
+    for (const [field, value] of Object.entries(patch)) {
+      if (lockedFields[key].has(field)) dropped.push(field);
+      else kept[field] = value;
+    }
+    if (dropped.length > 0 && import.meta.env?.DEV) {
+      console.warn(`[settings] "${key}" is locked by the applied profile; ignored: ${dropped.join(", ")}`);
+    }
+    return kept as Partial<SettingsState[K]>;
+  }
 
   function readSection<K extends SectionKey>(key: K): { value: SettingsState[K]; stored: boolean } {
     const def = sections[key];
@@ -98,7 +125,8 @@ export function createSettingsStore(
 
     update(section, patch, options) {
       const persist = options?.persist ?? true;
-      const resolved = typeof patch === "function" ? patch(state.values[section]) : patch;
+      const resolved = unlocked(section, typeof patch === "function" ? patch(state.values[section]) : patch);
+      if (Object.keys(resolved).length === 0 && isLocked(section)) return;
       const next = merged(section, resolved);
       if (!next && (!persist || state.stored[section])) return;
       const value = next ?? state.values[section];
@@ -113,7 +141,7 @@ export function createSettingsStore(
       let values = state.values;
       let stored = state.stored;
       for (const section of Object.keys(patches) as SectionKey[]) {
-        const next = merged(section, patches[section] as Partial<SettingsState[typeof section]>);
+        const next = merged(section, unlocked(section, patches[section] as Partial<SettingsState[typeof section]>));
         if (!next) continue;
         write(section, next);
         values = { ...values, [section]: next };
@@ -149,7 +177,9 @@ let detachStorageListener: (() => void) | null = null;
 /** The app's store, created on first use (not at import time). */
 export function getSettingsStore(): SettingsStore {
   if (singleton) return singleton;
-  const store = createSettingsStore();
+  const store = createSettingsStore(safeStorage(), SECTIONS, {
+    lockedSections: () => getProfileLibrary().getState().applied?.locks ?? [],
+  });
   singleton = store;
   if (typeof window !== "undefined") {
     const onStorage = (event: StorageEvent) => store.syncFromStorage(event.key);
@@ -164,4 +194,5 @@ export function resetSettingsStoreForTests() {
   detachStorageListener?.();
   detachStorageListener = null;
   singleton = null;
+  resetProfileLibraryForTests();
 }

@@ -37,8 +37,10 @@ import {
   PROFILE_LABELS,
   SEAMS,
   useResetSettings,
+  useSectionLocked,
   useSettings,
   useWorkspaceProfile,
+  type SectionKey,
   type AgentChatDisplay,
   type AppDisplay,
   type AppPlacement,
@@ -199,10 +201,18 @@ function moveItem<T>(items: T[], index: number, delta: -1 | 1): T[] {
 
 const VALID_STATION_ID = "12345";
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+/** A settings section. With `lockKey`, a section the applied profile locks
+ *  renders read-only (P-PROFILES): the native `fieldset disabled` disables
+ *  every control in it, lyra's own disabled look included. The one place a
+ *  setting greys rather than hides. */
+function Section({ title, lockKey, children }: { title: string; lockKey?: SectionKey; children: React.ReactNode }) {
+  const locked = useSectionLocked(lockKey);
   return (
-    <fieldset className="mt-6 flex flex-col gap-3 first:mt-0">
-      <legend className="mb-1 lyra-body-md-emphasis text-lyra-fg-default">{title}</legend>
+    <fieldset className="mt-6 flex flex-col gap-3 first:mt-0" disabled={locked} data-section-locked={locked || undefined}>
+      <legend className="mb-1 flex items-center gap-2 lyra-body-md-emphasis text-lyra-fg-default">
+        {title}
+        {locked && <Tag variant="neutral" label={t("Set by your team profile")} />}
+      </legend>
       {children}
     </fieldset>
   );
@@ -300,7 +310,7 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
           </p>
         </Section>
 
-        <Section title="Header">
+        <Section title="Header" lockKey="header">
           <SwitchRow
             label="Show app icons"
             checked={header.showAppIcons}
@@ -373,7 +383,7 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
         </Section>
 
         {/* v3's Settings → Home: the Dashboard's header and sections. */}
-        <Section title="Home">
+        <Section title="Home" lockKey="home">
           <SwitchRow label="Show header" checked={home.showHeader} onCheckedChange={(showHeader) => updateHome({ showHeader })} />
           {home.showHeader && (
             <div className="max-w-sm">
@@ -442,7 +452,7 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
           ))}
         </Section>
 
-        <Section title="Assignments">
+        <Section title="Assignments" lockKey="assignments">
           {/* Off: that channel's contacts arrive as offers with Accept / Decline, like a call. */}
           <CheckboxRow
             legend="Auto-accept"
@@ -487,7 +497,7 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
 
         {/* The channels agents contact customers on. Voice can't be turned
             off during a call: its switch gives way to a note. */}
-        <Section title="Channels">
+        <Section title="Channels" lockKey="channels">
           {CONTACT_CHANNELS.map((channel) =>
             channel === "voice" && channels.voice && callInProgress ? (
               <div key={channel} className="flex items-center gap-2" data-channel-row={channel}>
@@ -519,7 +529,7 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
         </Section>
 
         {/* CXone's agent settings, by their names (the CXone adapter maps them 1:1). */}
-        <Section title="New Outbound">
+        <Section title="New Outbound" lockKey="outbound">
           <CheckboxRow
             legend="Directory App"
             items={LAUNCHER_TABS.map((tab) => ({
@@ -546,7 +556,7 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
           />
         </Section>
 
-        <Section title="Voice">
+        <Section title="Voice" lockKey="voice">
           <div className="max-w-xs">
             <Select
               label="Voice controls location"
@@ -560,7 +570,7 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
           </div>
         </Section>
 
-        <Section title="AI">
+        <Section title="AI" lockKey="ai">
           <div className="max-w-xs">
             <Select
               label="AI display"
@@ -661,7 +671,7 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
           <BrandSettings />
         </Section>
 
-        <Section title="Connections">
+        <Section title="Connections" lockKey="connections">
           <p className="lyra-body-sm text-lyra-fg-secondary">
             Every seam runs on the simulator until its real adapter exists.
             {providerKind === "sim" &&

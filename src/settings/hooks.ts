@@ -81,6 +81,13 @@ export function useProfileLibrary(): ProfileLibraryState {
   return useSyncExternalStore(library.subscribe, library.getState);
 }
 
+/** Whether the applied profile locks `section` (it renders read-only in
+ *  Settings, and the store refuses its agent-scope writes). */
+export function useSectionLocked(section: SectionKey | undefined): boolean {
+  const { applied } = useProfileLibrary();
+  return !!section && !!applied?.locks.includes(section);
+}
+
 export interface WorkspaceProfileApi {
   /** Built-in id, saved id, or "custom". */
   profile: WorkspaceProfile;

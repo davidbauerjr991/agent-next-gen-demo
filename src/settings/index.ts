@@ -7,6 +7,7 @@ export {
   useSectionStored,
   useWorkspaceProfile,
   useProfileLibrary,
+  useSectionLocked,
   type WorkspaceProfileApi,
   applyProfile,
   useResetSettings,

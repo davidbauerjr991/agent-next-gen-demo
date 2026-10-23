@@ -92,6 +92,17 @@ export function withAgentSettings(
   return out as SettingsState;
 }
 
+/** A section's top-level fields that a profile carries (a lock covers these;
+ *  its personal and admin fields stay writable). */
+export function profileFieldKeys(key: SectionKey, sections: SectionSchemas = SECTIONS): string[] {
+  const read = sections[key].read as Field<unknown>;
+  const scope = scopeOf(read, "agent");
+  if (!isProfileScope(scope) || !isGroup(read)) return [];
+  return Object.entries(read.fields)
+    .filter(([, child]) => isProfileScope(scopeOf(child, scope)))
+    .map(([name]) => name);
+}
+
 /** Whether a section has anything a profile carries (false for a section that
  *  is wholly admin or personal, like `phone`). */
 export function sectionInProfiles(key: SectionKey, sections: SectionSchemas = SECTIONS): boolean {
