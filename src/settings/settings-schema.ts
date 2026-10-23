@@ -264,8 +264,21 @@ export interface AssignmentsSettings {
   confirmClose: boolean;
   /** The session row's status pill (every mode); Outcome keeps its own status control. */
   showStatusChip: boolean;
+  /** How an assignment's legs are presented (P-PROFILES schema; P-STREAM builds "stream"). */
+  legs: AssignmentLegs;
 }
 
+/** "tabs": one thread per channel (today). "stream" (P-STREAM): every leg in
+ *  one timeline, filtered by the header icons. Depends on AI display: under
+ *  "panel" the Contact Details panel uses tabs. */
+export const ASSIGNMENT_LEGS = ["tabs", "stream"] as const;
+export type AssignmentLegs = (typeof ASSIGNMENT_LEGS)[number];
+export const ASSIGNMENT_LEGS_FIELD = oneOf(ASSIGNMENT_LEGS, {
+  label: "Channels",
+  description: "Separate tabs shows one thread per channel; one stream shows every channel in one transcript, filtered by the header icons.",
+});
+
+// No version bump for `legs`: a missing stored key reads as its default.
 const assignments = defineSection<AssignmentsSettings>({
   key: "assignments",
   version: 2,
@@ -277,6 +290,7 @@ const assignments = defineSection<AssignmentsSettings>({
     allowUnassignDismiss: true,
     confirmClose: false,
     showStatusChip: true,
+    legs: "tabs",
   },
   fields: {
     autoAccept: group<Record<AutoAcceptChannel, boolean>>(
@@ -288,6 +302,7 @@ const assignments = defineSection<AssignmentsSettings>({
     allowUnassignDismiss: bool(),
     confirmClose: bool(),
     showStatusChip: bool(),
+    legs: ASSIGNMENT_LEGS_FIELD,
   },
 });
 
@@ -451,6 +466,43 @@ const ai = defineSection<AiSettings>({
   },
 });
 
+/** P-PROFILES (schema; P-CARDS edits it): per canvas cell, overrides on the
+ *  registry's defaults (`src/contact-handling/canvas-registry.ts`). A cell
+ *  with no entry keeps its default; the conversation anchor takes an order
+ *  only. Keyed by cell id, so cells added later need no migration. */
+export const CANVAS_REGIONS = ["action", "reference"] as const;
+export interface CanvasCellOverride {
+  enabled?: boolean;
+  region?: (typeof CANVAS_REGIONS)[number];
+  order?: number;
+}
+export interface CanvasSettings {
+  cells: Record<string, CanvasCellOverride>;
+}
+
+/** Each entry's valid fields; an entry with none (or not an object) is dropped. */
+export const cellOverrides = (): Field<Record<string, CanvasCellOverride>> => (raw, fallback) => {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return fallback;
+  const out: Record<string, CanvasCellOverride> = {};
+  for (const [id, entry] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) continue;
+    const e = entry as Record<string, unknown>;
+    const cell: CanvasCellOverride = {};
+    if (typeof e.enabled === "boolean") cell.enabled = e.enabled;
+    if (typeof e.region === "string" && (CANVAS_REGIONS as readonly string[]).includes(e.region)) cell.region = e.region as CanvasCellOverride["region"];
+    if (typeof e.order === "number" && Number.isFinite(e.order)) cell.order = e.order;
+    if (Object.keys(cell).length > 0) out[id] = cell;
+  }
+  return out;
+};
+
+const canvas = defineSection<CanvasSettings>({
+  key: "canvas",
+  version: 1,
+  defaults: { cells: {} },
+  fields: { cells: cellOverrides() },
+});
+
 export const PHONE_SETUPS = ["soft-phone", "phone-number", "work-station"] as const;
 export type PhoneSetup = (typeof PHONE_SETUPS)[number];
 export interface PhoneSettings {
@@ -562,7 +614,7 @@ const connections = defineSection<ConnectionsSettings>({
   },
 });
 
-export const SECTIONS = { header, home, assignments, channels, outbound, voice, ai, phone, appearance, connections };
+export const SECTIONS = { header, home, assignments, channels, outbound, voice, ai, canvas, phone, appearance, connections };
 
 export type SectionKey = keyof typeof SECTIONS;
 export type SettingsState = { [K in SectionKey]: (typeof SECTIONS)[K]["defaults"] };

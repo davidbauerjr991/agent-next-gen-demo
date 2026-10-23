@@ -57,7 +57,12 @@ function phase2(): SettingsState {
  *  reference cards in their own column (P-CANVAS). */
 function aiFirst(): SettingsState {
   const base = phase2();
-  return { ...base, ai: { ...base.ai, displayLocation: "main", canvasLayout: "twoColumn" } };
+  return {
+    ...base,
+    ai: { ...base.ai, displayLocation: "main", canvasLayout: "twoColumn" },
+    // Legs as tabs until P-STREAM lands, then "stream" (PLAN Settings "Legs as one stream").
+    assignments: { ...base.assignments, legs: "tabs" },
+  };
 }
 
 export const PROFILES: Record<ProfileId, SettingsState> = { phase1: phase1(), phase2: phase2(), aifirst: aiFirst() };

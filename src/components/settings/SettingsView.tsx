@@ -49,6 +49,8 @@ import {
   type PhoneSetup,
   type AiDisplayLocation,
   AI_CANVAS_LAYOUT_FIELD,
+  ASSIGNMENT_LEGS_FIELD,
+  type AssignmentLegs,
   AI_NBA_PAUSE_CHAT_FIELD,
   AI_NBA_PAUSE_VOICE_FIELD,
   AI_NBA_SCRIPTED_DELAY_FIELD,
@@ -253,6 +255,7 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
   const [phone, updatePhone] = useSettings("phone");
   const [appearance, updateAppearance] = useSettings("appearance");
   const [connections] = useSettings("connections");
+  const assignmentsLocked = useSectionLocked("assignments");
   const resetSettings = useResetSettings();
   const [resetOpen, setResetOpen] = React.useState(false);
   const providerKind = useProviderKind();
@@ -575,6 +578,24 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
                 value={ai.canvasLayout}
                 disabled={ai.displayLocation === "panel"}
                 onValueChange={(value) => updateAi({ canvasLayout: value as AiCanvasLayout })}
+              />
+            </DisabledReason>
+          </div>
+          <div className="max-w-xs">
+            {/* `assignments.legs`, a dependent control under AI display (P-PROFILES). Only "Separate tabs" is
+                offered until P-STREAM adds "One stream"; the schema already accepts it, so a profile file can
+                carry it. It lives in the assignments section, so that section's lock disables it too. */}
+            <DisabledReason
+              reason={ai.displayLocation === "panel" ? t("Contact Details panel uses tabs") : undefined}
+              className="flex w-full"
+            >
+              <Select
+                label={t(ASSIGNMENT_LEGS_FIELD.meta!.label)}
+                labelHelpText={t(ASSIGNMENT_LEGS_FIELD.meta!.description)}
+                options={[{ value: "tabs", label: t("Separate tabs — one thread per channel") }]}
+                value={assignments.legs}
+                disabled={ai.displayLocation === "panel" || assignmentsLocked}
+                onValueChange={(value) => updateAssignments({ legs: value as AssignmentLegs })}
               />
             </DisabledReason>
           </div>

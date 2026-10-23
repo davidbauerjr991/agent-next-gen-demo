@@ -61,14 +61,31 @@ export function resetCanvasRegistry(): void {
 }
 resetCanvasRegistry();
 
-/** One region's cells, in order, that apply to this card. */
-export function canvasCells(region: CanvasRegion, ws: Workspace): CanvasCell[] {
+/** Per-cell overrides on the registry's defaults (`canvas.cells`, P-PROFILES;
+ *  P-CARDS edits them): on/off, region, order. Unknown ids are ignored. */
+export type CanvasCellOverrides = Readonly<Record<string, { enabled?: boolean; region?: CanvasRegion; order?: number }>>;
+
+/** A cell with its override applied, or null when the override turns it off.
+ *  The conversation anchor takes an order only: it can't be turned off or
+ *  leave the action area. */
+function withOverride(cell: CanvasCell, overrides: CanvasCellOverrides): CanvasCell | null {
+  const o = overrides[cell.id];
+  if (!o) return cell;
+  if (cell.id === CONVERSATION_CELL_ID) return o.order === undefined ? cell : { ...cell, order: o.order };
+  if (o.enabled === false) return null;
+  return { ...cell, region: o.region ?? cell.region, order: o.order ?? cell.order };
+}
+
+/** One region's cells, in order, that apply to this card, with `overrides` applied. */
+export function canvasCells(region: CanvasRegion, ws: Workspace, overrides: CanvasCellOverrides = {}): CanvasCell[] {
   return [...cells.values()]
-    .filter((cell) => cell.region === region && (cell.applies?.(ws) ?? true))
+    .map((cell) => withOverride(cell, overrides))
+    .filter((cell): cell is CanvasCell => !!cell && cell.region === region && (cell.applies?.(ws) ?? true))
     .sort((a, b) => a.order - b.order);
 }
 
 /** The anchor's order (the split between the action area's top and bottom cells). */
-export function conversationOrder(): number {
-  return cells.get(CONVERSATION_CELL_ID)?.order ?? 0;
+export function conversationOrder(overrides: CanvasCellOverrides = {}): number {
+  const anchor = cells.get(CONVERSATION_CELL_ID);
+  return (anchor && withOverride(anchor, overrides)?.order) ?? 0;
 }

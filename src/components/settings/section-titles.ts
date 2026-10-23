@@ -10,6 +10,7 @@ export const SECTION_TITLES: Record<SectionKey, string> = {
   outbound: "New Outbound",
   voice: "Voice",
   ai: "AI",
+  canvas: "Cards",
   phone: "Phone setup",
   appearance: "Appearance",
   connections: "Connections",

@@ -8,6 +8,7 @@ import { applyProfile } from "./hooks";
 import { PROFILES } from "./profiles";
 import { exportProfile, getProfileLibrary } from "./saved-profiles";
 import { agentSettings } from "./scope";
+import { SECTIONS } from "./settings-schema";
 import { getSettingsStore, resetSettingsStoreForTests } from "./settings-store";
 
 const h = createWorkspaceHarness();
@@ -140,6 +141,36 @@ describe("the profile picker and its actions", () => {
     });
     expect(dialog()!.textContent).toContain("Couldn't import the profile");
     expect(getProfileLibrary().getState().saved).toEqual([]);
+  });
+});
+
+describe("assignments.legs (P-PROFILES schema; P-STREAM builds stream)", () => {
+  it("defaults to tabs, is in every built-in, and the schema accepts stream so a profile file can carry it", () => {
+    for (const id of ["phase1", "phase2", "aifirst"] as const) expect(PROFILES[id].assignments.legs).toBe("tabs");
+    const read = (legs: unknown) => SECTIONS.assignments.read({ legs }, SECTIONS.assignments.defaults).legs;
+    expect(read("stream")).toBe("stream");
+    expect(read("columns")).toBe("tabs");
+  });
+
+  it("under AI display panel the Channels control is disabled with the reason; it offers only Separate tabs", async () => {
+    await act(async () => {
+      store().update("ai", { displayLocation: "panel" });
+    });
+    await h.render(<SettingsView />);
+    const reason = [...h.container.querySelectorAll("[data-disabled-reason]")].find((el) => el.textContent?.includes("Channels"));
+    expect(reason).toBeTruthy();
+    const select = reason!.querySelector<HTMLElement>('[role="combobox"]')!;
+    expect(select.matches(":disabled") || select.getAttribute("aria-disabled") === "true" || select.hasAttribute("data-disabled")).toBe(true);
+
+    await act(async () => {
+      store().update("ai", { displayLocation: "inline" });
+    });
+    // Without a reason the wrapper goes, so the select is a new node.
+    const enabled = [...h.container.querySelectorAll<HTMLElement>('[role="combobox"]')].find(
+      (el) => el.textContent?.includes("Separate tabs"),
+    )!;
+    await h.click(enabled);
+    expect(optionLabels()).toEqual(["Separate tabs — one thread per channel"]);
   });
 });
 

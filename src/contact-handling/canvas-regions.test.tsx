@@ -14,7 +14,7 @@ import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedP
 import { LUCAS_THOMAS_SCRIPT } from "@/scenarios/scripts/lucas-thomas";
 import { profileValues } from "@/settings/profiles";
 import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
-import type { AiSettings } from "@/settings/settings-schema";
+import { SECTIONS, type AiSettings } from "@/settings/settings-schema";
 import { registerCanvasCell, resetCanvasRegistry, canvasCellDefinition } from "./canvas-registry";
 import { getWorkspaceUiStore } from "./workspace-ui-store";
 
@@ -189,6 +189,47 @@ describe("the registry decides the region", () => {
 
   it("the conversation can't leave the action area", () => {
     expect(() => registerCanvasCell({ id: "conversation", region: "reference", order: 30 })).toThrow();
+  });
+});
+
+describe("canvas.cells overrides the registry (P-PROFILES)", () => {
+  async function withCells(cells: Record<string, { enabled?: boolean; region?: "action" | "reference"; order?: number }>) {
+    await act(async () => {
+      getSettingsStore().update("canvas", { cells });
+      await vi.advanceTimersByTimeAsync(50);
+    });
+  }
+
+  it("an override turns a cell off, moves it to the other region, or reorders it", async () => {
+    await open({ displayLocation: "main", canvasLayout: "twoColumn" });
+    await CASES.noah();
+    expect(cellsIn(region("reference"))).toEqual(["real-time-summary", "journey-summary", "customer-info"]);
+
+    await withCells({ "real-time-summary": { enabled: false } });
+    expect(cellsIn(region("reference"))).toEqual(["journey-summary", "customer-info"]);
+
+    await withCells({ "customer-info": { order: 5 } });
+    expect(cellsIn(region("reference"))).toEqual(["customer-info", "real-time-summary", "journey-summary"]);
+
+    await withCells({ "journey-summary": { region: "action", order: 25 } });
+    expect(cellsIn(region("action"))).toEqual(["journey-summary"]);
+    expect(cellsIn(region("reference"))).toEqual(["real-time-summary", "customer-info"]);
+  });
+
+  it("the conversation anchor ignores on/off and region; an unknown id is ignored", async () => {
+    await withCells({ conversation: { enabled: false, region: "reference" }, "no-such-cell": { enabled: false } });
+    await open({ displayLocation: "main", canvasLayout: "twoColumn" });
+    await CASES.noah();
+    expect(region("action")).not.toBeNull();
+    expect(cellsIn(region("reference"))).toEqual(["real-time-summary", "journey-summary", "customer-info"]);
+  });
+
+  it("the stored value is read field by field: malformed entries are dropped", () => {
+    const read = SECTIONS.canvas.read(
+      { cells: { a: { enabled: "no", order: 3 }, b: "x", c: { region: "sideways" }, d: { region: "reference", enabled: true } } },
+      SECTIONS.canvas.defaults,
+    );
+    expect(read.cells).toEqual({ a: { order: 3 }, d: { region: "reference", enabled: true } });
   });
 });
 

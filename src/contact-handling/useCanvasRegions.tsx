@@ -27,12 +27,14 @@ export interface CanvasRegions {
 export function useCanvasRegions(): CanvasRegions {
   const ws = useWorkspace();
   const [ai] = useSettings("ai");
+  // `canvas.cells` (P-PROFILES): the agent's or profile's overrides on the registry.
+  const [{ cells: overrides }] = useSettings("canvas");
   const enabled = !!ws.activeInteraction && ai.displayLocation !== "panel";
   if (!enabled) return { enabled, twoColumn: false, pinned: undefined, top: undefined, bottom: undefined, reference: undefined };
   const twoColumn = ai.canvasLayout === "twoColumn";
-  const anchor = conversationOrder();
-  const action = canvasCells("action", ws).filter((cell) => cell.component);
-  const reference = canvasCells("reference", ws);
+  const anchor = conversationOrder(overrides);
+  const action = canvasCells("action", ws, overrides).filter((cell) => cell.component);
+  const reference = canvasCells("reference", ws, overrides);
   const before = action.filter((cell) => cell.order < anchor && !cell.pinned);
   return {
     enabled,
@@ -48,7 +50,8 @@ export function useCanvasRegions(): CanvasRegions {
  *  cards (one implementation each) that the reference column does under inline and main. */
 export function useReferenceCells(): ReactNode {
   const ws = useWorkspace();
-  return ws.activeInteraction ? mount(canvasCells("reference", ws)) : undefined;
+  const [{ cells: overrides }] = useSettings("canvas");
+  return ws.activeInteraction ? mount(canvasCells("reference", ws, overrides)) : undefined;
 }
 
 function mount(cells: CanvasCell[]): ReactNode {
