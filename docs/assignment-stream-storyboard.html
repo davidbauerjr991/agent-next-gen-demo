@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Assignment stream storyboard</title>
+<style>
+  :root { --ink:#1a1d23; --muted:#5c6470; --line:#d9dde3; --bg:#f4f6f9; --card:#fff; --blue:#2f6fdb; --blue-bg:#eaf1fd; --purple:#6b4fd8; --purple-bg:#efeafb; --amber-bg:#fff3e0; --amber:#9a5b00; --green-bg:#e4f3e8; --green:#1e6b33; --red:#c43a3a; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif; color:var(--ink); background:var(--bg); font-size:13px; line-height:1.4; }
+  header.top { padding:16px 24px 8px; }
+  header.top h1 { margin:0 0 4px; font-size:18px; }
+  header.top p { margin:0; color:var(--muted); }
+  .steps { display:flex; gap:6px; padding:8px 24px 12px; flex-wrap:wrap; }
+  .steps button { border:1px solid var(--line); background:#fff; border-radius:16px; padding:6px 12px; cursor:pointer; font-size:12.5px; }
+  .steps button.on { background:var(--blue); color:#fff; border-color:var(--blue); }
+  .note { margin:0 24px 12px; padding:10px 12px; background:#fff; border:1px solid var(--line); border-radius:8px; color:var(--ink); }
+  .note b { color:var(--blue); }
+  .shell { margin:0 24px 24px; display:grid; grid-template-columns:200px 1fr; gap:10px; }
+  .rail { background:#fff; border:1px solid var(--line); border-radius:10px; padding:10px; }
+  .rail .cardx { border:1px solid var(--line); border-radius:8px; padding:8px; margin-top:8px; }
+  .rail .cardx.active { border-color:var(--blue); background:var(--blue-bg); }
+  .chip { display:inline-block; border-radius:10px; padding:1px 7px; font-size:11px; font-weight:600; margin-right:4px; }
+  .c-email { background:#fde8ef; color:#9b2c4f; } .c-sms { background:var(--green-bg); color:var(--green); } .c-voice { background:var(--purple-bg); color:var(--purple); } .c-ai { background:var(--purple-bg); color:var(--purple); } .c-work { background:var(--amber-bg); color:var(--amber); } .c-sys { background:#eceef2; color:var(--muted); }
+  .main { background:#fff; border:1px solid var(--line); border-radius:10px; display:flex; flex-direction:column; height:720px; }
+  .rh { padding:12px 16px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:10px; }
+  .rh .av { width:30px; height:30px; border-radius:50%; background:var(--blue); color:#fff; display:grid; place-items:center; font-weight:700; font-size:12px; }
+  .rh .name { font-weight:700; font-size:15px; }
+  .rh .sess { color:var(--muted); font-size:12px; margin-left:auto; }
+  .rh .btn { border:1px solid var(--line); border-radius:6px; padding:4px 8px; font-size:12px; background:#fff; }
+  .body { display:flex; flex:1; min-height:0; }
+  .action { flex:1; display:flex; flex-direction:column; padding:12px 16px; min-width:0; min-height:0; }
+  .filters { display:flex; gap:6px; margin-bottom:10px; align-items:center; }
+  .filters span { border:1px solid var(--line); border-radius:12px; padding:2px 9px; font-size:11.5px; color:var(--muted); }
+  .filters span.on { background:var(--ink); color:#fff; border-color:var(--ink); }
+  .filters .right { margin-left:auto; display:flex; gap:10px; font-size:11.5px; color:var(--muted); }
+  .stream { flex:1; display:flex; flex-direction:column; gap:8px; overflow:auto; }
+  .row { display:flex; gap:8px; align-items:flex-start; }
+  .row .t { color:var(--muted); font-size:11px; width:52px; flex:none; padding-top:3px; }
+  .card { border:1px solid var(--line); border-radius:8px; padding:8px 10px; flex:1; background:#fff; }
+  .card.email { border-left:3px solid #d14b74; }
+  .card.ai { background:var(--purple-bg); border-color:#d9d0f5; }
+  .card.work { background:var(--amber-bg); border-color:#f3dfb8; }
+  .card h4 { margin:0 0 4px; font-size:12.5px; }
+  .card p { margin:0 0 4px; }
+  .card .meta { color:var(--muted); font-size:11px; }
+  .sys { color:var(--muted); font-size:11.5px; padding:2px 0; border-top:1px dashed var(--line); border-bottom:1px dashed var(--line); flex:1; text-align:center; }
+  .bubble { border-radius:12px; padding:6px 10px; max-width:70%; }
+  .bubble.cust { background:#eef0f4; }
+  .bubble.agent { background:var(--blue-bg); margin-left:auto; }
+  .utt { color:var(--ink); } .utt b { color:var(--muted); font-weight:600; font-size:11px; margin-right:6px; }
+  .collapsed { background:#fafbfc; }
+  .nba .acts { display:flex; gap:6px; margin-top:6px; }
+  .nba .acts span { border-radius:6px; padding:3px 8px; font-size:11.5px; border:1px solid var(--line); background:#fff; }
+  .nba .acts span.p { background:var(--blue); color:#fff; border-color:var(--blue); }
+  .seg { display:flex; align-items:center; gap:8px; margin-top:10px; }
+  .seg .tabs { display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .seg .tabs span { padding:5px 10px; font-size:12px; color:var(--muted); background:#fff; border-right:1px solid var(--line); }
+  .seg .tabs span:last-child { border-right:0; }
+  .seg .tabs span.on { color:var(--blue); font-weight:600; background:var(--blue-bg); }
+  .seg .tabs .menu { border:1px solid var(--line); border-radius:5px; padding:0 6px; margin-left:4px; background:#fff; color:var(--ink); font-weight:600; }
+  .seg .toggles { margin-left:auto; display:flex; gap:10px; font-size:11.5px; color:var(--muted); }
+  .seg .toggles .on { color:var(--blue); font-weight:600; }
+  .composer { border:1px solid var(--line); border-radius:10px; margin-top:6px; }
+  .copilot { border:1px solid var(--line); border-radius:999px; padding:9px 14px; color:var(--muted); margin-top:6px; display:flex; gap:10px; align-items:center; }
+  .copilot .mic { margin-left:auto; }
+  .chips { display:flex; gap:6px; margin-top:6px; flex-wrap:wrap; }
+  .chips span { background:var(--purple-bg); color:var(--purple); border-radius:999px; padding:2px 9px; font-size:11.5px; }
+  .chips .refresh { color:var(--muted); background:none; }
+  .composer .target { display:flex; gap:8px; align-items:center; padding:6px 10px; border-bottom:1px solid var(--line); font-size:12px; }
+  .composer .target .sel { border:1px solid var(--line); border-radius:6px; padding:2px 8px; background:#fff; font-weight:600; }
+  .composer .target .add { color:var(--blue); margin-left:auto; }
+  .composer .field { padding:8px 10px; color:var(--muted); }
+  .composer .field.tall { min-height:120px; }
+  .composer .fields div { padding:4px 10px; border-bottom:1px solid var(--line); font-size:12px; }
+  .composer .foot { display:flex; gap:8px; padding:6px 10px; border-top:1px solid var(--line); font-size:11.5px; color:var(--muted); align-items:center; }
+  .composer .foot .send { margin-left:auto; background:var(--blue); color:#fff; border-radius:6px; padding:3px 10px; }
+  .ref { width:250px; flex:none; border-left:1px solid var(--line); padding:12px; display:flex; flex-direction:column; gap:8px; }
+  .ref .rc { border:1px solid var(--line); border-radius:8px; padding:8px; }
+  .ref .rc h5 { margin:0; font-size:12px; display:flex; justify-content:space-between; }
+  .ref .rc p { margin:6px 0 0; color:var(--muted); font-size:11.5px; }
+  .ref .so { border:2px solid var(--blue); border-radius:8px; padding:8px; background:#fff; }
+  .ref .so h5 { margin:0 0 6px; font-size:12px; }
+  .voicebar { border-top:1px solid var(--line); padding:8px 16px; display:flex; gap:14px; align-items:center; font-size:12px; background:#fafbfc; border-radius:0 0 10px 10px; }
+  .voicebar .end { margin-left:auto; background:var(--red); color:#fff; border-radius:6px; padding:4px 10px; }
+  .outcome { border:2px solid var(--green); border-radius:10px; padding:10px; background:#fff; margin-top:8px; }
+  .outcome h4 { margin:0 0 6px; }
+  .outcome .l { font-size:11.5px; color:var(--muted); }
+  .hidden { display:none; }
+  .legend { margin:0 24px 24px; color:var(--muted); font-size:12px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>One assignment, one stream: email → reply → add SMS → add voice → outcome</h1>
+  <p>Storyboard of the proposed inline model. Legs join the same timeline; the composer changes shape to match the targeted leg; one Outcome at the end. Not lyra — boxes only.</p>
+</header>
+
+<div class="steps" id="steps"></div>
+<div class="note" id="note"></div>
+
+<div class="shell">
+  <div class="rail">
+    <div style="font-weight:700">Assignments (1)</div>
+    <div class="cardx active">
+      <div style="font-weight:600">Maya Chen</div>
+      <div id="railchips" style="margin-top:4px"></div>
+      <div style="color:var(--muted);font-size:11px;margin-top:4px">Returns · 00:08</div>
+    </div>
+    <div style="margin-top:14px;color:var(--muted);font-size:11.5px">The rail card is the assignment. Channel chips are its legs; they grow as legs join. Five concurrent chats = five cards, not five legs.</div>
+  </div>
+
+  <div class="main">
+    <div class="rh">
+      <div class="av">MC</div>
+      <div class="name">Maya Chen</div>
+      <span class="chip c-sys" id="status">Open</span>
+      <span class="sess" id="sess">Email · # CASE-30402 · Session Details ›</span>
+      <span class="btn">Contact Details</span>
+    </div>
+    <div class="body">
+      <div class="action">
+        <div class="filters" id="filters"></div>
+        <div class="stream" id="stream"></div>
+        <div id="composer"></div>
+      </div>
+      <div class="ref" id="ref"></div>
+    </div>
+    <div class="voicebar hidden" id="voicebar">
+      <span>Maya Chen · <b id="calltimer">00:00</b></span><span>Hold</span><span>Mute</span><span>Record</span><span>Keypad</span><span>Transcript</span><span class="end">End Call</span>
+    </div>
+  </div>
+</div>
+<p class="legend">Rows: <span class="chip c-email">Email</span> <span class="chip c-sms">SMS</span> <span class="chip c-voice">Voice</span> <span class="chip c-ai">AI</span> <span class="chip c-work">Work item</span> <span class="chip c-sys">Lifecycle</span>. Filter chips replace channel tabs; "Hide Transcript" collapses live voice rows to one pinned line.</p>
+
+<script>
+const STEPS = [
+ { title:"1 · Email arrives", note:"<b>Email-only assignment.</b> The inbound email is the stream's first row, expanded full width. The NBA suggests the reply. Composer target: Email.", legs:["email"], filter:"All",
+   rows:[ email("2:02 PM","Refund request — order NR-10871","Hi, the water tank on my espresso machine arrived cracked. I'd like a refund, not a replacement. Photo attached.","1 attachment · photo.jpg",true),
+          nba("2:02 PM","Say","Reply confirming the refund","Photo check passed; refund within your limit (RET-1.3).","Hi Maya, I'm sorry about the cracked tank. I've confirmed the $412.00 refund to your Visa ending 4417…") ],
+   composer:"email-collapsed", ref:"default", status:"Open", sess:"Email · # CASE-30402" },
+ { title:"2 · Reply (inline editor)", note:"<b>Long-form compose expands in place.</b> The one-line box becomes a full email editor at the bottom of the stream — resizable, collapsible. The slide-over shows the email thread for reference; it is never a composer.", legs:["email"], filter:"All",
+   rows:[ email("2:02 PM","Refund request — order NR-10871","Hi, the water tank on my espresso machine arrived cracked. I'd like a refund, not a replacement. Photo attached.","1 attachment · photo.jpg · collapsed",false),
+          nba("2:02 PM","Say","Reply confirming the refund","Photo check passed; refund within your limit (RET-1.3).","Hi Maya, I'm sorry about the cracked tank…", true) ],
+   composer:"email-expanded", ref:"default", status:"Open", sess:"Email · # CASE-30402", slideover:"email" },
+ { title:"3 · Sent; add SMS", note:"<b>Sent email becomes a collapsed card.</b> '+ Add channel → SMS' adds a leg: a lifecycle row, the composer target switches to SMS and shrinks to single-line with a segment counter.", legs:["email","sms"], filter:"All",
+   rows:[ email("2:02 PM","Refund request — order NR-10871","Hi, the water tank on my espresso machine arrived cracked. I'd like a refund, not a replacement. Photo attached.","1 attachment · photo.jpg · collapsed",false),
+          sysrow("2:06 PM","Used — Reply confirming the refund"),
+          email("2:06 PM","Re: Refund request — sent","Hi Maya, I'm sorry about the cracked tank. I've confirmed the $412.00 refund to your Visa ending 4417. It should post in 3–5 business days.","sent · collapsed",false),
+          sysrow("2:31 PM","SMS added · (646) 555-0143"),
+          sms("2:31 PM","agent","Hi Maya, it's John from Returns — the refund is on its way. Reply here if you have questions."),
+          sms("2:33 PM","cust","Thanks! How long until it shows on my card?") ],
+   composer:"sms", ref:"default", status:"Open", sess:"Email · SMS · # CASE-30402" },
+ { title:"4 · Add voice", note:"<b>Call on the same assignment.</b> 'Call started' row, voice bar at the bottom, transcript rows interleave with the SMS. 'Hide Transcript' collapses them to one pinned line. The SMS composer stays usable during the call.", legs:["email","sms","voice"], filter:"All",
+   rows:[ email("2:02 PM","Refund request — order NR-10871","Hi, the water tank on my espresso machine arrived cracked. I'd like a refund, not a replacement. Photo attached.","1 attachment · photo.jpg · collapsed",false),
+          email("2:06 PM","Re: Refund request — sent","Hi Maya, I'm sorry about the cracked tank. I've confirmed the $412.00 refund to your Visa ending 4417. It should post in 3–5 business days.","sent · collapsed",false),
+          sysrow("2:06 PM","Used — Reply confirming the refund"),
+          sysrow("2:31 PM","SMS added · (646) 555-0143"),
+          sms("2:31 PM","agent","Hi Maya, it's John from Returns — the refund is on its way. Reply here if you have questions."),
+          sms("2:33 PM","cust","Thanks! How long until it shows on my card?"),
+          sysrow("2:35 PM","Call started · (646) 555-0143"),
+          utt("2:35 PM","Maya","Hi John, I got your text — I just wanted to check the timing."),
+          utt("2:35 PM","John","Of course. Visa refunds usually post in 3–5 business days."),
+          nba("2:36 PM","Do","Send the refund timeline by SMS","She asked for timing; a written copy avoids a repeat contact.","Runs the SMS template 'Refund timeline' — waits for your approval", false, true),
+          work("2:36 PM","Callback scheduled · Tue 10:00 AM","If the refund hasn't posted by then.") ],
+   composer:"sms", ref:"default", status:"Active Call", sess:"Email · SMS · Voice · # CASE-30402", voice:true },
+ { title:"5 · Call ends", note:"<b>A leg ending is an event, not a form.</b> Voice ACW runs on its own clock in the background. No wrap-up form yet, because the SMS leg is still open.", legs:["email","sms","voice"], filter:"All",
+   rows:[ email("2:02 PM","Refund request — order NR-10871","Hi, the water tank on my espresso machine arrived cracked. I'd like a refund, not a replacement. Photo attached.","1 attachment · photo.jpg · collapsed",false),
+          sysrow("2:06 PM","Used — Reply confirming the refund"),
+          email("2:06 PM","Re: Refund request — sent","Hi Maya, I'm sorry about the cracked tank. I've confirmed the $412.00 refund to your Visa ending 4417. It should post in 3–5 business days.","sent · collapsed",false),
+          sysrow("2:31 PM","SMS added · (646) 555-0143"),
+          sms("2:31 PM","agent","Hi Maya, it's John from Returns — the refund is on its way. Reply here if you have questions."),
+          sms("2:33 PM","cust","Thanks! How long until it shows on my card?"),
+          sysrow("2:35 PM","Call started · (646) 555-0143"),
+          utt("2:35 PM","Maya","Hi John, I got your text — I just wanted to check the timing."),
+          utt("2:35 PM","John","Of course. Visa refunds usually post in 3–5 business days."),
+          sysrow("2:36 PM","Used — Send the refund timeline by SMS"),
+          sms("2:36 PM","agent","Refund timeline: $412.00 to Visa ····4417 posts in 3–5 business days. Ref RET-1.3."),
+          work("2:36 PM","Callback scheduled · Tue 10:00 AM","If the refund hasn't posted by then."),
+          sysrow("2:39 PM","Call ended · 4:02 · after-call work running (voice)"),
+          sms("2:40 PM","cust","Perfect, thank you John!") ],
+   composer:"sms", ref:"default", status:"Open", sess:"Email · SMS · Voice (ended) · # CASE-30402" },
+ { title:"6 · Outcome, once", note:"<b>One Outcome for the assignment.</b> Status, disposition, tags, AI-drafted summary. On a CXone preset it fans out to the email, SMS and voice contacts; a collapsed 'applies to all 3 channels · change' row allows per-leg overrides.", legs:["email","sms","voice"], filter:"All",
+   rows:[ email("2:02 PM","Refund request — order NR-10871","Hi, the water tank on my espresso machine arrived cracked. I'd like a refund, not a replacement. Photo attached.","1 attachment · photo.jpg · collapsed",false),
+          sysrow("2:06 PM","Used — Reply confirming the refund"),
+          email("2:06 PM","Re: Refund request — sent","Hi Maya, I'm sorry about the cracked tank. I've confirmed the $412.00 refund to your Visa ending 4417. It should post in 3–5 business days.","sent · collapsed",false),
+          sysrow("2:31 PM","SMS added · (646) 555-0143"),
+          sms("2:31 PM","agent","Hi Maya, it's John from Returns — the refund is on its way. Reply here if you have questions."),
+          sms("2:33 PM","cust","Thanks! How long until it shows on my card?"),
+          sysrow("2:35 PM","Call started · (646) 555-0143"),
+          utt("2:35 PM","Maya","Hi John, I got your text — I just wanted to check the timing."),
+          utt("2:35 PM","John","Of course. Visa refunds usually post in 3–5 business days."),
+          sysrow("2:36 PM","Used — Send the refund timeline by SMS"),
+          sms("2:36 PM","agent","Refund timeline: $412.00 to Visa ····4417 posts in 3–5 business days. Ref RET-1.3."),
+          work("2:36 PM","Callback scheduled · Tue 10:00 AM","If the refund hasn't posted by then."),
+          sysrow("2:39 PM","Call ended · 4:02 · after-call work running (voice)"),
+          sms("2:40 PM","cust","Perfect, thank you John!"),
+          sysrow("2:41 PM","SMS closed") ],
+   composer:"outcome", ref:"default", status:"Wrap-up", sess:"Email · SMS · Voice · # CASE-30402" },
+ { title:"Filter: Email only", note:"<b>Filter chips replace tabs.</b> The same stream, filtered to the email leg — the CXone-style one-leg view without leaving the assignment.", legs:["email","sms","voice"], filter:"Email",
+   rows:[ email("2:02 PM","Refund request — order NR-10871","Hi, the water tank on my espresso machine arrived cracked. I'd like a refund, not a replacement. Photo attached.","1 attachment",true),
+          email("2:06 PM","Re: Refund request — sent","Hi Maya, I'm sorry about the cracked tank. I've confirmed the $412.00 refund to your Visa ending 4417. It should post in 3–5 business days.","sent",true) ],
+   composer:"email-collapsed", ref:"default", status:"Open", sess:"Email · SMS · Voice · # CASE-30402" },
+];
+
+function email(t,subj,body,meta,open){ return `<div class="row"><div class="t">${t}</div><div class="card email ${open?'':'collapsed'}"><span class="chip c-email">Email</span><h4 style="display:inline">${subj}</h4><p style="margin-top:4px">${body}</p><div class="meta">${meta}${open?'':' · click to expand'}</div></div></div>`; }
+function sms(t,who,text){ return `<div class="row"><div class="t">${t}</div><div class="bubble ${who}"><span class="chip c-sms">SMS</span>${text}</div></div>`; }
+function utt(t,who,text){ return `<div class="row"><div class="t">${t}</div><div class="utt"><span class="chip c-voice">Voice</span><b>${who}</b>${text}</div></div>`; }
+function sysrow(t,text){ return `<div class="row"><div class="t">${t}</div><div class="sys">${text}</div></div>`; }
+function work(t,title,sub){ return `<div class="row"><div class="t">${t}</div><div class="card work"><span class="chip c-work">Work item</span><h4 style="display:inline">${title}</h4><div class="meta">${sub}</div></div></div>`; }
+function nba(t,type,title,why,text,used,isDo){ return `<div class="row"><div class="t">${t}</div><div class="card ai nba"><span class="chip c-ai">Next Best Action · ${type}</span><h4 style="margin-top:4px">${title}</h4><div class="meta">💡 ${why}</div><p style="margin-top:4px;border-left:3px solid var(--blue);padding-left:8px;background:#fff">${text}</p><div class="acts">${isDo?'<span class="p">Run it</span>':'<span class="p">Insert into reply</span><span>Copy</span>'}<span>Not now</span></div></div></div>`; }
+
+function segRow(kind, legs, s){
+  const hasCustomer = legs.some(l=>l!=='voice');
+  const copilotOn = kind==='copilot' || kind==='none';
+  const label = {chat:'Chat', sms:'SMS', email:'Email','email-collapsed':'Email','email-expanded':'Email'}[kind] || (legs.find(l=>l!=='voice')||'').toUpperCase().replace('SMS','SMS').replace('CHAT','Chat').replace('EMAIL','Email');
+  const legsMenu = legs.filter(l=>l!=='voice').map(l=>l==='sms'?'SMS':l[0].toUpperCase()+l.slice(1)).join(' · ');
+  const customerTab = hasCustomer ? `<span class="${copilotOn?'':'on'}">Reply via <span class="menu" title="${legsMenu} · Add SMS… · Add email… · Call…">${label} ▾</span></span>` : '';
+  const toggles = `<span class="toggles"><span>⊙ Hide AI Actions</span>${legs.includes('voice')?(s&&s.hideTranscript?'<span class="on">◉ Hide Transcript</span>':'<span>⊙ Hide Transcript</span>'):''}</span>`;
+  return `<div class="seg"><span class="tabs">${customerTab}<span class="${copilotOn?'on':''}">Ask Copilot</span></span>${toggles}</div>`;
+}
+function copilotPane(legs){
+  const chips = ['What should I do next?','Summarize so far','Show purchase history','Payment preferences'];
+  return `<div class="copilot">＋ <span>Ask Copilot about this customer or conversation…</span><span class="mic">🎙</span></div><div class="chips">${chips.map(c=>`<span>✦ ${c}</span>`).join('')}<span class="refresh">⟳</span></div>`;
+}
+function composer(kind, legs, s){
+  if(kind==='outcome' || kind==='outcome2' || kind==='outcome-voice' || kind==='outcome-sms' || kind==='outcome-chat') return composerInner(kind, legs);
+  const seg = segRow(kind, legs, s);
+  if(kind==='copilot' || kind==='none') return seg + copilotPane(legs);
+  return seg + composerInner(kind, legs);
+}
+function composerInner(kind, legs){
+  const target = (sel) => `<div class=\"target\">${legs.includes('sms')?'<span style="color:var(--muted)">to (646) 555-0143</span>':legs.includes('email')?'<span style="color:var(--muted)">to maya.chen@example.com</span>':''}</div>`;
+  if(kind==='email-collapsed') return `<div class="composer">${target('Email')}<div class="field">Reply to this email… (expands to a full editor)</div><div class="foot">Templates · Attach<span class="send">Send</span></div></div>`;
+  if(kind==='email-expanded') return `<div class="composer"><div class="fields"><div><b>To</b> maya.chen@example.com</div><div><b>Subject</b> Re: Refund request — order NR-10871</div></div><div class="field tall">Hi Maya, I'm sorry about the cracked tank. I've confirmed the $412.00 refund to your Visa ending 4417…<br><br><span style="color:#aab">— quoted thread —</span></div><div class="foot">B I · Templates · Attach · ⌃ collapse<span class="send">Send</span></div></div>`;
+  if(kind==='sms') return `<div class="composer">${target('SMS')}<div class="field">Type a message… or / for quick replies</div><div class="foot">Templates · 0/160 · 1 segment<span class="send">Send</span></div></div>`;
+  if(kind==='outcome') return `<div class="outcome"><h4>Outcome · Maya Chen (assignment)</h4><div><b>Status</b> Resolved &nbsp; <b>Disposition</b> Refund issued &nbsp; <b>Tags</b> damaged-item, refund</div><div style="margin-top:6px"><b>Summary</b> <span class="l">(AI-drafted from the Real-Time Summary)</span><br>Cracked water tank on NR-10871; $412.00 refunded to Visa 4417 under RET-1.3; timeline sent by SMS; callback Tue 10:00 if not posted.</div><div class="l" style="margin-top:6px">Applies to all 3 channels (email, SMS, voice) · change</div><div style="margin-top:8px"><span class="chip" style="background:var(--green);color:#fff;padding:4px 10px">Save &amp; close assignment</span></div></div>`;
+  return '';
+}
+function ref(s){ if(s && s.slideover==='email') return `<div class="so" style="flex:1"><h5>Email thread · slide-over <span class="chip c-sys">reference</span></h5><div style="font-size:11.5px;color:var(--muted)">Opens with the Email target so the full thread is readable while you write.</div><div style="margin-top:8px;border:1px solid var(--line);border-radius:6px;padding:6px"><div><b>Maya Chen</b> · 2:02 PM · <span style="color:var(--muted)">Refund request — order NR-10871</span></div><div style="color:var(--muted);margin-top:3px">Hi, the water tank on my espresso machine arrived cracked. I'd like a refund, not a replacement. Photo attached.</div><div style="margin-top:4px"><span class="chip c-sys">photo.jpg</span></div></div><div style="margin-top:6px;border:1px solid var(--line);border-radius:6px;padding:6px"><div><b>Orders</b> · Sep 25 · <span style="color:var(--muted)">Your order NR-10871 has shipped</span></div><div style="color:var(--muted);margin-top:3px">Espresso machine · $412.00 · Visa ····4417</div></div></div><div class="rc"><h5>Real-Time Summary <span class="chip c-ai">Live</span></h5><p>Cracked tank on NR-10871; refund within limit.</p></div>`; return `<div class="so"><h5>Slide-over (reference slot)</h5><div style="color:var(--muted);font-size:11.5px">Reference only — an order, a card, a policy, an email thread, Experience Memory. Under the header; drag pushes the stream. Never a composer.</div></div><div class="rc"><h5>Real-Time Summary <span class="chip c-ai">Live</span></h5><p>Cracked tank on NR-10871; refund within limit; timing question answered.</p></div><div class="rc"><h5>Journey Summary <span class="chip c-sys">1 interaction</span></h5><p>One earlier chat about shipping.</p></div><div class="rc"><h5>Customer Info <span class="chip c-sms">On file</span></h5><p>Maya Chen · Member since 2022 · 6 orders</p></div>`; }
+
+function render(i){
+  const s = STEPS[i];
+  document.querySelectorAll('#steps button').forEach((b,j)=>b.classList.toggle('on', j===i));
+  document.getElementById('note').innerHTML = s.note;
+  const chipFor = l => `<span class="chip c-${l}">${l==='sms'?'SMS':l[0].toUpperCase()+l.slice(1)}</span>`;
+  document.getElementById('railchips').innerHTML = s.legs.map(chipFor).join('');
+  document.getElementById('status').textContent = s.status;
+  document.getElementById('sess').textContent = s.sess;
+  const fl = ['All', ...s.legs.map(l=>l==='sms'?'SMS':l[0].toUpperCase()+l.slice(1))];
+  document.getElementById('filters').innerHTML = fl.map(f=>`<span class="${f===s.filter?'on':''}">${f}</span>`).join('') + '';
+  const st=document.getElementById('stream'); st.innerHTML = s.rows.join(''); if(s.legs.every(l=>l==='voice')){ st.querySelectorAll('.nba .acts span.p').forEach(b=>{ if(b.textContent==='Insert into reply') b.textContent='Said it'; }); } requestAnimationFrame(()=>{ st.scrollTop = st.scrollHeight; });
+  document.getElementById('composer').innerHTML = composer(s.composer, s.legs, s);
+  document.getElementById('ref').innerHTML = ref(s);
+  document.getElementById('voicebar').classList.toggle('hidden', !s.voice);
+  location.hash = 'step' + (i+1);
+}
+const steps = document.getElementById('steps');
+STEPS.forEach((s,i)=>{ const b=document.createElement('button'); b.textContent=s.title; b.onclick=()=>render(i); steps.appendChild(b); });
+render(Math.max(0, Math.min(STEPS.length-1, (parseInt((location.hash.match(/step(\d+)/)||[])[1])||1)-1)));
+</script>
+</body>
+</html>

@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Assignment stream storyboard — chat first</title>
+<style>
+  :root { --ink:#1a1d23; --muted:#5c6470; --line:#d9dde3; --bg:#f4f6f9; --card:#fff; --blue:#2f6fdb; --blue-bg:#eaf1fd; --purple:#6b4fd8; --purple-bg:#efeafb; --amber-bg:#fff3e0; --amber:#9a5b00; --green-bg:#e4f3e8; --green:#1e6b33; --red:#c43a3a; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif; color:var(--ink); background:var(--bg); font-size:13px; line-height:1.4; }
+  header.top { padding:16px 24px 8px; }
+  header.top h1 { margin:0 0 4px; font-size:18px; }
+  header.top p { margin:0; color:var(--muted); }
+  .steps { display:flex; gap:6px; padding:8px 24px 12px; flex-wrap:wrap; }
+  .steps button { border:1px solid var(--line); background:#fff; border-radius:16px; padding:6px 12px; cursor:pointer; font-size:12.5px; }
+  .steps button.on { background:var(--blue); color:#fff; border-color:var(--blue); }
+  .note { margin:0 24px 12px; padding:10px 12px; background:#fff; border:1px solid var(--line); border-radius:8px; color:var(--ink); }
+  .note b { color:var(--blue); }
+  .shell { margin:0 24px 24px; display:grid; grid-template-columns:200px 1fr; gap:10px; }
+  .rail { background:#fff; border:1px solid var(--line); border-radius:10px; padding:10px; }
+  .rail .cardx { border:1px solid var(--line); border-radius:8px; padding:8px; margin-top:8px; }
+  .rail .cardx.active { border-color:var(--blue); background:var(--blue-bg); }
+  .chip { display:inline-block; border-radius:10px; padding:1px 7px; font-size:11px; font-weight:600; margin-right:4px; }
+  .c-email { background:#fde8ef; color:#9b2c4f; } .c-chat { background:#dff3f1; color:#0f6b63; } .c-sms { background:var(--green-bg); color:var(--green); } .c-voice { background:var(--purple-bg); color:var(--purple); } .c-ai { background:var(--purple-bg); color:var(--purple); } .c-work { background:var(--amber-bg); color:var(--amber); } .c-sys { background:#eceef2; color:var(--muted); }
+  .main { background:#fff; border:1px solid var(--line); border-radius:10px; display:flex; flex-direction:column; height:720px; }
+  .rh { padding:12px 16px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:10px; }
+  .rh .av { width:30px; height:30px; border-radius:50%; background:var(--blue); color:#fff; display:grid; place-items:center; font-weight:700; font-size:12px; }
+  .rh .name { font-weight:700; font-size:15px; }
+  .rh .sess { color:var(--muted); font-size:12px; margin-left:auto; }
+  .rh .btn { border:1px solid var(--line); border-radius:6px; padding:4px 8px; font-size:12px; background:#fff; }
+  .body { display:flex; flex:1; min-height:0; }
+  .action { flex:1; display:flex; flex-direction:column; padding:12px 16px; min-width:0; min-height:0; }
+  .filters { display:flex; gap:6px; margin-bottom:10px; align-items:center; }
+  .filters span { border:1px solid var(--line); border-radius:12px; padding:2px 9px; font-size:11.5px; color:var(--muted); }
+  .filters span.on { background:var(--ink); color:#fff; border-color:var(--ink); }
+  .filters .right { margin-left:auto; display:flex; gap:10px; font-size:11.5px; color:var(--muted); }
+  .stream { flex:1; display:flex; flex-direction:column; gap:8px; overflow:auto; }
+  .row { display:flex; gap:8px; align-items:flex-start; }
+  .row .t { color:var(--muted); font-size:11px; width:52px; flex:none; padding-top:3px; }
+  .card { border:1px solid var(--line); border-radius:8px; padding:8px 10px; flex:1; background:#fff; }
+  .card.email { border-left:3px solid #d14b74; }
+  .card.ai { background:var(--purple-bg); border-color:#d9d0f5; }
+  .card.work { background:var(--amber-bg); border-color:#f3dfb8; }
+  .card h4 { margin:0 0 4px; font-size:12.5px; }
+  .card p { margin:0 0 4px; }
+  .card .meta { color:var(--muted); font-size:11px; }
+  .sys { color:var(--muted); font-size:11.5px; padding:2px 0; border-top:1px dashed var(--line); border-bottom:1px dashed var(--line); flex:1; text-align:center; }
+  .bubble { border-radius:12px; padding:6px 10px; max-width:70%; }
+  .bubble.cust { background:#eef0f4; }
+  .bubble.agent { background:var(--blue-bg); margin-left:auto; }
+  .utt { color:var(--ink); } .utt b { color:var(--muted); font-weight:600; font-size:11px; margin-right:6px; }
+  .collapsed { background:#fafbfc; }
+  .nba .acts { display:flex; gap:6px; margin-top:6px; }
+  .nba .acts span { border-radius:6px; padding:3px 8px; font-size:11.5px; border:1px solid var(--line); background:#fff; }
+  .nba .acts span.p { background:var(--blue); color:#fff; border-color:var(--blue); }
+  .seg { display:flex; align-items:center; gap:8px; margin-top:10px; }
+  .seg .tabs { display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .seg .tabs span { padding:5px 10px; font-size:12px; color:var(--muted); background:#fff; border-right:1px solid var(--line); }
+  .seg .tabs span:last-child { border-right:0; }
+  .seg .tabs span.on { color:var(--blue); font-weight:600; background:var(--blue-bg); }
+  .seg .tabs .menu { border:1px solid var(--line); border-radius:5px; padding:0 6px; margin-left:4px; background:#fff; color:var(--ink); font-weight:600; }
+  .seg .toggles { margin-left:auto; display:flex; gap:10px; font-size:11.5px; color:var(--muted); }
+  .seg .toggles .on { color:var(--blue); font-weight:600; }
+  .composer { border:1px solid var(--line); border-radius:10px; margin-top:6px; }
+  .copilot { border:1px solid var(--line); border-radius:999px; padding:9px 14px; color:var(--muted); margin-top:6px; display:flex; gap:10px; align-items:center; }
+  .copilot .mic { margin-left:auto; }
+  .chips { display:flex; gap:6px; margin-top:6px; flex-wrap:wrap; }
+  .chips span { background:var(--purple-bg); color:var(--purple); border-radius:999px; padding:2px 9px; font-size:11.5px; }
+  .chips .refresh { color:var(--muted); background:none; }
+  .composer .target { display:flex; gap:8px; align-items:center; padding:6px 10px; border-bottom:1px solid var(--line); font-size:12px; }
+  .composer .target .sel { border:1px solid var(--line); border-radius:6px; padding:2px 8px; background:#fff; font-weight:600; }
+  .composer .target .add { color:var(--blue); margin-left:auto; }
+  .composer .field { padding:8px 10px; color:var(--muted); }
+  .composer .field.tall { min-height:120px; }
+  .composer .fields div { padding:4px 10px; border-bottom:1px solid var(--line); font-size:12px; }
+  .composer .foot { display:flex; gap:8px; padding:6px 10px; border-top:1px solid var(--line); font-size:11.5px; color:var(--muted); align-items:center; }
+  .composer .foot .send { margin-left:auto; background:var(--blue); color:#fff; border-radius:6px; padding:3px 10px; }
+  .ref { width:250px; flex:none; border-left:1px solid var(--line); padding:12px; display:flex; flex-direction:column; gap:8px; }
+  .ref .rc { border:1px solid var(--line); border-radius:8px; padding:8px; }
+  .ref .rc h5 { margin:0; font-size:12px; display:flex; justify-content:space-between; }
+  .ref .rc p { margin:6px 0 0; color:var(--muted); font-size:11.5px; }
+  .ref .so { border:2px solid var(--blue); border-radius:8px; padding:8px; background:#fff; }
+  .ref .so h5 { margin:0 0 6px; font-size:12px; }
+  .voicebar { border-top:1px solid var(--line); padding:8px 16px; display:flex; gap:14px; align-items:center; font-size:12px; background:#fafbfc; border-radius:0 0 10px 10px; }
+  .voicebar .end { margin-left:auto; background:var(--red); color:#fff; border-radius:6px; padding:4px 10px; }
+  .outcome { border:2px solid var(--green); border-radius:10px; padding:10px; background:#fff; margin-top:8px; }
+  .outcome h4 { margin:0 0 6px; }
+  .outcome .l { font-size:11.5px; color:var(--muted); }
+  .hidden { display:none; }
+  .legend { margin:0 24px 24px; color:var(--muted); font-size:12px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>One assignment, one stream: chat → call → email during the call → outcome</h1>
+  <p>Scenario 2: the chat-in-progress case. Legs join the same timeline; the composer transitions to the email editor in place; the slide-over shows the email thread for reference. Not lyra — boxes only.</p>
+</header>
+
+<div class="steps" id="steps"></div>
+<div class="note" id="note"></div>
+
+<div class="shell">
+  <div class="rail">
+    <div style="font-weight:700">Assignments (1)</div>
+    <div class="cardx active">
+      <div style="font-weight:600">Priya Shah</div>
+      <div id="railchips" style="margin-top:4px"></div>
+      <div style="color:var(--muted);font-size:11px;margin-top:4px">Billing · 00:09</div>
+    </div>
+    <div style="margin-top:14px;color:var(--muted);font-size:11.5px">The rail card is the assignment. Channel chips are its legs; they grow as legs join. Five concurrent chats = five cards, not five legs.</div>
+  </div>
+
+  <div class="main">
+    <div class="rh">
+      <div class="av">PS</div>
+      <div class="name">Priya Shah</div>
+      <span class="chip c-sys" id="status">Open</span>
+      <span class="sess" id="sess">Email · # CASE-30402 · Session Details ›</span>
+      <span class="btn">Contact Details</span>
+    </div>
+    <div class="body">
+      <div class="action">
+        <div class="filters" id="filters"></div>
+        <div class="stream" id="stream"></div>
+        <div id="composer"></div>
+      </div>
+      <div class="ref" id="ref"></div>
+    </div>
+    <div class="voicebar hidden" id="voicebar">
+      <span>Priya Shah · <b id="calltimer">00:00</b></span><span>Hold</span><span>Mute</span><span>Record</span><span>Keypad</span><span>Transcript</span><span class="end">End Call</span>
+    </div>
+  </div>
+</div>
+<p class="legend">Rows: <span class="chip c-email">Email</span> <span class="chip c-sms">SMS</span> <span class="chip c-voice">Voice</span> <span class="chip c-ai">AI</span> <span class="chip c-work">Work item</span> <span class="chip c-sys">Lifecycle</span>. Filter chips replace channel tabs; "Hide Transcript" collapses live voice rows to one pinned line.</p>
+
+<script>
+const STEPS = [
+ { title:"1 · Chat in progress", note:"<b>Chat-only assignment.</b> The stream is the chat. Composer target: Chat. The NBA suggests the next turn after a pause.", legs:["chat"], filter:"All",
+   rows:[ chat("2:02 PM","cust","Hi, I was charged twice for order NR-10982 — $64 each. Can you fix it?"),
+          chat("2:02 PM","agent","Hi Priya, I'm John. Let me look at that order."),
+          chat("2:03 PM","cust","Thanks. It's the PayPal one from Sep 26."),
+          nba("2:03 PM","Say","Confirm the duplicate and offer the refund","Two PayPal captures on NR-10982 within 40s; refund within your limit.","I can see the duplicate capture on NR-10982. I'll refund the second $64.00 to your PayPal now.") ],
+   composer:"chat", ref:"default", status:"Open", sess:"Chat · # CASE-30411" },
+ { title:"2 · Customer asks for a call", note:"<b>Add a voice leg from the chat.</b> '+ Add channel → Voice' dials her number; 'Call started' row; the voice bar appears; transcript rows interleave with the chat. The chat composer stays usable.", legs:["chat","voice"], filter:"All",
+   rows:[ chat("2:02 PM","cust","Hi, I was charged twice for order NR-10982 — $64 each. Can you fix it?"),
+          chat("2:02 PM","agent","Hi Priya, I'm John. Let me look at that order."),
+          chat("2:03 PM","cust","Thanks. It's the PayPal one from Sep 26."),
+          sysrow("2:04 PM","Used — Confirm the duplicate and offer the refund"),
+          chat("2:04 PM","agent","I can see the duplicate capture on NR-10982. I'll refund the second $64.00 to your PayPal now."),
+          chat("2:05 PM","cust","Could you just call me? Easier to explain the other thing."),
+          sysrow("2:05 PM","Call started · (415) 555-0188"),
+          utt("2:05 PM","Priya","Hi John — so the other thing is the subscription renewed when I'd cancelled."),
+          utt("2:06 PM","John","Got it. I'm looking at the subscription now."),
+          nba("2:06 PM","Ask","Ask when she cancelled","Cancellation date decides whether the renewal is refundable (SUB-2.1).","When did you cancel — was it before the 14th?") ],
+   composer:"chat", ref:"default", status:"Active Call", sess:"Chat · Voice · # CASE-30411", voice:true },
+ { title:"2b · Ask Copilot", note:"<b>The Copilot segment.</b> Same area, second segment: the pill and its assignment-scoped chips. A result lands in the stream as a row (and opens the slide-over when it's a record). 'Insert into reply' flips back to the customer segment and fills the composer for the targeted leg.", legs:["chat","voice"], filter:"All", who:"Priya Shah",
+   rows:[ chat("2:03 PM","cust","Thanks. It's the PayPal one from Sep 26."),
+          sysrow("2:04 PM","Used — Confirm the duplicate and offer the refund"),
+          chat("2:04 PM","agent","I can see the duplicate capture on NR-10982. I'll refund the second $64.00 to your PayPal now."),
+          chat("2:05 PM","cust","Could you just call me? Easier to explain the other thing."),
+          sysrow("2:05 PM","Call started · (415) 555-0188"),
+          utt("2:05 PM","Priya","Hi John — so the other thing is the subscription renewed when I'd cancelled."),
+          utt("2:06 PM","John","Got it. I'm looking at the subscription now."),
+          copilotq("2:06 PM","Payment preferences"),
+          copilotr("2:06 PM","Payment preferences · Priya Shah","PayPal on 7 of her last 9 orders; one card on file (Visa ····2210, unused since Jun). Subscription bills to PayPal.","Show the subscription → slide-over") ],
+   composer:"copilot", status:"Active Call", sess:"Chat · Voice · # CASE-30411", voice:true },
+ { title:"3 · Hide Transcript", note:"<b>Transcript collapsed to one pinned line.</b> While you type in the chat, the live call shows as a single 'On call' row that updates with the last utterance. AI rows stay.", legs:["chat","voice"], filter:"All", hideTranscript:true,
+   rows:[ chat("2:02 PM","cust","Hi, I was charged twice for order NR-10982 — $64 each. Can you fix it?"),
+          chat("2:02 PM","agent","Hi Priya, I'm John. Let me look at that order."),
+          chat("2:03 PM","cust","Thanks. It's the PayPal one from Sep 26."),
+          sysrow("2:04 PM","Used — Confirm the duplicate and offer the refund"),
+          chat("2:04 PM","agent","I can see the duplicate capture on NR-10982. I'll refund the second $64.00 to your PayPal now."),
+          chat("2:05 PM","cust","Could you just call me? Easier to explain the other thing."),
+          sysrow("2:05 PM","Call started · (415) 555-0188"),
+          sysrow("2:06 PM","Used — Ask when she cancelled"),
+          chat("2:07 PM","agent","While we talk — here's the refund confirmation for the $64 duplicate: RF-20451."),
+          pinned("On call · 02:14 · Priya: “I cancelled on the 12th, I have the email.”") ],
+   composer:"chat", ref:"default", status:"Active Call", sess:"Chat · Voice · # CASE-30411", voice:true },
+ { title:"4 · Send an email during the call", note:"<b>Composer target → Email: the input transitions to the email editor in place.</b> One composer, shaped by the target. The slide-over shows the email thread for reference (opens automatically when the target becomes Email). Switching the target back to Chat collapses the draft to a strip under the composer.", legs:["chat","voice","email"], filter:"All", hideTranscript:true, slideover:"email",
+   rows:[ chat("2:02 PM","cust","Hi, I was charged twice for order NR-10982 — $64 each. Can you fix it?"),
+          chat("2:02 PM","agent","Hi Priya, I'm John. Let me look at that order."),
+          chat("2:03 PM","cust","Thanks. It's the PayPal one from Sep 26."),
+          sysrow("2:04 PM","Used — Confirm the duplicate and offer the refund"),
+          chat("2:04 PM","agent","I can see the duplicate capture on NR-10982. I'll refund the second $64.00 to your PayPal now."),
+          chat("2:05 PM","cust","Could you just call me? Easier to explain the other thing."),
+          sysrow("2:05 PM","Call started · (415) 555-0188"),
+          sysrow("2:06 PM","Used — Ask when she cancelled"),
+          chat("2:07 PM","agent","While we talk — here's the refund confirmation for the $64 duplicate: RF-20451."),
+          nba("2:08 PM","Do","Email the cancellation confirmation","She cancelled on the 12th; SUB-2.1 refunds the renewal. A written confirmation closes the loop.","Drafts the 'Subscription cancelled + renewal refunded' email — waits for your approval", false, true),
+          sysrow("2:08 PM","Email added · priya.shah@example.com"),
+          pinned("On call · 03:40 · John: “I'm sending you the confirmation email now.”") ],
+   composer:"email-expanded", ref:"default", status:"Active Call", sess:"Chat · Voice · Email · # CASE-30411", voice:true },
+ { title:"5 · Sent; call ends", note:"<b>The sent email is a card in the stream; the call ending is an event.</b> Voice ACW runs on its own clock. No wrap-up form — the chat leg is still open.", legs:["chat","voice","email"], filter:"All",
+   rows:[ chat("2:02 PM","cust","Hi, I was charged twice for order NR-10982 — $64 each. Can you fix it?"),
+          chat("2:02 PM","agent","Hi Priya, I'm John. Let me look at that order."),
+          chat("2:03 PM","cust","Thanks. It's the PayPal one from Sep 26."),
+          sysrow("2:04 PM","Used — Confirm the duplicate and offer the refund"),
+          chat("2:04 PM","agent","I can see the duplicate capture on NR-10982. I'll refund the second $64.00 to your PayPal now."),
+          chat("2:05 PM","cust","Could you just call me? Easier to explain the other thing."),
+          sysrow("2:05 PM","Call started · (415) 555-0188"),
+          utt("2:05 PM","Priya","Hi John — so the other thing is the subscription renewed when I'd cancelled."),
+          utt("2:06 PM","John","Got it. I'm looking at the subscription now."),
+          sysrow("2:06 PM","Used — Ask when she cancelled"),
+          utt("2:06 PM","John","When did you cancel — was it before the 14th?"),
+          utt("2:07 PM","Priya","I cancelled on the 12th, I have the email."),
+          chat("2:07 PM","agent","While we talk — here's the refund confirmation for the $64 duplicate: RF-20451."),
+          sysrow("2:08 PM","Used — Email the cancellation confirmation"),
+          sysrow("2:08 PM","Email added · priya.shah@example.com"),
+          utt("2:08 PM","John","I'm sending you the confirmation email now."),
+          email("2:09 PM","Subscription cancelled · renewal refunded — sent","Hi Priya, confirming your subscription was cancelled on Sep 12 and the Oct renewal of $29.00 has been refunded to PayPal. Ref RF-20452.","sent · collapsed",false),
+          utt("2:09 PM","Priya","Perfect, I see it. Thanks John."),
+          sysrow("2:10 PM","Call ended · 4:52 · after-call work running (voice)"),
+          chat("2:10 PM","cust","Got the email too. All good 👍"),
+          work("2:10 PM","Ticket #4821 · updated","Subscription renewal refund — resolved.") ],
+   composer:"chat", ref:"default", status:"Open", sess:"Chat · Voice (ended) · Email · # CASE-30411" },
+ { title:"6 · Chat ends; Outcome once", note:"<b>One Outcome for the assignment.</b> Three legs and a work item, one disposition, AI-drafted summary. On a CXone preset the disposition fans out to the chat, voice and email contacts; per-leg overrides stay collapsed.", legs:["chat","voice","email"], filter:"All",
+   rows:[ chat("2:02 PM","cust","Hi, I was charged twice for order NR-10982 — $64 each. Can you fix it?"),
+          chat("2:02 PM","agent","Hi Priya, I'm John. Let me look at that order."),
+          chat("2:03 PM","cust","Thanks. It's the PayPal one from Sep 26."),
+          sysrow("2:04 PM","Used — Confirm the duplicate and offer the refund"),
+          chat("2:04 PM","agent","I can see the duplicate capture on NR-10982. I'll refund the second $64.00 to your PayPal now."),
+          chat("2:05 PM","cust","Could you just call me? Easier to explain the other thing."),
+          sysrow("2:05 PM","Call started · (415) 555-0188"),
+          utt("2:05 PM","Priya","Hi John — so the other thing is the subscription renewed when I'd cancelled."),
+          utt("2:06 PM","John","Got it. I'm looking at the subscription now."),
+          sysrow("2:06 PM","Used — Ask when she cancelled"),
+          utt("2:06 PM","John","When did you cancel — was it before the 14th?"),
+          utt("2:07 PM","Priya","I cancelled on the 12th, I have the email."),
+          chat("2:07 PM","agent","While we talk — here's the refund confirmation for the $64 duplicate: RF-20451."),
+          sysrow("2:08 PM","Used — Email the cancellation confirmation"),
+          sysrow("2:08 PM","Email added · priya.shah@example.com"),
+          utt("2:08 PM","John","I'm sending you the confirmation email now."),
+          email("2:09 PM","Subscription cancelled · renewal refunded — sent","Hi Priya, confirming your subscription was cancelled on Sep 12 and the Oct renewal of $29.00 has been refunded to PayPal. Ref RF-20452.","sent · collapsed",false),
+          utt("2:09 PM","Priya","Perfect, I see it. Thanks John."),
+          sysrow("2:10 PM","Call ended · 4:52 · after-call work running (voice)"),
+          chat("2:10 PM","cust","Got the email too. All good 👍"),
+          work("2:10 PM","Ticket #4821 · updated","Subscription renewal refund — resolved."),
+          sysrow("2:11 PM","Chat ended by customer") ],
+   composer:"outcome2", ref:"default", status:"Wrap-up", sess:"Chat · Voice · Email · # CASE-30411" },
+ { title:"Filter: Voice only", note:"<b>Filter chips replace tabs.</b> Just the call, as a transcript, without leaving the assignment.", legs:["chat","voice","email"], filter:"Voice",
+   rows:[ sysrow("2:05 PM","Call started · (415) 555-0188"),
+          utt("2:05 PM","Priya","Hi John — so the other thing is the subscription renewed when I'd cancelled."),
+          utt("2:06 PM","John","Got it. I'm looking at the subscription now."),
+          utt("2:06 PM","John","When did you cancel — was it before the 14th?"),
+          utt("2:07 PM","Priya","I cancelled on the 12th, I have the email."),
+          utt("2:08 PM","John","I'm sending you the confirmation email now."),
+          utt("2:09 PM","Priya","Perfect, I see it. Thanks John."),
+          sysrow("2:10 PM","Call ended · 4:52") ],
+   composer:"chat", ref:"default", status:"Open", sess:"Chat · Voice · Email · # CASE-30411" },
+];
+
+function email(t,subj,body,meta,open){ return `<div class="row"><div class="t">${t}</div><div class="card email ${open?'':'collapsed'}"><span class="chip c-email">Email</span><h4 style="display:inline">${subj}</h4><p style="margin-top:4px">${body}</p><div class="meta">${meta}${open?'':' · click to expand'}</div></div></div>`; }
+function chat(t,who,text){ return `<div class="row"><div class="t">${t}</div><div class="bubble ${who}"><span class="chip c-chat">Chat</span>${text}</div></div>`; }
+function pinned(text){ return `<div class="row" style="position:sticky;bottom:0"><div class="t"></div><div class="card" style="background:var(--purple-bg);border-color:#d9d0f5"><span class="chip c-voice">Voice</span><b>${text}</b> <span class="meta">· Show transcript</span></div></div>`; }
+function copilotq(t,q){ return `<div class="row"><div class="t">${t}</div><div class="bubble agent" style="background:var(--purple-bg)"><span class="chip c-ai">Ask Copilot</span>${q}</div></div>`; }
+function copilotr(t,title,body,action){ return `<div class="row"><div class="t">${t}</div><div class="card ai"><span class="chip c-ai">Copilot</span><h4 style="display:inline">${title}</h4><p style="margin-top:4px">${body}</p><div class="meta" style="color:var(--blue)">${action}</div></div></div>`; }
+function sms(t,who,text){ return `<div class="row"><div class="t">${t}</div><div class="bubble ${who}"><span class="chip c-sms">SMS</span>${text}</div></div>`; }
+function utt(t,who,text){ return `<div class="row"><div class="t">${t}</div><div class="utt"><span class="chip c-voice">Voice</span><b>${who}</b>${text}</div></div>`; }
+function sysrow(t,text){ return `<div class="row"><div class="t">${t}</div><div class="sys">${text}</div></div>`; }
+function work(t,title,sub){ return `<div class="row"><div class="t">${t}</div><div class="card work"><span class="chip c-work">Work item</span><h4 style="display:inline">${title}</h4><div class="meta">${sub}</div></div></div>`; }
+function nba(t,type,title,why,text,used,isDo){ return `<div class="row"><div class="t">${t}</div><div class="card ai nba"><span class="chip c-ai">Next Best Action · ${type}</span><h4 style="margin-top:4px">${title}</h4><div class="meta">💡 ${why}</div><p style="margin-top:4px;border-left:3px solid var(--blue);padding-left:8px;background:#fff">${text}</p><div class="acts">${isDo?'<span class="p">Run it</span>':'<span class="p">Insert into reply</span><span>Copy</span>'}<span>Not now</span></div></div></div>`; }
+
+function segRow(kind, legs, s){
+  const hasCustomer = legs.some(l=>l!=='voice');
+  const copilotOn = kind==='copilot' || kind==='none';
+  const label = {chat:'Chat', sms:'SMS', email:'Email','email-collapsed':'Email','email-expanded':'Email'}[kind] || (legs.find(l=>l!=='voice')||'').toUpperCase().replace('SMS','SMS').replace('CHAT','Chat').replace('EMAIL','Email');
+  const legsMenu = legs.filter(l=>l!=='voice').map(l=>l==='sms'?'SMS':l[0].toUpperCase()+l.slice(1)).join(' · ');
+  const customerTab = hasCustomer ? `<span class="${copilotOn?'':'on'}">Reply via <span class="menu" title="${legsMenu} · Add SMS… · Add email… · Call…">${label} ▾</span></span>` : '';
+  const toggles = `<span class="toggles"><span>⊙ Hide AI Actions</span>${legs.includes('voice')?(s&&s.hideTranscript?'<span class="on">◉ Hide Transcript</span>':'<span>⊙ Hide Transcript</span>'):''}</span>`;
+  return `<div class="seg"><span class="tabs">${customerTab}<span class="${copilotOn?'on':''}">Ask Copilot</span></span>${toggles}</div>`;
+}
+function copilotPane(legs){
+  const chips = ['What should I do next?','Summarize so far','Show purchase history','Payment preferences'];
+  return `<div class="copilot">＋ <span>Ask Copilot about this customer or conversation…</span><span class="mic">🎙</span></div><div class="chips">${chips.map(c=>`<span>✦ ${c}</span>`).join('')}<span class="refresh">⟳</span></div>`;
+}
+function composer(kind, legs, s){
+  if(kind==='outcome' || kind==='outcome2' || kind==='outcome-voice' || kind==='outcome-sms' || kind==='outcome-chat') return composerInner(kind, legs);
+  const seg = segRow(kind, legs, s);
+  if(kind==='copilot' || kind==='none') return seg + copilotPane(legs);
+  return seg + composerInner(kind, legs);
+}
+function composerInner(kind, legs){
+  const target = (sel) => `<div class=\"target\">${sel==='Email'?'<span style="color:var(--muted)">to priya.shah@example.com</span>':sel==='Chat'?'<span style="color:var(--muted)">web chat · Priya Shah</span>':''}</div>`;
+  if(kind==='email-collapsed') return `<div class="composer">${target('Email')}<div class="field">Reply to this email… (expands to a full editor)</div><div class="foot">Templates · Attach<span class="send">Send</span></div></div>`;
+  if(kind==='email-expanded') return `<div class="composer"><div class="fields"><div><b>To</b> priya.shah@example.com</div><div><b>Subject</b> Subscription cancelled · renewal refunded</div></div><div class="field tall">Hi Priya, confirming your subscription was cancelled on Sep 12 and the Oct renewal of $29.00 has been refunded to PayPal. Ref RF-20452…<br><br><span style="color:#aab">(resizable · ⌃ collapse to give the stream room)</span></div><div class="foot">B I · Templates · Attach<span style="color:var(--muted)">· Switch target to Chat → draft collapses to a 'Draft · Subscription cancelled… · Resume' strip</span><span class="send">Send</span></div></div>`;
+  if(kind==='chat') return `<div class="composer">${target('Chat')}<div class="field">Type a message… or / for quick replies</div><div class="foot">Templates · Attach · Emoji<span class="send">Send</span></div></div>`;
+  if(kind==='outcome2') return `<div class="outcome"><h4>Outcome · Priya Shah (assignment)</h4><div><b>Status</b> Resolved &nbsp; <b>Disposition</b> Billing — duplicate charge &nbsp; <b>Tags</b> refund, subscription</div><div style="margin-top:6px"><b>Summary</b> <span class="l">(AI-drafted from the Real-Time Summary)</span><br>Duplicate $64.00 PayPal capture on NR-10982 refunded (RF-20451); subscription renewal refunded under SUB-2.1 (cancelled Sep 12); confirmation emailed; ticket #4821 updated.</div><div class="l" style="margin-top:6px">Applies to all 3 channels (chat, voice, email) · change</div><div style="margin-top:8px"><span class="chip" style="background:var(--green);color:#fff;padding:4px 10px">Save &amp; close assignment</span></div></div>`;
+  if(kind==='sms') return `<div class="composer">${target('SMS')}<div class="field">Type a message… or / for quick replies</div><div class="foot">Templates · 0/160 · 1 segment<span class="send">Send</span></div></div>`;
+  if(kind==='outcome') return `<div class="outcome"><h4>Outcome · Priya Shah (assignment)</h4><div><b>Status</b> Resolved &nbsp; <b>Disposition</b> Refund issued &nbsp; <b>Tags</b> damaged-item, refund</div><div style="margin-top:6px"><b>Summary</b> <span class="l">(AI-drafted from the Real-Time Summary)</span><br>Cracked water tank on NR-10871; $412.00 refunded to Visa 4417 under RET-1.3; timeline sent by SMS; callback Tue 10:00 if not posted.</div><div class="l" style="margin-top:6px">Applies to all 3 channels (email, SMS, voice) · change</div><div style="margin-top:8px"><span class="chip" style="background:var(--green);color:#fff;padding:4px 10px">Save &amp; close assignment</span></div></div>`;
+  return '';
+}
+function ref(s){ if(s.slideover==='email') return `<div class="so" style="flex:1"><h5>Email thread · slide-over <span class="chip c-sys">reference</span></h5><div style="font-size:11.5px;color:var(--muted)">Opens with the Email target so the full thread is readable while you write. One thing, up close; the stream stays in view.</div><div style="margin-top:8px;border:1px solid var(--line);border-radius:6px;padding:6px"><div><b>Priya Shah</b> · Sep 12 · <span style="color:var(--muted)">Cancel my subscription</span></div><div style="color:var(--muted);margin-top:3px">Please cancel my plan effective today. Thanks — Priya</div></div><div style="margin-top:6px;border:1px solid var(--line);border-radius:6px;padding:6px"><div><b>Support</b> · Sep 12 · <span style="color:var(--muted)">Re: Cancel my subscription</span></div><div style="color:var(--muted);margin-top:3px">Done — your subscription is cancelled as of today. No further charges.</div></div><div style="margin-top:6px;border:1px solid var(--line);border-radius:6px;padding:6px"><div><b>Billing</b> · Oct 1 · <span style="color:var(--muted)">Your renewal receipt · $29.00</span></div><div style="color:var(--muted);margin-top:3px">Automatic renewal processed. <span class="chip c-work">the charge she's disputing</span></div></div></div><div class="rc"><h5>Real-Time Summary <span class="chip c-ai">Live</span></h5><p>Duplicate charge refunded; renewal refund in progress.</p></div>`; return `<div class="so"><h5>Slide-over (reference slot)</h5><div style="color:var(--muted);font-size:11.5px">Reference only — an order, a card, a policy, an email thread, Experience Memory. Under the header; drag pushes the stream. Never a composer.</div></div><div class="rc"><h5>Real-Time Summary <span class="chip c-ai">Live</span></h5><p>Duplicate $64 PayPal charge on NR-10982 refunded; subscription renewal under review.</p></div><div class="rc"><h5>Journey Summary <span class="chip c-sys">1 interaction</span></h5><p>Chat Sep 26 about the same order.</p></div><div class="rc"><h5>Customer Info <span class="chip c-sms">On file</span></h5><p>Priya Shah · Member since 2021 · 9 orders</p></div>`; }
+
+function render(i){
+  const s = STEPS[i];
+  document.querySelectorAll('#steps button').forEach((b,j)=>b.classList.toggle('on', j===i));
+  document.getElementById('note').innerHTML = s.note;
+  const chipFor = l => `<span class="chip c-${l}">${l==='sms'?'SMS':l[0].toUpperCase()+l.slice(1)}</span>`;
+  document.getElementById('railchips').innerHTML = s.legs.map(chipFor).join('');
+  document.getElementById('status').textContent = s.status;
+  document.getElementById('sess').textContent = s.sess;
+  const fl = ['All', ...s.legs.map(l=>l==='sms'?'SMS':l[0].toUpperCase()+l.slice(1))];
+  document.getElementById('filters').innerHTML = fl.map(f=>`<span class="${f===s.filter?'on':''}">${f}</span>`).join('') + '';
+  const st=document.getElementById('stream'); st.innerHTML = s.rows.join(''); if(s.legs.every(l=>l==='voice')){ st.querySelectorAll('.nba .acts span.p').forEach(b=>{ if(b.textContent==='Insert into reply') b.textContent='Said it'; }); } requestAnimationFrame(()=>{ st.scrollTop = st.scrollHeight; });
+  document.getElementById('composer').innerHTML = composer(s.composer, s.legs, s);
+  document.getElementById('ref').innerHTML = ref(s);
+  document.getElementById('voicebar').classList.toggle('hidden', !s.voice);
+  location.hash = 'step' + (i+1);
+}
+const steps = document.getElementById('steps');
+STEPS.forEach((s,i)=>{ const b=document.createElement('button'); b.textContent=s.title; b.onclick=()=>render(i); steps.appendChild(b); });
+render(Math.max(0, Math.min(STEPS.length-1, (parseInt((location.hash.match(/step(\d+)/)||[])[1])||1)-1)));
+</script>
+</body>
+</html>

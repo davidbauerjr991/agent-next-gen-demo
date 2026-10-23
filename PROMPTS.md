@@ -12,7 +12,7 @@ Default split: **Plan: Opus · Implement: Sonnet.** Steps marked **Implement: Op
 
 Execution order below differs from PLAN.md's numbering where it reduces risk. Step labels reference PLAN.md's numbering.
 
-**Execution order** (PLAN.md "Effort and order", 2026-10-18): … P-EXTRACT → P-POLISH → P-CANVAS → P-PROFILES → P0.5d.3 → lyra timers → P0.6 → Phase 2 §0–5 → Phase 3 → *milestone* → P-ADMIN → P-LYRA-RTL → P-I18N → P0.9 → P-ADMIN-2 → P-EMPLOYEES → P-COMPLIANCE → P-REPORTING → P-QM → Phase 1 → Phase 2 §6–7 → Phase 4 → the remaining verticals → Phase 5 + P-CONFIG-ASSIST → Phase 6 → Phase 7 → P-CAMPAIGNS → P-BILLING → P-MAPPINGS → P-ADAPTER → P-IMPORT → P-STUDIO → P-EMBED.
+**Execution order** (PLAN.md "Effort and order", 2026-10-18): … P-EXTRACT → P-POLISH → P-CANVAS → P-PROFILES → P0.5d.3 → lyra timers → P0.6 → Phase 2 §0–5 → Phase 3 → *milestone* → P-ADMIN → P-LYRA-RTL → P-I18N → P0.9 → P-STREAM → P-ADMIN-2 → P-EMPLOYEES → P-COMPLIANCE → P-REPORTING → P-QM → Phase 1 → Phase 2 §6–7 → Phase 4 → the remaining verticals → Phase 5 + P-CONFIG-ASSIST → Phase 6 → Phase 7 → P-CAMPAIGNS → P-BILLING → P-MAPPINGS → P-ADAPTER → P-IMPORT → P-STUDIO → P-EMBED.
 
 ---
 
@@ -50,7 +50,7 @@ Wrap up this step: run the type-check and the test suite, update PROGRESS.md (do
 
 **One page (decided 2026-10-15; final since P0.5d.2):** Advanced is the agent workspace and Desk is deleted. Its layout varies by settings only; "Phase 1" and "Phase 2" are built-in workspace profiles. Prompts below that say "both pages" mean Advanced.
 
-**Execution order (revised 2026-10-19, demo-first):** finish 5d.1 → P0.7 and P0.5c → P-SETTINGS → P0.5d.2 → P-AIFIRST → P-EXTRACT → P-POLISH → P-CANVAS → P-PROFILES → P0.5d.3 → the lyra timers change → P0.6 → Phase 2 §0–5 → Phase 3 (*first demo milestone: a simulated chat and spoken call driven from the console*) → P-ADMIN → P0.9.1–9.3 → P-EMPLOYEES → Phase 1 (incl. P1.4a, P1.4b) → Phase 2 §6–7 (P2.7) → Phase 4 (incl. P4.4a, P4.11) → remaining verticals (P1.2a, P1.2b) → Phase 5 (incl. P5.6, P5.7) and P-CONFIG-ASSIST → Phase 6 → Phase 7 → P-REPORTING → P-BILLING → P-MAPPINGS → P-ADAPTER sequence → P-IMPORT → P-EMBED (last).
+**Execution order (revised 2026-10-19, demo-first):** finish 5d.1 → P0.7 and P0.5c → P-SETTINGS → P0.5d.2 → P-AIFIRST → P-EXTRACT → P-POLISH → P-CANVAS → P-PROFILES → P0.5d.3 → the lyra timers change → P0.6 → Phase 2 §0–5 → Phase 3 (*first demo milestone: a simulated chat and spoken call driven from the console*) → P-ADMIN → P0.9.1–9.3 → P-STREAM → P-EMPLOYEES → Phase 1 (incl. P1.4a, P1.4b) → Phase 2 §6–7 (P2.7) → Phase 4 (incl. P4.4a, P4.11) → remaining verticals (P1.2a, P1.2b) → Phase 5 (incl. P5.6, P5.7) and P-CONFIG-ASSIST → Phase 6 → Phase 7 → P-REPORTING → P-BILLING → P-MAPPINGS → P-ADAPTER sequence → P-IMPORT → P-EMBED (last).
 
 ---
 
@@ -163,6 +163,7 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. Chore: workspace profiles (PLAN.md "Set
 (2) A `locked` flag per section in each profile. Applying a profile with a locked section renders that section read-only on the agent's Settings page with "Set by your team profile" (lyra controls disabled, not hidden — this is the one place a setting greys); the store refuses writes to a locked section (and says so in a dev warning).
 (3) Revisit the consequences P0.5d.2 recorded: applying a profile resets personal settings (theme, phone, Home tab order, left-nav toggles); a launch-screen phone number reads Custom. Propose how a profile's unlocked sections should apply (overwrite vs keep the agent's value), and which sections a built-in profile should leave unlocked.
 (4) The app menu no longer lists profiles (P-AIFIRST removed them); profiles are picked in Settings only.
+The schema includes `assignments.legs: tabs | stream` (agent-scope, dependent on AI display; disabled with reason under panel), default `tabs`; profiles snapshot it.
 Assignment to agents, teams and skills lands in Phase 7 My Team (it needs the DirectoryProvider from P0.9; assigned profiles' locked sections render read-only); the `#/agent-console?as=<agentId>` window (P0.9.3) demos it before then. Leave a seam for it. Tests: save/rename/duplicate/delete, export/import round trip and a malformed import, an exported file carries no admin-scope settings, a locked section refuses writes and renders read-only, Custom after any change. List browser checks for me. Don't write code yet.
 ```
 
@@ -284,6 +285,11 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 9.2; 9.1 is comm
 ### P0.9.3 — Agent console window   (Plan: Opus · Implement: Sonnet) — after P0.6
 ```
 Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 9.3. In plan mode, propose #/agent-console?as=<agentId>: a second agent desktop (same Vite app) attached to the agent window's sim session through the P0.6 discovery handshake, acting as that directory agent or supervisor. A transfer rings there and accepting removes it here; a consult or merge shows the participants in both windows; a hand raise opens there as the supervisor with the context card. Done = the two-window demo runs end to end; list browser checks for me. Don't write code yet.
+```
+
+### P-STREAM — Legs as one stream   (Plan: Opus · Implement: Opus) — after P0.9
+```
+Read CLAUDE.md, PLAN.md (Domain 'The assignment is the unit of work', Settings 'Legs as one stream', Integrations 'Vendor shape is data') and PROGRESS.md; open docs/assignment-stream-storyboard*.html and docs/assignment-terminology-map.pdf. In plan mode, propose: (1) the stream renderer as a second action-area cell chosen by `assignments.legs` (tabs untouched); (2) header icon filters with All and the nav-card row filters, store state per card; (3) the composer target menu, the segmented Copilot control, the in-place email editor and draft strip; (4) lifecycle, work-item and earlier-assignment rows; (5) Hide Transcript's pinned row; (6) the assignment Outcome with per-ticket lines, `both` fan-out and the `legEnd` prompt, reading the adapter capabilities; (7) the Transcript tab `applies` rule; (8) Playwright per storyboard frame. The page file doesn't grow. Don't write code yet.
 ```
 
 ### P-ADMIN-2 — Routing, Agent states, Recording policy, the minimal Flows page   (Plan: Opus · Implement: Opus) — after P0.9, before P-EMPLOYEES

@@ -6,6 +6,7 @@ Every session working on the Agent Workspace Simulation build follows these:
 
 - UI components never import the simulation bus, TTS/ASR, the store, or any vendor SDK directly; they consume the provider interfaces via the provider context only.
 - Vendor payloads (Twilio, CXone, anything) never reach components; adapters map them to the app-owned domain model at the edge.
+- The grouping of legs is an Assignment (`assignmentId`); never introduce a new `journeyId`/`caseId` grouping key. `caseId` is the external case reference only.
 - Every provider method is async; all state changes arrive as events, even in the simulation. Simulation injects configurable latency.
 - Panels, cards, pickers, and AI handlers render from the active ContactCenterProfile's schema/terminology — never hard-coded entity fields.
 - The AI never writes to the database silently; drafts fill live, the agent confirms.
