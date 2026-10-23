@@ -1,14 +1,16 @@
 import type { ScenarioScript } from "../../scenarios/scenario-script";
 import type { SimCustomerClient } from "./sim-customer-client";
 
-// Dev-only scenario launcher (P0.5c): a bare letter key plays a script as
+// The scenario launcher (P0.5c; on whenever the URL says `?provider=sim`, in
+// any build, so the deployed demo has it): a bare letter key plays a script as
 // the customer, through the same customer side as `__simCustomer` (and the
 // P0.6 console later). The agent UI never knows: these keys used to live in
 // the Advanced page, which built the cards itself. Routing (the engine)
 // decides whether the agent gets it (available or working, one run per
 // script at a time).
 //
-// The keys only fire on the workspace's route (the one agent page).
+// The keys only fire on the workspace's route (the one agent page), and a
+// script reaches the agent only once they're available (Go Available).
 
 const SCENARIO_ROUTES = ["#/agent-advanced"];
 

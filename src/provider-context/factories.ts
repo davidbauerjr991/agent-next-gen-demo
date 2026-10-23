@@ -7,7 +7,7 @@ import { SIM_DEMO_SEED } from "../adapters/sim/sim-fixtures";
 import { SIM_LATENCY_PRESETS, type SimLatencyPreset } from "../adapters/sim/sim-latency";
 import { createSimProviderSet } from "../adapters/sim/sim-provider-set";
 import { SCENARIOS } from "../scenarios";
-import type { ProviderKind } from "./provider-kind";
+import { simRequested, type ProviderKind } from "./provider-kind";
 
 /** Builds a provider set. The profile and database are constructor inputs,
  *  never per-call arguments (PLAN.md P0.2). `simLatency` is read only by the
@@ -35,9 +35,11 @@ export const PROVIDER_FACTORIES: Record<ProviderKind, ProviderFactory> = {
     return createSimProviderSet({
       seed: SIM_DEMO_SEED,
       directory: SIM_DEMO_DIRECTORY,
-      // The scripted cases the customer side (dev hotkeys, later the P0.6
-      // console) can play; P1 serves them from the active profile.
+      // The scripted cases the customer side (the scenario hotkeys, later the
+      // P0.6 console) can play; P1 serves them from the active profile.
       scripts: SCENARIOS,
+      // The hotkeys whenever the URL asks for the sim, in any build (the deployed demo too).
+      scenarioHotkeys: typeof window !== "undefined" && simRequested(window.location.search),
       latency: preset.latency,
       timings: { ring: preset.ring },
     });

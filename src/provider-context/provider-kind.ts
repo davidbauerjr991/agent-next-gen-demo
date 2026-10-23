@@ -20,6 +20,13 @@ export function readProviderKind(search: string): ProviderKind {
   return "sim";
 }
 
+/** Whether the URL names the sim explicitly (`?provider=sim`), in any build:
+ *  what turns on the demo's scenario hotkeys and their hint. A missing flag
+ *  still runs the sim (`readProviderKind`) but without them. */
+export function simRequested(search: string): boolean {
+  return new URLSearchParams(search).get("provider") === "sim";
+}
+
 /** Reads `?latency=realistic|low|off` (P0.5b.2). Missing → "realistic" on
  *  the dev server, "low" in a production build (so the deployed demo is
  *  snappy with no flag); unknown → that default plus a dev warning. Read

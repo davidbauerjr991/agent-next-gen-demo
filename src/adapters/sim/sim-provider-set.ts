@@ -9,7 +9,11 @@ import { createSimulatedInteractionProvider, type SimOptions } from "./simulated
 /** The `?provider=sim` set. Media and CustomerData stay placeholders until
  *  their phases (P3.1, P1.4); Assist relays the engine's guidance cards
  *  (P-CANVAS) and its on-demand calls stay unconnected until P4.1. */
-export function createSimProviderSet(options?: SimOptions): ProviderSet {
+export function createSimProviderSet(options?: SimOptions & {
+  /** The scenario hotkeys (`installScenarioHotkeys`): on whenever the URL asks for the sim (`?provider=sim`), in
+   *  any build. Default off. */
+  scenarioHotkeys?: boolean;
+}): ProviderSet {
   const createTransport = options?.createTransport ?? (() => createBroadcastTransport());
   const interaction = createSimulatedInteractionProvider({ ...options, createTransport });
   const assist = createSimAssistProvider({
@@ -17,13 +21,14 @@ export function createSimProviderSet(options?: SimOptions): ProviderSet {
     transport: withLatency(createTransport(), options?.latency ?? DEFAULT_LATENCY),
     ...(options?.commandTimeoutMs !== undefined ? { commandTimeoutMs: options.commandTimeoutMs } : {}),
   });
-  if (!import.meta.env.DEV) return withPlaceholders(interaction, assist);
+  const hotkeys = !!options?.scenarioHotkeys;
+  if (!import.meta.env.DEV && !hotkeys) return withPlaceholders(interaction, assist);
 
-  // Dev-only devtools handle for the customer side, until the P0.6 console,
-  // and the scenario hotkeys that play scripts through it (P0.5c).
+  // The customer side, until the P0.6 console: the scenario hotkeys play scripts through it (P0.5c; any build,
+  // in-app only), and in dev it's also the `__simCustomer` devtools handle (never a global in production).
   const customer = createSimCustomerClient(interaction.sessionId);
-  window.__simCustomer = customer;
-  const removeHotkeys = installScenarioHotkeys(customer, options?.scripts ?? []);
+  if (import.meta.env.DEV) window.__simCustomer = customer;
+  const removeHotkeys = hotkeys ? installScenarioHotkeys(customer, options?.scripts ?? []) : () => {};
   return withPlaceholders(
     {
       ...interaction,
