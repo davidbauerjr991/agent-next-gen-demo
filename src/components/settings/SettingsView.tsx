@@ -52,6 +52,7 @@ import {
   AI_CANVAS_LAYOUT_FIELD,
   AI_NBA_PAUSE_CHAT_FIELD,
   AI_NBA_PAUSE_VOICE_FIELD,
+  AI_NBA_SCRIPTED_DELAY_FIELD,
   type AiCanvasLayout,
   AUTO_ACCEPT_CHANNELS,
   SOCIAL_CHANNELS,
@@ -593,6 +594,7 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
           {([
             ["nbaPauseChatMs", AI_NBA_PAUSE_CHAT_FIELD],
             ["nbaPauseVoiceMs", AI_NBA_PAUSE_VOICE_FIELD],
+            ["nbaScriptedDelayMs", AI_NBA_SCRIPTED_DELAY_FIELD],
           ] as const).map(([key, field]) => (
             <div key={key} className="max-w-xs">
               <DisabledReason

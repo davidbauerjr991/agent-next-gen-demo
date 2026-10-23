@@ -142,7 +142,9 @@ describe("scenario cases", () => {
       await vi.advanceTimersByTimeAsync(6000);
     });
     expect(cases.byKey[LUCAS_THOMAS_ID]!.reviewing).toBe(false);
-    expect(rows(LUCAS_THOMAS_ID).map((r) => r.text)).toContain("Ok, sounds good");
+    // The bot hands off; John's greeting is the agent's turn (P-CANVAS), so Lucas's reply waits for it.
+    expect(rows(LUCAS_THOMAS_ID).map((r) => r.text).some((t) => t.includes("I'm going to transfer you to John Smith"))).toBe(true);
+    expect(rows(LUCAS_THOMAS_ID).map((r) => r.text)).not.toContain("Ok, sounds good");
   });
 
   it("merges the page's own rows (Ask Copilot) by when they were added", () => {

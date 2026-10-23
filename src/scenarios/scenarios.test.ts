@@ -158,11 +158,13 @@ describe("running a script as another channel", () => {
         send(client, action);
         if (action.kind === "message") lines.push(action.text);
       }
-      expect(lines).toHaveLength(2);
-      await waitFor(() => rec.events("message").length === 2, "customer messages");
+      expect(lines).toHaveLength(5);
+      await waitFor(() => rec.events("message").length === 5, "customer messages");
       expect(rec.events("message").map((e) => e.message.text)).toEqual(lines);
-      // His agent line isn't a customer action: the player emits it.
-      expect(stepsFor(TOM_LEWIS_SCRIPT, "chat").filter((s) => s.kind === "say" && s.speaker === "agent")).toHaveLength(1);
+      // His agent lines aren't customer actions: the player emits them, each on the agent's turn (P-CANVAS).
+      const agentLines = stepsFor(TOM_LEWIS_SCRIPT, "chat").filter((s) => s.kind === "say" && s.speaker === "agent");
+      expect(agentLines).toHaveLength(4);
+      expect(agentLines.every((s) => !!s.nba)).toBe(true);
     });
   });
 
@@ -182,7 +184,8 @@ describe("canned lines", () => {
     expect(cannedLines(SCENARIOS, { entityKey: "tom-lewis-void-call" }).map((l) => l.text)).toEqual([
       expect.stringContaining("Hi, this is Tom Lewis"),
       expect.stringContaining("It's order NR-50877"),
-      // The void branch's line (started by the Next Best Action).
+      "Yes, exactly.",
+      "How long until I see the Visa charge back?",
       "Great, thanks for fixing that.",
     ]);
     expect(cannedLines(SCENARIOS, { entityKey: "nobody" })).toEqual([]);
@@ -192,6 +195,8 @@ describe("canned lines", () => {
     const script = clone(TOM_LEWIS_SCRIPT) as ScenarioScript;
     script.canned = [{ label: "Hold", text: "Can you hold, please?" }];
     delete script.branches;
+    // His first two customer lines (and the agent line between them).
+    script.steps = script.steps.filter((s) => ["tlc-1", "tlc-2", "tlc-3"].includes(s.id));
     const step = (id: string) => script.steps.findIndex((s) => s.id === id);
     script.steps[step("tlc-1")] = { ...script.steps[step("tlc-1")], canned: false } as ScenarioScript["steps"][number];
     script.steps[step("tlc-3")] = { ...script.steps[step("tlc-3")], onlyOn: ["chat"] } as ScenarioScript["steps"][number];

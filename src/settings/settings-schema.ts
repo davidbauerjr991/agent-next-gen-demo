@@ -388,24 +388,34 @@ export const AI_NBA_PAUSE_VOICE_FIELD = int({
   min: 1000,
   max: 120_000,
 });
+/** P-CANVAS: in a scripted conversation, the beat between reaching the agent's turn and its Next Best Action
+ *  surfacing (and between "Not now" and the script's own line). */
+export const AI_NBA_SCRIPTED_DELAY_FIELD = int({
+  label: "Suggest the agent's turn after (scripted cases)",
+  description: "Milliseconds between a scripted conversation reaching the agent's turn and its Next Best Action appearing; also the beat after Not now before the scripted line plays.",
+  min: 0,
+  max: 10_000,
+});
 export interface AiSettings {
   /** P4.4a's pinned-vs-auto card placement hangs off this section later. */
   displayLocation: AiDisplayLocation;
   canvasLayout: AiCanvasLayout;
   nbaPauseChatMs: number;
   nbaPauseVoiceMs: number;
+  nbaScriptedDelayMs: number;
 }
 
 // No version bump for canvasLayout or the pause fields: a missing stored key reads as its default.
 const ai = defineSection<AiSettings>({
   key: "ai",
   version: 1,
-  defaults: { displayLocation: "inline", canvasLayout: "twoColumn", nbaPauseChatMs: 6000, nbaPauseVoiceMs: 8000 },
+  defaults: { displayLocation: "inline", canvasLayout: "twoColumn", nbaPauseChatMs: 6000, nbaPauseVoiceMs: 8000, nbaScriptedDelayMs: 900 },
   fields: {
     displayLocation: oneOf(AI_DISPLAY_LOCATIONS),
     canvasLayout: AI_CANVAS_LAYOUT_FIELD,
     nbaPauseChatMs: AI_NBA_PAUSE_CHAT_FIELD,
     nbaPauseVoiceMs: AI_NBA_PAUSE_VOICE_FIELD,
+    nbaScriptedDelayMs: AI_NBA_SCRIPTED_DELAY_FIELD,
   },
 });
 

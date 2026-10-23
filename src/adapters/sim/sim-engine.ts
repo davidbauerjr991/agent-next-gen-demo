@@ -632,10 +632,10 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
       case "suggest": {
         const { interactionId, trigger } = command.request;
         get(interactionId);
-        if (trigger.kind !== "next-best-action" && trigger.kind !== "pause") {
+        if (trigger.kind !== "next-best-action" && trigger.kind !== "pause" && trigger.kind !== "turn") {
           throw providerError("not-supported", `suggest: "${trigger.kind}" isn't simulated yet`);
         }
-        guidance.surface(interactionId, trigger.kind === "pause" ? "pause" : "request", command.requestId);
+        guidance.surface(interactionId, trigger.kind === "next-best-action" ? "request" : trigger.kind, command.requestId);
         return command.requestId;
       }
     }
@@ -854,6 +854,7 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
     send: emitAssist,
     startBranch: (id, branch) => player.startAction(id, branch),
     later: (ms, run) => schedule({ minMs: ms, maxMs: ms }, run),
+    releaseTurn: (id, skipLine) => player.releaseTurn(id, { skipLine }),
   });
 
   // ── Seed ────────────────────────────────────────────────────────────────

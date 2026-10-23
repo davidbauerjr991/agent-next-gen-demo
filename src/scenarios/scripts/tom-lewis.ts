@@ -15,23 +15,9 @@ export const TOM_LEWIS_SCRIPT = {
   participants: { agent: "John Smith" },
   start: { answer: "agent", caseStatus: "Open" },
   launch: { hotkey: "C" },
+  // Every agent line carries a Next Best Action: the agent's turn waits on it (P-CANVAS), so John never speaks
+  // unprompted. Times are the script's own; while it waits, every later step keeps its remaining delay.
   steps: [
-    {
-      id: "tlc-greet",
-      kind: "guide",
-      anchor: "answered",
-      at: 0,
-      nba: {
-        type: "say",
-        title: "Greet Tom and say the call is recorded",
-        why: "Every contact opens with a greeting and the recording notice.",
-        text: "Hi Tom, thanks for calling. My name is John. This call is recorded for quality and training.",
-        alt: [
-          { type: "say", text: "Identify yourself" },
-          { type: "ask", text: "Confirm the callback number" },
-        ],
-      },
-    },
     {
       id: "tlc-1",
       kind: "say",
@@ -45,37 +31,52 @@ export const TOM_LEWIS_SCRIPT = {
       kind: "say",
       speaker: "agent",
       anchor: "answered",
-      at: 7000,
-      text: "Thanks for calling, Tom, I'm John. Let me pull up your order and both charges.",
+      at: 1400,
+      text: "Thanks for calling, Tom, I'm John. This call is recorded for quality and training. Let me pull up your order and both charges.",
+      nba: {
+        type: "say",
+        title: "Greet Tom and say the call is recorded",
+        why: "Every contact opens with a greeting and the recording notice.",
+        text: "Hi Tom, thanks for calling. My name is John, and this call is recorded for quality and training.",
+        alt: [
+          { type: "say", text: "Identify yourself" },
+          { type: "ask", text: "Confirm the callback number" },
+        ],
+      },
     },
     {
       id: "tlc-3",
       kind: "say",
       speaker: "customer",
       anchor: "answered",
-      at: 12000,
+      at: 5000,
       text: "It's order NR-50877, $86.40. I only placed it once, and I'd rather keep the Mastercard charge since that's my default card.",
       // The card on file: Customer Info comes forward.
       focus: "customer",
     },
     {
       id: "tlc-ask",
-      kind: "guide",
+      kind: "say",
+      speaker: "agent",
       anchor: "answered",
-      at: 2500,
+      at: 5300,
+      text: "I can see both charges. Just to confirm: keep the Mastercard charge and void the one on your Visa?",
       nba: {
         type: "ask",
-        title: "Ask which charge Tom wants to keep",
+        title: "Confirm which charge Tom keeps",
         why: "Both cards were charged $86.40 for one order; void the one he doesn't want.",
-        text: "I can see both charges. Which card would you like to keep the charge on?",
+        text: "Just to confirm, you'd like to keep the Mastercard charge and void the Visa one?",
         alt: [{ type: "say", text: "Tell Tom only one order was placed" }],
       },
     },
+    { id: "tlc-4", kind: "say", speaker: "customer", anchor: "answered", at: 8000, text: "Yes, exactly." },
     {
       id: "tlc-do",
-      kind: "guide",
+      kind: "say",
+      speaker: "agent",
       anchor: "answered",
-      at: 13_500,
+      at: 8300,
+      text: "Done: I'm voiding the $86.40 charge on your Visa ending 2210 now. The Mastercard charge stays.",
       nba: {
         type: "do",
         title: "Void the $86.40 charge on Visa 2210",
@@ -86,22 +87,30 @@ export const TOM_LEWIS_SCRIPT = {
         alt: [{ type: "say", text: "Tell Tom the refund takes 3 to 5 business days" }],
       },
     },
+    { id: "tlc-5", kind: "say", speaker: "customer", anchor: "answered", at: 11_500, text: "How long until I see the Visa charge back?" },
+    {
+      id: "tlc-6",
+      kind: "say",
+      speaker: "agent",
+      anchor: "answered",
+      at: 11_800,
+      text: "The Visa refund usually shows in 3 to 5 business days.",
+      nba: {
+        type: "say",
+        title: "Tell Tom the refund takes 3 to 5 business days",
+        why: "Voided card charges return in 3 to 5 business days.",
+        text: "You'll see the Visa refund in 3 to 5 business days.",
+        alt: [{ type: "ask", text: "Ask if there's anything else" }],
+      },
+    },
+    { id: "tlc-7", kind: "say", speaker: "customer", anchor: "answered", at: 15_000, text: "Great, thanks for fixing that." },
   ],
   branches: {
+    // Run it on the void suggestion: the void happens; John's own line then plays.
     void: {
       label: "The agent voids the duplicate charge",
       trigger: "action",
-      steps: [
-        { id: "void-1", kind: "event", at: 300, text: "Visa 2210 charge of $86.40 voided" },
-        {
-          id: "void-2",
-          kind: "say",
-          speaker: "agent",
-          at: 1500,
-          text: "I've voided the $86.40 charge on your Visa ending 2210. The Mastercard charge stays, and the Visa refund shows in 3 to 5 business days.",
-        },
-        { id: "void-3", kind: "say", speaker: "customer", at: 5000, text: "Great, thanks for fixing that." },
-      ],
+      steps: [{ id: "void-1", kind: "event", at: 300, text: "Visa 2210 charge of $86.40 voided" }],
     },
   },
   content: {

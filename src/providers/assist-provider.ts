@@ -24,7 +24,9 @@ export type SuggestTrigger =
   | { kind: "next-best-action" }
   /** The conversation paused (no customer or agent turn for `idleMs`): the
    *  Next Best Action surfaces if there is one; nothing otherwise. */
-  | { kind: "pause"; idleMs: number };
+  | { kind: "pause"; idleMs: number }
+  /** The conversation waits on the agent's turn (the nba card's `awaitingAgent`): it surfaces now. */
+  | { kind: "turn" };
 
 /** Asks for AI help on an interaction. The provider gathers conversation
  *  context itself from the interaction id; the UI never builds prompts. */
@@ -124,6 +126,10 @@ export type AssistCard =
       suggestion?: NextBestActionSuggestion;
       /** The reference card this step brings forward. */
       focus?: ReferenceCardFocus;
+      /** A scripted conversation waits on the agent's turn, which this suggestion (surfaced or about to be)
+       *  stands for: it goes on once the agent answers it (`resolveCard`). The agent UI surfaces it after a beat
+       *  (`suggest` with a "turn" trigger). */
+      awaitingAgent?: true;
     });
 
 /** The agent's answer to a card that asks for one (the nba card). */
@@ -131,6 +137,9 @@ export interface AssistCardResolution {
   outcome: "used" | "dismissed";
   /** The alternative used instead of the suggestion (an index into `alt`). */
   alternative?: number;
+  /** The agent wrote the turn themselves (inserted the suggestion and sent it): a waiting scripted
+   *  conversation goes on without its own line for that turn. */
+  agentTyped?: true;
 }
 
 /** One value detected for the Draft card. */

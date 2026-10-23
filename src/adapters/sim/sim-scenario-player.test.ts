@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Interaction, InteractionId, Message } from "../../domain";
 import { expectProviderError, recordEvents, type Recorder } from "../../contract-tests/event-recorder";
 import { LUCAS_THOMAS_SCRIPT, MARCUS_WEBB_SCRIPT, MAYA_CHEN_SCRIPT, SCENARIOS, TOM_LEWIS_SCRIPT, type ScenarioScript } from "../../scenarios";
+import type { AssistCardResolution, AssistProvider } from "../../providers";
 import { createMemoryBus } from "./memory-transport";
+import { createSimAssistProvider } from "./sim-assist-provider";
 import { createSimCustomerClient, type SimCustomerClient } from "./sim-customer-client";
 import { createSimulatedInteractionProvider, type SimulatedInteractionProvider } from "./simulated-interaction-provider";
 
@@ -60,6 +62,7 @@ const BEATS_SCRIPT: ScenarioScript = {
 let provider: SimulatedInteractionProvider;
 let client: SimCustomerClient;
 let rec: Recorder;
+let assist: AssistProvider;
 
 async function settled<T>(promise: Promise<T>): Promise<T> {
   let done = false;
@@ -88,13 +91,26 @@ function setup() {
     },
   });
   client = createSimCustomerClient(raw.sessionId, bus.createTransport());
+  assist = createSimAssistProvider({ sessionId: raw.sessionId, transport: bus.createTransport() });
   rec = recordEvents(raw);
 }
 
 async function teardown() {
   rec.stop();
   client.dispose();
+  await assist.dispose();
   await provider.dispose();
+}
+
+/** The agent answers the turn a scripted run waits on (P-CANVAS): its suggestion surfaces ("turn"), then is resolved. */
+async function answerTurn(id: InteractionId, resolution: AssistCardResolution = { outcome: "used" }) {
+  const surfaced = assist.suggest({ interactionId: id, trigger: { kind: "turn" } });
+  await flush();
+  await surfaced;
+  const resolved = assist.resolveCard(`nba:${id}`, resolution);
+  await flush();
+  await resolved;
+  await flush();
 }
 
 beforeEach(() => {
@@ -182,12 +198,18 @@ describe("answer modes and live timing", () => {
     await accept(id);
     await advance(1200);
     expect(utterances(id).map((u) => u.speaker.role)).toEqual(["customer"]);
-    await advance(5800);
+    // John's line is the agent's turn: it waits until the agent answers its suggestion (P-CANVAS).
+    await advance(1000);
+    expect(utterances(id)).toHaveLength(1);
+    await answerTurn(id);
     expect(utterances(id).map((u) => [u.speaker.role, u.speaker.displayName])).toEqual([
       ["customer", "Tom Lewis"],
       ["agent", "John Smith"],
     ]);
-    await advance(5000);
+    // His next line at its own timing after John's (3.6s).
+    await advance(3500);
+    expect(utterances(id)).toHaveLength(2);
+    await advance(200);
     expect(utterances(id)).toHaveLength(3);
   });
 
@@ -196,27 +218,81 @@ describe("answer modes and live timing", () => {
     expect(rec.events("incoming").map((e) => e.interaction.id)).toEqual([id]);
     expect(latest(id)).toMatchObject({ state: "active", autoAnswered: true, skill: { name: "Returns" } });
     expect(Date.now() - latest(id)!.acceptedAt!).toBeLessThan(10);
-    await advance(20_000);
+    // Her lines play on their delays; each of John's waits for the agent's turn (four of them).
+    await advance(2000);
+    for (let turn = 0; turn < 4; turn += 1) {
+      await answerTurn(id);
+      await advance(4000);
+    }
     expect(utterances(id).map((u) => u.text)).toEqual(MAYA_CHEN_SCRIPT.steps.flatMap((s) => (s.kind === "say" ? [s.text] : [])));
+  });
+
+  describe("the agent's turn (P-CANVAS): an agent line with a Next Best Action waits on it", () => {
+    const line = (id: string) => (MAYA_CHEN_SCRIPT.steps.find((s) => s.id === id) as { text: string }).text;
+    const agentLines = (id: InteractionId) => utterances(id).filter((u) => u.speaker.role === "agent").map((u) => u.text);
+    const lastText = (id: InteractionId) => {
+      const all = utterances(id);
+      return all[all.length - 1]?.text;
+    };
+
+    it("no agent line until it's answered; then the script's own line (not the suggestion); her next line follows at its own timing", async () => {
+      const id = await play(MAYA_CHEN_SCRIPT);
+      await advance(10_000);
+      expect(utterances(id).map((u) => u.speaker.role)).toEqual(["customer"]);
+      await answerTurn(id);
+      expect(agentLines(id)).toEqual([line("mcc-2")]);
+      expect(agentLines(id)[0]).not.toBe(MAYA_CHEN_SCRIPT.steps.find((s) => s.id === "mcc-2")!.nba!.text);
+      await advance(3700);
+      expect(lastText(id)).toBe(line("mcc-3"));
+    });
+
+    it("Not now plays the scripted line too", async () => {
+      const id = await play(MAYA_CHEN_SCRIPT);
+      await advance(2000);
+      await answerTurn(id, { outcome: "dismissed" });
+      expect(agentLines(id)).toEqual([line("mcc-2")]);
+    });
+
+    it("a turn the agent typed goes on without the scripted line; her next line still follows", async () => {
+      const id = await play(MAYA_CHEN_SCRIPT);
+      await advance(2000);
+      await answerTurn(id, { outcome: "used", agentTyped: true });
+      expect(agentLines(id)).toEqual([]);
+      await advance(3700);
+      expect(lastText(id)).toBe(line("mcc-3"));
+    });
+
+    it("a hold and resume while it waits doesn't release it", async () => {
+      const id = await play(MAYA_CHEN_SCRIPT);
+      await advance(2000);
+      await provider.hold(id, true);
+      await flush();
+      await provider.hold(id, false);
+      await flush();
+      await advance(10_000);
+      expect(utterances(id)).toHaveLength(1);
+      await answerTurn(id);
+      expect(utterances(id)).toHaveLength(2);
+    });
   });
 
   it("hold pauses the run and resume plays the rest with the remaining delays", async () => {
     const id = await play(TOM_LEWIS_SCRIPT);
     await accept(id);
-    await advance(3000);
-    expect(utterances(id)).toHaveLength(1);
+    await advance(2000);
+    await answerTurn(id);
+    expect(utterances(id)).toHaveLength(2);
+    await advance(1000);
     await provider.hold(id, true);
     await flush();
     await advance(30_000);
-    expect(utterances(id)).toHaveLength(1);
+    expect(utterances(id)).toHaveLength(2);
     await provider.hold(id, false);
     await flush();
-    // About 4s of the agent line's 7s were left when the call was held.
-    await advance(3900);
-    expect(utterances(id)).toHaveLength(1);
-    await advance(200);
+    // About 2.6s of his next line's 3.6s were left when the call was held.
+    await advance(2500);
     expect(utterances(id)).toHaveLength(2);
-    await advance(5000);
+    await advance(200);
     expect(utterances(id)).toHaveLength(3);
   });
 
@@ -261,7 +337,11 @@ describe("review and takeover", () => {
     const id = await play(LUCAS_THOMAS_SCRIPT);
     await provider.takeOver(id);
     await flush();
-    await advance(6000);
+    // The bot's handoff, then John's greeting waits on the agent's turn (P-CANVAS).
+    await advance(1500);
+    expect(messages(id).map((m) => m.text)).not.toContain("Ok, sounds good");
+    await answerTurn(id);
+    await advance(4000);
     const texts = messages(id).map((m) => m.text);
     expect(texts).toContain("Ok, sounds good");
 

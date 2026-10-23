@@ -56,6 +56,9 @@ export interface ScenarioPlayer {
   respond(id: InteractionId, response: RequestResponse): void;
   /** Starts an action branch (`trigger: "action"`) a used Next Best Action names; a no-op for anything else. */
   startAction(id: InteractionId, branch: string): void;
+  /** The agent answered the Next Best Action the run waits on: plays its agent line (unless the agent typed the
+   *  turn themselves, `skipLine`) and goes on. A no-op when the run isn't waiting. */
+  releaseTurn(id: InteractionId, options: { skipLine: boolean }): void;
   isScripted(id: InteractionId): boolean;
   dispose(): void;
 }
@@ -67,6 +70,14 @@ interface Pending {
   timer?: ReturnType<typeof setTimeout>;
 }
 
+/** What a playing branch was started with. */
+interface Inputs {
+  note?: string;
+  vars?: Record<string, string>;
+  /** The branch playing, if any: an instruction row's `ref`. */
+  branch?: string;
+}
+
 interface Run {
   script: ScenarioScript;
   interactionId: InteractionId;
@@ -76,7 +87,12 @@ interface Run {
   paused: boolean;
   stopped: boolean;
   pending: Set<Pending>;
+  /** The agent line the run waits on (P-CANVAS): its Next Best Action is the agent's turn. */
+  gate?: { step: ScenarioStep; inputs: Inputs };
 }
+
+/** An agent line with a Next Best Action: the agent's turn, which waits on the agent (P-CANVAS). */
+export const isAgentTurn = (step: ScenarioStep) => step.kind === "say" && step.speaker === "agent" && !!step.nba;
 
 /** Presence codes routing offers contacts to (every inbound, `routeInbound`). */
 export const LIVE_PRESENCE = ["available", "working"];
@@ -117,7 +133,8 @@ export function createScenarioPlayer(
   }
 
   function resume(run: Run) {
-    if (!run.paused) return;
+    // A run waiting on the agent's turn stays paused (a held call's resume included) until `releaseTurn`.
+    if (!run.paused || run.gate) return;
     run.paused = false;
     for (const item of run.pending) arm(run, item);
   }
@@ -152,13 +169,6 @@ export function createScenarioPlayer(
   }
 
   // ── Steps ───────────────────────────────────────────────────────────────
-
-  interface Inputs {
-    note?: string;
-    vars?: Record<string, string>;
-    /** The branch playing, if any: an instruction row's `ref`. */
-    branch?: string;
-  }
 
   function fill(text: string, inputs: Inputs): string {
     return text.replace(/\{(\w+)\}/g, (_, name: string) => (name === "note" ? (inputs.note ?? "").trim() : (inputs.vars?.[name] ?? "")));
@@ -244,6 +254,14 @@ export function createScenarioPlayer(
     for (const step of steps) {
       later(run, step.at, () => {
         if (!host.get(run.interactionId) || skipped(run, step, inputs)) return;
+        // An agent line with a Next Best Action is the agent's turn (P-CANVAS): the run waits (every later step
+        // keeps its remaining delay) until the agent answers the suggestion; `releaseTurn` plays the line or not.
+        if (isAgentTurn(step)) {
+          run.gate = { step, inputs };
+          pause(run);
+          host.onStep?.(run.interactionId, step, run.script);
+          return;
+        }
         play(run, step, inputs);
         // Guidance (the nba card, the running summary) follows what played.
         host.onStep?.(run.interactionId, step, run.script);
@@ -373,6 +391,15 @@ export function createScenarioPlayer(
       const branch = run && !run.stopped ? run.script.branches?.[branchKey] : undefined;
       if (!run || branch?.trigger !== "action") return;
       schedule(run, stepsFor(run.script, run.channel, branch.steps), { branch: branchKey });
+    },
+
+    releaseTurn(id, { skipLine }) {
+      const run = runs.get(id);
+      const gate = run?.gate;
+      if (!run || !gate || run.stopped) return;
+      run.gate = undefined;
+      if (!skipLine) play(run, gate.step, gate.inputs);
+      if (host.get(id)?.state === "active") resume(run);
     },
 
     isScripted: (id) => runs.has(id),

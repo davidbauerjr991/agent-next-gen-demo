@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import type { WorkspaceControllerProps, WorkspaceLate } from "./workspace-late";
 import { useWsCards } from "./useWsCards";
 import { useWsDetails } from "./useWsDetails";
@@ -7,7 +7,7 @@ import { useWsLaunch } from "./useWsLaunch";
 import { useWsOutbound } from "./useWsOutbound";
 import { useWsHeaderApps } from "./useWsHeaderApps";
 import { useGuidanceFocus } from "../../reference-cards";
-import { useNbaPause, useNbaSurfacing } from "../../next-best-action";
+import { useNbaPause, useNbaSurfacing, useNbaTurns } from "../../next-best-action";
 
 /** The agent workspace's controller (P-EXTRACT C8b): everything the page's
  *  body computed, in the same order (so the hooks run in the same order),
@@ -39,9 +39,15 @@ export function useWorkspaceController(props: WorkspaceControllerProps) {
   // P-CANVAS: the guidance's focus calls open a reference card on each contact's card; under AI display
   // inline and main its Next Best Action surfaces in the conversation on a pause or the agent's request.
   useGuidanceFocus(workspace.interactions);
+  // Scripted cases gate on their agent lines (`useNbaTurns`); the pause rule is for unscripted sim contacts only.
   const nbaEnabled = !workspace.aiInPanel;
+  const scriptedContactIds = useMemo(
+    () => new Set(Object.values(workspace.scenarioCases.byKey).flatMap((c) => (c?.contact ? [c.contact.id as string] : []))),
+    [workspace.scenarioCases.byKey],
+  );
   useNbaSurfacing(workspace.interactions, workspace.setInteractions, nbaEnabled);
-  useNbaPause(workspace.interactions, nbaEnabled);
+  useNbaPause(workspace.interactions, nbaEnabled, scriptedContactIds);
+  useNbaTurns(nbaEnabled);
   return workspace;
 }
 

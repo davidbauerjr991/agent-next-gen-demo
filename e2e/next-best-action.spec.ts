@@ -65,33 +65,74 @@ const CONTACTS: Record<string, { who: string; open: (page: Page) => Promise<void
 
 const nba = (page: Page) => page.locator("[data-slot=next-best-action]");
 
+// Unscripted sim contacts: the pause rule and the chip.
 for (const displayLocation of ["inline", "main"] as const) {
-  for (const [name, contact] of Object.entries(CONTACTS)) {
-    test(`${displayLocation}, ${name}: no Next Best Action at first; after the pause it's a row in the conversation`, async ({ page }) => {
-      await start(page, displayLocation);
-      await contact.open(page);
-      await expect(nba(page)).toHaveCount(0);
-      await expect(nba(page)).toHaveAttribute("data-frame", "say", { timeout: 15_000 });
-      await expect(nba(page)).toContainText(`Greet ${contact.who}`);
-      // A row of the conversation (the transcript inline, the AI feed under "main"), not a canvas cell.
-      const placement = await nba(page).evaluate((el) => ({ inMain: !!el.closest("[data-main-thread]"), inCell: !!el.closest("[data-canvas-cell]") }));
-      expect(placement).toEqual({ inMain: true, inCell: false });
-      // Exactly one reference card is expanded at first.
-      expect(await page.locator("[data-canvas-region=reference] [aria-expanded=true]").count()).toBe(1);
-    });
+  const contact = CONTACTS.simChat;
+  test(`${displayLocation}, sim chat: no Next Best Action at first; after the pause it's a row in the conversation`, async ({ page }) => {
+    await start(page, displayLocation);
+    await contact.open(page);
+    await expect(nba(page)).toHaveCount(0);
+    await expect(nba(page)).toHaveAttribute("data-frame", "say", { timeout: 15_000 });
+    await expect(nba(page)).toContainText(`Greet ${contact.who}`);
+    // A row of the conversation (the transcript inline, the AI feed under "main"), not a canvas cell.
+    const placement = await nba(page).evaluate((el) => ({ inMain: !!el.closest("[data-main-thread]"), inCell: !!el.closest("[data-canvas-cell]") }));
+    expect(placement).toEqual({ inMain: true, inCell: false });
+    // Exactly one reference card is expanded at first.
+    expect(await page.locator("[data-canvas-region=reference] [aria-expanded=true]").count()).toBe(1);
+  });
 
-    test(`${displayLocation}, ${name}: the chip surfaces it at once`, async ({ page }) => {
-      await start(page, displayLocation);
-      await contact.open(page);
-      await expect(nba(page)).toHaveCount(0);
-      const chip = page.locator("[data-slot=copilot-chip-pinned]:visible").first();
-      // An inline chat shows its chat input first; the chip is in the Ask Copilot pane.
-      if (!(await chip.isVisible())) await page.getByRole("radio", { name: "Ask Copilot" }).or(page.getByRole("button", { name: "Ask Copilot" })).first().click();
-      await chip.click();
-      await expect(nba(page)).toHaveAttribute("data-frame", "say", { timeout: 1_500 });
-    });
-  }
+  test(`${displayLocation}, sim chat: the chip surfaces it at once`, async ({ page }) => {
+    await start(page, displayLocation);
+    await contact.open(page);
+    await expect(nba(page)).toHaveCount(0);
+    const chip = page.locator("[data-slot=copilot-chip-pinned]:visible").first();
+    // An inline chat shows its chat input first; the chip is in the Ask Copilot pane.
+    if (!(await chip.isVisible())) await page.getByRole("radio", { name: "Ask Copilot" }).or(page.getByRole("button", { name: "Ask Copilot" })).first().click();
+    await chip.click();
+    await expect(nba(page)).toHaveAttribute("data-frame", "say", { timeout: 1_500 });
+  });
 }
+
+// Scripted cases: the Next Best Action gates the agent's turn.
+const MAYA_LINES = {
+  first: "The water tank on my espresso machine arrived cracked",
+  john: "I'm sorry about that, Maya, I'm John.",
+  second: "It's order NR-10871",
+  johnAsk: "And you sent us a photo of the cracked tank through the app?",
+  third: "Yes, I uploaded it in the app this morning.",
+};
+
+for (const displayLocation of ["inline", "main"] as const) {
+  test(`${displayLocation}, Maya: ~1s after her first line the suggestion shows and John hasn't spoken; Said it plays his line; her next follows; again for the Ask`, async ({ page }) => {
+    await start(page, displayLocation);
+    await CONTACTS.maya.open(page);
+    const transcript = () => (displayLocation === "main" ? page.locator("[data-slot=right-panel]") : page.locator("[data-main-thread]"));
+    await expect(transcript()).toContainText(MAYA_LINES.first, { timeout: 10_000 });
+    // ~1s after her line (the 0.9s beat); a loaded machine gets a margin.
+    await expect(nba(page)).toHaveAttribute("data-frame", "say", { timeout: 5_000 });
+    await expect(transcript()).not.toContainText(MAYA_LINES.john);
+    await nba(page).getByRole("button", { name: "Said it" }).click();
+    await expect(transcript()).toContainText(MAYA_LINES.john);
+    await expect(transcript()).toContainText(MAYA_LINES.second, { timeout: 6_000 });
+    // The Ask: John's next turn waits on it.
+    await expect(nba(page)).toHaveAttribute("data-frame", "ask", { timeout: 5_000 });
+    await expect(transcript()).not.toContainText(MAYA_LINES.johnAsk);
+    await nba(page).getByRole("button", { name: "Said it" }).click();
+    await expect(transcript()).toContainText(MAYA_LINES.johnAsk);
+    await expect(transcript()).toContainText(MAYA_LINES.third, { timeout: 6_000 });
+  });
+}
+
+test("inline, Lucas: nothing while the bot holds the chat; the greeting at once after Takeover", async ({ page }) => {
+  await start(page, "inline");
+  await page.keyboard.press("a");
+  await openCard(page, "Lucas Thomas");
+  await page.waitForTimeout(4_000);
+  await expect(nba(page)).toHaveCount(0);
+  await page.getByRole("button", { name: "Takeover Chat" }).first().click({ timeout: 20_000 });
+  await expect(nba(page)).toHaveAttribute("data-frame", "say", { timeout: 5_000 });
+  await expect(nba(page)).toContainText("Greet Lucas");
+});
 
 test("inline, Maya: her card-on-file turn expands Customer Info beside the agent's own Journey Summary; a summary refresh changes nothing", async ({ page }) => {
   await start(page, "inline");
@@ -106,11 +147,14 @@ test("inline, Maya: her card-on-file turn expands Customer Info beside the agent
   // The agent opens the Journey Summary: additive.
   await page.locator("[data-slot=journey-summary] [aria-expanded]").click();
   expect(await expanded()).toEqual(["real-time-summary", "journey-summary"]);
-  // Maya names her Visa about 12s after the call connects: Customer Info opens; the AI's summary closes; the agent's card stays.
-  await expect.poll(expanded, { timeout: 20_000 }).toEqual(["journey-summary", "customer-info-card"]);
+  // John's greeting waits on its suggestion; Said it, and Maya names her Visa next: Customer Info opens; the AI's
+  // summary closes; the agent's card stays.
+  await nba(page).getByRole("button", { name: "Said it" }).click({ timeout: 10_000 });
+  await expect.poll(expanded, { timeout: 10_000 }).toEqual(["journey-summary", "customer-info-card"]);
   const words = () => page.locator("[data-slot=real-time-summary]").getAttribute("data-words");
   const before = await words();
-  // Her next turn (20s after answer) refreshes the summary; nothing else changes.
-  await expect.poll(words, { timeout: 15_000 }).not.toBe(before);
+  // John's Ask, then her answer refreshes the summary; nothing else changes.
+  await nba(page).getByRole("button", { name: "Said it" }).click({ timeout: 10_000 });
+  await expect.poll(words, { timeout: 10_000 }).not.toBe(before);
   expect(await expanded()).toEqual(["journey-summary", "customer-info-card"]);
 });

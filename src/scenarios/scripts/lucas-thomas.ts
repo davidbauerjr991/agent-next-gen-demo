@@ -36,22 +36,6 @@ export const LUCAS_THOMAS_SCRIPT = {
     { id: "lt-3", kind: "say", speaker: "bot", at: -190_000, text: "Here's a secure link to pay another way." },
     { id: "lt-3-event", kind: "event", at: -189_000, text: "Payment link sent" },
     // Plays live after launch.
-    {
-      // The agent's opening line for when they take the chat over from the bot.
-      id: "lt-greet",
-      kind: "guide",
-      at: 0,
-      nba: {
-        type: "say",
-        title: "Greet Lucas and say the chat is recorded",
-        why: "The bot is handing Lucas to you: open with a greeting and the recording notice.",
-        text: "Hi Lucas, this is John, picking up from our virtual agent. This chat is recorded for quality and training.",
-        alt: [
-          { type: "say", text: "Identify yourself" },
-          { type: "ask", text: "Confirm the callback number" },
-        ],
-      },
-    },
     { id: "lt-4-typing", kind: "typing", speaker: "customer", at: 1500, durationMs: 3000 },
     { id: "lt-4", kind: "say", speaker: "customer", at: 4500, text: "That failed too. Can someone just place it for me?" },
     { id: "lt-5-typing", kind: "typing", speaker: "bot", at: 5200, durationMs: 2800 },
@@ -73,18 +57,37 @@ export const LUCAS_THOMAS_SCRIPT = {
     { id: "lt-6-event", kind: "event", at: 12_300, text: "Approval requested" },
     // The approval cites his Experience Memory: the Journey Summary comes forward.
     { id: "lt-6-summary", kind: "beat", beat: "approval", ref: "initial", at: 13_300, focus: "journey" },
-    // The agent takes the chat over: the bot hands off and Lucas acknowledges.
-    { id: "lt-warm-handoff-typing", kind: "typing", speaker: "bot", anchor: "takeover", at: 500, durationMs: 1800 },
+    // The agent takes the chat over: the bot hands off, John's greeting is his first turn (it waits on its Next
+    // Best Action, P-CANVAS), and Lucas acknowledges.
+    { id: "lt-warm-handoff-typing", kind: "typing", speaker: "bot", anchor: "takeover", at: 0, durationMs: 600 },
     {
       id: "lt-warm-handoff",
       kind: "say",
       speaker: "bot",
       anchor: "takeover",
-      at: 2300,
+      at: 600,
       text: "Thanks for your patience, Lucas. I'm going to transfer you to John Smith, one of our team members, who will take it from here. I've shared everything we've covered so he can help with your Aurora X2 order right away.",
     },
-    { id: "lt-handoff-reply-typing", kind: "typing", speaker: "customer", anchor: "takeover", at: 3300, durationMs: 2000 },
-    { id: "lt-handoff-reply", kind: "say", speaker: "customer", anchor: "takeover", at: 5300, text: "Ok, sounds good" },
+    {
+      id: "lt-greet",
+      kind: "say",
+      speaker: "agent",
+      anchor: "takeover",
+      at: 800,
+      text: "Hi Lucas, this is John. I've read through everything, so let's get your Aurora X2 order sorted. This chat is recorded for quality and training.",
+      nba: {
+        type: "say",
+        title: "Greet Lucas and say the chat is recorded",
+        why: "The bot is handing Lucas to you: open with a greeting and the recording notice.",
+        text: "Hi Lucas, this is John, picking up from our virtual agent. This chat is recorded for quality and training.",
+        alt: [
+          { type: "say", text: "Identify yourself" },
+          { type: "ask", text: "Confirm the callback number" },
+        ],
+      },
+    },
+    { id: "lt-handoff-reply-typing", kind: "typing", speaker: "customer", anchor: "takeover", at: 1300, durationMs: 2000 },
+    { id: "lt-handoff-reply", kind: "say", speaker: "customer", anchor: "takeover", at: 3300, text: "Ok, sounds good" },
   ],
   branches: {
     accept: {
@@ -107,18 +110,6 @@ export const LUCAS_THOMAS_SCRIPT = {
         // Lucas follows up, so the chat stays open for the agent to answer.
         { id: "accept-7-typing", kind: "typing", speaker: "customer", at: 12_400, durationMs: 2800 },
         { id: "accept-7", kind: "say", speaker: "customer", at: 15_200, text: "Will it still ship today? It's a birthday present for Friday." },
-        {
-          id: "accept-ask",
-          kind: "guide",
-          at: 15_600,
-          nba: {
-            type: "ask",
-            title: "Ask whether Friday delivery is a must",
-            why: "Lucas says it's a birthday present for Friday; standard delivery arrives Monday.",
-            text: "Does it need to arrive by Friday, or would Monday still work for you?",
-            alt: [{ type: "say", text: "Offer priority shipping for $15" }],
-          },
-        },
         { id: "accept-8-typing", kind: "typing", speaker: "bot", at: 16_200, durationMs: 2400 },
         { id: "accept-8", kind: "say", speaker: "bot", at: 18_600, text: "I understand your concern. Let me check that for you." },
         // The bot checks, logging it as a row that opens the shipping details.
@@ -157,19 +148,6 @@ export const LUCAS_THOMAS_SCRIPT = {
         },
         // A second approval request: waive the $15.00 priority shipping.
         { id: "accept-13", kind: "beat", beat: "approval", ref: "shipping", at: 37_000 },
-        {
-          id: "accept-do",
-          kind: "guide",
-          at: 37_500,
-          nba: {
-            type: "do",
-            title: "Review the shipping check before deciding",
-            why: "The override waives $15.00; the check shows when priority shipping would arrive.",
-            action: "Opens the shipping check for NR-11056",
-            link: "shipping-check",
-            alt: [{ type: "ask", text: "Ask Lucas if Thursday delivery works" }],
-          },
-        },
       ],
     },
     "ship-accept": {

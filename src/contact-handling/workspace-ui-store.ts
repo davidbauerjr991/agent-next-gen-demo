@@ -41,6 +41,9 @@ export interface WorkspaceUiState {
   nbaRequested: ReadonlySet<string>;
   /** P-CANVAS: the Next Best Action steps already put in the conversation as a row, `${contactId}:${stepId}`. */
   nbaRowsShown: ReadonlySet<string>;
+  /** P-CANVAS: a scripted agent turn the agent inserted into the composer, waiting for the send that is that turn:
+   *  `${cardId}:${threadKey}` → the nba card id to answer (`agentTyped`) on send. */
+  nbaAwaitingSend: Readonly<Record<string, string>>;
   /** P-CANVAS: when the Journey Summary's lookup started for each contact (first shown); it resolves 800ms later. */
   journeyLookupStartedAt: Readonly<Record<string, number>>;
   /** P-CANVAS: each card's reference column — which cards are open and who
@@ -69,6 +72,7 @@ export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
   composerPrefill: Object.freeze({}),
   nbaRequested: new Set<string>(),
   nbaRowsShown: new Set<string>(),
+  nbaAwaitingSend: Object.freeze({}),
   journeyLookupStartedAt: Object.freeze({}),
   referenceFocusByCard: Object.freeze({}),
 });

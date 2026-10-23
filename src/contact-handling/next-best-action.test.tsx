@@ -196,32 +196,7 @@ describe("the Next Best Action surfaces on a pause or on request", () => {
     expect(nba()!.closest("[aria-hidden=true]")).not.toBeNull();
   });
 
-  it("a call (Maya): Said it, then on request her Ask, then the Do — Run it opens its panel and plays its branch", async () => {
-    await open({ displayLocation: "inline" });
-    await maya();
-    await h.click(chip()!);
-    await h.advance(50);
-    expect(frame()).toBe("say");
-    expect(button("Insert into reply")).toBeUndefined();
-    await h.click(button("Said it")!);
-    await h.advance(2_500);
-    await h.click(chip()!);
-    await h.advance(50);
-    expect(frame()).toBe("ask");
-    await h.click(button("Said it")!);
-    await h.advance(14_000);
-    await h.click(chip()!);
-    await h.advance(50);
-    expect(frame()).toBe("do");
-    await h.click(button("Run it")!);
-    await h.advance(600);
-    expect(h.container.querySelector("[data-slot=reference-slide-over]")).not.toBeNull();
-    await h.advance(2_000);
-    expect(h.container.textContent).toContain("Refund of $412.00 to Visa 4417 issued");
-    expect(outcomes()).toHaveLength(3);
-  });
-
-  it("while the bot holds the chat (Lucas before takeover), nothing surfaces, on a pause or on request; after takeover the greeting does", async () => {
+  it("while the bot holds the chat (Lucas before takeover), nothing surfaces, on a pause or on request; after takeover the greeting does at once", async () => {
     await open({ displayLocation: "inline" });
     await h.play(LUCAS_THOMAS_SCRIPT.id);
     await h.click(h.navCard("Lucas Thomas"));
@@ -233,10 +208,100 @@ describe("the Next Best Action surfaces on a pause or on request", () => {
     }
     expect(nba()).toBeNull();
     await h.click(button("Takeover Chat", document.body)!);
-    // The handoff lines play, then the conversation pauses.
-    await h.advance(15_000);
+    // The bot's handoff, then John's greeting is the agent's turn: its suggestion after the beat.
+    await h.advance(2_000);
     expect(frame()).toBe("say");
     expect(nba()!.textContent).toContain("Greet Lucas");
+  });
+});
+
+describe("scripted cases: the Next Best Action gates the agent's turn", () => {
+  const step = (id: string) => MAYA_CHEN_SCRIPT.steps.find((s) => s.id === id)! as { text: string; nba?: { text?: string } };
+  const has = (text: string) => main().textContent!.includes(text);
+
+  it("Maya: about 1s after her first line the suggestion shows and John hasn't spoken; Said it plays the script's line, not the suggestion; her next line follows; then the Ask", async () => {
+    await open({ displayLocation: "inline" });
+    await maya();
+    // Her first line at 1.2s; John's turn at 1.4s; its suggestion 0.9s later.
+    await h.advance(1_500);
+    expect(nba()).toBeNull();
+    await h.advance(1_000);
+    expect(frame()).toBe("say");
+    expect(has(step("mcc-2").text)).toBe(false);
+    expect(button("Said it")).toBeDefined();
+    // Nothing plays while it waits.
+    await h.advance(10_000);
+    expect(has(step("mcc-3").text)).toBe(false);
+    await h.click(button("Said it")!);
+    await h.advance(100);
+    expect(has(step("mcc-2").text)).toBe(true);
+    expect(has(step("mcc-2").nba!.text!)).toBe(false);
+    await h.advance(3_700);
+    expect(has(step("mcc-3").text)).toBe(true);
+    // The Ask: her line, then John's turn waits again.
+    await h.advance(1_300);
+    expect(frame()).toBe("ask");
+    expect(has(step("mcc-ask").text)).toBe(false);
+    await h.click(button("Said it")!);
+    await h.advance(100);
+    expect(has(step("mcc-ask").text)).toBe(true);
+  });
+
+  it("Not now plays the scripted line after the beat; her next line still follows", async () => {
+    await open({ displayLocation: "inline" });
+    await maya();
+    await h.advance(2_500);
+    await h.click(button("Not now")!);
+    await h.advance(500);
+    expect(has(step("mcc-2").text)).toBe(false);
+    await h.advance(500);
+    expect(has(step("mcc-2").text)).toBe(true);
+    await h.advance(3_700);
+    expect(has(step("mcc-3").text)).toBe(true);
+  });
+
+  it("the Do: Run it runs its branch (the refund) and opens its panel, then John's line plays", async () => {
+    await open({ displayLocation: "inline" });
+    await maya();
+    for (const id of ["mcc-2", "mcc-ask"]) {
+      await h.advance(5_000);
+      expect(nba()).not.toBeNull();
+      await h.click(button("Said it")!);
+      await h.advance(100);
+      expect(has(step(id).text)).toBe(true);
+    }
+    await h.advance(5_000);
+    expect(frame()).toBe("do");
+    await h.click(button("Run it")!);
+    await h.advance(600);
+    expect(h.container.querySelector("[data-slot=reference-slide-over]")).not.toBeNull();
+    expect(has(step("mcc-do").text)).toBe(true);
+    expect(h.container.textContent).toContain("Refund of $412.00 to Visa 4417 issued");
+  });
+
+  it("a chat (Lucas after takeover): Insert into reply, then send — the sent text is the turn, the script's line never plays, and his reply follows", async () => {
+    await open({ displayLocation: "inline" });
+    await h.play(LUCAS_THOMAS_SCRIPT.id);
+    await h.click(h.navCard("Lucas Thomas"));
+    await h.advance(14_000);
+    await h.click(button("Takeover Chat", document.body)!);
+    await h.advance(2_000);
+    expect(frame()).toBe("say");
+    const greeting = LUCAS_THOMAS_SCRIPT.steps.find((s) => s.id === "lt-greet") as { text: string; nba: { text: string } };
+    await h.click(button("Insert into reply")!);
+    await h.advance(300);
+    const input = [...main().querySelectorAll<HTMLTextAreaElement>("textarea")].find((el) => el.value)!;
+    expect(input.value).toBe(greeting.nba.text);
+    // Not sent yet: the script waits.
+    await h.advance(5_000);
+    expect(has("Ok, sounds good")).toBe(false);
+    await h.click(button("Send", main())!);
+    await h.advance(100);
+    expect(has(greeting.nba.text)).toBe(true);
+    expect(has(greeting.text)).toBe(false);
+    await h.advance(3_000);
+    expect(has("Ok, sounds good")).toBe(true);
+    expect(has(greeting.text)).toBe(false);
   });
 
   it("Marcus Webb keeps his own card", async () => {
@@ -268,11 +333,20 @@ describe("the reference column", () => {
     expect(expanded()).toEqual(["journey-summary", "customer-info-card"]);
   });
 
+  /** Answers John's waiting turn (Said it), once its suggestion shows. */
+  const sayIt = async () => {
+    await h.advance(2_500);
+    await h.click([...h.container.querySelectorAll<HTMLElement>("[data-slot=next-best-action] button")].find((b) => b.textContent?.trim() === "Said it")!);
+    await h.advance(100);
+  };
+
   it("Maya's card-on-file turn expands Customer Info (highlighted), collapsing the AI-opened summary, not the agent's Journey Summary", async () => {
     await open({ displayLocation: "inline" });
     await maya();
     await h.click(header("journey-summary"));
-    await h.advance(12_000);
+    await sayIt();
+    // Her card-on-file line, 3.6s after John's.
+    await h.advance(3_700);
     expect(expanded()).toEqual(["journey-summary", "customer-info-card"]);
     expect(highlighted()).toContain("customer-info-card");
     await h.advance(1_500);
@@ -282,11 +356,14 @@ describe("the reference column", () => {
   it("a summary refresh never takes focus", async () => {
     await open({ displayLocation: "inline" });
     await maya();
-    await h.advance(12_500);
+    await sayIt();
+    await h.advance(3_700);
     expect(expanded()).toEqual(["customer-info-card"]);
     const words = () => h.container.querySelector("[data-slot=real-time-summary]")!.getAttribute("data-words");
     const before = words();
-    await h.advance(8_000);
+    // John's Ask, then her answer (a customer turn) refreshes the summary.
+    await sayIt();
+    await h.advance(3_500);
     expect(words()).not.toBe(before);
     expect(expanded()).toEqual(["customer-info-card"]);
   });

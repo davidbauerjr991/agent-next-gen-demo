@@ -52,6 +52,7 @@ import {
 } from "@/contact-handling";
 import type { InteractionHistoryRecord } from "@/components/agent-next-gen-interactions-table";
 import { resolveCustomerAutoReply } from "@/contact-handling/customer-auto-reply";
+import { useTypedTurnRelease } from "@/contact-handling/next-best-action";
 import { SCREEN_POP_APPS, SHARED_PANEL_DEFAULT_WIDTH } from "@/components/workspace/workspace-constants";
 import { MockLoginCard } from "@/components/workspace/left-nav-parts";
 import type { WorkspaceLate } from "./workspace-late";
@@ -96,6 +97,7 @@ export function useWsOutbound(prev: WsLaunch, late: WorkspaceLate) {
     );
   // Sending touches the thread (touched-threads.ts): it stays when its channel goes off.
   const touchThread = useTouchThread();
+  const releaseTypedTurn = useTypedTurnRelease();
   const handleSendMessage = (interactionId: string, text: string, channelKeyOverride?: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
@@ -189,6 +191,10 @@ export function useWsOutbound(prev: WsLaunch, late: WorkspaceLate) {
         interaction.id === interactionId ? applyToChannel(interaction, agentMessage, false) : interaction
       )
     );
+
+    // P-CANVAS: the send is a scripted agent turn the agent inserted: the script goes on from it (its own customer
+    // turn follows), so there's no simulated reply.
+    if (releaseTypedTurn(interactionId, channelKeyAtSend)) return;
 
     // "Customer is typing" — see `customerTyping`'s own doc comment. Per
     // explicit follow-up request ("do not display the typing indicator

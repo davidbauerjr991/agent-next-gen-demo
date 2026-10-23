@@ -29,7 +29,7 @@ export function IntSettingInput({
       type="number"
       min={min}
       max={max}
-      step={500}
+      step={100}
       value={draft}
       disabled={disabled}
       error={valid ? undefined : t("Between {min} and {max}", { min: new Intl.NumberFormat().format(min), max: new Intl.NumberFormat().format(max) })}

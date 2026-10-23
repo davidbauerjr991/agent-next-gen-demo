@@ -10,6 +10,7 @@ import type {
 import type { ScenarioNba, ScenarioScript, ScenarioStep } from "../../scenarios/scenario-script";
 import { providerError } from "../provider-error";
 import { SIM_AGENT } from "./sim-fixtures";
+import { isAgentTurn } from "./sim-scenario-player";
 
 // The simulated AI's guidance (P-CANVAS), inside the sim engine: each live
 // contact's Next Best Action (an assist `nba` card) and its Real-Time Summary
@@ -34,6 +35,9 @@ export interface GuidanceHost {
   startBranch(id: InteractionId, branch: string): void;
   /** Runs `run` after `ms` (engine-owned timers, cleared on dispose). */
   later(ms: number, run: () => void): void;
+  /** The agent answered the suggestion a scripted run waits on: the run plays its agent line (unless the agent
+   *  typed the turn, `skipLine`) and goes on. */
+  releaseTurn(id: InteractionId, skipLine: boolean): void;
 }
 
 /** How long the simulated journey lookup takes on a contact with a known
@@ -53,13 +57,15 @@ export interface Guidance {
    *  request ("Nothing to suggest" when the queue is empty) or after a pause
    *  in the conversation (nothing when it's empty). Never while a bot holds
    *  the contact, or while a suggestion is already showing. */
-  surface(id: InteractionId, reason: "request" | "pause", requestId: AssistRequestId): void;
+  surface(id: InteractionId, reason: "request" | "pause" | "turn", requestId: AssistRequestId): void;
   dispose(): void;
 }
 
 interface Queued {
   stepId: string;
   suggestion: NextBestActionSuggestion;
+  /** The agent's turn in a scripted conversation (an agent line's `nba`): the run waits on it. */
+  turn?: true;
 }
 
 interface Guide {
@@ -73,6 +79,8 @@ interface Guide {
   queue: Queued[];
   /** The surfaced suggestion, until the agent answers it. */
   current?: Queued;
+  /** The agent's turn a scripted run waits on, not yet surfaced (it goes first). */
+  turn?: Queued;
   /** Bumped per card state, so a "listening" or "nothing" card has its own step id. */
   seq: number;
   summary: { lines: string[]; revealed: number };
@@ -166,6 +174,7 @@ export function createGuidance(host: GuidanceHost): Guidance {
       frame,
       ...(g.current ? { suggestion: g.current.suggestion } : {}),
       ...(focus ? { focus: focus.card } : {}),
+      ...(g.turn || g.current?.turn ? { awaitingAgent: true as const } : {}),
     };
     host.send({ requestId: requestId ?? requestIdOf(g.id), interactionId: g.id, card });
   }
@@ -209,6 +218,7 @@ export function createGuidance(host: GuidanceHost): Guidance {
         g.over = true;
         g.queue = [];
         g.current = undefined;
+        g.turn = undefined;
         sendNba(g);
         sendSummary(g);
         return;
@@ -238,7 +248,11 @@ export function createGuidance(host: GuidanceHost): Guidance {
     onStep(id, step) {
       const g = guides.get(id);
       if (!g?.scripted || g.over) return;
-      if (step.nba) enqueue(g, step.id, step.nba);
+      // An agent line with a suggestion is the agent's turn: the run waits on it (the agent UI surfaces it after a beat).
+      if (step.nba && isAgentTurn(step)) {
+        g.turn = { stepId: step.id, suggestion: suggestion(step.nba), turn: true };
+        sendNba(g);
+      } else if (step.nba) enqueue(g, step.id, step.nba);
       if (step.focus) sendNba(g, { focus: { stepId: step.id, card: step.focus } });
       if (step.kind === "say" && step.speaker === "customer" && g.summary.revealed < g.summary.lines.length) {
         g.summary.revealed += 1;
@@ -260,13 +274,18 @@ export function createGuidance(host: GuidanceHost): Guidance {
       if (!g.scripted && current.stepId === "rule-greeting") enqueue(g, "rule-reason", reasonNba(host.customerName(g.id)));
       sendNba(g);
       if (branch) host.startBranch(g.id, branch);
+      // The agent's turn: the script goes on (its own line, unless the agent typed the turn), after any branch.
+      if (current.turn) host.releaseTurn(g.id, !!resolution.agentTyped);
     },
 
     surface(id, reason, requestId) {
       const g = guideFor(id);
       // While a bot holds the contact (review), nothing surfaces; nor while one is already showing.
       if (host.get(id)?.review || g.current) return;
-      const next = g.over ? undefined : g.queue.shift();
+      // The agent's turn goes first; a "turn" trigger surfaces only it.
+      const turn = g.over ? undefined : g.turn;
+      g.turn = undefined;
+      const next = turn ?? (g.over || reason === "turn" ? undefined : g.queue.shift());
       if (next) {
         g.current = next;
         sendNba(g, { requestId });

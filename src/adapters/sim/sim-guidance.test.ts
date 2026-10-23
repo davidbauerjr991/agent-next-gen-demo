@@ -23,6 +23,7 @@ function setUp(name = "Priya Shah") {
     send: (payload) => sent.push(payload),
     startBranch,
     later: (ms, run) => timers.push({ ms, run }),
+    releaseTurn: () => {},
   });
   const runTimers = () => timers.splice(0).forEach((t) => t.run());
   const nbaEvent = () => [...sent].reverse().find((p) => p.card.kind === "nba");
@@ -122,47 +123,81 @@ describe("the rule set (a contact with no script)", () => {
 describe("a scripted contact (Maya Chen)", () => {
   const step = (id: string) => [...MAYA_CHEN_SCRIPT.steps].find((s) => s.id === id)!;
 
-  it("its steps queue greeting → Ask → Do, each surfacing on request; a used Do starts its branch; the summary grows per customer turn", () => {
-    const { guidance, contact, nba, summary, request, resolve, startBranch } = setUp("Maya Chen");
+  const turnSetUp = () => {
+    const releaseTurn = vi.fn();
+    const sent: AssistEvents["card"][] = [];
+    const startBranch = vi.fn((..._: unknown[]) => order.push("branch"));
+    const order: string[] = [];
+    releaseTurn.mockImplementation(() => order.push("release"));
+    let current: Interaction | undefined;
+    const guidance = createGuidance({
+      now: () => 1_000,
+      get: () => current,
+      customerName: () => "Maya Chen",
+      send: (payload) => sent.push(payload),
+      startBranch,
+      later: () => {},
+      releaseTurn,
+    });
+    const nba = () => [...sent].reverse().find((p) => p.card.kind === "nba")?.card as Extract<AssistCard, { kind: "nba" }> | undefined;
+    const summary = () => [...sent].reverse().find((p) => p.card.kind === "text")?.card as Extract<AssistCard, { kind: "text" }> | undefined;
     guidance.startScript(ID, MAYA_CHEN_SCRIPT);
-    contact("active", { channel: "voice" });
-    expect(nba()).toBeUndefined();
-    expect(summary()).toBeUndefined();
+    current = { id: ID, channel: "voice", state: "active", direction: "inbound", origin: "routed", startedAt: 0 } as Interaction;
+    guidance.onInteraction(current);
+    return { guidance, nba, summary, releaseTurn, startBranch, order };
+  };
 
-    guidance.onStep(ID, step("mcc-greet"));
+  it("an agent line with a suggestion is the agent's turn: it waits (awaitingAgent), surfaces on the turn trigger, and answering it releases the line", () => {
+    const { guidance, nba, summary, releaseTurn } = turnSetUp();
     guidance.onStep(ID, step("mcc-1"));
     expect(summary()!.text).toBe("Calling for a $412.00 refund on order NR-10871, an espresso machine that arrived with a cracked water tank.");
-    guidance.onStep(ID, step("mcc-ask"));
-    // Nothing surfaced on its own.
     expect(nba()).toBeUndefined();
-    request();
-    expect(nba()).toMatchObject({ stepId: "mcc-greet", suggestion: { type: "say" } });
-    resolve("used");
-    request();
-    expect(nba()).toMatchObject({ stepId: "mcc-ask", suggestion: { type: "ask" } });
-    resolve("used");
-
-    guidance.onStep(ID, step("mcc-3"));
-    // Her card fact brings Customer Info forward (nothing surfaced).
-    expect(nba()).toMatchObject({ stepId: "mcc-3", focus: "customer", frame: "listening" });
-    guidance.onStep(ID, step("mcc-do"));
-    request();
-    expect(nba()).toMatchObject({ stepId: "mcc-do", suggestion: { type: "do", link: "maya-refund-steps", branch: "refund" } });
-    resolve("used");
-    expect(startBranch).toHaveBeenCalledWith(ID, "refund");
-
-    contact("wrap-up", { channel: "voice" });
-    expect(nba()).toMatchObject({ frame: "nothing" });
-    expect(summary()!.status).toBe("complete");
+    guidance.onStep(ID, step("mcc-2"));
+    expect(nba()).toMatchObject({ frame: "listening", awaitingAgent: true });
+    guidance.surface(ID, "turn", REQ);
+    expect(nba()).toMatchObject({ stepId: "mcc-2", frame: "suggestion", awaitingAgent: true, suggestion: { type: "say" } });
+    guidance.resolve(`nba:${ID}`, { outcome: "used" });
+    expect(releaseTurn).toHaveBeenCalledWith(ID, false);
+    expect(nba()).toMatchObject({ frame: "listening" });
+    expect(nba()!.awaitingAgent).toBeUndefined();
   });
 
-  it("Not now on a Do starts no branch", () => {
-    const { guidance, contact, request, resolve, startBranch } = setUp("Maya Chen");
-    guidance.startScript(ID, MAYA_CHEN_SCRIPT);
-    contact("active", { channel: "voice" });
+  it("Not now releases the line too; a typed turn releases it without the line", () => {
+    const { guidance, releaseTurn } = turnSetUp();
+    guidance.onStep(ID, step("mcc-2"));
+    guidance.surface(ID, "turn", REQ);
+    guidance.resolve(`nba:${ID}`, { outcome: "dismissed" });
+    expect(releaseTurn).toHaveBeenLastCalledWith(ID, false);
+    guidance.onStep(ID, step("mcc-ask"));
+    guidance.surface(ID, "turn", REQ);
+    guidance.resolve(`nba:${ID}`, { outcome: "used", agentTyped: true });
+    expect(releaseTurn).toHaveBeenLastCalledWith(ID, true);
+  });
+
+  it("Run it on the Do runs its branch, then releases the line; the chip surfaces a waiting turn early", () => {
+    const { guidance, nba, order } = turnSetUp();
     guidance.onStep(ID, step("mcc-do"));
-    request();
-    resolve("dismissed");
-    expect(startBranch).not.toHaveBeenCalled();
+    // The chip (a request) before the beat: the waiting turn surfaces.
+    guidance.surface(ID, "request", REQ);
+    expect(nba()).toMatchObject({ stepId: "mcc-do", suggestion: { type: "do", link: "maya-refund-steps", branch: "refund" } });
+    guidance.resolve(`nba:${ID}`, { outcome: "used" });
+    expect(order).toEqual(["branch", "release"]);
+  });
+
+  it("a turn trigger with no waiting turn surfaces nothing; wrap-up clears a waiting turn", () => {
+    const { guidance, nba, summary } = turnSetUp();
+    guidance.surface(ID, "turn", REQ);
+    expect(nba()).toBeUndefined();
+    guidance.onStep(ID, step("mcc-2"));
+    guidance.onInteraction({ id: ID, channel: "voice", state: "wrap-up", direction: "inbound", origin: "routed", startedAt: 0 } as Interaction);
+    expect(nba()).toMatchObject({ frame: "nothing" });
+    expect(nba()!.awaitingAgent).toBeUndefined();
+    expect(summary()?.status ?? "complete").toBe("complete");
+  });
+
+  it("her card fact brings Customer Info forward (nothing surfaced)", () => {
+    const { guidance, nba } = turnSetUp();
+    guidance.onStep(ID, step("mcc-3"));
+    expect(nba()).toMatchObject({ stepId: "mcc-3", focus: "customer", frame: "listening" });
   });
 });

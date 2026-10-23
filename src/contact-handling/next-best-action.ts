@@ -104,11 +104,12 @@ export function useNbaSurfacing(cards: Cards, setCards: SetCards, enabled: boole
  *  customer or agent turn (nor an answered suggestion) for the setting's
  *  time. A new turn restarts the clock; a bot holding the contact
  *  (review) holds it, and taking over starts it again. */
-export function useNbaPause(cards: Cards, enabled: boolean) {
+export function useNbaPause(cards: Cards, enabled: boolean, scriptedContactIds: ReadonlySet<string>) {
   const [ai] = useSettings("ai");
   const assist = useAssistProvider();
   const contacts = useInteractions();
-  // One entry per live contact: what counts as activity on its thread.
+  // One entry per live unscripted contact (a scripted one's turns gate on its agent lines instead, `useNbaTurns`):
+  // what counts as activity on its thread.
   const entries = useMemo(() => {
     if (!enabled) return [];
     const byId = new Map(contacts.map((c) => [c.id as string, c]));
@@ -117,7 +118,7 @@ export function useNbaPause(cards: Cards, enabled: boolean) {
       for (const thread of card.threads) {
         const contactId = thread.providerInteractionId;
         const contact = contactId ? byId.get(contactId) : undefined;
-        if (!contactId || !contact || contact.state !== "active" || contact.review) continue;
+        if (!contactId || !contact || contact.state !== "active" || contact.review || scriptedContactIds.has(contactId)) continue;
         const messages = card.liveMessages?.[threadKeyOf(thread)] ?? [];
         const turns = messages.filter((m) => !m.event && !isAiActionMessage(m)).length;
         const answered = messages.filter((m) => m.nbaOutcome).length;
@@ -129,7 +130,7 @@ export function useNbaPause(cards: Cards, enabled: boolean) {
       }
     }
     return out;
-  }, [enabled, contacts, cards, ai.nbaPauseChatMs, ai.nbaPauseVoiceMs]);
+  }, [enabled, contacts, cards, ai.nbaPauseChatMs, ai.nbaPauseVoiceMs, scriptedContactIds]);
 
   // Since when each contact's signature has held (a ref: it outlives renders, not the controller).
   const since = useRef(new Map<string, { signature: string; at: number; asked: boolean }>());
@@ -160,6 +161,72 @@ export function useNbaPause(cards: Cards, enabled: boolean) {
     // `key` captures every entry's contact, signature and pause.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, assist]);
+}
+
+/** A scripted conversation that reached the agent's turn (its nba card's
+ *  `awaitingAgent`, not yet surfaced) gets that turn's suggestion after a
+ *  short beat (Settings → AI's scripted delay): the provider is asked with a
+ *  "turn" trigger. Once per waiting episode per contact. */
+export function useNbaTurns(enabled: boolean) {
+  const [ai] = useSettings("ai");
+  const assist = useAssistProvider();
+  const byContact = useAssistCardsByContact();
+  const timers = useRef(new Map<string, number>());
+  useEffect(() => {
+    const waiting = new Set<string>();
+    for (const [contactId, { nba }] of Object.entries(byContact)) {
+      if (!enabled || !nba?.awaitingAgent || nba.frame === "suggestion") continue;
+      waiting.add(contactId);
+      if (timers.current.has(contactId)) continue;
+      timers.current.set(
+        contactId,
+        window.setTimeout(() => {
+          timers.current.delete(contactId);
+          assist
+            .suggest({ interactionId: contactId as InteractionId, trigger: { kind: "turn" } })
+            .catch((err) => import.meta.env.DEV && console.warn("[nba] turn suggest failed", err));
+        }, ai.nbaScriptedDelayMs),
+      );
+    }
+    // A contact no longer waiting (surfaced on request, or over) drops its beat.
+    for (const [contactId, timer] of [...timers.current]) {
+      if (!waiting.has(contactId)) {
+        window.clearTimeout(timer);
+        timers.current.delete(contactId);
+      }
+    }
+  }, [byContact, enabled, assist, ai.nbaScriptedDelayMs]);
+  useEffect(() => {
+    const pending = timers.current;
+    return () => {
+      for (const timer of pending.values()) window.clearTimeout(timer);
+      pending.clear();
+    };
+  }, []);
+}
+
+/** The send that is a scripted agent turn the agent inserted (Insert into
+ *  reply): answers its suggestion as typed, so the script goes on without its
+ *  own line. Returns whether this send was such a turn. */
+export function useTypedTurnRelease() {
+  const assist = useAssistProvider();
+  const store = useWorkspaceUiStore();
+  return useCallback(
+    (cardId: string, threadKey: string): boolean => {
+      const key = `${cardId}:${threadKey}`;
+      const nbaCardId = store.getState().nbaAwaitingSend[key];
+      if (!nbaCardId) return false;
+      store.update((s) => {
+        const { [key]: _sent, ...rest } = s.nbaAwaitingSend;
+        return { ...s, nbaAwaitingSend: rest };
+      });
+      assist
+        .resolveCard(nbaCardId, { outcome: "used", agentTyped: true })
+        .catch((err) => import.meta.env.DEV && console.warn("[nba] typed turn failed", err));
+      return true;
+    },
+    [assist, store],
+  );
 }
 
 /** Asks for the Next Best Action now (the "What should I do next?" chip, or
@@ -261,16 +328,26 @@ export function useNextBestActionRow(contactId: string, rowId: string, stepId: s
     [assist, card],
   );
 
+  // A scripted agent turn (the conversation waits on this suggestion): Insert waits for the send, which is the turn
+  // (`useTypedTurnRelease`); Not now answers after the beat, and the script's own line then plays.
+  const turn = !!card?.awaitingAgent;
+  const [ai] = useSettings("ai");
+  const store = useWorkspaceUiStore();
   const onUse = useCallback(() => {
     if (!suggestion || !cardId || !threadKey) return;
     if (suggestion.type === "do") {
       if (suggestion.link) ws.snapshotLinkHandlerFor(cardId)(suggestion.link);
     } else if (use === "insert" && suggestion.text) {
       setPrefill((prev) => ({ ...prev, [`${cardId}:${threadKey}`]: suggestion.text! }));
+      if (turn && card) {
+        store.update((s) => ({ ...s, nbaAwaitingSend: { ...s.nbaAwaitingSend, [`${cardId}:${threadKey}`]: card.id } }));
+        settle("used", suggestion.title);
+        return;
+      }
     }
     settle("used", suggestion.title);
     resolve("used");
-  }, [suggestion, cardId, threadKey, use, ws, setPrefill, settle, resolve]);
+  }, [suggestion, cardId, threadKey, use, ws, setPrefill, settle, resolve, turn, card, store]);
 
   const onCopy = useCallback(() => {
     const text = suggestion?.text ?? suggestion?.action;
@@ -280,8 +357,9 @@ export function useNextBestActionRow(contactId: string, rowId: string, stepId: s
   const onNotNow = useCallback(() => {
     if (!suggestion) return;
     settle("dismissed", suggestion.title);
-    resolve("dismissed");
-  }, [suggestion, settle, resolve]);
+    if (turn) window.setTimeout(() => resolve("dismissed"), ai.nbaScriptedDelayMs);
+    else resolve("dismissed");
+  }, [suggestion, settle, resolve, turn, ai.nbaScriptedDelayMs]);
 
   const onUseAlternative = useCallback(
     (index: number) => {

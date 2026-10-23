@@ -195,6 +195,12 @@ All of these live in a new UI-side folder (e.g. `src/contact-handling/`). They c
     - The reference cards open additively (`openedBy` ai/user; AI focus collapses only what the AI opened).
     - Customer Info is lyra's AICard "Customer Info · conversational" identity block without its paragraphs.
     - Contact Details' first tab reads "Overview" outside panel mode.
+  - **Scripted NBAs gate the agent's turn (one commit on 3fd4c5c).** In Maya's, Tom's and Lucas's scripts every agent line carries an `nba` (their old guide steps became agent lines; Marcus unchanged). When the player reaches one, its run waits, as on hold: later steps keep their remaining delays, and a held call's resume doesn't release it. The guidance marks the card `awaitingAgent`. The UI asks for it after `ai.nbaScriptedDelayMs` (900), a "turn" suggest trigger, and the chip can surface it sooner. Answering it releases the line:
+    - Said it, an alternative's Use and Run it (after its branch) play the script's own line.
+    - Not now plays it after the same beat.
+    - Insert into reply waits for the send, which is the turn (`agentTyped`): the script's line is skipped and there's no simulated reply.
+
+    The pause timers apply to unscripted sim contacts only. Lucas's bot plays unprompted until takeover; his greeting is then the first agent turn.
   - **Todo: port Marcus's card onto the generic NBA** (P-CANVAS commit 4 or P-POLISH), once a Do NBA can carry a reason note. Today his case shows his own card and no generic NBA (`hasCustomCaseCard`).
   - **Panel mode still has the old cards** (Autosummary in the AI feed, `CustomerContextOverview` Customer Info and Journey Summary, the Artifacts card): two implementations until panel mode adopts the Agentic cards.
   - **Email has no "Insert into reply"** until P-PARKED's composer (an outbound draft is a Send button only); Copy is its primary action.
