@@ -11,7 +11,7 @@ import { APP_MENU_ITEMS, buildAppMenuGroups } from "@/components/agent-next-gen-
 import { SettingsView } from "@/components/settings/SettingsView";
 import { LUCAS_THOMAS_SCRIPT, MARCUS_WEBB_SCRIPT } from "@/scenarios";
 import { applyProfile, applyStoredTheme, useApplyTheme } from "./hooks";
-import { deriveProfile } from "./profiles";
+import { deriveProfile, profileValues } from "./profiles";
 import { getSettingsStore, resetSettingsStoreForTests, sectionStorageKey } from "./settings-store";
 import type { AppPlacement, SectionKey, SettingsState } from "./settings-schema";
 
@@ -756,6 +756,12 @@ describe("Launch screen: phone setup and Save Preferences", () => {
     expect(store().getState().values.phone.phoneNumber).toBe("312 555 0164");
     expect(localStorage.getItem(sectionStorageKey("phone"))).toBeNull();
   });
+
+  it("a phone number from the launch screen keeps the applied profile (phone is personal, P-PROFILES)", async () => {
+    store().updateMany(profileValues("phase2"));
+    await launchWith("Phone Number", "312 555 0164", true);
+    expect(deriveProfile(store().getState().values)).toBe("phase2");
+  });
 });
 
 describe("Workspace profile", () => {
@@ -794,8 +800,14 @@ describe("Workspace profile", () => {
     expect(profile()).toBe("custom");
     await setSettings("header", { showAppIcons: false });
     expect(profile()).toBe("phase1");
-    await setSettings("appearance", { theme: "dark" });
+    await setSettings("assignments", { confirmClose: true });
     expect(profile()).toBe("custom");
+  });
+
+  it("personal settings (theme, phone, Home tab order) keep the profile (P-PROFILES)", async () => {
+    await setSettings("appearance", { theme: "dark" });
+    await setSettings("phone", { setup: "phone-number", phoneNumber: "(555) 010-2000" });
+    expect(profile()).toBe("phase1");
   });
 });
 

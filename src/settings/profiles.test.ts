@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { deriveProfile, profileValues, PROFILES } from "./profiles";
-import { agentSettings, withAgentSettings } from "./scope";
+import { agentSettings, sectionInProfiles, withAgentSettings } from "./scope";
 import { SECTIONS, defaultSettings, defineSection, group, str, type SectionSchemas, type SettingsState } from "./settings-schema";
 import { safeStorage } from "./settings-storage";
 import { createSettingsStore } from "./settings-store";
@@ -57,19 +57,40 @@ describe("workspace profiles", () => {
     expect(profile(store)).toBe("phase2");
   });
 
-  it("applying a profile writes every section, personal ones included", () => {
+  it("applying a profile writes every agent-scope section and keeps personal settings (P-PROFILES)", () => {
     const store = freshStore();
     store.update("assignments", { navItemsAtTop: true });
     store.update("voice", { controlsLocation: "top" });
     store.update("home", { greeting: "Hi" });
     store.update("appearance", { theme: "dark" });
-    store.updateMany(profileValues("phase2"));
+    store.update("phone", { setup: "phone-number", phoneNumber: "(555) 010-2000" });
+    store.update("header", { tabOrder: ["tickets", "customers", "accounts", "wem", "schedule", "screenpop"] });
+    store.updateMany(withAgentSettings(store.getState().values, profileValues("phase2")));
     const values = store.getState().values;
     expect(values.assignments.navItemsAtTop).toBe(false);
     expect(values.voice.controlsLocation).toBe("bottom");
     expect(values.home.greeting).toBe("Hello");
-    expect(values.appearance.theme).toBe("light");
+    // Personal: theme, phone and the Home tab order are the agent's own.
+    expect(values.appearance.theme).toBe("dark");
+    expect(values.phone).toEqual({ setup: "phone-number", phoneNumber: "(555) 010-2000", stationId: "" });
+    expect(values.header.tabOrder[0]).toBe("tickets");
     expect(profile(store)).toBe("phase2");
+  });
+
+  it("personal settings never make a profile read Custom, and a snapshot carries none of them", () => {
+    const store = freshStore();
+    store.updateMany(profileValues("phase2"));
+    store.update("phone", { setup: "work-station", stationId: "ST-14" });
+    store.update("appearance", { theme: "dark" });
+    store.update("header", { tabOrder: ["screenpop", "customers", "accounts", "tickets", "wem", "schedule"] });
+    expect(profile(store)).toBe("phase2");
+    const snapshot = agentSettings(store.getState().values);
+    expect(snapshot.phone).toEqual({});
+    expect("theme" in snapshot.appearance).toBe(false);
+    expect("tabOrder" in snapshot.header).toBe(false);
+    expect(sectionInProfiles("phone")).toBe(false);
+    expect(sectionInProfiles("appearance")).toBe(false);
+    expect(sectionInProfiles("header")).toBe(true);
   });
 
   it.each([
@@ -78,8 +99,6 @@ describe("workspace profiles", () => {
     ["assignments", { navItemsAtTop: true }],
     ["voice", { controlsLocation: "top" }],
     ["ai", { displayLocation: "panel" }],
-    ["phone", { setup: "phone-number" }],
-    ["appearance", { theme: "dark" }],
   ] as const)("changing one %s setting reads Custom", (section, patch) => {
     const store = freshStore();
     store.update(section, patch);

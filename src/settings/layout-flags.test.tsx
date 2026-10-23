@@ -523,10 +523,10 @@ describe("header.tabOrder storage", () => {
     expect(read({ tabOrder: "nope" })).toEqual(SECTIONS.header.defaults.tabOrder);
   });
 
-  it("is part of the profile (every section is), and Reset puts it back", () => {
+  it("is personal (P-PROFILES): a reorder keeps the profile, and Reset puts it back", () => {
     store().updateMany(profileValues("phase2"));
     store().update("header", { tabOrder: ["tickets", "customers", "accounts", "wem", "schedule", "screenpop"] });
-    expect(deriveProfile(store().getState().values)).toBe("custom");
+    expect(deriveProfile(store().getState().values)).toBe("phase2");
     store().resetAll();
     expect(store().getState().values.header.tabOrder).toEqual(SECTIONS.header.defaults.tabOrder);
   });

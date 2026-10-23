@@ -52,12 +52,24 @@ export const keyList =
 /** Who a setting belongs to (P-AIFIRST). "agent" settings are part of
  *  workspace profiles; "admin" settings (the brand, the social placeholders)
  *  are tenant-wide: a profile never carries them and applying one never
- *  touches them. A group's scope is inherited by everything inside it. */
-export type SettingScope = "agent" | "admin";
+ *  touches them. "personal" settings (P-PROFILES: the theme, the phone setup,
+ *  the Home tab order) are the agent's own: like admin ones they're outside
+ *  profiles, but the agent sets them, and Reset to defaults resets them. A
+ *  group's scope is inherited by everything inside it. */
+export type SettingScope = "agent" | "admin" | "personal";
+
+/** Profiles carry agent-scope settings only. */
+export const isProfileScope = (scope: SettingScope): boolean => scope === "agent";
 
 /** A `group` reader also carries its field readers and scope, so profile
  *  code can walk the schema (`./scope.ts`). */
 export type GroupField<T> = Field<T> & { readonly fields: Fields<T>; readonly scope?: SettingScope };
+
+/** A single field with its own scope (a group sets it with `group`'s option).
+ *  Keeps the reader's own properties (`values`, `meta`). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- any reader type
+export const scoped = <F extends Field<any>>(field: F, scope: SettingScope): F & { readonly scope: SettingScope } =>
+  Object.assign(((raw: unknown, fallback: unknown) => field(raw, fallback)) as F, field, { scope });
 
 /** A nested object, read field by field; unknown stored fields are dropped. */
 export const group = <T extends object>(fields: Fields<T>, options?: { scope?: SettingScope }): GroupField<T> => {
@@ -155,7 +167,8 @@ const header = defineSection<HeaderSettings>({
     apps: group<Record<ExtraHeaderApp, AppDisplay>>(
       Object.fromEntries(EXTRA_HEADER_APPS.map((app) => [app, appDisplay])) as Fields<Record<ExtraHeaderApp, AppDisplay>>,
     ),
-    tabOrder: keyList(EXTRA_HEADER_APPS),
+    // Personal (P-PROFILES): the agent's own drag order, outside profiles.
+    tabOrder: scoped(keyList(EXTRA_HEADER_APPS), "personal"),
   },
 });
 
@@ -451,6 +464,8 @@ const phone = defineSection<PhoneSettings>({
   version: 1,
   defaults: { setup: "soft-phone", phoneNumber: "", stationId: "" },
   fields: { setup: oneOf(PHONE_SETUPS), phoneNumber: str(), stationId: str() },
+  // Personal (P-PROFILES): the agent's own phone, set on the launch screen.
+  scope: "personal",
 });
 
 export const THEMES = ["light", "dark"] as const;
@@ -495,7 +510,8 @@ const appearance = defineSection<AppearanceSettings>({
   version: 1,
   defaults: { theme: "light", brand: { appName: DEFAULT_APP_NAME, logo: null, colors: { primary: null, accent: null } } },
   fields: {
-    theme: oneOf(THEMES),
+    // Personal (P-PROFILES): light or dark is the agent's own choice.
+    theme: scoped(oneOf(THEMES), "personal"),
     brand: group<BrandSettings>(
       {
         appName: str(),
