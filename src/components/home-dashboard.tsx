@@ -12,6 +12,7 @@ import {
 } from "@/components/agent-next-gen-interaction-dashboard";
 import { ClockTick, QueueSubItems } from "@/components/agent-next-gen-clock-tick";
 import { useSettings, type HomeQueueChannel, type HomeSectionKey } from "@/settings";
+import { channelOn } from "@/contact-handling/channel-gates";
 
 /** Which Settings → Home queue flag shows each `LATEST_CONTACTS_STATIC` tile. */
 const QUEUE_CHANNEL_BY_ID: Record<string, HomeQueueChannel> = {
@@ -34,9 +35,24 @@ export interface HomeDashboardProps {
   contactHistory: React.ReactNode;
 }
 
+/** The contact channels each queue tile carries (Settings → Channels): a tile shows while one of them is on.
+ *  Work items aren't a contact channel, so that tile isn't gated. */
+const QUEUE_CONTACT_CHANNELS: Record<HomeQueueChannel, readonly string[] | undefined> = {
+  digital: ["chat", "email", "sms", "whatsapp"],
+  inboundVoice: ["voice"],
+  voicemail: ["voice"],
+  outboundVoice: ["voice"],
+  workItem: undefined,
+};
+
 export function HomeDashboard({ showPageHeader, headerActions, selectedQueueId, onSelectQueue, contactHistory }: HomeDashboardProps) {
   const [home] = useSettings("home");
-  const queueBases = LATEST_CONTACTS_STATIC.filter((base) => home.queue.channels[QUEUE_CHANNEL_BY_ID[base.id]] ?? true);
+  const [channels] = useSettings("channels");
+  const queueBases = LATEST_CONTACTS_STATIC.filter((base) => {
+    const queue = QUEUE_CHANNEL_BY_ID[base.id];
+    const contactChannels = queue ? QUEUE_CONTACT_CHANNELS[queue] : undefined;
+    return (home.queue.channels[queue] ?? true) && (!contactChannels || contactChannels.some((c) => channelOn(channels, c)));
+  });
   const title = `${home.greeting.trim() || "Hello"}${home.showFirstName ? ` ${CURRENT_AGENT_FIRST_NAME}` : ""}`;
 
   // Enabled sections in the stored order. Performance and Productivity next

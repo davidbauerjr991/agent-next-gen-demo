@@ -82,6 +82,11 @@ describe("Home: the Dashboard follows Settings → Home", () => {
 
   it("the queue tiles follow the channel flags; none on drops the row", async () => {
     await h.show(AgentWorkspaceAdvancedPage);
+    // A digital channel on (Phase 1 is voice only), so Settings → Channels doesn't hide the Digital tile.
+    await act(async () => {
+      getSettingsStore().update("channels", { chat: true });
+      await vi.advanceTimersByTimeAsync(50);
+    });
     await setHome({
       queue: { channels: { digital: true, inboundVoice: false, voicemail: true, workItem: true, outboundVoice: false } },
     });
@@ -90,6 +95,24 @@ describe("Home: the Dashboard follows Settings → Home", () => {
       queue: { channels: { digital: false, inboundVoice: false, voicemail: false, workItem: false, outboundVoice: false } },
     });
     expect(renderedSections()).not.toContain("queue");
+  });
+
+  it("the queue tiles follow Settings → Channels too: Digital needs a digital channel on, the voice tiles need voice; Work Item isn't a channel", async () => {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await setHome({
+      queue: { channels: { digital: true, inboundVoice: true, voicemail: true, workItem: true, outboundVoice: true } },
+    });
+    // Phase 1: voice only.
+    expect(queueTileNames()).toEqual(["Inbound Voice", "Voicemail", "Work Item", "Outbound Voice"]);
+    const setChannels = async (channels: Record<string, boolean>) =>
+      act(async () => {
+        getSettingsStore().update("channels", channels);
+        await vi.advanceTimersByTimeAsync(50);
+      });
+    await setChannels({ email: true });
+    expect(queueTileNames()).toEqual(["Digital", "Inbound Voice", "Voicemail", "Work Item", "Outbound Voice"]);
+    await setChannels({ voice: false });
+    expect(queueTileNames()).toEqual(["Digital", "Work Item"]);
   });
 });
 

@@ -1,5 +1,7 @@
 import { CONTACT_HISTORY, type ContactHistoryEntry } from "@/components/agent-next-gen-contact-history";
 import type { ScenarioScript } from "@/scenarios/scenario-script";
+import type { ChannelsSettings } from "@/settings";
+import { onEnabledChannels } from "./channel-gates";
 
 /** The Journey Summary card's content (P-CANVAS): the customer's recent
  *  contacts as one summary line and a row per contact, newest first. */
@@ -31,14 +33,18 @@ export function journeySummaryFor({
   script,
   customerName,
   customerId,
+  channels,
 }: {
   script?: ScenarioScript;
   customerName?: string;
   customerId?: string;
+  /** Settings → Channels: history rows on channels that are off are left out. */
+  channels?: ChannelsSettings;
 }): JourneySummaryInfo | null {
   const scripted = script?.content.journey;
   if (scripted) return scripted.rows.length > 0 ? { summary: scripted.summary, rows: [...scripted.rows] } : null;
-  const history = historyFor(customerName, customerId);
+  const all = historyFor(customerName, customerId);
+  const history = channels ? onEnabledChannels(all, channels, (entry) => entry.channelType) : all;
   if (history.length === 0) return null;
   const [latest] = history;
   const summary =

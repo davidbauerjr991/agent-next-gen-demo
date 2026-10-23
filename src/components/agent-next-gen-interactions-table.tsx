@@ -79,6 +79,8 @@ import {
 } from "@/components/agent-next-gen-contact-history";
 import { nextCustomerSortDirection, CURRENT_AGENT_NAME } from "@/components/agent-next-gen-shared-utils";
 import { cn } from "@/lib/utils";
+import { channelOn, onEnabledChannels } from "@/contact-handling/channel-gates";
+import { useSettings } from "@/settings";
 import {
   Mail,
   Phone,
@@ -718,11 +720,21 @@ export function InteractionsListView({ onAddToast, onOpenInteraction, activeReco
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(25);
 
+  // Settings → Channels: the rows (below) and the Channel filter's choices follow the channels that are on.
+  const [channelSettings] = useSettings("channels");
+  const channelFilterOptions = useMemo(
+    () =>
+      Array.from(new Set(onEnabledChannels(INITIAL_INTERACTION_HISTORY_RECORDS, channelSettings, (r) => r.type).map((r) => r.channel))).map((v) => ({
+        value: v,
+        label: v,
+      })),
+    [channelSettings],
+  );
   const filterDefs = addedFilterKeys
     .filter((key): key is InteractionHistoryFilterKey => key !== CREATE_DATE_RANGE_KEY)
     .map((key) => {
       const def = INTERACTION_HISTORY_FILTER_FIELD_DEFS.find((f) => f.key === key)!;
-      return { key: def.key, label: def.label, options: INTERACTION_HISTORY_FILTER_VALUE_OPTIONS[def.key] };
+      return { key: def.key, label: def.label, options: def.key === "channel" ? channelFilterOptions : INTERACTION_HISTORY_FILTER_VALUE_OPTIONS[def.key] };
     });
   const createDateRangeAdded = addedFilterKeys.includes(CREATE_DATE_RANGE_KEY);
   const handleFilterChange = (key: string, values: string[]) => setFilterValues((prev) => ({ ...prev, [key]: values }));
@@ -777,6 +789,8 @@ export function InteractionsListView({ onAddToast, onOpenInteraction, activeReco
     const dateBounds = createDateRangeAdded ? dateRangeBounds(createDateRangeValue, createDateRangeCustom) : {};
     const query = searchQuery.trim().toLowerCase();
     return records.filter((r) => {
+      // Settings → Channels: only interactions on channels that are on.
+      if (!channelOn(channelSettings, r.type)) return false;
       if (query) {
         const haystack = [r.customerName, r.caseId, r.channel, r.skill, r.context, r.ownerAssignee, r.inboxAssignee].join(" ").toLowerCase();
         if (!haystack.includes(query)) return false;
@@ -793,7 +807,7 @@ export function InteractionsListView({ onAddToast, onOpenInteraction, activeReco
       if (dateBounds.to && r.createDateValue > dateBounds.to) return false;
       return true;
     });
-  }, [records, searchQuery, filterValues, createDateRangeAdded, createDateRangeValue, createDateRangeCustom]);
+  }, [records, searchQuery, filterValues, createDateRangeAdded, createDateRangeValue, createDateRangeCustom, channelSettings]);
 
   // Priority/Create Date are real numbers/dates; Resolution/First Response
   // Time sort by their shared `RESOLUTION_TIMES` pool's own index (already

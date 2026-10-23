@@ -28,6 +28,8 @@ import {
 import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
 import { type Interaction } from "@/components/agent-next-gen-interaction-dashboard";
 import { formatElapsedTime, CURRENT_AGENT_NAME, initialsFor } from "@/components/agent-next-gen-shared-utils";
+import { onEnabledChannels } from "@/contact-handling/channel-gates";
+import type { ChannelsSettings } from "@/settings";
 import { OUTCOME_DISPOSITION_OPTIONS } from "@/components/agent-next-gen-transcript";
 import { cn } from "@/lib/utils";
 import {
@@ -1090,17 +1092,20 @@ export const CONTACT_HISTORY_DATE_FILTER_OPTIONS: { value: ContactHistoryDateFil
    that state grows — called from `AgentNextGenPage` inside a `useMemo`
    keyed on `dismissedContactHistory`. */
 export function buildContactHistoryByRange(
-  dismissedContactHistory: ContactHistoryEntry[]
+  dismissedContactHistory: ContactHistoryEntry[],
+  /** Settings → Channels: only contacts on channels that are on (every range). */
+  channels?: ChannelsSettings
 ): Record<ContactHistoryDateFilterValue, ContactHistoryEntry[]> {
+  const on = (rows: ContactHistoryEntry[]) => (channels ? onEnabledChannels(rows, channels, (entry) => entry.channelType) : rows);
   return {
-    today: dismissedContactHistory,
-    last48h: [...dismissedContactHistory, ...CONTACT_HISTORY],
-    last72h: [
+    today: on(dismissedContactHistory),
+    last48h: on([...dismissedContactHistory, ...CONTACT_HISTORY]),
+    last72h: on([
       ...dismissedContactHistory,
       ...CONTACT_HISTORY,
       ...EXTENDED_CONTACT_HISTORY,
       ...CONTACT_HISTORY_STRESS_BATCH,
-    ],
+    ]),
   };
 }
 

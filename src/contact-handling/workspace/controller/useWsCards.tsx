@@ -394,10 +394,13 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   // status popover (`statusMenuOpenId`/`statusMenuView`) is the only copy
   // of this left.
   // Settings → Channels: the channels agents contact customers on. It gates
-  // only what the agent can start or receive, never Contact History.
+  // what the agent can start or receive, and the seeded lists keyed by channel.
   const [channelSettings] = useSettings("channels");
-  // Contact History shows every contact on every channel, always.
-  const contactHistoryByRange = useMemo(() => buildContactHistoryByRange(dismissedContactHistory), [dismissedContactHistory]);
+  // Contact History: only contacts on channels that are on (a channel turned off drops its rows).
+  const contactHistoryByRange = useMemo(
+    () => buildContactHistoryByRange(dismissedContactHistory, channelSettings),
+    [dismissedContactHistory, channelSettings],
+  );
   // Drives `AssignmentsSortButton`'s `RadioGroup` — "Last Updated" (default,
   // matching a typical inbox's own default order) or "Create Date". Actual
   // ordering happens where the cards render (`sortAssignments`), leaving

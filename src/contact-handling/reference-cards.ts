@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReferenceCardFocus } from "@/providers";
 import { useAssistCardsByContact, useContactAssistCards } from "@/provider-context";
+import { useSettings } from "@/settings";
 import { journeySummaryFor } from "./journey-summary";
 import { useWorkspaceUiField, useWorkspaceUiStore, type ReferenceFocusState, type WorkspaceUiStore } from "./workspace-ui-store";
 import { useWorkspace } from "./workspace/WorkspaceContext";
@@ -116,9 +117,10 @@ export function useActiveJourney() {
   const lookupKey = activeChannel?.providerInteractionId ?? activeInteraction?.id;
   const key = activeInteraction ? scenarioKeyOf(activeInteraction.id) : undefined;
   const script = key ? scenarioCases.byKey[key]?.script : undefined;
+  const [channels] = useSettings("channels");
   const journey = useMemo(
-    () => journeySummaryFor({ script, customerName: activeInteraction?.customerName, customerId: activeInteraction?.customerId }),
-    [script, activeInteraction?.customerName, activeInteraction?.customerId],
+    () => journeySummaryFor({ script, customerName: activeInteraction?.customerName, customerId: activeInteraction?.customerId, channels }),
+    [script, activeInteraction?.customerName, activeInteraction?.customerId, channels],
   );
   const startedAt = lookupKey ? lookups[lookupKey] : undefined;
   useEffect(() => {
