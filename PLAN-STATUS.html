@@ -68,7 +68,7 @@ li.todo .tag{color:var(--todo)}
 <main id="page-top">
 <header>
   <h1>Agent Workspace Simulation — plan status</h1>
-  <div class="meta">PLAN.md as of 2026-10-23 · completed work grayed · P-CANVAS follow-up in progress · P-POLISH paused</div>
+  <div class="meta">PLAN.md as of 2026-10-23 · completed work grayed · P-PROFILES in progress · P-POLISH paused</div>
   <div class="legend">
     <span><i class="sw done"></i>Done</span>
     <span><i class="sw inprog"></i>In progress</span>
@@ -87,8 +87,8 @@ li.todo .tag{color:var(--todo)}
     <a class="step done" href="#landed">P-AIFIRST (a–k9)</a><span class="arrow">→</span>
     <a class="step done" href="#landed">P-EXTRACT</a><span class="arrow">→</span>
     <a class="step" href="#landed">P-POLISH</a><span class="arrow">→</span>
-    <a class="step inprog" href="#settings">P-CANVAS</a><span class="arrow">→</span>
-    <a class="step" href="#settings">P-PROFILES</a><span class="arrow">→</span>
+    <a class="step done" href="#settings">P-CANVAS</a><span class="arrow">→</span>
+    <a class="step inprog" href="#settings">P-PROFILES</a><span class="arrow">→</span>
     <a class="step" href="#settings">P-CARDS</a><span class="arrow">→</span>
     <a class="step" href="#phase0">P0.5d.3</a><span class="arrow">→</span>
     <a class="step" href="#phase0">lyra timers</a><span class="arrow">→</span>
@@ -225,9 +225,9 @@ li.todo .tag{color:var(--todo)}
   <h2>Settings and configuration</h2>
   <ul>
     <li class="done"><span class="tag">Done</span><div class="body"><b>Settings store</b> — P-SETTINGS</div></li>
-    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Workspace profiles</b> — built-ins Phase 1 / Phase 2 / AI-first, agent-scope snapshots, derive and apply<span class="note">P-PROFILES next: retire the two re-export barrels first, then save as, rename, duplicate, delete, export/import JSON, locks, saved-profile picker</span></div></li>
+    <li class="inprog"><span class="tag">Now</span><div class="body"><b>Workspace profiles</b> — P-PROFILES: saved profiles, locks, personal scope<span class="note">Barrels retired; then personal scope (theme, phone, tab order), save as / rename / duplicate / delete, export/import JSON, locks, saved-profile picker, <code>assignments.legs</code>, <code>canvas.cells</code>, assignment sort modes, assignments as an interior panel</span></div></li>
     <li class="done"><span class="tag">Done</span><div class="body"><b>Conversation placement / AI-first layout</b> — folded into AI display inline | panel | main</div></li>
-    <li class="inprog"><span class="tag">Now</span><div class="body"><b>P-CANVAS</b> — action area + reference column, cell and tab registries<span class="note">Follow-up: slide-overs are an InteriorPanel in the reference slot; Next Best Action pinned first in the action area; the reference column is three Agentic AI cards (Real-Time Summary, Journey Summary, Customer Info) the AI focuses. Panel mode unchanged; Marcus's port to the NBA is a todo; browser checks pending</span></div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>P-CANVAS</b> — action area + reference column, cell and tab registries<span class="note">Follow-up landed: slide-overs are an InteriorPanel in the reference slot; the NBA is inline and on demand; the reference column is three Agentic AI cards the AI focuses. Carried as todos: Marcus's port to the NBA, email Insert into reply</span></div></li>
     <li class="done"><span class="tag">Done</span><div class="body"><b>White-labeling</b> — app name, logo, brand colors; admin-scope; BrandMark header<span class="note">Rename to "Workspace" waits for P-ADMIN's area switcher</span></div></li>
     <li class="done"><span class="tag">Done</span><div class="body"><b>Social channel placeholders</b> — channels.social, admin-scope, "Arrives in P2.7"</div></li>
     <li class="done"><span class="tag">Done</span><div class="body"><b>Agent settings named after CXone's</b> — launcher tabs, Outbound Calling behaviors, Unassign & Dismiss, Confirm before closing</div></li>
@@ -264,7 +264,7 @@ li.todo .tag{color:var(--todo)}
 <section id="i18n">
   <h2>Internationalization — any language and direction</h2>
   <ul>
-    <li class="todo"><span class="tag">Todo</span><div class="body"><b>String convention</b> — <code>t()</code> with ICU, <code>Intl.*</code>, logical CSS properties<span class="note">String rule in CLAUDE.md; identity shim lands in P-PROFILES</span></div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>String convention</b> — <code>t()</code> with ICU, <code>Intl.*</code>, logical CSS properties<span class="note">String rule in CLAUDE.md; identity shim landed in P-CANVAS</span></div></li>
     <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-LYRA-RTL</b> — lyra: logical properties, <code>dir</code>, mirrored icons, script-aware type, RTL/CJK stories</div></li>
     <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-I18N</b> — i18next + ICU, extraction and CI check, sweep, locale setting, Bidi spans, pseudo-locale, terminology (Branding → Terminology), axe pass</div></li>
   </ul>
@@ -273,7 +273,7 @@ li.todo .tag{color:var(--todo)}
 <section id="compliance">
   <h2>Compliance — PCI DSS and SOC 2 as architecture</h2>
   <ul>
-    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Redaction convention</b> — every model and reporting path goes through <code>redact()</code><span class="note">Rule in CLAUDE.md; identity pass-through lands in P-PROFILES</span></div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>Redaction convention</b> — every model and reporting path goes through <code>redact()</code><span class="note">Rule in CLAUDE.md; identity pass-through landed in P-CANVAS</span></div></li>
     <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-COMPLIANCE</b> — RedactionProvider, Mask as a state, RecordingProvider, hash-chained audit log, access controls, retention and erasure, Compliance home with the controls checklist</div></li>
   </ul>
 </section>

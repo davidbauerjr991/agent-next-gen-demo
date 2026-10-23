@@ -33,7 +33,7 @@ import {
   OUTCOME_DISPOSITION_OPTIONS,
   OUTCOME_TAG_OPTIONS,
   TRANSCRIPT_SESSION_STATUS_OPTIONS,
-} from "@/components/agent-next-gen-transcript";
+} from "@/components/transcript/InteractionTranscript";
 import { formatElapsedTime, getAwaitingSeverity, initialsFor } from "@/components/agent-next-gen-shared-utils";
 import { cn } from "@/lib/utils";
 import { SHOW_CHANNEL_TOGGLE_GROUP } from "./workspace-constants";

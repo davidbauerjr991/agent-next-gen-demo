@@ -1,4 +1,4 @@
-import type { TranscriptMessage } from "@/components/agent-next-gen-transcript";
+import type { TranscriptMessage } from "@/components/transcript/InteractionTranscript";
 
 /** True for the AI *cards* in a conversation: instruction rows (Copilot
  *  results), approval requests and wrap-up cards, the annotation-carrying

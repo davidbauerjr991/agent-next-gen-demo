@@ -4,7 +4,7 @@
 // empty trailing element. Inline, the inactive pane takes no space.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
-import { InteractionComposer } from "@/components/agent-next-gen-transcript";
+import { InteractionComposer } from "@/components/transcript/InteractionTranscript";
 
 const h = createWorkspaceHarness();
 

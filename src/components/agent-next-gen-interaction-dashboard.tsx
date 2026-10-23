@@ -22,7 +22,7 @@ import {
   Icon,
   DonutChart,
 } from "@nicecxone/lyra-ui";
-import { type TranscriptMessage } from "@/components/agent-next-gen-transcript";
+import { type TranscriptMessage } from "@/components/transcript/InteractionTranscript";
 import type { InteractionId } from "@/domain";
 import {
   newCaseNotificationTitle,

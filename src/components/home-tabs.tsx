@@ -16,7 +16,7 @@ import {
   CustomerFullScreenTabContent,
   CustomerRowInfoPanel,
   type CustomerPanelTabLabel,
-} from "@/components/agent-next-gen-customer-info-panel";
+} from "@/components/customer-info";
 import type { CustomerTableState } from "@/components/customer-table-state";
 import { HOME_APP_TAB_LABELS, keptMountedClass, type HomeTabs } from "@/components/home-tabs-state";
 import type { ExtraHeaderApp } from "@/settings";

@@ -1,5 +1,5 @@
 import { NextBestActionCard } from "@/components/ai-cards/NextBestActionCard";
-import type { TranscriptMessage } from "@/components/agent-next-gen-transcript";
+import type { TranscriptMessage } from "@/components/transcript/InteractionTranscript";
 import { useNextBestActionRow } from "./next-best-action";
 
 /** The Next Best Action as a row in the conversation (P-CANVAS): the

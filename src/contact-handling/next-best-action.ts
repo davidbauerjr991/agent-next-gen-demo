@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { NavCard } from "@/adapters/legacy/nav-card-view-model";
-import type { TranscriptMessage } from "@/components/agent-next-gen-transcript";
+import type { TranscriptMessage } from "@/components/transcript/InteractionTranscript";
 import type { NextBestActionUse } from "@/components/ai-cards/NextBestActionCard";
 import { timeLabel } from "@/components/ai-cards/ai-card-icon";
 import { isAiActionMessage } from "@/components/agent-next-gen-ai-messages";

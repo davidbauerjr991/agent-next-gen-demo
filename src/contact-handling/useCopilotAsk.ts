@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { NavCard } from "@/adapters/legacy/nav-card-view-model";
-import type { TranscriptMessage } from "@/components/agent-next-gen-transcript";
+import type { TranscriptMessage } from "@/components/transcript/InteractionTranscript";
 import { AI_PERFORM_MS } from "./ai-perform";
 
 // Ask Copilot on a scripted case (P0.5c, moved out of the Advanced page):

@@ -16,8 +16,8 @@ import {
   AGENT_WORKSPACE_CUSTOMER_PANEL_TABS,
   ArtifactsListBody,
   CustomerInformationSidePanel,
-} from "@/components/agent-next-gen-customer-info-panel";
-import { ComposerFade } from "@/components/agent-next-gen-transcript";
+} from "@/components/customer-info";
+import { ComposerFade } from "@/components/transcript/InteractionTranscript";
 import {
   LucasThomasMemoryPanelBody,
   MarcusWebbMemoryPanelBody,

@@ -16,7 +16,7 @@ import { useQueueSimSource } from "@/components/agent-next-gen-queue-sim";
 import { preContactSummaryOf, withPreContactSummary } from "@/contact-handling";
 import type { AgentStatus } from "@nicecxone/lyra-ui";
 import type { InteractionHistoryRecord } from "@/components/agent-next-gen-interactions-table";
-import { filterCustomersByQuery, findPossibleCustomerMatches } from "@/components/agent-next-gen-customer-info-panel";
+import { filterCustomersByQuery, findPossibleCustomerMatches } from "@/components/customer-info";
 import { MARCUS_WEBB_ID, LUCAS_THOMAS_ID, TOM_LEWIS_CALL_ID, MAYA_CHEN_CALL_ID } from "@/contact-handling/scenario-cases";
 import { useCopilotAsk, useCopilotResultTimer } from "@/contact-handling/useCopilotAsk";
 import { useBrand, useSettings, type ExtraHeaderApp } from "@/settings";

@@ -19,7 +19,7 @@ import {
 } from "@nicecxone/lyra-ui";
 import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
 import { CURRENT_AGENT_FIRST_NAME, CURRENT_AGENT_LAST_NAME, SHOW_ADD_CHANNEL_HEADER_BUTTON, initialsFor, synthesizeChannelAddress } from "@/components/agent-next-gen-shared-utils";
-import { type TranscriptMessage, TRANSCRIPT_SESSION_STATUS_OPTIONS, OUTCOME_TAG_OPTIONS, OUTCOME_DISPOSITION_OPTIONS } from "@/components/agent-next-gen-transcript";
+import { type TranscriptMessage, TRANSCRIPT_SESSION_STATUS_OPTIONS, OUTCOME_TAG_OPTIONS, OUTCOME_DISPOSITION_OPTIONS } from "@/components/transcript/InteractionTranscript";
 import {
   OUTBOUND_TEAMS,
   OUTBOUND_TEAM_MEMBERS,

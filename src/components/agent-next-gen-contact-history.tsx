@@ -30,7 +30,7 @@ import { type Interaction } from "@/components/agent-next-gen-interaction-dashbo
 import { formatElapsedTime, CURRENT_AGENT_NAME, initialsFor } from "@/components/agent-next-gen-shared-utils";
 import { onEnabledChannels } from "@/contact-handling/channel-gates";
 import type { ChannelsSettings } from "@/settings";
-import { OUTCOME_DISPOSITION_OPTIONS } from "@/components/agent-next-gen-transcript";
+import { OUTCOME_DISPOSITION_OPTIONS } from "@/components/transcript/InteractionTranscript";
 import { cn } from "@/lib/utils";
 import {
   type LucideIcon,

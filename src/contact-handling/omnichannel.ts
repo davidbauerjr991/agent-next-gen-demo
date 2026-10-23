@@ -8,7 +8,7 @@
 // is replying" is a P2.2 refinement.)
 import type { ChannelType } from "@nicecxone/lyra-ui";
 import type { Thread } from "@/components/agent-next-gen-interaction-dashboard";
-import type { TranscriptMessage } from "@/components/agent-next-gen-transcript";
+import type { TranscriptMessage } from "@/components/transcript/InteractionTranscript";
 import { threadKeyOf } from "./channel-thread";
 
 /** Where conversation threads open: "main" is the tempo rule below; "panel"

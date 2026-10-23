@@ -37,11 +37,11 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { AiActionsFeed } from "@/components/agent-next-gen-transcript";
+import { AiActionsFeed } from "@/components/transcript/InteractionTranscript";
 import { isAiActionMessage } from "@/components/agent-next-gen-ai-messages";
 import { buildNavItems } from "@/components/agent-next-gen-interaction-dashboard";
 import { useSearchPanelContent } from "@/components/agent-next-gen-search-panel";
-import { AGENT_WORKSPACE_CUSTOMER_PANEL_TABS, DetailsPanelAccordions } from "@/components/agent-next-gen-customer-info-panel";
+import { AGENT_WORKSPACE_CUSTOMER_PANEL_TABS, DetailsPanelAccordions } from "@/components/customer-info";
 import { ADDRESS_BOOKS, NewOutboundLauncher } from "@/contact-handling";
 import { LUCAS_THOMAS_ID, MARCUS_WEBB_ID } from "@/contact-handling/scenario-cases";
 import { leftNavKeysFromHeader, type ExtraHeaderApp } from "@/settings";

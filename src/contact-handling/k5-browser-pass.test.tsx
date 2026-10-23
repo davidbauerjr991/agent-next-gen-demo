@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
 import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
-import { AI_CARD_ENTER } from "@/components/agent-next-gen-transcript";
+import { AI_CARD_ENTER } from "@/components/transcript/InteractionTranscript";
 import type { EntityId, JourneyId } from "@/domain";
 import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
 import type { AiDisplayLocation } from "@/settings/settings-schema";

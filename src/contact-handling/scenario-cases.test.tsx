@@ -10,7 +10,7 @@ import {
 import { createMemoryBus } from "@/adapters/sim/memory-transport";
 import { createSimCustomerClient, type SimCustomerClient } from "@/adapters/sim/sim-customer-client";
 import { createSimulatedInteractionProvider, type SimulatedInteractionProvider } from "@/adapters/sim/simulated-interaction-provider";
-import type { TranscriptMessage } from "@/components/agent-next-gen-transcript";
+import type { TranscriptMessage } from "@/components/transcript/InteractionTranscript";
 import { ProviderRoot } from "@/provider-context";
 import { LUCAS_THOMAS_SCRIPT, MARCUS_WEBB_SCRIPT, SCENARIOS } from "@/scenarios";
 import { LUCAS_THOMAS_ID, MARCUS_WEBB_ID, mergeRows, useScenarioCases, type ScenarioCases } from "./scenario-cases";

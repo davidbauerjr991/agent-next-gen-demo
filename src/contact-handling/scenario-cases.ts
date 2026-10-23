@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import type { NavCard } from "@/adapters/legacy/nav-card-view-model";
-import type { TranscriptMessage } from "@/components/agent-next-gen-transcript";
+import type { TranscriptMessage } from "@/components/transcript/InteractionTranscript";
 import type { Interaction, InteractionId, Message, Participant, Utterance } from "@/domain";
 import { useInteractionProvider, useInteractions, useTranscript, useTyping, type TranscriptState } from "@/provider-context";
 import type { RequestResponse } from "@/providers";

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { DetailsPanelAccordions } from "@/components/agent-next-gen-customer-info-panel";
-import { ComposerFade } from "@/components/agent-next-gen-transcript";
+import { DetailsPanelAccordions } from "@/components/customer-info";
+import { ComposerFade } from "@/components/transcript/InteractionTranscript";
 
 export interface AiWorkspaceColumnProps {
   /** The AI feed (the page's `renderAiPanelFeed`, its top being the canvas's

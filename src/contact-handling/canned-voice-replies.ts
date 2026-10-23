@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { NavCard } from "@/adapters/legacy/nav-card-view-model";
 import { simVoiceCustomerLines } from "@/adapters/sim/sim-auto-replies";
-import type { TranscriptMessage } from "@/components/agent-next-gen-transcript";
+import type { TranscriptMessage } from "@/components/transcript/InteractionTranscript";
 import { timeLabel } from "@/components/ai-cards/ai-card-icon";
 import { initialsFor } from "@/components/agent-next-gen-shared-utils";
 import { useInteractions } from "@/provider-context";

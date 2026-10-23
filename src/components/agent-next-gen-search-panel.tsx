@@ -52,7 +52,7 @@ import {
 import {
   CustomerFullScreenTabContent,
   type CustomerPanelTabLabel,
-} from "@/components/agent-next-gen-customer-info-panel";
+} from "@/components/customer-info";
 
 export type SearchPanelTabKey = "interactions" | "messages" | "customers" | "threads";
 

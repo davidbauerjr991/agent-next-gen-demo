@@ -5,7 +5,7 @@ import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { AppTabBody, CustomerTabBodies, CustomersTabBody, HomeTabStrip } from "@/components/home-tabs";
 import { isCustomerTab, keptMountedClass } from "@/components/home-tabs-state";
 import { HomeDashboard } from "@/components/home-dashboard";
-import { CUSTOMER_PANEL_TABS } from "@/components/agent-next-gen-customer-info-panel";
+import { CUSTOMER_PANEL_TABS } from "@/components/customer-info";
 import { ContactHistoryCard, ContactHistoryEntryDetail } from "@/components/agent-next-gen-contact-history";
 import { INITIAL_QUEUE_SUB_ITEMS, LATEST_CONTACTS_STATIC } from "@/components/agent-next-gen-interaction-dashboard";
 import { QueueSubItems } from "@/components/agent-next-gen-clock-tick";

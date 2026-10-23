@@ -6,10 +6,10 @@
 // unchanged); see `useWorkspaceController`.
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import type { DraggableVariant } from "@nicecxone/lyra-ui";
-import type { TranscriptSession } from "@/components/agent-next-gen-transcript";
+import type { TranscriptSession } from "@/components/transcript/InteractionTranscript";
 import type { ContactHistoryEntry } from "@/components/agent-next-gen-contact-history";
 import { useReplyBlockedReason, copilotSuggestionsFor, useChannelThreadMenu, type CopilotComposerProps } from "@/contact-handling";
-import type { CustomerPanelTabLabel } from "@/components/agent-next-gen-customer-info-panel";
+import type { CustomerPanelTabLabel } from "@/components/customer-info";
 import { LUCAS_THOMAS_ID } from "@/contact-handling/scenario-cases";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { useRequestNextBestAction, withNextBestActionChip } from "@/contact-handling/next-best-action";

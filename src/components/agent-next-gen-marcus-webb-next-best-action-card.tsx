@@ -23,7 +23,7 @@ import {
   KnowledgeArticleSummaryRow,
   type KnowledgeArticleCardData,
 } from "@/components/agent-next-gen-knowledge-article-card";
-import { ApprovalRequestAccordion, InstructionInterstitial, type TranscriptApprovalSummary } from "@/components/agent-next-gen-transcript";
+import { ApprovalRequestAccordion, InstructionInterstitial, type TranscriptApprovalSummary } from "@/components/transcript/InteractionTranscript";
 import { MarcusWebbTransactionsTable } from "@/components/agent-next-gen-marcus-webb-transactions-panel";
 
 // Placeholder content for the "Do Something" scaffold — per explicit

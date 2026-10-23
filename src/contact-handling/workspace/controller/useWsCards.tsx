@@ -8,7 +8,7 @@ import { createPortal } from "react-dom";
 import { useToast, type CreateNewOutboundContact } from "@nicecxone/lyra-ui";
 import { CREATE_NEW_CUSTOMERS, type CreateNewCustomerRecord } from "@nicecxone/lyra-ui/customers-data";
 import { buildCustomerContextOverviewInfo } from "@/components/agent-next-gen-shared-utils";
-import type { TranscriptMessage } from "@/components/agent-next-gen-transcript";
+import type { TranscriptMessage } from "@/components/transcript/InteractionTranscript";
 import { isAiActionMessage } from "@/components/agent-next-gen-ai-messages";
 import { OUTBOUND_AGENTS } from "@/components/agent-next-gen-outbound-data";
 import type { Thread, Interaction, AssignmentSortValue, AssignmentSortDirection } from "@/components/agent-next-gen-interaction-dashboard";
@@ -36,7 +36,7 @@ import {
   type OutcomeDraft,
 } from "@/contact-handling";
 import { useCustomerTableState } from "@/components/customer-table-state";
-import { type CustomerHistorySessionEntry, buildCustomerInfoFields, useCustomerRecordDraft } from "@/components/agent-next-gen-customer-info-panel";
+import { type CustomerHistorySessionEntry, buildCustomerInfoFields, useCustomerRecordDraft } from "@/components/customer-info";
 import { MARCUS_WEBB_ID, LUCAS_THOMAS_ID, TOM_LEWIS_CALL_ID, MAYA_CHEN_CALL_ID, mergeRows, useScenarioCases } from "@/contact-handling/scenario-cases";
 import { CONTACT_CHANNELS, useSettings } from "@/settings";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";

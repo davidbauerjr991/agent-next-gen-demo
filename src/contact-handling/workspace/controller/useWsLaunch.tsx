@@ -26,7 +26,7 @@ import {
   useSaveAddressOffers,
   type Activation,
 } from "@/contact-handling";
-import { AGENT_WORKSPACE_CUSTOMER_PANEL_TABS, useCustomerDetailsInteriorPanel, useSessionDetailsTabContent } from "@/components/agent-next-gen-customer-info-panel";
+import { AGENT_WORKSPACE_CUSTOMER_PANEL_TABS, useCustomerDetailsInteriorPanel, useSessionDetailsTabContent } from "@/components/customer-info";
 import { MARCUS_WEBB_ID } from "@/contact-handling/scenario-cases";
 import { cardContactMethods } from "@/contact-handling/card-contact-methods";
 import { SCENARIOS } from "@/scenarios";

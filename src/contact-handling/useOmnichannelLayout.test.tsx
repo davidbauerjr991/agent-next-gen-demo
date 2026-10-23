@@ -3,7 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Interaction, Thread } from "@/components/agent-next-gen-interaction-dashboard";
-import type { TranscriptMessage } from "@/components/agent-next-gen-transcript";
+import type { TranscriptMessage } from "@/components/transcript/InteractionTranscript";
 import { useOmnichannelLayout, type OmnichannelLayout } from "./useOmnichannelLayout";
 
 const thread = (type: Thread["type"]): Thread => ({ id: type, type, startTick: 0 }) as Thread;

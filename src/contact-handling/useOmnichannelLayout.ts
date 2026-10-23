@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Interaction } from "@/components/agent-next-gen-interaction-dashboard";
-import type { TranscriptMessage } from "@/components/agent-next-gen-transcript";
+import type { TranscriptMessage } from "@/components/transcript/InteractionTranscript";
 import { threadKeyOf } from "./channel-thread";
 import { customerMessageCount } from "./omnichannel";
 

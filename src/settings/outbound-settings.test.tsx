@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CreateNewOutboundConfig } from "@nicecxone/lyra-ui";
 import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
-import { ApprovalDecision } from "@/components/agent-next-gen-transcript";
+import { ApprovalDecision } from "@/components/transcript/InteractionTranscript";
 import { OUTBOUND_GROUPS } from "@/components/agent-next-gen-outbound-data";
 import { addressBookGroup, ADDRESS_BOOKS } from "@/contact-handling/address-books";
 import { launcherGroups } from "@/contact-handling/launcher-groups";

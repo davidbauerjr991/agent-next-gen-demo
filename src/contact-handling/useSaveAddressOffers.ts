@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChannelType } from "@nicecxone/lyra-ui";
 import type { NavCard } from "@/adapters/legacy/nav-card-view-model";
-import type { TranscriptMessage } from "@/components/agent-next-gen-transcript";
+import type { TranscriptMessage } from "@/components/transcript/InteractionTranscript";
 import { linkedAddresses } from "./contact-methods";
 import { contactMethodsOwnerOf, isCardContactMethod, type CardContactMethods } from "./card-contact-methods";
 

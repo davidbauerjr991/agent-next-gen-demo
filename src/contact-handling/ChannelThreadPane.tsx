@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
 import { Button } from "@nicecxone/lyra-ui";
-import { InteractionComposer, InteractionTranscript } from "@/components/agent-next-gen-transcript";
+import { InteractionComposer, InteractionTranscript } from "@/components/transcript/InteractionTranscript";
 import type { Interaction, Thread } from "@/components/agent-next-gen-interaction-dashboard";
 import { isAiActionMessage } from "@/components/agent-next-gen-ai-messages";
 import { isDraftThread, threadKeyOf } from "./channel-thread";
