@@ -109,6 +109,9 @@ describe("settings store", () => {
       confirmClose: false,
       autoAccept: { chat: true, email: true, sms: true, whatsapp: true },
       showStatusChip: true,
+      legs: "tabs",
+      sort: { mode: "lastUpdated", direction: "desc" },
+      channelChips: "auto",
     });
     expect(store.getState().values.voice.controlsLocation).toBe("bottom");
   });

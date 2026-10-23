@@ -2,8 +2,11 @@ import { EmptyState, LeftNav, NavRail } from "@nicecxone/lyra-ui";
 import { Inbox } from "lucide-react";
 import { HostSlot } from "@/contact-handling/portal-hosts";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
-import { AssignmentsSectionCaption, sortAssignments } from "@/components/agent-next-gen-interaction-dashboard";
+import { AssignmentsSectionCaption } from "@/components/agent-next-gen-interaction-dashboard";
 import { ClockTick } from "@/components/agent-next-gen-clock-tick";
+import { useSettings, type AssignmentSortMode } from "@/settings";
+import { useAssignmentCards, useChannelChipsShown } from "@/contact-handling/useAssignmentCards";
+import { DraggableAssignment } from "./AssignmentCardList";
 import { LeftNavFooterColumn, LeftNavFooterSpacer, LeftNavSlot } from "./left-nav-parts";
 import { NavCardItem } from "./NavCardItem";
 import { ADVANCED_ASSIGNMENT_SORT_OPTIONS } from "./workspace-constants";
@@ -19,6 +22,11 @@ export function WorkspaceLeftNav() {
     noInteractionCollapse, setAssignmentSort, setAssignmentSortDirection, setNavOpen, setVoiceNavSlotMounted,
     voiceBarHost, voiceSettings,
   } = useWorkspace();
+  // P-PROFILES 0b: the cards' order (Custom drags only while the nav is open),
+  // and the channel chips' show / hide from the sort popover.
+  const { cards, itemProps } = useAssignmentCards(navOpen && !isNavNarrow);
+  const chipsShown = useChannelChipsShown("leftNav");
+  const [, updateAssignments] = useSettings("assignments");
   return (
         <LeftNav
           // Home and Settings — per explicit request ("move the home button
@@ -64,12 +72,15 @@ export function WorkspaceLeftNav() {
               expanded={navOpen}
               count={interactions.length}
               sort={assignmentSort}
-              onSortChange={setAssignmentSort}
+              // The options exclude Longest Wait, so every value is a settings mode.
+              onSortChange={(value) => setAssignmentSort(value as AssignmentSortMode)}
               // Per explicit request — see `ADVANCED_ASSIGNMENT_SORT_
               // OPTIONS`'s own doc comment above.
               sortOptions={ADVANCED_ASSIGNMENT_SORT_OPTIONS}
               sortDirection={assignmentSortDirection}
               onSortDirectionChange={setAssignmentSortDirection}
+              showChannelChips={chipsShown}
+              onShowChannelChipsChange={(show) => updateAssignments({ channelChips: show ? "show" : "hide" })}
               allExpanded={channelsAllExpanded}
               onToggleAllExpanded={handleToggleAllChannelsExpanded}
               hideExpandCollapseAll={noInteractionCollapse}
@@ -206,8 +217,9 @@ export function WorkspaceLeftNav() {
                   reorders a copy.
                   Each card sits in its own `<ClockTick>`, so a tick
                   re-renders that card (its elapsed/hold/awaiting timers)
-                  and not the page. The card body is `NavCardItem`. */}
-              {sortAssignments(interactions, assignmentSort, assignmentSortDirection).map((interaction) => (
+                  and not the page. The card body is `NavCardItem`; its
+                  wrapper is the drag target (P-PROFILES: Sort → Custom). */}
+              {cards.map((interaction) => (
                 // `LeftNavSlot` is the top-level element LeftNav's overlay
                 // mode clones its hover `expanded` onto (`injectExpanded`
                 // reaches only top-level children); it hands that value
@@ -216,9 +228,13 @@ export function WorkspaceLeftNav() {
                 // nothing, so the card falls back to `navOpen`.
                 <LeftNavSlot key={interaction.id}>
                   {(slotExpanded) => (
-                    <ClockTick>
-                      {(clockTick) => <NavCardItem interaction={interaction} slotExpanded={slotExpanded} clockTick={clockTick} />}
-                    </ClockTick>
+                    <DraggableAssignment props={itemProps(interaction.id)}>
+                      <ClockTick>
+                        {(clockTick) => (
+                          <NavCardItem interaction={interaction} slotExpanded={slotExpanded} clockTick={clockTick} hideChip={!chipsShown} />
+                        )}
+                      </ClockTick>
+                    </DraggableAssignment>
                   )}
                 </LeftNavSlot>
               ))}

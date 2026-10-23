@@ -11,7 +11,9 @@ import { buildCustomerContextOverviewInfo } from "@/components/agent-next-gen-sh
 import type { TranscriptMessage } from "@/components/transcript/InteractionTranscript";
 import { isAiActionMessage } from "@/components/agent-next-gen-ai-messages";
 import { OUTBOUND_AGENTS } from "@/components/agent-next-gen-outbound-data";
-import type { Thread, Interaction, AssignmentSortValue, AssignmentSortDirection } from "@/components/agent-next-gen-interaction-dashboard";
+import type { Thread, Interaction, AssignmentSortDirection } from "@/components/agent-next-gen-interaction-dashboard";
+import type { AssignmentSortMode } from "@/settings";
+import { DEFAULT_SORT_DIRECTION } from "@/contact-handling/assignment-sort";
 import { usePageClockSource } from "@/components/agent-next-gen-page-clock";
 import { type ContactHistoryEntry, buildContactHistoryByRange } from "@/components/agent-next-gen-contact-history";
 import { saveCaseRecord } from "@/components/agent-next-gen-case-database";
@@ -401,23 +403,6 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
     () => buildContactHistoryByRange(dismissedContactHistory, channelSettings),
     [dismissedContactHistory, channelSettings],
   );
-  // Drives `AssignmentsSortButton`'s `RadioGroup` — "Last Updated" (default,
-  // matching a typical inbox's own default order) or "Create Date". Actual
-  // ordering happens where the cards render (`sortAssignments`), leaving
-  // `interactions` itself in insertion order for everything else that reads
-  // it (`activeInteraction`, dismiss/redial handlers, etc.).
-  const [assignmentSort, setAssignmentSort] = useState<AssignmentSortValue>("lastUpdated");
-  // Per explicit request ("match sorting (ascending/descending) to the
-  // Phase 1 current menu") — the ascending/descending toggle rendered
-  // alongside `assignmentSort` above in the same popover
-  // (`AssignmentsSortButton`'s own `direction` prop), mirroring
-  // `AgentNextGenPage.tsx`'s identical state (see that file's own doc
-  // comment for the fuller "why"). "desc" (newest first) matches this
-  // tier's pre-existing default for both "Last Updated"/"Create Date" — the
-  // only two fields this tier now exposes (see
-  // `ADVANCED_ASSIGNMENT_SORT_OPTIONS`) — so this control starts out
-  // reproducing the exact same order as before it existed.
-  const [assignmentSortDirection, setAssignmentSortDirection] = useState<AssignmentSortDirection>("desc");
   // Drives `AssignmentsExpandCollapseAllButton` — see that component's own
   // doc comment for why this is a one-shot "which direction does the NEXT
   // click bulk-apply" toggle (`channelsAllExpanded`) plus a version nonce
@@ -437,7 +422,19 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   // left-nav layout toggles. Turning "Don't allow interactions to collapse"
   // on also expands every card once, so that turning it back off later
   // returns every card expanded rather than restoring stale collapsed ones.
-  const [assignmentsSettings] = useSettings("assignments");
+  const [assignmentsSettings, updateAssignmentsSettings] = useSettings("assignments");
+  // The nav's sort (P-PROFILES: a setting, `assignments.sort`, so profiles
+  // carry it; was page state). Ordering happens where the cards render
+  // (`sortAssignmentCards`), leaving `interactions` itself in insertion order
+  // for everything else that reads it. Picking a mode also picks its natural
+  // direction (newest first; A–Z for Channel); Custom's dragged order is
+  // per-browser working state (`useAssignmentsWorkingState`).
+  const assignmentSort: AssignmentSortMode = assignmentsSettings.sort.mode;
+  const assignmentSortDirection: AssignmentSortDirection = assignmentsSettings.sort.direction;
+  const setAssignmentSort = (mode: AssignmentSortMode) =>
+    updateAssignmentsSettings({ sort: { mode, direction: DEFAULT_SORT_DIRECTION[mode] } });
+  const setAssignmentSortDirection = (direction: AssignmentSortDirection) =>
+    updateAssignmentsSettings((a) => ({ sort: { ...a.sort, direction } }));
   // New Outbound's tabs and the Outbound Calling behaviors (CXone's names);
   // a behavior that's off hides its control.
   const [outboundSettings] = useSettings("outbound");

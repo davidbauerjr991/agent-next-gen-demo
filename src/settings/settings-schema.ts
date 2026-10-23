@@ -266,7 +266,28 @@ export interface AssignmentsSettings {
   showStatusChip: boolean;
   /** How an assignment's legs are presented (P-PROFILES schema; P-STREAM builds "stream"). */
   legs: AssignmentLegs;
+  /** The nav's card order (P-PROFILES). Custom's dragged order itself is
+   *  per-browser working state, not a setting. */
+  sort: AssignmentSortSettings;
+  /** The channel chip on each card's rows: "auto" shows it in the left nav
+   *  and hides it in the interior panel. */
+  channelChips: AssignmentChannelChips;
 }
+
+/** "startDate" reads "Create Date" (the key predates the label). */
+export const ASSIGNMENT_SORT_MODES = ["lastUpdated", "startDate", "channel", "custom"] as const;
+export type AssignmentSortMode = (typeof ASSIGNMENT_SORT_MODES)[number];
+export const ASSIGNMENT_SORT_DIRECTIONS = ["desc", "asc"] as const;
+export interface AssignmentSortSettings {
+  mode: AssignmentSortMode;
+  direction: (typeof ASSIGNMENT_SORT_DIRECTIONS)[number];
+}
+export const ASSIGNMENT_CHANNEL_CHIPS = ["auto", "show", "hide"] as const;
+export type AssignmentChannelChips = (typeof ASSIGNMENT_CHANNEL_CHIPS)[number];
+export const ASSIGNMENT_CHANNEL_CHIPS_FIELD = oneOf(ASSIGNMENT_CHANNEL_CHIPS, {
+  label: "Channel chips",
+  description: "The channel name on each card's rows. Automatic shows it in the left nav and hides it in the interior panel.",
+});
 
 /** "tabs": one thread per channel (today). "stream" (P-STREAM): every leg in
  *  one timeline, filtered by the header icons. Depends on AI display: under
@@ -278,7 +299,7 @@ export const ASSIGNMENT_LEGS_FIELD = oneOf(ASSIGNMENT_LEGS, {
   description: "Separate tabs shows one thread per channel; one stream shows every channel in one transcript, filtered by the header icons.",
 });
 
-// No version bump for `legs`: a missing stored key reads as its default.
+// No version bump for `legs`, `sort` or `channelChips`: a missing stored key reads as its default.
 const assignments = defineSection<AssignmentsSettings>({
   key: "assignments",
   version: 2,
@@ -291,6 +312,8 @@ const assignments = defineSection<AssignmentsSettings>({
     confirmClose: false,
     showStatusChip: true,
     legs: "tabs",
+    sort: { mode: "lastUpdated", direction: "desc" },
+    channelChips: "auto",
   },
   fields: {
     autoAccept: group<Record<AutoAcceptChannel, boolean>>(
@@ -303,6 +326,8 @@ const assignments = defineSection<AssignmentsSettings>({
     confirmClose: bool(),
     showStatusChip: bool(),
     legs: ASSIGNMENT_LEGS_FIELD,
+    sort: group<AssignmentSortSettings>({ mode: oneOf(ASSIGNMENT_SORT_MODES), direction: oneOf(ASSIGNMENT_SORT_DIRECTIONS) }),
+    channelChips: ASSIGNMENT_CHANNEL_CHIPS_FIELD,
   },
 });
 

@@ -23,6 +23,7 @@ import {
 import { readSimLatency, useInteractions, useProviderKind } from "@/provider-context";
 import { BrandSettings } from "./BrandSettings";
 import { ProfileSettings } from "./ProfileSettings";
+import { AssignmentsListSettings } from "./AssignmentsListSettings";
 import { DisabledReason } from "@/contact-handling/DisabledReason";
 import { IntSettingInput } from "./IntSettingInput";
 import { t } from "@/i18n";
@@ -472,6 +473,7 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
             checked={assignments.showStatusChip}
             onCheckedChange={(showStatusChip) => updateAssignments({ showStatusChip })}
           />
+          <AssignmentsListSettings />
         </Section>
 
         {/* The channels agents contact customers on. Voice can't be turned

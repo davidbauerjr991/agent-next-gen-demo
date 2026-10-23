@@ -27,10 +27,13 @@ export function NavCardItem({
   interaction,
   slotExpanded,
   clockTick,
+  hideChip = false,
 }: {
   interaction: Interaction;
   slotExpanded: boolean | undefined;
   clockTick: number;
+  /** Hides the channel chip on the card's rows (`assignments.channelChips`, P-PROFILES). */
+  hideChip?: boolean;
 }) {
   const {
     activeInteractionId, addChannelActionFor, answerSla, assignmentsSettings, channelPreviewThreadKey,
@@ -598,6 +601,7 @@ export function NavCardItem({
                 )?.heldSinceTick;
                 return (
                   <InteractionNavCard
+                    hideChip={hideChip}
                     // While the call is unanswered and the nav is collapsed, show the hover preview automatically.
                     forceHoverOpen={!!interaction.offered}
                     key={interaction.id}

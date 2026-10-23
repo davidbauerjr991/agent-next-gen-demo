@@ -12,6 +12,7 @@ import {
   RadioGroup,
   RadioGroupItem,
   ActionIconButton,
+  Checkbox,
   Separator,
   type AgentNotification,
   type DateRange,
@@ -23,6 +24,7 @@ import {
   DonutChart,
 } from "@nicecxone/lyra-ui";
 import { type TranscriptMessage } from "@/components/transcript/InteractionTranscript";
+import { t } from "@/i18n";
 import type { InteractionId } from "@/domain";
 import {
   newCaseNotificationTitle,
@@ -671,7 +673,7 @@ export function buildNavItems(
    message tick, not `clockTick` — ordering only needs to compare two fixed
    points in time against each other, not against "now", so no live clock
    value has to be threaded into this otherwise-pure sort. */
-export type AssignmentSortValue = "lastUpdated" | "startDate" | "awaitingLongest";
+export type AssignmentSortValue = "lastUpdated" | "startDate" | "awaitingLongest" | "channel" | "custom";
 
 export const ASSIGNMENT_SORT_OPTIONS: { value: AssignmentSortValue; label: string }[] = [
   { value: "lastUpdated", label: "Last Updated" },
@@ -681,6 +683,11 @@ export const ASSIGNMENT_SORT_OPTIONS: { value: AssignmentSortValue; label: strin
   // exact string) so this is a display-only rename, not a behavior change.
   { value: "startDate", label: "Create Date" },
   { value: "awaitingLongest", label: "Longest Wait" },
+  // P-PROFILES 0b: by the first thread's channel name, and the agent's own
+  // dragged order. Ordered by `sortAssignmentCards` (src/contact-handling/
+  // assignment-sort.ts); `sortAssignments` below only knows the date fields.
+  { value: "channel", label: "Channel A–Z" },
+  { value: "custom", label: "Custom" },
 ];
 
 /** Ascending/descending toggle — per explicit request, rendered alongside
@@ -771,16 +778,31 @@ export function AssignmentsSortButton({
   // `options` alongside this toggle).
   direction,
   onDirectionChange,
+  showChannelChips,
+  onShowChannelChipsChange,
 }: {
   value: AssignmentSortValue;
   onValueChange: (value: AssignmentSortValue) => void;
   options?: { value: AssignmentSortValue; label: string }[];
   direction?: AssignmentSortDirection;
   onDirectionChange?: (direction: AssignmentSortDirection) => void;
+  /** P-PROFILES: the "Show channel chips" checkbox under the sort (both or neither). */
+  showChannelChips?: boolean;
+  onShowChannelChipsChange?: (show: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
   const selectedLabel = options.find((o) => o.value === value)?.label ?? "";
-  const showDirection = direction !== undefined && !!onDirectionChange;
+  // Custom is the agent's dragged order, so it has no direction (P-PROFILES).
+  const showDirection = direction !== undefined && !!onDirectionChange && value !== "custom";
+  const showChips = showChannelChips !== undefined && !!onShowChannelChipsChange;
+  // Channel A–Z reads its direction as A–Z / Z–A.
+  const directionOptions =
+    value === "channel"
+      ? [
+          { value: "asc", label: t("A–Z") },
+          { value: "desc", label: t("Z–A") },
+        ]
+      : ASSIGNMENT_SORT_DIRECTION_OPTIONS;
 
   return (
     <Tooltip content={`Sort by: ${selectedLabel}`} placement="right" disabled={open}>
@@ -805,7 +827,7 @@ export function AssignmentsSortButton({
                   // See this component's own doc comment above — only
                   // auto-closes when there's no second (direction) decision
                   // to make right below this one.
-                  if (!showDirection) setOpen(false);
+                  if (direction === undefined && !showChips) setOpen(false);
                 }}
               >
                 {options.map((option) => (
@@ -819,10 +841,20 @@ export function AssignmentsSortButton({
                     value={direction}
                     onValueChange={(v: string) => onDirectionChange!(v as AssignmentSortDirection)}
                   >
-                    {ASSIGNMENT_SORT_DIRECTION_OPTIONS.map((option) => (
+                    {directionOptions.map((option) => (
                       <RadioGroupItem key={option.value} value={option.value} label={option.label} />
                     ))}
                   </RadioGroup>
+                </>
+              )}
+              {showChips && (
+                <>
+                  <Separator />
+                  <Checkbox
+                    label={t("Show channel chips")}
+                    checked={showChannelChips}
+                    onCheckedChange={(c) => onShowChannelChipsChange!(c === true)}
+                  />
                 </>
               )}
             </div>
@@ -956,8 +988,13 @@ export function AssignmentsSectionCaption({
   // request.
   sortDirection,
   onSortDirectionChange,
+  showChannelChips,
+  onShowChannelChipsChange,
   hideExpandCollapseAll = false,
 }: {
+  /** Forwarded to `AssignmentsSortButton` (P-PROFILES). */
+  showChannelChips?: boolean;
+  onShowChannelChipsChange?: (show: boolean) => void;
   /** Hides the "Collapse all / Expand all" button (Settings → "Don't allow
    *  interactions to collapse"; v3 f0b13dc). */
   hideExpandCollapseAll?: boolean;
@@ -1003,6 +1040,8 @@ export function AssignmentsSectionCaption({
           options={sortOptions}
           direction={sortDirection}
           onDirectionChange={onSortDirectionChange}
+          showChannelChips={showChannelChips}
+          onShowChannelChipsChange={onShowChannelChipsChange}
         />
       </div>
     );
@@ -1060,6 +1099,8 @@ export function AssignmentsSectionCaption({
               options={sortOptions}
               direction={sortDirection}
               onDirectionChange={onSortDirectionChange}
+              showChannelChips={showChannelChips}
+              onShowChannelChipsChange={onShowChannelChipsChange}
             />
           </div>
         )}
