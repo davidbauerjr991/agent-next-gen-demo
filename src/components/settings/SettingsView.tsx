@@ -22,6 +22,7 @@ import {
 } from "@nicecxone/lyra-ui";
 import { readSimLatency, useInteractions, useProviderKind } from "@/provider-context";
 import { BrandSettings } from "./BrandSettings";
+import { ProfileSettings } from "./ProfileSettings";
 import { DisabledReason } from "@/contact-handling/DisabledReason";
 import { IntSettingInput } from "./IntSettingInput";
 import { t } from "@/i18n";
@@ -34,12 +35,10 @@ import {
   OUTBOUND_CALLING,
   type LauncherTab,
   type OutboundCalling,
-  PROFILE_LABELS,
   SEAMS,
   useResetSettings,
   useSectionLocked,
   useSettings,
-  useWorkspaceProfile,
   type SectionKey,
   type AgentChatDisplay,
   type AppDisplay,
@@ -48,8 +47,6 @@ import {
   type HomeQueueChannel,
   type HomeSectionKey,
   type PhoneSetup,
-  type ProfileId,
-  PROFILE_IDS,
   type AiDisplayLocation,
   AI_CANVAS_LAYOUT_FIELD,
   AI_NBA_PAUSE_CHAT_FIELD,
@@ -256,15 +253,9 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
   const [phone, updatePhone] = useSettings("phone");
   const [appearance, updateAppearance] = useSettings("appearance");
   const [connections] = useSettings("connections");
-  const { profile, apply } = useWorkspaceProfile();
   const resetSettings = useResetSettings();
   const [resetOpen, setResetOpen] = React.useState(false);
   const providerKind = useProviderKind();
-
-  const profileOptions = [
-    ...PROFILE_IDS.map((id) => ({ value: id, label: PROFILE_LABELS[id] })),
-    ...(profile === "custom" ? [{ value: "custom", label: PROFILE_LABELS.custom, disabled: true }] : []),
-  ];
 
   const phoneDigits = phone.phoneNumber.replace(/\D/g, "").length;
   const phoneNumberError =
@@ -292,22 +283,7 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
       )}
       <div className="flex-1 overflow-y-auto p-6" data-testid="settings-view">
         <Section title="Workspace profile">
-          <div className="max-w-xs">
-            <Select
-              label="Profile"
-              options={profileOptions}
-              value={profile}
-              onValueChange={(value) => {
-                if ((PROFILE_IDS as string[]).includes(value)) apply(value as ProfileId);
-              }}
-            />
-          </div>
-          <p className="lyra-body-sm text-lyra-fg-secondary">
-            A profile sets the agent settings on this page. Phase 1 is the defaults; Phase 2 adds the header apps
-            (Customers, Accounts and Tickets as Home tabs; Schedule and WEM in the header) and every channel;
-            AI-first is Phase 2 with every conversation in the side panel and the AI workspace in the main column.
-            Changing any setting shows Custom.
-          </p>
+          <ProfileSettings />
         </Section>
 
         <Section title="Header" lockKey="header">
@@ -735,7 +711,8 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
         >
           <div className="flex flex-col gap-2 px-5 pb-2">
             <p className="lyra-body-md text-lyra-fg-default">
-              Every setting on this page goes back to its default (Phase 1). This can't be undone.
+              Every setting on this page goes back to its default (Phase 1), and any profile locks are lifted. Your
+              saved profiles are kept. This can't be undone.
             </p>
           </div>
         </Modal>

@@ -6,7 +6,8 @@ import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
 import { SettingsView } from "@/components/settings/SettingsView";
 import { applyProfile } from "./hooks";
 import { PROFILES } from "./profiles";
-import { getProfileLibrary } from "./saved-profiles";
+import { exportProfile, getProfileLibrary } from "./saved-profiles";
+import { agentSettings } from "./scope";
 import { getSettingsStore, resetSettingsStoreForTests } from "./settings-store";
 
 const h = createWorkspaceHarness();
@@ -39,6 +40,108 @@ async function apply(id: Parameters<typeof applyProfile>[0]) {
     await vi.advanceTimersByTimeAsync(50);
   });
 }
+
+async function type(input: HTMLInputElement, value: string) {
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(10);
+  });
+}
+
+const dialog = () => document.body.querySelector<HTMLElement>("[role=dialog], [role=alertdialog]");
+const profileCombobox = () =>
+  [...h.container.querySelectorAll<HTMLElement>('[role="combobox"]')].find((el) => /Profile/.test(el.getAttribute("aria-labelledby") ? document.getElementById(el.getAttribute("aria-labelledby")!.split(" ")[0])?.textContent ?? "" : el.getAttribute("aria-label") ?? "")) ??
+  h.container.querySelector<HTMLElement>('[role="combobox"]')!;
+const optionLabels = () => [...document.body.querySelectorAll<HTMLElement>('[role="option"]')].map((o) => o.textContent?.trim());
+const kebabButton = () => h.container.querySelector<HTMLElement>('[aria-label="Profile actions"]');
+/** Radix opens its menu on pointer down or Enter, not on a synthetic click. */
+async function openKebab() {
+  await act(async () => {
+    kebabButton()!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    await vi.advanceTimersByTimeAsync(50);
+  });
+}
+const menuItemLabels = () => [...document.body.querySelectorAll<HTMLElement>('[role="menuitem"]')].map((m) => m.textContent?.trim());
+const menuItem = (label: string) => [...document.body.querySelectorAll<HTMLElement>('[role="menuitem"]')].find((m) => m.textContent?.trim() === label)!;
+
+describe("the profile picker and its actions", () => {
+  it("lists the built-in and saved profiles; Save as saves the current settings and the picker shows it", async () => {
+    await act(async () => {
+      store().update("assignments", { confirmClose: true });
+    });
+    await h.render(<SettingsView />);
+    await h.click(h.buttonByText("Save as…", h.container)!);
+    const input = dialog()!.querySelector<HTMLInputElement>("input")!;
+    await type(input, "Billing team");
+    await h.click(h.buttonByText("Save", dialog()!)!);
+    const saved = getProfileLibrary().getState().saved;
+    expect(saved.map((p) => p.name)).toEqual(["Billing team"]);
+    expect(profileCombobox().textContent).toContain("Billing team");
+
+    await h.click(profileCombobox());
+    expect(optionLabels()).toEqual(["Phase 1", "Phase 2", "AI-first", "Billing team"]);
+  });
+
+  it("built-ins offer Duplicate and Export only; a saved profile adds Rename, Locks and Delete", async () => {
+    await h.render(<SettingsView />);
+    await openKebab();
+    expect(menuItemLabels()).toEqual(["Duplicate", "Export"]);
+    await h.click(menuItem("Duplicate"));
+    expect(getProfileLibrary().getState().saved.map((p) => p.name)).toEqual(["Copy of Phase 1"]);
+
+    const team = saveTeamProfile();
+    await apply(team.id);
+    await openKebab();
+    expect(menuItemLabels()).toEqual(["Rename…", "Duplicate", "Locks…", "Export", "Delete…"]);
+  });
+
+  it("Delete asks first, then removes the saved profile; the settings stay and read Custom", async () => {
+    const team = saveTeamProfile();
+    await apply(team.id);
+    await h.render(<SettingsView />);
+    await openKebab();
+    await h.click(menuItem("Delete…"));
+    expect(dialog()!.textContent).toContain("Delete profile?");
+    await h.click(h.buttonByText("Delete", dialog()!)!);
+    expect(getProfileLibrary().getState().saved).toEqual([]);
+    expect(store().getState().values.assignments.confirmClose).toBe(true);
+    expect(profileCombobox().textContent).toContain("Custom");
+  });
+
+  it("Import saves the file as a new profile, reports defaults it fell back to, and Apply applies it", async () => {
+    const values = { ...PROFILES.aifirst, assignments: { ...PROFILES.aifirst.assignments, confirmClose: true } };
+    const file = JSON.parse(exportProfile({ name: "Shared", values: agentSettings(values), locks: ["ai"] }));
+    file.sections.outbound.v = 0;
+    await h.render(<SettingsView />);
+    const input = h.container.querySelector<HTMLInputElement>("[data-slot=profile-import-input]")!;
+    await act(async () => {
+      const f = new File([JSON.stringify(file)], "shared.profile.json", { type: "application/json" });
+      Object.defineProperty(input, "files", { value: [f], configurable: true });
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(dialog()!.textContent).toContain("Profile imported");
+    expect(dialog()!.textContent).toContain("New Outbound (saved with another version)");
+    await h.click(h.buttonByText("Apply", dialog()!)!);
+    expect(store().getState().values.ai.displayLocation).toBe("main");
+    expect(getProfileLibrary().getState().applied?.locks).toEqual(["ai"]);
+    expect(section("AI").disabled).toBe(true);
+  });
+
+  it("a file that isn't a profile is refused with a message", async () => {
+    await h.render(<SettingsView />);
+    const input = h.container.querySelector<HTMLInputElement>("[data-slot=profile-import-input]")!;
+    await act(async () => {
+      const f = new File(["{ not json"], "x.json", { type: "application/json" });
+      Object.defineProperty(input, "files", { value: [f], configurable: true });
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(dialog()!.textContent).toContain("Couldn't import the profile");
+    expect(getProfileLibrary().getState().saved).toEqual([]);
+  });
+});
 
 describe("locks", () => {
   it("applying a profile with locked sections renders them read-only with \"Set by your team profile\"", async () => {
