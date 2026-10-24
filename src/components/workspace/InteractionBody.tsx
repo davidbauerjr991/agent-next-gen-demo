@@ -1,5 +1,4 @@
 import { InlineNotification } from "@nicecxone/lyra-ui";
-import { Minimize2 } from "lucide-react";
 import {
   AiWorkspaceColumn,
   ThreadCrossFade,
@@ -17,7 +16,7 @@ import { HistoryConversationView } from "@/components/customer-info";
 import { InteractionComposer, InteractionTranscript } from "@/components/transcript/InteractionTranscript";
 import type { TomLewisCallPanelKey } from "@/components/agent-next-gen-lucas-thomas-panels";
 import { VideoCallFullScreen } from "@/components/agent-next-gen-video-window";
-import damagedHeadphonesImg from "@/assets/headphones.jpg";
+import { MARCUS_WEBB_SCRIPT } from "@/scenarios/scripts/marcus-webb";
 import {
   MAYA_CHEN_CALL_COPILOT_LINKS,
   MAYA_CHEN_CALL_COPILOT_SUGGESTIONS,
@@ -27,8 +26,7 @@ import {
 
 /** The active interaction's body (P-EXTRACT C8, from the page): the SLA and
  *  closed notices, the main transcript (or the AI workspace column under
- *  AI display "main"), full-screen video and Marcus's photo, his question
- *  slot, and the composers. */
+ *  AI display "main"), full-screen video, and the composers. */
 export function InteractionBody() {
   const {
     activeChannel, activeChannelAwaitingSeverity, activeChannelHoldSeverity, activeChannelIsNewOutboundThread,
@@ -37,11 +35,11 @@ export function InteractionBody() {
     confirmDismiss, contactStateById, copilotComposerProps, copilotDock, copilotHost, copilotSlot,
     customerTyping, focusCustomerPanelTab, handleCopilotAsk, handleDismissChannel,
     handleDismissInteraction, handleInteractionStatusChange, handleLucasApprovalDecision, handleLucasCallRequest,
-    handleLucasTakeover, handleMarcusCopilotAsk, handleSendEmailDraft, handleSendMessage, hideAiActions, historyConversationForActive,
+    handleLucasTakeover, handleSendEmailDraft, handleSendMessage, hideAiActions, historyConversationForActive,
     isColdCallId, isHistoryConversationView, liveVoiceCallInteraction, lucasActiveLinkKey, lucasThomasReviewing,
-    marcusCopilotRequestsRef, marcusQuestionHost, marcusWebbPhotoExpanded, marcusWebbReviewing,
+    marcusWebbReviewing,
     openDetailPanelContent, outcomeConfigFor, outcomeDrafts, panelPlacement, renderAiPanelFeed, requestNextBestAction,
-    scenarioCases, scenarioKeyOf, scenarioThreadOf, setHideAiActions, setMarcusWebbPhotoExpanded,
+    scenarioCases, scenarioKeyOf, scenarioThreadOf, setHideAiActions,
     setVoiceVideoFullScreen, setVoiceVideoWindowOpen, snapshotLinkHandlerFor, stripAiInPanel, threadOutcomeProps,
     viewSessionDetails, voiceVideoFullScreen, voiceVideoWindowOpen, sessionRowHost, sessionRowInHeader,
     transcriptHidden, setTranscriptHidden, transcriptToggleShown,
@@ -528,96 +526,7 @@ export function InteractionBody() {
                             customerIdentified={activeInteractionIsRealCustomer}
                           />
                         )}
-                        {/* Reject flow's customer-provided photo "takes
-                            over" the MAIN interaction column, same
-                            mechanic as the video call full-screen just
-                            above — see `marcusWebbPhotoExpanded`'s own doc
-                            comment. Never rendered inside the transcript
-                            column itself (an earlier pass got this
-                            backwards — see `MarcusWebbNextBestActionCard`'s
-                            own top doc comment). Per a later explicit
-                            request, this is now the real photo
-                            (`src/assets/headphones.jpg`) — `object-contain`
-                            (not `-cover`, unlike the small thumbnail on the
-                            card itself) so the whole image is visible in
-                            this larger, full-screen context rather than
-                            cropped to fill it.
-
-                            No explicit z-index on the root, and the close
-                            button pushed down to `top-14` instead of
-                            `top-4` — same fix `VideoCallFullScreen`'s own
-                            doc comment already documents for this identical
-                            problem (an earlier pass here covered the
-                            transcript's own sticky session separator,
-                            `TranscriptSessionSeparator`, `sticky top-0
-                            z-[1]`, per explicit bug report: "have the full
-                            screen image appear under the session row").
-                            Leaving this root at z-index:auto lets that
-                            separator's own explicit `z-[1]` win any
-                            overlap, and `top-14` (56px, past the
-                            separator's own single-row height) keeps the
-                            close button from ever landing in that same
-                            strip in the first place. */}
-                        {marcusWebbPhotoExpanded && scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID && (
-                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-lyra-bg-surface-inverse">
-                            <button
-                              type="button"
-                              onClick={() => setMarcusWebbPhotoExpanded(false)}
-                              aria-label="Exit full screen"
-                              className="absolute right-4 top-14 flex h-8 w-8 items-center justify-center rounded-lyra-sm text-lyra-fg-on-primary transition-colors hover:bg-white/10"
-                            >
-                              <Minimize2 className="h-5 w-5" strokeWidth={1.5} aria-hidden="true" />
-                            </button>
-                            <img
-                              src={damagedHeadphonesImg}
-                              alt="Photo of the damaged headphone ear cup"
-                              className="max-h-[80%] max-w-[80%] object-contain"
-                            />
-                          </div>
-                        )}
                         </div>
-                        {/* Marcus Webb's currently-active question (and the
-                            Contact Overview accordion, while one's pending)
-                            portal here (see `MarcusWebbNextBestActionCard`'s
-                            own `questionSlotElement` doc comment). A real
-                            `shrink-0` flex sibling of the transcript wrapper
-                            above — NOT `absolute` — per explicit bug report:
-                            floating it over the transcript (an earlier
-                            attempt, chosen to avoid "scrunching" the
-                            transcript's scroll height) instead covered real
-                            content behind it (the customer's photo) and, with
-                            no scroll mechanism of its own inside an
-                            `overflow-hidden` ancestor, silently clipped a
-                            tall options list with no way to reach the last
-                            option. `max-h-[50vh] overflow-y-auto` is the
-                            fix: bounded so the transcript above always keeps
-                            a fair share of the column, but scrollable so a
-                            tall card is always fully reachable instead of
-                            clipped. `empty:hidden` collapses it to nothing
-                            (matching the old "costs nothing while idle"
-                            behavior) whenever nothing's actually portaled
-                            into it. `max-w-[768px] mx-auto px-6` matches the
-                            transcript's own centered message column exactly
-                            (agent-next-gen-transcript.tsx). */}
-                        <HostSlot host={marcusQuestionHost} />
-                          {/* Per explicit follow-up request ("remove the
-                              AI ask a question from the contact main
-                              containers for all interactions"): every
-                              interaction OTHER than Marcus Webb used to get
-                              an inert "ask a question" field here — fully
-                              uncontrolled/inert (no `value`/`onChange`/
-                              `onSubmit`), never wired to anything real —
-                              instead of this slot just collapsing to
-                              nothing. That's gone now; this node exists
-                              purely as Marcus Webb's own portal target
-                              (`questionSlotElement`, the stable
-                              `marcusQuestionHost` this slot holds) for his
-                              scripted questions AND his own real ask-flow,
-                              elsewhere in this same return when he's
-                              active — every other interaction now leaves
-                              this slot genuinely empty (the host's
-                              `empty:hidden` collapses it to nothing, same as
-                              before). */}
                         {/* Every live assignment gets the composer, whatever its
                             channel or script: inline at the bottom of the main
                             column, or (AI display "panel") its Copilot part in
@@ -672,7 +581,9 @@ export function InteractionBody() {
                           />
                         )}
                         {scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID && (
-                          // Stays after takeover (Ask Copilot only — a voice call has no chat input); the Takeover Call button only while reviewing.
+                          // Stays after takeover (Ask Copilot only — a voice call has no chat input); the Takeover Call button only while
+                          // reviewing. Taking over plays his script's takeover steps (P-SHRINK). Questions and chips are Copilot rows in the
+                          // transcript; "Something else" is a free-form question.
                           <InteractionComposer
                             copilotOnly
                             copilotDock={copilotDock}
@@ -680,24 +591,17 @@ export function InteractionBody() {
                             takeoverLabel="Takeover Call"
                             takeoverDisabled={!!liveVoiceCallInteraction && scenarioKeyOf(liveVoiceCallInteraction.id) !== MARCUS_WEBB_ID}
                             takeoverDisabledReason="A call is already in progress"
-                            onTakeover={marcusWebbReviewing ? () => scenarioCases.takeOver(MARCUS_WEBB_ID, { handoff: false }) : undefined}
+                            onTakeover={marcusWebbReviewing ? () => scenarioCases.takeOver(MARCUS_WEBB_ID, { handoff: true }) : undefined}
                             onSend={() => {}}
-                            copilotSuggestions={["Summarize this call", "Show purchase history", "What did the AI agent try?"]}
-                            copilotSuggestionLinks={{
-                              "Summarize this call": "Summarize this call",
-                              "Show purchase history": "Show purchase history",
-                              "What did the AI agent try?": "What did the AI agent try?",
-                            }}
-                            onCopilotAsk={(text: string) =>
-                              handleMarcusCopilotAsk(
-                                text,
-                                ["Summarize this call", "Show purchase history", "What did the AI agent try?"].includes(text) ? undefined : 1800
-                              )
-                            }
-                            onCopilotSuggestionLink={(text: string) => {
-                              const req = marcusCopilotRequestsRef.current[marcusCopilotRequestsRef.current.length - 1];
-                              if (req) openDetailPanelContent({ kind: "marcus-copilot", ...req });
-                            }}
+                            {...withNextBestActionChip(
+                              {
+                                copilotSuggestions: MARCUS_WEBB_SCRIPT.content.copilot?.suggestions,
+                                copilotSuggestionLinks: MARCUS_WEBB_SCRIPT.content.copilot?.links,
+                                onCopilotSuggestionLink: (key: string) => snapshotLinkHandlerFor(activeInteraction.id)(key),
+                                onCopilotAsk: (text: string) => handleCopilotAsk(activeInteraction.id, activeChannelKey, text),
+                              },
+                              () => requestNextBestAction(activeInteraction.id, activeChannelKey),
+                            )}
                           />
                         )}
                         </>

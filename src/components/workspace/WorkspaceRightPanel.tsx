@@ -20,11 +20,11 @@ import {
 import { ComposerFade } from "@/components/transcript/InteractionTranscript";
 import {
   LucasThomasMemoryPanelBody,
-  MarcusWebbMemoryPanelBody,
   MayaChenCallMemoryPanelBody,
   TomLewisCallMemoryPanelBody,
 } from "@/components/agent-next-gen-lucas-thomas-panels";
-import { MARCUS_WEBB_ORDER } from "@/components/agent-next-gen-marcus-webb-next-best-action-card";
+import { MarcusWebbMemoryPanelBody } from "@/components/agent-next-gen-marcus-webb-panels";
+import { slideOverContent } from "@/contact-handling/slide-over-registry";
 import { cn } from "@/lib/utils";
 
 /** The right panel (P-EXTRACT C8, from the page): Contact Details, or the
@@ -467,7 +467,7 @@ export function WorkspaceRightPanel() {
                         ) : scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID ? (
                           <MarcusWebbMemoryPanelBody
                             focus={marcusMemoryFocus}
-                            onOpenOrder={() => openDetailPanelContent({ kind: "order", order: MARCUS_WEBB_ORDER })}
+                            onOpenOrder={() => openDetailPanelContent(slideOverContent(MARCUS_WEBB_ID, "order")!)}
                           />
                         ) : (
                         <LucasThomasMemoryPanelBody

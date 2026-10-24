@@ -97,8 +97,10 @@ describe("scenario cases", () => {
     expect(cases.keyOf(marcus.cardId)).toBe(MARCUS_WEBB_ID);
     expect(marcus.threadKey).toMatch(/^voice:/);
     expect(marcus.reviewing).toBe(true);
-    expect(rows(MARCUS_WEBB_ID).map(({ sender, name, initials, text }) => ({ sender, name, initials, text }))).toEqual(
-      MARCUS_WEBB_SCRIPT.steps.map((step) => {
+    // His setup (the steps in the past); the approval request and his decision play live after it (P-SHRINK).
+    const setup = MARCUS_WEBB_SCRIPT.steps.filter((step) => step.at < 0);
+    expect(rows(MARCUS_WEBB_ID).slice(0, setup.length).map(({ sender, name, initials, text }) => ({ sender, name, initials, text }))).toEqual(
+      setup.map((step) => {
         if (step.kind !== "say") throw new Error("Marcus's setup is lines only");
         return step.speaker === "customer"
           ? { sender: "customer", name: "Marcus Webb", initials: "MW", text: step.text }

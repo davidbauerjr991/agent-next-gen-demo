@@ -45,10 +45,9 @@ import { AGENT_WORKSPACE_CUSTOMER_PANEL_TABS, DetailsPanelAccordions } from "@/c
 import { ADDRESS_BOOKS, NewOutboundLauncher } from "@/contact-handling";
 import { LUCAS_THOMAS_ID, MARCUS_WEBB_ID } from "@/contact-handling/scenario-cases";
 import { leftNavKeysFromHeader, type ExtraHeaderApp } from "@/settings";
-import { MARCUS_WEBB_ORDER } from "@/components/agent-next-gen-marcus-webb-next-best-action-card";
+import { slideOverContent } from "@/contact-handling/slide-over-registry";
 import type { LucasThomasMemoryFocus, LucasThomasPanelKey } from "@/components/agent-next-gen-lucas-thomas-panels";
 import type { PanelKey } from "@/contact-handling/workspace/workspace-types";
-import { HostSlot } from "@/contact-handling/portal-hosts";
 import { INTERACTION_MAIN_CONTENT_MIN_WIDTH, SEARCH_PANEL_TABS, SHARED_CONTENT_MIN_VISUAL_WIDTH } from "@/components/workspace/workspace-constants";
 import type { WsOutbound } from "./useWsOutbound";
 
@@ -61,7 +60,7 @@ export function useWsHeaderApps(prev: WsOutbound) {
     fullScreenVisible, handleCopilotAsk, handleDialpadSubmit, handleFullScreenToDragMode, handleLucasApprovalDecision,
     handleLucasCallRequest, handleOpenInteractionRow, handlePanelVariantChange, handleStartCall, headerSettings,
     hoverDockMounted, interactions, isColdCallId, isNavNarrow, leftNavPage,
-    lucasActiveLinkKey, lucasThomasReviewing, marcusCardHost, navOpen, notifContent, notifications,
+    lucasActiveLinkKey, lucasThomasReviewing, navOpen, notifContent, notifications, setMarcusMemoryFocus,
     openDetailPanelContent, openExperienceMemoryInSidePanel, outboundConfig, outboundDial, outboundSettings,
     panelArtifacts, panelHeight, panelMounted, panelOpen, panelRef, panelVariant,
     panelWidth, pinnedKeys, reopenPanelArtifact, scenarioCases, scenarioKeyOf, scheduleContent, screenPopContent,
@@ -792,6 +791,15 @@ export function useWsHeaderApps(prev: WsOutbound) {
     const scripted = isColdCallId(interactionId) || scenarioKeyOf(interactionId) === LUCAS_THOMAS_ID;
     return (key) => {
       if (key === lucasActiveLinkKey) return setSelectedDetailPanelContent(null);
+      // A case that registers its panels (slide-over-registry.ts) opens them from there; Marcus's checklist links open
+      // Experience Memory on the matching event.
+      const caseKey = scenarioKeyOf(interactionId);
+      if (caseKey === MARCUS_WEBB_ID && key.startsWith("memory:")) {
+        setMarcusMemoryFocus(key.slice("memory:".length));
+        return openExperienceMemoryInSidePanel();
+      }
+      const registered = slideOverContent(caseKey, key);
+      if (registered) return openDetailPanelContent(registered);
       if (key.startsWith("instruction:")) {
         const [, decision, text, time] = key.split(":");
         const request = { text: decodeURIComponent(text ?? ""), time: decodeURIComponent(time ?? "") };
@@ -801,8 +809,6 @@ export function useWsHeaderApps(prev: WsOutbound) {
         if (key === "order" || key === "card" || key === "void-steps" || key === "maya-order" || key === "maya-card" || key === "maya-refund-steps") {
           openDetailPanelContent({ kind: "tom-call", panel: key });
         }
-      } else if (scenarioKeyOf(interactionId) === MARCUS_WEBB_ID) {
-        if (key === "order") openDetailPanelContent({ kind: "order", order: MARCUS_WEBB_ORDER });
       } else if (scenarioKeyOf(interactionId) === LUCAS_THOMAS_ID) {
         if (key.startsWith("memory:")) openExperienceMemoryInSidePanel(key.slice("memory:".length) as LucasThomasMemoryFocus);
         else openDetailPanelContent({ kind: "lucas", panel: key as LucasThomasPanelKey });
@@ -815,15 +821,9 @@ export function useWsHeaderApps(prev: WsOutbound) {
   // rows, wrap-up cards, event lines) leave the transcript and render as a
   // feed at the bottom of the docked Contact Details panel, under the Agentic
   // reference cards, with the same handlers the inline transcript uses.
-  // Panel mode's AI overview at the top of the feed: Marcus's card, whose
-  // approval request is its own AI card like Lucas's. (Under inline and
-  // "main" it's the canvas's action cells that precede the conversation.)
-  const renderAiOverview = () =>
-    activeInteraction && scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID ? <HostSlot host={marcusCardHost} /> : undefined;
-  // `overview` replaces the AI overview at the top of the feed: under AI
-  // display "main" the canvas passes the action cells that precede the
-  // conversation (P-CANVAS); panel mode keeps `renderAiOverview()`.
-  const renderAiPanelFeed = (overview: ReactNode = renderAiOverview()) => {
+  // `overview` heads the feed: under AI display "main" the canvas passes the action cells that precede the
+  // conversation (P-CANVAS); panel mode has none (every case's AI rows, Marcus's included, are the feed itself).
+  const renderAiPanelFeed = (overview?: ReactNode) => {
     if (!activeInteraction) return null;
     const isLucas = scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID;
     return (
@@ -950,7 +950,7 @@ export function useWsHeaderApps(prev: WsOutbound) {
     pinnedKeysInHeaderOrder, appHeaderRef, appNameMeasureRef, headerIconsMeasureRef, autoHiddenCount,
     setAutoHiddenCount, responsivelyHiddenKeys, showHeaderIcon, leftNavRenderWidth, maxDockedWidthForMainFloor,
     sharedPanel, sharedPanelFullScreenOverlay, leftNavKeys, leftNavPageShown, leftNavAppItems, homeNavItem,
-    restNavItems, navRailItems, snapshotLinkHandlerFor, renderAiOverview, renderAiPanelFeed, referenceCardProps,
+    restNavItems, navRailItems, snapshotLinkHandlerFor, renderAiPanelFeed, referenceCardProps,
     renderContactDetailsTab, aiFeedCount, copilotDockShown, copilotDockConcealed, copilotSlot, copilotDock,
     sessionRowInHeader, newOutboundLauncher,
   };

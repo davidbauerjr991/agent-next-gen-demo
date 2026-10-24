@@ -1,7 +1,6 @@
 // The Workspace page's own types (P-EXTRACT): hoisted out of
 // AgentWorkspaceAdvancedPage.tsx so the hooks and region components split
 // out of it share one definition.
-import type { MarcusWebbActionLogEntry, MarcusWebbOrderInfo } from "@/components/agent-next-gen-marcus-webb-next-best-action-card";
 import type { KnowledgeArticleCardData, KnowledgeArticleWebLink } from "@/components/agent-next-gen-knowledge-article-card";
 import type {
   LucasThomasMemoryFocus,
@@ -18,20 +17,18 @@ import type {
 // `onBack`), not by opening a second, nested one — nesting isn't
 // supported anywhere in this app.
 export type DetailPanelContent =
-  | { kind: "action-log"; entry: MarcusWebbActionLogEntry }
   | { kind: "article"; article: KnowledgeArticleCardData }
   | { kind: "article-link"; article: KnowledgeArticleCardData; link: KnowledgeArticleWebLink }
-  | { kind: "order"; order: MarcusWebbOrderInfo }
   | { kind: "lucas"; panel: LucasThomasPanelKey }
   | { kind: "lucas-memory"; focus: LucasThomasMemoryFocus }
   // `link`: the row that opened it (its own link, unique per row since P-EXTRACT): which row reads active, and its
   // Artifacts entry. Two rows with the same question and minute are still two results.
   | { kind: "lucas-instruction"; decision: string; text: string; time: string; link?: string }
   | { kind: "copilot-result"; text: string; time: string; link?: string }
-  | { kind: "marcus-copilot"; id: string; text: string; time: string }
   | { kind: "tom-call"; panel: TomLewisCallPanelKey }
   | { kind: "lucas-order"; orderId: LucasThomasOrderId; from?: "memory" | "purchases" }
-  | { kind: "transactions"; id: string; note: string; timestamp: string; date: string; showFullTransactions: boolean }
+  // A scripted case's registered panel (slide-over-registry.ts, P-SHRINK): its key, and for a Copilot row its question.
+  | { kind: "registry"; caseKey: string; panel: string; text?: string; time?: string; link?: string }
   // AI display "main": a panel thread's Session Details, over the thread in the panel (k6 10).
   | { kind: "session" };
 

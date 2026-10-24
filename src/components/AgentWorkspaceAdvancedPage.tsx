@@ -18,7 +18,6 @@ import { PageClockContext } from "@/components/agent-next-gen-page-clock";
 import { QueueSimContext } from "@/components/agent-next-gen-queue-sim";
 import { AppTabBody, CustomersPage, LeftNavAppPage } from "@/components/home-tabs";
 import { SettingsView } from "@/components/settings/SettingsView";
-import { MarcusCardMount } from "@/components/workspace/MarcusCardMount";
 import { WorkspaceAppHeader } from "@/components/workspace/WorkspaceAppHeader";
 import { WorkspaceLeftNav } from "@/components/workspace/WorkspaceLeftNav";
 import { AllContactsView } from "@/components/workspace/AllContactsView";
@@ -64,7 +63,6 @@ export function AgentWorkspaceAdvancedPage({
     <div className="flex flex-col h-screen bg-lyra-bg-surface-shell overflow-hidden animate-in fade-in-0 duration-500">
       {/* Marcus's Next Best Action card lives in a persistent host node (moved into the transcript by a HostSlot),
           so navigating away and back never resets its state or its running timers. Unmounted when the assignment is dismissed. */}
-      <MarcusCardMount />
 
       {/* ── App Header ── */}
       <WorkspaceAppHeader />

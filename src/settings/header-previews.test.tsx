@@ -269,14 +269,15 @@ describe("AI cards", () => {
   });
 
   for (const ai of ["inline", "panel", "main"] as const) {
-    it(`Marcus (AI display ${ai}): his approval request is its own card, with no Next Best Action card`, async () => {
+    it(`Marcus (AI display ${ai}): his approval request is its own card, and his decision a Next Best Action (P-SHRINK)`, async () => {
       await h.show(AgentWorkspaceAdvancedPage);
       await settings(ai);
       await h.play(MARCUS_WEBB_SCRIPT.id);
       await h.click(h.navCard("Marcus Webb"));
       await h.advance(20_000);
-      expect(document.body.textContent).not.toContain("Next Best Action");
       expect(document.body.textContent).toContain("Approval request");
+      expect(document.body.textContent).toContain("Next Best Action");
+      expect(document.body.textContent).toContain("Approve the refund");
     });
   }
 });

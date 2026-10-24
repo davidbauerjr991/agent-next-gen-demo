@@ -63,11 +63,6 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   // Dial below. Click any resulting InteractionNavItem card to make it the
   // active one. `initialInteraction` (see above) seeds this instead, for
   // callers that want to start already mid-call.
-  // Marcus's card and his active question portal into stable hosts (`portal-hosts.tsx`), moved by `HostSlot`s.
-  const marcusCardHost = usePortalHost("contents");
-  const marcusQuestionHost = usePortalHost(
-    "mx-auto flex w-full max-w-[768px] shrink-0 flex-col gap-3 overflow-y-auto px-6 pb-3 empty:hidden max-h-[50vh]",
-  );
   // The page clock (agent-next-gen-page-clock.ts) is created here, ahead of
   // the cards, because store cards measure their timers from its anchor.
   // Handlers and timeouts read the current tick with `clock.now()`; only the
@@ -1015,7 +1010,7 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
 
   return {
     ...props,
-    navOpen, setNavOpen, marcusCardHost, marcusQuestionHost, clock, createdCustomerRecords, setCreatedCustomerRecords,
+    navOpen, setNavOpen, clock, createdCustomerRecords, setCreatedCustomerRecords,
     navCardDisplayName, navCards, setInteractions, findOpenCard, seedOverlay, storeContacts, contactStateById,
     scenarioCases, scenarioKeyOf, scenarioCardId, scenarioThreadOf, interactions, setResolvedTodayCount,
     dismissedContactHistory, setDismissedContactHistory, toasts, addToast, dismissToast, dismissAllToasts,

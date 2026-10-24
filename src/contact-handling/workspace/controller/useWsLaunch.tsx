@@ -27,7 +27,6 @@ import {
   type Activation,
 } from "@/contact-handling";
 import { AGENT_WORKSPACE_CUSTOMER_PANEL_TABS, useCustomerDetailsInteriorPanel, useSessionDetailsTabContent } from "@/components/customer-info";
-import { MARCUS_WEBB_ID } from "@/contact-handling/scenario-cases";
 import { cardContactMethods } from "@/contact-handling/card-contact-methods";
 import { SCENARIOS } from "@/scenarios";
 import type { Interaction } from "@/components/agent-next-gen-interaction-dashboard";
@@ -48,10 +47,10 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
     activeCustomerRecordDraft, activeInteraction, activeInteractionId, addToast, agentStatus, cardIdentityOf, channelPreviewThread,
     channelPreviewThreadKey, clock, containerRef, createdCustomerRecords, customerTable, dismissInteractionRef,
     enabledChannels, findOpenCard, fireDismissToast, interactions, isNavNarrow, launchLucasCall, lucasCallConfirmRef,
-    mainPins, navOpen, omni, omnichannel, outcomeDrafts, panelOpen, panelPlacement, placement, scenarioCases,
+    mainPins, navOpen, omni, omnichannel, outcomeDrafts, panelOpen, panelPlacement, placement,
     scenarioKeyOf, seedOverlay, sessionDetailsPick, setActiveCustomerOverviewEditing, setAgentLegDisconnectedToastOpen,
     setAgentStatus, setCustomerPanelActiveTab, setDismissedContactHistory, setHistoryConversationTab, setInteractions,
-    setNavOpen, setOutcomeDraft, setSelectedContactHistoryEntry, setSidePanelOpen, setStatusSinceTick,
+    setNavOpen, setSelectedContactHistoryEntry, setSidePanelOpen, setStatusSinceTick,
     sidePanelStateByAssignmentId, switchActiveInteraction, windowWidth, customerPanelActiveTab, aiInPanel,
     activeInteractionIsRealCustomer, activeChannelType, isHistoryConversationView, panelVoiceThread,
   } = prev;
@@ -786,60 +785,6 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
     );
   };
 
-  /** Marcus's call continues as his Next Best Action card's steps land: each
-   *  callback starts one of his script's action branches (the bot's, his own
-   *  or the agent's line), which the engine adds to the call's transcript
-   *  (P0.5c). The card keeps its own step timing. */
-  const marcusWebbSays = (branch: string, inputs: { note?: string; vars?: Record<string, string> } = {}) =>
-    scenarioCases.respond(MARCUS_WEBB_ID, { value: branch, ...inputs });
-
-  /** Fired by `MarcusWebbNextBestActionCard`'s Approve flow, step 3
-   *  ("Disposition updated to 'Exception Approved'") — per explicit
-   *  decision this is REAL, not just narrative text, but per an explicit
-   *  correction it's two separate real effects, not one: the session-
-   *  status CHIP updates to "Resolved" (an approved-and-completed refund
-   *  request is a resolved case, same as any other) via the exact same
-   *  `handleInteractionStatusChange` the status chip's own popover already
-   *  calls; separately, the Outcome popover's own disposition field is set
-   *  to "Exception Approved" (added to `OUTCOME_DISPOSITION_OPTIONS`,
-   *  agent-next-gen-transcript.tsx) via the same shared `outcomeDraft`
-   *  state its own field already reads/writes — an earlier pass
-   *  conflated the two, driving the status chip to a one-off "Exception
-   *  Approved" status instead. Channel key derived the same way
-   *  `handleSendMessage` below already does for its own `channelKeyAtSend`
-   *  — Marcus's interaction only ever has the one voice channel, but this
-   *  stays robust rather than hardcoding `"voice"` here too. */
-  const handleMarcusWebbResolved = () => {
-    const interaction = interactions.find((i) => scenarioKeyOf(i.id) === MARCUS_WEBB_ID);
-    if (!interaction) return;
-    const channelKey =
-      interaction.currentThreadId ??
-      (interaction.threads[interaction.threads.length - 1]
-        ? interaction.threads[interaction.threads.length - 1].id ?? interaction.threads[interaction.threads.length - 1].type
-        : undefined) ??
-      "channel";
-    late.handleInteractionStatusChange(interaction.id, channelKey, "Resolved");
-    setOutcomeDraft((d) => ({ ...d, dispositionCode: "Exception Approved" }));
-  };
-
-  /** Fired by `MarcusWebbNextBestActionCard`'s post-photo "flag for review"
-   *  flow, step 2 ("Updating status to 'Escalated'") — same mechanism as
-   *  `handleMarcusWebbExceptionApproved` just above (a real status change
-   *  via the shared `handleInteractionStatusChange`), just landing on
-   *  "Escalated" instead — already one of `TRANSCRIPT_SESSION_STATUS_
-   *  OPTIONS`' own selectable rows, so no new status-color entry was
-   *  needed for this one. */
-  const handleMarcusWebbEscalated = () => {
-    const interaction = interactions.find((i) => scenarioKeyOf(i.id) === MARCUS_WEBB_ID);
-    if (!interaction) return;
-    const channelKey =
-      interaction.currentThreadId ??
-      (interaction.threads[interaction.threads.length - 1]
-        ? interaction.threads[interaction.threads.length - 1].id ?? interaction.threads[interaction.threads.length - 1].type
-        : undefined) ??
-      "channel";
-    late.handleInteractionStatusChange(interaction.id, channelKey, "Escalated");
-  };
 
   return {
     ...prev,
@@ -850,7 +795,6 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
     transcriptHidden, setTranscriptHidden, detailsThreadKey, detailsFromPanelRow, detailsCurrentSession,
     sessionDetailsTabContent, handleRedialButtonClick, handleDialpadSubmit, handleAddAdHocChannel,
     handleReopenContactHistoryEntry, handleDismissInteraction, handleDismissChannel, handleChannelSelect,
-    marcusWebbSays, handleMarcusWebbResolved, handleMarcusWebbEscalated,
   };
 }
 

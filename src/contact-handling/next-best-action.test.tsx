@@ -458,12 +458,27 @@ describe("scripted cases: the Next Best Action gates the agent's turn", () => {
     expect(has(greeting.text)).toBe(false);
   });
 
-  it("Marcus Webb keeps his own card", async () => {
+  it("Marcus Webb's decision is a Next Best Action in his transcript while the bot holds the call; a rejection's reason reaches the Used row (P-SHRINK)", async () => {
     await open({ displayLocation: "inline" });
     await h.play(MARCUS_WEBB_SCRIPT.id);
     await h.click(h.navCard("Marcus Webb"));
-    await h.advance(500);
-    expect(main().closest("[data-canvas-region=action]")?.querySelector("[data-canvas-cell=marcus-card]") ?? h.container.querySelector("[data-canvas-cell=marcus-card]")).not.toBeNull();
+    await h.advance(6000);
+    expect(h.container.querySelector("[data-canvas-cell=marcus-card]")).toBeNull();
+    expect(main().textContent).toContain("Approval request");
+    expect(nba()?.getAttribute("data-frame")).toBe("do");
+    expect(nba()!.textContent).toContain("Approve the refund");
+    const reject = [...nba()!.querySelectorAll("li")].find((li) => li.textContent?.includes("Reject the refund"))!;
+    await h.click([...reject.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Use")!);
+    const field = nba()!.querySelector("[data-slot=nba-alternative-note]")!;
+    const reason = field.querySelector("textarea")!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(reason, "Needs photos first");
+      reason.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await h.click([...field.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Run it")!);
+    await h.advance(2000);
+    expect(outcomes()).toEqual([expect.stringMatching(/^used: Used at .* — Reject the refund · reason: Needs photos first$/)]);
+    expect(main().textContent).toContain("Refund rejected");
   });
 });
 

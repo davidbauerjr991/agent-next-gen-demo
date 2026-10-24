@@ -5,10 +5,13 @@ import { marcus } from "./marcus-driver";
 // asserting the visible rows, the slide-overs and the final Outcome. Written
 // against his scripted card first; the port onto the generic Next Best
 // Action must pass it with no assertion change beyond the Used-row wording.
+// Added with the port: the rows' order in the transcript, the Used rows, and the
+// Outcome's disposition (which the old card never reached).
 // The decisions themselves are clicks in ./marcus-driver.ts.
 
 const LINES = {
   setup: "Sure, it's order number 48213, placed last Tuesday.",
+  lastSetup: "please hold while I connect with a supervisor for approval on this $200 refund.",
   approved: "I've received approval from a supervisor. I'm processing your $200 refund now",
   thanks: "That's great, thank you so much for your help!",
   rejected: "unfortunately this refund wasn't approved as submitted",
@@ -35,10 +38,23 @@ async function start(page: Page) {
   await card.click({ force: true });
   const action = page.locator("[data-canvas-region=action]");
   await expect(action.getByText(LINES.setup).first()).toBeVisible();
-  await expect(action.getByText("Approval request").first()).toBeVisible({ timeout: 10_000 });
+  const approval = action.getByText("Approval request").first();
+  await expect(approval).toBeVisible({ timeout: 10_000 });
   await expect(action.getByText("Marcus Webb is requesting a $200 refund").first()).toBeVisible();
+  // Every AI row sits in the transcript at its time: the approval request below the last line before it, and his
+  // decision's Next Best Action below the approval request. Nothing is pinned above the transcript.
+  const lastTurn = action.getByText(LINES.lastSetup).first();
+  const decision = action.locator("[data-slot=next-best-action]").first();
+  await expect(decision).toBeVisible({ timeout: 20_000 });
+  const [turnBox, approvalBox, decisionBox] = await Promise.all([lastTurn.boundingBox(), approval.boundingBox(), decision.boundingBox()]);
+  expect(approvalBox!.y).toBeGreaterThanOrEqual(turnBox!.y + turnBox!.height);
+  expect(decisionBox!.y).toBeGreaterThanOrEqual(approvalBox!.y + approvalBox!.height);
   return action;
 }
+
+/** The decision's Used row (P-SHRINK). */
+const used = (page: Page, text: RegExp) =>
+  expect(page.locator("[data-canvas-region=action] [data-slot=nba-outcome]").filter({ hasText: text }).first()).toBeVisible({ timeout: 15_000 });
 
 /** The visible text `text` somewhere in the action area. */
 const seen = (page: Page, text: string, timeout = 15_000) =>
@@ -52,13 +68,12 @@ const caseStatus = (page: Page) =>
     return snapshot.interactions.find((i: { caseId?: string }) => i.caseId === "MW-DEMO-0001")?.caseStatus as string | undefined;
   });
 
-/** The case status, and the Outcome the agent logs. Outcome is locked while
- *  the bot holds the call, so opening it takes the call over. (The old card's
- *  "Exception Approved" disposition never reached the draft: it wrote to
- *  whichever Outcome popover was open, and none was.) */
-async function expectOutcome(page: Page, status: string, opensOutcome: boolean) {
+/** The case status, and the Outcome the agent logs with the disposition the AI suggested. Outcome is locked while
+ *  the bot holds the call, so opening it takes the call over. (Added with the port: the old card's
+ *  "Exception Approved" never reached the draft — it wrote to whichever Outcome popover was open, and none was.) */
+async function expectOutcome(page: Page, status: string, disposition: string | null) {
   await expect.poll(() => caseStatus(page), { timeout: 10_000 }).toBe(status);
-  if (!opensOutcome) return;
+  if (!disposition) return;
   // The session row's Outcome button (the nav rows' are icon-only).
   const trigger = page.getByRole("button", { name: "Outcome" }).filter({ hasText: "Outcome" }).first();
   if (await trigger.isDisabled()) await marcus.takeOver(page);
@@ -66,6 +81,7 @@ async function expectOutcome(page: Page, status: string, opensOutcome: boolean) 
   await trigger.click();
   const popover = page.locator("[data-radix-popper-content-wrapper]").filter({ hasText: "Log Outcome" });
   await expect(popover).toBeVisible();
+  await expect(popover.getByText(disposition).first()).toBeVisible();
   await page.keyboard.press("Escape");
 }
 
@@ -76,6 +92,7 @@ test.describe("Marcus Webb, the whole arc", () => {
   test("approve: the bot tells Marcus, the disposition updates, Outcome reads Resolved", async ({ page }) => {
     await start(page);
     await marcus.approve(page);
+    await used(page, /— Approve the refund$/);
     await seen(page, "Refund approved");
     await seen(page, LINES.approved);
     await seen(page, LINES.thanks);
@@ -83,13 +100,14 @@ test.describe("Marcus Webb, the whole arc", () => {
     await seen(page, "Excellent. I have approved the refund and responded to Marcus.");
     await marcus.openRow(page, "Refund approved", "Approve the refund");
     await expect(page.locator("[data-slot=reference-slide-over]").getByText("Approve the refund").first()).toBeVisible();
-    await expectOutcome(page, "Resolved", true);
+    await expectOutcome(page, "Resolved", "Exception Approved");
   });
 
   test("reject with a reason: the bot offers alternatives and asks for a photo; status unchanged", async ({ page }) => {
     await start(page);
     const reason = "The damage report needs photos first";
     await marcus.reject(page, reason);
+    await used(page, new RegExp(`— Reject the refund · reason: ${reason}$`));
     await seen(page, "Refund rejected");
     await seen(page, reason);
     await seen(page, LINES.rejected);
@@ -98,7 +116,7 @@ test.describe("Marcus Webb, the whole arc", () => {
     await seen(page, "Refund rejected. Requested customer provide visual proof");
     await seen(page, LINES.photoReaction);
     await seen(page, "I have requested the customer provide a photo of the damaged item.");
-    await expectOutcome(page, "Open", false);
+    await expectOutcome(page, "Open", null);
   });
 
   for (const remedy of ["credit", "discount"] as const) {
@@ -112,16 +130,18 @@ test.describe("Marcus Webb, the whole arc", () => {
       await seen(page, "I have transferred the call. You are live with the customer.");
       if (remedy === "credit") {
         await marcus.issueCredit(page, "150");
+        await used(page, /— Issue store credit · credit amount: 150$/);
         await seen(page, "I've issued $150 as store credit");
         await seen(page, "Store credit issued");
         await seen(page, "$150 store credit");
       } else {
         await marcus.sendDiscount(page, "20");
+        await used(page, /— Send a 20% discount code$/);
         await seen(page, "I've sent a 20% discount code");
         await seen(page, "Discount code sent");
         await seen(page, "20% off discount code");
       }
-      await expectOutcome(page, "Resolved", true);
+      await expectOutcome(page, "Resolved", "Exception Approved");
     });
   }
 

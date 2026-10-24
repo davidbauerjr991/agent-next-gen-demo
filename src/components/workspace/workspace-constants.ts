@@ -124,13 +124,6 @@ export const MAYA_CHEN_CALL_OVERVIEW = MAYA_CHEN_SCRIPT.content.overview!;
 export const MAYA_CHEN_CALL_COPILOT_SUGGESTIONS: string[] = MAYA_CHEN_SCRIPT.content.copilot!.suggestions;
 export const MAYA_CHEN_CALL_COPILOT_LINKS: Record<string, string> = MAYA_CHEN_SCRIPT.content.copilot!.links;
 
-// Per explicit request, hold off on auto-dismissing the Marcus Webb
-// assignment once its scripted flow completes, while the agent is
-// testing — "hide, don't destroy": `onAssignmentClosed`'s call site
-// below stays fully wired, just gated on this flag. Flip back to `true`
-// to re-enable.
-export const MARCUS_WEBB_AUTO_DISMISS_ON_CLOSE = false;
-
 // Per explicit request ("remove the ability to hang up from the
 // interactionNavItem overall") — "hide, don't destroy": the left-nav
 // channel builder's own `onEndCall` computation stays fully wired, just

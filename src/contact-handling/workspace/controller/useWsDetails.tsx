@@ -24,7 +24,8 @@ import { LUCAS_THOMAS_PANEL_TITLES, LUCAS_THOMAS_ORDER_DETAILS, TOM_LEWIS_CALL_P
 import type { DetailPanelContent } from "@/contact-handling/workspace/workspace-types";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { slideOverPlacement } from "@/contact-handling/slide-over-placement";
-import { AI_PERFORM_MS } from "@/contact-handling/ai-perform";
+import { slideOverContent, slideOverEntry } from "@/contact-handling/slide-over-registry";
+import { MARCUS_WEBB_SCRIPT } from "@/scenarios/scripts/marcus-webb";
 import { visibleNotifications } from "@/contact-handling/notification-gates";
 import { touchedThreadKey, useParkedSeedIds, useTouchedWhileShown } from "@/contact-handling/touched-threads";
 import { resolveActiveChannelDateTimeLabel, resolveInteractionLastCustomerResponseLabel } from "@/contact-handling/workspace/active-channel-labels";
@@ -34,11 +35,11 @@ import type { WsCards } from "./useWsCards";
 
 export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
   const {
-    activeChannel, activeChannelKey, activeChannelType, activeCustomerRecordDraft, activeInteraction, activeInteractionId, activeScenarioKey,
+    activeChannel, activeChannelKey, activeChannelType, activeCustomerRecordDraft, activeInteraction, activeInteractionId,
     addToast, calling, clock, confirmDismiss, createdCustomerRecords, customerContextOverviewBase,
     customerMatchQuery, enabledChannels, handleOutcomeCancel, handleOutcomeDispositionChange, handleOutcomeOpenChange, handleOutcomeSave,
     handleOutcomeSaveAndDismiss, handleOutcomeSaveAndRedial, handleOutcomeTagsChange, interactions, isColdCallId, omni,
-    omnichannel, outcomeDraft, outcomeDraftKey, pendingAgentLegToastRef, scenarioCardId, scenarioCases, scenarioKeyOf,
+    omnichannel, outcomeDraft, outcomeDraftKey, pendingAgentLegToastRef, scenarioCases, scenarioKeyOf,
     setCreatedCustomerRecords, setCustomerMatchStep, setInteractions, setNavOpen, setOutcomeDraft, showAgentLegToast,
     storeContacts, threadLaunchTimestamps,
   } = prev;
@@ -444,18 +445,6 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
   // src/adapters/sim/sim-scenario-hotkeys.ts); routing offers them only
   // while the agent is available or working. They arrive as provider
   // contacts, so this page builds no card and runs no scenario timer.
-  // Whether the Reject flow's customer-provided photo (rendered inline in
-  // `MarcusWebbNextBestActionCard`, never in the transcript — see that
-  // file's own top doc comment) is taking over the MAIN interaction
-  // column, the same "takes over" mechanic `voiceVideoFullScreen`/
-  // `VideoCallFullScreen` already uses below. Reset whenever the active
-  // interaction changes away from Marcus (see the effect right below) so a
-  // stale overlay can't bleed into a different interaction after switching
-  // away and back.
-  const [marcusWebbPhotoExpanded, setMarcusWebbPhotoExpanded] = useState(false);
-  useEffect(() => {
-    if (activeScenarioKey !== MARCUS_WEBB_ID) setMarcusWebbPhotoExpanded(false);
-  }, [activeScenarioKey]);
   // "Hide AI Actions" switch in the composer: transcript shows only chat bubbles.
   const [hideAiActions, setHideAiActions] = useState(false);
   // Always points at the latest `handleDismissInteraction`, for the engine's
@@ -474,33 +463,19 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
           ? TOM_LEWIS_CALL_COPILOT_LINKS[text]
           : key === MAYA_CHEN_CALL_ID
             ? MAYA_CHEN_CALL_COPILOT_LINKS[text]
-            : undefined;
+            : key === MARCUS_WEBB_ID
+              ? (MARCUS_WEBB_SCRIPT.content.copilot.links as Record<string, string>)[text]
+              : undefined;
     },
-    autoOpensResult: (cardId) => scenarioKeyOf(cardId) === LUCAS_THOMAS_ID || isColdCallId(cardId),
+    autoOpensResult: (cardId) => scenarioKeyOf(cardId) === LUCAS_THOMAS_ID || scenarioKeyOf(cardId) === MARCUS_WEBB_ID || isColdCallId(cardId),
+    // A case that registers its slide-overs (Marcus) opens its own Copilot result; Lucas and the cold calls theirs.
     openResult: (cardId, { text, time, link }) =>
-      setDetailPanelByInteraction((prev) => ({ ...prev, [cardId]: { kind: "lucas-instruction", decision: "copilot", text, time, link } })),
+      setDetailPanelByInteraction((prev) => ({
+        ...prev,
+        [cardId]: slideOverContent(scenarioKeyOf(cardId), link) ?? { kind: "lucas-instruction", decision: "copilot", text, time, link },
+      })),
   });
   const copilotResultTimer = useCopilotResultTimer();
-  // Plays out the chat follow-up (events + AI replying to the customer) after the agent decides on Lucas's approval card.
-  // Distinct id per run so a repeated "Something else" instruction never reuses a message id.
-  const [marcusCopilotRequests, setMarcusCopilotRequests] = useState<{ id: string; text: string; time: string; performedAt?: number }[]>([]);
-  const marcusCopilotRequestsRef = useRef<{ id: string; text: string; time: string; performedAt?: number }[]>([]);
-  const handleMarcusCopilotAsk = (text: string, openAfterMs?: number) => {
-    // Asking Copilot produces an AI action row, so reveal AI actions if they were hidden.
-    setHideAiActions(false);
-    const time = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-    const req = { id: `marcus-copilot-${Date.now()}`, text, time, performedAt: Date.now() + AI_PERFORM_MS };
-    marcusCopilotRequestsRef.current = [...marcusCopilotRequestsRef.current, req];
-    setMarcusCopilotRequests((prev) => [...prev, req]);
-    // Free-form questions open their result once Copilot "finishes"; chips open their own panel after their spinner.
-    const cardId = scenarioCardId(MARCUS_WEBB_ID);
-    if (openAfterMs !== undefined && cardId) {
-      copilotResultTimer(
-        () => setDetailPanelByInteraction((prev) => ({ ...prev, [cardId]: { kind: "marcus-copilot", ...req } })),
-        openAfterMs
-      );
-    }
-  };
   // "Call now" on Lucas's escalation card: opens the outbound popover on the button; `confirm` marks the card decided once launched.
   const lucasCallConfirmRef = useRef<(() => void) | null>(null);
   const LUCAS_THOMAS_PHONE = "(415) 555-0142";
@@ -703,35 +678,29 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
   // re-opens it (not a toggle).
   const detailPanelArtifactKey = (c: DetailPanelContent): string => {
     switch (c.kind) {
-      case "action-log": return `action-log:${c.entry.id}`;
       case "article": return `article:${c.article.id}`;
       case "article-link": return `article-link:${c.article.id}:${c.link.copyValue}`;
-      case "order": return `order:${c.order.orderId}`;
+      case "registry": return `registry:${c.caseKey}:${c.link ?? c.panel}`;
       case "lucas": return `lucas:${c.panel}`;
       case "lucas-memory": return "lucas-memory";
       case "lucas-instruction": return `lucas-instruction:${c.link ?? c.text}`;
       case "copilot-result": return `copilot-result:${c.link ?? `${c.text}:${c.time}`}`;
-      case "marcus-copilot": return `marcus-copilot:${c.id}`;
       case "tom-call": return `tom-call:${c.panel}`;
       case "lucas-order": return `lucas-order:${c.orderId}`;
-      case "transactions": return `transactions:${c.id}`;
       case "session": return "session";
     }
   };
   const detailPanelArtifactLabel = (c: DetailPanelContent): string => {
     switch (c.kind) {
-      case "action-log": return c.entry.title;
       case "article": return c.article.title;
       case "article-link": return c.link.title;
-      case "order": return `Order ${c.order.orderId} · ${c.order.itemName}`;
+      case "registry": return slideOverEntry(c.caseKey, c.panel)?.title(c) ?? c.panel;
       case "lucas": return LUCAS_THOMAS_PANEL_TITLES[c.panel].title;
       case "lucas-memory": return "Experience Memory";
       case "lucas-instruction": return c.text;
       case "copilot-result": return c.text;
-      case "marcus-copilot": return c.text;
       case "tom-call": return TOM_LEWIS_CALL_PANEL_TITLES[c.panel].title;
       case "lucas-order": return `Order ${LUCAS_THOMAS_ORDER_DETAILS[c.orderId].item}`;
-      case "transactions": return "Transactions";
       case "session": return "Session Details";
     }
   };
@@ -760,6 +729,8 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
       ? selectedDetailPanelContent.link ?? `instruction:copilot:${encodeURIComponent(selectedDetailPanelContent.text)}:${encodeURIComponent(selectedDetailPanelContent.time)}`
       : selectedDetailPanelContent?.kind === "tom-call"
       ? selectedDetailPanelContent.panel
+      : selectedDetailPanelContent?.kind === "registry"
+      ? selectedDetailPanelContent.link ?? selectedDetailPanelContent.panel
       : undefined;
   const panelArtifacts = activeInteractionId ? panelArtifactsByInteraction[activeInteractionId] ?? [] : [];
   const reopenPanelArtifact = (id: string) => {
@@ -819,26 +790,7 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
   const openDetailPanelContent = (next: DetailPanelContent) => {
     setSelectedDetailPanelContent((current) => {
       if (!current) return next;
-      if (current.kind === "action-log" && next.kind === "action-log" && current.entry.id === next.entry.id) {
-        return null;
-      }
       if (current.kind === "article" && next.kind === "article" && current.article.id === next.article.id) {
-        return null;
-      }
-      // Per explicit request ("clicking Marcus Webb when Marcus Webb is
-      // open should close the panel — same with the order link"), this
-      // gets the same toggle-off treatment as action-log/article above.
-      // ("customer" used to be handled here too, until a later explicit
-      // request moved it off this shared floating panel entirely onto the
-      // docked `CustomerInformationSidePanel` instead — see
-      // `focusCustomerPanelTab`'s own doc comment.)
-      if (current.kind === "order" && next.kind === "order" && current.order.orderId === next.order.orderId) {
-        return null;
-      }
-      if (current.kind === "transactions" && next.kind === "transactions" && current.id === next.id) {
-        return null;
-      }
-      if (current.kind === "marcus-copilot" && next.kind === "marcus-copilot" && current.id === next.id) {
         return null;
       }
       // Any link whose panel is already open closes it (toggle), whatever the panel kind.
@@ -889,9 +841,8 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
     hasBreachedSlaAssignment, activeChannelAwaitingSeverity, activeChannelHoldSeverity, showSettings, setShowSettings,
     showAllContacts, setShowAllContacts, selectedAllContactsRecord, setSelectedAllContactsRecord, ALL_CONTACTS_TABS,
     allContactsTab, setAllContactsTab, leftNavPage, setLeftNavPage, windowWidth, setWindowWidth, notifications,
-    setNotifications, agentStatus, setAgentStatus, marcusWebbPhotoExpanded, setMarcusWebbPhotoExpanded, hideAiActions,
-    setHideAiActions, dismissInteractionRef, handleCopilotAsk, copilotResultTimer, marcusCopilotRequests,
-    setMarcusCopilotRequests, marcusCopilotRequestsRef, handleMarcusCopilotAsk, lucasCallConfirmRef,
+    setNotifications, agentStatus, setAgentStatus, hideAiActions,
+    setHideAiActions, dismissInteractionRef, handleCopilotAsk, copilotResultTimer, lucasCallConfirmRef,
     LUCAS_THOMAS_PHONE, handleLucasCallRequest, launchLucasCall, handleLucasApprovalDecision, scenarioReactions,
     showWelcomeModal, setShowWelcomeModal, statusSinceTick, setStatusSinceTick, appMenuOpen, setAppMenuOpen,
     appearance, updateAppearance, darkMode, handleDarkModeToggle, appDisplayName, logoSrc, appMenuGroups, panelOpen,

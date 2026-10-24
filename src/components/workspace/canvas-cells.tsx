@@ -4,12 +4,9 @@
 // Panel mode has no canvas: Contact Details' Overview mounts the same
 // reference cells (`useReferenceCells`).
 import { VoiceWrapUpCard } from "@/contact-handling/VoiceWrapUpCard";
-import { HostSlot } from "@/contact-handling/portal-hosts";
-import { MARCUS_WEBB_ID } from "@/contact-handling/scenario-cases";
 import { useActiveContactSummary, useActiveJourney, useReferenceAccordion } from "@/contact-handling/reference-cards";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import type { CanvasCell } from "@/contact-handling/canvas-registry";
-import type { Workspace } from "@/contact-handling/workspace/controller/useWorkspaceController";
 import { CustomerInfoCard } from "@/components/ai-cards/CustomerInfoCard";
 import { JourneySummaryCard } from "@/components/ai-cards/JourneySummaryCard";
 import { RealTimeSummaryCard } from "@/components/ai-cards/RealTimeSummaryCard";
@@ -82,18 +79,11 @@ function CustomerInfoCell() {
   );
 }
 
-function MarcusCardCell() {
-  return <HostSlot host={useWorkspace().marcusCardHost} />;
-}
-
 function VoiceWrapUpCell() {
   const { activeInteraction, activeWrapUpThread, outcomeConfigFor } = useWorkspace();
   if (!activeInteraction || !activeWrapUpThread) return null;
   return <VoiceWrapUpCard outcome={outcomeConfigFor(activeInteraction, activeWrapUpThread, "inline")} />;
 }
-
-/** A case with its own scripted card (Marcus Webb's). */
-const hasCustomCaseCard = (ws: Workspace) => !!ws.activeInteraction && ws.scenarioKeyOf(ws.activeInteraction.id) === MARCUS_WEBB_ID;
 
 export const DEFAULT_CANVAS_CELLS: readonly CanvasCell[] = [
   // Reference: what the agent consults. The agent opens any number; the AI opens one at a time (reference-cards.ts).
@@ -108,8 +98,7 @@ export const DEFAULT_CANVAS_CELLS: readonly CanvasCell[] = [
     applies: ({ referenceCardProps: p }) => !!p && (hasCustomerInfo(p) || !!p.onLinkCustomer),
   },
   // Action: what the agent must do now. (The Next Best Action isn't a cell: it surfaces in the
-  // conversation as a row on a pause or the agent's request, next-best-action.ts.)
-  { id: "marcus-card", region: "action", order: 20, component: MarcusCardCell, applies: hasCustomCaseCard },
+  // conversation as a row on a pause or the agent's request, next-best-action.ts; a scripted case's decisions too.)
   { id: "conversation", region: "action", order: 30 },
   { id: "voice-wrap-up", region: "action", order: 40, component: VoiceWrapUpCell, applies: (ws) => !!ws.activeWrapUpThread },
 ];

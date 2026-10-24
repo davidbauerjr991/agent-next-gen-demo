@@ -227,11 +227,11 @@ describe("backfill", () => {
     expect(rec.events("incoming")).toEqual([]);
   });
 
-  it("voice: Marcus's whole call is backfilled as utterances; nothing plays live", async () => {
+  it("voice: Marcus's call so far is backfilled as utterances; nothing more is said live until the agent decides", async () => {
     const id = await play(MARCUS_WEBB_SCRIPT);
     const { utterances: lines } = await provider.getTranscript(id);
     expect(lines.map((u) => [u.speaker.role, u.text])).toEqual(
-      MARCUS_WEBB_SCRIPT.steps.map((s) => (s.kind === "say" ? [s.speaker, s.text] : [])),
+      MARCUS_WEBB_SCRIPT.steps.filter((s) => s.at < 0 && s.kind === "say").map((s) => (s.kind === "say" ? [s.speaker, s.text] : [])),
     );
     expect(lines[0].speaker.displayName).toBe("Cognigy AI Agent");
     await advance(60_000);
@@ -589,6 +589,19 @@ describe("a guide step's Next Best Action (P-SHRINK)", () => {
     await answerTurn(other, { outcome: "used", alternative: 1 });
     await advance(5);
     expect(botLines(other)).toEqual(["20% off"]);
+  });
+
+  it("Marcus's photo follow-up (nothing starts it in the UI): flagging the account escalates the case", async () => {
+    const id = await play(MARCUS_WEBB_SCRIPT);
+    await advance(1500);
+    await answerTurn(id, { outcome: "dismissed" });
+    await provider.respondToRequest(id, { value: "photo-follow-up" });
+    await advance(5);
+    expect(currentMessages(id).map((m) => m.text)).toContain("The customer provided the attached photo.");
+    await answerTurn(id, { outcome: "used", alternative: 1, note: "Too many claims" });
+    await advance(3100);
+    expect(currentMessages(id).map((m) => m.text)).toContain('Status updated to "Escalated"');
+    expect(latest(id)?.caseStatus).toBe("Escalated");
   });
 
   it("taking over withdraws it: the takeover steps play, and there's nothing left to answer", async () => {

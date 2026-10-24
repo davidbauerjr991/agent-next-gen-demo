@@ -17,15 +17,10 @@ import {
   LucasThomasProductPanelBody,
   LucasThomasPurchaseHistoryPanelBody,
   LucasThomasShippingPanelBody,
-  MarcusWebbCopilotPanelBody,
   TOM_LEWIS_CALL_PANEL_TITLES,
   TomLewisCallPanelBody,
 } from "@/components/agent-next-gen-lucas-thomas-panels";
-import {
-  MarcusWebbActionDetailPanelBody,
-  MarcusWebbOrderDetailPanelBody,
-  MarcusWebbTransactionsDetailPanelBody,
-} from "@/components/agent-next-gen-marcus-webb-next-best-action-card";
+import { slideOverEntry } from "@/contact-handling/slide-over-registry";
 
 /** The interior slide-over's header and body for the last selected content
  *  (`lastDetailPanelContent`, so it keeps showing through the close), shared
@@ -42,44 +37,39 @@ export interface DetailSlideOverParts {
 export function useDetailSlideOverParts(): DetailSlideOverParts {
   const { channelPreviewMeta, lastDetailPanelContent: content, sessionDetailsTabContent, setSelectedDetailPanelContent } =
     useWorkspace();
+  const registered = content?.kind === "registry" ? slideOverEntry(content.caseKey, content.panel) : undefined;
   const headerTitle =
     content?.kind === "session"
       ? "Session Details"
-      : content?.kind === "action-log"
-      ? content.entry.title
+      : content?.kind === "registry"
+      ? registered?.title(content)
       : content?.kind === "article"
         ? content.article.title
         : content?.kind === "article-link"
           ? content.link.title
-          : content?.kind === "order"
-            ? content.order.itemName
             : content?.kind === "lucas"
             ? LUCAS_THOMAS_PANEL_TITLES[content.panel].title
             : content?.kind === "tom-call"
             ? TOM_LEWIS_CALL_PANEL_TITLES[content.panel].title
             : content?.kind === "lucas-memory"
             ? "Lucas Thomas"
-            : content?.kind === "lucas-instruction" || content?.kind === "marcus-copilot" || content?.kind === "copilot-result"
+            : content?.kind === "lucas-instruction" || content?.kind === "copilot-result"
             ? content.text
             : content?.kind === "lucas-order"
             ? LUCAS_THOMAS_ORDER_DETAILS[content.orderId].item
-            : content?.kind === "transactions"
-              ? content.note
               : undefined;
   const headerSubhead =
     content?.kind === "session"
       ? channelPreviewMeta?.label
-      : content?.kind === "action-log"
-      ? content.entry.timestamp
-      : content?.kind === "transactions"
-        ? content.timestamp
+      : content?.kind === "registry"
+        ? registered?.subhead?.(content)
         : content?.kind === "lucas"
         ? LUCAS_THOMAS_PANEL_TITLES[content.panel].subhead
         : content?.kind === "tom-call"
         ? TOM_LEWIS_CALL_PANEL_TITLES[content.panel].subhead
         : content?.kind === "lucas-memory"
         ? "Experience Memory"
-        : content?.kind === "lucas-instruction" || content?.kind === "marcus-copilot" || content?.kind === "copilot-result"
+        : content?.kind === "lucas-instruction" || content?.kind === "copilot-result"
         ? `${content.time} · John Smith`
         : content?.kind === "lucas-order"
         ? `${LUCAS_THOMAS_ORDER_DETAILS[content.orderId].orderId} · ${LUCAS_THOMAS_ORDER_DETAILS[content.orderId].ordered}`
@@ -98,7 +88,7 @@ export function useDetailSlideOverParts(): DetailSlideOverParts {
   const body = (
     <>
       {content?.kind === "session" && <div data-slot="session-slide-over">{sessionDetailsTabContent.body}</div>}
-      {content?.kind === "action-log" && <MarcusWebbActionDetailPanelBody entry={content.entry} />}
+      {content?.kind === "registry" && registered && <registered.Body request={content} />}
       {content?.kind === "article" && (
         <KnowledgeArticleDetailPanelBody
           data={content.article}
@@ -113,7 +103,6 @@ export function useDetailSlideOverParts(): DetailSlideOverParts {
         />
       )}
       {content?.kind === "tom-call" && <TomLewisCallPanelBody panel={content.panel} />}
-      {content?.kind === "marcus-copilot" && <MarcusWebbCopilotPanelBody text={content.text} time={content.time} />}
       {content?.kind === "lucas-instruction" && (
         <LucasThomasInstructionPanelBody decision={content.decision} text={content.text} time={content.time} />
       )}
@@ -132,15 +121,6 @@ export function useDetailSlideOverParts(): DetailSlideOverParts {
       )}
       {content?.kind === "lucas" && content.panel === "article-pay-3-2" && <LucasThomasArticlePanelBody />}
       {content?.kind === "lucas" && content.panel === "payment-link" && <LucasThomasPaymentLinkPanelBody />}
-      {content?.kind === "order" && <MarcusWebbOrderDetailPanelBody order={content.order} />}
-      {content?.kind === "transactions" && (
-        <MarcusWebbTransactionsDetailPanelBody
-          note={content.note}
-          timestamp={content.timestamp}
-          date={content.date}
-          showFullTransactions={content.showFullTransactions}
-        />
-      )}
     </>
   );
   return { headerTitle, headerSubhead, onBack, footer, body };
