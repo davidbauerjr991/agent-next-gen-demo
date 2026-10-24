@@ -9,6 +9,9 @@ const PORT = 5199;
 export default defineConfig({
   testDir: "e2e",
   timeout: 60_000,
+  // The full suite passes at 2 workers on an 8-core machine; more starves the
+  // dev server and the heavy specs time out.
+  workers: 2,
   use: {
     baseURL: `http://localhost:${PORT}/agent-next-gen-demo/`,
     channel: "chrome",

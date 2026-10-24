@@ -12,6 +12,9 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.{ts,tsx}"],
+    // The full run is green at 4 workers; the default (cores − 1) times out the
+    // heavy workspace files at 30s on an 8-core machine.
+    maxWorkers: 4,
     // lyra-ui is live source from ../lyra-ui, whose own node_modules has a
     // second React; tests that render whole pages need the app's one copy
     // (the dev server's dependency prebundling does this for the app).
