@@ -3,6 +3,7 @@
 import React from "react";
 import { Accordion, Badge, type AccordionItem, type BadgeColor } from "@nicecxone/lyra-ui";
 import { Sparkles, AlertTriangle, Check, CircleDot, Clock, MessageCircle, MousePointerClick, PackageCheck, Phone } from "lucide-react";
+import { Field } from "@/components/workspace/slide-over-field";
 
 export type LucasThomasPanelKey = "product" | "payments" | "payment-link" | "article-pay-3-2" | "purchase-history" | "fraud-screening" | "payment-preferences" | "ai-attempts" | "shipping-check";
 
@@ -17,15 +18,6 @@ export const LUCAS_THOMAS_PANEL_TITLES: Record<LucasThomasPanelKey, { title: str
   "ai-attempts": { title: "What the AI agent tried", subhead: "Checkout AI Agent · today" },
   "article-pay-3-2": { title: "PAY-3.2 · Launch price holds", subhead: "Knowledge article" },
 };
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <p className="lyra-body-sm-emphasis text-lyra-fg-default">{label}</p>
-      <div className="lyra-body-md text-lyra-fg-default">{children}</div>
-    </div>
-  );
-}
 
 export function LucasThomasProductPanelBody() {
   return (

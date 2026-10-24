@@ -330,6 +330,12 @@ describe("validateScenario catches", () => {
     const sets = tom();
     sets.branches!.void.steps[0] = { ...sets.branches!.void.steps[0], sets: { caseStatus: 5 as unknown as string } } as ScenarioScript["steps"][number];
     expect(problems(sets)).toContain("an event sets a caseStatus and/or a disposition");
+    const nulled = tom();
+    nulled.branches!.void.steps[0] = { ...nulled.branches!.void.steps[0], sets: null } as unknown as ScenarioScript["steps"][number];
+    expect(problems(nulled)).toContain("an event sets a caseStatus and/or a disposition");
+    const arrayed = tom();
+    arrayed.branches!.void.steps[0] = { ...arrayed.branches!.void.steps[0], sets: [] } as unknown as ScenarioScript["steps"][number];
+    expect(problems(arrayed)).toContain("an event sets a caseStatus and/or a disposition");
   });
 
   it("a placeholder that isn't one of the branch's inputs", () => {

@@ -396,7 +396,6 @@ export function NavCardItem({
                     // Per explicit follow-up request ("remove the ability to
                     // hang up from the interactionNavItem overall") — "hide,
                     // don't destroy," same pattern as
-                    // `MARCUS_WEBB_AUTO_DISMISS_ON_CLOSE`/
                     // `SHOW_APPROVE_PROCESSING_STEPS` elsewhere in this file:
                     // `SHOW_END_CALL_IN_INTERACTION_NAV_ROWS` (defined near
                     // those other flags) gates the whole computed handler

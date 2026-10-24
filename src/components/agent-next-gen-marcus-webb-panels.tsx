@@ -8,6 +8,8 @@ import { Accordion, Badge, Table, TableBody, TableCell, TableHead, TableHeader, 
 import { AlertTriangle, Check, CheckCircle2, CircleDot, Clock, PackageCheck, Phone, Sparkles } from "lucide-react";
 import { KnowledgeArticleSummaryRow, type KnowledgeArticleCardData } from "@/components/agent-next-gen-knowledge-article-card";
 import type { SlideOverRequest, SlideOverTable } from "@/contact-handling/slide-over-registry";
+import { Field } from "@/components/workspace/slide-over-field";
+import { MARCUS_WEBB_ID } from "@/contact-handling/scenario-cases";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -159,15 +161,6 @@ const COPILOT_CHIPS: Record<string, string> = {
 };
 
 // ── Bodies ───────────────────────────────────────────────────────────────
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <p className="lyra-body-sm-emphasis text-lyra-fg-default">{label}</p>
-      <div className="lyra-body-md text-lyra-fg-default">{children}</div>
-    </div>
-  );
-}
 
 function OrderBody() {
   const order = MARCUS_WEBB_ORDER;
@@ -330,7 +323,7 @@ function ActionDetailBody({ request }: { request: SlideOverRequest }) {
 const TIME = ({ children }: { children: React.ReactNode }) => <span className="lyra-body-sm text-lyra-fg-secondary">{children}</span>;
 
 /** Experience Memory for Marcus Webb (refund case): the same accordion layout as Lucas's, with his own events. */
-export function MarcusWebbMemoryPanelBody({ onOpenOrder, focus = "refund-escalated" }: { onOpenOrder?: () => void; focus?: string }) {
+function MarcusWebbMemoryPanelBody({ onOpenOrder, focus = "refund-escalated" }: { onOpenOrder?: () => void; focus?: string }) {
   const [openIds, setOpenIds] = React.useState<string[]>([focus]);
   React.useEffect(() => setOpenIds([focus]), [focus]);
   const items: AccordionItem[] = [
@@ -407,7 +400,7 @@ export function MarcusWebbMemoryPanelBody({ onOpenOrder, focus = "refund-escalat
       <div className="flex flex-col gap-2">
         <span className="flex items-center gap-2 lyra-body-md-emphasis text-lyra-fg-default">
           <CircleDot className="h-4 w-4 text-lyra-accent-purple-strong" strokeWidth={1.5} aria-hidden="true" />
-          Purchases
+          {t("Purchases")}
         </span>
         <ul className="divide-y divide-lyra-border-subtle overflow-hidden rounded-lyra-md border border-lyra-border-subtle">
           <li className="flex items-baseline justify-between gap-3 bg-lyra-accent-purple-soft px-3 py-2.5">
@@ -433,10 +426,22 @@ export function MarcusWebbMemoryPanelBody({ onOpenOrder, focus = "refund-escalat
 
 const copilotTitle = (r: SlideOverRequest) => r.text ?? COPILOT_CHIPS[r.panel] ?? t("Copilot result");
 
+function MemoryEntryBody({ request }: { request: SlideOverRequest }) {
+  const { openDetailPanelContent } = useWorkspace();
+  return (
+    <MarcusWebbMemoryPanelBody
+      focus={request.focus}
+      onOpenOrder={() => openDetailPanelContent({ kind: "registry", caseKey: MARCUS_WEBB_ID, panel: "order", link: "order" })}
+    />
+  );
+}
+
 /** Marcus's panel keys: the order, the Copilot chips and questions (`instruction:` rows), and each decision's
  *  work-item row (`action:<branch>`). */
 export const MARCUS_WEBB_SLIDE_OVERS: SlideOverTable = {
   order: { title: () => MARCUS_WEBB_ORDER.itemName, Body: OrderBody },
+  // The Experience Memory tab's body (docked, not a slide-over): `request.focus` is the event to expand.
+  memory: { title: () => t("Experience Memory"), Body: MemoryEntryBody },
   ...Object.fromEntries(Object.keys(COPILOT_CHIPS).map((key) => [key, { title: copilotTitle, subhead: () => t("John Smith"), Body: CopilotResultBody }])),
   "instruction:": { title: copilotTitle, subhead: (r) => (r.time ? t("{time} · John Smith", { time: r.time }) : undefined), Body: CopilotResultBody },
   "action:": { title: (r) => DECISIONS[r.panel.slice("action:".length)]?.title ?? "", subhead: (r) => r.time, Body: ActionDetailBody },

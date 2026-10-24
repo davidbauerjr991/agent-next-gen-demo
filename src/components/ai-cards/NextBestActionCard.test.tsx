@@ -90,6 +90,25 @@ describe("a Do suggestion's note", () => {
     click(button("Run it")[0]);
     expect(onUse).toHaveBeenCalledWith(undefined);
   });
+
+  it("an optional note left blank (or spaces) is passed as none", () => {
+    const onUse = vi.fn();
+    const onUseAlternative = vi.fn();
+    const optional: NextBestActionSuggestion = {
+      ...SUGGESTION,
+      note: { label: "Credit amount", placeholder: "200", kind: "amount" },
+      alt: [{ type: "do", text: "Reject the refund", note: { label: "Reason", placeholder: "Why not?" } }],
+    };
+    render(<NextBestActionCard suggestion={optional} onUse={onUse} onUseAlternative={onUseAlternative} />);
+    type(host.querySelector<HTMLInputElement>("input[placeholder='200']")!, "  ");
+    click(button("Run it")[0]);
+    expect(onUse).toHaveBeenCalledWith(undefined);
+    click(button("Use")[0]);
+    const field = host.querySelector("[data-slot=nba-alternative-note]")!;
+    type(field.querySelector<HTMLTextAreaElement>("textarea")!, "  ");
+    click([...field.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Run it")!);
+    expect(onUseAlternative).toHaveBeenCalledWith(0, undefined);
+  });
 });
 
 describe("the Used row", () => {

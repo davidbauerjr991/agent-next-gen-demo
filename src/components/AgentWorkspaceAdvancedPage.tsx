@@ -61,9 +61,6 @@ export function AgentWorkspaceAdvancedPage({
     {/* A save-address offer on a card that isn't a known customer also opens the Link flow (Bug 3). */}
     <SaveAddressLinkContext.Provider value={handleLinkCustomerFromPreview}>
     <div className="flex flex-col h-screen bg-lyra-bg-surface-shell overflow-hidden animate-in fade-in-0 duration-500">
-      {/* Marcus's Next Best Action card lives in a persistent host node (moved into the transcript by a HostSlot),
-          so navigating away and back never resets its state or its running timers. Unmounted when the assignment is dismissed. */}
-
       {/* ── App Header ── */}
       <WorkspaceAppHeader />
 

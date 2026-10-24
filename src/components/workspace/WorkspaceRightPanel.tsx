@@ -23,8 +23,7 @@ import {
   MayaChenCallMemoryPanelBody,
   TomLewisCallMemoryPanelBody,
 } from "@/components/agent-next-gen-lucas-thomas-panels";
-import { MarcusWebbMemoryPanelBody } from "@/components/agent-next-gen-marcus-webb-panels";
-import { slideOverContent } from "@/contact-handling/slide-over-registry";
+import { slideOverEntry } from "@/contact-handling/slide-over-registry";
 import { cn } from "@/lib/utils";
 
 /** The right panel (P-EXTRACT C8, from the page): Contact Details, or the
@@ -465,10 +464,10 @@ export function WorkspaceRightPanel() {
                         ) : scenarioKeyOf(activeInteraction.id) === TOM_LEWIS_CALL_ID ? (
                           <TomLewisCallMemoryPanelBody />
                         ) : scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID ? (
-                          <MarcusWebbMemoryPanelBody
-                            focus={marcusMemoryFocus}
-                            onOpenOrder={() => openDetailPanelContent(slideOverContent(MARCUS_WEBB_ID, "order")!)}
-                          />
+                          (() => {
+                            const MemoryBody = slideOverEntry(MARCUS_WEBB_ID, "memory")!.Body;
+                            return <MemoryBody request={{ panel: "memory", focus: marcusMemoryFocus }} />;
+                          })()
                         ) : (
                         <LucasThomasMemoryPanelBody
                           focus={experienceMemoryFocus}

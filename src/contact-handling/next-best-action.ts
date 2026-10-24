@@ -347,8 +347,10 @@ export function useNextBestActionRow(contactId: string, rowId: string, stepId: s
   const turn = !!card?.awaitingAgent;
   const [ai] = useSettings("ai");
   const store = useWorkspaceUiStore();
-  const onUse = useCallback((note?: string) => {
+  const onUse = useCallback((typedNote?: string) => {
     if (!suggestion || !cardId || !threadKey) return;
+    // An optional note left blank is no note.
+    const note = typedNote?.trim() || undefined;
     if (suggestion.type === "do") {
       if (suggestion.link) ws.snapshotLinkHandlerFor(cardId)(suggestion.link);
       if (suggestion.note && note !== undefined) {
@@ -381,9 +383,10 @@ export function useNextBestActionRow(contactId: string, rowId: string, stepId: s
   }, [suggestion, settle, resolve, turn, ai.nbaScriptedDelayMs]);
 
   const onUseAlternative = useCallback(
-    (index: number, note?: string) => {
+    (index: number, typedNote?: string) => {
       const alternative = suggestion?.alt[index];
       if (!alternative) return;
+      const note = typedNote?.trim() || undefined;
       const typed = alternative.note && note !== undefined ? { label: alternative.note.label, value: note } : undefined;
       settle("used", alternative.text, typed);
       resolve("used", index, typed?.value);

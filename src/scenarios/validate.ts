@@ -197,7 +197,7 @@ export function validateScenario(input: unknown, options: { channel?: ChannelKin
         case "event":
           if (!isStr(step.text)) err(`${at}: event needs text`);
           if (step.by !== undefined && !isStr(step.by)) err(`${at}: an event's by is a name`);
-          if (step.sets !== undefined && (!isStr(step.sets.caseStatus ?? "-") || !isStr(step.sets.disposition ?? "-"))) {
+          if (step.sets !== undefined && (typeof step.sets !== "object" || step.sets === null || Array.isArray(step.sets) ||!isStr(step.sets.caseStatus ?? "-") || !isStr(step.sets.disposition ?? "-"))) {
             err(`${at}: an event sets a caseStatus and/or a disposition`);
           }
           break;

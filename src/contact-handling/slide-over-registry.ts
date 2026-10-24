@@ -16,6 +16,8 @@ export interface SlideOverRequest {
   text?: string;
   time?: string;
   link?: string;
+  /** The event a memory body expands first. */
+  focus?: string;
 }
 
 export interface SlideOverEntry {
