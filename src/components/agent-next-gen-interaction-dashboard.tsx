@@ -12,7 +12,6 @@ import {
   RadioGroup,
   RadioGroupItem,
   ActionIconButton,
-  Checkbox,
   Separator,
   type AgentNotification,
   type DateRange,
@@ -778,23 +777,17 @@ export function AssignmentsSortButton({
   // `options` alongside this toggle).
   direction,
   onDirectionChange,
-  showChannelChips,
-  onShowChannelChipsChange,
 }: {
   value: AssignmentSortValue;
   onValueChange: (value: AssignmentSortValue) => void;
   options?: { value: AssignmentSortValue; label: string }[];
   direction?: AssignmentSortDirection;
   onDirectionChange?: (direction: AssignmentSortDirection) => void;
-  /** P-PROFILES: the "Show channel chips" checkbox under the sort (both or neither). */
-  showChannelChips?: boolean;
-  onShowChannelChipsChange?: (show: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
   const selectedLabel = options.find((o) => o.value === value)?.label ?? "";
   // Custom is the agent's dragged order, so it has no direction (P-PROFILES).
   const showDirection = direction !== undefined && !!onDirectionChange && value !== "custom";
-  const showChips = showChannelChips !== undefined && !!onShowChannelChipsChange;
   // Channel A–Z reads its direction as A–Z / Z–A.
   const directionOptions =
     value === "channel"
@@ -827,7 +820,7 @@ export function AssignmentsSortButton({
                   // See this component's own doc comment above — only
                   // auto-closes when there's no second (direction) decision
                   // to make right below this one.
-                  if (direction === undefined && !showChips) setOpen(false);
+                  if (direction === undefined) setOpen(false);
                 }}
               >
                 {options.map((option) => (
@@ -845,16 +838,6 @@ export function AssignmentsSortButton({
                       <RadioGroupItem key={option.value} value={option.value} label={option.label} />
                     ))}
                   </RadioGroup>
-                </>
-              )}
-              {showChips && (
-                <>
-                  <Separator />
-                  <Checkbox
-                    label={t("Show channel chips")}
-                    checked={showChannelChips}
-                    onCheckedChange={(c) => onShowChannelChipsChange!(c === true)}
-                  />
                 </>
               )}
             </div>
@@ -988,13 +971,8 @@ export function AssignmentsSectionCaption({
   // request.
   sortDirection,
   onSortDirectionChange,
-  showChannelChips,
-  onShowChannelChipsChange,
   hideExpandCollapseAll = false,
 }: {
-  /** Forwarded to `AssignmentsSortButton` (P-PROFILES). */
-  showChannelChips?: boolean;
-  onShowChannelChipsChange?: (show: boolean) => void;
   /** Hides the "Collapse all / Expand all" button (Settings → "Don't allow
    *  interactions to collapse"; v3 f0b13dc). */
   hideExpandCollapseAll?: boolean;
@@ -1040,8 +1018,6 @@ export function AssignmentsSectionCaption({
           options={sortOptions}
           direction={sortDirection}
           onDirectionChange={onSortDirectionChange}
-          showChannelChips={showChannelChips}
-          onShowChannelChipsChange={onShowChannelChipsChange}
         />
       </div>
     );
@@ -1099,8 +1075,6 @@ export function AssignmentsSectionCaption({
               options={sortOptions}
               direction={sortDirection}
               onDirectionChange={onSortDirectionChange}
-              showChannelChips={showChannelChips}
-              onShowChannelChipsChange={onShowChannelChipsChange}
             />
           </div>
         )}

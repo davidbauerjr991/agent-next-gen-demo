@@ -412,8 +412,12 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   const [channelsAllExpanded, setChannelsAllExpanded] = useState(true);
   const [channelsExpandedOverrideVersion, setChannelsExpandedOverrideVersion] = useState(0);
   const handleToggleAllChannelsExpanded = () => {
-    setChannelsAllExpanded((v) => !v);
+    const next = !channelsAllExpanded;
+    setChannelsAllExpanded(next);
     setChannelsExpandedOverrideVersion((v) => v + 1);
+    // Collapsed keeps only the active card open (NavCardItem), so the mirror
+    // below must not read the pre-click states as "every card agrees".
+    setChannelsExpandedById(Object.fromEntries(interactions.map((i) => [i.id, next || i.id === activeInteractionId])));
   };
   // Settings → Assignments (P-SETTINGS, ported from v3 f0b13dc): the
   // left-nav layout toggles. Turning "Don't allow interactions to collapse"

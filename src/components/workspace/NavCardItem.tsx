@@ -719,9 +719,15 @@ export function NavCardItem({
                     // near its declaration for why this is a one-shot
                     // `{ expanded, version }` override object rather than a
                     // plain controlled boolean.
+                    // While collapsed (after "Collapse all") only the active
+                    // card stays open: the version's low bit flips when this
+                    // card gains or loses the active slot, which re-applies
+                    // the override. Expanded keeps the plain even version.
                     channelsExpandedOverride={{
-                      expanded: channelsAllExpanded,
-                      version: channelsExpandedOverrideVersion,
+                      expanded: channelsAllExpanded || interaction.id === activeInteractionId,
+                      version:
+                        channelsExpandedOverrideVersion * 2 +
+                        (!channelsAllExpanded && interaction.id === activeInteractionId ? 1 : 0),
                     }}
                     // Mirrors this card's own expanded state up into
                     // `channelsExpandedById` — see that state's own doc

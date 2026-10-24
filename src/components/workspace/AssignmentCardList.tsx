@@ -5,9 +5,9 @@
 import * as React from "react";
 import type { ListReorderItemProps } from "@nicecxone/lyra-ui";
 import { AssignmentsSectionCaption } from "@/components/agent-next-gen-interaction-dashboard";
-import { useChannelChipsShown, type AssignmentsMount } from "@/contact-handling/useAssignmentCards";
+import type { AssignmentsMount } from "@/contact-handling/useAssignmentCards";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
-import { useSettings, type AssignmentSortMode } from "@/settings";
+import type { AssignmentSortMode } from "@/settings";
 import { ADVANCED_ASSIGNMENT_SORT_OPTIONS } from "./workspace-constants";
 
 export function DraggableAssignment({ props, children }: { props: ListReorderItemProps; children: React.ReactNode }) {
@@ -23,14 +23,12 @@ export function DraggableAssignment({ props, children }: { props: ListReorderIte
 }
 
 /** "Assignments (N)" with Collapse / Expand all and the sort popover (its
- *  sort modes, direction and the "Show channel chips" checkbox). */
+ *  sort modes and direction). */
 export function AssignmentsCaption({ expanded, mount }: { expanded: boolean; mount: AssignmentsMount }) {
   const {
     assignmentSort, assignmentSortDirection, channelsAllExpanded, handleToggleAllChannelsExpanded, interactions,
     noInteractionCollapse, setAssignmentSort, setAssignmentSortDirection,
   } = useWorkspace();
-  const chipsShown = useChannelChipsShown(mount);
-  const [, updateAssignments] = useSettings("assignments");
   return (
     <AssignmentsSectionCaption
       expanded={expanded}
@@ -42,8 +40,6 @@ export function AssignmentsCaption({ expanded, mount }: { expanded: boolean; mou
       sortOptions={ADVANCED_ASSIGNMENT_SORT_OPTIONS}
       sortDirection={assignmentSortDirection}
       onSortDirectionChange={setAssignmentSortDirection}
-      showChannelChips={chipsShown}
-      onShowChannelChipsChange={(show) => updateAssignments({ channelChips: show ? "show" : "hide" })}
       allExpanded={channelsAllExpanded}
       onToggleAllExpanded={handleToggleAllChannelsExpanded}
       hideExpandCollapseAll={noInteractionCollapse}

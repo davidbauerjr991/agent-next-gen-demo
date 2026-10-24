@@ -173,3 +173,39 @@ describe("channel chips", () => {
     expect(chips()).toHaveLength(1);
   });
 });
+
+describe("sort popover", () => {
+  it("offers sort modes and direction, no channel chips control (that stays a setting)", async () => {
+    await threeChats();
+    await h.click(h.container.querySelector('aside [aria-label^="Sort by"]')!);
+    const text = document.body.textContent ?? "";
+    expect(text).toContain("Custom");
+    expect(text).not.toContain("Show channel chips");
+  });
+});
+
+describe("collapsed list keeps only the active card open", () => {
+  const labeled = (...labels: string[]) =>
+    h.container.querySelectorAll(labels.flatMap((l) => [`aside [title="${l}"]`, `aside [aria-label="${l}"]`]).join(", "));
+  const openCount = () => labeled("Collapse channels").length;
+  const closedCount = () => labeled("Expand channels").length;
+  const bulk = () => h.container.querySelector('aside [aria-label="Collapse all"], aside [aria-label="Expand all"]')!;
+
+  it("Collapse all leaves the active card open; selecting another opens it and closes the previous; Expand all opens everything", async () => {
+    await threeChats();
+    await h.click(h.navCard("Cy Park"));
+    await h.click(bulk());
+    expect(openCount()).toBe(1);
+    expect(closedCount()).toBe(2);
+
+    await h.click(h.navCard("Ana Ruiz"));
+    expect(openCount()).toBe(1);
+    expect(closedCount()).toBe(2);
+    const open = () => labeled("Collapse channels")[0].closest("[data-slot=assignment-card]");
+    expect(open()?.textContent).toContain("Ana Ruiz");
+
+    await h.click(bulk());
+    expect(openCount()).toBe(3);
+    expect(closedCount()).toBe(0);
+  });
+});
