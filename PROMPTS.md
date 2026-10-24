@@ -12,7 +12,7 @@ Default split: **Plan: Opus · Implement: Sonnet.** Steps marked **Implement: Op
 
 Execution order below differs from PLAN.md's numbering where it reduces risk. Step labels reference PLAN.md's numbering.
 
-**Execution order** (PLAN.md "Effort and order", 2026-10-18): … P-EXTRACT → P-POLISH → P-CANVAS → P-PROFILES → P-SHRINK → P-CARDS → P0.5d.3 → lyra timers → P0.6 → Phase 2 §0–5 → Phase 3 → *milestone* → P-ADMIN → P-LYRA-RTL → P-I18N → P0.9 → P-STREAM → P-ADMIN-2 → P-EMPLOYEES → P-COMPLIANCE → P-REPORTING → P-QM → Phase 1 → Phase 2 §6–7 → Phase 4 → the remaining verticals → Phase 5 + P-CONFIG-ASSIST → Phase 6 → Phase 7 → P-CAMPAIGNS → P-BILLING → P-MAPPINGS → P-ADAPTER → P-IMPORT → P-STUDIO → P-EMBED.
+**Execution order** (PLAN.md "Effort and order", 2026-10-18): … P-EXTRACT → P-POLISH → P-CANVAS → P-PROFILES → P-SHRINK → P-CARDS → P0.5d.3 → P-TRANSFER → lyra timers → P0.6 → Phase 2 §0–5 → P-TRANSLATE → Phase 3 → *milestone* → P-ADMIN → P-LYRA-RTL → P-I18N → P0.9 → P-HOME → P-STREAM → P-ADMIN-2 → P-EMPLOYEES → P-COMPLIANCE → P-REPORTING → P-QM → Phase 1 → Phase 2 §6–7 → Phase 4 → the remaining verticals → Phase 5 + P-CONFIG-ASSIST → Phase 6 → Phase 7 → P-CAMPAIGNS → P-BILLING → P-MAPPINGS → P-ADAPTER → P-IMPORT → P-STUDIO → P-EMBED.
 
 ---
 
@@ -200,6 +200,10 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 5d.3, the rest o
 For every visual change in either profile, give a before/after and wait for my approval. Tests per flag; Playwright for anything that depends on layout. List browser checks for me. Don't write code yet.
 ```
 
+### P-TRANSFER — Consult / Transfer in the call controls   (Plan: Opus · Implement: Opus) — after P0.5d.3, before the lyra timers change
+
+Prompt to follow.
+
 ### P0.6 — Customer console route   (Plan: Opus · Implement: Sonnet)
 ```
 Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 6. In plan mode, propose a #/customer-console route (same Vite app, lyra-ui styling) built on the sim protocol's SimCustomerAction messages (startInbound, message, typing, hangUp), replacing window.__simCustomer. Solve engine discovery across windows: the engine lives in the agent window and is session-scoped by sessionId, so the console needs a way to find active sessions (e.g. an announce/hello message) and pick one. The console lists that session's interactions, can attach to one, or start an inbound one "as <entity>" or "as unknown caller" (free phone/name entry), carrying identifiers and pre-contact context. The console must not render inside ProviderRoot's agent providers and the agent UI must not know it exists. No chat/voice UI yet — shell and handshake only. Done = the console in a second window sees the agent's session and starting an inbound contact produces an incoming offer in the agent app; list browser checks for me. Don't write code yet.
@@ -240,6 +244,10 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 2, step 4. In plan mode,
 ```
 Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 2, step 5. Propose and implement onCustomerUtterance / onAgentUtterance hooks in src/provider-context/ derived from message and transcript events (final utterances only, channel-agnostic), with tests. Nothing else listens yet.
 ```
+
+### P-TRANSLATE — Conversation translation   (Plan: Opus · Implement: Opus) — after Phase 2 §0–5, before Phase 3
+
+Prompt to follow.
 
 ---
 
@@ -307,6 +315,11 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 9.2; 9.1 is comm
 ### P0.9.3 — Agent console window   (Plan: Opus · Implement: Sonnet) — after P0.6
 ```
 Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 9.3. In plan mode, propose #/agent-console?as=<agentId>: a second agent desktop (same Vite app) attached to the agent window's sim session through the P0.6 discovery handshake, acting as that directory agent or supervisor. A transfer rings there and accepting removes it here; a consult or merge shows the participants in both windows; a hand raise opens there as the supervisor with the context card. Done = the two-window demo runs end to end; list browser checks for me. Don't write code yet.
+```
+
+### P-HOME — Activity feed, assignment views, kinds, toasts   (Plan: Opus · Implement: Opus) — after P0.9, before P-STREAM
+```
+Read CLAUDE.md, PLAN.md (Domain 'Assignment kinds are a registry', Settings 'Assignment views', 'Home is the Activity feed', 'Toasts for other assignments') and PROGRESS.md; open docs/activity-home-wireframe.html. In plan mode, propose: (1) the kinds registry (`src/contact-handling/assignment-kinds.ts`: row, cells, outcome shape per kind) and the seeded schedule source; (2) the view registry, `assignments.views` in the schema, the Assignments header switcher with badges, per-view sort/chips/order; (3) the Activity feed as the `activity` section key in `home.sections`, grouped Now/Today/This week/Completed, plus `home.layout` in the schema and Settings → Home — oneColumn renders it as a container row in today's Home-dashboard section loop, twoColumn renders the welcome header, feed left and the other enabled sections stacked right; the Reminders and supervisor/sales cards as new section keys; the AI-first built-in profile gets twoColumn; Queues, Performance and Productivity are not touched; (3b) `workspace.persona` and the per-persona seeds and section sets; (4) rows opening as active assignments with per-kind cells and outcome forms; (5) Contact History removed from Home, reachable from views and Customers; (5b) the toast layer, `notifications.toasts`, and the seeded Lucas-during-Maya moment; (6) Playwright per the PLAN step. The page file doesn't grow. Don't write code yet.
 ```
 
 ### P-STREAM — Legs as one stream   (Plan: Opus · Implement: Opus) — after P0.9

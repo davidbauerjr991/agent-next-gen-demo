@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Activity Home wireframe</title>
+<style>
+  :root { --ink:#1a1d23; --muted:#5c6470; --line:#d9dde3; --bg:#f4f6f9; --blue:#2f6fdb; --blue-bg:#eaf1fd; --purple:#6b4fd8; --purple-bg:#efeafb; --amber-bg:#fff3e0; --amber:#9a5b00; --green-bg:#e4f3e8; --green:#1e6b33; --red:#c43a3a; --teal-bg:#dff3f1; --teal:#0f6b63; --pink-bg:#fde8ef; --pink:#9b2c4f; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif; color:var(--ink); background:var(--bg); font-size:13px; line-height:1.4; }
+  .top { height:48px; display:flex; align-items:center; padding:0 16px; gap:12px; background:#fff; border-bottom:1px solid var(--line); }
+  .top .brand { font-weight:700; }
+  .top .role { margin-left:auto; display:flex; gap:6px; align-items:center; font-size:12px; color:var(--muted); }
+  .top .role button { border:1px solid var(--line); background:#fff; border-radius:14px; padding:3px 10px; cursor:pointer; font-size:12px; }
+  .top .role button.on { background:var(--ink); color:#fff; border-color:var(--ink); }
+  .top .presence { border:1px solid var(--line); border-radius:14px; padding:3px 10px; font-size:12px; color:var(--amber); }
+  .app { display:grid; grid-template-columns:260px 1fr; height:calc(100vh - 48px); }
+  .nav { background:#fff; border-right:1px solid var(--line); display:flex; flex-direction:column; min-height:0; }
+  .nav .outbound { margin:10px; background:var(--blue); color:#fff; border-radius:8px; padding:9px; text-align:center; font-weight:600; }
+  .nav .hdr { display:flex; align-items:center; gap:6px; padding:6px 12px; font-weight:700; position:relative; }
+  .nav .hdr .dd { border:1px solid var(--line); border-radius:6px; padding:2px 8px; cursor:pointer; background:#fff; font-weight:700; }
+  .nav .hdr .count { color:var(--muted); font-weight:400; }
+  .nav .hdr .icons { margin-left:auto; color:var(--muted); font-size:12px; }
+  .menu { position:absolute; top:34px; left:12px; background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 6px 20px rgba(0,0,0,.12); width:230px; z-index:5; padding:4px; }
+  .menu div { display:flex; align-items:center; padding:6px 8px; border-radius:6px; cursor:pointer; font-weight:400; }
+  .menu div:hover { background:var(--bg); }
+  .menu div.on { background:var(--blue-bg); color:var(--blue); font-weight:600; }
+  .menu .b { margin-left:auto; background:var(--purple-bg); color:var(--purple); border-radius:10px; padding:0 7px; font-size:11px; font-weight:600; }
+  .menu .b.red { background:#fde8e8; color:var(--red); }
+  .menu .sep { border-top:1px solid var(--line); margin:4px 0; padding:0; height:0; }
+  .menu .cfg { color:var(--muted); font-size:11.5px; }
+  .cards { flex:1; overflow:auto; padding:0 10px 10px; }
+  .card { border:1px solid var(--line); border-radius:8px; padding:8px; margin-bottom:8px; cursor:pointer; background:#fff; }
+  .card.active { border-color:var(--blue); background:var(--blue-bg); }
+  .card .t { font-weight:600; display:flex; align-items:center; gap:6px; }
+  .card .m { color:var(--muted); font-size:11.5px; margin-top:3px; display:flex; gap:8px; }
+  .card .row { display:flex; align-items:center; gap:6px; margin-top:5px; font-size:11.5px; }
+  .chip { display:inline-block; border-radius:10px; padding:1px 7px; font-size:11px; font-weight:600; }
+  .k-conversation { background:var(--teal-bg); color:var(--teal); } .k-callback { background:var(--purple-bg); color:var(--purple); } .k-meeting { background:var(--blue-bg); color:var(--blue); } .k-training { background:var(--amber-bg); color:var(--amber); } .k-task { background:var(--pink-bg); color:var(--pink); } .k-coaching { background:#efeafb; color:#4a2f9a; } .k-evaluation { background:#e8eef9; color:#2b4a8a; } .k-campaign { background:#e6f4ea; color:#1e6b33; } .k-sys { background:#eceef2; color:var(--muted); }
+  .nav .foot { border-top:1px solid var(--line); padding:8px 12px; display:flex; flex-direction:column; gap:6px; }
+  .nav .foot div { padding:4px 6px; border-radius:6px; cursor:pointer; }
+  .nav .foot div.on { background:var(--blue-bg); color:var(--blue); font-weight:600; }
+  .main { padding:12px; min-width:0; overflow:auto; }
+  .page { background:#fff; border:1px solid var(--line); border-radius:10px; min-height:calc(100vh - 72px); }
+  .ph { padding:12px 16px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:10px; }
+  .ph h2 { margin:0; font-size:16px; }
+  .ph .tabs { margin-left:16px; display:flex; gap:4px; }
+  .ph .tabs span { padding:4px 10px; border-radius:6px; color:var(--muted); cursor:pointer; }
+  .ph .tabs span.on { background:var(--blue-bg); color:var(--blue); font-weight:600; }
+  .ph .right { margin-left:auto; display:flex; gap:6px; }
+  .ph .right span { border:1px solid var(--line); border-radius:6px; padding:3px 8px; font-size:12px; color:var(--muted); }
+  .feed { padding:12px 16px; }
+  .homebody { display:flex; }
+  .homebody .feed { flex:1; min-width:0; }
+  .homecol { width:280px; border-left:1px solid var(--line); padding:12px; display:flex; flex-direction:column; gap:10px; }
+  .welcome { display:flex; align-items:center; gap:14px; padding:14px 16px; border-bottom:1px solid var(--line); background:linear-gradient(90deg,#f7f9fd,#fff); }
+  .welcome .av { width:40px; height:40px; border-radius:50%; background:var(--blue); color:#fff; display:grid; place-items:center; font-weight:700; }
+  .welcome h3 { margin:0; font-size:16px; }
+  .welcome .sub { color:var(--muted); font-size:12px; margin-top:2px; }
+  .welcome .go { margin-left:auto; background:var(--green); color:#fff; border-radius:8px; padding:7px 12px; font-weight:600; }
+  .stat { display:grid; grid-template-columns:1fr auto; gap:4px 10px; font-size:12px; }
+  .stat .v { font-weight:700; text-align:right; }
+  .stat .t { color:var(--muted); font-size:11px; }
+  .q { display:flex; justify-content:space-between; font-size:12px; padding:3px 0; border-bottom:1px dashed var(--line); }
+  .q:last-child { border-bottom:0; }
+  .q .n { font-weight:700; }
+  .q .w { color:var(--muted); font-size:11px; }
+  .q .hot { color:var(--red); font-weight:700; }
+  .group { margin-bottom:14px; }
+  .group h4 { margin:0 0 6px; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .item { display:grid; grid-template-columns:70px 1fr auto; gap:10px; align-items:center; padding:9px 10px; border:1px solid var(--line); border-radius:8px; margin-bottom:6px; cursor:pointer; background:#fff; }
+  .item:hover { border-color:var(--blue); }
+  .item.live { border-left:3px solid var(--green); }
+  .item .time { color:var(--muted); font-size:12px; }
+  .item .title { font-weight:600; }
+  .item .sub { color:var(--muted); font-size:11.5px; margin-top:2px; }
+  .item .st { font-size:11.5px; color:var(--muted); text-align:right; }
+  .item.done { opacity:.6; }
+  .body { display:flex; min-height:560px; }
+  .action { flex:1; padding:14px 16px; min-width:0; }
+  .ref { width:260px; border-left:1px solid var(--line); padding:12px; display:flex; flex-direction:column; gap:8px; }
+  .rc { border:1px solid var(--line); border-radius:8px; padding:8px; }
+  .rc h5 { margin:0; font-size:12px; display:flex; justify-content:space-between; }
+  .rc p { margin:6px 0 0; color:var(--muted); font-size:11.5px; }
+  .box { border:1px solid var(--line); border-radius:8px; padding:10px; margin-bottom:10px; }
+  .box h4 { margin:0 0 6px; font-size:12.5px; }
+  .box.ai { background:var(--purple-bg); border-color:#d9d0f5; }
+  .box ul { margin:0; padding-left:16px; }
+  .box .acts { display:flex; gap:6px; margin-top:8px; }
+  .box .acts span { border:1px solid var(--line); border-radius:6px; padding:3px 9px; font-size:11.5px; background:#fff; cursor:pointer; }
+  .box .acts span.p { background:var(--blue); color:#fff; border-color:var(--blue); }
+  .sys { color:var(--muted); font-size:11.5px; text-align:center; border-top:1px dashed var(--line); border-bottom:1px dashed var(--line); padding:2px; margin:6px 0; }
+  .bubble { border-radius:12px; padding:6px 10px; max-width:70%; margin:4px 0; }
+  .bubble.cust { background:#eef0f4; } .bubble.agent { background:var(--blue-bg); margin-left:auto; }
+  .composer { border:1px solid var(--line); border-radius:10px; margin-top:12px; }
+  .composer .seg { display:flex; gap:6px; padding:6px 10px; border-bottom:1px solid var(--line); font-size:12px; }
+  .composer .seg span { border:1px solid var(--line); border-radius:6px; padding:2px 8px; color:var(--muted); }
+  .composer .seg span.on { color:var(--blue); background:var(--blue-bg); font-weight:600; }
+  .composer .field { padding:9px 10px; color:var(--muted); }
+  .outcome { border:2px solid var(--green); border-radius:10px; padding:10px; margin-top:10px; }
+  .note { margin:0 0 10px; padding:8px 10px; background:#fff; border:1px solid var(--line); border-radius:8px; color:var(--muted); font-size:12px; }
+  .note b { color:var(--blue); }
+  .empty { color:var(--muted); padding:30px; text-align:center; }
+</style>
+</head>
+<body>
+<div class="top">
+  <span class="brand">Agent Workspace</span>
+  <span style="color:var(--muted);font-size:12px">— Home as the Activity feed; assignment kinds as a registry (wireframe)</span>
+  <div class="role">Role preset: <button data-role="agent" class="on">Agent</button><button data-role="supervisor">Supervisor</button><button data-role="sales">Sales</button> <span class="presence">● Working · 00:04</span></div>
+</div>
+<div class="app">
+  <div class="nav">
+    <div class="outbound">+ New Outbound</div>
+    <div class="hdr"><span class="dd" id="viewBtn">Assignments ▾</span><span class="count" id="viewCount">(0)</span><span class="icons">⇅ ⚙</span>
+      <div class="menu" id="viewMenu" style="display:none"></div>
+    </div>
+    <div class="cards" id="cards"></div>
+    <div class="foot"><div id="homeBtn" class="on">🏠 Home</div><div>⚙ Settings</div></div>
+  </div>
+  <div class="main"><div class="page" id="page"></div></div>
+</div>
+
+<script>
+// ── Kinds registry: each kind declares its row chip, its main-column renderer and its outcome shape ──
+const KINDS = {
+  conversation: { label:"Conversation", icon:"💬", outcome:"disposition" },
+  callback:     { label:"Callback",     icon:"📞", outcome:"disposition" },
+  meeting:      { label:"Meeting",      icon:"📅", outcome:"notes + action items" },
+  training:     { label:"Training",     icon:"🎓", outcome:"completion" },
+  task:         { label:"Task",         icon:"🎫", outcome:"ticket status" },
+  coaching:     { label:"Coaching",     icon:"🧭", outcome:"coaching notes" },
+  evaluation:   { label:"Evaluation",   icon:"✅", outcome:"scorecard" },
+  campaign:     { label:"Campaign block", icon:"📣", outcome:"block summary" },
+};
+const ROLE_KINDS = {
+  agent: ["conversation","callback","meeting","training","task"],
+  supervisor: ["meeting","coaching","evaluation","conversation","task"],
+  sales: ["callback","campaign","meeting","task","conversation"],
+};
+// ── Seeded day. `when` is minutes from "now" (now = 10:30). state: offered | active | scheduled | done ──
+const ITEMS = [
+  { id:"a1", kind:"conversation", title:"Maya Chen · Voice · Returns", sub:"Active call · 00:04 · cracked water tank refund", when:-4, state:"active", source:"Inbound", customer:"Maya Chen" },
+  { id:"a2", kind:"conversation", title:"Lucas Thomas · Chat · AI Review", sub:"Checkout AI Agent requested approval", when:-1, state:"offered", source:"Escalated from virtual agent", customer:"Lucas Thomas" },
+  { id:"a3", kind:"callback", title:"Callback · Priya Shah", sub:"Requested yesterday · refund hasn't posted", when:30, state:"scheduled", source:"Customer request", customer:"Priya Shah" },
+  { id:"a4", kind:"meeting", title:"Returns team stand-up", sub:"Teams · 15 min · 6 attendees", when:90, state:"scheduled", source:"Calendar" },
+  { id:"a5", kind:"training", title:"RET-1.3 refund policy update", sub:"Module · 20 min · due Friday", when:180, state:"scheduled", source:"WFM" },
+  { id:"a6", kind:"task", title:"Ticket #4821 · subscription renewal refund", sub:"Follow up with Billing on the credit", when:240, state:"scheduled", source:"Ticket queue", customer:"Priya Shah" },
+  { id:"a7", kind:"callback", title:"Callback · Nathan Cole", sub:"Confirm access after the reset", when:1500, state:"scheduled", source:"Agent scheduled", customer:"Nathan Cole" },
+  { id:"a8", kind:"meeting", title:"1:1 with Dana (supervisor)", sub:"30 min", when:2900, state:"scheduled", source:"Calendar" },
+  { id:"a9", kind:"training", title:"WhatsApp templates · intro", sub:"Module · 25 min", when:4300, state:"scheduled", source:"WFM" },
+  { id:"d1", kind:"conversation", title:"Nathan Cole · Voice · General Support", sub:"Resolved · Account access — reset", when:-29, state:"done", customer:"Nathan Cole" },
+  { id:"d2", kind:"conversation", title:"Omar Farooq · Email · Sales", sub:"Resolved · Plan upgrade confirmation", when:-120, state:"done", customer:"Omar Farooq" },
+  // supervisor / sales extras
+  { id:"s1", roles:["supervisor"], kind:"coaching", title:"Coaching · John Smith", sub:"Review 2 calls from Thursday · 30 min", when:60, state:"scheduled", source:"QM" },
+  { id:"s2", roles:["supervisor"], kind:"evaluation", title:"Evaluate · Lucas Thomas chat (Checkout AI)", sub:"Scorecard · AI auto-score ready for review", when:20, state:"scheduled", source:"QM" },
+  { id:"s3", roles:["supervisor"], kind:"conversation", title:"Escalation · Lauren Briggs · Voice", sub:"Agent raised hand · fraud dispute", when:-2, state:"offered", source:"Escalation", customer:"Lauren Briggs" },
+  { id:"c1", roles:["sales"], kind:"campaign", title:"Campaign block · Q4 renewals · 2:00–3:30", sub:"24 contacts · cadence step 2 (voice)", when:210, state:"scheduled", source:"Campaigns" },
+  { id:"c2", roles:["sales"], kind:"callback", title:"Follow-up · Acme Corp · Omar Farooq", sub:"Quote sent Tuesday · decision due", when:45, state:"scheduled", source:"Sales cadence" },
+];
+const VIEWS = [
+  { id:"active", label:"Active", filter:i=>i.state==="active" },
+  { id:"offered", label:"Offered", filter:i=>i.state==="offered", badge:"red" },
+  { id:"scheduled", label:"Scheduled", filter:i=>i.state==="scheduled" && i.when<=600 },
+  { id:"done", label:"Completed today", filter:i=>i.state==="done" },
+  { sep:true },
+  { id:"v-chat", label:"Chat only (saved view)", filter:i=>i.kind==="conversation" && /Chat/.test(i.title) && i.state!=="done", cfg:true },
+  { id:"v-callbacks", label:"My callbacks (saved view)", filter:i=>i.kind==="callback", cfg:true },
+];
+let role="agent", view="active", opened=["a1"], current=null, menuOpen=false; // current=null → Home
+
+const fmt = m => { const t=10*60+30+m; const h=Math.floor(t/60), mm=String(t%60).padStart(2,"0"); const d=Math.floor(t/1440); const hh=((h%24)+11)%12+1, ap=(h%24)<12?"AM":"PM"; return (d>0?["Tomorrow","Wed","Thu","Fri"][d-1]+" ":"")+hh+":"+mm+" "+ap; };
+const kindsFor = () => ROLE_KINDS[role];
+const visible = () => ITEMS.filter(i=>kindsFor().includes(i.kind) && (!i.roles || i.roles.includes(role))).sort((a,b)=>a.when-b.when);
+const chip = k => `<span class="chip k-${k}">${KINDS[k].icon} ${KINDS[k].label}</span>`;
+
+function renderNav(){
+  const vis = visible();
+  const v = VIEWS.find(x=>x.id===view);
+  const list = vis.filter(i => v.filter(i) || (view==="active" && opened.includes(i.id) && i.state!=="done"));
+  document.getElementById("viewBtn").textContent = v.label + " ▾";
+  document.getElementById("viewCount").textContent = "(" + list.length + ")";
+  document.getElementById("cards").innerHTML = list.length ? list.map(i=>`<div class="card ${current===i.id?'active':''}" data-id="${i.id}">
+      <div class="t">${i.customer||i.title.split(" · ")[0]}</div>
+      <div class="row">${chip(i.kind)}${i.state==="offered"?'<span class="chip" style="background:#fde8e8;color:var(--red)">Offered · 0:18</span>':''}${i.state==="active"?'<span class="chip k-sys">● live</span>':''}</div>
+      <div class="m"><span>${i.sub.split(" · ")[0]}</span><span style="margin-left:auto">${i.state==="scheduled"?fmt(i.when):(i.state==="active"?"00:04":"")}</span></div>
+    </div>`).join("") : `<div class="empty">Nothing in this view</div>`;
+  document.querySelectorAll(".card").forEach(c=>c.onclick=()=>open(c.dataset.id));
+  const menu = document.getElementById("viewMenu");
+  menu.style.display = menuOpen ? "block" : "none";
+  menu.innerHTML = VIEWS.map(x=> x.sep ? `<div class="sep"></div>` : `<div class="${x.id===view?'on':''} ${x.cfg?'cfg':''}" data-view="${x.id}">${x.label}<span class="b ${x.badge||''}">${vis.filter(x.filter).length||''}</span></div>`).join("") + `<div class="sep"></div><div class="cfg">＋ New view… · Manage views</div>`;
+  menu.querySelectorAll("[data-view]").forEach(d=>d.onclick=(e)=>{ e.stopPropagation(); view=d.dataset.view; menuOpen=false; render(); });
+  document.getElementById("homeBtn").classList.toggle("on", current===null);
+}
+
+function renderHome(){
+  const vis = visible().filter(i=>i.state!=="done");
+  const done = visible().filter(i=>i.state==="done");
+  const now = vis.filter(i=>i.when<=0), today = vis.filter(i=>i.when>0 && i.when<=600), week = vis.filter(i=>i.when>600);
+  const row = i => `<div class="item ${i.state==='active'||i.state==='offered'?'live':''} ${i.state==='done'?'done':''}" data-id="${i.id}">
+      <div class="time">${i.state==="active"?"Now":i.state==="offered"?"Offered":fmt(i.when)}</div>
+      <div><div class="title">${KINDS[i.kind].icon} ${i.title}</div><div class="sub">${i.sub}${i.source?" · "+i.source:""}</div></div>
+      <div class="st">${chip(i.kind)}<br>${i.state==="offered"?'<span style="color:var(--red)">accept · 0:18</span>':i.state==="active"?"in progress":i.state==="done"?"completed":"scheduled"}</div>
+    </div>`;
+  const grp = (h,items) => items.length ? `<div class="group"><h4>${h}</h4>${items.map(row).join("")}</div>` : "";
+  const who = role==="supervisor"?"Dana":role==="sales"?"Alex":"John";
+  const cards = role==="supervisor" ? `
+      <div class="rc"><h5>Team queues <span class="chip k-sys">live</span></h5>
+        <div class="q"><span>Returns</span><span><span class="n">7</span> waiting · <span class="w hot">longest 4:12</span></span></div>
+        <div class="q"><span>Billing</span><span><span class="n">3</span> waiting · <span class="w">1:05</span></span></div>
+        <div class="q"><span>Escalations</span><span><span class="n">1</span> waiting · <span class="w">0:40</span></span></div>
+        <div class="q"><span>Agents</span><span><span class="n">14</span> available · 9 on contact · 2 ACW</span></div></div>
+      <div class="rc"><h5>Team today <span class="chip k-sys">vs target</span></h5>
+        <div class="stat"><span>Service level (Returns)</span><span class="v" style="color:var(--red)">78%</span><span class="t">target 80% / 20s</span><span class="t"></span>
+        <span>Handled</span><span class="v">212</span><span>AHT</span><span class="v">6:48</span><span>Adherence</span><span class="v">93%</span><span>CSAT</span><span class="v">4.5</span></div></div>
+      <div class="rc"><h5>Needs you</h5><p>2 evaluations due today · 1 hand raised (Lauren Briggs) · 3 adherence exceptions</p></div>`
+    : `
+      <div class="rc"><h5>Queues <span class="chip k-sys">live</span></h5>
+        <div class="q"><span>Returns</span><span><span class="n">7</span> waiting · <span class="w hot">longest 4:12</span></span></div>
+        <div class="q"><span>General Support</span><span><span class="n">2</span> waiting · <span class="w">0:48</span></span></div>
+        <div class="q"><span>Chat</span><span><span class="n">4</span> waiting · <span class="w">1:30</span></span></div></div>
+      <div class="rc"><h5>My performance <span class="chip k-sys">today</span></h5>
+        <div class="stat"><span>Handled</span><span class="v">11</span><span class="t">of ~34 expected</span><span class="t"></span>
+        <span>AHT</span><span class="v">6:12</span><span class="t">target 7:00</span><span class="t"></span>
+        <span>First-response (chat)</span><span class="v">0:41</span><span class="t">target 1:00</span><span class="t"></span>
+        <span>CSAT</span><span class="v">4.7</span><span class="t">last 7 days</span><span class="t"></span>
+        <span>Adherence</span><span class="v" style="color:var(--amber)">91%</span><span class="t">break ran 4 min over</span><span class="t"></span></div></div>
+      <div class="rc"><h5>Reminders</h5><p>RET-1.3 training due Friday · Callback for Priya at 11:00 · 1:1 with Dana Wednesday</p></div>`;
+  document.getElementById("page").innerHTML = `
+    <div class="ph"><h2>Home</h2><div class="tabs"><span class="on">Activity</span><span>Customers</span><span>Accounts</span><span>Tickets</span></div>
+      <div class="right"><span>Today ▾</span><span>All kinds ▾</span><span>Filter</span></div></div>
+    <div class="welcome"><div class="av">${who[0]}S</div><div><h3>Good morning, ${who}</h3><div class="sub">${now.length} now · ${today.length} more today · ${week.length} this week · ${done.length} completed</div></div><div class="go">● Working · Go Available</div></div>
+    <div class="homebody"><div class="feed">
+      <div class="note"><b>Your day.</b> Every row is an assignment — conversations, callbacks, meetings, trainings, tasks — from the kinds this role sees. Click one: it joins the rail as the active assignment and the main column renders by kind. The Assignments dropdown on the left is the same list by view.</div>
+      ${grp("Now", now)}${grp("Today", today)}${grp("This week", week)}${grp("Completed today", done)}
+    </div><div class="homecol">${cards}</div></div>`;
+  document.querySelectorAll(".item").forEach(e=>e.onclick=()=>open(e.dataset.id));
+}
+
+function renderAssignment(i){
+  const ref = i.customer ? `<div class="ref"><div class="rc"><h5>Real-Time Summary <span class="chip k-sys">Live</span></h5><p>${i.sub}</p></div><div class="rc"><h5>Journey Summary <span class="chip k-sys">Repeat</span></h5><p>Earlier contacts with ${i.customer} appear here.</p></div><div class="rc"><h5>Customer Info <span class="chip k-sys">On file</span></h5><p>${i.customer}</p></div></div>`
+                         : `<div class="ref"><div class="rc"><h5>Related</h5><p>${i.kind==="meeting"?"Attendees, agenda doc, last meeting's action items.":i.kind==="training"?"Policy RET-1.3, the quiz, your progress.":i.kind==="campaign"?"Segment, cadence, today's targets.":"Linked records."}</p></div><div class="rc"><h5>Copilot</h5><p>Assignment-scoped, as on a contact.</p></div></div>`;
+  let action = "";
+  const K = i.kind;
+  if (K==="conversation") action = `
+      <div class="sys">Call connected · ${i.customer} · ${fmt(-4)}</div>
+      <div class="bubble cust">Hi, this is ${i.customer}. The water tank on my espresso machine arrived cracked.</div>
+      <div class="box ai"><h4>Next Best Action · Say</h4>Greet ${i.customer.split(" ")[0]} and say the call is recorded<div class="acts"><span class="p">Said it</span><span>Copy</span><span>Not now</span></div></div>
+      <div class="composer"><div class="seg"><span class="on">Reply via Voice ▾</span><span>Ask Copilot</span></div><div class="field">The stream — same as the storyboards.</div></div>`;
+  if (K==="callback") action = `
+      <div class="box"><h4>Callback · ${i.customer}</h4>Requested: ${i.sub}<div class="acts"><span class="p">📞 Dial (646) 555-0143</span><span>Reschedule</span><span>Cancel</span></div></div>
+      <div class="box ai"><h4>Next Best Action · Say</h4>Open with the refund status — RF-20451 posted this morning.<div class="acts"><span class="p">Said it</span><span>Not now</span></div></div>
+      <div class="sys">Earlier · Yesterday · Chat · Duplicate charge — Resolved · 12 messages ▸</div>
+      <div class="note" style="margin-top:10px">When the dial connects, a voice leg joins this assignment and the stream continues below. Outcome: disposition, as for any contact.</div>`;
+  if (K==="meeting") action = `
+      <div class="box"><h4>${i.title}</h4>${fmt(i.when)} · ${i.sub}<div class="acts"><span class="p">Join (Teams)</span><span>Agenda</span><span>Decline</span></div></div>
+      <div class="box"><h4>Agenda</h4><ul><li>Refund policy RET-1.3 rollout</li><li>WhatsApp go-live next week</li><li>Open escalations</li></ul></div>
+      <div class="box"><h4>Notes</h4><div style="color:var(--muted)">Type notes here; Copilot drafts action items from them.</div></div>
+      <div class="box ai"><h4>Copilot</h4>Last stand-up's action item for you: "share the damaged-item photo checklist" — still open.<div class="acts"><span class="p">Open it</span></div></div>
+      <div class="outcome"><b>Outcome (meeting kind):</b> notes + action items. No disposition.</div>`;
+  if (K==="training") action = `
+      <div class="box"><h4>${i.title}</h4>${i.sub} · ${i.source}<div class="acts"><span class="p">Start module</span><span>Snooze to tomorrow</span></div></div>
+      <div class="box"><h4>Module</h4><div style="height:140px;border:1px dashed var(--line);border-radius:6px;display:grid;place-items:center;color:var(--muted)">Embedded content (knowledge connector / LMS)</div></div>
+      <div class="outcome"><b>Outcome (training kind):</b> completion + quiz score. No disposition.</div>`;
+  if (K==="task") action = `
+      <div class="box"><h4>${i.title}</h4>${i.sub}<div class="acts"><span class="p">Update ticket</span><span>Message Billing</span><span>Call ${i.customer}</span></div></div>
+      <div class="box ai"><h4>Next Best Action · Do</h4>Credit RF-20452 is stuck in review — ask Billing to release it.<div class="acts"><span class="p">Run it</span><span>Not now</span></div></div>
+      <div class="note" style="margin-top:10px">"Call Priya" adds a voice leg to this task assignment — legs can join any kind.</div>
+      <div class="outcome"><b>Outcome (task kind):</b> ticket status + note.</div>`;
+  if (K==="coaching") action = `
+      <div class="box"><h4>${i.title}</h4>${i.sub}<div class="acts"><span class="p">Open call 1</span><span>Open call 2</span><span>Start session</span></div></div>
+      <div class="box ai"><h4>Copilot</h4>Both calls: long holds before the refund decision. Suggested focus: RET-1.3 authority limits.<div class="acts"><span class="p">Use as agenda</span></div></div>
+      <div class="outcome"><b>Outcome (coaching kind):</b> coaching notes + follow-up date.</div>`;
+  if (K==="evaluation") action = `
+      <div class="box"><h4>${i.title}</h4>${i.sub}<div class="acts"><span class="p">Open transcript</span><span>Play recording</span></div></div>
+      <div class="box"><h4>Scorecard</h4><ul><li>Greeting · AI: 5/5</li><li>Verification · AI: 3/5 — review</li><li>Resolution · AI: 4/5</li></ul></div>
+      <div class="outcome"><b>Outcome (evaluation kind):</b> scorecard + evaluator overrides.</div>`;
+  if (K==="campaign") action = `
+      <div class="box"><h4>${i.title}</h4>${i.sub}<div class="acts"><span class="p">Start block</span><span>Preview list</span></div></div>
+      <div class="box"><h4>Next up</h4><ul><li>Acme Corp · Omar Farooq · renewal due Nov 1</li><li>Northwind · Lauren Briggs · renewal due Nov 3</li></ul></div>
+      <div class="note" style="margin-top:10px">Each dial in the block is its own conversation assignment, linked to the block.</div>
+      <div class="outcome"><b>Outcome (campaign block kind):</b> block summary (reached / converted / opted out).</div>`;
+  document.getElementById("page").innerHTML = `
+    <div class="ph"><h2>${i.customer||i.title}</h2>${chip(K)}<span class="chip k-sys">${i.state==="active"?"Active":i.state==="offered"?"Offered":"Scheduled · "+fmt(i.when)}</span>
+      <div class="right"><span>Session Details ›</span><span>Outcome ✓</span>${i.customer?'<span>Contact Details</span>':''}</div></div>
+    <div class="body"><div class="action">${action}</div>${ref}</div>`;
+}
+
+function open(id){ current=id; if(!opened.includes(id)) opened.push(id); const it=ITEMS.find(x=>x.id===id); if(it.state==="scheduled"||it.state==="offered"){ it.state="active"; it.when=0; } render(); }
+function render(){ renderNav(); const it=ITEMS.find(x=>x.id===current); if(it) renderAssignment(it); else renderHome(); }
+
+document.getElementById("viewBtn").onclick=(e)=>{ e.stopPropagation(); menuOpen=!menuOpen; renderNav(); };
+document.body.addEventListener("click",()=>{ if(menuOpen){ menuOpen=false; renderNav(); } });
+document.getElementById("homeBtn").onclick=()=>{ current=null; render(); };
+document.querySelectorAll(".role button").forEach(b=>b.onclick=()=>{ role=b.dataset.role; document.querySelectorAll(".role button").forEach(x=>x.classList.toggle("on",x===b)); current=null; opened=["a1"]; ITEMS.forEach(i=>{ if(i.id!=="a1"&&i.state==="active"){ i.state="scheduled"; } }); render(); });
+render();
+</script>
+</body>
+</html>
