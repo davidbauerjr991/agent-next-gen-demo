@@ -68,7 +68,7 @@ li.todo .tag{color:var(--todo)}
 <main id="page-top">
 <header>
   <h1>Agent Workspace Simulation — plan status</h1>
-  <div class="meta">PLAN.md as of 2026-10-23 · completed work grayed · P-PROFILES done; P-SHRINK in progress; P-CARDS next · P-POLISH paused</div>
+  <div class="meta">PLAN.md as of 2026-10-24 · completed work grayed · P-SHRINK done; next step not yet picked · P-POLISH paused</div>
   <div class="legend">
     <span><i class="sw done"></i>Done</span>
     <span><i class="sw inprog"></i>In progress</span>
@@ -89,7 +89,7 @@ li.todo .tag{color:var(--todo)}
     <a class="step" href="#landed">P-POLISH</a><span class="arrow">→</span>
     <a class="step done" href="#settings">P-CANVAS</a><span class="arrow">→</span>
     <a class="step done" href="#settings">P-PROFILES</a><span class="arrow">→</span>
-    <a class="step inprog" href="#settings">P-SHRINK</a><span class="arrow">→</span>
+    <a class="step done" href="#settings">P-SHRINK</a><span class="arrow">→</span>
     <a class="step" href="#settings">P-CARDS</a><span class="arrow">→</span>
     <a class="step" href="#phase0">P0.5d.3</a><span class="arrow">→</span>
     <a class="step" href="#phase0">lyra timers</a><span class="arrow">→</span>
@@ -228,7 +228,7 @@ li.todo .tag{color:var(--todo)}
     <li class="done"><span class="tag">Done</span><div class="body"><b>Settings store</b> — P-SETTINGS</div></li>
     <li class="done"><span class="tag">Done</span><div class="body"><b>Workspace profiles</b> — P-PROFILES: saved profiles, locks, personal scope<span class="note">Personal scope (theme, phone, tab order) outside profiles; save as / rename / duplicate / delete, export/import JSON, per-section locks, the saved-profile picker; <code>assignments.legs</code> and <code>canvas.cells</code> in the schema; assignment sort modes with Custom drag; assignments as an interior panel. Assignment to agents waits for Phase 7 (seam: ProfileAssignmentSource)</span></div></li>
     <li class="done"><span class="tag">Done</span><div class="body"><b>Conversation placement / AI-first layout</b> — folded into AI display inline | panel | main</div></li>
-    <li class="done"><span class="tag">Done</span><div class="body"><b>P-CANVAS</b> — action area + reference column, cell and tab registries<span class="note">Follow-up landed: slide-overs are an InteriorPanel in the reference slot; the NBA is inline and on demand; the reference column is three Agentic AI cards the AI focuses. Carried as todos: Marcus's port to the NBA, email Insert into reply</span></div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>P-CANVAS</b> — action area + reference column, cell and tab registries<span class="note">Follow-up landed: slide-overs are an InteriorPanel in the reference slot; the NBA is inline and on demand; the reference column is three Agentic AI cards the AI focuses. Carried as a todo: email Insert into reply (Marcus's port landed in P-SHRINK)</span></div></li>
     <li class="done"><span class="tag">Done</span><div class="body"><b>White-labeling</b> — app name, logo, brand colors; admin-scope; BrandMark header<span class="note">Rename to "Workspace" waits for P-ADMIN's area switcher</span></div></li>
     <li class="done"><span class="tag">Done</span><div class="body"><b>Social channel placeholders</b> — channels.social, admin-scope, "Arrives in P2.7"</div></li>
     <li class="done"><span class="tag">Done</span><div class="body"><b>Agent settings named after CXone's</b> — launcher tabs, Outbound Calling behaviors, Unassign & Dismiss, Confirm before closing</div></li>
@@ -239,8 +239,8 @@ li.todo .tag{color:var(--todo)}
     <li class="todo"><span class="tag">Todo</span><div class="body"><b>Contact Details configuration</b> — on P1.7's schema-driven panels</div></li>
     <li class="todo"><span class="tag">Todo</span><div class="body"><b>Outbound policy</b> — per skill/team</div></li>
     <li class="todo"><span class="tag">Todo</span><div class="body"><b>Address books as a DirectoryProvider source</b> — P0.9.1</div></li>
-    <li class="inprog"><span class="tag">Now</span><div class="body"><b>P-SHRINK</b> — size rule (1,200 lines, allowlist with owners), dead code (knip), Marcus Webb onto the generic NBA<span class="note">The four ported screens are replace-not-reuse</span></div></li>
-    <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-CARDS</b> — Settings → Cards: registry list, order, region, live preview<span class="note">Next after P-SHRINK: <code>canvas.cells</code> and lyra's <code>useListReorder</code> landed in P-PROFILES</span></div></li>
+    <li class="done"><span class="tag">Done</span><div class="body"><b>P-SHRINK</b> — size rule (1,200 lines, allowlist with owners), dead code (knip), Marcus Webb onto the generic NBA<span class="note">NBA notes and vars, guide-step turns, event sets, a slide-over registry; the four ported screens are replace-not-reuse</span></div></li>
+    <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-CARDS</b> — Settings → Cards: registry list, order, region, live preview<span class="note">Next: <code>canvas.cells</code> and lyra's <code>useListReorder</code> landed in P-PROFILES</span></div></li>
     <li class="todo"><span class="tag">Todo</span><div class="body"><b>P-STREAM</b> — legs as one stream; <code>assignments.legs</code>; assignment Outcome</div></li>
   </ul>
 </section>
