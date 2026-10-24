@@ -12,7 +12,7 @@ Default split: **Plan: Opus · Implement: Sonnet.** Steps marked **Implement: Op
 
 Execution order below differs from PLAN.md's numbering where it reduces risk. Step labels reference PLAN.md's numbering.
 
-**Execution order** (PLAN.md "Effort and order", 2026-10-18): … P-EXTRACT → P-POLISH → P-CANVAS → P-PROFILES → P-SHRINK → P-CARDS → P0.5d.3 → P-TRANSFER → lyra timers → P0.6 → Phase 2 §0–5 → P-TRANSLATE → Phase 3 → *milestone* → P-ADMIN → P-LYRA-RTL → P-I18N → P0.9 → P-HOME → P-STREAM → P-ADMIN-2 → P-EMPLOYEES → P-COMPLIANCE → P-REPORTING → P-QM → Phase 1 → Phase 2 §6–7 → Phase 4 → the remaining verticals → Phase 5 + P-CONFIG-ASSIST → Phase 6 → Phase 7 → P-CAMPAIGNS → P-BILLING → P-MAPPINGS → P-ADAPTER → P-IMPORT → P-STUDIO → P-EMBED.
+**Execution order** (PLAN.md "Effort and order", 2026-10-18): … P-EXTRACT → P-POLISH → P-CANVAS → P-PROFILES → P-SHRINK → P-CARDS → P0.5d.3 → P-TRANSFER → P-TIMERS → P0.6 → Phase 2 §0–5 → P-TRANSLATE → Phase 3 → *milestone* → P0.9 → P-HOME → P-STREAM → P-ADMIN → P-LYRA-RTL → P-I18N → P-ADMIN-2 → P-EMPLOYEES → P-COMPLIANCE → P-REPORTING → P-QM → Phase 1 → Phase 2 §6–7 → Phase 4 → the remaining verticals → Phase 5 + P-CONFIG-ASSIST → Phase 6 → Phase 7 → P-CAMPAIGNS → P-BILLING → P-MAPPINGS → P-ADAPTER → P-IMPORT → P-STUDIO → P-EMBED.
 
 ---
 
@@ -50,7 +50,7 @@ Wrap up this step: run the type-check and the test suite, update PROGRESS.md (do
 
 **One page (decided 2026-10-15; final since P0.5d.2):** Advanced is the agent workspace and Desk is deleted. Its layout varies by settings only; "Phase 1" and "Phase 2" are built-in workspace profiles. Prompts below that say "both pages" mean Advanced.
 
-**Execution order (revised 2026-10-19, demo-first):** finish 5d.1 → P0.7 and P0.5c → P-SETTINGS → P0.5d.2 → P-AIFIRST → P-EXTRACT → P-POLISH → P-CANVAS → P-PROFILES → P-SHRINK → P-CARDS → P0.5d.3 → the lyra timers change → P0.6 → Phase 2 §0–5 → Phase 3 (*first demo milestone: a simulated chat and spoken call driven from the console*) → P-ADMIN → P0.9.1–9.3 → P-STREAM → P-EMPLOYEES → Phase 1 (incl. P1.4a, P1.4b) → Phase 2 §6–7 (P2.7) → Phase 4 (incl. P4.4a, P4.11) → remaining verticals (P1.2a, P1.2b) → Phase 5 (incl. P5.6, P5.7) and P-CONFIG-ASSIST → Phase 6 → Phase 7 → P-REPORTING → P-BILLING → P-MAPPINGS → P-ADAPTER sequence → P-IMPORT → P-EMBED (last).
+**Execution order (revised 2026-10-19, demo-first):** finish 5d.1 → P0.7 and P0.5c → P-SETTINGS → P0.5d.2 → P-AIFIRST → P-EXTRACT → P-POLISH → P-CANVAS → P-PROFILES → P-SHRINK → P-CARDS → P0.5d.3 → P-TRANSFER → P-TIMERS → P0.6 → Phase 2 §0–5 → P-TRANSLATE → Phase 3 (*first demo milestone: a simulated chat and spoken call driven from the console*) → P0.9.1–9.3 → P-HOME → P-STREAM → P-ADMIN → P-EMPLOYEES → Phase 1 (incl. P1.4a, P1.4b) → Phase 2 §6–7 (P2.7) → Phase 4 (incl. P4.4a, P4.11) → remaining verticals (P1.2a, P1.2b) → Phase 5 (incl. P5.6, P5.7) and P-CONFIG-ASSIST → Phase 6 → Phase 7 → P-REPORTING → P-BILLING → P-MAPPINGS → P-ADAPTER sequence → P-IMPORT → P-EMBED (last).
 
 ---
 
@@ -204,6 +204,10 @@ For every visual change in either profile, give a before/after and wait for my a
 
 Prompt to follow.
 
+### P-TIMERS — Every lyra timer becomes controlled   (Plan: Opus · Implement: Sonnet) — after P-TRANSFER, before P0.6
+
+Prompt to follow.
+
 ### P0.6 — Customer console route   (Plan: Opus · Implement: Sonnet)
 ```
 Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 6. In plan mode, propose a #/customer-console route (same Vite app, lyra-ui styling) built on the sim protocol's SimCustomerAction messages (startInbound, message, typing, hangUp), replacing window.__simCustomer. Solve engine discovery across windows: the engine lives in the agent window and is session-scoped by sessionId, so the console needs a way to find active sessions (e.g. an announce/hello message) and pick one. The console lists that session's interactions, can attach to one, or start an inbound one "as <entity>" or "as unknown caller" (free phone/name entry), carrying identifiers and pre-contact context. The console must not render inside ProviderRoot's agent providers and the agent UI must not know it exists. No chat/voice UI yet — shell and handshake only. Done = the console in a second window sees the agent's session and starting an inbound contact produces an incoming offer in the agent app; list browser checks for me. Don't write code yet.
@@ -287,7 +291,7 @@ Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 3, step 6. Propose and i
 
 After Phase 3 (P0.6, Phase 2 §0–5, Phase 3): a simulated chat and a spoken call driven from the customer console work end to end against the telecom shape. First demo milestone; Administration (P-ADMIN onward) starts here.
 
-### P-ADMIN — Area switcher, AdminShell, scope back-fill, command registry   (Plan: Opus · Implement: Opus) — after Phase 3, before P0.9
+### P-ADMIN — Area switcher, AdminShell, scope back-fill, command registry   (Plan: Opus · Implement: Opus) — after P-STREAM (reordered 2026-10-24)
 ```
 Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on P-ADMIN, the first Administration step (PLAN.md "Administration — the Workspace and the admin areas": Area switcher, Admin shell, Settings scope and declared configuration, Rails). In plan mode, propose (1) the top-left area switcher replacing the BrandMark-only header: areas as data in `buildAppMenuGroups`, each with the permission it needs, collapsing to a plain label for a user with one area (hide, never disable), the default app name becoming "Workspace", the `BrandMark` staying fixed beside it; the one-page rule amended in CLAUDE.md (it governs the Workspace; admin areas are a separate surface); (2) one `AdminShell` (left rail + content) shared by every area, rail items as data per area, the Workspace the only area without a rail; (3) scope back-fill: every existing schema node in `src/settings` gets `scope`, a label and a plain-language description, and the settings forms render from the schema; (4) the command registry: named commands with typed parameters for admin actions that aren't settings; (5) the Branding and Channels areas, with the admin-scope sections moved out of the agent's Settings (the order line names three; inventory which sections qualify before moving any); applying a profile still never touches them; (6) two Channels rail pages, declared before designed (PLAN.md "Administration" → Governing principle): **Dispositions** (today's fixtures become an editable list: dispositions per skill with required/optional and a free-text flag; the Outcome form reads it; the sim's scripted outcomes map onto it) and **Service levels** (per skill and channel: answer, first-response, resolution and hold time, each with warning and breach thresholds and a breach action; today's hardcoded hold-time SLA banner becomes the first consumer), both with defaults from the active profile. Routing, Agent states, Recording policy and the Flows page are P-ADMIN-2. The ESLint Workspace → admin import rule and the `HostProvider` stub already exist from P-EXTRACT; keep them green. Tests: the switcher hides areas without permission, scope back-fill covers every node, a command's typed parameters are validated, profiles still skip admin-scope sections. Playwright: switch areas and return to the Workspace with its state intact. List browser checks for me. Don't write code yet.
 ```
