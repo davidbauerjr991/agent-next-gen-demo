@@ -12,7 +12,7 @@ Default split: **Plan: Opus · Implement: Sonnet.** Steps marked **Implement: Op
 
 Execution order below differs from PLAN.md's numbering where it reduces risk. Step labels reference PLAN.md's numbering.
 
-**Execution order** (PLAN.md "Effort and order", 2026-10-18): … P-EXTRACT → P-POLISH → P-CANVAS → P-PROFILES → P-SHRINK → P-CARDS → P0.5d.3 → P-TRANSFER → P-TIMERS → P0.6 → Phase 2 §0–5 → P-TRANSLATE → Phase 3 → *milestone* → P0.9 → P-HOME → P-STREAM → P-ADMIN → P-LYRA-RTL → P-I18N → P-ADMIN-2 → P-EMPLOYEES → P-COMPLIANCE → P-REPORTING → P-QM → Phase 1 → Phase 2 §6–7 → Phase 4 → the remaining verticals → Phase 5 + P-CONFIG-ASSIST → Phase 6 → Phase 7 → P-CAMPAIGNS → P-BILLING → P-MAPPINGS → P-ADAPTER → P-IMPORT → P-STUDIO → P-EMBED.
+**Execution order** (PLAN.md "Effort and order", 2026-10-18): … P-EXTRACT → P-POLISH → P-CANVAS → P-PROFILES → P-SHRINK → P0.5d.3 → P-TRANSFER → P-TIMERS → P0.6 → Phase 2 §0–5 → P-TRANSLATE → Phase 3 → *milestone* → P0.9 → P-HOME → P-STREAM → P-CARDS → P-ADMIN → P-LYRA-RTL → P-I18N → P-ADMIN-2 → P-EMPLOYEES → P-COMPLIANCE → P-REPORTING → P-QM → Phase 1 → Phase 2 §6–7 → Phase 4 → the remaining verticals → Phase 5 + P-CONFIG-ASSIST → Phase 6 → Phase 7 → P-CAMPAIGNS → P-BILLING → P-MAPPINGS → P-ADAPTER → P-IMPORT → P-STUDIO → P-EMBED.
 
 ---
 
@@ -50,7 +50,7 @@ Wrap up this step: run the type-check and the test suite, update PROGRESS.md (do
 
 **One page (decided 2026-10-15; final since P0.5d.2):** Advanced is the agent workspace and Desk is deleted. Its layout varies by settings only; "Phase 1" and "Phase 2" are built-in workspace profiles. Prompts below that say "both pages" mean Advanced.
 
-**Execution order (revised 2026-10-19, demo-first):** finish 5d.1 → P0.7 and P0.5c → P-SETTINGS → P0.5d.2 → P-AIFIRST → P-EXTRACT → P-POLISH → P-CANVAS → P-PROFILES → P-SHRINK → P-CARDS → P0.5d.3 → P-TRANSFER → P-TIMERS → P0.6 → Phase 2 §0–5 → P-TRANSLATE → Phase 3 (*first demo milestone: a simulated chat and spoken call driven from the console*) → P0.9.1–9.3 → P-HOME → P-STREAM → P-ADMIN → P-EMPLOYEES → Phase 1 (incl. P1.4a, P1.4b) → Phase 2 §6–7 (P2.7) → Phase 4 (incl. P4.4a, P4.11) → remaining verticals (P1.2a, P1.2b) → Phase 5 (incl. P5.6, P5.7) and P-CONFIG-ASSIST → Phase 6 → Phase 7 → P-REPORTING → P-BILLING → P-MAPPINGS → P-ADAPTER sequence → P-IMPORT → P-EMBED (last).
+**Execution order (revised 2026-10-19, demo-first):** finish 5d.1 → P0.7 and P0.5c → P-SETTINGS → P0.5d.2 → P-AIFIRST → P-EXTRACT → P-POLISH → P-CANVAS → P-PROFILES → P-SHRINK → P0.5d.3 → P-TRANSFER → P-TIMERS → P0.6 → Phase 2 §0–5 → P-TRANSLATE → Phase 3 (*first demo milestone: a simulated chat and spoken call driven from the console*) → P0.9.1–9.3 → P-HOME → P-STREAM → P-CARDS → P-ADMIN → P-EMPLOYEES → Phase 1 (incl. P1.4a, P1.4b) → Phase 2 §6–7 (P2.7) → Phase 4 (incl. P4.4a, P4.11) → remaining verticals (P1.2a, P1.2b) → Phase 5 (incl. P5.6, P5.7) and P-CONFIG-ASSIST → Phase 6 → Phase 7 → P-REPORTING → P-BILLING → P-MAPPINGS → P-ADAPTER sequence → P-IMPORT → P-EMBED (last).
 
 ---
 
@@ -184,7 +184,7 @@ Commit 0 (docs): add P-SHRINK to PLAN (step text, Order of attack after P-PROFIL
 ```
 Plan review (2026-10-23): Do = Approve with the note also on alternatives (Reject carries the reason); remedies use `note.input` and fixed `alt[].vars`; the switched-off photo/flag flows port as data nothing starts; a `guide` step's NBA is the agent's turn, surfaces during review and is withdrawn on takeover; every Marcus AI row renders inline in the transcript at its time position, nothing pinned above it.
 
-### P-CARDS — Settings → Cards   (Plan: Opus · Implement: Sonnet) — after P-PROFILES, before P0.5d.3
+### P-CARDS — Settings → Cards   (Plan: Opus · Implement: Sonnet) — after P-STREAM, before P-ADMIN (moved 2026-10-24)
 ```
 Read CLAUDE.md, PLAN.md (Settings 'Cards as a setting and a Settings tab') and PROGRESS.md. In plan mode, propose: a Settings → Cards section reading/writing `canvas.cells`; the list with on/off, region, drag order (lyra's controlled drag), per-card controls; a live preview mounting CanvasRegions with the seeded Maya case and the current overrides; Reset to profile default; a 'Set up with AI' button wired to a ConfigAssistProvider stub (no-op with a toast until P-CONFIG-ASSIST). vitest: overrides change registry order/region/visibility; the preview reflects edits. Playwright: toggle a card off → absent in the workspace; drag reorder → new order in the reference column. The page file doesn't grow. Don't write code yet.
 ```
