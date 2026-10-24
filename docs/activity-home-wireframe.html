@@ -8,13 +8,13 @@
   :root { --ink:#1a1d23; --muted:#5c6470; --line:#d9dde3; --bg:#f4f6f9; --blue:#2f6fdb; --blue-bg:#eaf1fd; --purple:#6b4fd8; --purple-bg:#efeafb; --amber-bg:#fff3e0; --amber:#9a5b00; --green-bg:#e4f3e8; --green:#1e6b33; --red:#c43a3a; --teal-bg:#dff3f1; --teal:#0f6b63; --pink-bg:#fde8ef; --pink:#9b2c4f; }
   * { box-sizing:border-box; }
   body { margin:0; font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif; color:var(--ink); background:var(--bg); font-size:13px; line-height:1.4; }
-  .top { height:48px; display:flex; align-items:center; padding:0 16px; gap:12px; background:#fff; border-bottom:1px solid var(--line); }
+  .top { min-height:48px; flex-wrap:wrap; display:flex; align-items:center; padding:0 16px; gap:12px; background:#fff; border-bottom:1px solid var(--line); }
   .top .brand { font-weight:700; }
   .top .role { margin-left:auto; display:flex; gap:6px; align-items:center; font-size:12px; color:var(--muted); }
   .top .role button { border:1px solid var(--line); background:#fff; border-radius:14px; padding:3px 10px; cursor:pointer; font-size:12px; }
   .top .role button.on { background:var(--ink); color:#fff; border-color:var(--ink); }
   .top .presence { border:1px solid var(--line); border-radius:14px; padding:3px 10px; font-size:12px; color:var(--amber); }
-  .app { display:grid; grid-template-columns:260px 1fr; height:calc(100vh - 48px); }
+  .app { display:grid; grid-template-columns:260px 1fr; min-height:calc(100vh - 48px); }
   .nav { background:#fff; border-right:1px solid var(--line); display:flex; flex-direction:column; min-height:0; }
   .nav .outbound { margin:10px; background:var(--blue); color:#fff; border-radius:8px; padding:9px; text-align:center; font-weight:600; }
   .nav .hdr { display:flex; align-items:center; gap:6px; padding:6px 12px; font-weight:700; position:relative; }
@@ -101,14 +101,65 @@
   .note { margin:0 0 10px; padding:8px 10px; background:#fff; border:1px solid var(--line); border-radius:8px; color:var(--muted); font-size:12px; }
   .note b { color:var(--blue); }
   .empty { color:var(--muted); padding:30px; text-align:center; }
+  /* ── P-HOME-1: layout switch; P-HOME-2: connections, inbox rows, filter chips, toasts ── */
+  .top .layout { display:flex; gap:4px; align-items:center; font-size:12px; color:var(--muted); margin-left:14px; }
+  .top .layout button { border:1px solid var(--line); background:#fff; border-radius:14px; padding:3px 10px; cursor:pointer; font-size:12px; }
+  .top .layout button.on { background:var(--blue); color:#fff; border-color:var(--blue); }
+  .top .conn { display:flex; gap:4px; align-items:center; font-size:12px; color:var(--muted); margin-left:14px; }
+  .top .conn button { border:1px solid var(--line); background:#fff; border-radius:14px; padding:3px 7px; cursor:pointer; font-size:11px; }
+  .top .conn button.on { background:var(--green-bg); color:var(--green); border-color:#bfe0c8; }
+  .filters { display:flex; gap:6px; align-items:center; margin-bottom:10px; flex-wrap:wrap; }
+  .filters span { border:1px solid var(--line); border-radius:14px; padding:2px 10px; font-size:12px; color:var(--muted); cursor:pointer; background:#fff; }
+  .filters span.on { background:var(--ink); color:#fff; border-color:var(--ink); }
+  .filters .n { margin-left:4px; opacity:.7; }
+  .item.inbox { border-left:3px dashed #b9c0cc; background:#fbfcfe; }
+  .item.inbox .title { font-weight:500; }
+  .src { display:inline-block; border-radius:10px; padding:1px 7px; font-size:11px; font-weight:600; background:#eceef2; color:var(--muted); }
+  .src.calendar { background:#e8eef9; color:#2b4a8a; } .src.salesforce { background:#e3f1fb; color:#0b5c8e; } .src.jira { background:#e6ecfa; color:#1d3f8f; } .src.zendesk { background:#e4f3e8; color:#1e6b33; } .src.servicenow { background:#e5f5ee; color:#176b4d; } .src.mail { background:#fff3e0; color:var(--amber); } .src.teams { background:#efeafb; color:#4a2f9a; } .src.slack { background:#fde8ef; color:var(--pink); }
+  .item .acts { display:flex; gap:4px; justify-content:flex-end; margin-top:4px; }
+  .item .acts span { border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:11px; background:#fff; }
+  .item.new { animation:pop .5s ease-out; }
+  @keyframes pop { from { background:var(--amber-bg); } to { background:#fbfcfe; } }
+  /* one-column Home: sections as rows, the feed inside a container like Contact History */
+  .sections { padding:12px 16px; display:flex; flex-direction:column; gap:12px; }
+  .section { border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
+  .section h4 { margin:0 0 8px; font-size:13px; display:flex; align-items:center; gap:8px; }
+  .section h4 .chip { margin-left:auto; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .section .rc { border:0; padding:0; }
+  /* toasts */
+  .toasts { position:fixed; right:16px; bottom:16px; display:flex; flex-direction:column-reverse; gap:8px; z-index:20; width:320px; }
+  .toast { background:#fff; border:1px solid var(--line); border-left:3px solid var(--blue); border-radius:8px; box-shadow:0 6px 20px rgba(0,0,0,.12); padding:8px 10px; font-size:12px; }
+  .toast .t { font-weight:600; display:flex; gap:6px; align-items:center; }
+  .toast .acts { display:flex; gap:6px; margin-top:6px; }
+  .toast .acts span { border:1px solid var(--line); border-radius:6px; padding:2px 8px; cursor:pointer; }
+  .toast .acts span.p { background:var(--blue); color:#fff; border-color:var(--blue); }
+  /* Connect your apps step */
+  .scrim { position:fixed; inset:0; background:rgba(20,24,32,.45); display:grid; place-items:center; z-index:30; }
+  .modal { width:560px; max-height:90vh; overflow:auto; background:#fff; border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,.3); padding:18px 20px; }
+  .modal h3 { margin:0 0 4px; font-size:17px; }
+  .modal .sub { color:var(--muted); font-size:12px; margin-bottom:12px; }
+  .srcrow { display:grid; grid-template-columns:28px 1fr auto; gap:10px; align-items:center; padding:6px 6px; border-top:1px solid var(--line); }
+  .srcrow:last-of-type { border-bottom:1px solid var(--line); }
+  .srcrow .nm { font-weight:600; } .srcrow .d { color:var(--muted); font-size:11.5px; }
+  .srcrow button { border:1px solid var(--line); background:#fff; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:12px; }
+  .srcrow button.on { background:var(--green-bg); color:var(--green); border-color:#bfe0c8; }
+  .srcrow .exp { font-size:10.5px; color:var(--blue); background:var(--blue-bg); border-radius:8px; padding:0 6px; margin-left:6px; }
+  .modal .foot { display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
+  .modal .foot button { border:1px solid var(--line); background:#fff; border-radius:8px; padding:7px 14px; cursor:pointer; }
+  .modal .foot button.p { background:var(--blue); color:#fff; border-color:var(--blue); font-weight:600; }
 </style>
 </head>
 <body>
 <div class="top">
   <span class="brand">Agent Workspace</span>
-  <span style="color:var(--muted);font-size:12px">— Home as the Activity feed; assignment kinds as a registry (wireframe)</span>
-  <div class="role">Role preset: <button data-role="agent" class="on">Agent</button><button data-role="supervisor">Supervisor</button><button data-role="sales">Sales</button> <span class="presence">● Working · 00:04</span></div>
+  <span style="color:var(--muted);font-size:12px">— Activity Home (P-HOME-1) + personal connections (P-HOME-2)</span>
+  <div class="layout">home.layout: <button data-layout="oneColumn">One column</button><button data-layout="twoColumn" class="on">Two columns</button></div>
+  <div class="conn">Your apps: <button data-src="calendar">📅 Calendar</button><button data-src="mail">✉️ Mail</button><button data-src="teams">💠 Teams</button><button data-src="slack">＃ Slack</button><button data-src="salesforce">☁️ Salesforce</button><button data-src="jira">🔷 Jira</button><button data-src="zendesk">🟢 Zendesk</button><button data-src="servicenow">🟩 ServiceNow</button></div>
+  <div class="role">Persona: <button data-role="agent" class="on">Agent</button><button data-role="supervisor">Supervisor</button><button data-role="sales">Sales</button> <span class="presence">● Working · 00:04</span></div>
 </div>
+<div class="toasts" id="toasts"></div>
+<div id="connectStep"></div>
 <div class="app">
   <div class="nav">
     <div class="outbound">+ New Outbound</div>
@@ -167,7 +218,103 @@ const VIEWS = [
   { id:"v-chat", label:"Chat only (saved view)", filter:i=>i.kind==="conversation" && /Chat/.test(i.title) && i.state!=="done", cfg:true },
   { id:"v-callbacks", label:"My callbacks (saved view)", filter:i=>i.kind==="callback", cfg:true },
 ];
+// ── P-HOME-2: personal connections (personal scope) and the inbox items they feed into Home ──
+// A source is the person's own app. An inbox item is NOT an assignment: no customer, no leg, no outcome.
+// It can be promoted ("Make a task" → a task assignment). A calendar event with a join link is the `meeting` kind.
+const SOURCES = {
+  calendar: { label:"Calendar", icon:"📅", desc:"Outlook / Google — meetings become `meeting` assignments; other events are inbox rows" },
+  mail:     { label:"Mail",     icon:"✉️", desc:"Your own mailbox — new mail from now on; never the customer email channel" },
+  teams:    { label:"Teams",    icon:"💠", desc:"Direct messages and mentions; new ones toast" },
+  slack:    { label:"Slack",    icon:"＃", desc:"Direct messages and mentions; new ones toast" },
+  salesforce:{ label:"Salesforce", icon:"☁️", desc:"Cases and opportunities assigned to you; updates become rows" },
+  jira:     { label:"Jira",     icon:"🔷", desc:"Issues assigned to you or mentioning you" },
+  zendesk:  { label:"Zendesk",  icon:"🟢", desc:"Tickets assigned to you; new comments become rows" },
+  servicenow:{ label:"ServiceNow", icon:"🟩", desc:"Incidents and requests assigned to you" },
+};
+// Which sources each persona's profile expects (profiles declare `expectsConnections`; the step asks for the missing ones).
+const EXPECTS = { agent:["calendar","mail","zendesk"], supervisor:["calendar","mail","teams"], sales:["calendar","mail","slack","salesforce"] };
+let connected = []; // personal scope — survives profile changes, which is why the step only asks for what's missing
+// Seeded day per source (what `connect()` loads), then a trickle of new items every ~12s while connected.
+const INBOX_SEED = {
+  calendar: [
+    { id:"i-c1", src:"calendar", title:"Dentist", sub:"Personal · 45 min · out of office block", when:420 },
+    { id:"i-c2", src:"calendar", title:"Focus time — RET-1.3 reading", sub:"Blocked by you", when:300 },
+  ],
+  mail: [
+    { id:"i-m1", src:"mail", title:"Dana Whitfield · Thursday's schedule swap", sub:"\"Can you cover 1–3pm Thursday? Priya is out…\"", when:-45 },
+    { id:"i-m2", src:"mail", title:"HR · Open enrollment closes Friday", sub:"\"Reminder: benefits elections are due…\"", when:-130 },
+  ],
+  teams: [
+    { id:"i-t1", src:"teams", title:"Dana Whitfield", sub:"\"Got a sec after your call? Want to talk about the Briggs escalation.\"", when:-6 },
+  ],
+  slack: [
+    { id:"i-s1", src:"slack", title:"#sales-west · Omar Farooq mentioned you", sub:"\"@alex the Acme quote needs the Nov 1 date fixed\"", when:-15 },
+  ],
+  salesforce: [
+    { id:"i-sf1", src:"salesforce", title:"Opportunity · Acme Corp renewal · stage → Negotiation", sub:"$48,000 · close date Nov 1 · owner: you", when:-50 },
+    { id:"i-sf2", src:"salesforce", title:"Case 00041877 · Northwind · reassigned to you", sub:"Priority High · \"Invoice mismatch on October statement\"", when:-20 },
+  ],
+  jira: [
+    { id:"i-j1", src:"jira", title:"CX-2291 · Refund flow shows stale balance", sub:"Assigned to you · In Progress · 2 new comments", when:-70 },
+  ],
+  zendesk: [
+    { id:"i-z1", src:"zendesk", title:"Ticket #58213 · Priya Shah · \"Credit still not showing\"", sub:"Assigned to you · Open · customer replied 9:52", when:-38 },
+    { id:"i-z2", src:"zendesk", title:"Ticket #58190 · Omar Farooq · plan upgrade receipt", sub:"Pending · awaiting Billing", when:-200 },
+  ],
+  servicenow: [
+    { id:"i-sn1", src:"servicenow", title:"INC0048811 · Softphone audio drops on transfer", sub:"Assigned to you · P3 · reporter: Dana Whitfield", when:-95 },
+  ],
+};
+const TRICKLE = {
+  mail:  [ { title:"Billing · RF-20452 released", sub:"\"The credit for Priya Shah posted at 10:41…\"" }, { title:"WFM · Shift bid opens Monday", sub:"\"Q1 bids open at 9:00…\"" } ],
+  teams: [ { title:"Dana Whitfield", sub:"\"Also — nice CSAT this week.\"" } ],
+  slack: [ { title:"#sales-west · Lauren Briggs", sub:"\"Northwind wants the renewal call moved to Thursday\"" } ],
+  calendar: [ { title:"Returns team stand-up moved to 11:15", sub:"Updated by Dana", when:45 } ],
+  salesforce: [ { title:"Case 00041877 · Northwind · customer commented", sub:"\"Any update? Our AP close is Friday.\"" } ],
+  jira: [ { title:"CX-2291 · moved to Code Review", sub:"by Sam Ortiz" } ],
+  zendesk: [ { title:"Ticket #58213 · Priya Shah replied", sub:"\"I can see it now — thank you!\"" } ],
+  servicenow: [ { title:"INC0048811 · comment from IT", sub:"\"Can you confirm the headset model?\"" } ],
+};
+let INBOX = [];     // live inbox items for connected sources
+let trickleTimer = null, trickleN = 0;
+let filters = new Set(); // multi-select: empty = All; members are "assignments", "history", or a source id
+let layout = "twoColumn"; // home.layout (agent scope, in the profile); AI-first built-in = twoColumn, others oneColumn
 let role="agent", view="active", opened=["a1"], current=null, menuOpen=false; // current=null → Home
+
+function connect(src){ if(connected.includes(src)) return; connected.push(src); INBOX.push(...INBOX_SEED[src].map(x=>({...x}))); startTrickle(); render(); }
+function disconnect(src){ connected = connected.filter(s=>s!==src); INBOX = INBOX.filter(i=>i.src!==src); filters.delete(src); render(); }
+function startTrickle(){ if(trickleTimer) return; trickleTimer = setInterval(()=>{
+  const srcs = connected.filter(s=>TRICKLE[s].length); if(!srcs.length) return;
+  const src = srcs[trickleN++ % srcs.length]; const t = TRICKLE[src].shift(); if(!t) return;
+  const it = { id:"i-new"+trickleN, src, title:t.title, sub:t.sub, when:t.when ?? 0, fresh:true };
+  INBOX.unshift(it);
+  if(src==="teams"||src==="slack") toast(`${SOURCES[src].icon} ${t.title}`, t.sub, it.id); // notifications.toasts per-source switch
+  render();
+}, 12000); }
+function toast(title, body, id){ const el=document.createElement("div"); el.className="toast"; el.innerHTML=`<div class="t">${title}</div><div style="color:var(--muted);margin-top:2px">${body}</div><div class="acts"><span class="p">View</span><span>Dismiss</span></div>`;
+  el.querySelector(".p").onclick=()=>{ openInbox(id); el.remove(); }; el.querySelectorAll(".acts span")[1].onclick=()=>el.remove();
+  document.getElementById("toasts").appendChild(el); setTimeout(()=>el.remove(), 9000); }
+// "Make a task" = this is my work now: the item becomes a task assignment, joins the rail, leaves the feed, and opens in the main
+// column with the source record as its first reference card. "Later" creates it scheduled and leaves it in the feed.
+function promote(id, later){ const it = INBOX.find(x=>x.id===id); if(!it) return; INBOX = INBOX.filter(x=>x.id!==id);
+  const t = { id:"p-"+id, kind:"task", title:"Task · "+it.title, sub:"From "+SOURCES[it.src].label+" · "+it.sub, when: later?60:0, state:"scheduled", source:SOURCES[it.src].label, from:it };
+  ITEMS.push(t); if(later){ current=null; render(); } else { open(t.id); } }
+// The step: after first login, and whenever the applied profile expects a source that isn't connected. Skippable; re-reachable from Settings → Connections → Your apps.
+function showConnectStep(reason){
+  const missing = EXPECTS[role].filter(s=>!connected.includes(s));
+  const pick = new Set(missing);
+  const host = document.getElementById("connectStep");
+  const draw = () => { host.innerHTML = `<div class="scrim"><div class="modal">
+    <h3>Connect your apps</h3><div class="sub">${reason}. Your calendar, mail and team chat feed your Activity feed from now on. These are yours — not your team's — and you can change them any time in Settings → Connections → Your apps.</div>
+    ${Object.keys(SOURCES).map(s=>`<div class="srcrow"><div style="font-size:18px">${SOURCES[s].icon}</div><div><div class="nm">${SOURCES[s].label}${EXPECTS[role].includes(s)?'<span class="exp">expected by this profile</span>':''}${connected.includes(s)?'<span class="exp" style="background:var(--green-bg);color:var(--green)">connected</span>':''}</div><div class="d">${SOURCES[s].desc}</div></div>
+      <button data-s="${s}" class="${pick.has(s)||connected.includes(s)?'on':''}" ${connected.includes(s)?'disabled':''}>${connected.includes(s)?'Connected':pick.has(s)?'✓ Connect':'Connect'}</button></div>`).join("")}
+    <div class="foot"><button id="skip">Skip for now</button><button class="p" id="go">Connect ${pick.size?pick.size+" app"+(pick.size>1?"s":""):"nothing"} and continue</button></div></div></div>`;
+    host.querySelectorAll("button[data-s]").forEach(b=>b.onclick=()=>{ const s=b.dataset.s; pick.has(s)?pick.delete(s):pick.add(s); draw(); });
+    host.querySelector("#skip").onclick=()=>{ host.innerHTML=""; };
+    host.querySelector("#go").onclick=()=>{ host.innerHTML=""; pick.forEach(s=>connect(s)); };
+  };
+  draw();
+}
 
 const fmt = m => { const t=10*60+30+m; const h=Math.floor(t/60), mm=String(t%60).padStart(2,"0"); const d=Math.floor(t/1440); const hh=((h%24)+11)%12+1, ap=(h%24)<12?"AM":"PM"; return (d>0?["Tomorrow","Wed","Thu","Fri"][d-1]+" ":"")+hh+":"+mm+" "+ap; };
 const kindsFor = () => ROLE_KINDS[role];
@@ -194,16 +341,47 @@ function renderNav(){
 }
 
 function renderHome(){
-  const vis = visible().filter(i=>i.state!=="done");
-  const done = visible().filter(i=>i.state==="done");
-  const now = vis.filter(i=>i.when<=0), today = vis.filter(i=>i.when>0 && i.when<=600), week = vis.filter(i=>i.when>600);
-  const row = i => `<div class="item ${i.state==='active'||i.state==='offered'?'live':''} ${i.state==='done'?'done':''}" data-id="${i.id}">
+  // Two row classes: assignments (kinds registry) and inbox items (personal connections). Both sort by time; the filter chips pick.
+  const none = filters.size===0;
+  const showA = none || filters.has("assignments");
+  const showH = filters.has("history");
+  // Rule: a row is in the feed OR in the rail, never both. Offered/new pin to the top; accepting moves the assignment to the rail
+  // and out of Home; what left the feed (accepted today, completed today) is the History tab.
+  const inRail = i => opened.includes(i.id) || i.state==="active";
+  const offered = showA ? visible().filter(i=>i.state==="offered") : [];
+  const vis = showA ? visible().filter(i=>i.state==="scheduled" && !inRail(i)) : [];
+  const history = visible().filter(i=>i.state==="done" || inRail(i));
+  const inbox = INBOX.filter(i => none || filters.has(i.src));
+  const all = [...vis, ...inbox].sort((a,b)=>a.when-b.when);
+  const now = all.filter(i=>i.when<=0), today = all.filter(i=>i.when>0 && i.when<=600), week = all.filter(i=>i.when>600);
+  const done = history; // for the welcome line
+  const row = i => i.src ? `<div class="item inbox ${i.fresh?'new':''}" data-inbox="${i.id}">
+      <div class="time">${i.when<=0 ? (i.when===0?"Just now":fmt(i.when)) : fmt(i.when)}</div>
+      <div><div class="title">${SOURCES[i.src].icon} ${i.title}</div><div class="sub">${i.sub}</div></div>
+      <div class="st"><span class="src ${i.src}">${SOURCES[i.src].label}</span><div class="acts"><span>Open</span><span data-promote="${i.id}">Make a task</span><span data-promote-later="${i.id}" title="Create it scheduled; stays in the feed">later</span></div></div>
+    </div>` : `<div class="item ${i.state==='active'||i.state==='offered'?'live':''} ${i.state==='done'?'done':''}" data-id="${i.id}">
       <div class="time">${i.state==="active"?"Now":i.state==="offered"?"Offered":fmt(i.when)}</div>
       <div><div class="title">${KINDS[i.kind].icon} ${i.title}</div><div class="sub">${i.sub}${i.source?" · "+i.source:""}</div></div>
       <div class="st">${chip(i.kind)}<br>${i.state==="offered"?'<span style="color:var(--red)">accept · 0:18</span>':i.state==="active"?"in progress":i.state==="done"?"completed":"scheduled"}</div>
     </div>`;
   const grp = (h,items) => items.length ? `<div class="group"><h4>${h}</h4>${items.map(row).join("")}</div>` : "";
   const who = role==="supervisor"?"Dana":role==="sales"?"Alex":"John";
+  // Filter chips: All · Assignments · one chip per CONNECTED source (hide-never-disable: unconnected sources have no chip).
+  const nA = visible().length, nSrc = s => INBOX.filter(i=>i.src===s).length;
+  const filterBar = `<div class="filters">
+      <span class="${none?'on':''}" data-f="all">All</span>
+      <span class="${filters.has('assignments')?'on':''}" data-f="assignments">Assignments<span class="n">${vis.length}</span></span>
+      <span class="${showH?'on':''}" data-f="history">History<span class="n">${history.length}</span></span>
+      ${connected.map(s=>`<span class="${filters.has(s)?'on':''}" data-f="${s}">${SOURCES[s].icon} ${SOURCES[s].label}<span class="n">${nSrc(s)}</span></span>`).join("")}
+      <span style="border-style:dashed" data-f="__connect">＋ Apps</span>
+    </div>`;
+  const pinned = offered.length ? `<div class="group" style="border:1px solid #f3c6c6;background:#fff8f8;border-radius:10px;padding:8px 10px 2px"><h4 style="color:var(--red)">Needs a decision · ${offered.length}</h4>${offered.map(row).join("")}</div>` : "";
+  const histRow = i => `<div class="item ${i.state==='done'?'done':''}" data-id="${i.id}">
+      <div class="time">${i.state==="done"?fmt(i.when):"In rail"}</div>
+      <div><div class="title">${KINDS[i.kind].icon} ${i.title}</div><div class="sub">${i.sub}</div></div>
+      <div class="st">${chip(i.kind)}<br>${i.state==="done"?"completed":"accepted · active"}</div></div>`;
+  const histBlock = showH ? `<div class="group"><h4>History · left the feed today</h4>${history.length?history.map(histRow).join(""):'<div class="empty">Nothing yet today</div>'}</div>` : "";
+  const feedBody = `${pinned}${filterBar}${grp("Now", now)}${grp("Today", today)}${grp("This week", week)}${histBlock}`;
   const cards = role==="supervisor" ? `
       <div class="rc"><h5>Team queues <span class="chip k-sys">live</span></h5>
         <div class="q"><span>Returns</span><span><span class="n">7</span> waiting · <span class="w hot">longest 4:12</span></span></div>
@@ -226,20 +404,37 @@ function renderHome(){
         <span>CSAT</span><span class="v">4.7</span><span class="t">last 7 days</span><span class="t"></span>
         <span>Adherence</span><span class="v" style="color:var(--amber)">91%</span><span class="t">break ran 4 min over</span><span class="t"></span></div></div>
       <div class="rc"><h5>Reminders</h5><p>RET-1.3 training due Friday · Callback for Priya at 11:00 · 1:1 with Dana Wednesday</p></div>`;
-  document.getElementById("page").innerHTML = `
+  const header = `
     <div class="ph"><h2>Home</h2><div class="tabs"><span class="on">Activity</span><span>Customers</span><span>Accounts</span><span>Tickets</span></div>
       <div class="right"><span>Today ▾</span><span>All kinds ▾</span><span>Filter</span></div></div>
-    <div class="welcome"><div class="av">${who[0]}S</div><div><h3>Good morning, ${who}</h3><div class="sub">${now.length} now · ${today.length} more today · ${week.length} this week · ${done.length} completed</div></div><div class="go">● Working · Go Available</div></div>
-    <div class="homebody"><div class="feed">
-      <div class="note"><b>Your day.</b> Every row is an assignment — conversations, callbacks, meetings, trainings, tasks — from the kinds this role sees. Click one: it joins the rail as the active assignment and the main column renders by kind. The Assignments dropdown on the left is the same list by view.</div>
-      ${grp("Now", now)}${grp("Today", today)}${grp("This week", week)}${grp("Completed today", done)}
-    </div><div class="homecol">${cards}</div></div>`;
-  document.querySelectorAll(".item").forEach(e=>e.onclick=()=>open(e.dataset.id));
+    <div class="welcome"><div class="av">${who[0]}S</div><div><h3>Good morning, ${who}</h3><div class="sub">${offered.length} to decide · ${now.length} now · ${today.length} more today · ${week.length} this week · ${done.length} in history${connected.length?" · "+INBOX.length+" from your apps":""}</div></div><div class="go">● Working · Go Available</div></div>`;
+  const note = `<div class="note"><b>Your day.</b> Offered assignments pin to the top until you decide. Everything else is what's coming: scheduled assignments (solid edge) — open one and it moves to the rail and off this page (see History). Inbox rows (dashed edge) come from <b>your connected apps</b> — not assignments, no outcome; "Make a task" promotes one. The chips filter by source; a chip exists only for a connected source.</div>`;
+  if (layout === "twoColumn") {
+    // twoColumn: welcome across the top, the feed as the main column, the other enabled sections stacked right in their stored order
+    document.getElementById("page").innerHTML = header + `<div class="homebody"><div class="feed">${note}${feedBody}</div><div class="homecol">${cards}</div></div>`;
+  } else {
+    // oneColumn: today's Home — the stored section order (Performance + Productivity grid, Queues, …) with the Activity feed as one more
+    // section rendered as a container row, exactly like Contact History's. Queues and Performance are untouched.
+    const rcs = cards.split('<div class="rc">').filter(s=>s.trim()).map(s=>'<div class="rc">'+s);
+    const perf = rcs.find(s=>/performance|Team today/.test(s)) || "", queues = rcs.find(s=>/queues/i.test(s)) || "", rest = rcs.filter(s=>s!==perf && s!==queues).join("");
+    document.getElementById("page").innerHTML = header + `<div class="sections">
+      <div class="grid2"><div class="section">${perf}</div><div class="section">${rest}</div></div>
+      <div class="section">${queues}</div>
+      <div class="section"><h4>Activity <span class="chip k-sys">home.sections: activity</span></h4>${note}${feedBody}</div>
+    </div>`;
+  }
+  document.querySelectorAll(".item[data-id]").forEach(e=>e.onclick=()=>open(e.dataset.id));
+  document.querySelectorAll(".item[data-inbox]").forEach(e=>e.onclick=()=>openInbox(e.dataset.inbox));
+  document.querySelectorAll("[data-promote]").forEach(e=>e.onclick=(ev)=>{ ev.stopPropagation(); promote(e.dataset.promote); });
+  document.querySelectorAll("[data-promote-later]").forEach(e=>e.onclick=(ev)=>{ ev.stopPropagation(); promote(e.dataset.promoteLater, true); });
+  document.querySelectorAll(".filters [data-f]").forEach(e=>e.onclick=()=>{ const f=e.dataset.f; if(f==="__connect"){ showConnectStep("Connect the apps this profile expects"); return; } if(f==="all"){ filters.clear(); } else { filters.has(f)?filters.delete(f):filters.add(f); } render(); });
+  INBOX.forEach(i=>i.fresh=false);
 }
 
 function renderAssignment(i){
+  const fromCard = i.from ? `<div class="rc"><h5>From <span class="src ${i.from.src}">${SOURCES[i.from.src].label}</span></h5><p>${i.from.title}<br>${i.from.sub}<br><span style="color:var(--blue)">Open in ${SOURCES[i.from.src].label}</span></p></div>` : "";
   const ref = i.customer ? `<div class="ref"><div class="rc"><h5>Real-Time Summary <span class="chip k-sys">Live</span></h5><p>${i.sub}</p></div><div class="rc"><h5>Journey Summary <span class="chip k-sys">Repeat</span></h5><p>Earlier contacts with ${i.customer} appear here.</p></div><div class="rc"><h5>Customer Info <span class="chip k-sys">On file</span></h5><p>${i.customer}</p></div></div>`
-                         : `<div class="ref"><div class="rc"><h5>Related</h5><p>${i.kind==="meeting"?"Attendees, agenda doc, last meeting's action items.":i.kind==="training"?"Policy RET-1.3, the quiz, your progress.":i.kind==="campaign"?"Segment, cadence, today's targets.":"Linked records."}</p></div><div class="rc"><h5>Copilot</h5><p>Assignment-scoped, as on a contact.</p></div></div>`;
+                         : `<div class="ref">${fromCard}<div class="rc"><h5>Related</h5><p>${i.kind==="meeting"?"Attendees, agenda doc, last meeting's action items.":i.kind==="training"?"Policy RET-1.3, the quiz, your progress.":i.kind==="campaign"?"Segment, cadence, today's targets.":"Linked records."}</p></div><div class="rc"><h5>Copilot</h5><p>Assignment-scoped, as on a contact.</p></div></div>`;
   let action = "";
   const K = i.kind;
   if (K==="conversation") action = `
@@ -263,7 +458,7 @@ function renderAssignment(i){
       <div class="box"><h4>Module</h4><div style="height:140px;border:1px dashed var(--line);border-radius:6px;display:grid;place-items:center;color:var(--muted)">Embedded content (knowledge connector / LMS)</div></div>
       <div class="outcome"><b>Outcome (training kind):</b> completion + quiz score. No disposition.</div>`;
   if (K==="task") action = `
-      <div class="box"><h4>${i.title}</h4>${i.sub}<div class="acts"><span class="p">Update ticket</span><span>Message Billing</span><span>Call ${i.customer}</span></div></div>
+      <div class="box"><h4>${i.title}</h4>${i.sub}<div class="acts"><span class="p">${i.from?"Update in "+SOURCES[i.from.src].label:"Update ticket"}</span><span>Message Billing</span>${i.customer?`<span>Call ${i.customer}</span>`:""}</div></div>
       <div class="box ai"><h4>Next Best Action · Do</h4>Credit RF-20452 is stuck in review — ask Billing to release it.<div class="acts"><span class="p">Run it</span><span>Not now</span></div></div>
       <div class="note" style="margin-top:10px">"Call Priya" adds a voice leg to this task assignment — legs can join any kind.</div>
       <div class="outcome"><b>Outcome (task kind):</b> ticket status + note.</div>`;
@@ -286,14 +481,61 @@ function renderAssignment(i){
     <div class="body"><div class="action">${action}</div>${ref}</div>`;
 }
 
+// An inbox item opens in the main column like an assignment does — same page shell, the source's content as the action area,
+// the reference column with what the app knows — but it does NOT join the Assignments rail (it isn't one) and has no Outcome.
+function renderInbox(i){
+  const S = SOURCES[i.src];
+  let action = "";
+  if (i.src==="mail") action = `
+      <div class="box"><h4>${i.title}</h4><div style="color:var(--muted);font-size:11.5px;margin-bottom:8px">To: you · ${fmt(i.when)} · via your mailbox</div>
+        <p style="margin:0">${i.sub.replace(/^"|"$/g,"")} Let me know by end of day if that works — I'll update the schedule in WFM once I hear back. Thanks!</p>
+        <div class="acts"><span class="p">Reply</span><span>Reply all</span><span>Forward</span><span>Open in Outlook</span></div></div>
+      <div class="box ai"><h4>Copilot</h4>Thursday 1–3pm is free on your calendar; your RET-1.3 reading block is at 3:00. Draft a yes?<div class="acts"><span class="p">Draft reply</span><span>Not now</span></div></div>
+      <div class="composer"><div class="seg"><span class="on">Reply via Mail</span><span>Ask Copilot</span></div><div class="field">Reply here — sent through your mailbox, never through the customer email channel.</div></div>`;
+  if (i.src==="teams" || i.src==="slack") action = `
+      <div class="box"><h4>${i.title}</h4><div style="color:var(--muted);font-size:11.5px;margin-bottom:8px">${S.label} · ${i.when===0?"just now":fmt(i.when)}</div>
+        <div class="bubble cust">${i.sub.replace(/^"|"$/g,"")}</div>
+        <div class="bubble cust" style="opacity:.6">(earlier) Morning! Briggs is in the Returns queue again.</div>
+        <div class="acts"><span class="p">Reply</span><span>Open in ${S.label}</span><span>Start a call</span></div></div>
+      <div class="box ai"><h4>Copilot</h4>Dana is asking about Lauren Briggs — her escalation is an open assignment. Open it beside this thread?<div class="acts"><span class="p">Open Briggs</span><span>Not now</span></div></div>
+      <div class="composer"><div class="seg"><span class="on">Reply via ${S.label}</span><span>Ask Copilot</span></div><div class="field">Short reply — this is team chat, not a customer thread.</div></div>`;
+  if (["salesforce","jira","zendesk","servicenow"].includes(i.src)) action = `
+      <div class="box"><h4>${i.title}</h4><div style="color:var(--muted);font-size:11.5px;margin-bottom:8px">${S.label} · ${i.sub}</div>
+        <div style="height:120px;border:1px dashed var(--line);border-radius:6px;display:grid;place-items:center;color:var(--muted)">Record summary from ${S.label} (fields the connector maps; the record itself opens in ${S.label})</div>
+        <div class="acts"><span class="p">Open in ${S.label}</span><span>Add comment</span><span>Change status</span></div></div>
+      <div class="box ai"><h4>Copilot</h4>${i.src==="zendesk"?"Priya Shah has a callback at 11:00 on this same credit — the ticket and the callback are the same issue. Link them?":i.src==="salesforce"?"Omar Farooq's follow-up at 11:15 is this opportunity. Open the cadence step beside it?":"This item mentions a customer with an open assignment — link them?"}<div class="acts"><span class="p">Link</span><span>Not now</span></div></div>
+      <div class="note">A record assigned to you is an inbox row until you make it a task; the customer's own history stays in the app's record (the CRM is a database behind it).</div>`;
+  if (i.src==="calendar") action = `
+      <div class="box"><h4>${i.title}</h4>${fmt(i.when)} · ${i.sub}<div class="acts"><span class="p">Open in Calendar</span><span>Snooze</span><span>Decline</span></div></div>
+      <div class="note">A calendar entry with attendees and a join link would be a <b>meeting</b> assignment (kinds registry) and open as one. This is a personal block, so it's an inbox row: nothing to outcome.</div>`;
+  const ref = `<div class="ref">
+      <div class="rc"><h5>From your apps <span class="src ${i.src}">${S.label}</span></h5><p>Personal connection · ${S.desc}</p></div>
+      <div class="rc"><h5>Related work</h5><p>${i.src==="mail"?"Thursday's shift · WFM schedule · Priya Shah's callback (11:00)":i.src==="calendar"?"RET-1.3 training (due Friday)":"Lauren Briggs · escalation (Offered) · Dana Whitfield (supervisor)"}</p></div>
+      <div class="rc"><h5>Copilot</h5><p>Scoped to this item, as on a contact.</p></div></div>`;
+  document.getElementById("page").innerHTML = `
+    <div class="ph"><h2>${S.icon} ${i.title}</h2><span class="src ${i.src}">${S.label}</span><span class="chip k-sys">Inbox item · not an assignment</span>
+      <div class="right"><span data-promote="${i.id}" style="cursor:pointer">Make a task</span><span>Done</span><span id="backHome" style="cursor:pointer">← Home</span></div></div>
+    <div class="body"><div class="action">${action}</div>${ref}</div>`;
+  document.querySelector("[data-promote]").onclick=()=>promote(i.id);
+  document.getElementById("backHome").onclick=()=>{ current=null; render(); };
+}
+function openInbox(id){ current="inbox:"+id; render(); }
 function open(id){ current=id; if(!opened.includes(id)) opened.push(id); const it=ITEMS.find(x=>x.id===id); if(it.state==="scheduled"||it.state==="offered"){ it.state="active"; it.when=0; } render(); }
-function render(){ renderNav(); const it=ITEMS.find(x=>x.id===current); if(it) renderAssignment(it); else renderHome(); }
+function render(){ renderNav(); if(typeof current==="string" && current.startsWith("inbox:")){ const ib=INBOX.find(x=>x.id===current.slice(6)); if(ib){ renderInbox(ib); return; } current=null; } const it=ITEMS.find(x=>x.id===current); if(it) renderAssignment(it); else renderHome(); }
 
 document.getElementById("viewBtn").onclick=(e)=>{ e.stopPropagation(); menuOpen=!menuOpen; renderNav(); };
 document.body.addEventListener("click",()=>{ if(menuOpen){ menuOpen=false; renderNav(); } });
 document.getElementById("homeBtn").onclick=()=>{ current=null; render(); };
-document.querySelectorAll(".role button").forEach(b=>b.onclick=()=>{ role=b.dataset.role; document.querySelectorAll(".role button").forEach(x=>x.classList.toggle("on",x===b)); current=null; opened=["a1"]; ITEMS.forEach(i=>{ if(i.id!=="a1"&&i.state==="active"){ i.state="scheduled"; } }); render(); });
+document.querySelectorAll(".role button").forEach(b=>b.onclick=()=>{ role=b.dataset.role; document.querySelectorAll(".role button").forEach(x=>x.classList.toggle("on",x===b)); current=null; opened=["a1"]; ITEMS.forEach(i=>{ if(i.id!=="a1"&&i.state==="active"){ i.state="scheduled"; } });
+  // Profile change: personal connections persist; the step re-appears only if the new profile expects a source that isn't connected.
+  layout = role==="agent" ? "oneColumn" : "twoColumn"; // AI-first-style built-ins default twoColumn; the plain agent profile keeps today's one-column Home
+  document.querySelectorAll(".layout button").forEach(x=>x.classList.toggle("on",x.dataset.layout===layout));
+  render(); if (EXPECTS[role].some(s=>!connected.includes(s))) showConnectStep("You switched to the "+role+" profile, which expects more apps"); });
+document.querySelectorAll(".layout button").forEach(b=>b.onclick=()=>{ layout=b.dataset.layout; document.querySelectorAll(".layout button").forEach(x=>x.classList.toggle("on",x===b)); render(); });
+function renderConnButtons(){ document.querySelectorAll(".conn button").forEach(b=>{ const s=b.dataset.src; b.classList.toggle("on",connected.includes(s)); b.textContent=(connected.includes(s)?"✓ ":"")+SOURCES[s].icon+" "+SOURCES[s].label; b.onclick=()=>connected.includes(s)?disconnect(s):connect(s); }); }
+const _render = render; render = function(){ _render(); renderConnButtons(); };
 render();
+showConnectStep("Welcome, John — first sign-in"); // first login: the step runs after the welcome modal
 </script>
 </body>
 </html>
