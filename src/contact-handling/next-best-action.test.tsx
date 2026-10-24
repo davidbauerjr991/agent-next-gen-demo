@@ -481,7 +481,25 @@ describe("scripted cases: the Next Best Action gates the agent's turn", () => {
     expect(main().textContent).toContain("Refund rejected");
   });
 
-  it("an optional note left blank leaves no label fragment in the Used row (P-SHRINK follow-up)", async () => {
+  it("the hook trims the typed note: padding is dropped from the Used row", async () => {
+    await open({ displayLocation: "inline" });
+    await h.play(MARCUS_WEBB_SCRIPT.id);
+    await h.click(h.navCard("Marcus Webb"));
+    await h.advance(6000);
+    const reject = [...nba()!.querySelectorAll("li")].find((li) => li.textContent?.includes("Reject the refund"))!;
+    await h.click([...reject.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Use")!);
+    const field = nba()!.querySelector("[data-slot=nba-alternative-note]")!;
+    const reason = field.querySelector("textarea")!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(reason, " Needs photos first ");
+      reason.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await h.click([...field.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Run it")!);
+    await h.advance(2000);
+    expect(outcomes()).toEqual([expect.stringMatching(/^used: Used at .* — Reject the refund · reason: Needs photos first$/)]);
+  });
+
+  it.each(["", "  "])("an optional note left blank (%j) leaves no label fragment in the Used row (P-SHRINK follow-up)", async (blank) => {
     // Make Marcus's rejection reason optional for this case, restoring it after.
     const reasons: { required?: boolean }[] = [];
     const walk = (node: unknown) => {
@@ -504,7 +522,7 @@ describe("scripted cases: the Next Best Action gates the agent's turn", () => {
       const field = nba()!.querySelector("[data-slot=nba-alternative-note]")!;
       const reason = field.querySelector("textarea")!;
       await act(async () => {
-        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(reason, "   ");
+        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(reason, blank);
         reason.dispatchEvent(new Event("input", { bubbles: true }));
       });
       await h.click([...field.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Run it")!);

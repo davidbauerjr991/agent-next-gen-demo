@@ -129,7 +129,7 @@ test.describe("Marcus Webb, the whole arc", () => {
       await seen(page, LINES.reply);
       await seen(page, "I have transferred the call. You are live with the customer.");
       if (remedy === "credit") {
-        await marcus.issueCredit(page, "150");
+        await marcus.issueCredit(page, " 150 ");
         await used(page, /— Issue store credit · credit amount: 150$/);
         await seen(page, "I've issued $150 as store credit");
         await seen(page, "Store credit issued");

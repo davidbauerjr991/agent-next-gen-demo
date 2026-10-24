@@ -69,7 +69,7 @@ export function NextBestActionCard({ suggestion, stepId, use = "copy", onUse, on
   const picked = altPicked !== undefined ? suggestion.alt[altPicked] : undefined;
   const footer = isDo ? (
     <>
-      <Button size="sm" disabled={!noteReady(suggestion.note, note)} onClick={() => onUse?.(suggestion.note ? note.trim() : undefined)}>
+      <Button size="sm" disabled={!noteReady(suggestion.note, note)} onClick={() => onUse?.(suggestion.note ? note : undefined)}>
         {ic(Play)}
         {t("Run it")}
       </Button>
@@ -150,7 +150,7 @@ export function NextBestActionCard({ suggestion, stepId, use = "copy", onUse, on
             <p className="lyra-body-md-emphasis text-lyra-fg-default">{picked.text}</p>
             <NoteField note={picked.note} value={altNote} onChange={setAltNote} />
             <div className="flex items-center gap-2">
-              <Button size="sm" disabled={!noteReady(picked.note, altNote)} onClick={() => onUseAlternative?.(altPicked, altNote.trim())}>
+              <Button size="sm" disabled={!noteReady(picked.note, altNote)} onClick={() => onUseAlternative?.(altPicked, altNote)}>
                 {ic(Play)}
                 {t("Run it")}
               </Button>

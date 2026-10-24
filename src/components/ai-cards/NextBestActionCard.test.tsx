@@ -62,7 +62,8 @@ describe("a Do suggestion's note", () => {
     type(amount, " 150 ");
     expect(run.disabled).toBe(false);
     click(run);
-    expect(onUse).toHaveBeenCalledWith("150");
+    // The card passes the raw note; the hook trims (next-best-action.test.tsx).
+    expect(onUse).toHaveBeenCalledWith(" 150 ");
   });
 
   it("an alternative with a note opens its own field and Run it; one without is used at once", () => {
@@ -91,7 +92,7 @@ describe("a Do suggestion's note", () => {
     expect(onUse).toHaveBeenCalledWith(undefined);
   });
 
-  it("an optional note left blank (or spaces) is passed as none", () => {
+  it("an optional note of spaces reaches the handlers as typed (the hook decides it is none)", () => {
     const onUse = vi.fn();
     const onUseAlternative = vi.fn();
     const optional: NextBestActionSuggestion = {
@@ -102,12 +103,12 @@ describe("a Do suggestion's note", () => {
     render(<NextBestActionCard suggestion={optional} onUse={onUse} onUseAlternative={onUseAlternative} />);
     type(host.querySelector<HTMLInputElement>("input[placeholder='200']")!, "  ");
     click(button("Run it")[0]);
-    expect(onUse).toHaveBeenCalledWith(undefined);
+    expect(onUse).toHaveBeenCalledWith("  ");
     click(button("Use")[0]);
     const field = host.querySelector("[data-slot=nba-alternative-note]")!;
     type(field.querySelector<HTMLTextAreaElement>("textarea")!, "  ");
     click([...field.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Run it")!);
-    expect(onUseAlternative).toHaveBeenCalledWith(0, undefined);
+    expect(onUseAlternative).toHaveBeenCalledWith(0, "  ");
   });
 });
 
