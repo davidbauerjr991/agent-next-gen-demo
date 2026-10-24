@@ -8,7 +8,8 @@ import type { DetailPanelContent } from "./workspace/workspace-types";
 // rows and links open its panels without a branch per case in the link
 // handler or the slide-over. A key ending in ":" is a prefix (`action:`,
 // `instruction:`). Marcus Webb registers today; the other cases still use
-// their own branches until they move here.
+// their own branches until they move here. Transcript links `[x](key)` are an
+// intended way to open a registered panel.
 
 /** What a link asked for: the key, and for a Copilot row its question and time. */
 export interface SlideOverRequest {
