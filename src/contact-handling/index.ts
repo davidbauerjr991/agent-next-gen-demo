@@ -1,76 +1,53 @@
 // Shared contact handling (P0.5b.2): the logic both workspace pages use to
 // show and launch contacts. Pages keep only layout (PLAN.md "Parity").
 // Everything here reaches providers only through `src/provider-context`.
-export { useNavCards, visibleContacts, type NavCards, type UseNavCardsOptions } from "./useNavCards";
-export type { CardOverlay } from "./nav-card-overlay";
-export { useContactActivation, type Activation, type ActivationMode } from "./useContactActivation";
-export { useOutboundSkills, type SkillOption } from "./useOutboundSkills";
-export {
-  useOutboundDial,
-  isOnCallWith,
-  findCallWith,
-  alreadyOnCallMessage,
-  ALREADY_ON_CALL_TOOLTIP,
-  type CallTarget,
-  type DialpadRequest,
-} from "./useOutboundDial";
+export { useNavCards } from "./useNavCards";
+export { useContactActivation, type Activation } from "./useContactActivation";
+export { useOutboundSkills } from "./useOutboundSkills";
+export { useOutboundDial, alreadyOnCallMessage } from "./useOutboundDial";
 export { useContactReopen } from "./useContactReopen";
 export { useContactCommands } from "./useContactCommands";
 export { useNewAssignments } from "./useNewAssignments";
-export { buildOpenChannelTagger, isAddressOnlyCard } from "./open-channel-tagger";
-export {
-  directoryDisplayName,
-  historyEntityId,
-  knownOrSynthesizedAddress,
-  normalizePhone,
-  callerOfCard,
-  callerOfInteraction,
-  declinedCallMessage,
-  offerNoun,
-  declinedOfferToast,
-  type CallerLabel,
-} from "./contact-identity";
-export { NewOutboundLauncher, type NewOutboundLauncherProps } from "./NewOutboundLauncher";
+export { buildOpenChannelTagger } from "./open-channel-tagger";
+export { directoryDisplayName, callerOfCard, callerOfInteraction, declinedOfferToast } from "./contact-identity";
+export { NewOutboundLauncher } from "./NewOutboundLauncher";
 // P0.5d.1: voice bar, wrap-up prompt and incoming offers.
-export { useVoiceCallControls, type VoiceCallControlProps } from "./useVoiceCallControls";
+export { useVoiceCallControls } from "./useVoiceCallControls";
 export { voiceWrapUpThread } from "./wrap-up";
 export { preContactSummaryOf, withPreContactSummary } from "./pre-contact";
-export { useVoiceBarCall, pickVoiceBarCall, voiceBarCalls, type VoiceBarCall } from "./useVoiceBarCall";
-export { VoiceHoldChip, type VoiceHoldChipProps } from "./VoiceHoldChip";
+export { useVoiceBarCall, voiceBarCalls } from "./useVoiceBarCall";
+export { VoiceHoldChip } from "./VoiceHoldChip";
 export { VoiceWrapUpCard } from "./VoiceWrapUpCard";
-export { useChannelOutcomeDrafts, outcomeDraftKey, toOutcome, type OutcomeDraft } from "./useChannelOutcomeDrafts";
+export { useChannelOutcomeDrafts, outcomeDraftKey, type OutcomeDraft } from "./useChannelOutcomeDrafts";
 export { useIncomingOffer } from "./useIncomingOffer";
-export { IncomingOfferActions, type IncomingOfferActionsProps } from "./IncomingOfferActions";
+export { IncomingOfferActions } from "./IncomingOfferActions";
 export { navCardAddChannelAction } from "./nav-card-add-channel";
 export { showsSessionControls } from "./session-controls";
 export { ChannelThreadBody, ChannelThreadComposer, ChannelThreadSessionRow, type CopilotComposerProps } from "./ChannelThreadPane";
-export { isDraftThread, threadAcceptsReplies, threadKeyOf } from "./channel-thread";
-export { channelTempo, routeChannel, mainThreadKey, omnichannelMainKey, panelDefaultKey, tabMainKey, channelHeaderEntries, type AsyncPlacement, type ChannelRoute, type ConversationPlacement } from "./omnichannel";
-export { useOmnichannelLayout, type OmnichannelLayout } from "./useOmnichannelLayout";
+export { isDraftThread, threadAcceptsReplies } from "./channel-thread";
+export { routeChannel, omnichannelMainKey, panelDefaultKey, tabMainKey, channelHeaderEntries } from "./omnichannel";
+export { useOmnichannelLayout } from "./useOmnichannelLayout";
 export { useConversationPlacement } from "./useConversationPlacement";
-export { useAutoAcceptDigital, useDigitalOfferChannels, useEnabledDigitalChannels } from "./useAutoAcceptDigital";
+export { useAutoAcceptDigital } from "./useAutoAcceptDigital";
 export { useMainPins } from "./useMainPins";
 export { HoverPreviewFrame, HOVER_PREVIEW_POPOVER_CLASS } from "./HoverPreviewFrame";
 export { ThreadCrossFade } from "./ThreadCrossFade";
 export { callBadge } from "./call-badge";
 export { useCardAddChannel, useCardOwnAddChannel } from "./useCardAddChannel";
-export { ChannelThreadMenu, useChannelThreadMenu, type ChannelThreadMenuEntry } from "./ChannelThreadMenu";
-export { CallSwitcher } from "./CallSwitcher";
+export { ChannelThreadMenu, useChannelThreadMenu } from "./ChannelThreadMenu";
 export { useFollowHeldCall } from "./useFollowHeldCall";
 export { useSaveAddressOffers } from "./useSaveAddressOffers";
-export { SaveAddressCard, SaveAddressLinkContext, type SaveAddressOffer } from "./SaveAddressCard";
-export { deriveCardIdentity, useStampCardIdentity, type CardIdentity } from "./card-identity";
-export { linkContactMethod, withLinkedContactMethods, linkedAddresses, isKnownAddress, useContactMethodsVersion } from "./contact-methods";
-export { ALREADY_OPEN_REASON, ON_A_CALL_REASON, alreadyOpenReasons, onCallReasons, liveAddressesFor, markAlreadyOpen, unusedAddresses, customerChannelAddresses } from "./already-open";
+export { SaveAddressLinkContext } from "./SaveAddressCard";
+export { deriveCardIdentity, useStampCardIdentity } from "./card-identity";
+export { alreadyOpenReasons, liveAddressesFor, markAlreadyOpen } from "./already-open";
 export { panelToggleClass, PANEL_TOGGLE_ACTIVE } from "./panel-toggle";
 export { DisabledReason } from "./DisabledReason";
-export { useAgentAvailable, useChannelDisabledReasons, useReplyBlockedReason, UNAVAILABLE_REPLY_REASON, UNAVAILABLE_CALL_TOOLTIP } from "./presence-gates";
-export { AiWorkspaceColumn, type AiWorkspaceColumnProps } from "./AiWorkspaceColumn";
+export { useChannelDisabledReasons, useReplyBlockedReason } from "./presence-gates";
+export { AiWorkspaceColumn } from "./AiWorkspaceColumn";
 export { ConfirmCloseDialog } from "./ConfirmCloseDialog";
 export { useChannelSync } from "./useChannelSync";
 export { copilotSuggestionsFor } from "./copilot-suggestions";
-export { channelOn, enabledChannelOptions, onEnabledChannels, withEnabledChannels } from "./channel-gates";
-export { launcherGroups, INERT_LAUNCHER_TABS } from "./launcher-groups";
-export { ADDRESS_BOOKS, addressBookGroup, type AddressBook } from "./address-books";
-export { VoiceBar, type VoiceBarProps } from "./VoiceBar";
+export { enabledChannelOptions, withEnabledChannels } from "./channel-gates";
+export { ADDRESS_BOOKS } from "./address-books";
+export { VoiceBar } from "./VoiceBar";
 export { useAnswerSla, answerSeverity, offerRowAnswerSeverity } from "./answer-sla";

@@ -41,11 +41,11 @@ export interface CustomerInfoField {
 // synthesized profile still reads as plausible varied data (different
 // customers land on different cities/streets) rather than everyone getting
 // the exact same invented address with only the house number changing.
-export const CUSTOMER_INFO_STREET_NAMES = [
+const CUSTOMER_INFO_STREET_NAMES = [
   "Clinton Heights Ave", "Maple Grove Dr", "Sunset Ridge Ln", "Harbor View Ct",
   "Cedar Hollow Rd", "Birchwood Ter", "Fieldstone Way", "Willow Creek Blvd",
 ];
-export const CUSTOMER_INFO_CITY_STATE: { city: string; state: string }[] = [
+const CUSTOMER_INFO_CITY_STATE: { city: string; state: string }[] = [
   { city: "Columbus", state: "OH" },
   { city: "Austin", state: "TX" },
   { city: "Portland", state: "OR" },
@@ -176,19 +176,19 @@ export interface CustomerLatestInteraction {
   handledBy: string;
 }
 
-export const CUSTOMER_LATEST_INTERACTION_STATUS_POOL: { status: string; variant: ContactHistoryStatusVariant }[] = [
+const CUSTOMER_LATEST_INTERACTION_STATUS_POOL: { status: string; variant: ContactHistoryStatusVariant }[] = [
   { status: "Resolved", variant: "success" },
   { status: "Escalated", variant: "critical" },
   { status: "Pending", variant: "warning" },
 ];
 
-export const CUSTOMER_LATEST_INTERACTION_CHANNEL_POOL = ["Email", "Voice", "Chat", "SMS"];
+const CUSTOMER_LATEST_INTERACTION_CHANNEL_POOL = ["Email", "Voice", "Chat", "SMS"];
 
-export const CUSTOMER_LATEST_INTERACTION_TIME_AGO_POOL = [
+const CUSTOMER_LATEST_INTERACTION_TIME_AGO_POOL = [
   "3 days ago", "9 days ago", "2 weeks ago", "3 weeks ago", "1 month ago", "6 weeks ago",
 ];
 
-export const CUSTOMER_LATEST_INTERACTION_SUMMARY_POOL = [
+const CUSTOMER_LATEST_INTERACTION_SUMMARY_POOL = [
   "Asked about upgrading to the Pro tier for additional storage. Walked through the upgrade flow and confirmed the new billing amount.",
   "Reported trouble accessing the account after a password reset. Verified identity via KBA and confirmed access was restored.",
   "Requested a copy of the most recent invoice. Located the billing record and sent it over by email.",
@@ -235,11 +235,11 @@ export interface CustomerLatestNote {
   note: string;
 }
 
-export const CUSTOMER_LATEST_NOTE_TIME_AGO_POOL = [
+const CUSTOMER_LATEST_NOTE_TIME_AGO_POOL = [
   "1 day ago", "4 days ago", "1 week ago", "2 weeks ago", "1 month ago", "2 months ago",
 ];
 
-export const CUSTOMER_LATEST_NOTE_POOL = [
+const CUSTOMER_LATEST_NOTE_POOL = [
   "Customer prefers email follow-up over phone calls going forward.",
   "Flagged as a long-tenured account — check for loyalty offers before escalating.",
   "Prefers to be addressed by first name; mentioned this during last contact.",
@@ -281,7 +281,7 @@ export interface CopilotSummary {
   journeySummary: string;
 }
 
-export const COPILOT_SUMMARY_POOL: Array<{ reason: string; journey: string }> = [
+const COPILOT_SUMMARY_POOL: Array<{ reason: string; journey: string }> = [
   {
     reason: "would like to file a claim under their bike's warranty and needs assistance.",
     journey:
@@ -504,14 +504,14 @@ export interface CustomerHistoryConversationMessage {
   timestampDisplay: string;
 }
 
-export const CUSTOMER_HISTORY_DIRECTION_LABEL: Record<CustomerHistoryDirection, string> = {
+const CUSTOMER_HISTORY_DIRECTION_LABEL: Record<CustomerHistoryDirection, string> = {
   inbound: "Inbound",
   outbound: "Outbound",
 };
 
 // Lowercase per the reference screenshots ("Outbound call", "Outbound
 // email") except the SMS acronym, which stays upper — see `typeLabel`.
-export const CUSTOMER_HISTORY_CHANNEL_LOWER_LABEL: Record<CustomerHistoryChannelType, string> = {
+const CUSTOMER_HISTORY_CHANNEL_LOWER_LABEL: Record<CustomerHistoryChannelType, string> = {
   voice: "call",
   sms: "SMS",
   email: "email",
@@ -534,14 +534,14 @@ export const CUSTOMER_HISTORY_CHANNEL_COLOR_CLASS: Record<CustomerHistoryChannel
   email: "text-lyra-accent-pink-strong",
 };
 
-export const CUSTOMER_HISTORY_CALL_CENTER_POOL = [
+const CUSTOMER_HISTORY_CALL_CENTER_POOL = [
   "Testing Call Center", "Main Call Center", "East Region Call Center", "Overflow Call Center",
 ];
 
 // Only `voice` entries ever roll against this — `undefined` (no status
 // shown) is deliberately in the pool twice, so most calls show nothing at
 // all, same as most rows in the reference screenshots.
-export const CUSTOMER_HISTORY_VOICE_STATUS_POOL: (string | undefined)[] = [
+const CUSTOMER_HISTORY_VOICE_STATUS_POOL: (string | undefined)[] = [
   "Disconnected", "Disconnected", undefined, undefined, "dialing",
 ];
 
@@ -551,7 +551,7 @@ export const CUSTOMER_HISTORY_VOICE_STATUS_POOL: (string | undefined)[] = [
 // answer the customer line right before it; realism isn't the bar here (no
 // real transcript data exists to reproduce), just a plausible-looking
 // back-and-forth.
-export const CUSTOMER_HISTORY_SMS_CUSTOMER_MESSAGE_POOL = [
+const CUSTOMER_HISTORY_SMS_CUSTOMER_MESSAGE_POOL = [
   "Hi, I had a question about my last bill.",
   "Can you check if my address on file is up to date?",
   "I don't think I received the confirmation text yet.",
@@ -559,7 +559,7 @@ export const CUSTOMER_HISTORY_SMS_CUSTOMER_MESSAGE_POOL = [
   "Is there a fee for that?",
   "Sorry, one more thing — when does that take effect?",
 ];
-export const CUSTOMER_HISTORY_SMS_AGENT_MESSAGE_POOL = [
+const CUSTOMER_HISTORY_SMS_AGENT_MESSAGE_POOL = [
   "Sure, let me pull that up for you.",
   "I can see that on your account now.",
   "You're all set — that's been updated.",
@@ -571,7 +571,7 @@ export const CUSTOMER_HISTORY_SMS_AGENT_MESSAGE_POOL = [
 // Email content (Conversation tab, `channelType === "email"`) — `subject`
 // only; the body reuses `conversationSummary` (already a customer-facing
 // paragraph, no need for a second, near-duplicate pool).
-export const CUSTOMER_HISTORY_EMAIL_SUBJECT_POOL = [
+const CUSTOMER_HISTORY_EMAIL_SUBJECT_POOL = [
   "Following up on your account",
   "Your recent request",
   "Question about your invoice",
@@ -585,7 +585,7 @@ export const CUSTOMER_HISTORY_EMAIL_SUBJECT_POOL = [
  *  with the agent reaching out, an inbound one opens with the customer.
  *  Timestamps step forward a minute or two per message from the session's
  *  own start time, so they read in order without ever running past it. */
-export function buildCustomerHistorySmsMessages(
+function buildCustomerHistorySmsMessages(
   seed: number,
   direction: CustomerHistoryDirection,
   sessionStart: Date
@@ -610,7 +610,7 @@ export function buildCustomerHistorySmsMessages(
   return messages;
 }
 
-export const CUSTOMER_HISTORY_ENTRY_COUNT = 8;
+const CUSTOMER_HISTORY_ENTRY_COUNT = 8;
 
 /** Deterministically synthesizes this customer's session history — see this
  *  section's own doc comment above for why (no real session log exists).

@@ -4,7 +4,6 @@ export * from "./customer-info-seed";
 export * from "./CustomerHistory";
 export * from "./CustomerDetailTabs";
 export * from "./CustomerInformationPanelBody";
-export * from "./CustomerInfoHoverPreview";
 export * from "./customer-match";
 export * from "./useSessionDetailsTabContent";
 export * from "./DetailsPanelAccordions";

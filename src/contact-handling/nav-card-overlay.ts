@@ -11,9 +11,9 @@ import type { NavCard } from "@/adapters/legacy/nav-card-view-model";
 import type { Thread } from "@/components/agent-next-gen-interaction-dashboard";
 
 /** Card fields the page owns. */
-export const CARD_OVERLAY_FIELDS = ["currentThreadId", "startedFresh", "liveMessages", "customerId", "identity"] as const;
+const CARD_OVERLAY_FIELDS = ["currentThreadId", "startedFresh", "liveMessages", "customerId", "identity"] as const;
 /** Thread fields the page owns (the faked customer reply, P2.2 replaces it). */
-export const THREAD_OVERLAY_FIELDS = ["awaitingResponse", "lastCustomerMessageTick", "messageCount", "startedFresh", "draftSent"] as const;
+const THREAD_OVERLAY_FIELDS = ["awaitingResponse", "lastCustomerMessageTick", "messageCount", "startedFresh", "draftSent"] as const;
 
 type CardOverlayField = (typeof CARD_OVERLAY_FIELDS)[number];
 type ThreadOverlayField = (typeof THREAD_OVERLAY_FIELDS)[number];
@@ -22,8 +22,6 @@ export type CardOverlay = Partial<Pick<NavCard, CardOverlayField>> & {
   /** Per thread key. A key present with `undefined` clears the derived value. */
   threads?: Record<string, Partial<Pick<Thread, ThreadOverlayField>>>;
 };
-
-export type NavCardOverlay = Readonly<Record<string, CardOverlay>>;
 
 function own<T extends object>(obj: T, key: PropertyKey): boolean {
   return Object.prototype.hasOwnProperty.call(obj, key);

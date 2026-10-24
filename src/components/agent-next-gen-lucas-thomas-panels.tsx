@@ -188,7 +188,7 @@ const FOCUS_TO_ITEM: Record<LucasThomasMemoryFocus, string | undefined> = {
 };
 
 
-export function LucasThomasPurchasesSection({
+function LucasThomasPurchasesSection({
   focus,
   onOpenOrder,
 }: {

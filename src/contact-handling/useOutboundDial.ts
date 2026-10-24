@@ -74,7 +74,7 @@ interface DialTarget {
 const ON_CALL_STATES = new Set(["offered", "connecting", "active", "held"]);
 
 /** The tooltip on a voice launch disabled by `isOnCallWith`. */
-export const ALREADY_ON_CALL_TOOLTIP = "Already on a call with this customer";
+const ALREADY_ON_CALL_TOOLTIP = "Already on a call with this customer";
 
 /** Who a voice launch would call: the directory entity, if known, and the
  *  numbers it could dial. */
@@ -85,17 +85,9 @@ export interface CallTarget {
   journeyId?: string;
 }
 
-/** Whether `interactions` hold a ringing-out, live or held voice call with
- *  the target: the same entity, or (for a call without one) the same number.
- *  A call in wrap-up doesn't count, and neither do digital contacts. */
-export function isOnCallWith(
-  interactions: readonly { channel: string; state: string; entityId?: string; address?: { value: string } }[],
-  target: CallTarget,
-): boolean {
-  return findCallWith(interactions, target) !== undefined;
-}
-
-/** The call `isOnCallWith` finds, if any. */
+/** A ringing-out, live or held voice call with the target, if any: the same
+ *  entity, or (for a call without one) the same number. A call in wrap-up
+ *  doesn't count, and neither do digital contacts. */
 export function findCallWith<T extends { channel: string; state: string; entityId?: string; journeyId?: string; address?: { value: string } }>(
   interactions: readonly T[],
   target: CallTarget,

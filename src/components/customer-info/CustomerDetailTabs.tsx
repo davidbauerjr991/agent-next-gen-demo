@@ -25,7 +25,7 @@ import {
   type CopilotSummary,
 } from "./customer-info-seed";
 
-export const CUSTOMER_DETAIL_ACCOUNT_BLOCK_OPTIONS: SelectOption[] = [
+const CUSTOMER_DETAIL_ACCOUNT_BLOCK_OPTIONS: SelectOption[] = [
   { value: "none", label: "None" },
   { value: "collections", label: "Collections" },
   { value: "fraud-review", label: "Fraud Review" },
@@ -188,7 +188,7 @@ export function CustomerDetailTabContent({
   );
 }
 
-export const CUSTOMER_DIRECTORY_BLOCK_OPTIONS = [
+const CUSTOMER_DIRECTORY_BLOCK_OPTIONS = [
   { value: "no-block", label: "No Block" },
   { value: "block-daily", label: "Block Daily" },
   { value: "block-permanent", label: "Block Permanent" },
@@ -197,8 +197,8 @@ export const CUSTOMER_DIRECTORY_BLOCK_OPTIONS = [
 /** Total phone slots the Directory tab renders — "up to 10 phones" per the
  *  reference screenshot: the first is always labeled "Home", the rest
  *  "Phone 2" through "Phone 10". */
-export const CUSTOMER_DIRECTORY_PHONE_COUNT = 10;
-export const CUSTOMER_DIRECTORY_PHONE_LABELS = Array.from({ length: CUSTOMER_DIRECTORY_PHONE_COUNT }, (_, i) =>
+const CUSTOMER_DIRECTORY_PHONE_COUNT = 10;
+const CUSTOMER_DIRECTORY_PHONE_LABELS = Array.from({ length: CUSTOMER_DIRECTORY_PHONE_COUNT }, (_, i) =>
   i === 0 ? "Home" : `Phone ${i + 1}`
 );
 
@@ -247,7 +247,7 @@ export interface CustomerDirectoryPhoneState {
    `useCustomerRecordDraft`, survives a tab switch, drives the Save/Cancel
    footer" reasoning `CustomerDetailTabContent`'s own doc comment covers,
    just per-phone-slot instead of per-field. */
-export function CustomerDirectoryPhoneRow({
+function CustomerDirectoryPhoneRow({
   label,
   state,
   onChange,

@@ -7,13 +7,11 @@ import { useWorkspaceUiField, useWorkspaceUiStore, type ReferenceFocusState, typ
 import { useWorkspace } from "./workspace/WorkspaceContext";
 
 /** How long a contact's Journey Summary reads "Looking up" after it arrives. */
-export const JOURNEY_LOOKUP_MS = 800;
+const JOURNEY_LOOKUP_MS = 800;
 
 /** How long a card the AI brings forward stays highlighted. */
-export const REFERENCE_HIGHLIGHT_MS = 1200;
+const REFERENCE_HIGHLIGHT_MS = 1200;
 
-/** The reference column's cards in order (P-CANVAS); any number may be open. */
-export const REFERENCE_CARD_ORDER: readonly ReferenceCardFocus[] = ["summary", "journey", "customer"];
 
 /** A card's reference column before anything was opened: the Real-Time Summary, opened by the AI. */
 const INITIAL: ReferenceFocusState = { open: { summary: "ai" } };

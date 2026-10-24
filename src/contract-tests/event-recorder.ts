@@ -4,7 +4,7 @@ import type { InteractionEvents, InteractionProvider, ProviderErrorCode } from "
 
 // Helpers for the InteractionProvider contract suite.
 
-export type TimelineEntry =
+type TimelineEntry =
   | { kind: "event"; name: keyof InteractionEvents; payload: unknown }
   | { kind: "ack"; label: string };
 

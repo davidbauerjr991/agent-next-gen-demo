@@ -9,18 +9,14 @@ import { TOM_LEWIS_SCRIPT } from "./scripts/tom-lewis";
 import type { ScenarioScript } from "./scenario-script";
 
 export type * from "./scenario-script";
-export { noteAddressesCustomer } from "./note-rules";
 export {
-  addressFor,
   cannedLines,
   parseScenarioJson,
   startRequest,
   stepsFor,
   toCustomerAction,
   validateScenario,
-  type CannedLine,
   type ScenarioCustomerAction,
-  type ScenarioStartRequest,
 } from "./validate";
 export { LUCAS_THOMAS_SCRIPT, MARCUS_WEBB_SCRIPT, MAYA_CHEN_SCRIPT, TOM_LEWIS_SCRIPT };
 

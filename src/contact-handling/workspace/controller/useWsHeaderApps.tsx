@@ -955,5 +955,3 @@ export function useWsHeaderApps(prev: WsOutbound) {
     sessionRowInHeader, newOutboundLauncher,
   };
 }
-
-export type WsHeaderApps = ReturnType<typeof useWsHeaderApps>;

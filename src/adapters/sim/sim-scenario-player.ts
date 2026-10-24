@@ -9,7 +9,7 @@ import { simId } from "./sim-util";
 
 /** How long the simulated AI agent takes to perform an instruction (the row's "AI agent is performing this
  *  now…" step): `annotation.performedAt` = sent + this. */
-export const SIM_INSTRUCTION_PERFORM_MS = 1800;
+const SIM_INSTRUCTION_PERFORM_MS = 1800;
 
 // The scenario player (P0.5c). It lives inside the sim engine and plays a
 // P0.7 script against one contact: setup lines are written into the

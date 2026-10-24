@@ -14,7 +14,7 @@ export interface SimTransport {
   close(): void;
 }
 
-export const SIM_CHANNEL_NAME = "agent-sim";
+const SIM_CHANNEL_NAME = "agent-sim";
 
 /** A `BroadcastChannel` endpoint. Other endpoints with the same name — in this
  *  window or another same-origin one — receive what it sends; it never

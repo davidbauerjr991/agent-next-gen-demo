@@ -38,7 +38,7 @@ import {
  *  `channelCount` pill elsewhere in this file use) since at this small size
  *  an overlaid arrow would mostly obscure the channel glyph underneath it,
  *  and the reference screenshots show both fully visible side by side. */
-export function CustomerHistoryChannelIcon({
+function CustomerHistoryChannelIcon({
   channelType,
   direction,
 }: {
@@ -259,7 +259,7 @@ export function CustomerHistoryTabContent({
  *  `Label`'s own built-in look is whatever this app already uses for every
  *  other field label, so this stays visually consistent with the rest of
  *  the panel even though it isn't pixel-identical to the reference). */
-export function CustomerHistoryDetailField({ label, value }: { label: string; value: string }) {
+function CustomerHistoryDetailField({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-1 min-w-0">
       <Label label={label} />
@@ -268,7 +268,7 @@ export function CustomerHistoryDetailField({ label, value }: { label: string; va
   );
 }
 
-export const CUSTOMER_HISTORY_DETAIL_TABS = ["Details", "Conversation"];
+const CUSTOMER_HISTORY_DETAIL_TABS = ["Details", "Conversation"];
 
 /** One read-only customer/agent bubble for the Conversation tab's SMS
  *  thread (`CustomerHistoryConversationContent` below) — was a hand-rolled
@@ -284,7 +284,7 @@ export const CUSTOMER_HISTORY_DETAIL_TABS = ["Details", "Conversation"];
  *  `customerName`/`agentName` — `CustomerHistoryConversationMessage` itself
  *  carries no name field, so `CustomerHistoryConversationContent` passes
  *  both down from its own `entry` (`customerUsername`/`agentName`). */
-export function CustomerHistoryConversationMessageBubble({
+function CustomerHistoryConversationMessageBubble({
   message,
   customerName,
   agentName,
@@ -315,7 +315,7 @@ export function CustomerHistoryConversationMessageBubble({
  *  an email session renders as `emailSubject` + body (`conversationSummary`
  *  again) rather than chat bubbles, since an email doesn't read as a
  *  back-and-forth the way SMS does. */
-export function CustomerHistoryConversationContent({ entry }: { entry: CustomerHistorySessionEntry }) {
+function CustomerHistoryConversationContent({ entry }: { entry: CustomerHistorySessionEntry }) {
   if (entry.channelType === "sms") {
     return (
       <div className="flex flex-col gap-4 px-4 py-3">

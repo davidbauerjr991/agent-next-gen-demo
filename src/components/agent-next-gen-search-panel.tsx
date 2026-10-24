@@ -62,7 +62,7 @@ export type SearchPanelTabKey = "interactions" | "messages" | "customers" | "thr
 // every internal reference to "interactions"/"Interactions" data in this
 // file's own doc comments stay as-is; only this user-visible tab label
 // changed.
-export const SEARCH_PANEL_TAB_LABELS: Record<SearchPanelTabKey, string> = {
+const SEARCH_PANEL_TAB_LABELS: Record<SearchPanelTabKey, string> = {
   interactions: "Contacts",
   messages: "Messages",
   customers: "Customers",

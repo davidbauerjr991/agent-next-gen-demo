@@ -23,7 +23,7 @@ export type ScenarioStartRequest = Omit<StartInbound, "kind" | "interactionId">;
 /** The address the customer arrives from on `channel`: the script's override,
  *  else the entity's phone (voice, SMS, WhatsApp), email, or its key as a chat
  *  handle. Throws when the entity has none. */
-export function addressFor(script: ScenarioScript, channel: ChannelKind = script.channel): string {
+function addressFor(script: ScenarioScript, channel: ChannelKind = script.channel): string {
   const override = script.start.addresses?.[channel];
   if (override) return override;
   const { phone, email, key } = script.entity;

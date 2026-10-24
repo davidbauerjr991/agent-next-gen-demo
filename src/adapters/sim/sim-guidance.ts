@@ -42,7 +42,7 @@ export interface GuidanceHost {
 
 /** How long the simulated journey lookup takes on a contact with a known
  *  customer; it brings the Journey Summary forward when it completes. */
-export const SIM_JOURNEY_LOOKUP_MS = 800;
+const SIM_JOURNEY_LOOKUP_MS = 800;
 
 export interface Guidance {
   /** A scripted contact was just routed (before it's announced). */
@@ -105,7 +105,7 @@ function firstName(name: string | undefined): string | undefined {
 const AGENT_FIRST = SIM_AGENT.displayName.split(" ")[0];
 
 /** The opening suggestion on every contact: greet by name, give the recording notice. */
-export function greetingNba(channel: Interaction["channel"], name: string | undefined): ScenarioNba {
+function greetingNba(channel: Interaction["channel"], name: string | undefined): ScenarioNba {
   const first = firstName(name);
   const medium = channel === "voice" ? "call" : channel === "email" ? "conversation" : "chat";
   const hello = first ? `Hi ${first}` : "Hi there";
@@ -122,7 +122,7 @@ export function greetingNba(channel: Interaction["channel"], name: string | unde
 }
 
 /** The rule set's second suggestion: ask what the contact is about. */
-export function reasonNba(name: string | undefined): ScenarioNba {
+function reasonNba(name: string | undefined): ScenarioNba {
   const first = firstName(name);
   return {
     type: "ask",

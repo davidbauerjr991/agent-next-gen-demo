@@ -15,7 +15,7 @@ import {
 import type { TranscriptSession } from "./transcript-types";
 
 /** One reopen of a closed text thread (`Thread.reopenedContacts`). */
-export interface ReopenedContactEntry {
+interface ReopenedContactEntry {
   id: string;
   contactId: string;
   date: string;
@@ -33,7 +33,7 @@ export interface TranscriptSessionsInput {
   reopenedContacts?: readonly ReopenedContactEntry[];
 }
 
-export const isTextChannelType = (channelType: ChannelType | undefined) =>
+const isTextChannelType = (channelType: ChannelType | undefined) =>
   channelType === "chat" || channelType === "sms" || channelType === "whatsapp";
 
 /** The sessions a thread's transcript renders, oldest first, and their split

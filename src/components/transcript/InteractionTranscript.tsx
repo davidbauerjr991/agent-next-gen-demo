@@ -30,73 +30,34 @@ import { useSetting } from "@/settings";
 
 // P-EXTRACT: the view-model types and the fixed option lists / mock
 // sessions live in ./transcript/ now; re-exported here for existing importers.
-import type {
-  TranscriptApprovalSummary,
-  TranscriptMessage,
-  TranscriptSession,
-  TranscriptSessionFingerprint,
-  TranscriptTag,
-} from "@/components/transcript/transcript-types";
+import type { TranscriptApprovalSummary, TranscriptMessage, TranscriptSession } from "@/components/transcript/transcript-types";
 import {
   OUTCOME_DEFAULT_SUMMARY,
   OUTCOME_DISPOSITION_OPTIONS,
   OUTCOME_TAG_OPTIONS,
-  TRANSCRIPT_SESSION_FINGERPRINT,
-  TRANSCRIPT_SESSION_FINGERPRINT_EMAIL,
-  TRANSCRIPT_SESSION_FINGERPRINT_VOICE,
   TRANSCRIPT_SESSION_STATUS_OPTIONS,
-  TRANSCRIPT_SESSION_STATUS_VARIANT,
-  TRANSCRIPT_SESSIONS,
-  TRANSCRIPT_SESSIONS_EMAIL,
-  TRANSCRIPT_SESSIONS_VOICE,
 } from "@/components/transcript/transcript-fixtures";
-export type { TranscriptApprovalSummary, TranscriptMessage, TranscriptSession, TranscriptSessionFingerprint, TranscriptTag };
-export {
-  OUTCOME_DEFAULT_SUMMARY,
-  OUTCOME_DISPOSITION_OPTIONS,
-  OUTCOME_TAG_OPTIONS,
-  TRANSCRIPT_SESSION_FINGERPRINT,
-  TRANSCRIPT_SESSION_FINGERPRINT_EMAIL,
-  TRANSCRIPT_SESSION_FINGERPRINT_VOICE,
-  TRANSCRIPT_SESSION_STATUS_OPTIONS,
-  TRANSCRIPT_SESSION_STATUS_VARIANT,
-  TRANSCRIPT_SESSIONS,
-  TRANSCRIPT_SESSIONS_EMAIL,
-  TRANSCRIPT_SESSIONS_VOICE,
-};
+export type { TranscriptApprovalSummary, TranscriptMessage, TranscriptSession };
+export { OUTCOME_DISPOSITION_OPTIONS, OUTCOME_TAG_OPTIONS, TRANSCRIPT_SESSION_STATUS_OPTIONS };
 
 // P-EXTRACT: the AI rows (feed, cards, instruction row) live in ./ai-rows/.
-import { AiActionCard, AiActionCollapse, AiActionsFeed, ApprovalDecision, ApprovalRequestAccordion, type AiActionCardHandlers } from "./ai-rows/ai-action-cards";
+import { AiActionCollapse, AiActionsFeed, ApprovalDecision, ApprovalRequestAccordion } from "./ai-rows/ai-action-cards";
 import { InstructionInterstitial } from "./ai-rows/InstructionInterstitial";
-export { AiActionCard, AiActionsFeed, ApprovalDecision, ApprovalRequestAccordion, InstructionInterstitial };
-export type { AiActionCardHandlers };
+export { AiActionsFeed, ApprovalDecision, ApprovalRequestAccordion, InstructionInterstitial };
 
 // P-EXTRACT: the message rows (bubbles, plain lines, typing indicator) live in ./message-list/.
-import { QUICK_TAG_OPTIONS, TranscriptMessageBubble } from "./message-list/transcript-bubbles";
-export { QUICK_TAG_OPTIONS, TranscriptMessageBubble };
+import { TranscriptMessageBubble } from "./message-list/transcript-bubbles";
 
 // P-EXTRACT: the composer and its quick replies live in ./composer/; the simulated customer's canned replies are
 // simulation content (src/adapters/sim/sim-auto-replies.ts, resolved by contact-handling/customer-auto-reply.ts).
 import { InteractionComposer } from "./composer/InteractionComposer";
 import { ComposerFade } from "./composer/ComposerFade";
-import {
-  QUICK_REPLIES,
-  QUICK_REPLY_TRIGGER_CHAR,
-  QUICK_REPLY_TRIGGER_PATTERN,
-  fillQuickReplyTemplate,
-  type QuickReplyItem,
-} from "./composer/quick-replies";
 import { AI_CARD_ENTER } from "./ai-rows/ai-card-enter";
-export { AI_CARD_ENTER, ComposerFade, InteractionComposer, QUICK_REPLIES, QUICK_REPLY_TRIGGER_CHAR, QUICK_REPLY_TRIGGER_PATTERN, fillQuickReplyTemplate };
-export type { QuickReplyItem };
-
+export { AI_CARD_ENTER, ComposerFade, InteractionComposer };
 
 import { deriveTranscriptSessions } from "@/components/transcript/transcript-sessions";
 // P-EXTRACT: the session row lives in ./transcript/session-row/ now.
-import { ChannelStatusTag, TransferIcon, TranscriptSessionDetails } from "@/components/transcript/session-row/session-row-parts";
 import { TranscriptSessionSeparator } from "@/components/transcript/session-row/TranscriptSessionSeparator";
-export { ChannelStatusTag, TransferIcon, TranscriptSessionDetails, TranscriptSessionSeparator };
-
 
 import type { InteractionTranscriptProps } from "./interaction-transcript-props";
 import { useTranscriptScrollFollow } from "./useTranscriptScrollFollow";

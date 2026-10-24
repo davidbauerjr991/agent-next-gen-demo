@@ -20,7 +20,7 @@ export function outcomeDraftKey(cardId: string, threadKey: string): string {
 }
 
 /** The outcome a draft completes wrap-up with (empty fields left out). */
-export function toOutcome(draft: OutcomeDraft): InteractionOutcome {
+function toOutcome(draft: OutcomeDraft): InteractionOutcome {
   return {
     ...(draft.tags.length > 0 ? { tags: draft.tags } : {}),
     ...(draft.dispositionCode ? { dispositionCode: draft.dispositionCode } : {}),

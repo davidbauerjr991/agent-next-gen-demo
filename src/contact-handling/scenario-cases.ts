@@ -19,15 +19,6 @@ export const MARCUS_WEBB_ID = MARCUS_WEBB_SCRIPT.entity.key;
 export const LUCAS_THOMAS_ID = LUCAS_THOMAS_SCRIPT.entity.key;
 export const TOM_LEWIS_CALL_ID = TOM_LEWIS_SCRIPT.entity.key;
 export const MAYA_CHEN_CALL_ID = MAYA_CHEN_SCRIPT.entity.key;
-/** Marcus's case id, also his customer record id on the page. */
-export const MARCUS_WEBB_CUSTOMER_ID = MARCUS_WEBB_SCRIPT.entity.caseId;
-export const MARCUS_WEBB_CUSTOMER_NAME = MARCUS_WEBB_SCRIPT.entity.name;
-
-/** The script whose case `caseId` is. */
-export function scenarioForCaseId(caseId: string | undefined): ScenarioScript | undefined {
-  return caseId === undefined ? undefined : SCENARIOS.find((s) => s.entity.caseId === caseId);
-}
-
 /** The scripted contact of `script` in the store: the routed inbound
  *  contact filed under its case, newest first (a later outbound call into
  *  the same journey shares the case but isn't the script's). */
@@ -66,7 +57,7 @@ export interface TimedRow {
  *  the agent side (the bot as "AI"); system events as event lines;
  *  annotations as the interstitial, approval and wrap-up rows, their payloads
  *  looked up in the script's content. */
-export function toTranscriptRows(transcript: Pick<TranscriptState, "messages" | "utterances">, script: ScenarioScript): TimedRow[] {
+function toTranscriptRows(transcript: Pick<TranscriptState, "messages" | "utterances">, script: ScenarioScript): TimedRow[] {
   const bot = script.participants?.bot ?? "Virtual agent";
   const agent = script.participants?.agent ?? "John Smith";
   const rows: TimedRow[] = [];
@@ -155,7 +146,7 @@ export function mergeRows(scripted: readonly TimedRow[], own: readonly Transcrip
 
 // ── The page-facing hook ──────────────────────────────────────────────────
 
-export interface ScenarioCase {
+interface ScenarioCase {
   key: string;
   script: ScenarioScript;
   /** The scripted contact (the store's snapshot). */

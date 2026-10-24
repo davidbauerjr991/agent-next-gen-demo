@@ -8,7 +8,7 @@ import { ReferenceColumn } from "@/components/workspace/ReferenceColumn";
 
 /** `InteriorPanel`'s close transition: the slide-over stays mounted (closed)
  *  this long after a close. */
-export const SLIDE_OVER_CLOSE_MS = 260;
+const SLIDE_OVER_CLOSE_MS = 260;
 
 /** lyra `InteriorPanel`'s own width transition, so the column eases with it. */
 const WIDTH_TRANSITION = "width 250ms cubic-bezier(0.4, 0, 0.2, 1)";

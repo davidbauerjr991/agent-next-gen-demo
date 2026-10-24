@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { Menu, Popover } from "@nicecxone/lyra-ui";
 
-export interface ChannelThreadMenuEntry {
+interface ChannelThreadMenuEntry {
   key: string;
   /** The thread's address (or subject). */
   label: string;

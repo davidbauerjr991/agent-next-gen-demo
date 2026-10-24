@@ -31,7 +31,7 @@ export interface PageClock {
   start(): () => void;
 }
 
-export function createPageClock(anchorMs: number = Date.now()): PageClock {
+function createPageClock(anchorMs: number = Date.now()): PageClock {
   const listeners = new Set<() => void>();
   return {
     now: () => Math.floor((Date.now() - anchorMs) / 1000),

@@ -27,10 +27,10 @@ const AGENT_INITIALS = `${CURRENT_AGENT_FIRST_NAME[0] ?? ""}${CURRENT_AGENT_LAST
 
 /** The Copilot chip that asks for the Next Best Action, and its link key. */
 export const NBA_CHIP = "What should I do next?";
-export const NBA_CHIP_LINK = "nba:next";
+const NBA_CHIP_LINK = "nba:next";
 
 /** Whether an Ask Copilot question asks for the Next Best Action. */
-export const asksForNextBestAction = (text: string) =>
+const asksForNextBestAction = (text: string) =>
   /\b(what should i do next|what('?s| is) next|next best action|what do i do now)\b/i.test(text.trim());
 
 type Cards = readonly NavCard[];

@@ -14,14 +14,6 @@ export function ClockTick({ children }: { children: (clockTick: number) => React
   return <>{children(tick)}</>;
 }
 
-/** Re-renders `children` only when `select(tick)` changes. `select` must
- *  return a primitive. */
-export function ClockValue<T>({ select, children }: { select: (clockTick: number) => T; children: (value: T) => ReactNode }) {
-  const clock = usePageClock();
-  const value = useClockValue(clock, select);
-  return <>{children(value)}</>;
-}
-
 /** Re-renders `children` whenever the live queue simulation changes. */
 export function QueueSubItems({ children }: { children: (subItems: QueueSubItemsById) => ReactNode }) {
   const subItems = useQueueSubItems();

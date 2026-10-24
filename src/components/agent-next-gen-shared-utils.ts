@@ -34,52 +34,6 @@ function initialsFor(name: string): string {
     .toUpperCase();
 }
 
-/** Fallback case id for interactions with no real customer/agent/team/skill
- *  record behind them (quick-dialed numbers) — same "CS-" + digits shape as
- *  every other generated case id in this file, just namespaced separately
- *  since those already-real ids come with their own prefix per record type
- *  (customerId/agentId/TEAM-.../SKL-.../ASN-...). */
-function generateCaseId(): string {
-  return `CS-${Math.floor(1000000 + Math.random() * 9000000)}`;
-}
-
-/** This Interaction's own real, distinct identity — same plain-numeric
- *  shape as an earlier reference screenshot ("#707535188548", 12 digits, no
- *  prefix) — distinct from `generateCaseId`'s "CS-" shape (a customer/case-
- *  level id) AND from `generateContactId`'s "CTX-" shape (a specific
- *  Contact's own id) below. Called exactly once per Interaction, at the
- *  moment a customer with no currently-open card gets engaged again (see
- *  `Interaction.interactionId`'s own doc comment, agent-next-gen-
- *  interaction-dashboard.tsx, for the full start/end lifecycle this feeds).
- *  Previously generated per-CHANNEL instead (used for `Thread`'s own,
- *  since-removed `interactionId` field, shown on its `ChannelToggle`
- *  tooltip) — repurposed here now that a real `Interaction` concept with
- *  its own id and lifecycle exists to actually use this name correctly. */
-function generateInteractionId(): string {
-  return String(Math.floor(100000000000 + Math.random() * 900000000000));
-}
-
-/** A specific Contact's own real id — "CTX-YYYYMMDD-NNNNN", matching the
- *  format the handful of hardcoded historical `TRANSCRIPT_SESSIONS`/`_VOICE`/
- *  `_EMAIL` mock Contacts already use for their own `caseId` (now
- *  `Contact.contactId`) — e.g. "CTX-20250722-08841". Called once per Contact
- *  (the synthetic "just launched" one, and each reopen) at the moment it's
- *  created, replacing what used to be a real, shipped bug: every live
- *  Contact's own `caseId` was set to `recordId` (now `Interaction.
- *  customerId`) — the CUSTOMER's id, not a distinct per-Contact one — so the
- *  Session Details panel's own "Contact ID" field and the "# caseId · date"
- *  separator pill both silently showed the Customer ID instead. Distinct
- *  from `generateInteractionId` above (an Interaction's own id) — a single
- *  Interaction can have several Contacts (the initial one, plus one more per
- *  reopen), each needs its own. */
-function generateContactId(date: Date = new Date()): string {
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-  const suffix = String(Math.floor(10000 + Math.random() * 90000));
-  return `CTX-${yyyy}${mm}${dd}-${suffix}`;
-}
-
 /** Renders a tick count (seconds since the channel/interaction started) as
  *  the "MM:SS" format InteractionNavItem's `elapsed` prop expects. */
 function formatElapsedTime(totalSeconds: number): string {
@@ -200,67 +154,6 @@ const [CURRENT_AGENT_FIRST_NAME, CURRENT_AGENT_LAST_NAME] = CURRENT_AGENT_NAME.s
    uses, since it's the same "John Smith" agent. */
 const CURRENT_AGENT_ID = "johnsmith329202";
 
-/* Home dashboard header's "Connection Lag Time: {lagTime}" subhead value
-   once the agent leg is connected — a fixed demo figure, not a live timer
-   (there's no real network-latency measurement to show), same literal
-   "00:32" lyra-ui's own "Agent Home Dashboard" story uses. */
-const CURRENT_AGENT_CONNECTION_LAG_TIME = "00:32";
-
-/* Dashboard page-header subtitle — "August 20, 2026 · 2:41 PM", read fresh
-   on every render. History, in order, across several explicit follow-ups:
-   originally "Wednesday, July 29, 2026 · 9:41 AM" (date + time); the
-   time-of-day portion was dropped ("remove the time from the date subhead
-   and just have the date"); it was then briefly replaced with a full
-   sentence wrapped around the bare date ("Please review your queue and
-   performance below for {Month Day, Year}", then re-worded to "Below is
-   your dashboard for {Month Day, Year}"); reverted back to the bare date
-   alone per a later explicit follow-up ("go back to the {Month Day, Year}
-   for the subhead"); the time-of-day portion was then added back per a
-   later explicit request ("add the time back to the date subhead") — the
-   same request that also restored the header TITLE's own time-of-day
-   greeting (see `formatHeaderGreeting` below), reversing the earlier
-   VPN-timezone-unreliability reasoning that had dropped both. Still no
-   weekday ("August 20, 2026," not "Thursday, August 20, 2026") — that
-   "{Month Day, Year}" format is the one thing every version of this
-   subtitle, sentence-wrapped or bare, has kept in common. Was
-   `formatHeaderSubtitle` while it briefly held a full sentence; renamed
-   back to `formatHeaderDate` once it went back to a date — kept as its own
-   shared helper (rather than inlined at each of the 3 call sites) since
-   it's identical across all 3 tiers. It reads `new Date()` on whichever
-   render calls it. That used to mean "live for free," because the page
-   re-rendered every second. Since the page clock moved into self-ticking
-   components (agent-next-gen-page-clock.ts), it no longer does: a caller
-   that needs this to stay live must render it inside a `<ClockValue>`.
-   Neither workspace page calls it today. */
-function formatHeaderDate(): string {
-  const now = new Date();
-  const datePart = now.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
-  const timePart = now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-  return `${datePart} · ${timePart}`;
-}
-
-/* Dashboard page-header title — "Good Morning/Afternoon/Evening, {name}",
-   read fresh on every render off the agent's local clock (same caveat as
-   `formatHeaderDate` above: no longer refreshed by a page-wide tick).
-   History: this started as
-   a time-of-day greeting ("Good morning, John"), was flattened to a plain
-   "Welcome Back, {name}" per an explicit follow-up reasoning that an
-   agent's local clock/timezone isn't reliable when connected through a VPN
-   whose exit point sits elsewhere — then restored to a time-of-day greeting
-   again per a later explicit request ("update the page header on the home
-   page to say 'Good {Morning/Evening/Afternoon}, {Name}'"), which
-   supersedes that earlier VPN-timezone concern. Boundaries (5am–11:59am
-   "Morning", 12pm–4:59pm "Afternoon", otherwise "Evening") are a common
-   convention, not something explicitly specified. Takes `name` as a
-   parameter rather than hardcoding `CURRENT_AGENT_FIRST_NAME` itself, since
-   all 3 call sites already import that constant separately for other uses
-   (e.g. the welcome modal's own greeting). */
-function formatHeaderGreeting(name: string): string {
-  const hour = new Date().getHours();
-  const partOfDay = hour < 12 ? "Morning" : hour < 17 ? "Afternoon" : "Evening";
-  return `Good ${partOfDay}, ${name}`;
-}
-
 /* Deterministic 12-digit case-ID generator (no Math.random, so the dashboard
    renders the same sample data on every load) */
 function makeCaseId(seed: number, i: number): string {
@@ -281,25 +174,6 @@ function formatCreateDate(seed: number, i: number): string {
 /** "% of Team" for a single row — you as a share of the team total. 0 when the team total is 0 (avoids dividing by zero). */
 function percentOfTeam(you: number, team: number): number {
   return team > 0 ? Math.round((you / team) * 100) : 0;
-}
-
-/** Drops a single channel id's entry out of a `channelStatuses` map, leaving
- *  every other channel's own status untouched — used by `handleStartCall`
- *  when a channel is restarted at the SAME address (so it reuses
- *  `Thread.id`, per that field's own doc comment): without this, a
- *  channel that was previously set to "Closed" and then redialed at the same
- *  number would silently reopen still reading "Closed" under its reused id,
- *  since nothing would otherwise clear the stale entry. Returns `undefined`
- *  (rather than an empty object) when the map is empty afterward, matching
- *  `Interaction.channelStatuses`'s own optional-when-nothing-set
- *  convention. */
-function withoutChannelStatus(
-  statuses: Record<string, string> | undefined,
-  channelId: string
-): Record<string, string> | undefined {
-  if (!statuses || !(channelId in statuses)) return statuses;
-  const { [channelId]: _omit, ...rest } = statuses;
-  return Object.keys(rest).length > 0 ? rest : undefined;
 }
 
 function nextCustomerSortDirection(current: SortDirection): SortDirection {
@@ -956,17 +830,6 @@ function buildCustomerContextOverviewInfo(
 /** Which top-level page the app is showing (the routes live in app-routes.ts). */
 type Page = import("@/app-routes").Page;
 
-/** Per explicit request ("hide the assignments resolved chip in the home
- *  tab"): gates the green "{n} Assignments resolved today" `Badge` each of
- *  the 3 Agent Workspace pages renders in its own home-dashboard `PageHeader`
- *  `actions` slot. Same "hide for now" flag pattern as
- *  `SHOW_CUSTOMER_INFO_AI_INPUT` (agent-next-gen-customer-info-panel.tsx) —
- *  a single shared toggle here rather than duplicated per page, since all 3
- *  pages render this same Badge from their own copy of the same JSX. The
- *  underlying `resolvedTodayCount` state/tracking is untouched — only this
- *  Badge's visibility is gated, so re-enabling it later is a one-line flip. */
-const SHOW_RESOLVED_TODAY_CHIP = false;
-
 /** Per a later explicit follow-up request ("we need an add button always
  *  visible in the button group as well — make it an outline button not
  *  full primary"), flipped back to `true` — this had been hidden per an
@@ -977,8 +840,7 @@ const SHOW_RESOLVED_TODAY_CHIP = false;
  *  header `ChannelToggleGroup`'s own `action` slot (2.0's
  *  `showAddChannelActions && activeChannel` branch; Premium/Advanced's
  *  unconditional `getHeaderAction(...) ?? <AddChannelAdHocButton />`
- *  branch). Same shared-toggle pattern as `SHOW_RESOLVED_TODAY_CHIP` right
- *  above — a single flag here rather than duplicating the on/off logic per
+ *  branch). A single flag here rather than duplicating the on/off logic per
  *  page. `handleAddAdHocChannel` and everything else this button would
  *  trigger are untouched — only this button's own visibility is gated, so
  *  hiding it again later is still just a one-line flip. See each call
@@ -988,13 +850,8 @@ const SHOW_ADD_CHANNEL_HEADER_BUTTON = true;
 
 export {
   initialsFor,
-  generateCaseId,
-  generateInteractionId,
-  generateContactId,
   formatElapsedTime,
   formatWaitTime,
-  AWAITING_WARNING_SECONDS,
-  AWAITING_CRITICAL_SECONDS,
   getAwaitingSeverity,
   channelNoun,
   newCaseNotificationTitle,
@@ -1002,13 +859,9 @@ export {
   CURRENT_AGENT_FIRST_NAME,
   CURRENT_AGENT_LAST_NAME,
   CURRENT_AGENT_ID,
-  CURRENT_AGENT_CONNECTION_LAG_TIME,
-  formatHeaderDate,
-  formatHeaderGreeting,
   makeCaseId,
   formatCreateDate,
   percentOfTeam,
-  withoutChannelStatus,
   nextCustomerSortDirection,
   nextInteractionSortDirection,
   quickReplyFieldDisplayValue,
@@ -1018,14 +871,12 @@ export {
   splitCustomerName,
   synthesizeChannelAddress,
   formatHistoryTimestamp,
-  seededHex,
   synthesizeExternalInteractionId,
   synthesizeExternalThreadId,
   synthesizeCallDuration,
   isWithinCustomerHistoryDateRange,
   phoneValueFromDisplay,
   phoneDisplayFromValue,
-  SHOW_RESOLVED_TODAY_CHIP,
   SHOW_ADD_CHANNEL_HEADER_BUTTON,
 };
 export type { Page, CustomerPriorContactInfo };

@@ -11,7 +11,7 @@ import { AI_PERFORM_MS } from "./ai-perform";
 // takes it over in P4.8.
 
 /** How long Copilot "works" on a free-form question before its panel opens. */
-export const COPILOT_ASK_RESULT_MS = 1800;
+const COPILOT_ASK_RESULT_MS = 1800;
 
 /** Runs a Copilot result after its "working" delay; pending ones are
  *  cancelled on unmount. For asks that keep their own rows (Marcus's

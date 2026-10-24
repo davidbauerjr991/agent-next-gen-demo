@@ -21,7 +21,7 @@ import type { TranscriptMessage, TranscriptTag } from "../transcript-types";
 // Alert/Churn Risk). Still only `default`/`success`/`warning`/`critical`/
 // `info`/`neutral` variants — see this file's own note above reserving
 // `purple`/`teal`/`pink` for channel-type coloring.
-export const QUICK_TAG_OPTIONS: Omit<TranscriptTag, "id">[] = [
+const QUICK_TAG_OPTIONS:Omit<TranscriptTag, "id">[] = [
   { label: "Complain", variant: "critical" },
   { label: "Help", variant: "info" },
   { label: "Praise", variant: "success" },

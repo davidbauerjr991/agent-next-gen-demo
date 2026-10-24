@@ -20,7 +20,7 @@ export interface QueueSim {
   start(): () => void;
 }
 
-export function createQueueSim(): QueueSim {
+function createQueueSim(): QueueSim {
   let state: QueueSubItemsById = INITIAL_QUEUE_SUB_ITEMS;
   const listeners = new Set<() => void>();
   const step = (prev: QueueSubItemsById): QueueSubItemsById => {

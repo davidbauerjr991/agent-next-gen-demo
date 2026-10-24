@@ -49,8 +49,3 @@ function isOnCall(thread: NavCard["threads"][number]): boolean {
   return !!thread.onCall;
 }
 
-/** A card known only by an address (a typed number/email, no directory
- *  record) — what the `adhoc:`/`quickdial:` card ids used to signal. */
-export function isAddressOnlyCard(card: Pick<NavCard, "entityId">): boolean {
-  return !card.entityId;
-}

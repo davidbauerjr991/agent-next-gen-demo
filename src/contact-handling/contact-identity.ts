@@ -76,7 +76,7 @@ export function declinedCallMessage({ name, number }: CallerLabel, noun = "call"
 }
 
 /** The noun for an offer's channel in its declined toast ("call", "chat", "email", "SMS", "WhatsApp"). */
-export const offerNoun = (channel: string | undefined): string =>
+const offerNoun = (channel: string | undefined): string =>
   !channel || channel === "voice" ? "call" : channel === "sms" ? "SMS" : channel === "whatsapp" ? "WhatsApp" : channel;
 
 /** A declined offer's toast title and body: "Chat declined" / "Dan Ortiz chat declined". */

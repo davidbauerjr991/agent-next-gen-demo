@@ -43,7 +43,7 @@ export function simCustomerAutoReply(agentMessageText: string, acknowledgeTempla
  *  pause with nothing to suggest — until the pool runs out and the caller
  *  goes quiet. Voice's counterpart of `CUSTOMER_AUTO_REPLY_POOL` (TTS waits
  *  for Phase 3: the lines are transcript utterances only). */
-export const VOICE_CUSTOMER_LINE_POOLS: Readonly<Record<string, readonly string[]>> = {
+const VOICE_CUSTOMER_LINE_POOLS: Readonly<Record<string, readonly string[]>> = {
   general: [
     "Hi, thanks. I'm calling about my account.",
     "I got a notice about a change and I'm not sure what it means.",
