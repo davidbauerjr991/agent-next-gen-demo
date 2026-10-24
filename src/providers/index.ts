@@ -6,3 +6,4 @@ export type * from "./customer-data-provider";
 export type * from "./assist-provider";
 export type * from "./provider-set";
 export type * from "./host-provider";
+export type * from "./transcript-export-provider";

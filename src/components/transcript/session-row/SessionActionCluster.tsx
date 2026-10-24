@@ -4,7 +4,7 @@
 // and the "Open Details Panel" toggle with its hover preview.
 import React, { useState } from "react";
 import { Button, KebabMenuButton, Popover, Tooltip, type MenuEntry } from "@nicecxone/lyra-ui";
-import { ChevronsDownUp, ChevronsUpDown, FileDown, Languages, PanelRight, Send, Trash2, UserPlus, UserX, X } from "lucide-react";
+import { ChevronsDownUp, ChevronsUpDown, PanelRight, Trash2, UserPlus, UserX, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TransferIcon } from "./session-row-parts";
 import { SessionOutcomeButton, SessionStatusChip } from "./SessionStatusOutcomeCluster";
@@ -159,19 +159,8 @@ export function SessionActionCluster({
               outcomeAfterStatus={outcomeAfterStatus}
               statusAndKebabBeforeOutcome={statusAndKebabBeforeOutcome}
             />
-            {/* Kebab (Send/Download/Translate) — per explicit request
-                (mockup's "Kebab Menu" callout), the same consolidated
-                "More Options" trigger each page's own record-header cluster
-                now renders (see those files' own header `actions` call
-                sites) also belongs down here once it's THIS row, not the
-                header, carrying the action cluster — i.e. once 2+ channels
-                are open (`showActionCluster` true) and this is a live,
-                non-draft session. Same `!isClosed && !isNewThread` gate as
-                Consult/Transfer and Outcome right above — a closed session
-                or a still-draft thread has nothing to send/download/
-                translate yet either. 3 decorative, unwired items, same as
-                every other copy of this menu in this app. */}
-            {showKebabMenu && !isClosed && !isNewThread && (
+            {/* The kebab holds only Consult / Transfer (transferInKebabMenu); without it there is nothing to open. */}
+            {showKebabMenu && transferInKebabMenu && !isClosed && !isNewThread && (
               // Per explicit follow-up request ("also in the interaction
               // more options 3 dots add a tooltip that says more options
               // (like in the interactionNavItem)"): matches `ChannelRow`'s
@@ -187,38 +176,10 @@ export function SessionActionCluster({
                   onOpenChange={setKebabMenuOpen}
                   items={
                     [
-                      // Per explicit follow-up request (Advanced only — see
-                      // `transferInKebabMenu`'s own doc comment): folds
-                      // the standalone Transfer icon (hidden above via that
-                      // same prop) into this menu instead, leading its item
-                      // list. Same unwired `onClick: () => {}` as every other
-                      // row here.
-                      ...(transferInKebabMenu
-                        ? [
-                            {
-                              id: "consult-transfer",
-                              label: "Consult / Transfer",
-                              icon: <TransferIcon />,
-                              onClick: () => {},
-                            },
-                          ]
-                        : []),
                       {
-                        id: "send-transcript",
-                        label: "Send Transcript",
-                        icon: <Send className="h-4 w-4" strokeWidth={1.5} />,
-                        onClick: () => {},
-                      },
-                      {
-                        id: "download-transcript",
-                        label: "Download Transcript",
-                        icon: <FileDown className="h-4 w-4" strokeWidth={1.5} />,
-                        onClick: () => {},
-                      },
-                      {
-                        id: "translate-messages",
-                        label: "Translate Messages",
-                        icon: <Languages className="h-4 w-4" strokeWidth={1.5} />,
+                        id: "consult-transfer",
+                        label: "Consult / Transfer",
+                        icon: <TransferIcon />,
                         onClick: () => {},
                       },
                     ] satisfies MenuEntry[]

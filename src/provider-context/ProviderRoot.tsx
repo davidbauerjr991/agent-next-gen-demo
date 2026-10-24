@@ -64,6 +64,7 @@ export function ProviderRoot({ kind, profile, database, factory, simLatency, chi
       capabilities: {
         interaction: providers.interaction.capabilities,
         media: providers.media.capabilities,
+        transcript: providers.transcriptExport?.capabilities,
       },
       profile,
       database,

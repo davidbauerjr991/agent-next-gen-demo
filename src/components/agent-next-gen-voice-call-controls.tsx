@@ -108,10 +108,9 @@ import {
   Avatar,
   Badge,
   Button,
-  InfoIcon,
   getHoldSeverity,
   KebabMenuButton,
-  PanelHeader,
+  Menu,
   Popover,
   Slider,
   Spinner,
@@ -466,50 +465,6 @@ function CompactVolumeButton({
   );
 }
 
-/** `header`/`content`/`footer` slots for the "Navigate back to view
- *  transcript?" confirm `Popover` — shared between the main Wide/Compact
- *  trigger's two call sites (see `transcriptNeedsConfirm`'s doc comment)
- *  so both render identical copy/buttons. Mirrors the established "Close
- *  Contact?" confirm popover exactly (`TranscriptSessionSeparator`,
- *  agent-next-gen-transcript.tsx) — real `PanelHeader`/`lyra-body-md`/
- *  `px-5` slots rather than one hand-rolled, self-padded `content` div:
- *  a first pass did the latter, which (1) stacked its own `p-4` on top of
- *  `Popover`'s default `bodyPadding` inset, reading as excessive padding,
- *  and (2) used `lyra-label`/`lyra-body-sm` instead of the heading/body
- *  sizes that reference popover actually uses, reading visibly smaller.
- *  `InfoIcon` rather than a warning/destructive icon since navigating to
- *  view a transcript isn't a destructive action — same reasoning
- *  `Modal.stories.tsx`'s own "Info" example uses. `bodyPadding` is left at
- *  `Popover`'s own default (`true`) — unlike the status/Resolution
- *  popovers' `Menu`-view, this content is a plain paragraph, not a `bare`
- *  `Menu`, so it needs (not fights with) that default 20px inset. */
-function buildTranscriptConfirmPopoverSlots(onConfirm: () => void, onCancel: () => void) {
-  return {
-    header: (
-      <PanelHeader
-        title="View Transcript?"
-        icon={<InfoIcon className="h-5 w-5" aria-hidden="true" />}
-        bordered={false}
-        className="px-5 pb-0"
-      />
-    ),
-    content: (
-      <p className="pb-2 pt-1 lyra-body-md text-lyra-fg-secondary">
-        You're not currently viewing this contact. Navigate back to it to view the transcript?
-      </p>
-    ),
-    footer: (
-      <div className="flex items-center justify-end gap-2 px-5 pb-4 pt-1">
-        <Button variant="outline" size="md" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button size="md" onClick={onConfirm}>
-          View Transcript
-        </Button>
-      </div>
-    ),
-  };
-}
 
 export interface VoiceCallControlsProps {
   /** Ends the call — the caller closes this channel (same as picking
@@ -551,41 +506,9 @@ export interface VoiceCallControlsProps {
    *  panel.tsx`'s own `onAddToast`, etc.) — omit to silently no-op instead
    *  of throwing on a caller that hasn't wired toasts through yet. */
   onAddToast?: (toast: Omit<ToastItem, "id">) => void;
-  /**
-   * Opens/closes the call transcript `InteriorPanel` the caller renders
-   * alongside the transcript/composer column (see each tier page's own
-   * "Voice call controls" render site) — this bar has no panel of its own
-   * to show, it just tells the caller to toggle theirs, same "this
-   * component doesn't own interaction-level state" split every other real
-   * (non-decorative) callback here already follows. Its own separate icon
-   * both above AND below the 768px breakpoint (see `CompactVolumeButton`'s
-   * own doc comment for why this is no longer folded into that trigger).
-   * Omit to hide the transcript trigger entirely, e.g. for a caller that
-   * hasn't wired a panel through yet.
-   */
-  onToggleTranscript?: () => void;
-  /** Whether the caller's transcript panel is currently open — tints
-   *  whichever transcript trigger is currently showing (wide or compact)
-   *  the same active blue every other toggled-on control in this bar
-   *  (Hold/Mute/Mask/Record) already uses. */
-  transcriptOpen?: boolean;
-  /** Per explicit request: the Transcript trigger stays visible even while
-   *  the caller's own transcript panel doesn't apply to whatever's
-   *  currently on screen (e.g. the agent navigated away, to Home/Settings/
-   *  a different interaction, from the interaction that owns this live
-   *  call) — rather than hiding it outright the way an omitted
-   *  `onToggleTranscript` does. While this is true, clicking the trigger
-   *  does NOT call `onToggleTranscript` — it opens a small confirm
-   *  `Popover` anchored to the trigger itself instead (mirroring
-   *  `CompactVolumeButton`'s own `Popover`-as-trigger-wrapper pattern,
-   *  just below), and only `onConfirmViewTranscript` fires, once the agent
-   *  actually confirms wanting to navigate back. */
-  transcriptNeedsConfirm?: boolean;
-  /** Fired when the agent confirms navigating back to view the transcript
-   *  from the popover `transcriptNeedsConfirm` opens. Only meaningful
-   *  while that prop is true; the caller is responsible for actually
-   *  switching to the right interaction and opening its transcript panel. */
-  onConfirmViewTranscript?: () => void;
+  /** The Transcript button's menu (download, email a copy). The button is a
+   *  popover trigger, not a toggle; omit it to hide the button entirely. */
+  transcriptMenu?: MenuEntry[];
   /**
    * Opens/closes the small draggable video window (a `DraggablePanel`) the
    * caller renders elsewhere in the page — replaces this button's old
@@ -700,10 +623,7 @@ export function VoiceCallControls({
   showKeypad = true,
   callStartTick,
   onAddToast,
-  onToggleTranscript,
-  transcriptOpen,
-  transcriptNeedsConfirm,
-  onConfirmViewTranscript,
+  transcriptMenu,
   onToggleVideo,
   videoOpen,
   onHold: onHoldControlled,
@@ -738,11 +658,7 @@ export function VoiceCallControls({
   const [localVideoAdded, setLocalVideoAdded] = useState(false);
   const videoAdded = onToggleVideo ? !!videoOpen : localVideoAdded;
   const [keypadOpen, setKeypadOpen] = useState(false);
-  // "Navigate back to view transcript?" confirm — see `transcriptNeedsConfirm`'s
-  // own doc comment. Purely local to whichever trigger (wide/compact/
-  // overflow) is currently rendered — nothing outside this component needs
-  // to know this popover itself is open.
-  const [transcriptConfirmOpen, setTranscriptConfirmOpen] = useState(false);
+  const [transcriptMenuOpen, setTranscriptMenuOpen] = useState(false);
   // Volume slider — purely local/decorative, same "no real telephony
   // backing this" convention as Hold/Mute/Mask/Record (see this file's own
   // top doc comment).
@@ -949,15 +865,14 @@ export function VoiceCallControls({
       disabled: isEnding,
       submenuContent: <DialPad onDigit={onSendDtmf} />,
     },
-    ...(onToggleTranscript
+    ...(transcriptMenu
       ? [
           {
             id: "transcript",
             label: "Transcript",
             icon: <FileText className="h-4 w-4" strokeWidth={1.5} />,
-            active: transcriptOpen,
             disabled: isEnding,
-            onClick: onToggleTranscript,
+            submenu: transcriptMenu,
           } satisfies MenuEntry,
         ]
       : []),
@@ -1490,89 +1405,33 @@ export function VoiceCallControls({
             )}
           </Popover>
           )}
-          {/* Transcript — per an earlier explicit follow-up request ("take
-              the transcript button out of the volume dropdown and put it to
-              the left of the volume button"): its own plain
-              `WideCallControlButton`, same as every other control in this
-              centered cluster. Static "Transcript" label regardless of
-              `transcriptOpen` (same convention Mask already uses — a
-              static label, with `active` tinting alone signaling on/off —
-              "Show transcript"/"Hide transcript" was fine as hover-only
-              `Tooltip` content, but doesn't fit this button's fixed 80px
-              column as a permanently-visible label without wrapping or
-              truncating). `onToggleTranscript` omitted (and
-              `transcriptNeedsConfirm` unset) still hides this trigger
-              entirely — see that prop's own doc comment for the one other
-              case (the caller's panel just doesn't apply right now) that
-              keeps it visible instead. */}
-          {(onToggleTranscript || transcriptNeedsConfirm) && (controlsCompact ? (
-            transcriptNeedsConfirm ? (
-              // Same `Popover`-as-trigger-wrapper shape `CompactVolumeButton`
-              // above already uses — Radix's own trigger click toggles
-              // `open`, so no `onClick` on the button itself here.
-              <Popover
-                open={transcriptConfirmOpen}
-                onOpenChange={setTranscriptConfirmOpen}
-                placement="top"
-                className="w-72"
-                {...buildTranscriptConfirmPopoverSlots(
-                  () => {
-                    setTranscriptConfirmOpen(false);
-                    onConfirmViewTranscript?.();
-                  },
-                  () => setTranscriptConfirmOpen(false)
-                )}
-              >
-                <CompactCallControlButton
-                  icon={<FileText className="h-5 w-5" strokeWidth={1.5} />}
-                  active={transcriptOpen || transcriptConfirmOpen}
-                  aria-label="Transcript"
-                  disabled={isEnding}
-                />
-              </Popover>
-            ) : (
-              <Tooltip content="Transcript" placement="top">
-                <CompactCallControlButton
-                  icon={<FileText className="h-5 w-5" strokeWidth={1.5} />}
-                  active={transcriptOpen}
-                  aria-label="Transcript"
-                  onClick={onToggleTranscript}
-                  disabled={isEnding}
-                />
-              </Tooltip>
-            )
-          ) : transcriptNeedsConfirm ? (
+          {/* Transcript: a popover trigger over `transcriptMenu`, not a toggle; no menu, no button. */}
+          {transcriptMenu && (
             <Popover
-              open={transcriptConfirmOpen}
-              onOpenChange={setTranscriptConfirmOpen}
+              open={transcriptMenuOpen}
+              onOpenChange={setTranscriptMenuOpen}
               placement="top"
-              className="w-72"
-              {...buildTranscriptConfirmPopoverSlots(
-                () => {
-                  setTranscriptConfirmOpen(false);
-                  onConfirmViewTranscript?.();
-                },
-                () => setTranscriptConfirmOpen(false)
-              )}
+              bodyPadding={false}
+              content={<Menu items={transcriptMenu} bare />}
             >
-              <WideCallControlButton
-                icon={<FileText className="h-5 w-5" strokeWidth={1.5} />}
-                label="Transcript"
-                active={transcriptOpen || transcriptConfirmOpen}
-                // See `isEnding`'s own doc comment above.
-                disabled={isEnding}
-              />
+              {controlsCompact ? (
+                <CompactCallControlButton
+                  icon={<FileText className="h-5 w-5" strokeWidth={1.5} />}
+                  active={transcriptMenuOpen}
+                  aria-label="Transcript"
+                  disabled={isEnding}
+                />
+              ) : (
+                <WideCallControlButton
+                  icon={<FileText className="h-5 w-5" strokeWidth={1.5} />}
+                  label="Transcript"
+                  active={transcriptMenuOpen}
+                  // See `isEnding`'s own doc comment above.
+                  disabled={isEnding}
+                />
+              )}
             </Popover>
-          ) : (
-            <WideCallControlButton
-              icon={<FileText className="h-5 w-5" strokeWidth={1.5} />}
-              label="Transcript"
-              active={transcriptOpen}
-              onClick={onToggleTranscript}
-              // See `isEnding`'s own doc comment above.
-              disabled={isEnding}
-            />
-          ))}
+          )}
             </>
           )}
           <CompactVolumeButton volume={volume} onVolumeChange={setVolume} disabled={isEnding} compact={controlsCompact} />

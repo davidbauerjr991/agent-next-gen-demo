@@ -1,7 +1,7 @@
 // Contact Details' built-in tabs (P-CANVAS): each tab's one body, mounted by
 // the docked panel and its record-header hover preview alike, plus the tab
 // row both render from the registry (`src/contact-handling/contact-details-tabs.ts`).
-import { Tab, TabList } from "@nicecxone/lyra-ui";
+import { KebabMenuButton, Tab, TabList } from "@nicecxone/lyra-ui";
 import { ChannelThreadBody } from "@/contact-handling/ChannelThreadPane";
 import { LUCAS_THOMAS_ID } from "@/contact-handling/scenario-cases";
 import { useReferenceCells } from "@/contact-handling/useCanvasRegions";
@@ -9,6 +9,7 @@ import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import type { ContactDetailsTab, ContactDetailsTabContext } from "@/contact-handling/contact-details-tabs";
 import { contactDetailsTab, contactDetailsTabs } from "@/contact-handling/contact-details-tabs";
 import { t } from "@/i18n";
+import { useActiveTranscriptMenu } from "./useActiveTranscriptMenu";
 
 const panelOnly = ({ aiInPanel }: ContactDetailsTabContext) => aiInPanel;
 const withRecord = ({ realCustomer }: ContactDetailsTabContext) => realCustomer;
@@ -33,9 +34,17 @@ function CustomerRecordBody() {
 function TranscriptBody() {
   const { activeInteraction, activeChannel, panelVoiceThread, hideAiActions, scenarioKeyOf } = useWorkspace();
   const thread = panelVoiceThread ?? activeChannel;
+  // A digital leg's transcript menu is here; a call's is the voice bar's Transcript button.
+  const menu = useActiveTranscriptMenu(activeInteraction ?? undefined, thread && thread.type !== "voice" ? thread : undefined);
   if (!activeInteraction || !thread) return null;
   return (
     <div data-slot="contact-details-transcript">
+      {menu && (
+        <div className="flex shrink-0 items-center justify-between px-6 py-1" data-slot="transcript-tab-header">
+          <span className="lyra-label text-lyra-fg-default">{t("Transcript")}</span>
+          <KebabMenuButton ariaLabel={t("Transcript options")} align="right" items={menu} />
+        </div>
+      )}
       <ChannelThreadBody
         interaction={activeInteraction}
         thread={thread}

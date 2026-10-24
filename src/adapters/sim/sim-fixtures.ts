@@ -78,7 +78,7 @@ export const SIM_CAPABILITIES: InteractionCapabilities = {
   record: true,
   mask: true,
   dtmf: true,
-  transfer: { blind: true, consult: false },
+  transfer: { blind: true, consult: false, consultChannels: ["voice", "chat"] },
   typing: true,
   deliveryReceipts: true,
   agentLeg: true,

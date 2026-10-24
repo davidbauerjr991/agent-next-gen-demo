@@ -206,16 +206,13 @@ export function InteractionNavCard({
       }`}
     >
      <div className="min-h-0 overflow-hidden">
-      {!expanded ? (
-        <div className="relative">
-          <InteractionNavItem expanded={expanded} {...itemProps} />
-          {currentChannelType && showChannelBadge && (
-            <CollapsedChannelBadge type={currentChannelType} severity={badgeSeverity} onHold={cardOnHold} holdSeverity={cardHoldSeverity} />
-          )}
-        </div>
-      ) : (
+      {/* One tree position either way: a different wrapper per state would remount the card and reset its expanded state. */}
+      <div className={expanded ? undefined : "relative"}>
         <InteractionNavItem expanded={expanded} {...itemProps} />
-      )}
+        {!expanded && currentChannelType && showChannelBadge && (
+          <CollapsedChannelBadge type={currentChannelType} severity={badgeSeverity} onHold={cardOnHold} holdSeverity={cardHoldSeverity} />
+        )}
+      </div>
      </div>
     </div>
   );

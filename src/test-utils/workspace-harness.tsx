@@ -10,9 +10,11 @@ import { createMemoryBus } from "@/adapters/sim/memory-transport";
 import { createSimAssistProvider } from "@/adapters/sim/sim-assist-provider";
 import { SIM_DEMO_DIRECTORY } from "@/adapters/sim/sim-demo-directory";
 import type { SimSeedContact } from "@/adapters/sim/sim-fixtures";
+import { createSimTranscriptExportProvider } from "@/adapters/sim/sim-transcript-export-provider";
 import { createSimCustomerClient, type SimCustomerClient } from "@/adapters/sim/sim-customer-client";
 import { createSimulatedInteractionProvider, type SimulatedInteractionProvider } from "@/adapters/sim/simulated-interaction-provider";
 import type { ChannelKind, InteractionId } from "@/domain";
+import type { ProviderSet } from "@/providers";
 import { DEFAULT_SLA } from "@/profiles/contact-center-profile";
 import { ProviderRoot } from "@/provider-context";
 import { SCENARIOS } from "@/scenarios";
@@ -76,7 +78,9 @@ export type WorkspacePage = ComponentType<{ showPageHeader?: boolean; showPanelT
 let databaseCounter = 0;
 
 /** `seed`: the sim's waiting assignments (e.g. `SIM_DEMO_SEED`); none by default. */
-export function createWorkspaceHarness(options: { seed?: readonly SimSeedContact[] } = {}) {
+export function createWorkspaceHarness(
+  options: { seed?: readonly SimSeedContact[]; transcriptExport?: ProviderSet["transcriptExport"] } = {},
+) {
   let container!: HTMLElement;
   let root!: Root;
   let provider!: SimulatedInteractionProvider;
@@ -116,6 +120,7 @@ export function createWorkspaceHarness(options: { seed?: readonly SimSeedContact
               media: createPlaceholderMediaProvider(),
               customerData: createPlaceholderCustomerDataProvider(),
               assist: createSimAssistProvider({ sessionId: provider.sessionId, transport: bus.createTransport() }),
+              transcriptExport: options.transcriptExport ?? createSimTranscriptExportProvider({ latency: ZERO }),
             };
           }}
         >

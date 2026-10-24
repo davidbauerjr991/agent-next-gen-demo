@@ -1,3 +1,7 @@
+import { useEffect, useRef, useState } from "react";
+import { useProviders } from "@/provider-context";
+import { t } from "@/i18n";
+import type { ChannelKind } from "@/domain";
 import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
 import { getHoldSeverity, type InteractionChannel } from "@nicecxone/lyra-ui";
 import {
@@ -42,8 +46,24 @@ export function NavCardItem({
     handleDismissInteraction, incomingOffer, isNewAssignment, lucasThomasReviewing, mainPins,
     marcusWebbReviewing, navOpen, noInteractionCollapse, omnichannel, outcomeConfigFor, outcomeDrafts,
     panelPlacement, scenarioKeyOf, selectPanel, setChannelsExpandedById, setInteractions, setPanelFullScreen,
-    setVoiceVideoFullScreen, setVoiceVideoWindowOpen, switchActiveInteraction,
+    setVoiceVideoFullScreen, setVoiceVideoWindowOpen, switchActiveInteraction, channelsExpandedById,
   } = useWorkspace();
+  const consultChannels = useProviders().capabilities.interaction.transfer.consultChannels ?? [];
+  const scenarioKey = scenarioKeyOf(interaction.id);
+  const botHolds = scenarioKey === MARCUS_WEBB_ID ? marcusWebbReviewing : scenarioKey === LUCAS_THOMAS_ID ? lucasThomasReviewing : false;
+  // A remounted card (nav collapsed to the rail and back, the placement swap) restores the expanded state the
+  // store kept for it: lyra's card starts open and applies an override only when its version changes, so the
+  // restore is a version bump after mount, and the card's first report (its default) isn't taken as the agent's.
+  const [restoredExpanded] = useState(() => channelsExpandedById[interaction.id]);
+  const restoring = restoredExpanded !== undefined;
+  const [mounted, setMounted] = useState(false);
+  const firstReportSkipped = useRef(!restoring);
+  useEffect(() => setMounted(true), []);
+  const overrideLow = !channelsAllExpanded && interaction.id === activeInteractionId ? 1 : 0;
+  const overrideBase = channelsExpandedOverrideVersion * 2 + overrideLow;
+  const [baseAtMount] = useState(overrideBase);
+  // Until the next bulk click or active-card change, the restored state stands in for the bulk one.
+  const overrideExpanded = restoring && mounted && overrideBase === baseAtMount ? restoredExpanded : channelsAllExpanded || interaction.id === activeInteractionId;
                 const mostRecentId = interaction.threads[interaction.threads.length - 1]?.id;
                 // For the active card specifically, an open channel preview
                 // (`channelPreviewThreadKey`) takes over which channel this
@@ -279,25 +299,6 @@ export function NavCardItem({
                     // `OnHoldPill` hold-state visuals — per this request,
                     // "not the hold state yet".
                     //
-                    // `showConsultTransfer` — per a later explicit
-                    // follow-up request ("in the interactionNavItem move
-                    // consult/transfer into the 3 dots more menu like you
-                    // did in the interaction itself"), now unconditionally
-                    // `false` for every channel type (previously only for
-                    // voice, with non-voice falling back to `ChannelRow`'s
-                    // default `true` — leaving the standalone icon visible
-                    // for SMS/digital channels, which is what the request
-                    // was about). The standalone button hiding doesn't lose
-                    // the action: `ChannelRow`'s own
-                    // `stripPromotedChannelRowActions` (channel-row.tsx)
-                    // folds "Consult / Transfer" into its kebab instead
-                    // whenever `showConsultTransfer` is `false`, so this one
-                    // flag both hides the icon and surfaces the item in the
-                    // menu for every channel type — voice already got this
-                    // for free (its kebab is hidden entirely via `showKebab`
-                    // above, so Consult/Transfer was already absent there
-                    // rather than double-exposed).
-                    //
                     // `showDismissButton` — per a later explicit follow-up
                     // ("also remove the unassign and dismiss icon button
                     // while the call is on"), Unassign & Dismiss is now
@@ -306,7 +307,8 @@ export function NavCardItem({
                     // mirroring `AgentNextGenPage.tsx`'s own identical
                     // formula exactly. Outcome (above) stays visible the
                     // whole time regardless, per the original request.
-                    showConsultTransfer: false,
+                    // Consult / Transfer sits in the row's hover cluster, not the kebab.
+                    showConsultTransfer: true,
                     // Per explicit follow-up request ("always have the more
                     // options available in the interactionNavItem") — the
                     // kebab was made unconditional for every row for a
@@ -393,27 +395,19 @@ export function NavCardItem({
                         ? lucasThomasReviewing
                         : // Outcome stays locked on an incoming call until it is accepted.
                           interaction.offered || undefined,
-                    // Per explicit follow-up request ("remove the ability to
-                    // hang up from the interactionNavItem overall") — "hide,
-                    // don't destroy," same pattern as
-                    // `SHOW_APPROVE_PROCESSING_STEPS` elsewhere in this file:
-                    // `SHOW_END_CALL_IN_INTERACTION_NAV_ROWS` (defined near
-                    // those other flags) gates the whole computed handler
-                    // below off, rather than deleting it — the real, still
-                    // fully-working way to hang up a live call is the main
-                    // call-controls bar's own "End Call" button
-                    // (`VoiceCallControls`'s `onHangUp`, which independently
-                    // sets this exact same `voiceCallEnded` flag), so this
-                    // was always a redundant second entry point rather than
-                    // the only one.
+                    // A consult is only for live legs (voice, chat); the other rows offer Transfer alone.
+                    consultTransferLabel: consultChannels.includes(c.type as ChannelKind) ? undefined : t("Transfer"),
+                    // While the bot holds the assignment (the review state), both are disabled with the reason.
+                    consultTransferDisabledReason: botHolds ? t("Take over to transfer") : undefined,
+                    endCallDisabledReason: botHolds ? t("Take over to end the call") : undefined,
+                    // End call on a live voice leg; with Close confirmation on it asks first.
                     onEndCall:
                       SHOW_END_CALL_IN_INTERACTION_NAV_ROWS &&
                       c.type === "voice" &&
                       !interaction.closed &&
                       !interaction.voiceCallEnded &&
-                      !interaction.offered &&
-                      !(scenarioKeyOf(interaction.id) === MARCUS_WEBB_ID && marcusWebbReviewing)
-                        ? () => {
+                      !interaction.offered
+                        ? () => confirmDismiss(() => {
                             // A provider call ends through `end()` (to
                             // wrap-up, where the card shows its wrap-up card);
                             // a scripted scenario call ends locally.
@@ -435,7 +429,7 @@ export function NavCardItem({
                               setVoiceVideoWindowOpen(false);
                               setVoiceVideoFullScreen(false);
                             }
-                          }
+                          })
                         : undefined,
                     // Forwarded straight from `Thread.direction` — drives
                     // `VoiceDirectionIcon`/`SmsDirectionIcon` at this row's
@@ -723,22 +717,21 @@ export function NavCardItem({
                     // card stays open: the version's low bit flips when this
                     // card gains or loses the active slot, which re-applies
                     // the override. Expanded keeps the plain even version.
-                    channelsExpandedOverride={{
-                      expanded: channelsAllExpanded || interaction.id === activeInteractionId,
-                      version:
-                        channelsExpandedOverrideVersion * 2 +
-                        (!channelsAllExpanded && interaction.id === activeInteractionId ? 1 : 0),
-                    }}
+                    channelsExpandedOverride={{ expanded: overrideExpanded, version: overrideBase * 2 + (restoring && mounted ? 1 : 0) }}
                     // Mirrors this card's own expanded state up into
                     // `channelsExpandedById` — see that state's own doc
                     // comment for why (catching up
                     // `AssignmentsExpandCollapseAllButton`'s own label once
                     // every card happens to agree by hand).
-                    onChannelsExpandedChange={(expanded) =>
+                    onChannelsExpandedChange={(expanded) => {
+                      if (!firstReportSkipped.current) {
+                        firstReportSkipped.current = true;
+                        return;
+                      }
                       setChannelsExpandedById((prev) =>
                         prev[interaction.id] === expanded ? prev : { ...prev, [interaction.id]: expanded }
-                      )
-                    }
+                      );
+                    }}
                     // Kept in sync with the ChannelToggle bar in this
                     // interaction's record-header PageHeader — see
                     // Interaction.currentChannelId's own doc comment.

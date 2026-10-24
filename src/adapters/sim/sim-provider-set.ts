@@ -3,7 +3,8 @@ import { createPlaceholderCustomerDataProvider, createPlaceholderMediaProvider }
 import { createSimAssistProvider } from "./sim-assist-provider";
 import { createSimCustomerClient } from "./sim-customer-client";
 import { installScenarioHotkeys } from "./sim-scenario-hotkeys";
-import { createBroadcastTransport, DEFAULT_LATENCY, withLatency } from "./sim-transport";
+import { createSimTranscriptExportProvider } from "./sim-transcript-export-provider";
+import { createBroadcastTransport, DEFAULT_LATENCY, withLatency, type LatencyRange } from "./sim-transport";
 import { createSimulatedInteractionProvider, type SimOptions } from "./simulated-interaction-provider";
 
 /** The `?provider=sim` set. Media and CustomerData stay placeholders until
@@ -22,7 +23,7 @@ export function createSimProviderSet(options?: SimOptions & {
     ...(options?.commandTimeoutMs !== undefined ? { commandTimeoutMs: options.commandTimeoutMs } : {}),
   });
   const hotkeys = !!options?.scenarioHotkeys;
-  if (!import.meta.env.DEV && !hotkeys) return withPlaceholders(interaction, assist);
+  if (!import.meta.env.DEV && !hotkeys) return withPlaceholders(interaction, assist, options?.latency);
 
   // The customer side, until the P0.6 console: the scenario hotkeys play scripts through it (P0.5c; any build,
   // in-app only), and in dev it's also the `__simCustomer` devtools handle (never a global in production).
@@ -40,14 +41,20 @@ export function createSimProviderSet(options?: SimOptions & {
       },
     },
     assist,
+    options?.latency,
   );
 }
 
-function withPlaceholders(interaction: ProviderSet["interaction"], assist: ProviderSet["assist"]): ProviderSet {
+function withPlaceholders(
+  interaction: ProviderSet["interaction"],
+  assist: ProviderSet["assist"],
+  latency: LatencyRange | undefined,
+): ProviderSet {
   return {
     interaction,
     media: createPlaceholderMediaProvider(),
     customerData: createPlaceholderCustomerDataProvider(),
     assist,
+    transcriptExport: createSimTranscriptExportProvider({ latency }),
   };
 }

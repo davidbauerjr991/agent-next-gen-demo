@@ -124,12 +124,5 @@ export const MAYA_CHEN_CALL_OVERVIEW = MAYA_CHEN_SCRIPT.content.overview!;
 export const MAYA_CHEN_CALL_COPILOT_SUGGESTIONS: string[] = MAYA_CHEN_SCRIPT.content.copilot!.suggestions;
 export const MAYA_CHEN_CALL_COPILOT_LINKS: Record<string, string> = MAYA_CHEN_SCRIPT.content.copilot!.links;
 
-// Per explicit request ("remove the ability to hang up from the
-// interactionNavItem overall") — "hide, don't destroy": the left-nav
-// channel builder's own `onEndCall` computation stays fully wired, just
-// gated off by this flag. Hanging up a call still works from the main
-// call-controls bar's own "End Call" button (`VoiceCallControls`'s
-// `onHangUp`) regardless of this flag — that's a separate, independent
-// code path that isn't affected either way. Flip back to `true` to
-// restore the left-nav's own standalone End Call icon.
-export const SHOW_END_CALL_IN_INTERACTION_NAV_ROWS = false;
+/** Shows End call in the nav rows' hover cluster for a live voice leg. */
+export const SHOW_END_CALL_IN_INTERACTION_NAV_ROWS = true;

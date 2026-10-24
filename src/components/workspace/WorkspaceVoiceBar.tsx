@@ -3,17 +3,19 @@ import { HostSlot } from "@/contact-handling/portal-hosts";
 import { MARCUS_WEBB_ID } from "@/contact-handling/scenario-cases";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { initialsFor } from "@/components/agent-next-gen-shared-utils";
+import { useActiveTranscriptMenu } from "./useActiveTranscriptMenu";
 
 /** The live call's voice bar and its bottom host slot (P-EXTRACT C8, from the
  *  page). The bar portals into `voiceBarHost`, whichever slot holds it. */
 export function WorkspaceVoiceBar() {
   const {
-    addToast, contactCommands, customerPanelActiveTab, interactions, isViewingLiveVoiceCallInteraction,
+    addToast, contactCommands, interactions, isViewingLiveVoiceCallInteraction,
     liveVoiceCallControls, liveVoiceCallInteraction, liveVoiceCallInteractionIsRealCustomer, liveVoiceCallThread,
-    marcusWebbReviewing, pendingCustomerPanelTabRef, scenarioKeyOf, setCustomerPanelActiveTab, setSidePanelOpen,
-    setVoiceVideoFullScreen, setVoiceVideoWindowOpen, sidePanelOpen, switchActiveInteraction, voiceBarCall,
+    marcusWebbReviewing, scenarioKeyOf,
+    setVoiceVideoFullScreen, setVoiceVideoWindowOpen, switchActiveInteraction, voiceBarCall,
     voiceBarCallOf, voiceBarHost, voiceNavSlotMounted, voiceSettings, voiceVideoWindowOpen,
   } = useWorkspace();
+  const transcriptMenu = useActiveTranscriptMenu(liveVoiceCallInteraction ?? undefined, liveVoiceCallThread ?? undefined);
   return (
     <>
           {voiceBarCall &&
@@ -44,37 +46,7 @@ export function WorkspaceVoiceBar() {
                 contactCommands.hangUp(liveVoiceCallThread);
               }}
               onAddToast={addToast}
-              onToggleTranscript={
-                isViewingLiveVoiceCallInteraction
-                  ? () => {
-                      if (sidePanelOpen && customerPanelActiveTab === "Transcript") {
-                        setSidePanelOpen(false);
-                      } else {
-                        setCustomerPanelActiveTab("Transcript");
-                        setSidePanelOpen(true);
-                      }
-                    }
-                  : undefined
-              }
-              transcriptOpen={isViewingLiveVoiceCallInteraction && sidePanelOpen && customerPanelActiveTab === "Transcript"}
-              // Per explicit request: the Transcript trigger stays visible
-              // even while away from the interaction that owns this call
-              // (unlike Video, still hidden outright via `undefined` above)
-              // — clicking it opens a confirm `Popover` (inside
-              // `VoiceCallControls` itself, anchored to the trigger) asking
-              // whether to navigate back, rather than acting on the wrong
-              // interaction's `sidePanelOpen`/`customerPanelActiveTab`.
-              transcriptNeedsConfirm={!isViewingLiveVoiceCallInteraction}
-              onConfirmViewTranscript={() => {
-                if (!liveVoiceCallInteraction) return;
-                // Set BEFORE switching — see `pendingCustomerPanelTabRef`'s
-                // own doc comment for why a direct `setCustomerPanelActiveTab`
-                // call here gets silently overwritten back to "Details" by
-                // the interaction-switch reset effect a render later.
-                pendingCustomerPanelTabRef.current = "Transcript";
-                switchActiveInteraction(liveVoiceCallInteraction.id);
-                setSidePanelOpen(true);
-              }}
+              transcriptMenu={transcriptMenu}
               onToggleVideo={
                 isViewingLiveVoiceCallInteraction
                   ? () =>

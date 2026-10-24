@@ -208,4 +208,31 @@ describe("collapsed list keeps only the active card open", () => {
     expect(openCount()).toBe(3);
     expect(closedCount()).toBe(0);
   });
+
+  it("survives collapsing the nav to the rail and expanding it, and the placement swap leftNav → interior → leftNav", async () => {
+    await threeChats();
+    await h.click(h.navCard("Cy Park"));
+    await h.click(bulk());
+    expect(openCount()).toBe(1);
+
+    const toggleNav = () => h.container.querySelector<HTMLElement>('aside [aria-label="Collapse sidebar"], aside [aria-label="Expand sidebar"]')!;
+    await h.click(toggleNav());
+    await h.click(toggleNav());
+    expect(openCount()).toBe(1);
+    expect(closedCount()).toBe(2);
+    expect(bulk().getAttribute("aria-label")).toBe("Expand all");
+
+    const anywhere = (label: string) => h.container.querySelectorAll(`[title="${label}"], [aria-label="${label}"]`).length;
+    await act(async () => {
+      store().update("assignments", { placement: "interiorPanel" });
+    });
+    expect(anywhere("Collapse channels")).toBe(1);
+    expect(anywhere("Expand channels")).toBe(2);
+    await act(async () => {
+      store().update("assignments", { placement: "leftNav" });
+    });
+    expect(openCount()).toBe(1);
+    expect(closedCount()).toBe(2);
+    expect(bulk().getAttribute("aria-label")).toBe("Expand all");
+  });
 });

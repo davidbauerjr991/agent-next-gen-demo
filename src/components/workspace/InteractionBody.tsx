@@ -57,8 +57,7 @@ export function InteractionBody() {
                         data-main-thread={panelPlacement ? "ai" : activeChannelType}
                         data-canvas-region={canvas.enabled ? "action" : undefined}
                       >
-                        <ThreadCrossFade transitionKey={panelPlacement ? undefined : activeChannelKey} groupKey={activeInteraction.id} />
-                        {/* P-CANVAS: the pinned action cells (the Next Best Action), above the conversation's scroll. */}
+                        <ThreadCrossFade transitionKey={panelPlacement ? undefined : activeChannelKey} groupKey={activeInteraction.id} />                        {/* P-CANVAS: the pinned action cells (the Next Best Action), above the conversation's scroll. */}
                         {canvas.pinned && (
                           <div className="mx-auto flex w-full max-w-[768px] shrink-0 flex-col gap-3 px-6 pt-4" data-slot="canvas-pinned">
                             {canvas.pinned}

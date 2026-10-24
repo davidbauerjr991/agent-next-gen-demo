@@ -40,8 +40,10 @@ export interface InteractionCapabilities {
   /** Keypad tones sent into the call (voice bar). */
   dtmf: boolean;
   /** Consult / Transfer. `blind` hands off immediately; `consult` talks to the
-   *  target first. Merge/cancel-consult flows are adapter work, not here. */
-  transfer: { blind: boolean; consult: boolean };
+   *  target first. Merge/cancel-consult flows are adapter work, not here.
+   *  `consultChannels`: the live channels a consult can be opened on (voice, chat);
+   *  an async channel (email, SMS, WhatsApp) is transfer-only. Absent: none. */
+  transfer: { blind: boolean; consult: boolean; consultChannels?: readonly ChannelKind[] };
   /** Typing indicators, both directions. */
   typing: boolean;
   /** `Message.delivery` advances past "sent" (delivered/read). */

@@ -8,6 +8,7 @@ export {
   useMediaProvider,
   useCustomerDataProvider,
   useAssistProvider,
+  useTranscriptExportProvider,
   useActiveProfile,
   useActiveDatabase,
   useProviderKind,

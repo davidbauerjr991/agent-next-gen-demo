@@ -55,6 +55,13 @@ export interface WorkspaceUiState {
   /** P-CANVAS: cards whose call transcript the agent hid ("Hide Transcript", AI display inline, voice): the main
    *  column keeps only the AI rows, and Contact Details offers the Transcript tab. */
   transcriptHiddenByCard: Readonly<Record<string, boolean>>;
+  /** P-POLISH 3: the assignments list's collapse state, kept here so it outlives the cards (a left-nav collapse to
+   *  the rail, the placement swap): the next bulk click's direction (`false`: collapsed, only the active card open), */
+  navChannelsAllExpanded: boolean;
+  /** ... the nonce each bulk click bumps ... */
+  navChannelsOverrideVersion: number;
+  /** ... and each card's own expanded state (what a remounted card restores). */
+  navChannelsExpandedById: Readonly<Record<string, boolean>>;
   /** P-PROFILES: the reference slot's width while `ReferenceSlot` shows the
    *  reference column (the card width, or the open slide-over's slot width);
    *  0 with no column (stacked); null while the slot isn't mounted (no canvas). */
@@ -89,6 +96,9 @@ export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
   journeyLookupStartedAt: Object.freeze({}),
   referenceFocusByCard: Object.freeze({}),
   transcriptHiddenByCard: Object.freeze({}),
+  navChannelsAllExpanded: true,
+  navChannelsOverrideVersion: 0,
+  navChannelsExpandedById: Object.freeze({}),
   referenceSlotWidth: null,
   assignmentsPanelDocks: true,
   assignmentsPanelOverlayOpen: false,

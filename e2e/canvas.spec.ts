@@ -245,6 +245,30 @@ for (const [displayLocation, tabs] of [
   });
 }
 
+test("panel, a digital leg: the Transcript tab's header has the transcript menu; nothing in the main thread", async ({ page }) => {
+  await setUp(page, { displayLocation: "panel", canvasLayout: "twoColumn" }, 2200);
+  const panel = page.locator("[data-slot=right-panel]");
+  if ((await panel.getAttribute("data-thread")) !== "details" || (await panel.getAttribute("data-open")) !== "true") {
+    await page.getByRole("button", { name: /Contact Details$/ }).first().click();
+  }
+  await panel.locator("[data-slot=contact-details-tabs] [role=tab]", { hasText: "Transcript" }).dispatchEvent("click");
+  const header = panel.locator("[data-slot=contact-details-transcript] [data-slot=transcript-tab-header]");
+  await header.getByRole("button", { name: "Transcript options" }).click();
+  await expect(page.getByText("Download transcript")).toBeVisible();
+  await expect(page.getByText("Email copy to customer")).toBeVisible();
+  await expect(page.locator("[data-main-thread] [data-slot=transcript-tab-header]")).toHaveCount(0);
+});
+
+test("a call: the voice bar's Transcript button opens the menu and does not toggle the transcript", async ({ page }) => {
+  await mayaLive(page, "inline", 1600);
+  const before = await page.locator("[data-main-thread]").innerText();
+  await page.locator("[data-slot=voice-bar]").getByRole("button", { name: "Transcript" }).click();
+  await expect(page.getByText("Download transcript")).toBeVisible();
+  await expect(page.getByText("Email copy to customer")).toBeVisible();
+  await expect(page.locator("[data-slot=right-panel][data-open=true]")).toHaveCount(0);
+  expect(await page.locator("[data-main-thread]").innerText()).toBe(before);
+});
+
 /** Maya Chen's call (dev hotkey B), with this AI display and the two-column canvas. */
 async function mayaLive(page: Page, displayLocation: "inline" | "main", width: number) {
   await page.setViewportSize({ width, height: 1000 });

@@ -409,8 +409,8 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   // independently after a bulk action, not stay permanently locked to this
   // one shared value. Both passed down as one `channelsExpandedOverride`
   // object (interaction-nav-item.tsx) at each card's own call site below.
-  const [channelsAllExpanded, setChannelsAllExpanded] = useState(true);
-  const [channelsExpandedOverrideVersion, setChannelsExpandedOverrideVersion] = useState(0);
+  const [channelsAllExpanded, setChannelsAllExpanded] = useWorkspaceUiField("navChannelsAllExpanded");
+  const [channelsExpandedOverrideVersion, setChannelsExpandedOverrideVersion] = useWorkspaceUiField("navChannelsOverrideVersion");
   const handleToggleAllChannelsExpanded = () => {
     const next = !channelsAllExpanded;
     setChannelsAllExpanded(next);
@@ -522,7 +522,7 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   // pruned when a card unmounts — a stale entry for a since-dismissed
   // interaction is harmless (the "every card agrees" check below only ever
   // looks up ids that are still in `interactions`).
-  const [channelsExpandedById, setChannelsExpandedById] = useState<Record<string, boolean>>({});
+  const [channelsExpandedById, setChannelsExpandedById] = useWorkspaceUiField("navChannelsExpandedById");
   // Per explicit request: if the agent manually toggles individual cards'
   // chevrons by hand until every one happens to already agree with one
   // direction, `AssignmentsExpandCollapseAllButton`'s own `allExpanded`
