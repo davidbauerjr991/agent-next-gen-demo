@@ -73,12 +73,22 @@ interface AssistCardBase {
  *  ask, or something to run. */
 export type NextBestActionType = "say" | "ask" | "do";
 
+/** A field the agent fills in before running a Do or an alternative (P-SHRINK): a reason, an amount. What
+ *  they type travels on `resolveCard` (`note`). `amount`: a number above zero. */
+export interface NextBestActionNote {
+  label: string;
+  placeholder: string;
+  required?: true;
+  kind?: "text" | "amount";
+}
+
 /** A lesser option offered beside the suggestion ("Also consider"). */
 export interface NextBestActionAlternative {
   type: NextBestActionType;
   text: string;
   /** A provider-side action this option starts when used (opaque to the UI). */
   branch?: string;
+  note?: NextBestActionNote;
 }
 
 /** One Next Best Action. Say/Ask carry `text` (the suggested words); Do
@@ -94,6 +104,8 @@ export interface NextBestActionSuggestion {
   link?: string;
   /** A provider-side action using it starts (opaque to the UI). */
   branch?: string;
+  /** A Do's field, shown under its action line. */
+  note?: NextBestActionNote;
   alt: NextBestActionAlternative[];
   /** When it was suggested. */
   at: EpochMs;
@@ -137,6 +149,8 @@ export interface AssistCardResolution {
   outcome: "used" | "dismissed";
   /** The alternative used instead of the suggestion (an index into `alt`). */
   alternative?: number;
+  /** What the agent typed into the used option's `note` field (redacted). */
+  note?: string;
   /** The agent wrote the turn themselves (inserted the suggestion and sent it): a waiting scripted
    *  conversation goes on without its own line for that turn. */
   agentTyped?: true;

@@ -852,7 +852,7 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
     get: (id) => interactions.get(id),
     customerName: (id) => customerNames.get(id) ?? interactions.get(id)?.contactName,
     send: emitAssist,
-    startBranch: (id, branch) => player.startAction(id, branch),
+    startBranch: (id, branch, inputs) => player.startAction(id, branch, inputs),
     later: (ms, run) => schedule({ minMs: ms, maxMs: ms }, run),
     releaseTurn: (id, skipLine) => player.releaseTurn(id, { skipLine }),
   });

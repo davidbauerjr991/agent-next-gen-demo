@@ -123,6 +123,9 @@ export interface Message {
   text: string;
   sentAt: EpochMs;
   delivery?: "sending" | "sent" | "delivered" | "read" | "failed";
+  /** An event that suggests the contact's Outcome disposition (a scripted step's `sets`, P-SHRINK): the agent UI
+   *  fills the Outcome draft with it once, and the agent still saves the Outcome. */
+  suggestedDisposition?: string;
 }
 
 /** A speech segment on a voice contact. Separate from `Message` because

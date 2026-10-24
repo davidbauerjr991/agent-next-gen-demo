@@ -31,7 +31,9 @@ export interface TranscriptMessage {
   /** Renders the "Add {address} as … for {customer}?" card (k8 8): a thread started on an address not on the record. */
   saveAddress?: SaveAddressOffer;
   /** A compact AI row (P-CANVAS): a Next Best Action the agent used or put aside ("Used at 9:15 AM — …"). */
-  nbaOutcome?: { outcome: "used" | "dismissed"; title: string; at: string };
+  /** A Next Best Action the agent used or put aside. `note`: what they typed into the used option's field;
+   *  `options`: every option the suggestion offered (its own title first), for the decision's detail. */
+  nbaOutcome?: { outcome: "used" | "dismissed"; title: string; at: string; note?: { label: string; value: string }; options?: string[] };
   /** The Next Best Action, surfaced in the conversation on a pause or the agent's request (P-CANVAS):
    *  the suggestion `stepId` of `contactId`'s nba card while it's showing, or "Nothing to suggest" (`nothing`). */
   nba?: { contactId: string; stepId: string; nothing?: true };

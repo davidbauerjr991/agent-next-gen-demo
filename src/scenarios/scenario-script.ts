@@ -43,10 +43,22 @@ interface StepBase {
   focus?: "summary" | "journey" | "customer";
 }
 
+/** A field the agent fills in before running a Do or an alternative
+ *  (P-SHRINK). Its value is the branch's `input` (default `note`), so the
+ *  branch lists that input. `amount`: a number above zero. */
+export interface ScenarioNbaNote {
+  label: string;
+  placeholder: string;
+  required?: true;
+  input?: string;
+  kind?: "text" | "amount";
+}
+
 /** A scripted Next Best Action (the assist provider's nba card). Say and Ask
  *  carry `text`, the words to use; Do carries `action`, what running it does,
  *  and may `link` a panel key to open. `branch` (and an alternative's) is an
- *  action branch using it starts. */
+ *  action branch using it starts; a Do and an alternative may ask for a
+ *  `note`, and an alternative may start its branch with fixed `vars`. */
 export interface ScenarioNba {
   type: "say" | "ask" | "do";
   title: string;
@@ -55,7 +67,8 @@ export interface ScenarioNba {
   action?: string;
   link?: string;
   branch?: string;
-  alt?: { type: "say" | "ask" | "do"; text: string; branch?: string }[];
+  note?: ScenarioNbaNote;
+  alt?: { type: "say" | "ask" | "do"; text: string; branch?: string; note?: ScenarioNbaNote; vars?: Record<string, string> }[];
 }
 
 export type ScenarioStep = StepBase &
@@ -68,10 +81,17 @@ export type ScenarioStep = StepBase &
     /** A typing indicator from `at` for `durationMs`. Digital channels only:
      *  ignored on voice (not an error), so a chat script runs as voice. */
     | { kind: "typing"; speaker: ScenarioSpeaker; durationMs: number }
-    /** A system line in the thread ("Chat started", "Order placed"). */
-    | { kind: "event"; text: string }
+    /** A system line in the thread ("Chat started", "Order placed"); `by`
+     *  names who did it (the bot, the agent). `sets` (P-SHRINK): the case
+     *  status it moves the case to, and the disposition it suggests for the
+     *  Outcome draft (the agent still saves the Outcome). */
+    | { kind: "event"; text: string; by?: string; sets?: { caseStatus?: string; disposition?: string } }
     | { kind: "hangUp" }
-    /** Guidance only: nothing in the thread, just its `nba` and/or `focus` (P-CANVAS). */
+    /** Guidance only: nothing in the thread, just its `nba` and/or `focus`
+     *  (P-CANVAS). With an `nba` it's the agent's turn (P-SHRINK): the run
+     *  waits until the agent answers it, then goes on with no line of its own.
+     *  It surfaces even while a bot holds the contact (the agent is its
+     *  approver), and taking over withdraws it if it's still unanswered. */
     | { kind: "guide" }
     /** A presentation beat: `instruction` is an interstitial row (`text`,
      *  `by`, `link` = side-panel key); `approval` and `wrap-up` are cards

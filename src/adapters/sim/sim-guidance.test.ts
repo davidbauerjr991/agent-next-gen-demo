@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Interaction, InteractionId } from "../../domain";
 import type { AssistCard, AssistEvents, AssistRequestId } from "../../providers";
+import type { ScenarioStep } from "../../scenarios/scenario-script";
 import { MAYA_CHEN_SCRIPT } from "../../scenarios/scripts/maya-chen";
 import { createGuidance } from "./sim-guidance";
 
@@ -213,5 +214,106 @@ describe("a scripted contact (Maya Chen)", () => {
     const { guidance, nba } = turnSetUp();
     guidance.onStep(ID, step("mcc-3"));
     expect(nba()).toMatchObject({ stepId: "mcc-3", focus: "customer", frame: "listening" });
+  });
+});
+
+describe("a guide step's suggestion (P-SHRINK)", () => {
+  const nbaStep = {
+    id: "g-1",
+    kind: "guide",
+    at: 0,
+    nba: {
+      type: "do",
+      title: "Approve the refund",
+      why: "Within policy.",
+      action: "Authorizes the refund",
+      branch: "approved",
+      alt: [
+        { type: "do", text: "Reject the refund", branch: "rejected", note: { label: "Reason", placeholder: "Why?", required: true } },
+        { type: "do", text: "Send a 20% discount code", branch: "discount", vars: { discountPercent: "20" } },
+        { type: "do", text: "Issue store credit", branch: "credit", note: { label: "Credit amount", placeholder: "200", input: "storeCreditAmount", kind: "amount" } },
+      ],
+    },
+  } as const satisfies ScenarioStep;
+
+  function guideSetUp(review: boolean) {
+    const sent: AssistEvents["card"][] = [];
+    const startBranch = vi.fn();
+    const releaseTurn = vi.fn();
+    let current = { id: ID, channel: "voice", state: "active", direction: "inbound", origin: "routed", startedAt: 0, ...(review ? { review: { by: "Cognigy AI Agent", since: 0 } } : {}) } as Interaction;
+    const guidance = createGuidance({
+      now: () => 1_000,
+      get: () => current,
+      customerName: () => "Marcus Webb",
+      send: (payload) => sent.push(payload),
+      startBranch,
+      later: () => {},
+      releaseTurn,
+    });
+    guidance.startScript(ID, MAYA_CHEN_SCRIPT);
+    guidance.onInteraction(current);
+    const nba = () => [...sent].reverse().find((p) => p.card.kind === "nba")?.card as Extract<AssistCard, { kind: "nba" }> | undefined;
+    const takeOver = () => {
+      current = { ...current, review: undefined };
+      guidance.onInteraction(current);
+    };
+    return { guidance, nba, startBranch, releaseTurn, takeOver };
+  }
+
+  it("is the agent's turn and surfaces while a bot holds the contact; the note shows, its input name doesn't", () => {
+    const { guidance, nba } = guideSetUp(true);
+    guidance.onStep(ID, nbaStep);
+    expect(nba()).toMatchObject({ frame: "listening", awaitingAgent: true });
+    guidance.surface(ID, "turn", REQ);
+    expect(nba()).toMatchObject({ frame: "suggestion", stepId: "g-1" });
+    expect(nba()!.suggestion!.alt[0].note).toEqual({ label: "Reason", placeholder: "Why?", required: true });
+    expect(nba()!.suggestion!.alt[2].note).toEqual({ label: "Credit amount", placeholder: "200", kind: "amount" });
+    expect(nba()!.suggestion!.alt[1]).not.toHaveProperty("vars");
+  });
+
+  it("a request still surfaces nothing in review when the turn isn't the bot's (an agent line)", () => {
+    const { guidance, nba } = guideSetUp(true);
+    guidance.onStep(ID, { id: "a-1", kind: "say", speaker: "agent", at: 0, text: "Hi", nba: { type: "say", title: "Greet", why: "-", text: "Hi" } });
+    guidance.surface(ID, "turn", REQ);
+    expect(nba()!.frame).not.toBe("suggestion");
+  });
+
+  it("taking over withdraws it, surfaced or not, with no branch and no release", () => {
+    const shown = guideSetUp(true);
+    shown.guidance.onStep(ID, nbaStep);
+    shown.guidance.surface(ID, "turn", REQ);
+    shown.takeOver();
+    expect(shown.nba()).toMatchObject({ frame: "listening" });
+    expect(shown.nba()!.awaitingAgent).toBeUndefined();
+    expect(shown.startBranch).not.toHaveBeenCalled();
+    expect(shown.releaseTurn).not.toHaveBeenCalled();
+    const waiting = guideSetUp(true);
+    waiting.guidance.onStep(ID, nbaStep);
+    waiting.takeOver();
+    waiting.guidance.surface(ID, "turn", REQ);
+    expect(waiting.nba()!.frame).not.toBe("suggestion");
+  });
+
+  it("outside review it isn't withdrawn by later snapshots", () => {
+    const { guidance, nba, takeOver } = guideSetUp(false);
+    guidance.onStep(ID, nbaStep);
+    takeOver();
+    guidance.surface(ID, "turn", REQ);
+    expect(nba()).toMatchObject({ frame: "suggestion", stepId: "g-1" });
+  });
+
+  it("the used option's note and vars reach its branch: note, a named input, fixed vars", () => {
+    const run = (resolution: Parameters<ReturnType<typeof createGuidance>["resolve"]>[1]) => {
+      const { guidance, startBranch, releaseTurn } = guideSetUp(true);
+      guidance.onStep(ID, nbaStep);
+      guidance.surface(ID, "turn", REQ);
+      guidance.resolve(`nba:${ID}`, resolution);
+      expect(releaseTurn).toHaveBeenCalledWith(ID, false);
+      return startBranch.mock.calls[0];
+    };
+    expect(run({ outcome: "used" })).toEqual([ID, "approved", {}]);
+    expect(run({ outcome: "used", alternative: 0, note: "Needs photos" })).toEqual([ID, "rejected", { note: "Needs photos" }]);
+    expect(run({ outcome: "used", alternative: 1 })).toEqual([ID, "discount", { vars: { discountPercent: "20" } }]);
+    expect(run({ outcome: "used", alternative: 2, note: "150" })).toEqual([ID, "credit", { vars: { storeCreditAmount: "150" } }]);
   });
 });

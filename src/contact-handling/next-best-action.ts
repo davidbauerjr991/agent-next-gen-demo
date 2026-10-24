@@ -7,6 +7,7 @@ import { isAiActionMessage } from "@/components/agent-next-gen-ai-messages";
 import { CURRENT_AGENT_FIRST_NAME, CURRENT_AGENT_LAST_NAME } from "@/components/agent-next-gen-shared-utils";
 import type { InteractionId } from "@/domain";
 import { getAssistCardStore, useAssistCardsByContact, useAssistProvider, useContactAssistCards, useInteraction, useInteractions } from "@/provider-context";
+import { redact } from "@/providers/redaction";
 import { useSettings } from "@/settings";
 import { useWorkspaceUiField, useWorkspaceUiStore } from "./workspace-ui-store";
 import { useWorkspace } from "./workspace/WorkspaceContext";
@@ -304,12 +305,18 @@ export function useNextBestActionRow(contactId: string, rowId: string, stepId: s
   const hasChatComposer = !!channel && TEXT_CHANNELS.has(channel) && !where?.card.closed && !contact?.review;
   const use: NextBestActionUse = channel === "voice" ? "said" : hasChatComposer ? "insert" : "copy";
 
-  /** Replaces this row with the compact Used/Dismissed row. */
+  /** Replaces this row with the compact Used/Dismissed row (with what the agent typed into the used option's field). */
   const settle = useCallback(
-    (outcome: "used" | "dismissed", title: string) => {
+    (outcome: "used" | "dismissed", title: string, note?: { label: string; value: string }) => {
       if (!cardId || !threadKey) return;
       const at = timeLabel(Date.now());
-      const outcomeRow = row({ id: `nba-${outcome}-${rowId}`, timestamp: at, text: title, nbaOutcome: { outcome, title, at } });
+      const options = suggestion ? [suggestion.title, ...suggestion.alt.map((a) => a.text)] : undefined;
+      const outcomeRow = row({
+        id: `nba-${outcome}-${rowId}`,
+        timestamp: at,
+        text: title,
+        nbaOutcome: { outcome, title, at, ...(note ? { note } : {}), ...(options ? { options } : {}) },
+      });
       setInteractions((prev) =>
         appendRow(
           prev.map((c) =>
@@ -321,13 +328,14 @@ export function useNextBestActionRow(contactId: string, rowId: string, stepId: s
         ),
       );
     },
-    [cardId, threadKey, rowId, setInteractions],
+    [cardId, threadKey, rowId, setInteractions, suggestion],
   );
 
   const resolve = useCallback(
-    (outcome: "used" | "dismissed", alternative?: number) => {
+    (outcome: "used" | "dismissed", alternative?: number, note?: string) => {
       if (!card) return;
-      assist.resolveCard(card.id, { outcome, ...(alternative !== undefined ? { alternative } : {}) }).catch((err) => {
+      const resolution = { outcome, ...(alternative !== undefined ? { alternative } : {}), ...(note !== undefined ? { note: redact(note) } : {}) };
+      assist.resolveCard(card.id, resolution).catch((err) => {
         if (import.meta.env.DEV) console.warn("[nba] resolveCard failed", err);
       });
     },
@@ -339,10 +347,15 @@ export function useNextBestActionRow(contactId: string, rowId: string, stepId: s
   const turn = !!card?.awaitingAgent;
   const [ai] = useSettings("ai");
   const store = useWorkspaceUiStore();
-  const onUse = useCallback(() => {
+  const onUse = useCallback((note?: string) => {
     if (!suggestion || !cardId || !threadKey) return;
     if (suggestion.type === "do") {
       if (suggestion.link) ws.snapshotLinkHandlerFor(cardId)(suggestion.link);
+      if (suggestion.note && note !== undefined) {
+        settle("used", suggestion.title, { label: suggestion.note.label, value: note });
+        resolve("used", undefined, note);
+        return;
+      }
     } else if (use === "insert" && suggestion.text) {
       setPrefill((prev) => ({ ...prev, [`${cardId}:${threadKey}`]: suggestion.text! }));
       if (turn && card) {
@@ -368,11 +381,12 @@ export function useNextBestActionRow(contactId: string, rowId: string, stepId: s
   }, [suggestion, settle, resolve, turn, ai.nbaScriptedDelayMs]);
 
   const onUseAlternative = useCallback(
-    (index: number) => {
+    (index: number, note?: string) => {
       const alternative = suggestion?.alt[index];
       if (!alternative) return;
-      settle("used", alternative.text);
-      resolve("used", index);
+      const typed = alternative.note && note !== undefined ? { label: alternative.note.label, value: note } : undefined;
+      settle("used", alternative.text, typed);
+      resolve("used", index, typed?.value);
     },
     [suggestion, settle, resolve],
   );

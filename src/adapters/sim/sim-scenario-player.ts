@@ -54,8 +54,9 @@ export interface ScenarioPlayer {
   onInteraction(interaction: Interaction): void;
   onTakeOver(id: InteractionId, handoff: boolean): void;
   respond(id: InteractionId, response: RequestResponse): void;
-  /** Starts an action branch (`trigger: "action"`) a used Next Best Action names; a no-op for anything else. */
-  startAction(id: InteractionId, branch: string): void;
+  /** Starts an action branch (`trigger: "action"`) a used Next Best Action names, with what the agent typed into
+   *  its note and the option's fixed vars; a no-op for anything else. */
+  startAction(id: InteractionId, branch: string, inputs?: { note?: string; vars?: Record<string, string> }): void;
   /** The agent answered the Next Best Action the run waits on: plays its agent line (unless the agent typed the
    *  turn themselves, `skipLine`) and goes on. A no-op when the run isn't waiting. */
   releaseTurn(id: InteractionId, options: { skipLine: boolean }): void;
@@ -91,8 +92,9 @@ interface Run {
   gate?: { step: ScenarioStep; inputs: Inputs };
 }
 
-/** An agent line with a Next Best Action: the agent's turn, which waits on the agent (P-CANVAS). */
-export const isAgentTurn = (step: ScenarioStep) => step.kind === "say" && step.speaker === "agent" && !!step.nba;
+/** An agent line with a Next Best Action, or a guide step with one: the agent's turn, which waits on the agent
+ *  (P-CANVAS; guide steps P-SHRINK). A guide turn has no line of its own. */
+export const isAgentTurn = (step: ScenarioStep) => !!step.nba && ((step.kind === "say" && step.speaker === "agent") || step.kind === "guide");
 
 /** Presence codes routing offers contacts to (every inbound, `routeInbound`). */
 export const LIVE_PRESENCE = ["available", "working"];
@@ -164,8 +166,9 @@ export function createScenarioPlayer(
       : { id: simId("msg") as MessageId, interactionId, author: who, kind: "text", text, sentAt: at };
   }
 
-  function eventMessage(interactionId: InteractionId, text: string, at: number, annotation?: Message["annotation"]): Message {
-    return { id: simId("msg") as MessageId, interactionId, author: SYSTEM, kind: "event", text, sentAt: at, ...(annotation ? { annotation } : {}) };
+  function eventMessage(interactionId: InteractionId, text: string, at: number, annotation?: Message["annotation"], by?: string): Message {
+    const author = by ? { ...SYSTEM, displayName: by } : SYSTEM;
+    return { id: simId("msg") as MessageId, interactionId, author, kind: "event", text, sentAt: at, ...(annotation ? { annotation } : {}) };
   }
 
   // ── Steps ───────────────────────────────────────────────────────────────
@@ -209,9 +212,14 @@ export function createScenarioPlayer(
         }
         return;
       }
-      case "event":
-        host.pushMessage(eventMessage(id, fill(step.text, inputs), host.now()));
+      case "event": {
+        const disposition = step.sets?.disposition;
+        host.pushMessage({ ...eventMessage(id, fill(step.text, inputs), host.now(), undefined, step.by), ...(disposition ? { suggestedDisposition: disposition } : {}) });
+        const caseStatus = step.sets?.caseStatus;
+        const current = host.get(id);
+        if (caseStatus && current && current.caseStatus !== caseStatus) host.update(current, { caseStatus });
         return;
+      }
       case "hangUp":
         host.customer({ kind: "hangUp", interactionId: id });
         return;
@@ -305,7 +313,7 @@ export function createScenarioPlayer(
           if ("sentAt" in entry) host.seedMessage(entry);
           else host.seedUtterance(entry);
         } else if (step.kind === "event") {
-          host.seedMessage(eventMessage(interaction.id, step.text, at));
+          host.seedMessage(eventMessage(interaction.id, step.text, at, undefined, step.by));
         }
       }
     },
@@ -347,7 +355,11 @@ export function createScenarioPlayer(
       const run = runs.get(id);
       if (!run || run.takenOver) return;
       run.takenOver = true;
+      // An unanswered guide turn was the bot's request to the agent; taking over withdraws it (P-SHRINK).
+      const withdrawn = run.gate?.step.kind === "guide";
+      if (withdrawn) run.gate = undefined;
       if (handoff) schedule(run, anchored(run, "takeover"));
+      if (withdrawn && host.get(id)?.state === "active") resume(run);
     },
 
     respond(id, response) {
@@ -386,11 +398,11 @@ export function createScenarioPlayer(
       if (branch) schedule(run, stepsFor(run.script, run.channel, branch.steps), { note: response.note, vars: response.vars, branch: branchKey });
     },
 
-    startAction(id, branchKey) {
+    startAction(id, branchKey, inputs = {}) {
       const run = runs.get(id);
       const branch = run && !run.stopped ? run.script.branches?.[branchKey] : undefined;
       if (!run || branch?.trigger !== "action") return;
-      schedule(run, stepsFor(run.script, run.channel, branch.steps), { branch: branchKey });
+      schedule(run, stepsFor(run.script, run.channel, branch.steps), { note: inputs.note, vars: inputs.vars, branch: branchKey });
     },
 
     releaseTurn(id, { skipLine }) {

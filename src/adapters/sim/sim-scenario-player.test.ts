@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Interaction, InteractionId, Message } from "../../domain";
 import { expectProviderError, recordEvents, type Recorder } from "../../contract-tests/event-recorder";
-import { LUCAS_THOMAS_SCRIPT, MARCUS_WEBB_SCRIPT, MAYA_CHEN_SCRIPT, SCENARIOS, TOM_LEWIS_SCRIPT, type ScenarioScript } from "../../scenarios";
+import { LUCAS_THOMAS_SCRIPT, MARCUS_WEBB_SCRIPT, MAYA_CHEN_SCRIPT, SCENARIOS, TOM_LEWIS_SCRIPT, validateScenario, type ScenarioScript } from "../../scenarios";
 import type { AssistCardResolution, AssistProvider } from "../../providers";
 import { createMemoryBus } from "./memory-transport";
 import { createSimAssistProvider } from "./sim-assist-provider";
@@ -57,6 +57,57 @@ const BEATS_SCRIPT: ScenarioScript = {
   },
 };
 
+/** A bot-held call whose decision is a guide step's Do NBA (P-SHRINK): a note on an alternative, fixed vars on
+ *  another, an event that sets the case status and suggests the disposition, and a takeover. */
+const GUIDE_SCRIPT: ScenarioScript = {
+  version: 1,
+  id: "guide",
+  title: "Guide",
+  summary: "A bot asks the agent to decide.",
+  entity: { key: "guide", name: "Gus Guide", caseId: "CASE-GUIDE", phone: "(415) 555-0199" },
+  channel: "voice",
+  skill: { name: "AI Review", id: "ai-review" },
+  participants: { bot: "Guide Bot" },
+  start: { answer: "delivered", review: true, caseStatus: "Open" },
+  steps: [
+    {
+      id: "g-decide",
+      kind: "guide",
+      at: 0,
+      nba: {
+        type: "do",
+        title: "Approve the refund",
+        why: "Within policy.",
+        action: "Authorizes the refund",
+        branch: "approved",
+        alt: [
+          { type: "do", text: "Reject the refund", branch: "rejected", note: { label: "Reason", placeholder: "Why?", required: true } },
+          { type: "do", text: "Send a 20% discount code", branch: "discount", vars: { discountPercent: "20" } },
+        ],
+      },
+    },
+    { id: "g-taken", kind: "event", anchor: "takeover", at: 0, text: "Taken over" },
+  ],
+  branches: {
+    approved: {
+      label: "Approved",
+      trigger: "action",
+      steps: [
+        { id: "g-a1", kind: "event", at: 0, text: "Disposition updated", by: "Guide Bot", sets: { caseStatus: "Resolved", disposition: "Exception Approved" } },
+        { id: "g-a2", kind: "say", speaker: "bot", at: 100, text: "Approved." },
+      ],
+    },
+    rejected: { label: "Rejected", trigger: "action", inputs: ["note"], steps: [{ id: "g-r1", kind: "say", speaker: "bot", at: 0, text: "Rejected: {note}" }] },
+    discount: {
+      label: "Discount",
+      trigger: "action",
+      inputs: ["discountPercent"],
+      steps: [{ id: "g-d1", kind: "say", speaker: "bot", at: 0, text: "{discountPercent}% off" }],
+    },
+  },
+  content: { panelKeys: [] },
+};
+
 /** The provider with every command settled under fake timers: the memory
  *  bus delivers on `setTimeout(0)`, so a reply only lands once those run. */
 let provider: SimulatedInteractionProvider;
@@ -81,7 +132,7 @@ function setup() {
     latency: ZERO,
     timings: { ring: ZERO, legConnect: ZERO, delivery: ZERO },
     createTransport: bus.createTransport,
-    scripts: [...SCENARIOS, BEATS_SCRIPT],
+    scripts: [...SCENARIOS, BEATS_SCRIPT, GUIDE_SCRIPT],
   });
   provider = new Proxy(raw, {
     get(target, key, receiver) {
@@ -502,5 +553,55 @@ describe("launch rules", () => {
     await provider.dispose();
     await advance(20_000);
     expect(utterances(id)).toHaveLength(0);
+  });
+});
+
+describe("a guide step's Next Best Action (P-SHRINK)", () => {
+  const botLines = (id: InteractionId) => utterances(id).filter((u) => u.speaker.role === "bot").map((u) => u.text);
+
+  it("the script is valid", () => {
+    expect(validateScenario(GUIDE_SCRIPT)).toEqual([]);
+  });
+
+  it("surfaces while the bot holds the call; Run it plays its branch: the event names who did it, sets the status and suggests the disposition", async () => {
+    const id = await play(GUIDE_SCRIPT);
+    await advance(5);
+    expect(latest(id)?.review).toBeTruthy();
+    await answerTurn(id);
+    await advance(150);
+    const event = currentMessages(id).find((m) => m.text === "Disposition updated")!;
+    expect(event).toMatchObject({ kind: "event", author: { role: "system", displayName: "Guide Bot" }, suggestedDisposition: "Exception Approved" });
+    expect(latest(id)?.caseStatus).toBe("Resolved");
+    expect(botLines(id)).toEqual(["Approved."]);
+  });
+
+  it("an alternative's note fills {note}; another's fixed vars fill its inputs", async () => {
+    const id = await play(GUIDE_SCRIPT);
+    await advance(5);
+    await answerTurn(id, { outcome: "used", alternative: 0, note: "Needs photos" });
+    await advance(5);
+    expect(botLines(id)).toEqual(["Rejected: Needs photos"]);
+
+    await teardown();
+    setup();
+    const other = await play(GUIDE_SCRIPT);
+    await advance(5);
+    await answerTurn(other, { outcome: "used", alternative: 1 });
+    await advance(5);
+    expect(botLines(other)).toEqual(["20% off"]);
+  });
+
+  it("taking over withdraws it: the takeover steps play, and there's nothing left to answer", async () => {
+    const id = await play(GUIDE_SCRIPT);
+    await advance(5);
+    await provider.takeOver(id);
+    await flush();
+    await advance(5);
+    expect(currentMessages(id).map((m) => m.text)).toContain("Taken over");
+    const refused = expectProviderError(assist.resolveCard(`nba:${id}`, { outcome: "used" }), "not-found");
+    await flush();
+    await flush();
+    await refused;
+    expect(botLines(id)).toEqual([]);
   });
 });

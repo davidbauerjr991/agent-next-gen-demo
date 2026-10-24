@@ -62,7 +62,8 @@ function toTranscriptRows(transcript: Pick<TranscriptState, "messages" | "uttera
   const agent = script.participants?.agent ?? "John Smith";
   const rows: TimedRow[] = [];
   const side = (who: Participant) => (who.role === "customer" ? "customer" : "agent") as TranscriptMessage["sender"];
-  const nameOf = (who: Participant) => (who.role === "system" ? bot : who.displayName);
+  // A system line is the bot's unless the script names who did it (an event's `by`).
+  const nameOf = (who: Participant) => (who.role === "system" && who.displayName === "System" ? bot : who.displayName);
 
   for (const m of transcript.messages as readonly Message[]) {
     const timestamp = timeOf(m.sentAt);

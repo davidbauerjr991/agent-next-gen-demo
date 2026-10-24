@@ -15,7 +15,16 @@ export function NbaOutcomeRow({ outcome }: { outcome: NonNullable<TranscriptMess
         aria-hidden="true"
       />
       <span className="min-w-0 truncate">
-        {used ? t("Used at {time} — {title}", { time: outcome.at, title: outcome.title }) : t("Dismissed at {time} — {title}", { time: outcome.at, title: outcome.title })}
+        {used
+          ? outcome.note
+            ? t("Used at {time} — {title} · {label}: {value}", {
+                time: outcome.at,
+                title: outcome.title,
+                label: outcome.note.label.toLocaleLowerCase(),
+                value: outcome.note.value,
+              })
+            : t("Used at {time} — {title}", { time: outcome.at, title: outcome.title })
+          : t("Dismissed at {time} — {title}", { time: outcome.at, title: outcome.title })}
       </span>
     </div>
   );

@@ -307,6 +307,31 @@ describe("validateScenario catches", () => {
     expect(problems(wrongStep)).toContain("unlessTakenOver applies to wrap-up and dismiss beats only");
   });
 
+  it("an nba note or vars its branch doesn't take, a note on a Say, a malformed note, an event's bad sets (P-SHRINK)", () => {
+    const doStep = (script: ScenarioScript) => script.steps.find((s) => s.id === "tlc-do")! as ScenarioScript["steps"][number] & { nba: NonNullable<ScenarioScript["steps"][number]["nba"]> };
+    const unlisted = tom();
+    doStep(unlisted).nba.note = { label: "Reason", placeholder: "Why?" };
+    expect(problems(unlisted)).toContain('an nba note fills "note", which its branch doesn\'t list as an input');
+    const listed = tom();
+    doStep(listed).nba.note = { label: "Reason", placeholder: "Why?", required: true };
+    listed.branches!.void.inputs = ["note"];
+    expect(problems(listed)).toBe("");
+    const onSay = tom();
+    doStep(onSay).nba.alt![0] = { ...doStep(onSay).nba.alt![0], note: { label: "Reason", placeholder: "Why?" } };
+    expect(problems(onSay)).toContain("only a do nba (or a do alternative) takes a note");
+    const malformed = tom();
+    doStep(malformed).nba.note = { label: "", placeholder: "Why?", kind: "date" as "text" };
+    malformed.branches!.void.inputs = ["note"];
+    expect(problems(malformed)).toContain("an nba note needs a label and a placeholder");
+    expect(problems(malformed)).toContain("an nba note's kind is text or amount");
+    const vars = tom();
+    doStep(vars).nba.alt![0] = { type: "do", text: "Void it", branch: "void", vars: { amount: "86.40" } };
+    expect(problems(vars)).toContain('nba vars "amount" isn\'t an input of its branch');
+    const sets = tom();
+    sets.branches!.void.steps[0] = { ...sets.branches!.void.steps[0], sets: { caseStatus: 5 as unknown as string } } as ScenarioScript["steps"][number];
+    expect(problems(sets)).toContain("an event sets a caseStatus and/or a disposition");
+  });
+
   it("a placeholder that isn't one of the branch's inputs", () => {
     const script = clone(getScenario("marcus-webb-scenario")!) as ScenarioScript;
     script.branches!["remedy-discount-code"].inputs = ["storeCreditAmount"];

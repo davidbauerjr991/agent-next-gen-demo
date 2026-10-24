@@ -46,6 +46,7 @@ import { usePortalHost } from "@/contact-handling/portal-hosts";
 import { findContactHistoryMatch, extractPriorContactInfo } from "@/contact-handling/workspace/active-channel-labels";
 import { TOM_LEWIS_CALL_OVERVIEW, MAYA_CHEN_CALL_OVERVIEW, LUCAS_THOMAS_OVERVIEW } from "@/components/workspace/workspace-constants";
 import type { WorkspaceControllerProps, WorkspaceLate } from "./workspace-late";
+import { useSuggestedDispositions } from "@/contact-handling/useSuggestedDispositions";
 
 export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate) {
   const { initialInteraction } = props;
@@ -304,6 +305,7 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   const outcomeDrafts = useChannelOutcomeDrafts();
   const outcomeDraft = outcomeDrafts.draftFor(outcomeDraftKey);
   const setOutcomeDraft = (change: (draft: OutcomeDraft) => OutcomeDraft) => outcomeDrafts.update(outcomeDraftKey, change);
+  useSuggestedDispositions(scenarioCases, outcomeDrafts.update);
   // Duplicated verbatim from AgentNextGenPage.tsx (Agent Workspace 2.0) per
   // this codebase's "no shared sync" convention — records, per
   // `${interactionId}:${channelKey}`, the real wall-clock moment a

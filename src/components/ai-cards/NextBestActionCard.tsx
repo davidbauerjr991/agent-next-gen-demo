@@ -1,8 +1,31 @@
-import { Alternatives, AgenticAICard, Button, SuggestedReply, SuggestionTag } from "@nicecxone/lyra-ui";
+import { useId, useState } from "react";
+import { Alternatives, AgenticAICard, Button, Input, Label, SuggestedReply, SuggestionTag, Textarea } from "@nicecxone/lyra-ui";
 import { Compass, Copy, CornerDownLeft, Lightbulb, MessageSquareQuote, Play, Workflow, X } from "lucide-react";
-import type { NextBestActionSuggestion } from "@/providers";
+import type { NextBestActionNote, NextBestActionSuggestion } from "@/providers";
 import { t } from "@/i18n";
 import { aiCardIcon as ic, timeLabel } from "./ai-card-icon";
+
+/** Whether a note's value lets the option run: a required note needs text, an amount a number above zero. */
+function noteReady(note: NextBestActionNote | undefined, value: string): boolean {
+  if (!note) return true;
+  const v = value.trim();
+  if (note.kind === "amount") return v === "" ? !note.required : Number(v) > 0;
+  return !note.required || v !== "";
+}
+
+/** A Do's (or an alternative's) field: an amount input or a short text box. */
+function NoteField({ note, value, onChange }: { note: NextBestActionNote; value: string; onChange: (value: string) => void }) {
+  const id = useId();
+  if (note.kind === "amount") {
+    return <Input label={note.label} required={note.required} inputMode="decimal" placeholder={note.placeholder} value={value} onChange={(e) => onChange(e.target.value)} />;
+  }
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label label={note.label} labelFor={id} />
+      <Textarea id={id} rows={2} placeholder={note.placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
+    </div>
+  );
+}
 
 /** How a Say or Ask is used: into the chat composer, said on the call, or
  *  copied (a thread with no reply composer, e.g. email until P-PARKED). */
@@ -13,10 +36,12 @@ export interface NextBestActionCardProps {
   suggestion?: NextBestActionSuggestion;
   stepId?: string;
   use?: NextBestActionUse;
-  onUse?: () => void;
+  /** `note`: what the agent typed into the Do's field, when it has one. */
+  onUse?: (note?: string) => void;
   onCopy?: () => void;
   onNotNow?: () => void;
-  onUseAlternative?: (index: number) => void;
+  /** `note`: what the agent typed into the alternative's field, when it has one. */
+  onUseAlternative?: (index: number, note?: string) => void;
 }
 
 /** Next Best Action (P-CANVAS), lyra's Agentic AI card as its story mirrors
@@ -24,6 +49,10 @@ export interface NextBestActionCardProps {
  *  suggest. A row in the conversation, surfaced on a pause or on request. */
 export function NextBestActionCard({ suggestion, stepId, use = "copy", onUse, onCopy, onNotNow, onUseAlternative }: NextBestActionCardProps) {
   const base = { title: t("Next Best Action"), icon: ic(Compass), forYou: true } as const;
+  const [note, setNote] = useState("");
+  // An alternative with a field is picked first, then run from its own field (P-SHRINK).
+  const [altPicked, setAltPicked] = useState<number | undefined>(undefined);
+  const [altNote, setAltNote] = useState("");
 
   if (!suggestion) {
     return (
@@ -37,9 +66,10 @@ export function NextBestActionCard({ suggestion, stepId, use = "copy", onUse, on
 
   const at = timeLabel(suggestion.at);
   const isDo = suggestion.type === "do";
+  const picked = altPicked !== undefined ? suggestion.alt[altPicked] : undefined;
   const footer = isDo ? (
     <>
-      <Button size="sm" onClick={onUse}>
+      <Button size="sm" disabled={!noteReady(suggestion.note, note)} onClick={() => onUse?.(suggestion.note ? note.trim() : undefined)}>
         {ic(Play)}
         {t("Run it")}
       </Button>
@@ -52,13 +82,13 @@ export function NextBestActionCard({ suggestion, stepId, use = "copy", onUse, on
   ) : (
     <>
       {use === "insert" && (
-        <Button size="sm" onClick={onUse}>
+        <Button size="sm" onClick={() => onUse?.()}>
           {ic(CornerDownLeft)}
           {t("Insert into reply")}
         </Button>
       )}
       {use === "said" && (
-        <Button size="sm" onClick={onUse}>
+        <Button size="sm" onClick={() => onUse?.()}>
           {ic(MessageSquareQuote)}
           {t("Said it")}
         </Button>
@@ -99,12 +129,36 @@ export function NextBestActionCard({ suggestion, stepId, use = "copy", onUse, on
               {suggestion.action}
             </p>
           )}
+          {isDo && suggestion.note && <NoteField note={suggestion.note} value={note} onChange={setNote} />}
         </div>
         {suggestion.alt.length > 0 && (
           <Alternatives
             label={t("Also consider")}
-            alternatives={suggestion.alt.map((a, i) => ({ type: a.type, text: a.text, onUse: () => onUseAlternative?.(i) }))}
+            alternatives={suggestion.alt.map((a, i) => ({
+              type: a.type,
+              text: a.text,
+              onUse: () => {
+                if (!a.note) return onUseAlternative?.(i);
+                setAltPicked(i);
+                setAltNote("");
+              },
+            }))}
           />
+        )}
+        {picked?.note && altPicked !== undefined && (
+          <div className="flex flex-col gap-2" data-slot="nba-alternative-note">
+            <p className="lyra-body-md-emphasis text-lyra-fg-default">{picked.text}</p>
+            <NoteField note={picked.note} value={altNote} onChange={setAltNote} />
+            <div className="flex items-center gap-2">
+              <Button size="sm" disabled={!noteReady(picked.note, altNote)} onClick={() => onUseAlternative?.(altPicked, altNote.trim())}>
+                {ic(Play)}
+                {t("Run it")}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setAltPicked(undefined)}>
+                {t("Cancel")}
+              </Button>
+            </div>
+          </div>
         )}
       </AgenticAICard>
     </div>

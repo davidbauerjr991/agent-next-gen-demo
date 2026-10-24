@@ -1,6 +1,6 @@
 import type { ChannelKind, EntityId, InteractionId } from "../domain";
 import type { SimCustomerAction } from "../adapters/sim/sim-protocol";
-import type { ScenarioScript, ScenarioStep } from "./scenario-script";
+import type { ScenarioNbaNote, ScenarioScript, ScenarioStep } from "./scenario-script";
 
 // Validation and the helpers that turn a script into engine inputs (P0.7).
 // Pure: no React, no providers.
@@ -196,6 +196,10 @@ export function validateScenario(input: unknown, options: { channel?: ChannelKin
           break;
         case "event":
           if (!isStr(step.text)) err(`${at}: event needs text`);
+          if (step.by !== undefined && !isStr(step.by)) err(`${at}: an event's by is a name`);
+          if (step.sets !== undefined && (!isStr(step.sets.caseStatus ?? "-") || !isStr(step.sets.disposition ?? "-"))) {
+            err(`${at}: an event sets a caseStatus and/or a disposition`);
+          }
           break;
         case "hangUp":
           break;
@@ -220,6 +224,21 @@ export function validateScenario(input: unknown, options: { channel?: ChannelKin
         checkLink(nba.link, `${at} nba`);
         for (const branch of [nba.branch, ...(nba.alt ?? []).map((a) => a.branch)]) {
           if (branch !== undefined && branches[branch]?.trigger !== "action") err(`${at}: nba branch "${branch}" isn't an action branch`);
+        }
+        // A note (a Do's or an alternative's) and an alternative's vars fill inputs its branch lists.
+        const options: { type: string; branch?: string; note?: ScenarioNbaNote; vars?: Record<string, string> }[] = [nba, ...(nba.alt ?? [])];
+        for (const option of options) {
+          const inputs = option.branch !== undefined ? (branches[option.branch]?.inputs ?? []) : [];
+          if (option.note) {
+            const note = option.note;
+            if (option.type !== "do") err(`${at}: only a do nba (or a do alternative) takes a note`);
+            if (!isStr(note.label) || !isStr(note.placeholder)) err(`${at}: an nba note needs a label and a placeholder`);
+            if (note.kind !== undefined && note.kind !== "text" && note.kind !== "amount") err(`${at}: an nba note's kind is text or amount`);
+            if (!inputs.includes(note.input ?? "note")) err(`${at}: an nba note fills "${note.input ?? "note"}", which its branch doesn't list as an input`);
+          }
+          for (const name of Object.keys(option.vars ?? {})) {
+            if (!inputs.includes(name)) err(`${at}: nba vars "${name}" isn't an input of its branch`);
+          }
         }
       }
       const text = "text" in step && typeof step.text === "string" ? step.text : "";
