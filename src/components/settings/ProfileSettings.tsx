@@ -1,10 +1,12 @@
 // Settings → Workspace profile (P-PROFILES): the picker lists the built-in and
-// saved profiles ("Custom" while the settings differ from every one), with
-// Save as, Import, and a kebab for the picked profile (Rename, Duplicate,
+// saved profiles ("<name> · modified" once the settings move off the picked
+// one, "Custom" when they match none and came from none), with Save (a saved
+// profile; disabled for a built-in), Discard changes, Save as, Import, and a kebab for the picked profile (Rename, Duplicate,
 // Locks, Export, Delete; built-ins can only be duplicated and exported).
 import * as React from "react";
 import { Button, KebabMenuButton, Select } from "@nicecxone/lyra-ui";
 import { t } from "@/i18n";
+import { DisabledReason } from "@/contact-handling/DisabledReason";
 import {
   PROFILE_IDS,
   PROFILE_LABELS,
@@ -39,7 +41,7 @@ const fileNameFor = (name: string) => `${name.trim().replace(/[^\p{L}\p{N}]+/gu,
 
 export function ProfileSettings() {
   const api = useWorkspaceProfile();
-  const { profile, saved } = api;
+  const { profile, modified, saved } = api;
   const [dialog, setDialog] = React.useState<Dialog>(null);
   const [importOutcome, setImportOutcome] = React.useState<ImportOutcome | null>(null);
   const [importedId, setImportedId] = React.useState<SavedProfileId | null>(null);
@@ -48,9 +50,11 @@ export function ProfileSettings() {
   const current = isSavedProfileId(profile) ? saved.find((p) => p.id === profile) : undefined;
   const currentName = current ? current.name : profile === "custom" ? "" : PROFILE_LABELS[profile as ProfileId];
 
+  // Off its values, the picked profile reads "<name> · modified".
+  const labelFor = (id: string, name: string) => (modified && id === profile ? t("{name} · modified", { name }) : name);
   const options = [
-    ...PROFILE_IDS.map((id) => ({ value: id, label: t(PROFILE_LABELS[id]), group: t("Built-in") })),
-    ...saved.map((p) => ({ value: p.id, label: p.name, group: t("Saved") })),
+    ...PROFILE_IDS.map((id) => ({ value: id, label: labelFor(id, t(PROFILE_LABELS[id])), group: t("Built-in") })),
+    ...saved.map((p) => ({ value: p.id, label: labelFor(p.id, p.name), group: t("Saved") })),
     ...(profile === "custom" ? [{ value: "custom", label: t(PROFILE_LABELS.custom), disabled: true }] : []),
   ];
 
@@ -99,9 +103,21 @@ export function ProfileSettings() {
           />
         </div>
         {menuItems.length > 0 && <KebabMenuButton items={[...menuItems]} ariaLabel={t("Profile actions")} />}
+        {profile !== "custom" && (current ? modified : true) && (
+          <DisabledReason reason={current ? undefined : t("Built-in profiles are fixed — use Save as…")}>
+            <Button variant="outline" disabled={!current} data-slot="profile-save" onClick={() => api.save()}>
+              {t("Save")}
+            </Button>
+          </DisabledReason>
+        )}
         <Button variant="outline" onClick={() => setDialog("saveAs")}>
           {t("Save as…")}
         </Button>
+        {modified && (
+          <Button variant="outline" onClick={() => api.discard()}>
+            {t("Discard changes")}
+          </Button>
+        )}
         <Button variant="outline" onClick={() => fileInput.current?.click()}>
           {t("Import…")}
         </Button>
@@ -118,7 +134,7 @@ export function ProfileSettings() {
       </div>
       <p className="lyra-body-sm text-lyra-fg-secondary">
         {t(
-          "A profile sets the agent settings on this page; your theme, phone setup and Home tab order stay yours. Phase 1 is the defaults; Phase 2 adds the header apps (Customers, Accounts and Tickets as Home tabs; Schedule and WEM in the header) and every channel; AI-first is Phase 2 with every conversation in the side panel and the AI workspace in the main column. Save as keeps the current settings as your own profile; a saved profile can lock sections, export to a file and import on another workspace. Changing any setting shows Custom.",
+          "A profile sets the agent settings on this page; your theme, phone setup and Home tab order stay yours. Phase 1 is the defaults; Phase 2 adds the header apps (Customers, Accounts and Tickets as Home tabs; Schedule and WEM in the header) and every channel; AI-first is Phase 2 with every conversation in the side panel and the AI workspace in the main column. Save as keeps the current settings as your own profile; a saved profile can lock sections, export to a file and import on another workspace. Changing a setting shows the profile as modified: Save writes the changes back into a saved profile (locks kept) and Discard changes reverts them; built-in profiles are fixed, so use Save as. Custom is only for settings that match no profile.",
         )}
       </p>
 

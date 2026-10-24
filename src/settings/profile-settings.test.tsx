@@ -216,8 +216,110 @@ describe("locks", () => {
     expect(getProfileLibrary().getState().applied).toEqual({ id: team.id, locks: ["assignments", "ai"] });
 
     await apply("phase1");
-    expect(getProfileLibrary().getState().applied).toBeNull();
+    // The built-in stays recorded as the base, with no locks.
+    expect(getProfileLibrary().getState().applied).toEqual({ id: "phase1", locks: [] });
     await h.render(<SettingsView />);
     expect(section("Assignments").disabled).toBe(false);
+  });
+});
+
+describe("in-place Save and Discard (modified state)", () => {
+  /** A saved profile with no locks: Phase 2 plus confirm-before-closing. */
+  function saveMine() {
+    const values = { ...PROFILES.phase2, assignments: { ...PROFILES.phase2.assignments, confirmClose: true } };
+    return getProfileLibrary().saveAs("Mine", values)!;
+  }
+  /** Turns the header app icons off: Phase 2 and "Mine" both have them on. */
+  async function change(_?: boolean) {
+    await act(async () => {
+      store().update("header", { showAppIcons: false });
+      await vi.advanceTimersByTimeAsync(50);
+    });
+  }
+  // (The Save as dialog's own "Save" confirm is in the container too.)
+  const saveButton = () => h.container.querySelector<HTMLButtonElement>("[data-slot=profile-save]") ?? undefined;
+
+  it("a change under a saved profile reads \"<name> · modified\" (not Custom) and shows Save and Discard", async () => {
+    const mine = saveMine();
+    await apply(mine.id);
+    await h.render(<SettingsView />);
+    expect(profileCombobox().textContent).toBe("Mine");
+    expect(saveButton()).toBeUndefined();
+    await change(false);
+    expect(profileCombobox().textContent).toBe("Mine · modified");
+    expect(saveButton()).toBeDefined();
+    expect(h.buttonByText("Discard changes", h.container)).toBeDefined();
+  });
+
+  it("Save writes the current values back into the saved profile and clears the modified state", async () => {
+    const mine = saveMine();
+    await apply(mine.id);
+    await change(false);
+    await h.render(<SettingsView />);
+    await h.click(saveButton()!);
+    const after = getProfileLibrary().getState().saved.find((p) => p.id === mine.id)!;
+    expect(after.name).toBe("Mine");
+    expect(after.values.header.showAppIcons).toBe(false);
+    expect(after.values.assignments.confirmClose).toBe(true);
+    expect(profileCombobox().textContent).toBe("Mine");
+    expect(saveButton()).toBeUndefined();
+  });
+
+  it("Discard changes reverts the settings to the profile's values", async () => {
+    const mine = saveMine();
+    await apply(mine.id);
+    await change(false);
+    await h.render(<SettingsView />);
+    await h.click(h.buttonByText("Discard changes", h.container)!);
+    expect(store().getState().values.header.showAppIcons).toBe(true);
+    expect(profileCombobox().textContent).toBe("Mine");
+  });
+
+  it("with a built-in active, Save is disabled with the reason, and a change still reads \"<name> · modified\"", async () => {
+    await apply("phase2");
+    await change(true);
+    await h.render(<SettingsView />);
+    expect(profileCombobox().textContent).toBe("Phase 2 · modified");
+    expect(saveButton()!.disabled).toBe(true);
+    expect(h.container.querySelector("[data-disabled-reason]")?.getAttribute("data-disabled-reason")).toBe(
+      "Built-in profiles are fixed — use Save as…",
+    );
+    expect(getProfileLibrary().getState().saved).toEqual([]);
+  });
+
+  it("\"modified from X\" survives a reload; matching no profile and deriving from none is Custom", async () => {
+    const mine = saveMine();
+    await apply(mine.id);
+    await change(false);
+    resetSettingsStoreForTests();
+    expect(getProfileLibrary().getState().applied?.id).toBe(mine.id);
+    await h.render(<SettingsView />);
+    expect(profileCombobox().textContent).toBe("Mine · modified");
+
+    await act(async () => {
+      getProfileLibrary().setApplied(null);
+      store().resetAll();
+      store().update("assignments", { confirmClose: true });
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(profileCombobox().textContent).toBe("Custom");
+    expect(saveButton()).toBeUndefined();
+  });
+
+  it("locks survive Save", async () => {
+    const team = saveTeamProfile();
+    await apply(team.id);
+    await act(async () => {
+      store().update("header", { showAppIcons: false });
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    await h.render(<SettingsView />);
+    expect(profileCombobox().textContent).toBe("Billing team · modified");
+    await h.click(saveButton()!);
+    const library = getProfileLibrary().getState();
+    expect(library.saved[0]!.locks).toEqual(["assignments", "ai"]);
+    expect(library.saved[0]!.values.header.showAppIcons).toBe(false);
+    expect(library.applied).toEqual({ id: team.id, locks: ["assignments", "ai"] });
+    expect(section("Assignments").disabled).toBe(true);
   });
 });

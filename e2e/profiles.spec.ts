@@ -56,3 +56,40 @@ test("Save as, Export and Import: the file round-trips the profile, and its lock
   await expect(header.getByRole("switch").first()).toBeEnabled();
   await fresh.close();
 });
+
+test("Save writes a change back into the saved profile: modified, Save, reload, then the profile applies the new value", async ({ page }) => {
+  await openSettings(page);
+  const picker = page.getByRole("combobox", { name: "Profile" });
+  const headerSwitch = page.locator("fieldset").filter({ has: page.locator("legend", { hasText: /^Header/ }) }).getByRole("switch").first();
+  const saveButton = page.locator("[data-slot=profile-save]");
+
+  // A saved profile with confirm-before-closing on.
+  await assignmentsSection(page).getByText("Confirm before closing a contact").click();
+  await page.getByRole("button", { name: "Save as…" }).click();
+  await page.getByRole("dialog").getByLabel("Profile name").fill("Billing team");
+  await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+  await expect(picker).toHaveText("Billing team");
+  await expect(saveButton).toHaveCount(0);
+
+  // Flip a Header switch: the picker reads modified, and Save appears.
+  const before = await headerSwitch.isChecked();
+  await headerSwitch.click();
+  await expect(picker).toHaveText("Billing team · modified");
+  await saveButton.click();
+  await expect(picker).toHaveText("Billing team");
+  await expect(saveButton).toHaveCount(0);
+
+  // After a reload the saved profile still applies the new value.
+  await page.reload();
+  await page.getByRole("button", { name: "Go Available" }).click();
+  await page.locator("aside").getByText("Settings", { exact: true }).first().click();
+  await expect(picker).toHaveText("Billing team");
+  await expect(headerSwitch).toBeChecked({ checked: !before });
+  await picker.click();
+  await page.getByRole("option", { name: "Phase 1" }).click();
+  await expect(picker).toHaveText("Phase 1");
+  await picker.click();
+  await page.getByRole("option", { name: "Billing team" }).click();
+  await expect(picker).toHaveText("Billing team");
+  await expect(headerSwitch).toBeChecked({ checked: !before });
+});

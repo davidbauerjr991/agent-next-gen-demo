@@ -2,8 +2,8 @@
 // a snapshot of every agent-scope setting (admin-scope ones, such as the
 // brand, are never in a profile; P-AIFIRST). "Phase 1", "Phase 2" and
 // "AI-first" are the built-in profiles. The active profile isn't stored: it's
-// whichever built-in profile the current values equal, else "custom", so
-// changing any setting reads Custom and applying a profile clears it.
+// whichever profile the current values equal, else the profile applied last
+// (stored as the library's `applied` base) read as modified, else "custom".
 // Saved profiles and per-section locks (P-PROFILES) are ./saved-profiles.ts.
 import { agentSettings, deepEqual, type AgentSettings } from "./scope";
 import {
@@ -81,18 +81,38 @@ export function profileValues(id: ProfileId): AgentSettings {
   return agentSettings(PROFILES[id]);
 }
 
-/** Whichever profile the values equal: a built-in first (they win a tie),
- *  then a saved one in list order, else "custom". */
+/** The profile the settings read as, and whether they've moved off it. */
+export interface DerivedProfile {
+  profile: WorkspaceProfile;
+  /** The values differ from `profile`'s: it's the applied base they came from. */
+  modified: boolean;
+}
+
+/** The profile the values equal exactly: a built-in first (they win a tie),
+ *  then a saved one in list order. Else the applied base (the profile applied
+ *  last, still present) with `modified`. Else "custom": values that match no
+ *  profile and weren't derived from one. */
+export function deriveProfileState(
+  values: SettingsState,
+  saved: readonly { id: `saved:${string}`; values: AgentSettings }[] = [],
+  appliedBase: ProfileId | `saved:${string}` | null = null,
+): DerivedProfile {
+  const current = agentSettings(values);
+  for (const id of PROFILE_IDS) {
+    if (deepEqual(current, profileValues(id))) return { profile: id, modified: false };
+  }
+  for (const profile of saved) {
+    if (deepEqual(current, profile.values)) return { profile: profile.id, modified: false };
+  }
+  const baseExists = appliedBase !== null && ((PROFILE_IDS as string[]).includes(appliedBase) || saved.some((p) => p.id === appliedBase));
+  return baseExists ? { profile: appliedBase, modified: true } : { profile: "custom", modified: false };
+}
+
+/** `deriveProfileState`'s profile alone. */
 export function deriveProfile(
   values: SettingsState,
   saved: readonly { id: `saved:${string}`; values: AgentSettings }[] = [],
+  appliedBase: ProfileId | `saved:${string}` | null = null,
 ): WorkspaceProfile {
-  const current = agentSettings(values);
-  for (const id of PROFILE_IDS) {
-    if (deepEqual(current, profileValues(id))) return id;
-  }
-  for (const profile of saved) {
-    if (deepEqual(current, profile.values)) return profile.id;
-  }
-  return "custom";
+  return deriveProfileState(values, saved, appliedBase).profile;
 }

@@ -24,11 +24,13 @@ export interface SavedProfile {
   locks: SectionKey[];
 }
 
-/** The profile applied last and the locks it carries. Null once a built-in
- *  profile is applied or settings are reset. The Phase 7 seam
- *  (`./profile-assignment.ts`) sets it the same way for an assigned profile. */
+/** The profile applied last (or saved last) and the locks it carries: the
+ *  base the settings read "modified from" once they move off its values (a
+ *  built-in's locks are empty). Null once settings are reset or the profile is
+ *  deleted. The Phase 7 seam (`./profile-assignment.ts`) sets it the same way
+ *  for an assigned profile. */
 export interface AppliedProfile {
-  id: SavedProfileId;
+  id: ProfileId | SavedProfileId;
   locks: SectionKey[];
 }
 
@@ -167,6 +169,9 @@ export interface ProfileLibrary {
   subscribe(listener: () => void): () => void;
   /** Saves `values` (agent scope only) under a unique name; null for an empty name. */
   saveAs(name: string, values: SettingsState | AgentSettings, locks?: SectionKey[]): SavedProfile | null;
+  /** Writes `values` (agent scope only) back into a saved profile, keeping its
+   *  name and locks; false for an unknown id. */
+  overwrite(id: SavedProfileId, values: SettingsState | AgentSettings): boolean;
   /** Renames a saved profile (built-ins can't be); false for an empty name or an unknown id. */
   rename(id: SavedProfileId, name: string): boolean;
   /** Copies a built-in or saved profile as a new saved one ("Copy of …"). */
@@ -216,9 +221,10 @@ export function createProfileLibrary(
         });
       }
       const appliedRaw = parsed.value.applied;
+      const appliedId = isRecord(appliedRaw) ? appliedRaw.id : undefined;
       const applied =
-        isRecord(appliedRaw) && typeof appliedRaw.id === "string" && saved.some((p) => p.id === appliedRaw.id)
-          ? { id: appliedRaw.id as SavedProfileId, locks: readLocks(appliedRaw.locks, sections) }
+        isRecord(appliedRaw) && typeof appliedId === "string" && (isBuiltInProfileId(appliedId) || saved.some((p) => p.id === appliedId))
+          ? { id: appliedId as ProfileId | SavedProfileId, locks: readLocks(appliedRaw.locks, sections) }
           : null;
       return { saved, applied };
     } catch {
@@ -264,6 +270,12 @@ export function createProfileLibrary(
       // Read the values through the section readers so a partial or loose
       // object is stored as a complete agent-scope snapshot.
       return add(name, readProfileSections(writeSections(values as AgentSettings, sections), sections).values, locks);
+    },
+    overwrite(id, values) {
+      if (!state.saved.some((p) => p.id === id)) return false;
+      const next = readProfileSections(writeSections(values as AgentSettings, sections), sections).values;
+      commit({ ...state, saved: state.saved.map((p) => (p.id === id ? { ...p, values: next } : p)) });
+      return true;
     },
     rename(id, name) {
       if (!state.saved.some((p) => p.id === id)) return false;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
-import { PROFILE_LABELS, deriveProfile, profileValues, type ProfileId, type WorkspaceProfile } from "./profiles";
+import { PROFILE_LABELS, deriveProfileState, profileValues, type ProfileId, type WorkspaceProfile } from "./profiles";
 import {
   exportProfile,
   getProfileLibrary,
@@ -62,7 +62,9 @@ export function useSectionStored(section: SectionKey): boolean {
 
 /** Writes every agent-scope setting of a profile, built-in or saved; admin-
  *  and personal-scope settings (the brand, the theme, the phone) stay as they
- *  are. A saved profile's locks apply with it; a built-in clears them. */
+ *  are. A saved profile's locks apply with it; a built-in clears them. The
+ *  profile is recorded as the applied base either way, so later changes read
+ *  "modified from" it. */
 export function applyProfile(id: ProfileId | SavedProfileId) {
   const store = getSettingsStore();
   const library = getProfileLibrary();
@@ -72,7 +74,7 @@ export function applyProfile(id: ProfileId | SavedProfileId) {
   // Locks first come off, so the write lands; then the new ones go on.
   library.setApplied(null);
   store.updateMany(withAgentSettings(store.getState().values, values));
-  library.setApplied(saved && saved.locks.length > 0 ? { id: saved.id, locks: saved.locks } : null);
+  library.setApplied({ id, locks: saved ? saved.locks : [] });
 }
 
 /** The saved profiles and the applied locks. */
@@ -91,10 +93,18 @@ export function useSectionLocked(section: SectionKey | undefined): boolean {
 export interface WorkspaceProfileApi {
   /** Built-in id, saved id, or "custom". */
   profile: WorkspaceProfile;
+  /** The settings differ from `profile` (the applied base they came from). */
+  modified: boolean;
   saved: SavedProfile[];
   apply: (id: ProfileId | SavedProfileId) => void;
-  /** Saves the current agent-scope settings as a new profile. */
+  /** Saves the current agent-scope settings as a new profile, which becomes
+   *  the applied base (the applied locks stay as they are). */
   saveAs: (name: string) => SavedProfile | null;
+  /** Writes the current agent-scope settings back into the active saved
+   *  profile, keeping its locks; false unless a saved profile is active. */
+  save: () => boolean;
+  /** Reverts the settings to the active profile's values. */
+  discard: () => void;
   rename: ProfileLibrary["rename"];
   duplicate: ProfileLibrary["duplicate"];
   remove: ProfileLibrary["remove"];
@@ -108,15 +118,24 @@ export interface WorkspaceProfileApi {
 /** The derived workspace profile, the saved profiles, and what to do with them. */
 export function useWorkspaceProfile(): WorkspaceProfileApi {
   const library = getProfileLibrary();
-  const { saved } = useProfileLibrary();
+  const { saved, applied } = useProfileLibrary();
   const values = useSettingsSelector(useCallback((state: SettingsStoreState) => state.values, []));
-  const profile = useMemo(() => deriveProfile(values, saved), [values, saved]);
+  const { profile, modified } = useMemo(() => deriveProfileState(values, saved, applied?.id ?? null), [values, saved, applied]);
   return useMemo(
     () => ({
       profile,
+      modified,
       saved,
       apply: applyProfile,
-      saveAs: (name) => library.saveAs(name, getSettingsStore().getState().values),
+      saveAs: (name) => {
+        const added = library.saveAs(name, getSettingsStore().getState().values);
+        if (added) library.setApplied({ id: added.id, locks: library.getState().applied?.locks ?? [] });
+        return added;
+      },
+      save: () => (isSavedProfileId(profile) ? library.overwrite(profile, getSettingsStore().getState().values) : false),
+      discard: () => {
+        if (profile !== "custom") applyProfile(profile);
+      },
       rename: library.rename,
       duplicate: library.duplicate,
       remove: library.remove,
@@ -135,7 +154,7 @@ export function useWorkspaceProfile(): WorkspaceProfileApi {
         return added ? { ok: true, profile: added, warnings: result.warnings } : { ok: false, error: "malformed" };
       },
     }),
-    [profile, saved, library],
+    [profile, modified, saved, library],
   );
 }
 

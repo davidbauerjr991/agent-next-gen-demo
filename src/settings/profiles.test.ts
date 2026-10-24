@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveProfile, profileValues, PROFILES } from "./profiles";
+import { deriveProfile, deriveProfileState, profileValues, PROFILES } from "./profiles";
 import { agentSettings, sectionInProfiles, withAgentSettings } from "./scope";
 import { SECTIONS, defaultSettings, defineSection, group, str, type SectionSchemas, type SettingsState } from "./settings-schema";
 import { safeStorage } from "./settings-storage";
@@ -176,5 +176,21 @@ describe("setting scope", () => {
   it("applying an identical profile returns the same references (nothing to write)", () => {
     const same = withAgentSettings(values, agentSettings(values, schema), schema) as unknown as Record<string, unknown>;
     expect(same.look).toBe((values as unknown as Record<string, unknown>).look);
+  });
+});
+
+describe("deriveProfileState", () => {
+  const moved = { ...PROFILES.phase2, header: { ...PROFILES.phase2.header, showAppIcons: false } };
+  const mine = { id: "saved:mine" as const, values: agentSettings(PROFILES.aifirst) };
+
+  it("prefers an exact match, then the applied base as modified, then Custom", () => {
+    expect(deriveProfileState(PROFILES.phase2, [mine], "saved:mine")).toEqual({ profile: "phase2", modified: false });
+    expect(deriveProfileState(moved, [mine], "phase2")).toEqual({ profile: "phase2", modified: true });
+    expect(deriveProfileState(moved, [mine], "saved:mine")).toEqual({ profile: "saved:mine", modified: true });
+    expect(deriveProfileState(moved, [mine], null)).toEqual({ profile: "custom", modified: false });
+  });
+
+  it("an applied base that no longer exists reads Custom", () => {
+    expect(deriveProfileState(moved, [], "saved:gone")).toEqual({ profile: "custom", modified: false });
   });
 });
