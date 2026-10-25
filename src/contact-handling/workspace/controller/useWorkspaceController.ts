@@ -10,6 +10,7 @@ import { useGuidanceFocus } from "../../reference-cards";
 import { useNbaPause, useNbaSurfacing, useNbaTurns } from "../../next-best-action";
 import { useCannedVoiceReplies } from "../../canned-voice-replies";
 import { useListScheduleDay } from "@/provider-context";
+import { useAssignmentToasts } from "../../toasts/useAssignmentToasts";
 import { useSettings } from "@/settings";
 
 /** The agent workspace's controller (P-EXTRACT C8b): everything the page's
@@ -55,7 +56,10 @@ export function useWorkspaceController(props: WorkspaceControllerProps) {
   useNbaTurns();
   // P-HOME-1: the persona's day from the schedule source; a persona change lists (and re-seeds) another.
   useListScheduleDay(useSettings("workspace")[0].persona);
-  return workspace;
+  // P-HOME-1: toasts for events on other assignments; a drawer row a toast logged opens it again.
+  const assignmentToasts = useAssignmentToasts(workspace);
+  late.viewToastNotification = assignmentToasts.viewFromNotification;
+  return { ...workspace, assignmentToasts };
 }
 
 export type Workspace = ReturnType<typeof useWorkspaceController>;

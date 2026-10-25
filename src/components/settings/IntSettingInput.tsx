@@ -10,11 +10,14 @@ export function IntSettingInput({
   field,
   value,
   disabled,
+  step = 100,
   onCommit,
 }: {
   field: { meta: FieldMeta & { min: number; max: number } };
   value: number;
   disabled?: boolean;
+  /** The arrows' increment (default 100, for the millisecond settings). */
+  step?: number;
   onCommit: (value: number) => void;
 }) {
   const [draft, setDraft] = useState(String(value));
@@ -29,7 +32,7 @@ export function IntSettingInput({
       type="number"
       min={min}
       max={max}
-      step={100}
+      step={step}
       value={draft}
       disabled={disabled}
       error={valid ? undefined : t("Between {min} and {max}", { min: new Intl.NumberFormat().format(min), max: new Intl.NumberFormat().format(max) })}

@@ -605,6 +605,8 @@ export function InteractionComposer({
         )}
         <Textarea
           ref={textareaRef}
+          // A toast's View focuses the composer of the thread it opens (P-HOME-1).
+          data-composer-input=""
           placeholder="Type a message... or / for quick replies"
           rows={3}
           value={message}

@@ -7,11 +7,10 @@ import { useSettings } from "@/settings";
 import { useWorkspace } from "../workspace/WorkspaceContext";
 import { useWorkspaceUiField } from "../workspace-ui-store";
 import { buildFeed, type Feed, type FeedFilter, type FeedRow } from "./activity-feed";
+import { CHANNEL_NAMES } from "./channel-names";
 import { PERSONA_KINDS } from "./persona-kinds";
 
 type Card = ReturnType<typeof useWorkspace>["interactions"][number];
-
-const CHANNEL_NAMES: Record<ChannelKind, string> = { voice: "Voice", chat: "Chat", sms: "SMS", whatsapp: "WhatsApp", email: "Email" };
 
 function cardRow(card: Card, status: "offered" | "inRail"): FeedRow {
   const thread = card.threads.find((t) => t.id === card.currentThreadId) ?? card.threads[0];

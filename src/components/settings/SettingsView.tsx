@@ -23,6 +23,7 @@ import {
 import { readSimLatency, useInteractions, useProviderKind } from "@/provider-context";
 import { BrandSettings } from "./BrandSettings";
 import { ProfileSettings } from "./ProfileSettings";
+import { NotificationSettings } from "./NotificationSettings";
 import { AssignmentsListSettings } from "./AssignmentsListSettings";
 import { DisabledReason } from "@/contact-handling/DisabledReason";
 import { IntSettingInput } from "./IntSettingInput";
@@ -481,6 +482,10 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
               )}
             </React.Fragment>
           ))}
+        </Section>
+
+        <Section title={t("Notifications")} lockKey="notifications">
+          <NotificationSettings />
         </Section>
 
         <Section title="Assignments" lockKey="assignments">

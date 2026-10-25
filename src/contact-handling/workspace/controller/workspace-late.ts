@@ -53,4 +53,6 @@ export interface WorkspaceLate {
   handleInteractionStatusChange: (interactionId: string, channelId: string, status: string) => void;
   handleOutcomeSaveAndDismissChannel: (interaction: Interaction, c: Interaction["threads"][number]) => void;
   handlePanelButtonClick: (key: PanelKey) => () => void;
+  /** P-HOME-1: a Notifications row an assignment toast logged opens it again; false for any other row. */
+  viewToastNotification: (notificationId: string) => boolean;
 }

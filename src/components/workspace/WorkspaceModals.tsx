@@ -2,6 +2,8 @@ import { AgentLegDisconnectedToast, AgentWelcomeMessage, Button, Modal, Toast, T
 import { ConfirmCloseDialog } from "@/contact-handling";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { IfCapable } from "@/provider-context";
+import { useSettings } from "@/settings";
+import { AssignmentToastStack } from "./AssignmentToastStack";
 import { CURRENT_AGENT_FIRST_NAME, CURRENT_AGENT_LAST_NAME } from "@/components/agent-next-gen-shared-utils";
 import { VideoCallWindow } from "@/components/agent-next-gen-video-window";
 import { WELCOME_MODAL_LAST_LOGIN } from "@/components/agent-next-gen-interaction-dashboard";
@@ -15,6 +17,7 @@ export function WorkspaceModals() {
     setAgentLegDisconnectedToastOpen, setPendingClose, setShowWelcomeModal, setVoiceVideoFullScreen,
     setVoiceVideoWindowOpen, showWelcomeModal, toasts, voiceVideoFullScreen, voiceVideoWindowOpen,
   } = useWorkspace();
+  const [{ toasts: toastSettings }] = useSettings("notifications");
   return (
     <>
       <ConfirmCloseDialog
@@ -135,7 +138,9 @@ export function WorkspaceModals() {
           />
         </div>
       )}
-      <div className="fixed bottom-4 right-4 z-[9999] flex flex-col items-end gap-2">
+      <div
+        className={`fixed end-4 z-[9999] flex flex-col items-end gap-2 ${toastSettings.position === "topEnd" ? "top-16" : "bottom-4"}`}
+      >
         {/* Only once there's more than one toast actually stacked up —
             with just one (or zero) on screen, its own "×" is already the
             one-click way to clear it; this chip only earns its place once
@@ -166,6 +171,8 @@ export function WorkspaceModals() {
           </Button>
         )}
         <ToastContainer className="static bottom-auto right-auto z-auto">
+          {/* P-HOME-1: events on other assignments, newest on top. */}
+          <AssignmentToastStack />
           {toasts.map((t) => (
             <Toast
               key={t.id}

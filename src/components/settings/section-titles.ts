@@ -6,6 +6,7 @@ export const SECTION_TITLES: Record<SectionKey, string> = {
   header: "Header",
   home: "Home",
   workspace: "Workspace",
+  notifications: "Notifications",
   assignments: "Assignments",
   channels: "Channels",
   outbound: "New Outbound",

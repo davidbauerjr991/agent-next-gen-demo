@@ -6,7 +6,7 @@ import { SIM_DEMO_DIRECTORY } from "../adapters/sim/sim-demo-directory";
 import { SIM_DEMO_SEED } from "../adapters/sim/sim-fixtures";
 import { SIM_LATENCY_PRESETS, type SimLatencyPreset } from "../adapters/sim/sim-latency";
 import { createSimProviderSet } from "../adapters/sim/sim-provider-set";
-import { SCENARIOS } from "../scenarios";
+import { SCENARIO_MOMENTS, SCENARIOS } from "../scenarios";
 import type { ProviderKind } from "./provider-kind";
 
 /** Builds a provider set. The profile and database are constructor inputs,
@@ -38,6 +38,8 @@ export const PROVIDER_FACTORIES: Record<ProviderKind, ProviderFactory> = {
       // The scripted cases the customer side (the scenario hotkeys, later the
       // P0.6 console) can play; P1 serves them from the active profile.
       scripts: SCENARIOS,
+      // P-HOME-1: Maya's call with Lucas's approval arriving during it (M).
+      moments: SCENARIO_MOMENTS,
       // The hotkeys whenever the sim is the active provider, in any build (the deployed demo too, no flag needed).
       scenarioHotkeys: true,
       latency: preset.latency,

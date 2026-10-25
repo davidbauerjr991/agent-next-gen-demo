@@ -752,6 +752,8 @@ export function useWsOutbound(prev: WsLaunch, late: WorkspaceLate) {
      (`customerName` below), since the merge branch further down never
      overwrites an existing card's `customerName`. */
   const handleOpenAssignmentFromNotification = (notification: AgentNotification) => {
+    // A row an assignment toast logged (P-HOME-1) opens what the toast was about.
+    if (late.viewToastNotification?.(notification.id)) return;
     // P0.5b.2: the notification stands for a provider contact
     // (NOTIFICATION_INTERACTION_ID): a waiting offer is accepted, a live one
     // is switched to, a dismissed one is reopened (useContactReopen). The

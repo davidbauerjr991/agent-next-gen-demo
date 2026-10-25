@@ -1,4 +1,5 @@
 import type { ProviderSet } from "../../providers";
+import type { ScenarioMoment } from "../../scenarios/moments";
 import { createPlaceholderCustomerDataProvider, createPlaceholderMediaProvider } from "../placeholder/placeholder-providers";
 import { createSimAssistProvider } from "./sim-assist-provider";
 import { createSimCustomerClient } from "./sim-customer-client";
@@ -16,6 +17,8 @@ export function createSimProviderSet(options?: SimOptions & {
   /** The scenario hotkeys (`installScenarioHotkeys`). The app's sim factory turns them on in every build: they
    *  come with the sim as the active provider. Default off (tests that build a set directly). */
   scenarioHotkeys?: boolean;
+  /** Keys that start several scripts together (scenarios/moments.ts); played through the hotkeys. */
+  moments?: readonly ScenarioMoment[];
 }): ProviderSet {
   const createTransport = options?.createTransport ?? (() => createBroadcastTransport());
   const interaction = createSimulatedInteractionProvider({ ...options, createTransport });
@@ -31,7 +34,7 @@ export function createSimProviderSet(options?: SimOptions & {
   // in-app only), and in dev it's also the `__simCustomer` devtools handle (never a global in production).
   const customer = createSimCustomerClient(interaction.sessionId);
   if (import.meta.env.DEV) window.__simCustomer = customer;
-  const removeHotkeys = hotkeys ? installScenarioHotkeys(customer, options?.scripts ?? []) : () => {};
+  const removeHotkeys = hotkeys ? installScenarioHotkeys(customer, options?.scripts ?? [], window, options?.moments) : () => {};
   return withPlaceholders(
     {
       ...interaction,

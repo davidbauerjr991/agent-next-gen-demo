@@ -286,6 +286,81 @@ const home = defineSection<HomeSettings>({
   },
 });
 
+/** Events on assignments other than the active one that can raise a toast
+ *  (PLAN.md "Toasts for other assignments"). `awaitingReply`, `workItem` and
+ *  `transfer` are declared ahead of what raises them (the awaiting-reply
+ *  toast, P0.9's work items, P-TRANSFER) and hidden in Settings until then
+ *  (`TOAST_EVENTS_RAISED`). Offers never toast: they keep the incoming tile. */
+export const TOAST_EVENTS = ["message", "approval", "callbackDue", "awaitingReply", "workItem", "transfer"] as const;
+export type ToastEvent = (typeof TOAST_EVENTS)[number];
+/** The events something raises today: Settings shows a switch for these only. */
+export const TOAST_EVENTS_RAISED: readonly ToastEvent[] = ["message", "approval", "callbackDue"];
+export const TOAST_POSITIONS = ["bottomEnd", "topEnd"] as const;
+export type ToastPosition = (typeof TOAST_POSITIONS)[number];
+
+export const TOAST_EVENT_FIELDS: Record<ToastEvent, FieldMeta> = {
+  message: { label: "New customer message", description: "A customer writes on a conversation you're not looking at." },
+  approval: { label: "AI agent approval request", description: "An AI agent asks you to approve something. Stays until you act on it." },
+  callbackDue: { label: "Callback coming due", description: "A scheduled callback reaches its time." },
+  awaitingReply: { label: "Waiting for your reply", description: "A conversation crosses the awaiting-reply threshold." },
+  workItem: { label: "Work item finished or failed", description: "A work item on another assignment finishes or fails." },
+  transfer: { label: "Transfer or consult arriving", description: "A colleague transfers or consults you on an assignment." },
+};
+
+export const TOAST_DURATION_FIELD = int({
+  label: "Toast duration (seconds)",
+  description: "How long a toast stays before it goes. Approvals and SLA breaches stay until you act on them.",
+  min: 3,
+  max: 60,
+});
+
+export const TOAST_QUIET_ON_VOICE_FIELD: FieldMeta = {
+  label: "Quiet during a call",
+  description: "Hold back non-urgent toasts while you're on a call; approvals and SLA breaches still show.",
+};
+
+export const TOAST_POSITION_FIELD = oneOf(TOAST_POSITIONS, {
+  label: "Position",
+  description: "Where toasts stack: bottom or top of the screen, at the end edge.",
+});
+
+export interface ToastSettings {
+  enabled: boolean;
+  events: Record<ToastEvent, boolean>;
+  duration: number;
+  quietOnVoice: boolean;
+  position: ToastPosition;
+}
+
+export interface NotificationsSettings {
+  toasts: ToastSettings;
+}
+
+const notifications = defineSection<NotificationsSettings>({
+  key: "notifications",
+  version: 1,
+  defaults: {
+    toasts: {
+      enabled: true,
+      events: Object.fromEntries(TOAST_EVENTS.map((e) => [e, true])) as Record<ToastEvent, boolean>,
+      duration: 8,
+      quietOnVoice: false,
+      position: "bottomEnd",
+    },
+  },
+  fields: {
+    toasts: group<ToastSettings>({
+      enabled: bool(),
+      events: group<Record<ToastEvent, boolean>>(
+        Object.fromEntries(TOAST_EVENTS.map((e) => [e, bool()])) as Fields<Record<ToastEvent, boolean>>,
+      ),
+      duration: TOAST_DURATION_FIELD,
+      quietOnVoice: bool(),
+      position: TOAST_POSITION_FIELD,
+    }),
+  },
+});
+
 /** Demo role presets until P-EMPLOYEES supplies the employee's role (PLAN.md
  *  "Persona (demo)"): which kinds the Activity feed shows, which Home cards
  *  are on, and the schedule's seeded day. */
@@ -721,6 +796,7 @@ export const SECTIONS = {
   header,
   home,
   workspace,
+  notifications,
   assignments,
   channels,
   outbound,
