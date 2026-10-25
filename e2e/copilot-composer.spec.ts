@@ -8,23 +8,38 @@ import { lucasInPanelMode } from "./helpers";
 
 const box = async (l: Locator) => (await l.boundingBox())!;
 
-test("docked panel (425px): input, then the chips, then Takeover full width", async ({ page }) => {
+// While the bot holds the chat there is no chip row (it shows on takeover), so the room-for-chips layout is
+// checked by copilot-composer.test.tsx's stubbed widths; here Takeover sits below the input at full width.
+test("docked panel (425px): input, then Takeover full width, with no chips while the bot holds", async ({ page }) => {
   await lucasInPanelMode(page);
   const composer = page.locator("[data-slot=copilot-composer][data-placement=panel]");
-  await expect(composer).toHaveAttribute("data-layout", "stacked");
   const panel = page.locator("[data-slot=right-panel]");
   expect((await box(panel)).width).toBeLessThanOrEqual(425);
 
   const input = await box(composer.locator("textarea, input").first());
-  const chips = await box(composer.locator("[data-slot=copilot-chips]"));
   const takeover = await box(composer.locator("[data-slot=copilot-takeover]"));
-  const c = await box(composer);
-  expect(input.y + input.height).toBeLessThanOrEqual(chips.y);
-  expect(chips.y + chips.height).toBeLessThanOrEqual(takeover.y);
-  expect(Math.abs(takeover.width - c.width)).toBeLessThanOrEqual(1);
-  // One chip at least, plus refresh, and nothing past the composer's edge.
-  await expect(composer.locator("[data-slot=copilot-chips] [role=button]").first()).toBeVisible();
-  expect(chips.x + chips.width).toBeLessThanOrEqual(c.x + c.width + 0.5);
+  expect(input.y + input.height).toBeLessThanOrEqual(takeover.y);
+  await expect(composer.locator("[data-slot=copilot-chips]")).toHaveCount(0);
+});
+
+test("docked panel (308px): the chip row wraps instead of clipping its third chip", async ({ page }) => {
+  await lucasInPanelMode(page);
+  await page.getByRole("button", { name: /^Takeover/ }).first().click();
+  const composer = page.locator("[data-slot=copilot-composer][data-placement=panel]");
+  const row = composer.locator("[data-slot=copilot-chips]");
+  await expect(row).toBeVisible();
+  await page.evaluate(() => {
+    (document.querySelector("[data-slot=right-panel]") as HTMLElement).style.width = "308px";
+  });
+  await page.waitForTimeout(400);
+  const clipped = await row.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return [...el.querySelectorAll<HTMLElement>("[role=button], [data-slot=copilot-chips-refresh]")].some((c) => {
+      const b = c.getBoundingClientRect();
+      return b.right > r.right + 0.5 || b.left < r.left - 0.5;
+    });
+  });
+  expect(clipped).toBe(false);
 });
 
 for (const width of [1024, 800]) {
@@ -60,21 +75,17 @@ for (const width of [1024, 800]) {
   });
 }
 
-test("wide main column (inline): the chips and Takeover share one row below the input", async ({ page }) => {
+test("wide main column (inline): Takeover sits below the input; no chips while the bot holds", async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 900 });
   await page.goto("?provider=sim&latency=off#/agent-advanced");
   await page.getByRole("button", { name: "Go Available" }).click();
   await page.keyboard.press("a");
   await page.getByText("Lucas Thomas").first().click();
   const composer = page.locator("[data-slot=copilot-composer][data-placement=inline]");
-  await expect(composer).toHaveAttribute("data-layout", "row", { timeout: 30_000 });
+  await expect(composer.locator("[data-slot=copilot-takeover]")).toBeVisible({ timeout: 30_000 });
 
   const input = await box(composer.locator("textarea, input").first());
-  const chips = await box(composer.locator("[data-slot=copilot-chips]"));
   const takeover = await box(composer.locator("[data-slot=copilot-takeover]"));
-  expect(input.y + input.height).toBeLessThanOrEqual(chips.y);
-  // Same row: vertically overlapping, Takeover to the right of the chips.
-  expect(takeover.y).toBeLessThan(chips.y + chips.height);
-  expect(takeover.y + takeover.height).toBeGreaterThan(chips.y);
-  expect(takeover.x).toBeGreaterThanOrEqual(chips.x + chips.width);
+  expect(input.y + input.height).toBeLessThanOrEqual(takeover.y + 0.5);
+  await expect(composer.locator("[data-slot=copilot-chips]")).toHaveCount(0);
 });

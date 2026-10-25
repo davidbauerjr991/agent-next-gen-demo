@@ -17,9 +17,10 @@ export const LUCAS_THOMAS_SCRIPT = {
   // "Call now" dials, and it lets the script launch as voice.
   entity: { key: "lucas-thomas", name: "Lucas Thomas", caseId: "CASE-30418", phone: "(415) 555-0142" },
   channel: "chat",
-  skill: { name: "AI Review", id: "ai-review" },
+  skill: { name: "Checkout", id: "checkout" },
   participants: { bot: "AI agent · Checkout" },
-  start: { answer: "delivered", review: true, ageMs: 251_000, caseStatus: "Open" },
+  // In review the case reads Pending (waiting on a person); taking over makes it Open (the agent's).
+  start: { answer: "delivered", review: true, ageMs: 251_000, caseStatus: "Pending" },
   launch: { hotkey: "A" },
   steps: [
     // Already on screen at launch.
@@ -59,6 +60,7 @@ export const LUCAS_THOMAS_SCRIPT = {
     { id: "lt-6-summary", kind: "beat", beat: "approval", ref: "initial", at: 13_300, focus: "journey" },
     // The agent takes the chat over: the bot hands off, John's greeting is his first turn (it waits on its Next
     // Best Action, P-CANVAS), and Lucas acknowledges.
+    { id: "lt-taken", kind: "event", anchor: "takeover", at: 0, text: "John Smith has taken over the conversation.", sets: { caseStatus: "Open" } },
     { id: "lt-warm-handoff-typing", kind: "typing", speaker: "bot", anchor: "takeover", at: 0, durationMs: 600 },
     {
       id: "lt-warm-handoff",

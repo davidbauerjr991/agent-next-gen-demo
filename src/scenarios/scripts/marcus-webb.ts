@@ -29,9 +29,10 @@ export const MARCUS_WEBB_SCRIPT = {
   // The page gives his call no number; this one is a placeholder.
   entity: { key: "marcus-webb-scenario", name: "Marcus Webb", caseId: "MW-DEMO-0001", directoryId: "marcus-webb-scenario", phone: "(415) 555-0118" },
   channel: "voice",
-  skill: { name: "AI Review", id: "ai-review" },
+  skill: { name: "Returns", id: "returns" },
   participants: { bot: BOT },
-  start: { answer: "delivered", review: true, ageMs: 180_000, caseStatus: "Open" },
+  // In review the case reads Pending (waiting on a person); taking over makes it Open (the agent's).
+  start: { answer: "delivered", review: true, ageMs: 180_000, caseStatus: "Pending" },
   launch: { hotkey: "L" },
   steps: [
     {
@@ -113,7 +114,7 @@ export const MARCUS_WEBB_SCRIPT = {
       },
     },
     // Taking over: the greeting is the agent's line, then Marcus answers and the AI suggests a remedy.
-    { id: "mw-taken", kind: "event", anchor: "takeover", at: 0, text: "Agent Smith has taken over the conversation." },
+    { id: "mw-taken", kind: "event", anchor: "takeover", at: 0, text: "Agent Smith has taken over the conversation.", sets: { caseStatus: "Open" } },
     {
       id: "mw-greet",
       kind: "say",

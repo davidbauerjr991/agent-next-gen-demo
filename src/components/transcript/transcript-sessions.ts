@@ -104,7 +104,7 @@ export function deriveTranscriptSessions(input: TranscriptSessionsInput, now: Da
   // session info, but a call or an email shouldn't be mislabeled "SMS" in
   // its own Session Details panel just because it fell into the same
   // default branch.
-  const baseSessions: TranscriptSession[] = isFreshLaunch
+  const loggedSessions: TranscriptSession[] = isFreshLaunch
     ? [
         {
           id: "session-fresh",
@@ -128,6 +128,11 @@ export function deriveTranscriptSessions(input: TranscriptSessionsInput, now: Da
     : hideMockFollowUpMessages
     ? TRANSCRIPT_SESSIONS.map((sess) => (sess.id === "session-2" ? { ...sess, messages: [] } : sess))
     : TRANSCRIPT_SESSIONS;
+  // The shared chat log is mocked as an SMS thread; a text thread's sessions name the thread's own channel (one label
+  // source, the channel type), so Lucas's chat reads "Chat" in every layout.
+  const baseSessions: TranscriptSession[] = isTextChannel
+    ? loggedSessions.map((s) => (s.channel === freshSessionChannelLabel ? s : { ...s, channel: freshSessionChannelLabel }))
+    : loggedSessions;
   // One more synthetic, empty "Session Details" separator per reopen — see
   // `reopenedContacts`' own doc comment (`InteractionTranscript`). Same
   // synthetic shape as `session-fresh` above, just built from the reopen's

@@ -10,7 +10,7 @@ import { HostSlot } from "@/contact-handling/portal-hosts";
 import { LUCAS_THOMAS_ID, MARCUS_WEBB_ID, MAYA_CHEN_CALL_ID } from "@/contact-handling/scenario-cases";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useCanvasRegions } from "@/contact-handling/useCanvasRegions";
-import { withNextBestActionChip } from "@/contact-handling/next-best-action";
+import { withNextBestActionChip, withoutCopilotChips } from "@/contact-handling/next-best-action";
 import { ReferenceSlot } from "./ReferenceSlot";
 import { HistoryConversationView } from "@/components/customer-info";
 import { InteractionComposer, InteractionTranscript } from "@/components/transcript/InteractionTranscript";
@@ -37,7 +37,7 @@ export function InteractionBody() {
     handleDismissInteraction, handleInteractionStatusChange, handleLucasApprovalDecision, handleLucasCallRequest,
     handleLucasTakeover, handleSendEmailDraft, handleSendMessage, hideAiActions, historyConversationForActive,
     isColdCallId, isHistoryConversationView, liveVoiceCallInteraction, lucasActiveLinkKey, lucasThomasReviewing,
-    marcusWebbReviewing,
+    marcusWebbReviewing, botHolds,
     openDetailPanelContent, outcomeConfigFor, outcomeDrafts, panelPlacement, renderAiPanelFeed, requestNextBestAction,
     scenarioCases, scenarioKeyOf, scenarioThreadOf, setHideAiActions,
     setVoiceVideoFullScreen, setVoiceVideoWindowOpen, snapshotLinkHandlerFor, stripAiInPanel, threadOutcomeProps,
@@ -367,10 +367,7 @@ export function InteractionBody() {
                           // live messages here same as before, since that's
                           // the exact mechanism this column's own
                           // conversation view is built on.
-                          sessionControlsReadOnly={
-                            (scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID && marcusWebbReviewing) ||
-                            (scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && lucasThomasReviewing)
-                          }
+                          sessionControlsReadOnly={botHolds(activeInteraction.id)}
                           // Every thread, a call included (k5): its transcript, with its AI rows inline (AI display inline) or in Contact Details (panel).
                           liveMessages={stripAiInPanel(activeInteraction.liveMessages?.[activeChannelKey] ?? [])}
                           // See `customerTyping`'s own doc comment above —
@@ -592,15 +589,18 @@ export function InteractionBody() {
                             takeoverDisabledReason="A call is already in progress"
                             onTakeover={marcusWebbReviewing ? () => scenarioCases.takeOver(MARCUS_WEBB_ID, { handoff: true }) : undefined}
                             onSend={() => {}}
-                            {...withNextBestActionChip(
-                              {
+                            {...(() => {
+                              const chips = {
                                 copilotSuggestions: MARCUS_WEBB_SCRIPT.content.copilot?.suggestions,
                                 copilotSuggestionLinks: MARCUS_WEBB_SCRIPT.content.copilot?.links,
                                 onCopilotSuggestionLink: (key: string) => snapshotLinkHandlerFor(activeInteraction.id)(key),
                                 onCopilotAsk: (text: string) => handleCopilotAsk(activeInteraction.id, activeChannelKey, text),
-                              },
-                              () => requestNextBestAction(activeInteraction.id, activeChannelKey),
-                            )}
+                              };
+                              // No chip row while the bot holds the call.
+                              return botHolds(activeInteraction.id)
+                                ? withoutCopilotChips(chips)
+                                : withNextBestActionChip(chips, () => requestNextBestAction(activeInteraction.id, activeChannelKey));
+                            })()}
                           />
                         )}
                         </>

@@ -756,6 +756,11 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   // engine state since P0.5c (`Interaction.review`), cleared by `takeOver`.
   const marcusWebbReviewing = !!scenarioCases.byKey[MARCUS_WEBB_ID]?.reviewing;
   const lucasThomasReviewing = !!scenarioCases.byKey[LUCAS_THOMAS_ID]?.reviewing;
+  /** The one gate for "the bot still holds this assignment" (Outcome, Transfer, End call, the composer): every layout reads it. */
+  const botHolds = (cardId: string): boolean => {
+    const key = scenarioKeyOf(cardId);
+    return (key === MARCUS_WEBB_ID && marcusWebbReviewing) || (key === LUCAS_THOMAS_ID && lucasThomasReviewing);
+  };
   // Per explicit follow-up request ("when the agent clicks review from the
   // toast display an action bar component in place of the call controls"):
   // this is the split the toast's own `onReview`/`onTakeover` doc comment
@@ -1039,7 +1044,7 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
     setHistoryConversationTab, historyConversationForActive, isHistoryConversationView, requestedMainKey, mainPins,
     mainKey, activeChannel, omni, activeChannelType, aiWorkspaceMain, activeWrapUpThread, panelVoiceThread,
     hasOpenChatThread, activeChannelKey, activeChannelOutcomeKey, activeChannelStatus, isColdCallId,
-    findLiveVoiceThread, marcusWebbReviewing, lucasThomasReviewing, voiceBarCallOf, voiceBarCall,
+    findLiveVoiceThread, marcusWebbReviewing, lucasThomasReviewing, botHolds, voiceBarCallOf, voiceBarCall,
     liveVoiceCallInteraction, liveVoiceCallThread, liveVoiceCallInteractionIsRealCustomer,
     isViewingLiveVoiceCallInteraction, activeChannelIsNewOutboundThread, activeInteractionIsAgentCall,
     cardIdentityOf, activeInteractionIsRealCustomer, customerContextOverviewBase,

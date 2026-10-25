@@ -17,6 +17,12 @@ async function lucasInline(page: Page) {
 /** Opens "Purchase history" through its Copilot chip; resolves with the
  *  slide-over's box and the box of the container it's mounted in. */
 async function openPurchaseHistory(page: Page, container: string) {
+  // The chip row shows once the agent has the chat (none while the bot holds it).
+  await page.getByRole("button", { name: /^Takeover/ }).first().click();
+  await page.waitForTimeout(1_500);
+  // Taken over, the inline composer opens on Chat with Customer; the chips are on its Ask Copilot side.
+  const askCopilot = page.getByRole("radio", { name: "Ask Copilot" });
+  if (await askCopilot.count()) await askCopilot.first().click();
   await page.locator("[data-slot=copilot-composer] [role=button]", { hasText: "Show purchase history" }).click();
   const close = page.getByRole("button", { name: "Close Purchase history" });
   await expect(close).toBeVisible({ timeout: 5_000 });

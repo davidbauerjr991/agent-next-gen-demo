@@ -89,13 +89,15 @@ export interface ChannelThreadSessionRowProps {
   outcome: Partial<ComponentProps<typeof InteractionTranscript>>;
   /** Discard the draft / Unassign & Dismiss this thread. */
   onDismiss?: () => void;
+  /** The bot still holds the assignment: Outcome and the kebab are locked. */
+  controlsReadOnly?: boolean;
 }
 
 /** A panel thread's current session row (status pill, Session Details,
  *  Outcome) for the docked panel's header, under the channel name (AI
  *  display "main", P-AIFIRST (k5) B). The thread body hides its own copy
  *  (`sessionRowInHeader`). */
-export function ChannelThreadSessionRow({ interaction, thread, onStatusChange, onViewSessionDetails, outcome, onDismiss }: ChannelThreadSessionRowProps) {
+export function ChannelThreadSessionRow({ interaction, thread, onStatusChange, onViewSessionDetails, outcome, onDismiss, controlsReadOnly }: ChannelThreadSessionRowProps) {
   const key = threadKeyOf(thread);
   return (
     <div data-slot="panel-session-row">
@@ -116,6 +118,7 @@ export function ChannelThreadSessionRow({ interaction, thread, onStatusChange, o
         // The same draft derivation as the nav row (k6 9): "Discard draft" until a message is sent.
         isNewThread={isDraftThread(interaction, thread)}
         onDismissChannel={onDismiss}
+        sessionControlsReadOnly={controlsReadOnly}
         {...outcome}
       />
     </div>

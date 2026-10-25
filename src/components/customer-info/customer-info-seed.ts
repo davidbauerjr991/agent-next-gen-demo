@@ -18,7 +18,7 @@ import {
 } from "@/components/agent-next-gen-shared-utils";
 import { type ContactHistoryStatusVariant } from "@/components/agent-next-gen-contact-history";
 import { OUTBOUND_AGENTS } from "@/components/agent-next-gen-outbound-data";
-import { MARCUS_WEBB_SCRIPT } from "@/scenarios";
+import { CASE_CUSTOMER_RECORDS, MARCUS_WEBB_SCRIPT } from "@/scenarios";
 import { OUTCOME_TAG_OPTIONS } from "@/components/transcript/transcript-fixtures";
 import { type CustomerListRecord, CUSTOMER_LIST_RECORDS } from "@/components/agent-next-gen-customers-table";
 
@@ -90,6 +90,8 @@ export function buildCustomerInfoFields(
   const voiceChannel = channels.find((c) => c.type === "voice");
   const emailChannel = channels.find((c) => c.type === "email");
   const dbRecord = CREATE_NEW_CUSTOMERS.find((c) => c.customerId === recordId);
+  // An AI-led case seeds its own record (scenarios/case-customer-records.ts), read here and by its panels.
+  const caseRecord = CASE_CUSTOMER_RECORDS[recordId];
 
   const phone = voiceChannel?.addressLabel ?? voiceChannel?.value ?? dbRecord?.firstPhone ?? synthesizePhone(seed);
   const email =
@@ -98,13 +100,14 @@ export function buildCustomerInfoFields(
     `${firstName.toLowerCase()}.${lastName.toLowerCase()}@example.com`;
 
   const fallbackCityState = CUSTOMER_INFO_CITY_STATE[seed % CUSTOMER_INFO_CITY_STATE.length];
-  const city = dbRecord?.city ?? fallbackCityState.city;
-  const state = dbRecord?.state ?? fallbackCityState.state;
+  const city = caseRecord?.city ?? dbRecord?.city ?? fallbackCityState.city;
+  const state = caseRecord?.state ?? dbRecord?.state ?? fallbackCityState.state;
   const street = CUSTOMER_INFO_STREET_NAMES[Math.floor(seed / 7) % CUSTOMER_INFO_STREET_NAMES.length];
   const houseNumber = 100 + (seed % 900);
-  const address = dbRecord?.address1 ?? `${houseNumber} ${street}`;
-  const zipCode = dbRecord?.postalCode ?? String(10000 + (seed % 89999)).padStart(5, "0");
+  const address = caseRecord?.address1 ?? dbRecord?.address1 ?? `${houseNumber} ${street}`;
+  const zipCode = caseRecord?.postalCode ?? dbRecord?.postalCode ?? String(10000 + (seed % 89999)).padStart(5, "0");
   const balance =
+    caseRecord?.balance ??
     dbRecord?.paymentBalance ??
     ((seed % 25000) / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
 
@@ -205,6 +208,8 @@ const CUSTOMER_LATEST_INTERACTION_SUMMARY_POOL = [
  *  same agent names already used elsewhere in this app) rather than a
  *  separate invented-name pool. */
 export function buildLatestInteraction(customerName: string | undefined, recordId: string): CustomerLatestInteraction {
+  const seeded = CASE_CUSTOMER_RECORDS[recordId]?.latestInteraction;
+  if (seeded) return seeded;
   const seed = hashSeed(`${recordId || customerName || "customer"}-latest-interaction`);
   const { status, variant } = CUSTOMER_LATEST_INTERACTION_STATUS_POOL[seed % CUSTOMER_LATEST_INTERACTION_STATUS_POOL.length];
   const channel = CUSTOMER_LATEST_INTERACTION_CHANNEL_POOL[Math.floor(seed / 3) % CUSTOMER_LATEST_INTERACTION_CHANNEL_POOL.length];

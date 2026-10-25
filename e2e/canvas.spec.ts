@@ -261,12 +261,14 @@ test("panel, a digital leg: the Transcript tab's header has the transcript menu;
 
 test("a call: the voice bar's Transcript button opens the menu and does not toggle the transcript", async ({ page }) => {
   await mayaLive(page, "inline", 1600);
-  const before = await page.locator("[data-main-thread]").innerText();
+  // Hide Transcript (the container's switch) is the only show/hide control; the bar's button leaves it alone.
+  const hideSwitch = page.getByRole("switch", { name: "Hide Transcript" });
+  const before = await hideSwitch.getAttribute("aria-checked");
   await page.locator("[data-slot=voice-bar]").getByRole("button", { name: "Transcript" }).click();
   await expect(page.getByText("Download transcript")).toBeVisible();
   await expect(page.getByText("Email copy to customer")).toBeVisible();
   await expect(page.locator("[data-slot=right-panel][data-open=true]")).toHaveCount(0);
-  expect(await page.locator("[data-main-thread]").innerText()).toBe(before);
+  expect(await hideSwitch.getAttribute("aria-checked")).toBe(before);
 });
 
 /** Maya Chen's call (dev hotkey B), with this AI display and the two-column canvas. */

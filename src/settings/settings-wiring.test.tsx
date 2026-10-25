@@ -371,7 +371,13 @@ describe("AI display panel: docked Copilot composer", () => {
     await h.click(el);
   };
 
-  it("is the panel's footer: a sibling of the scroll container, input → chips → Takeover", async () => {
+  /** Takes the chat over (the composer's Takeover); the chip row shows from then on. */
+  const takeOver = async () => {
+    await h.click(composer()!.querySelector("[data-slot=copilot-takeover] button, [data-slot=copilot-takeover]")!);
+    await h.advance(3_000);
+  };
+
+  it("is the panel's footer: a sibling of the scroll container, input → Takeover, with no chips while the bot holds", async () => {
     await lucasInPanelMode();
     const c = composer()!;
     expect(c).not.toBeNull();
@@ -383,11 +389,10 @@ describe("AI display panel: docked Copilot composer", () => {
     // Nothing of the Copilot composer stays in the main column.
     expect([...document.body.querySelectorAll("[data-slot=copilot-composer]")]).toHaveLength(1);
 
-    const chip = c.querySelector('[role="button"]')!;
     const input = c.querySelector("textarea")!;
     const takeover = c.querySelector("[data-slot=copilot-takeover]")!;
-    expect(isBefore(input, chip)).toBe(true);
-    expect(isBefore(chip, takeover)).toBe(true);
+    expect(c.querySelector('[role="button"]')).toBeNull();
+    expect(isBefore(input, takeover)).toBe(true);
     // Wide vs narrow (Takeover full width below the chips) is measured, so
     // jsdom can't see it: copilot-composer.test.tsx stubs the widths and
     // e2e/copilot-composer.spec.ts checks the 425px panel in Chrome.
@@ -421,6 +426,8 @@ describe("AI display panel: docked Copilot composer", () => {
     expect(feedItems()).toBeGreaterThan(before);
     expect(scrollTop).toBe(100);
 
+    // The chip row appears on takeover (no chips while the bot holds the chat).
+    await takeOver();
     // At the bottom: a Copilot ask (a new instruction row) follows to the bottom.
     scrollTop = scrollHeight - 400;
     el.dispatchEvent(new Event("scroll"));
@@ -467,7 +474,8 @@ describe("AI display panel: docked Copilot composer", () => {
     await h.click(approve);
     expect(scrollTop).toBe(scrollHeight);
 
-    // Scrolled to the top, a Copilot chip in the docked composer: follows too.
+    // Scrolled to the top, a Copilot chip in the docked composer (it appears on takeover): follows too.
+    await takeOver();
     scrollToTop();
     scrollHeight += 200;
     await h.click(composer()!.querySelector('[role="button"]')!);

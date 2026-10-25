@@ -6,8 +6,9 @@ import { lucasInPanelMode, scrollMetrics } from "./helpers";
 test("a Copilot result row's slide-over keeps the Overview body's scrollTop", async ({ page }) => {
   await lucasInPanelMode(page);
 
-  // A Copilot result row: ask through a chip; its slide-over opens when the
-  // result is ready. Close it to get back to the Overview.
+  // A Copilot result row: ask through a chip (the chip row shows once the agent has the chat); its slide-over
+  // opens when the result is ready. Close it to get back to the Overview.
+  await page.getByRole("button", { name: /^Takeover/ }).first().click();
   const chip = page.locator("[data-slot=copilot-composer] [role=button]", { hasText: "Show purchase history" });
   await chip.click();
   // Its slide-over ("Purchase history") opens after the result's spinner.
@@ -35,4 +36,18 @@ test("a Copilot result row's slide-over keeps the Overview body's scrollTop", as
   await closeSlideOver.click();
   await page.waitForTimeout(400);
   expect(Math.abs((await scrollMetrics(page)).top - at)).toBeLessThanOrEqual(1);
+});
+
+// P-POLISH 4: the slide-over's X closes only the slide-over; the Contact Details panel and its AI feed stay.
+test("the slide-over's X leaves the Contact Details panel open with its AI feed", async ({ page }) => {
+  await lucasInPanelMode(page);
+  await page.getByRole("button", { name: /^Takeover/ }).first().click();
+  const panel = page.locator("[data-slot=right-panel]");
+  await page.locator("[data-slot=copilot-composer] [role=button]", { hasText: "Show purchase history" }).click();
+  const closeSlideOver = page.getByRole("button", { name: "Close Purchase history" });
+  await expect(closeSlideOver).toBeVisible({ timeout: 8_000 });
+  await closeSlideOver.click();
+  await expect(closeSlideOver).toBeHidden();
+  await expect(panel).toHaveAttribute("data-open", "true");
+  await expect(panel.locator("[data-slot=ai-feed]")).toBeVisible();
 });

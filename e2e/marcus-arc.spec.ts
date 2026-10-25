@@ -116,7 +116,19 @@ test.describe("Marcus Webb, the whole arc", () => {
     await seen(page, "Refund rejected. Requested customer provide visual proof");
     await seen(page, LINES.photoReaction);
     await seen(page, "I have requested the customer provide a photo of the damaged item.");
-    await expectOutcome(page, "Open", null);
+    // Still the bot's call: the case keeps its review state.
+    await expectOutcome(page, "Pending", null);
+  });
+
+  test("the row keeps its skill; the case reads Pending in review and Open once the agent has taken over", async ({ page }) => {
+    await start(page);
+    const row = page.locator("aside [data-slot=assignment-card]").filter({ hasText: "Marcus Webb" });
+    await expect(row).toContainText("Returns");
+    await expect(row).not.toContainText("AI Review");
+    expect(await caseStatus(page)).toBe("Pending");
+    await marcus.takeOver(page);
+    await expect.poll(() => caseStatus(page), { timeout: 10_000 }).toBe("Open");
+    await expect(row).toContainText("Returns");
   });
 
   for (const remedy of ["credit", "discount"] as const) {
@@ -147,6 +159,9 @@ test.describe("Marcus Webb, the whole arc", () => {
 
   test("Copilot: a chip and a free-form instruction open their results", async ({ page }) => {
     await start(page);
+    // The chip row shows once the agent has the call (none while the bot holds it).
+    await expect(page.getByRole("button", { name: "Show purchase history" })).toHaveCount(0);
+    await marcus.takeOver(page);
     const slideOver = page.locator("[data-slot=reference-slide-over]");
     await marcus.askChip(page, "Show purchase history");
     await marcus.openRow(page, "Show purchase history", "5 of them with damage claims");

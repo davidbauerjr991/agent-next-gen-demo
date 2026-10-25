@@ -18,6 +18,7 @@ export {
   validateScenario,
   type ScenarioCustomerAction,
 } from "./validate";
+export { CASE_CUSTOMER_RECORDS, formatCaseAddress, type CaseCustomerRecord } from "./case-customer-records";
 export { LUCAS_THOMAS_SCRIPT, MARCUS_WEBB_SCRIPT, MAYA_CHEN_SCRIPT, TOM_LEWIS_SCRIPT };
 
 export const SCENARIOS: readonly ScenarioScript[] = [MARCUS_WEBB_SCRIPT, LUCAS_THOMAS_SCRIPT, TOM_LEWIS_SCRIPT, MAYA_CHEN_SCRIPT];

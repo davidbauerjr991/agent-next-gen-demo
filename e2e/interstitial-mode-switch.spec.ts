@@ -239,3 +239,17 @@ for (const [from, to] of pairs) {
     await expectOneIn(page, title, HOST[to]);
   });
 }
+
+// P-POLISH 4: a second click on Lucas's action row closes its slide-over (inline and main).
+for (const ai of ["inline", "main"] as const) {
+  test(`approve row toggles its slide-over closed on a second click (${ai})`, async ({ page }) => {
+    await lucas(page, ai);
+    const title = await decisions.approve(page);
+    await expect(row(page, title)).toBeVisible({ timeout: 15_000 });
+    await page.waitForTimeout(3_000);
+    await row(page, title).click();
+    await expectOneIn(page, title, HOST[ai]);
+    await row(page, title).click();
+    await expect.poll(() => slideOvers(page, title), { timeout: 3_000 }).toEqual([]);
+  });
+}

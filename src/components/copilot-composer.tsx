@@ -25,8 +25,9 @@ function fitTextarea(el: HTMLTextAreaElement | null) {
 }
 
 /**
- * Copilot suggestion chips on one line that never wraps: as many as fit
- * beside the refresh button (up to 3, at least 1), measured from the row's
+ * Copilot suggestion chips on one line: as many as fit
+ * beside the refresh button (up to 3, at least 1; the row wraps rather than
+ * clipping when even that doesn't fit, as in the 308px panel), measured from the row's
  * own width with a ResizeObserver (not a breakpoint). The refresh button is
  * always there and rotates to the next suggestion(s). An invisible copy of
  * every chip gives their natural widths.
@@ -107,7 +108,7 @@ function CopilotChipRow({
   );
 
   return (
-    <div ref={rowRef} data-slot="copilot-chips" className="relative flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-hidden">
+    <div ref={rowRef} data-slot="copilot-chips" className="relative flex min-w-0 flex-1 flex-wrap items-center gap-2">
       {visible.map((suggestion) => chip(suggestion))}
       {pinned && chip(pinned, { ref: pinnedRef, slot: "copilot-chip-pinned" })}
       {n > 0 && <div ref={refreshRef} data-slot="copilot-chips-refresh" className="shrink-0">

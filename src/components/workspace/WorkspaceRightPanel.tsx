@@ -42,7 +42,7 @@ export function WorkspaceRightPanel() {
     effectiveSidePanelPinned, experienceMemoryFocus, focusCustomerPanelTab, handleBackToCustomerSearch,
     handleInteractionStatusChange, handleLinkCustomerRecord, handleOutcomeSaveAndDismissChannel,
     handleSaveNewCustomer, handleSendEmailDraft, handleSendMessage, handleSidePanelClose, handleStartCall, handleStartCreateCustomer,
-    hideAiActions, isSidePanelAtMinimalThreshold, linkCustomerPanelOpen, lucasThomasReviewing, marcusMemoryFocus,
+    botHolds, hideAiActions, isSidePanelAtMinimalThreshold, linkCustomerPanelOpen, lucasThomasReviewing, marcusMemoryFocus,
     onSidePanelHoverEnd, onSidePanelHoverStart, openDetailPanelContent, outcomeDrafts, panelArtifacts,
     panelPlacement, possibleCustomerMatches, reopenPanelArtifact,
     rightPanelRef, scenarioKeyOf, sessionDetailsTabContent, setActiveCustomerOverviewEditing,
@@ -357,6 +357,7 @@ export function WorkspaceRightPanel() {
                           onStatusChange={(status) => handleInteractionStatusChange(activeInteraction.id, channelPreviewThreadStableKey!, status)}
                           onViewSessionDetails={(session) => viewSessionDetails(channelPreviewThreadStableKey!, session)}
                           outcome={threadOutcomeProps(activeInteraction, channelPreviewThread)}
+                          controlsReadOnly={botHolds(activeInteraction.id)}
                           // A draft's "Discard draft", or Unassign & Dismiss once its outcome is saved (k6 9).
                           onDismiss={
                             isDraftThread(activeInteraction, channelPreviewThread) ||

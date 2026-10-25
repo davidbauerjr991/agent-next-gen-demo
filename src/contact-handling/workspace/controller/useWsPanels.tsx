@@ -12,7 +12,7 @@ import { useReplyBlockedReason, copilotSuggestionsFor, useChannelThreadMenu, typ
 import type { CustomerPanelTabLabel } from "@/components/customer-info";
 import { LUCAS_THOMAS_ID } from "@/contact-handling/scenario-cases";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
-import { useRequestNextBestAction, withNextBestActionChip } from "@/contact-handling/next-best-action";
+import { useRequestNextBestAction, withNextBestActionChip, withoutCopilotChips } from "@/contact-handling/next-best-action";
 import { headerPatchForPin, homeTabApps, pinnedKeysFromHeader, useSettings } from "@/settings";
 import { useHomeTabs } from "@/components/home-tabs-state";
 import type { LucasThomasPanelKey, LucasThomasMemoryFocus } from "@/components/agent-next-gen-lucas-thomas-panels";
@@ -42,7 +42,9 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
   // The Next Best Action on request (P-CANVAS; every AI display): the "What should I do next?" chip.
   const requestNextBestAction = useRequestNextBestAction(interactions);
   const copilotComposerProps = (interactionId: string, threadKey: string): CopilotComposerProps =>
-    withNextBestActionChip(baseCopilotComposerProps(interactionId, threadKey), () => requestNextBestAction(interactionId, threadKey));
+    prev.botHolds(interactionId)
+      ? withoutCopilotChips(baseCopilotComposerProps(interactionId, threadKey))
+      : withNextBestActionChip(baseCopilotComposerProps(interactionId, threadKey), () => requestNextBestAction(interactionId, threadKey));
   const baseCopilotComposerProps = (interactionId: string, threadKey: string): CopilotComposerProps => {
     const isLucas = scenarioKeyOf(interactionId) === LUCAS_THOMAS_ID;
     const channel = interactions.find((i) => i.id === interactionId)?.threads.find((t) => (t.id ?? t.type) === threadKey)?.type;

@@ -460,6 +460,6 @@ describe("remount", () => {
     // One conversation on screen (each has its own "Chat with Customer"
     // input), and no docked preview titled "Chat".
     expect(leafTexts(/^Chat with Customer$/)).toHaveLength(1);
-    expect(leafTexts(/^Chat$/)).toHaveLength(0);
+    expect(leafTexts(/^Chat$/).filter((el) => el.closest("[data-slot=right-panel]"))).toHaveLength(0);
   });
 });

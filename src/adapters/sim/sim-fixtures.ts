@@ -58,6 +58,7 @@ export const SIM_INBOUND_SKILLS: OutboundSkill[] = [
   ...SIM_OUTBOUND_SKILLS,
   { id: "ai-review", name: "AI Review" },
   { id: "returns", name: "Returns" },
+  { id: "checkout", name: "Checkout" },
 ];
 
 export const SIM_AGENT = {
@@ -104,6 +105,7 @@ export const SIM_CONTACT_REASONS: Readonly<Record<string, string>> = {
   vip: "Priority request from a VIP customer",
   "ai-review": "Virtual agent needs a person to review",
   returns: "Return or refund for an order",
+  checkout: "Problem placing an order at checkout",
 };
 
 /** A customer the sim's routing recognizes by an inbound address (the

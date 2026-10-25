@@ -266,6 +266,12 @@ type CopilotChipProps = {
   onCopilotAsk?: (text: string) => void;
 };
 
+/** No chip row: while the bot holds the assignment the agent has nothing to ask yet (the same rule that hides the
+ *  chat input); the row is back on takeover. */
+export function withoutCopilotChips<P extends CopilotChipProps>(props: P): P {
+  return { ...props, copilotSuggestions: [], copilotPinnedSuggestion: undefined, copilotSuggestionLinks: undefined };
+}
+
 /** A Copilot composer's chips and asks, with "What should I do next?" as a
  *  pinned chip (always shown after the rotating ones, and still there after
  *  use): the chip, or that question typed into Ask Copilot, asks for the Next

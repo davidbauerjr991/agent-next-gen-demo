@@ -12,6 +12,7 @@ import { Field } from "@/components/workspace/slide-over-field";
 import { MARCUS_WEBB_ID } from "@/contact-handling/scenario-cases";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { t } from "@/i18n";
+import { CASE_CUSTOMER_RECORDS, MARCUS_WEBB_SCRIPT, formatCaseAddress } from "@/scenarios";
 import { cn } from "@/lib/utils";
 
 // ── Data ─────────────────────────────────────────────────────────────────
@@ -31,7 +32,7 @@ const MARCUS_WEBB_ORDER: MarcusWebbOrderInfo = {
   price: "$200.00",
   orderedDate: "Last Tuesday",
   status: "Delivered — customer reported a cracked ear cup",
-  shippingAddress: "412 Birchwood Lane, Springfield, IL 62704",
+  shippingAddress: formatCaseAddress(CASE_CUSTOMER_RECORDS[MARCUS_WEBB_SCRIPT.entity.caseId]),
 };
 
 interface MarcusWebbTransaction {

@@ -4,6 +4,10 @@ import React from "react";
 import { Accordion, Badge, type AccordionItem, type BadgeColor } from "@nicecxone/lyra-ui";
 import { Sparkles, AlertTriangle, Check, CircleDot, Clock, MessageCircle, MousePointerClick, PackageCheck, Phone } from "lucide-react";
 import { Field } from "@/components/workspace/slide-over-field";
+import { CASE_CUSTOMER_RECORDS, LUCAS_THOMAS_SCRIPT, formatCaseAddress } from "@/scenarios";
+
+/** His one address: the seeded record Contact Details reads. */
+const LUCAS_ADDRESS = formatCaseAddress(CASE_CUSTOMER_RECORDS[LUCAS_THOMAS_SCRIPT.entity.caseId]);
 
 export type LucasThomasPanelKey = "product" | "payments" | "payment-link" | "article-pay-3-2" | "purchase-history" | "fraud-screening" | "payment-preferences" | "ai-attempts" | "shipping-check";
 
@@ -124,7 +128,7 @@ export const LUCAS_THOMAS_ORDER_DETAILS: Record<
     payment: "PayPal",
     status: "Delivered",
     delivered: "Sep 3",
-    address: "1420 Harbor St, Apt 5B, Portland, OR 97209",
+    address: LUCAS_ADDRESS,
   },
   o3: {
     orderId: "NR-10642",
@@ -134,7 +138,7 @@ export const LUCAS_THOMAS_ORDER_DETAILS: Record<
     payment: "PayPal",
     status: "Delivered",
     delivered: "Jul 16",
-    address: "1420 Harbor St, Apt 5B, Portland, OR 97209",
+    address: LUCAS_ADDRESS,
   },
   o4: {
     orderId: "NR-10377",
@@ -144,7 +148,7 @@ export const LUCAS_THOMAS_ORDER_DETAILS: Record<
     payment: "Visa ending 4417",
     status: "Delivered",
     delivered: "May 7",
-    address: "1420 Harbor St, Apt 5B, Portland, OR 97209",
+    address: LUCAS_ADDRESS,
   },
 };
 

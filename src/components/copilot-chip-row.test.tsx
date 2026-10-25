@@ -57,8 +57,9 @@ describe("Copilot chip row", () => {
     await renderAt(1000);
     expect(chips()).toEqual(SUGGESTIONS.slice(0, 3));
     expect(refresh()).toBeTruthy();
-    expect(row().className).toContain("flex-nowrap");
-    expect(row().className).not.toContain("flex-wrap ");
+    // Wraps rather than clips when even one chip and the refresh button don't fit (the 308px panel).
+    expect(row().className).toContain("flex-wrap");
+    expect(row().className).not.toContain("overflow-hidden");
   });
 
   it("in between: as many as fit (two)", async () => {

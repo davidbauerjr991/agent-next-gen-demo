@@ -46,11 +46,12 @@ export function NavCardItem({
     handleDismissInteraction, incomingOffer, isNewAssignment, lucasThomasReviewing, mainPins,
     marcusWebbReviewing, navOpen, noInteractionCollapse, omnichannel, outcomeConfigFor, outcomeDrafts,
     panelPlacement, scenarioKeyOf, selectPanel, setChannelsExpandedById, setInteractions, setPanelFullScreen,
-    setVoiceVideoFullScreen, setVoiceVideoWindowOpen, switchActiveInteraction, channelsExpandedById,
+    setVoiceVideoFullScreen, setVoiceVideoWindowOpen, switchActiveInteraction, channelsExpandedById, botHolds,
   } = useWorkspace();
   const consultChannels = useProviders().capabilities.interaction.transfer.consultChannels ?? [];
-  const scenarioKey = scenarioKeyOf(interaction.id);
-  const botHolds = scenarioKey === MARCUS_WEBB_ID ? marcusWebbReviewing : scenarioKey === LUCAS_THOMAS_ID ? lucasThomasReviewing : false;
+  const cardHeldByBot = botHolds(interaction.id);
+  /** A voice leg is live until the call ends or the card closes; its timer follows the leg, not the case status. */
+  const legLive = (c: Thread) => !interaction.closed && !interaction.voiceCallEnded && c.wrapUpSinceTick === undefined;
   // A remounted card (nav collapsed to the rail and back, the placement swap) restores the expanded state the
   // store kept for it: lyra's card starts open and applies an override only when its version changes, so the
   // restore is a version bump after mount, and the card's first report (its default) isn't taken as the agent's.
@@ -191,10 +192,13 @@ export function NavCardItem({
                     // Still blanked once `slaSuppressed` (closed/resolved)
                     // — same "nothing left to time" reasoning as every
                     // other channel type.
-                    elapsed: slaSuppressed
+                    elapsed: c.type === "voice"
+                      ? // The leg's timer: counts while the call is live (whatever the case status), freezes at hang-up.
+                        legLive(c) || (c.wrapUpSinceTick !== undefined && !interaction.closed)
+                        ? formatElapsedTime((legLive(c) ? clockTick : c.wrapUpSinceTick!) - c.startTick)
+                        : ""
+                      : slaSuppressed
                       ? ""
-                      : c.type === "voice"
-                      ? formatElapsedTime(clockTick - c.startTick)
                       : !hasCustomerResponded(c)
                       ? ""
                       : effectiveAwaitingResponse
@@ -398,8 +402,8 @@ export function NavCardItem({
                     // A consult is only for live legs (voice, chat); the other rows offer Transfer alone.
                     consultTransferLabel: consultChannels.includes(c.type as ChannelKind) ? undefined : t("Transfer"),
                     // While the bot holds the assignment (the review state), both are disabled with the reason.
-                    consultTransferDisabledReason: botHolds ? t("Take over to transfer") : undefined,
-                    endCallDisabledReason: botHolds ? t("Take over to end the call") : undefined,
+                    consultTransferDisabledReason: cardHeldByBot ? t("Take over to transfer") : undefined,
+                    endCallDisabledReason: cardHeldByBot ? t("Take over to end the call") : undefined,
                     // End call on a live voice leg; with Close confirmation on it asks first.
                     onEndCall:
                       SHOW_END_CALL_IN_INTERACTION_NAV_ROWS &&
@@ -487,7 +491,8 @@ export function NavCardItem({
                 // call actually does end.
                 const cardOpenChannels = interaction.threads.filter(
                   (c) =>
-                    (scenarioKeyOf(interaction.id) === MARCUS_WEBB_ID && c.type === "voice" && !interaction.voiceCallEnded) ||
+                    // The status is the case's and the timer is the leg's: a live call counts while Resolved.
+                    (c.type === "voice" && legLive(c)) ||
                     (interaction.threadStatuses?.[c.id] !== "Closed" &&
                       interaction.threadStatuses?.[c.id] !== "Resolved")
                 );
