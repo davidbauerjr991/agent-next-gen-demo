@@ -16,6 +16,7 @@ export const useAssistProvider = () => useProviders().providers.assist;
 export const useActiveProfile = () => useProviders().profile;
 export const useActiveDatabase = () => useProviders().database;
 export const useTranscriptExportProvider = () => useProviders().providers.transcriptExport;
+export const useScheduleProvider = () => useProviders().providers.schedule;
 export const useProviderKind = () => useProviders().kind;
 
 /** Whether the active providers support something, e.g.

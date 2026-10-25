@@ -71,6 +71,7 @@ async function disposeSet(key: string, set: ProviderSet): Promise<void> {
     set.media.dispose(),
     set.customerData.dispose(),
     set.assist.dispose(),
+    set.schedule?.dispose() ?? Promise.resolve(),
   ]);
   log(`disposed ${key}`);
   if (import.meta.env.DEV) {

@@ -3,13 +3,15 @@ import { createPlaceholderCustomerDataProvider, createPlaceholderMediaProvider }
 import { createSimAssistProvider } from "./sim-assist-provider";
 import { createSimCustomerClient } from "./sim-customer-client";
 import { installScenarioHotkeys } from "./sim-scenario-hotkeys";
+import { createSimScheduleProvider } from "./sim-schedule-source";
 import { createSimTranscriptExportProvider } from "./sim-transcript-export-provider";
 import { createBroadcastTransport, DEFAULT_LATENCY, withLatency, type LatencyRange } from "./sim-transport";
 import { createSimulatedInteractionProvider, type SimOptions } from "./simulated-interaction-provider";
 
 /** The `?provider=sim` set. Media and CustomerData stay placeholders until
  *  their phases (P3.1, P1.4); Assist relays the engine's guidance cards
- *  (P-CANVAS) and its on-demand calls stay unconnected until P4.1. */
+ *  (P-CANVAS) and its on-demand calls stay unconnected until P4.1; the
+ *  schedule is the stub source with one seeded day per role (P-HOME-1). */
 export function createSimProviderSet(options?: SimOptions & {
   /** The scenario hotkeys (`installScenarioHotkeys`). The app's sim factory turns them on in every build: they
    *  come with the sim as the active provider. Default off (tests that build a set directly). */
@@ -56,5 +58,6 @@ function withPlaceholders(
     customerData: createPlaceholderCustomerDataProvider(),
     assist,
     transcriptExport: createSimTranscriptExportProvider({ latency }),
+    schedule: createSimScheduleProvider({ latency }),
   };
 }

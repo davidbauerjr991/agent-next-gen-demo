@@ -9,6 +9,7 @@ export {
   useCustomerDataProvider,
   useAssistProvider,
   useTranscriptExportProvider,
+  useScheduleProvider,
   useActiveProfile,
   useActiveDatabase,
   useProviderKind,
