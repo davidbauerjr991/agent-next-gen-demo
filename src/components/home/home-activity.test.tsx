@@ -40,7 +40,8 @@ const rowTitles = (title: string) =>
   [...(group(title)?.querySelectorAll("[data-feed-row]") ?? [])].map((r) => r.querySelector("[class*=emphasis], strong, b")?.textContent ?? r.textContent ?? "");
 const rowNamed = (text: string) => [...feed().querySelectorAll<HTMLElement>("[data-feed-row]")].find((r) => r.textContent?.includes(text));
 const chip = (label: string) => [...feed().querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.trim().startsWith(label));
-const sectionsIn = (scope: Element) => [...scope.querySelectorAll(":scope > [data-home-section], :scope > * > [data-home-section]")].map((el) => el.getAttribute("data-home-section"));
+const homeButton = () => [...h.container.querySelectorAll("aside button, aside [role=button]")].find((el) => el.textContent?.trim() === "Home")!;
+const sectionsIn =(scope: Element) => [...scope.querySelectorAll(":scope > [data-home-section], :scope > * > [data-home-section]")].map((el) => el.getAttribute("data-home-section"));
 
 describe("Activity feed on Home", () => {
   it("oneColumn: the feed is a container row in its stored position, grouped Today / This week", async () => {
@@ -70,6 +71,8 @@ describe("Activity feed on Home", () => {
   it("opening a scheduled row moves it off the feed; the History chip lists it; chips stack", async () => {
     await showHome();
     await h.click(rowNamed("Returns team stand-up")!);
+    // It opened as the active assignment; back on Home it has left the feed.
+    await h.click(homeButton());
     expect(rowNamed("Returns team stand-up")).toBeUndefined();
 
     await h.click(chip("History")!);
@@ -95,8 +98,7 @@ describe("Activity feed on Home", () => {
     await h.advance(500);
     // Accepted: the call opens as the active assignment, in the rail.
     expect(h.container.querySelector("[data-activity-feed]")).toBeNull();
-    const home = [...h.container.querySelectorAll("aside button, aside [role=button]")].find((el) => el.textContent?.trim() === "Home")!;
-    await h.click(home);
+    await h.click(homeButton());
     expect(group("Needs a decision")).toBeNull();
     await h.click(chip("History")!);
     const tom = rowNamed("Tom Lewis");

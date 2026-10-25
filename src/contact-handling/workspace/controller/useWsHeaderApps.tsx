@@ -8,6 +8,8 @@
 // moved in order (hook order unchanged); see `useWorkspaceController`.
 import { useState, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import type { ReferenceCardProps } from "@/components/customer-info/reference-sections";
+import { scheduleItemIdOf } from "@/domain";
+import { useScheduleSnapshot } from "@/provider-context";
 import {
   ActionIconButton,
   Badge,
@@ -746,6 +748,7 @@ export function useWsHeaderApps(prev: WsOutbound) {
   // "Agent chat display") sit between Home and Settings, as in v3. An app
   // opens as a page in the main column; Agent chat, a drawer, opens in the
   // shared panel its header icon would.
+  const scheduleSnapshot = useScheduleSnapshot();
   const leftNavKeys = leftNavKeysFromHeader(headerSettings);
   const leftNavPageShown = leftNavPage && !activeInteraction && !showSettings && leftNavKeys.includes(leftNavPage) ? leftNavPage : null;
   const leftNavAppItems = leftNavKeys.map((key) => {
@@ -765,7 +768,10 @@ export function useWsHeaderApps(prev: WsOutbound) {
     };
   });
   const [homeNavItem, ...restNavItems] = buildNavItems(
-    Boolean(activeInteraction),
+    // An opened schedule item (P-HOME-1) is an assignment too: Home isn't the current page while its cell shows.
+    Boolean(activeInteraction) ||
+      (!!activeInteractionId &&
+        !!scheduleSnapshot?.items.some((i) => i.state === "active" && i.id === scheduleItemIdOf(activeInteractionId))),
     // Per explicit follow-up request, Home no longer resets
     // `showAllContacts`/`selectedAllContactsRecord` — see that state's own
     // doc comment for why "Home" now always resumes whatever was showing

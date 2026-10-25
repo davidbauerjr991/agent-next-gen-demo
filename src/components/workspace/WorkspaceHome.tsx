@@ -2,6 +2,8 @@ import { Button, Icon, Input, InteriorPanel, Tooltip } from "@nicecxone/lyra-ui"
 import { CheckCircle2, ChevronRight, CircleAlert, CircleDot, Clock, MinusCircle, PhoneOutgoing, RotateCcw } from "lucide-react";
 import { DisabledReason } from "@/contact-handling";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
+import { useActiveScheduleItem } from "@/contact-handling/home/useScheduleCards";
+import { KindCell } from "./kind-cells/KindCell";
 import { AppTabBody, CustomerTabBodies, CustomersTabBody, HomeTabStrip } from "@/components/home-tabs";
 import { isCustomerTab, keptMountedClass } from "@/components/home-tabs-state";
 import { HomeDashboard } from "@/components/home-dashboard";
@@ -22,6 +24,10 @@ export function WorkspaceHome() {
     setInteriorPanelOpen, setNavOpen, setSelectedContactHistoryEntry, setSelectedQueueId, showInteriorPanel,
     showPageHeader, tabApps, updateHeaderSettings,
   } = useWorkspace();
+  // P-HOME-1: an opened schedule item (meeting, training, task, …) isn't a conversation card, so the page lands
+  // here; its minimal per-kind cell takes the main column until P-HOME-3's kinds registry.
+  const activeScheduleItem = useActiveScheduleItem();
+  if (activeScheduleItem) return <KindCell key={activeScheduleItem.id} item={activeScheduleItem} />;
   return (
                 <div key="dashboard" className="flex flex-1 flex-col min-w-0 overflow-hidden animate-in fade-in-0 duration-200">
               {/* Home tabs: shown while any app is placed as "tab" (Settings → Header). */}

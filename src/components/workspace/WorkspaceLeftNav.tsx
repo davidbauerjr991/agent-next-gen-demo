@@ -5,6 +5,8 @@ import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { ClockTick } from "@/components/agent-next-gen-clock-tick";
 import { t } from "@/i18n";
 import { useAssignmentCards, useChannelChipsShown } from "@/contact-handling/useAssignmentCards";
+import { useScheduleCards } from "@/contact-handling/home/useScheduleCards";
+import { KindNavCard } from "./KindNavCard";
 import { useAssignmentsPanel } from "@/contact-handling/useAssignmentsPanel";
 import { AssignmentsCaption, DraggableAssignment } from "./AssignmentCardList";
 import { LeftNavFooterColumn, LeftNavFooterSpacer, LeftNavSlot } from "./left-nav-parts";
@@ -22,6 +24,7 @@ export function WorkspaceLeftNav() {
   // P-PROFILES 0b: the cards' order (Custom drags only while the nav is open).
   const { cards, itemProps } = useAssignmentCards(navOpen && !isNavNarrow);
   const chipsShown = useChannelChipsShown("leftNav");
+  const scheduleCards = useScheduleCards();
   // P-PROFILES 0c: with the cards in the interior panel, the rail's first
   // item opens it, badged with the cards that need the agent.
   const panel = useAssignmentsPanel();
@@ -179,7 +182,7 @@ export function WorkspaceLeftNav() {
                   Close needs no equivalent — this block unmounts instantly
                   when `navOpen` goes false, before the aside starts
                   collapsing, so nothing is ever visible to reflow. */}
-              {!panel.inPanel && interactions.length === 0 && navOpen && (
+              {!panel.inPanel && interactions.length === 0 && scheduleCards.length === 0 && navOpen && (
                 <div className="flex flex-1 min-h-0 items-center justify-center animate-in fade-in-0 duration-150 delay-200 fill-mode-backwards">
                   <EmptyState
                     icon={<Inbox className="h-8 w-8" strokeWidth={1.5} />}
@@ -228,6 +231,10 @@ export function WorkspaceLeftNav() {
                     </DraggableAssignment>
                   )}
                 </LeftNavSlot>
+              ))}
+              {/* P-HOME-1: opened schedule items (meetings, trainings, tasks, …), after the conversations. */}
+              {!panel.inPanel && scheduleCards.map((item) => (
+                <LeftNavSlot key={item.id}>{(slotExpanded) => <KindNavCard item={item} expanded={slotExpanded ?? navOpen} />}</LeftNavSlot>
               ))}
             </>
           }

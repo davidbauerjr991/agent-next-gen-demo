@@ -14,6 +14,8 @@ import { useSettings } from "@/settings";
 import { ClockTick } from "@/components/agent-next-gen-clock-tick";
 import { assignmentsPanelDocks, availableForAssignmentsPanel } from "@/contact-handling/assignments-panel-placement";
 import { useAssignmentCards, useChannelChipsShown } from "@/contact-handling/useAssignmentCards";
+import { useScheduleCards } from "@/contact-handling/home/useScheduleCards";
+import { KindNavCard } from "./KindNavCard";
 import { useAssignmentsPanel } from "@/contact-handling/useAssignmentsPanel";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { AssignmentsCaption, DraggableAssignment } from "./AssignmentCardList";
@@ -35,6 +37,7 @@ export function AssignmentsPanelRow({ children }: { children: React.ReactNode })
 function AssignmentsInteriorPanel() {
   const panel = useAssignmentsPanel();
   const { cards, itemProps } = useAssignmentCards(true);
+  const scheduleCards = useScheduleCards();
   const chipsShown = useChannelChipsShown("interiorPanel");
   const anchorRef = React.useRef<HTMLDivElement>(null);
   const contentRowWidth = useParentWidth(anchorRef);
@@ -87,7 +90,7 @@ function AssignmentsInteriorPanel() {
       >
         <div className="flex flex-col gap-2 px-3 pb-3">
           <AssignmentsCaption expanded mount="interiorPanel" />
-          {cards.length === 0 ? (
+          {cards.length === 0 && scheduleCards.length === 0 ? (
             <EmptyState
               icon={<Inbox className="h-8 w-8" strokeWidth={1.5} />}
               message={t("Your assignment queue is empty")}
@@ -102,7 +105,7 @@ function AssignmentsInteriorPanel() {
                   {(clockTick) => <NavCardItem interaction={interaction} slotExpanded clockTick={clockTick} hideChip={!chipsShown} />}
                 </ClockTick>
               </DraggableAssignment>
-            ))
+            )).concat(scheduleCards.map((item) => <KindNavCard key={item.id} item={item} expanded />))
           )}
         </div>
       </InteriorPanel>

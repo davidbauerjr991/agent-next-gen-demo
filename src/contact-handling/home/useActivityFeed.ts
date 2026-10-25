@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useClockValue } from "@/components/agent-next-gen-page-clock";
 import type { ContactHistoryEntry } from "@/components/agent-next-gen-contact-history";
-import { assignmentIdFor, type ChannelKind } from "@/domain";
+import { assignmentIdFor, scheduleCardKey, type ChannelKind } from "@/domain";
 import { useScheduleProvider, useScheduleSnapshot } from "@/provider-context";
 import { useSettings } from "@/settings";
 import { useWorkspace } from "../workspace/WorkspaceContext";
@@ -95,10 +95,17 @@ export function useActivityFeed(): ActivityFeed {
         if (card?.offered) void incomingOffer.accept(card);
         else if (card) switchActiveInteraction(card.id);
       } else if (target.type === "schedule") {
+        // Opening moves it to the rail (state `active`, from the source's event) and makes it the active assignment.
+        const key = scheduleCardKey(target.itemId);
         if (row.status === "offered" || row.status === "scheduled") {
-          schedule?.open(target.itemId).catch((err) => {
-            if (import.meta.env.DEV) console.warn("[schedule] open failed", err);
-          });
+          schedule?.open(target.itemId).then(
+            () => switchActiveInteraction(key),
+            (err) => {
+              if (import.meta.env.DEV) console.warn("[schedule] open failed", err);
+            },
+          );
+        } else if (row.status === "inRail") {
+          switchActiveInteraction(key);
         }
       } else {
         const entry = todayEntries.find((e) => e.id === target.entryId);
