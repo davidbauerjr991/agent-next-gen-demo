@@ -42,12 +42,12 @@ export function KindCell({ item }: { item: ScheduleItem }) {
         </div>
         <div className="flex shrink-0 flex-col gap-4" style={{ width: LYRA_CARD_MAX_WIDTH }} data-kind-reference>
           <DashboardCard variant="neutral-subtle" headerTitle={t("Related")}>
-            <p className="lyra-body-sm text-lyra-fg-secondary">
+            <p className="px-4 pb-4 lyra-body-sm text-lyra-fg-secondary">
               {item.customer ? t("{name}'s record and journey appear here.", { name: item.customer.name }) : item.sourceLabel}
             </p>
           </DashboardCard>
           <DashboardCard variant="neutral-subtle" headerTitle={t("Copilot")}>
-            <p className="lyra-body-sm text-lyra-fg-secondary">{t("Assignment-scoped, as on a contact.")}</p>
+            <p className="px-4 pb-4 lyra-body-sm text-lyra-fg-secondary">{t("Assignment-scoped, as on a contact.")}</p>
           </DashboardCard>
         </div>
       </div>

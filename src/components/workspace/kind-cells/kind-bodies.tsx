@@ -12,7 +12,7 @@ import { t } from "@/i18n";
 
 function Lines({ lines }: { lines: readonly string[] }) {
   return (
-    <div className="flex flex-col">
+    <div className="-mx-3 flex flex-col">
       {lines.map((line) => (
         <MenuItem key={line} as="div" static comfortable={false} label={line} />
       ))}
@@ -34,7 +34,7 @@ function CallbackBody({ item, onDialed }: { item: ScheduleItem; onDialed: () => 
   const skill = OUTBOUND_CONFIG.skillOptions[0]?.value ?? "";
   return (
     <Container variant="neutral-subtle" headerTitle={t("Callback · {name}", { name: item.customer?.name ?? detail.phone })}>
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 px-4 pb-4">
         <Summary item={item} />
         <p className="lyra-body-md">{detail.reason}</p>
         <div>
@@ -68,7 +68,7 @@ export function KindBody({ item, onDialed }: { item: ScheduleItem; onDialed: () 
     case "meeting":
       return (
         <Container variant="neutral-subtle" headerTitle={t("Agenda")}>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 px-4 pb-4">
             <Summary item={item} />
             <Lines lines={d.agenda} />
           </div>
@@ -77,7 +77,7 @@ export function KindBody({ item, onDialed }: { item: ScheduleItem; onDialed: () 
     case "training":
       return (
         <Container variant="neutral-subtle" headerTitle={t("Module")}>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 px-4 pb-4">
             <Summary item={item} />
             <p className="lyra-body-md">{d.module}</p>
             {d.dueLabel && <p className="lyra-body-sm text-lyra-fg-secondary">{d.dueLabel}</p>}
@@ -87,7 +87,7 @@ export function KindBody({ item, onDialed }: { item: ScheduleItem; onDialed: () 
     case "task":
       return (
         <Container variant="neutral-subtle" headerTitle={t("Ticket {ticket}", { ticket: d.ticket })}>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 px-4 pb-4">
             <Summary item={item} />
             <p className="lyra-body-md">{d.summary}</p>
           </div>
@@ -96,7 +96,7 @@ export function KindBody({ item, onDialed }: { item: ScheduleItem; onDialed: () 
     case "conversation":
       return (
         <Container variant="neutral-subtle" headerTitle={t("Conversation")}>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 px-4 pb-4">
             <Summary item={item} />
             <p className="lyra-body-md">{d.summary}</p>
           </div>
@@ -105,7 +105,7 @@ export function KindBody({ item, onDialed }: { item: ScheduleItem; onDialed: () 
     default:
       return (
         <Container variant="neutral-subtle" headerTitle={t("Details")}>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 px-4 pb-4">
             <Summary item={item} />
             <Lines lines={d.points} />
           </div>

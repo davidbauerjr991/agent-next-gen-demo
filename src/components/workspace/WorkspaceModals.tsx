@@ -12,7 +12,7 @@ import { WELCOME_MODAL_LAST_LOGIN } from "@/components/agent-next-gen-interactio
  *  the welcome modal, the floating video window and the toasts. */
 export function WorkspaceModals() {
   const {
-    activeChannelType, activeInteraction, agentLegDisconnectedToastOpen, appDisplayName, dismissAllToasts,
+    activeChannelType, activeInteraction, agentLegDisconnectedToastOpen, appDisplayName, dismissAllToasts, liveVoiceCallInteraction,
     dismissToast, handleConnectAgentLeg, handleGoAvailable, handleStartUnavailable, logoSrc, pendingClose,
     setAgentLegDisconnectedToastOpen, setPendingClose, setShowWelcomeModal, setVoiceVideoFullScreen,
     setVoiceVideoWindowOpen, showWelcomeModal, toasts, voiceVideoFullScreen, voiceVideoWindowOpen,
@@ -139,7 +139,10 @@ export function WorkspaceModals() {
         </div>
       )}
       <div
-        className={`fixed end-4 z-[9999] flex flex-col items-end gap-2 ${toastSettings.position === "topEnd" ? "top-16" : "bottom-4"}`}
+        // Bottom: above the voice bar while a call is live (P-HOME-1); top: under the app header.
+        className={`fixed end-4 z-[9999] flex flex-col items-end gap-2 ${
+          toastSettings.position === "topEnd" ? "top-16" : liveVoiceCallInteraction ? "bottom-28" : "bottom-4"
+        }`}
       >
         {/* Only once there's more than one toast actually stacked up —
             with just one (or zero) on screen, its own "×" is already the

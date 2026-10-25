@@ -101,7 +101,9 @@ export function HomeDashboard({ showPageHeader, headerActions, selectedQueueId, 
           <ActivityFeed />
         ) : (
           <DashboardCard variant="neutral-subtle" headerTitle={t("Activity")}>
-            <ActivityFeed />
+            <div className="px-4 pb-4">
+              <ActivityFeed />
+            </div>
           </DashboardCard>
         );
       case "reminders":

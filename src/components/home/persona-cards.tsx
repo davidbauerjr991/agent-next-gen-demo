@@ -33,9 +33,9 @@ export function MetricCard({ section }: { section: MetricSectionKey }) {
   return (
     <DashboardCard variant="neutral-subtle" headerTitle={t(METRIC_CARD_TITLES[section])} data-home-card={section}>
       {metrics.length === 0 ? (
-        <p className="lyra-body-sm text-lyra-fg-secondary">{t("Nothing to show yet.")}</p>
+        <p className="px-4 pb-4 lyra-body-sm text-lyra-fg-secondary">{t("Nothing to show yet.")}</p>
       ) : (
-        <div className="flex flex-col">
+        <div className="flex flex-col px-1 pb-2">
           {metrics.map((m) => (
             <MenuItem
               key={m.label}
@@ -67,9 +67,9 @@ export function RemindersCard() {
   return (
     <DashboardCard variant="neutral-subtle" headerTitle={t("Reminders")} data-home-card="reminders">
       {next.length === 0 ? (
-        <p className="lyra-body-sm text-lyra-fg-secondary">{t("Nothing to remind you of.")}</p>
+        <p className="px-4 pb-4 lyra-body-sm text-lyra-fg-secondary">{t("Nothing to remind you of.")}</p>
       ) : (
-        <div className="flex flex-col">
+        <div className="flex flex-col px-1 pb-2">
           {next.map((item) => (
             <MenuItem
               key={item.id}

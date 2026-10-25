@@ -40,7 +40,7 @@ export function OutcomePlaceholder({ item, onSave }: { item: ScheduleItem; onSav
 
   return (
     <Container variant="neutral-subtle" headerTitle={t(OUTCOME_TITLES[item.kind] ?? "Outcome")} data-kind-outcome={item.kind}>
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 px-4 pb-4">
         {item.kind === "training" && (
           <>
             <Checkbox label={t("Module completed")} checked={completed} onCheckedChange={(c) => setCompleted(c === true)} />
