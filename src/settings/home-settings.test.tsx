@@ -128,14 +128,22 @@ describe("Settings → Home controls", () => {
     await h.click(settings);
     expect(button("Move Queue up")?.disabled).toBe(true);
     expect(button("Move Queue down")?.disabled).toBe(false);
-    expect(button("Move Productivity down")?.disabled).toBe(true);
-    expect(button("Move Productivity up")?.disabled).toBe(false);
+    expect(button("Move Follow-ups down")?.disabled).toBe(true);
+    expect(button("Move Follow-ups up")?.disabled).toBe(false);
     await h.click(button("Move Queue down")!);
     expect(getSettingsStore().getState().values.home.sections.map((s) => s.key)).toEqual([
       "contactHistory",
       "queue",
       "performance",
       "productivity",
+      "activity",
+      "reminders",
+      "teamQueues",
+      "teamToday",
+      "needsYou",
+      "pipeline",
+      "campaignToday",
+      "followUps",
     ]);
     expect(button("Move Contact history up")?.disabled).toBe(true);
   });
@@ -158,7 +166,7 @@ describe("Settings → Home controls", () => {
 describe("home section storage", () => {
   const read = (raw: unknown) => SECTIONS.home.read(raw, SECTIONS.home.defaults);
 
-  it("keeps a stored order, drops unknown and repeated keys, appends missing ones enabled", () => {
+  it("keeps a stored order, drops unknown and repeated keys, appends missing ones with their default", () => {
     const value = read({
       sections: [
         { key: "productivity", enabled: false },
@@ -172,7 +180,32 @@ describe("home section storage", () => {
       { key: "queue", enabled: true },
       { key: "contactHistory", enabled: true },
       { key: "performance", enabled: true },
+      { key: "activity", enabled: true },
+      { key: "reminders", enabled: true },
+      { key: "teamQueues", enabled: false },
+      { key: "teamToday", enabled: false },
+      { key: "needsYou", enabled: false },
+      { key: "pipeline", enabled: false },
+      { key: "campaignToday", enabled: false },
+      { key: "followUps", enabled: false },
     ]);
+  });
+
+  it("a stored v2 home from before P-HOME-1 keeps its order and gains the new keys and the oneColumn layout", () => {
+    const value = read({
+      sections: [
+        { key: "performance", enabled: true },
+        { key: "queue", enabled: false },
+        { key: "contactHistory", enabled: true },
+        { key: "productivity", enabled: true },
+      ],
+    });
+    expect(value.sections.slice(0, 4).map((s) => s.key)).toEqual(["performance", "queue", "contactHistory", "productivity"]);
+    expect(value.sections.find((s) => s.key === "queue")?.enabled).toBe(false);
+    expect(value.sections.find((s) => s.key === "activity")?.enabled).toBe(true);
+    expect(value.layout).toBe("oneColumn");
+    expect(read({ layout: "grid" }).layout).toBe("oneColumn");
+    expect(read({ layout: "twoColumn" }).layout).toBe("twoColumn");
   });
 
   it("falls back to the defaults for a malformed list or channel flag", () => {

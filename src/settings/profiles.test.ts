@@ -127,9 +127,10 @@ describe("workspace profiles", () => {
     expect(profile(store)).toBe("phase1");
   });
 
-  it("AI-first is Phase 2 with AI display \"main\" and the two-column canvas, and derives", () => {
+  it("AI-first is Phase 2 with AI display \"main\", the two-column canvas and the two-column Home, and derives", () => {
     expect(PROFILES.aifirst).toEqual({
       ...PROFILES.phase2,
+      home: { ...PROFILES.phase2.home, layout: "twoColumn" },
       ai: { ...PROFILES.phase2.ai, displayLocation: "main", canvasLayout: "twoColumn" },
     });
     const store = freshStore();
@@ -138,7 +139,18 @@ describe("workspace profiles", () => {
     expect(store.getState().values.ai.canvasLayout).toBe("twoColumn");
     expect(profile(store)).toBe("aifirst");
     store.update("ai", { displayLocation: "inline" });
+    expect(profile(store)).toBe("custom");
+    store.update("home", { layout: "oneColumn" });
     expect(profile(store)).toBe("phase2");
+  });
+
+  it("home.layout is oneColumn in Phase 1 and Phase 2 and twoColumn only in AI-first; the persona is agent in all three", () => {
+    expect(PROFILES.phase1.home.layout).toBe("oneColumn");
+    expect(PROFILES.phase2.home.layout).toBe("oneColumn");
+    expect(PROFILES.aifirst.home.layout).toBe("twoColumn");
+    for (const id of ["phase1", "phase2", "aifirst"] as const) expect(PROFILES[id].workspace.persona).toBe("agent");
+    expect(profileValues("aifirst")).toHaveProperty("home.layout", "twoColumn");
+    expect(profileValues("phase1")).toHaveProperty("workspace.persona", "agent");
   });
 
   it("canvasLayout defaults to twoColumn in every built-in; a stored ai section without it (or the pauses) reads the defaults", () => {

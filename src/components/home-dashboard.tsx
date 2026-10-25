@@ -104,7 +104,7 @@ export function HomeDashboard({ showPageHeader, headerActions, selectedQueueId, 
           </QueueSubItems>
         </div>
       );
-    } else {
+    } else if (key === "contactHistory") {
       rows.push(
         <div key="contactHistory" data-home-section="contactHistory" className={gap}>
           {contactHistory}

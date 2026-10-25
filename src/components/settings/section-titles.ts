@@ -5,6 +5,7 @@ import type { SectionKey } from "@/settings";
 export const SECTION_TITLES: Record<SectionKey, string> = {
   header: "Header",
   home: "Home",
+  workspace: "Workspace",
   assignments: "Assignments",
   channels: "Channels",
   outbound: "New Outbound",

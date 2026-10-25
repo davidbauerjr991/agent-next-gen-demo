@@ -54,11 +54,13 @@ function phase2(): SettingsState {
 
 /** AI-first: Phase 2 with the AI workspace in the main column and every
  *  conversation thread in the docked panel (AI display "main"), with the
- *  reference cards in their own column (P-CANVAS). */
+ *  reference cards in their own column (P-CANVAS), and the two-column
+ *  Activity Home (P-HOME-1). */
 function aiFirst(): SettingsState {
   const base = phase2();
   return {
     ...base,
+    home: { ...base.home, layout: "twoColumn" },
     ai: { ...base.ai, displayLocation: "main", canvasLayout: "twoColumn" },
     // Legs as tabs until P-STREAM lands, then "stream" (PLAN Settings "Legs as one stream").
     assignments: { ...base.assignments, legs: "tabs" },

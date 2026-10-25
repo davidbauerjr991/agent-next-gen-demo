@@ -194,13 +194,49 @@ export const keyedList =
     return out;
   };
 
-/** Dashboard sections, in v3's default order (Settings → Home). */
-export const HOME_SECTIONS = ["queue", "contactHistory", "performance", "productivity"] as const;
+/** Dashboard sections, in v3's default order (Settings → Home), then the
+ *  Activity feed and the role cards (P-HOME-1): Reminders for agents, Team
+ *  queues / Team today / Needs you for supervisors, Pipeline / Campaign
+ *  today / Follow-ups for sales. `workspace.persona` turns a role's set on. */
+export const HOME_SECTIONS = [
+  "queue",
+  "contactHistory",
+  "performance",
+  "productivity",
+  "activity",
+  "reminders",
+  "teamQueues",
+  "teamToday",
+  "needsYou",
+  "pipeline",
+  "campaignToday",
+  "followUps",
+] as const;
 export type HomeSectionKey = (typeof HOME_SECTIONS)[number];
 export interface HomeSection {
   key: HomeSectionKey;
   enabled: boolean;
 }
+
+/** The role cards are off until a persona turns its set on. */
+const HOME_SECTIONS_OFF_BY_DEFAULT: readonly HomeSectionKey[] = [
+  "teamQueues",
+  "teamToday",
+  "needsYou",
+  "pipeline",
+  "campaignToday",
+  "followUps",
+];
+
+/** oneColumn: today's rows, the feed as one more container row. twoColumn:
+ *  the welcome header, the feed as the main column, the other sections
+ *  stacked on the right (the wireframe; the AI-first built-in). */
+export const HOME_LAYOUTS = ["oneColumn", "twoColumn"] as const;
+export type HomeLayout = (typeof HOME_LAYOUTS)[number];
+export const HOME_LAYOUT_FIELD = oneOf(HOME_LAYOUTS, {
+  label: "Layout",
+  description: "One column keeps the sections as rows with the Activity feed among them; two columns puts the feed on the left and the other sections on the right.",
+});
 
 /** The Dashboard's queue tiles (`LATEST_CONTACTS_STATIC`). */
 export const HOME_QUEUE_CHANNELS = ["digital", "inboundVoice", "voicemail", "workItem", "outboundVoice"] as const;
@@ -215,6 +251,7 @@ export interface HomeSettings {
   /** Which Dashboard sections render, in this order. */
   sections: HomeSection[];
   queue: { channels: Record<HomeQueueChannel, boolean> };
+  layout: HomeLayout;
 }
 
 const home = defineSection<HomeSettings>({
@@ -226,9 +263,10 @@ const home = defineSection<HomeSettings>({
     showHeader: true,
     greeting: "Hello",
     showFirstName: true,
-    sections: HOME_SECTIONS.map((key) => ({ key, enabled: true })),
+    sections: HOME_SECTIONS.map((key) => ({ key, enabled: !HOME_SECTIONS_OFF_BY_DEFAULT.includes(key) })),
     // v3's defaults: Digital and Work Item hidden.
     queue: { channels: { digital: false, inboundVoice: true, voicemail: true, workItem: false, outboundVoice: true } },
+    layout: "oneColumn",
   },
   fields: {
     showHeader: bool(),
@@ -240,7 +278,31 @@ const home = defineSection<HomeSettings>({
         Object.fromEntries(HOME_QUEUE_CHANNELS.map((c) => [c, bool()])) as Fields<Record<HomeQueueChannel, boolean>>,
       ),
     }),
+    // A new field, not a version bump: a stored v2 value without it reads the default.
+    layout: HOME_LAYOUT_FIELD,
   },
+});
+
+/** Demo role presets until P-EMPLOYEES supplies the employee's role (PLAN.md
+ *  "Persona (demo)"): which kinds the Activity feed shows, which Home cards
+ *  are on, and the schedule's seeded day. */
+export const PERSONAS = ["agent", "supervisor", "sales"] as const;
+export type Persona = (typeof PERSONAS)[number];
+
+export const PERSONA_FIELD = oneOf(PERSONAS, {
+  label: "Persona",
+  description: "The role the workspace is set up for: its seeded day, the kinds of work in the Activity feed, and its Home cards.",
+});
+
+export interface WorkspaceSettings {
+  persona: Persona;
+}
+
+const workspace = defineSection<WorkspaceSettings>({
+  key: "workspace",
+  version: 1,
+  defaults: { persona: "agent" },
+  fields: { persona: PERSONA_FIELD },
 });
 
 /** Digital channels a contact can be auto-accepted on (calls always ring). */
@@ -652,7 +714,20 @@ const connections = defineSection<ConnectionsSettings>({
   },
 });
 
-export const SECTIONS = { header, home, assignments, channels, outbound, voice, ai, canvas, phone, appearance, connections };
+export const SECTIONS = {
+  header,
+  home,
+  workspace,
+  assignments,
+  channels,
+  outbound,
+  voice,
+  ai,
+  canvas,
+  phone,
+  appearance,
+  connections,
+};
 
 export type SectionKey = keyof typeof SECTIONS;
 export type SettingsState = { [K in SectionKey]: (typeof SECTIONS)[K]["defaults"] };

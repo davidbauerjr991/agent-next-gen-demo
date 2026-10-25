@@ -47,6 +47,13 @@ import {
   type ExtraHeaderApp,
   type HomeQueueChannel,
   type HomeSectionKey,
+  HOME_LAYOUTS,
+  HOME_LAYOUT_FIELD,
+  type HomeLayout,
+  PERSONAS,
+  PERSONA_FIELD,
+  type Persona,
+  useSetPersona,
   type PhoneSetup,
   type AiDisplayLocation,
   AI_CANVAS_LAYOUT_FIELD,
@@ -99,6 +106,25 @@ const HOME_SECTION_LABELS: Record<HomeSectionKey, string> = {
   contactHistory: "Contact history",
   performance: "Performance",
   productivity: "Productivity",
+  activity: "Activity",
+  reminders: "Reminders",
+  teamQueues: "Team queues",
+  teamToday: "Team today",
+  needsYou: "Needs you",
+  pipeline: "Pipeline",
+  campaignToday: "Campaign today",
+  followUps: "Follow-ups",
+};
+
+const HOME_LAYOUT_LABELS: Record<HomeLayout, string> = {
+  oneColumn: "One column",
+  twoColumn: "Two columns",
+};
+
+const PERSONA_LABELS: Record<Persona, string> = {
+  agent: "Agent",
+  supervisor: "Supervisor",
+  sales: "Sales",
 };
 
 // The queue tiles' names (`LATEST_CONTACTS_STATIC`).
@@ -245,6 +271,8 @@ function SwitchRow({
 export function SettingsView({ showPageHeader = true }: { showPageHeader?: boolean }) {
   const [header, updateHeader] = useSettings("header");
   const [home, updateHome] = useSettings("home");
+  const [workspace] = useSettings("workspace");
+  const setPersona = useSetPersona();
   const [assignments, updateAssignments] = useSettings("assignments");
   const [outbound, updateOutbound] = useSettings("outbound");
   const [channels, updateChannels] = useSettings("channels");
@@ -288,6 +316,19 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
       <div className="flex-1 overflow-y-auto p-6" data-testid="settings-view">
         <Section title="Workspace profile">
           <ProfileSettings />
+        </Section>
+
+        <Section title={t("Workspace")} lockKey="workspace">
+          <RadioGroup
+            label={t(PERSONA_FIELD.meta!.label)}
+            labelHelpText={t(PERSONA_FIELD.meta!.description)}
+            value={workspace.persona}
+            onValueChange={(value) => setPersona(value as Persona)}
+          >
+            {PERSONAS.map((persona) => (
+              <RadioGroupItem key={persona} value={persona} label={t(PERSONA_LABELS[persona])} />
+            ))}
+          </RadioGroup>
         </Section>
 
         <Section title="Header" lockKey="header">
@@ -382,6 +423,16 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
               onCheckedChange={(c) => updateHome({ showFirstName: c === true })}
             />
           )}
+          <RadioGroup
+            label={t(HOME_LAYOUT_FIELD.meta!.label)}
+            labelHelpText={t(HOME_LAYOUT_FIELD.meta!.description)}
+            value={home.layout}
+            onValueChange={(value) => updateHome({ layout: value as HomeLayout })}
+          >
+            {HOME_LAYOUTS.map((layout) => (
+              <RadioGroupItem key={layout} value={layout} label={t(HOME_LAYOUT_LABELS[layout])} />
+            ))}
+          </RadioGroup>
           {home.sections.map((section, index) => (
             <React.Fragment key={section.key}>
               <div className="flex max-w-sm items-center justify-between gap-2" data-home-section-row={section.key}>

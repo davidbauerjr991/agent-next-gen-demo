@@ -15,6 +15,7 @@ export {
   applyStoredTheme,
   useBrand,
 } from "./hooks";
+export { useSetPersona, withPersonaSections, PERSONA_HOME_SECTIONS } from "./persona";
 export { readLogoFile, sanitizeSvg, LOGO_ERROR_MESSAGES, type LogoReadResult } from "./brand";
 export { primaryContrastFailures, type Theme as BrandTheme } from "./brand-colors";
 export { PROFILE_LABELS, PROFILE_IDS, type ProfileId, type WorkspaceProfile } from "./profiles";
@@ -49,6 +50,13 @@ export {
   type SectionKey,
   type HeaderSettings,
   type HomeSettings,
+  HOME_LAYOUTS,
+  HOME_LAYOUT_FIELD,
+  type HomeLayout,
+  PERSONAS,
+  PERSONA_FIELD,
+  type Persona,
+  type WorkspaceSettings,
   HOME_SECTIONS,
   HOME_QUEUE_CHANNELS,
   type HomeSection,
