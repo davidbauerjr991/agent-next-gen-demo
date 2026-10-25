@@ -15,7 +15,7 @@ Every session working on the Agent Workspace Simulation build follows these:
 - Keep steps narrow: in large page files, grep and make targeted edits rather than reading whole files.
 - No non-test source file under `src/` exceeds 1,200 lines unless `scripts/size-allowlist.json` lists it with an owner step (enforced by `src/size-limit.test.ts`, which also holds the page to 621); an entry is removed once its file is under the limit.
 - Before starting any step, read PLAN.md and PROGRESS.md.
-- Reviewers scale to the commit: a step's final report runs bloat-review, lyra-review and agent-walkthrough on the flows the step touched; a P-POLISH batch or chore runs commit-check, plus lyra-review when it touched lyra or added a control by hand; docs commits run none. Fix defects before reporting, leave UX notes for Dave.
+- Reviewers scale to the commit: a step's final report runs bloat-review and lyra-review on the step's diff; agent-walkthrough runs only when Dave asks for it or the step's flows have no Playwright coverage; a P-POLISH batch or chore runs commit-check, plus lyra-review when it touched lyra or added a control by hand; docs commits run none. Fix defects before reporting, leave UX notes for Dave.
 - A clean reviewer or commit-check result clears a commit, not a push. Never push unless Dave says to in the current message.
 - A browser or regression pass runs from a worktree at a pinned commit, never the shared working tree.
 - Don't add Co-Authored-By, Claude-Session or any other attribution lines to commit messages.
