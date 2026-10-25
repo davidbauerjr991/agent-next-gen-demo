@@ -8,6 +8,7 @@ import type { FeedFilter, FeedRow } from "@/contact-handling/home/activity-feed"
 import { useActivityFeed, type ActivityFeed as ActivityFeedApi } from "@/contact-handling/home/useActivityFeed";
 import { t } from "@/i18n";
 import { ActivityRow } from "./ActivityRow";
+import { CallBackButton } from "./CallBackButton";
 
 const ALL = "all";
 
@@ -54,13 +55,16 @@ function FeedGroup({
   );
 }
 
-/** The feed itself, for the `activity` Home section (both layouts).
- *  `rowAction` adds a control to a row (History's Call back). */
-export function ActivityFeed({ rowAction }: { rowAction?: (row: FeedRow, api: ActivityFeedApi) => React.ReactNode } = {}) {
+/** The feed itself, for the `activity` Home section (both layouts). */
+export function ActivityFeed() {
   const api = useActivityFeed();
   const { feed, filters } = api;
   const now = Date.now();
-  const action = rowAction ? (row: FeedRow) => rowAction(row, api) : undefined;
+  // A completed call in History can be called back (the Phase 2 side panel's Redial, folded into the row).
+  const callBack = (row: FeedRow) => {
+    const entry = api.historyEntryOf(row);
+    return entry ? <CallBackButton entry={entry} /> : null;
+  };
 
   const chips: ToggleGroupItem[] = [
     { value: ALL, label: chipLabel(t("All")) },
@@ -113,7 +117,7 @@ export function ActivityFeed({ rowAction }: { rowAction?: (row: FeedRow, api: Ac
           now={now}
           api={api}
           empty={t("Nothing yet today")}
-          rowAction={action}
+          rowAction={callBack}
         />
       )}
       {nothingComing && <p className="lyra-body-sm text-lyra-fg-secondary">{t("Nothing coming up.")}</p>}

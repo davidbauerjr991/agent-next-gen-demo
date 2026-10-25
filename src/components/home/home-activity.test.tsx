@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
 import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
+import { TOM_LEWIS_SCRIPT } from "@/scenarios";
 
 const h = createWorkspaceHarness({ schedule: true });
 
@@ -48,7 +49,7 @@ describe("Activity feed on Home", () => {
     await showHome();
     expect(h.container.querySelector("[data-home-layout]")?.getAttribute("data-home-layout")).toBe("oneColumn");
     const order = [...h.container.querySelectorAll("[data-home-section]")].map((el) => el.getAttribute("data-home-section"));
-    expect(order).toEqual(["queue", "contactHistory", "performance productivity", "activity", "reminders"]);
+    expect(order).toEqual(["queue", "performance productivity", "activity", "reminders"]);
     expect(group("Today")?.textContent).toContain("Callback · Priya Shah");
     expect(group("This week")?.textContent).toContain("1:1 with Dana (supervisor)");
     expect(group("Needs a decision")).toBeNull();
@@ -62,7 +63,7 @@ describe("Activity feed on Home", () => {
     const home = h.container.querySelector("[data-home-layout=twoColumn]")!;
     expect(home.querySelector("[data-home-section=activity] [data-activity-feed]")).not.toBeNull();
     const side = home.querySelector("[data-home-column=side]")!;
-    expect(sectionsIn(side)).toEqual(["queue", "contactHistory", "performance", "productivity", "reminders"]);
+    expect(sectionsIn(side)).toEqual(["queue", "performance", "productivity", "reminders"]);
     expect(h.container.querySelector("[data-welcome-counts]")?.textContent).toBe(
       "0 to decide · 0 now · 5 more today · 3 this week · 2 in history",
     );
@@ -87,6 +88,25 @@ describe("Activity feed on Home", () => {
     await h.click(chip("All")!);
     expect(group("History · left the feed today")).toBeNull();
     expect(getSettingsStore().getState().values.home.layout).toBe("oneColumn");
+  });
+
+  it("today's completed call is in History with Call back; Outbound Calling → Redial off hides it", async () => {
+    await showHome();
+    await h.play(TOM_LEWIS_SCRIPT.id);
+    const decline = [...h.container.querySelectorAll("aside button")].find((b) => b.textContent === "Decline") as HTMLElement;
+    await h.click(decline);
+    await h.advance(500);
+    await h.click(chip("History")!);
+    const tom = () => rowNamed("Tom Lewis");
+    expect(tom()?.getAttribute("data-feed-status")).toBe("completed");
+    const callBack = () => [...(tom()?.querySelectorAll("button") ?? [])].find((b) => b.textContent?.trim() === "Call back");
+    expect(callBack()?.disabled).toBe(false);
+    await act(async () => {
+      getSettingsStore().update("outbound", (prev) => ({ calling: { ...prev.calling, redial: false } }));
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(tom()).toBeDefined();
+    expect(callBack()).toBeUndefined();
   });
 
   it("a ringing offer pins to Needs a decision; its row accepts it", async () => {

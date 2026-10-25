@@ -218,8 +218,11 @@ export interface HomeSection {
   enabled: boolean;
 }
 
-/** The role cards are off until a persona turns its set on. */
+/** The role cards are off until a persona turns its set on. Contact History
+ *  is off by default too (P-HOME-1: today's slice is the feed's History
+ *  chip), not deleted: the agent can still turn it on. */
 const HOME_SECTIONS_OFF_BY_DEFAULT: readonly HomeSectionKey[] = [
+  "contactHistory",
   "teamQueues",
   "teamToday",
   "needsYou",

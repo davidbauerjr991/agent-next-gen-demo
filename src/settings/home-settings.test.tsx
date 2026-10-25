@@ -42,9 +42,13 @@ const queueTileNames = () => {
 };
 
 describe("Home: the Dashboard follows Settings → Home", () => {
-  it("defaults: the header with Hello + first name, v3's sections then Activity and Reminders, three queue tiles", async () => {
+  it("defaults: the header with Hello + first name, v3's sections (Contact History off) then Activity and Reminders, three queue tiles", async () => {
     await h.show(AgentWorkspaceAdvancedPage);
     expect(headings()).toContain(`Hello ${CURRENT_AGENT_FIRST_NAME}`);
+    expect(renderedSections()).toEqual(["queue", "performance productivity", "activity", "reminders"]);
+    // Off by default, not deleted: still a section the agent can turn on.
+    expect(SECTIONS.home.defaults.sections.find((s) => s.key === "contactHistory")).toEqual({ key: "contactHistory", enabled: false });
+    await setHome({ sections: SECTIONS.home.defaults.sections.map((s) => (s.key === "contactHistory" ? { ...s, enabled: true } : s)) });
     expect(renderedSections()).toEqual(["queue", "contactHistory", "performance productivity", "activity", "reminders"]);
     expect(queueTileNames()).toEqual(["Inbound Voice", "Voicemail", "Outbound Voice"]);
   });
@@ -178,7 +182,7 @@ describe("home section storage", () => {
     expect(value.sections).toEqual([
       { key: "productivity", enabled: false },
       { key: "queue", enabled: true },
-      { key: "contactHistory", enabled: true },
+      { key: "contactHistory", enabled: false },
       { key: "performance", enabled: true },
       { key: "activity", enabled: true },
       { key: "reminders", enabled: true },
