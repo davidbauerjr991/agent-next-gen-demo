@@ -12,7 +12,7 @@ import { useReplyBlockedReason, copilotSuggestionsFor, useChannelThreadMenu, typ
 import type { CustomerPanelTabLabel } from "@/components/customer-info";
 import { LUCAS_THOMAS_ID } from "@/contact-handling/scenario-cases";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
-import { useRequestNextBestAction, withNextBestActionChip, withoutCopilotChips } from "@/contact-handling/next-best-action";
+import { copilotChipsFor, useRequestNextBestAction } from "@/contact-handling/next-best-action";
 import { headerPatchForPin, homeTabApps, pinnedKeysFromHeader, useSettings } from "@/settings";
 import { useHomeTabs } from "@/components/home-tabs-state";
 import type { LucasThomasPanelKey, LucasThomasMemoryFocus } from "@/components/agent-next-gen-lucas-thomas-panels";
@@ -31,7 +31,7 @@ import type { WsDetails } from "./useWsDetails";
 export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
   const {
     activeChannelKey, activeInteraction, activeInteractionId, aiInPanel, channelPreviewThreadKey, customerPanelActiveTab,
-    handleCopilotAsk, interactions, omni, openDetailPanelContent, panelPlacement, pendingCustomerPanelTabRef,
+    handleCopilotAsk, interactions, omni, openDetailPanelContent, panelPlacement,
     restoredCustomerPanelTabRef, scenarioCases, scenarioKeyOf, setActiveInteractionId, setCustomerPanelActiveTab,
     setHistoryConversationTab, setLinkCustomerPanelOpen, setSelectedDetailPanelContent, setVoiceVideoFullScreen,
     setVoiceVideoWindowOpen, setWindowWidth, showSettings,
@@ -42,9 +42,9 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
   // The Next Best Action on request (P-CANVAS; every AI display): the "What should I do next?" chip.
   const requestNextBestAction = useRequestNextBestAction(interactions);
   const copilotComposerProps = (interactionId: string, threadKey: string): CopilotComposerProps =>
-    prev.botHolds(interactionId)
-      ? withoutCopilotChips(baseCopilotComposerProps(interactionId, threadKey))
-      : withNextBestActionChip(baseCopilotComposerProps(interactionId, threadKey), () => requestNextBestAction(interactionId, threadKey));
+    copilotChipsFor(baseCopilotComposerProps(interactionId, threadKey), prev.botHolds(interactionId), () =>
+      requestNextBestAction(interactionId, threadKey),
+    );
   const baseCopilotComposerProps = (interactionId: string, threadKey: string): CopilotComposerProps => {
     const isLucas = scenarioKeyOf(interactionId) === LUCAS_THOMAS_ID;
     const channel = interactions.find((i) => i.id === interactionId)?.threads.find((t) => (t.id ?? t.type) === threadKey)?.type;
@@ -107,14 +107,8 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
       // guard needed any more. (The reset itself displays as the
       // "Overview" tab — see this file's own
       // `label === "Details" ? "Overview" : label` render sites.) Per a
-      // later explicit request, `pendingCustomerPanelTabRef` (own doc
-      // comment above) overrides this default just once, for the one case
-      // that needs to land on a specific tab instead — the "View
-      // Transcript?" confirm's own navigate-then-show-Transcript flow.
-      if (pendingCustomerPanelTabRef.current) {
-        setCustomerPanelActiveTab(pendingCustomerPanelTabRef.current);
-        pendingCustomerPanelTabRef.current = null;
-      } else if (restoredCustomerPanelTabRef.current) {
+      // later explicit request, a restored tab overrides this default once.
+      if (restoredCustomerPanelTabRef.current) {
         setCustomerPanelActiveTab(restoredCustomerPanelTabRef.current);
         restoredCustomerPanelTabRef.current = null;
       } else {

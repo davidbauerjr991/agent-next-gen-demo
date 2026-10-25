@@ -476,8 +476,8 @@ export function AgentWorkspaceAdvancedPage({
               `liveVoiceCallInteraction`/`liveVoiceCallThread` rather than
               `activeInteraction`/`activeChannel` (so hanging up or the
               running timer still target the right call once it's no
-              longer the active one); `onToggleTranscript`/`onToggleVideo`
-              stay wired to `sidePanelOpen`/the video window exactly as
+              longer the active one); `onToggleVideo`
+              stays wired to the video window exactly as
               before, but ONLY while `isViewingLiveVoiceCallInteraction` —
               both are page-level UI that belongs to whichever interaction
               is currently ON SCREEN, not to whichever one happens to have

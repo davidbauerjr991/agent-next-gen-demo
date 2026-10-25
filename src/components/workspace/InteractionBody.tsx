@@ -10,7 +10,7 @@ import { HostSlot } from "@/contact-handling/portal-hosts";
 import { LUCAS_THOMAS_ID, MARCUS_WEBB_ID, MAYA_CHEN_CALL_ID } from "@/contact-handling/scenario-cases";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useCanvasRegions } from "@/contact-handling/useCanvasRegions";
-import { withNextBestActionChip, withoutCopilotChips } from "@/contact-handling/next-best-action";
+import { copilotChipsFor, withNextBestActionChip } from "@/contact-handling/next-best-action";
 import { ReferenceSlot } from "./ReferenceSlot";
 import { HistoryConversationView } from "@/components/customer-info";
 import { InteractionComposer, InteractionTranscript } from "@/components/transcript/InteractionTranscript";
@@ -549,7 +549,7 @@ export function InteractionBody() {
                                 panelPlacement ||
                                 activeChannelType === "voice" ||
                                 activeChannelType === "email" ||
-                                (scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && lucasThomasReviewing)
+                                botHolds(activeInteraction.id)
                               }
                               // Only while the AI holds the chat (gone once taken over, in every mode).
                               onTakeover={scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && lucasThomasReviewing ? () => handleLucasTakeover() : undefined}
@@ -589,18 +589,16 @@ export function InteractionBody() {
                             takeoverDisabledReason="A call is already in progress"
                             onTakeover={marcusWebbReviewing ? () => scenarioCases.takeOver(MARCUS_WEBB_ID, { handoff: true }) : undefined}
                             onSend={() => {}}
-                            {...(() => {
-                              const chips = {
+                            {...copilotChipsFor(
+                              {
                                 copilotSuggestions: MARCUS_WEBB_SCRIPT.content.copilot?.suggestions,
                                 copilotSuggestionLinks: MARCUS_WEBB_SCRIPT.content.copilot?.links,
                                 onCopilotSuggestionLink: (key: string) => snapshotLinkHandlerFor(activeInteraction.id)(key),
                                 onCopilotAsk: (text: string) => handleCopilotAsk(activeInteraction.id, activeChannelKey, text),
-                              };
-                              // No chip row while the bot holds the call.
-                              return botHolds(activeInteraction.id)
-                                ? withoutCopilotChips(chips)
-                                : withNextBestActionChip(chips, () => requestNextBestAction(activeInteraction.id, activeChannelKey));
-                            })()}
+                              },
+                              botHolds(activeInteraction.id),
+                              () => requestNextBestAction(activeInteraction.id, activeChannelKey),
+                            )}
                           />
                         )}
                         </>

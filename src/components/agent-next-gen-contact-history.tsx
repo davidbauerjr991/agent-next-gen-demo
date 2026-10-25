@@ -47,8 +47,7 @@ import {
 // Per explicit request ("for phase 1 we will not have the transcript
 // available"), then an explicit follow-up ("don't entirely remove
 // transcript, just hide it") — same "hide, don't destroy" pattern this
-// app already uses elsewhere (`SHOW_CHANNEL_TOGGLE_GROUP`/
-// `SHOW_END_CALL_IN_INTERACTION_NAV_ROWS`, AgentWorkspaceAdvancedPage.tsx):
+// app already uses elsewhere (`SHOW_CHANNEL_TOGGLE_GROUP`, AgentWorkspaceAdvancedPage.tsx):
 // `ContactHistoryEntryDetail`'s own synthesized "Transcript" section
 // (`buildContactHistoryMessages` — there's no REAL recorded transcript for
 // a voice call in this app) stays fully implemented, just gated off by

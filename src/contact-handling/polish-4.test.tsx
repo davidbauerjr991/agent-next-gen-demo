@@ -243,3 +243,20 @@ describe("4. real skills; the status chip carries the review state", () => {
     expect(leaf(main, "Pending")).toHaveLength(0);
   });
 });
+
+describe("reviewer fixes", () => {
+  it("Lucas, main: the panel thread's Consult / Transfer and Add Participant are disabled before takeover, enabled after", async () => {
+    await lucas("main");
+    const inPanel = (title: string) => panel().querySelector<HTMLButtonElement>(`button[title="${title}"], button[aria-label="${title}"]`);
+    expect(inPanel("Consult / Transfer")?.disabled).toBe(true);
+    expect(inPanel("Add Participant")?.disabled).toBe(true);
+    await h.click(buttonText(document.body, "Takeover Chat") ?? buttonText(document.body, "Takeover")!);
+    await h.advance(3_000);
+    expect(inPanel("Consult / Transfer")?.disabled).toBe(false);
+  });
+
+  it("Lucas's sessions name his skill (Checkout), not the mock log's SMS Support", async () => {
+    await lucas("inline");
+    expect(h.container.textContent).not.toContain("SMS Support");
+  });
+});

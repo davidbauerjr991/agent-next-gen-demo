@@ -6,6 +6,8 @@ import React, { useState } from "react";
 import { Button, KebabMenuButton, Popover, Tooltip, type MenuEntry } from "@nicecxone/lyra-ui";
 import { ChevronsDownUp, ChevronsUpDown, PanelRight, Trash2, UserPlus, UserX, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DisabledReason } from "@/contact-handling/DisabledReason";
+import { t } from "@/i18n";
 import { TransferIcon } from "./session-row-parts";
 import { SessionOutcomeButton, SessionStatusChip } from "./SessionStatusOutcomeCluster";
 import type { TranscriptSessionSeparatorProps } from "./session-row-props";
@@ -142,14 +144,18 @@ export function SessionActionCluster({
                 add a participant to on a closed or still-draft thread
                 either. */}
             {showConsultTransferAndAddParticipant && showAddParticipant && !isClosed && !isNewThread && (
-              <Button variant="icon" size="icon-sm" title="Add Participant" className="text-lyra-fg-secondary">
-                <UserPlus className="h-4 w-4" strokeWidth={1.5} />
-              </Button>
+              <DisabledReason reason={controlsReadOnly ? t("Take over to add a participant") : undefined}>
+                <Button variant="icon" size="icon-sm" title="Add Participant" disabled={controlsReadOnly} className="text-lyra-fg-secondary">
+                  <UserPlus className="h-4 w-4" strokeWidth={1.5} />
+                </Button>
+              </DisabledReason>
             )}
             {showConsultTransferAndAddParticipant && !transferInKebabMenu && !isClosed && !isNewThread && (
-              <Button variant="icon" size="icon-sm" title="Consult / Transfer" className="text-lyra-fg-secondary">
-                <TransferIcon />
-              </Button>
+              <DisabledReason reason={controlsReadOnly ? t("Take over to transfer") : undefined}>
+                <Button variant="icon" size="icon-sm" title="Consult / Transfer" disabled={controlsReadOnly} className="text-lyra-fg-secondary">
+                  <TransferIcon />
+                </Button>
+              </DisabledReason>
             )}
             <SessionOutcomeButton
               outcome={outcome}

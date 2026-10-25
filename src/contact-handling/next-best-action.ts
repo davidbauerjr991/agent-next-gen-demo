@@ -268,8 +268,13 @@ type CopilotChipProps = {
 
 /** No chip row: while the bot holds the assignment the agent has nothing to ask yet (the same rule that hides the
  *  chat input); the row is back on takeover. */
-export function withoutCopilotChips<P extends CopilotChipProps>(props: P): P {
+function withoutCopilotChips<P extends CopilotChipProps>(props: P): P {
   return { ...props, copilotSuggestions: [], copilotPinnedSuggestion: undefined, copilotSuggestionLinks: undefined };
+}
+
+/** The composer's chips for a card: none while the bot holds it, otherwise with the Next Best Action chip. */
+export function copilotChipsFor<P extends CopilotChipProps>(props: P, botHolds: boolean, ask: () => void): P {
+  return botHolds ? withoutCopilotChips(props) : withNextBestActionChip(props, ask);
 }
 
 /** A Copilot composer's chips and asks, with "What should I do next?" as a

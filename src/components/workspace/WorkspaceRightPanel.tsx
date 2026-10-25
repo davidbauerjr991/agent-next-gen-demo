@@ -42,7 +42,7 @@ export function WorkspaceRightPanel() {
     effectiveSidePanelPinned, experienceMemoryFocus, focusCustomerPanelTab, handleBackToCustomerSearch,
     handleInteractionStatusChange, handleLinkCustomerRecord, handleOutcomeSaveAndDismissChannel,
     handleSaveNewCustomer, handleSendEmailDraft, handleSendMessage, handleSidePanelClose, handleStartCall, handleStartCreateCustomer,
-    botHolds, hideAiActions, isSidePanelAtMinimalThreshold, linkCustomerPanelOpen, lucasThomasReviewing, marcusMemoryFocus,
+    botHolds, hideAiActions, isSidePanelAtMinimalThreshold, linkCustomerPanelOpen, marcusMemoryFocus,
     onSidePanelHoverEnd, onSidePanelHoverStart, openDetailPanelContent, outcomeDrafts, panelArtifacts,
     panelPlacement, possibleCustomerMatches, reopenPanelArtifact,
     rightPanelRef, scenarioKeyOf, sessionDetailsTabContent, setActiveCustomerOverviewEditing,
@@ -406,7 +406,7 @@ export function WorkspaceRightPanel() {
                     channelPreviewThread
                       ? threadAcceptsReplies(activeInteraction, channelPreviewThread) &&
                         // An AI-led chat under review has no chat input until the agent takes over.
-                        !(scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID && lucasThomasReviewing)
+                        !botHolds(activeInteraction.id)
                         ? (
                           <ChannelThreadComposer
                             hideAiActions={hideAiActions}

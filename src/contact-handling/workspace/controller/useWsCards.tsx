@@ -842,8 +842,8 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
       !!liveVoiceCallInteraction.entityId?.startsWith("history:")
     : false;
   // Whether the call-controls bar below is showing for whichever
-  // interaction is ALSO the one currently on screen — `onToggleTranscript`/
-  // `onToggleVideo` below only make sense against that one interaction's
+  // interaction is ALSO the one currently on screen — `onToggleVideo`
+  // below only makes sense against that one interaction's
   // own `sidePanelOpen`/video-window state, both of which are page-level UI
   // tied to whatever `activeInteractionId` currently is, not to
   // `liveVoiceCallInteraction` itself. Neither button is wired at all

@@ -627,22 +627,8 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
   // A Contact Details tab (`ContactDetailsTabId`) or sub-page; what the panel
   // shows is this resolved for the card and mode (`contactDetailsView`, P-CANVAS).
   const [customerPanelActiveTab, setCustomerPanelActiveTab] = useState<ContactDetailsView>("Details");
-  // Per explicit request ("when the agent confirms navigating away to view
-  // the transcript, it should display the Transcript tab once it
-  // transitions to the contact"): the interaction-switch effect just below
-  // unconditionally resets `customerPanelActiveTab` back to "Details" on
-  // EVERY `activeInteractionId` change, including the one
-  // `onConfirmViewTranscript` triggers via `switchActiveInteraction` — that
-  // reset is a `useEffect`, so it always runs AFTER this handler's own
-  // synchronous `setCustomerPanelActiveTab("Transcript")` call, silently
-  // clobbering it back to "Details" a render later. A plain ref (not
-  // state) that the reset effect itself checks and clears: set right
-  // before calling `switchActiveInteraction`, so it survives until that
-  // effect actually runs, without needing to touch every other existing
-  // "switch interaction" call site that's fine with the normal "Details"
-  // reset.
+  // The tab to land on after the next interaction switch (the switch effect resets the tab to "Details" otherwise).
   const restoredCustomerPanelTabRef = useRef<typeof customerPanelActiveTab | null>(null);
-  const pendingCustomerPanelTabRef = useRef<"Transcript" | null>(null);
   // The Marcus Webb action-log detail panel and the "Do Something"
   // knowledge-article panel used to be two SEPARATE floating
   // `InteriorPanel` overlays with two separate pieces of state — per
@@ -847,7 +833,7 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
     showWelcomeModal, setShowWelcomeModal, statusSinceTick, setStatusSinceTick, appMenuOpen, setAppMenuOpen,
     appearance, updateAppearance, darkMode, handleDarkModeToggle, appDisplayName, logoSrc, appMenuGroups, panelOpen,
     setPanelOpen, voiceVideoWindowOpen, setVoiceVideoWindowOpen, voiceVideoFullScreen, setVoiceVideoFullScreen,
-    customerPanelActiveTab, setCustomerPanelActiveTab, restoredCustomerPanelTabRef, pendingCustomerPanelTabRef,
+    customerPanelActiveTab, setCustomerPanelActiveTab, restoredCustomerPanelTabRef,
     detailPanelByInteraction, setDetailPanelByInteraction, selectedDetailPanelContent, setSelectedDetailPanelContent,
     detailPanelArtifactKey, detailPanelArtifactLabel, panelArtifactsByInteraction, setPanelArtifactsByInteraction,
     lucasActiveLinkKey, panelArtifacts, reopenPanelArtifact, lastDetailPanelContent, setLastDetailPanelContent,

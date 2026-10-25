@@ -131,7 +131,7 @@ export function deriveTranscriptSessions(input: TranscriptSessionsInput, now: Da
   // The shared chat log is mocked as an SMS thread; a text thread's sessions name the thread's own channel (one label
   // source, the channel type), so Lucas's chat reads "Chat" in every layout.
   const baseSessions: TranscriptSession[] = isTextChannel
-    ? loggedSessions.map((s) => (s.channel === freshSessionChannelLabel ? s : { ...s, channel: freshSessionChannelLabel }))
+    ? loggedSessions.map((s) => ({ ...s, channel: freshSessionChannelLabel, skill: skillLabel ?? s.skill }))
     : loggedSessions;
   // One more synthetic, empty "Session Details" separator per reopen — see
   // `reopenedContacts`' own doc comment (`InteractionTranscript`). Same

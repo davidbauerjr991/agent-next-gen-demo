@@ -40,7 +40,7 @@ function TranscriptBody() {
   return (
     <div data-slot="contact-details-transcript">
       {menu && (
-        <div className="flex shrink-0 items-center justify-between px-6 py-1" data-slot="transcript-tab-header">
+        <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between bg-lyra-bg-surface-base px-6 py-1" data-slot="transcript-tab-header">
           <span className="lyra-label text-lyra-fg-default">{t("Transcript")}</span>
           <KebabMenuButton ariaLabel={t("Transcript options")} align="right" items={menu} />
         </div>

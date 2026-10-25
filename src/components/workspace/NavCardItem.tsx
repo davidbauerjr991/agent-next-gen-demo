@@ -21,7 +21,6 @@ import { NeedsOutcomeBadge } from "@/components/OnHoldBadge";
 import type { Interaction, Thread } from "@/components/agent-next-gen-interaction-dashboard";
 import { formatElapsedTime, getAwaitingSeverity } from "@/components/agent-next-gen-shared-utils";
 import { InteractionNavCard } from "./left-nav-parts";
-import { SHOW_END_CALL_IN_INTERACTION_NAV_ROWS } from "./workspace-constants";
 
 /** One assignment card in the left nav (P-EXTRACT C8, from the page): the
  *  body of the card's `ClockTick` callback, so a tick re-renders this card
@@ -391,14 +390,8 @@ export function NavCardItem({
                     // Dismiss icon above — dismissing was never part of this
                     // lock, on either this left-nav copy or the transcript
                     // header's own identical `controlsReadOnly` idea.
-                    controlsDisabled:
-                      scenarioKeyOf(interaction.id) === MARCUS_WEBB_ID
-                        ? marcusWebbReviewing
-                        : // Outcome (and the kebab) stay locked on Lucas until the agent takes over.
-                        scenarioKeyOf(interaction.id) === LUCAS_THOMAS_ID
-                        ? lucasThomasReviewing
-                        : // Outcome stays locked on an incoming call until it is accepted.
-                          interaction.offered || undefined,
+                    // Locked while the bot holds the card, and on an incoming call until it is accepted.
+                    controlsDisabled: cardHeldByBot || interaction.offered || undefined,
                     // A consult is only for live legs (voice, chat); the other rows offer Transfer alone.
                     consultTransferLabel: consultChannels.includes(c.type as ChannelKind) ? undefined : t("Transfer"),
                     // While the bot holds the assignment (the review state), both are disabled with the reason.
@@ -406,7 +399,6 @@ export function NavCardItem({
                     endCallDisabledReason: cardHeldByBot ? t("Take over to end the call") : undefined,
                     // End call on a live voice leg; with Close confirmation on it asks first.
                     onEndCall:
-                      SHOW_END_CALL_IN_INTERACTION_NAV_ROWS &&
                       c.type === "voice" &&
                       !interaction.closed &&
                       !interaction.voiceCallEnded &&

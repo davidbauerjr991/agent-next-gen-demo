@@ -124,5 +124,3 @@ export const MAYA_CHEN_CALL_OVERVIEW = MAYA_CHEN_SCRIPT.content.overview!;
 export const MAYA_CHEN_CALL_COPILOT_SUGGESTIONS: string[] = MAYA_CHEN_SCRIPT.content.copilot!.suggestions;
 export const MAYA_CHEN_CALL_COPILOT_LINKS: Record<string, string> = MAYA_CHEN_SCRIPT.content.copilot!.links;
 
-/** Shows End call in the nav rows' hover cluster for a live voice leg. */
-export const SHOW_END_CALL_IN_INTERACTION_NAV_ROWS = true;
