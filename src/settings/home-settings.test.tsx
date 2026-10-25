@@ -42,10 +42,10 @@ const queueTileNames = () => {
 };
 
 describe("Home: the Dashboard follows Settings → Home", () => {
-  it("defaults: the header with Hello + first name, every section in v3's order, three queue tiles", async () => {
+  it("defaults: the header with Hello + first name, v3's sections then Activity and Reminders, three queue tiles", async () => {
     await h.show(AgentWorkspaceAdvancedPage);
     expect(headings()).toContain(`Hello ${CURRENT_AGENT_FIRST_NAME}`);
-    expect(renderedSections()).toEqual(["queue", "contactHistory", "performance productivity"]);
+    expect(renderedSections()).toEqual(["queue", "contactHistory", "performance productivity", "activity", "reminders"]);
     expect(queueTileNames()).toEqual(["Inbound Voice", "Voicemail", "Outbound Voice"]);
   });
 

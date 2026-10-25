@@ -72,6 +72,8 @@ export interface WorkspaceUiState {
   /** P-PROFILES: the assignments panel is open as an overlay (it doesn't dock,
    *  or the agent unpinned it), from the rail's Assignments item. */
   assignmentsPanelOverlayOpen: boolean;
+  /** P-HOME-1: the Activity feed's chips (empty: All), shared by the feed and the welcome header's counts. */
+  activityFilters: ReadonlySet<"assignments" | "history">;
 }
 
 export interface ReferenceFocusState {
@@ -102,6 +104,7 @@ export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
   referenceSlotWidth: null,
   assignmentsPanelDocks: true,
   assignmentsPanelOverlayOpen: false,
+  activityFilters: new Set<"assignments" | "history">(),
 });
 
 export interface WorkspaceUiStore {

@@ -31,6 +31,8 @@ export type { InteractionStoreStatus, TranscriptState, TypingState } from "./int
 // Assist card store hook (P-CANVAS): a contact's Next Best Action and Real-Time Summary cards.
 export { getAssistCardStore, useAssistCardsByContact, useContactAssistCards } from "./assist-card-store";
 export type { ContactAssistCards, NextBestActionCard, RealTimeSummaryCard, RealTimeSummaryState } from "./assist-card-store";
+// Schedule store hooks (P-HOME-1): the persona's listed day.
+export { useListScheduleDay, useScheduleSnapshot } from "./schedule-store";
 export { readProviderKind, readSimLatency, type ProviderKind, type SimLatencyPreset } from "./provider-kind";
 export type { ProviderFactory } from "./factories";
 export type { ProviderContextValue } from "./context";

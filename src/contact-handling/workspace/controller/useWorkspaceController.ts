@@ -9,6 +9,8 @@ import { useWsHeaderApps } from "./useWsHeaderApps";
 import { useGuidanceFocus } from "../../reference-cards";
 import { useNbaPause, useNbaSurfacing, useNbaTurns } from "../../next-best-action";
 import { useCannedVoiceReplies } from "../../canned-voice-replies";
+import { useListScheduleDay } from "@/provider-context";
+import { useSettings } from "@/settings";
 
 /** The agent workspace's controller (P-EXTRACT C8b): everything the page's
  *  body computed, in the same order (so the hooks run in the same order),
@@ -51,6 +53,8 @@ export function useWorkspaceController(props: WorkspaceControllerProps) {
   const onQuietPause = useCannedVoiceReplies(workspace.interactions, workspace.setInteractions, scriptedContactIds);
   useNbaPause(workspace.interactions, scriptedContactIds, onQuietPause);
   useNbaTurns();
+  // P-HOME-1: the persona's day from the schedule source; a persona change lists (and re-seeds) another.
+  useListScheduleDay(useSettings("workspace")[0].persona);
   return workspace;
 }
 

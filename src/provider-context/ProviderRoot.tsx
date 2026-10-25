@@ -5,6 +5,7 @@ import { ProviderContext, type ProviderContextValue } from "./context";
 import { PROVIDER_FACTORIES, type ProviderFactory } from "./factories";
 import { getInteractionStore } from "./interaction-store";
 import { getAssistCardStore } from "./assist-card-store";
+import { getScheduleStore } from "./schedule-store";
 import { peekProviderSet, releaseProviderSet, retainProviderSet } from "./provider-cache";
 import type { ProviderKind, SimLatencyPreset } from "./provider-kind";
 
@@ -43,6 +44,14 @@ export function ProviderRoot({ kind, profile, database, factory, simLatency, chi
   // The assist card store (P-CANVAS) the same way, so no guidance card is missed.
   useEffect(() => {
     const store = getAssistCardStore(providers.assist);
+    store.start();
+    return () => store.stop();
+  }, [providers]);
+
+  // The schedule store (P-HOME-1) the same way, when the set has a schedule source.
+  useEffect(() => {
+    if (!providers.schedule) return;
+    const store = getScheduleStore(providers.schedule);
     store.start();
     return () => store.stop();
   }, [providers]);
