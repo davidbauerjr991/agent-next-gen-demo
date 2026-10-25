@@ -29,15 +29,16 @@ export const CASE_CUSTOMER_RECORDS: Readonly<Record<string, CaseCustomerRecord>>
     city: "Springfield",
     state: "IL",
     postalCode: "62704",
-    balance: "-$200.00",
+    balance: "$0.00",
+    // His latest transaction is the pending refund credit, so the record reads as a refund case.
     latestInteraction: {
-      timeAgo: "6 weeks ago",
+      timeAgo: "Today",
       channel: "Voice",
-      status: "Resolved",
-      statusVariant: "success",
-      summary: "Reported a Bluetooth speaker with water damage on arrival. Approved a $89.00 refund under the auto-approval limit.",
-      caseId: "CASE-38877",
-      handledBy: "Daniel Reyes",
+      status: "Pending",
+      statusVariant: "warning",
+      summary: "$200.00 refund credit for the cracked headphones (order #48213), pending a person's approval.",
+      caseId: "RF-20452",
+      handledBy: "Cognigy AI Agent",
     },
   },
   // Lucas Thomas: the Aurora X2 launch order is held at its launch price, unpaid.

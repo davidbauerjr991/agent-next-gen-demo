@@ -70,7 +70,8 @@ test("4: Sarah Brown with two SMS threads: one SMS icon reading 2; its menu list
 test("6: panel mode, an interstitial in the Contact Details hover preview opens the docked panel on Contact Details and its slide-over, in one click", async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 1000 });
   await lucasInPanelMode(page);
-  // An interstitial: ask Copilot through a chip; close the slide-over it opens.
+  // An interstitial: ask Copilot through a chip (the chip row shows once the agent has the chat); close the slide-over it opens.
+  await page.getByRole("button", { name: /^Takeover/ }).first().click();
   await page.locator("[data-slot=copilot-composer] [role=button]", { hasText: "Show purchase history" }).click();
   const closeSlideOver = page.getByRole("button", { name: "Close Purchase history" });
   await expect(closeSlideOver).toBeVisible({ timeout: 5_000 });
