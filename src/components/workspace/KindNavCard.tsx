@@ -5,7 +5,7 @@
 import { scheduleCardKey } from "@/domain";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import type { ScheduleItem } from "@/providers";
-import { feedTimeLabel } from "@/components/home/ActivityRow";
+import { feedTimeLabel } from "@/contact-handling/home/time";
 import { KindTag } from "@/components/home/home-kinds";
 import { InteractionNavCard } from "./left-nav-parts";
 

@@ -15,7 +15,7 @@ import { Tag, type TagVariant } from "@nicecxone/lyra-ui";
 import type { AssignmentKind } from "@/domain";
 import { t } from "@/i18n";
 
-export const KIND_LABELS: Record<AssignmentKind, string> = {
+const KIND_LABELS:Record<AssignmentKind, string> = {
   conversation: "Conversation",
   callback: "Callback",
   meeting: "Meeting",
@@ -26,7 +26,7 @@ export const KIND_LABELS: Record<AssignmentKind, string> = {
   evaluation: "Evaluation",
 };
 
-export const KIND_ICONS: Record<AssignmentKind, LucideIcon> = {
+const KIND_ICONS:Record<AssignmentKind, LucideIcon> = {
   conversation: MessageSquare,
   callback: PhoneCall,
   meeting: CalendarDays,

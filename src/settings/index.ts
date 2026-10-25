@@ -15,7 +15,7 @@ export {
   applyStoredTheme,
   useBrand,
 } from "./hooks";
-export { useSetPersona, withPersonaSections, PERSONA_HOME_SECTIONS } from "./persona";
+export { useSetPersona } from "./persona";
 export { readLogoFile, sanitizeSvg, LOGO_ERROR_MESSAGES, type LogoReadResult } from "./brand";
 export { primaryContrastFailures, type Theme as BrandTheme } from "./brand-colors";
 export { PROFILE_LABELS, PROFILE_IDS, type ProfileId, type WorkspaceProfile } from "./profiles";
@@ -56,8 +56,6 @@ export {
   PERSONAS,
   PERSONA_FIELD,
   type Persona,
-  type WorkspaceSettings,
-  TOAST_EVENTS,
   TOAST_EVENTS_RAISED,
   TOAST_EVENT_FIELDS,
   TOAST_DURATION_FIELD,
@@ -67,7 +65,6 @@ export {
   type ToastEvent,
   type ToastPosition,
   type ToastSettings,
-  type NotificationsSettings,
   HOME_SECTIONS,
   HOME_QUEUE_CHANNELS,
   type HomeSection,

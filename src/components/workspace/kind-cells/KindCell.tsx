@@ -4,7 +4,7 @@
 // gives each kind its full cells through the canvas registry.
 import { DashboardCard, LYRA_CARD_MAX_WIDTH, PageHeader, Tag } from "@nicecxone/lyra-ui";
 import { KindTag } from "@/components/home/home-kinds";
-import { feedTimeLabel } from "@/components/home/ActivityRow";
+import { feedTimeLabel } from "@/contact-handling/home/time";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useScheduleProvider } from "@/provider-context";
 import type { ScheduleItem, ScheduleOutcome } from "@/providers";

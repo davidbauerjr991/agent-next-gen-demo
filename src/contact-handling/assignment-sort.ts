@@ -3,16 +3,14 @@
 // per-browser working state (`./assignment-order-store.ts`). `interactions`
 // itself stays in insertion order: only the nav's rendering reorders a copy.
 import { t } from "@/i18n";
+import { CHANNEL_NAMES } from "./home/channel-names";
 import type { AssignmentSortMode, AssignmentSortSettings } from "@/settings";
 import { sortAssignments, type Interaction } from "@/components/agent-next-gen-interaction-dashboard";
 
-/** The channel names Channel A–Z sorts by (English source text, through `t()`). */
-const CHANNEL_NAMES: Record<string, string> = { chat: "Chat", email: "Email", sms: "SMS", voice: "Voice", whatsapp: "WhatsApp" };
-
-/** A card's channel for Channel A–Z: its first thread's. */
+/** A card's channel for Channel A–Z: its first thread's (the shared channel names, through `t()`). */
 function channelName(interaction: Interaction): string {
   const first = [...interaction.threads].sort((a, b) => a.startTick - b.startTick)[0];
-  return first ? t(CHANNEL_NAMES[first.type] ?? first.type) : "";
+  return first ? t((CHANNEL_NAMES as Record<string, string>)[first.type] ?? first.type) : "";
 }
 
 const lastUpdated = (i: Interaction) => Math.max(...i.threads.map((c) => c.startTick), -Infinity);

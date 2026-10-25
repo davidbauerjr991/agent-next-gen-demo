@@ -1,6 +1,7 @@
 import * as React from "react";
 import { MenuItem } from "@nicecxone/lyra-ui";
 import type { FeedRow } from "@/contact-handling/home/activity-feed";
+import { feedTimeLabel } from "@/contact-handling/home/time";
 import { t } from "@/i18n";
 import { KindIcon, KindTag } from "./home-kinds";
 
@@ -10,17 +11,6 @@ const STATUS_LABELS: Record<FeedRow["status"], string> = {
   inRail: "Accepted · in Assignments",
   completed: "Completed",
 };
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-/** "11:00 AM" today; "Tue 11:30 AM" another day. */
-export function feedTimeLabel(at: number, now: number): string {
-  const sameDay = new Date(at).toDateString() === new Date(now).toDateString();
-  const time = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(at);
-  if (sameDay) return time;
-  const day = new Intl.DateTimeFormat(undefined, { weekday: "short" }).format(at);
-  return Math.abs(at - now) < 7 * DAY_MS ? `${day} ${time}` : new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(at);
-}
 
 /** One feed row: the kind's icon and chip, the title, the one-line detail
  *  with its source, the time or due, and the status. Clicking opens it.

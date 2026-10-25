@@ -20,8 +20,6 @@ const NOTIFICATION_TITLES: Record<ToastEvent, string> = {
   transfer: "Transfer arriving",
 };
 
-let counter = 0;
-
 /** Focuses the composer once the opened thread has rendered it. */
 function focusComposerSoon(tries = 10) {
   requestAnimationFrame(() => {
@@ -42,13 +40,15 @@ export function useAssignmentToasts(ws: WorkspaceBase) {
   // The handlers below read the latest of these, not the values they were registered with.
   const latest = useRef({ ws, settings });
   latest.current = { ws, settings };
+  // Toast ids, per workspace mount (a toast's id is also its drawer row's).
+  const counter = useRef(0);
 
   const raise = useCallback(
     (toast: Omit<AssignmentToast, "id" | "urgent">) => {
       const { ws: w, settings: s } = latest.current;
       if (!toastAllowed(toast.event, s, !!w.liveVoiceCallInteraction)) return;
-      counter += 1;
-      const id = `${TOAST_NOTIFICATION_PREFIX}${counter}`;
+      counter.current += 1;
+      const id = `${TOAST_NOTIFICATION_PREFIX}${counter.current}`;
       const full: AssignmentToast = { ...toast, id, urgent: URGENT_TOAST_EVENTS.includes(toast.event) };
       store.update((state) => ({ ...state, assignmentToasts: [...state.assignmentToasts, full] }));
       const row: AgentNotification = {

@@ -28,7 +28,7 @@ export function getScheduleStore(provider: ScheduleProvider): ScheduleStore {
   return store;
 }
 
-export function createScheduleStore(provider: ScheduleProvider): ScheduleStore {
+function createScheduleStore(provider: ScheduleProvider): ScheduleStore {
   let state: ScheduleSnapshot | null = null;
   const listeners = new Set<() => void>();
   let refs = 0;

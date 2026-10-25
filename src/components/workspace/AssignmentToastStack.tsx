@@ -5,7 +5,8 @@
 import { Avatar, Button, Tag, Toast } from "@nicecxone/lyra-ui";
 import { KindTag } from "@/components/home/home-kinds";
 import { CHANNEL_NAMES } from "@/contact-handling/home/channel-names";
-import { initialsOf, toastStack } from "@/contact-handling/toasts/assignment-toasts";
+import { initialsFor } from "@/components/agent-next-gen-shared-utils";
+import { toastStack } from "@/contact-handling/toasts/assignment-toasts";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { useSettings } from "@/settings";
@@ -25,7 +26,7 @@ export function AssignmentToastStack() {
           data-assignment-toast={toast.event}
           variant={toast.urgent ? "warning" : "info"}
           title={toast.name}
-          leading={<Avatar initials={initialsOf(toast.name)} size="sm" />}
+          leading={<Avatar initials={initialsFor(toast.name)} size="sm" />}
           duration={toast.urgent ? 0 : settings.duration * 1000}
           actionLabel={t("View")}
           onAction={() => assignmentToasts.view(toast)}

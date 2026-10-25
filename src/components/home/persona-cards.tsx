@@ -8,12 +8,12 @@ import { useScheduleSnapshot } from "@/provider-context";
 import type { ScheduleCardMetric, ScheduleItem } from "@/providers";
 import type { HomeSectionKey } from "@/settings";
 import { t } from "@/i18n";
-import { feedTimeLabel } from "./ActivityRow";
+import { feedTimeLabel } from "@/contact-handling/home/time";
 import { KindIcon } from "./home-kinds";
 
 export type MetricSectionKey = Extract<HomeSectionKey, "teamQueues" | "teamToday" | "needsYou" | "pipeline" | "campaignToday" | "followUps">;
 
-export const METRIC_CARD_TITLES: Record<MetricSectionKey, string> = {
+const METRIC_CARD_TITLES:Record<MetricSectionKey, string> = {
   teamQueues: "Team queues",
   teamToday: "Team today",
   needsYou: "Needs you",

@@ -26,7 +26,7 @@ export interface AssignmentToast {
 }
 
 /** How many toasts show at once; the rest are "+N more". */
-export const VISIBLE_TOASTS = 3;
+const VISIBLE_TOASTS = 3;
 
 /** The events that stay until acted on, and that `quietOnVoice` never holds back. */
 export const URGENT_TOAST_EVENTS: readonly ToastEvent[] = ["approval"];
@@ -44,13 +44,3 @@ export function toastStack(toasts: readonly AssignmentToast[]): { shown: Assignm
 }
 
 export const TOAST_NOTIFICATION_PREFIX = "toast:";
-
-/** Initials for a toast's avatar ("Maya Chen" → "MC"). */
-export function initialsOf(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]!.toUpperCase())
-    .join("");
-}

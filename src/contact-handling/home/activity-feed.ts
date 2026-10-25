@@ -7,15 +7,16 @@
 //     This week; there is no Completed-today group.
 import { assignmentIdFor, scheduleCardKey, type AssignmentId, type AssignmentKind, type ChannelKind, type EpochMs } from "@/domain";
 import type { ScheduleItem } from "@/providers";
+import { DAY_MS, startOfDay } from "./time";
 
 /** What a row opens: a rail card, a schedule item (opened into the rail),
  *  or a completed conversation (reopened). */
-export type FeedTarget =
+type FeedTarget =
   | { type: "card"; cardId: string }
   | { type: "schedule"; itemId: string }
   | { type: "history"; entryId: string };
 
-export type FeedRowStatus = "offered" | "scheduled" | "inRail" | "completed";
+type FeedRowStatus ="offered" | "scheduled" | "inRail" | "completed";
 
 export interface FeedRow {
   assignmentId: AssignmentId;
@@ -63,16 +64,8 @@ export interface Feed {
   counts: { needsDecision: number; now: number; today: number; thisWeek: number; assignments: number; history: number };
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function startOfDay(at: EpochMs): EpochMs {
-  const d = new Date(at);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
-
 /** A schedule item as a feed row. */
-export function scheduleRow(item: ScheduleItem): FeedRow {
+function scheduleRow(item: ScheduleItem): FeedRow {
   const status: FeedRowStatus =
     item.state === "offered" ? "offered" : item.state === "scheduled" ? "scheduled" : item.state === "active" ? "inRail" : "completed";
   return {
