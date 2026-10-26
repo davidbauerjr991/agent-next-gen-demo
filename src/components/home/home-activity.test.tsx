@@ -49,7 +49,8 @@ const feed = () => h.container.querySelector<HTMLElement>("[data-activity-feed]"
 const group = (title: string) => feed().querySelector<HTMLElement>(`[data-feed-group="${title}"]`);
 const rows = (title: string) => [...(group(title)?.querySelectorAll<HTMLElement>("[data-feed-row]") ?? [])];
 const rowNamed = (text: string) => [...feed().querySelectorAll<HTMLElement>("[data-feed-row]")].find((r) => r.textContent?.includes(text));
-const chip = (label: string) => [...feed().querySelectorAll<HTMLButtonElement>("[data-feed-chips] button")].find((b) => b.textContent?.trim().startsWith(label));
+/** A view in the All · Assignments · History switcher (a radio). */
+const view = (label: string) => [...feed().querySelectorAll<HTMLElement>("[data-feed-views] [role=radio]")].find((b) => b.textContent?.trim().startsWith(label));
 const kindChip = (label: string) => [...feed().querySelectorAll<HTMLButtonElement>("[data-feed-kinds] button")].find((b) => b.textContent?.trim() === label);
 const homeButton = () => [...h.container.querySelectorAll("aside button, aside [role=button]")].find((el) => el.textContent?.trim() === "Home")!;
 const sectionsIn = (scope: Element) => [...scope.querySelectorAll(":scope > [data-home-section], :scope > * > [data-home-section]")].map((el) => el.getAttribute("data-home-section"));
@@ -82,34 +83,69 @@ describe("Activity feed on Home", () => {
     );
   });
 
-  it("the chips are selectable Tags: opening a scheduled row moves it off the feed; History lists it; chips stack; All clears", async () => {
+  it("twoColumn: the welcome header outside the feed's scroll; the queue as one compact card whose row opens the drill-down; the right column collapses to the overlay and its pin docks it again", async () => {
     turnOn();
     await showHome();
-    expect(chip("All")?.getAttribute("aria-pressed")).toBe("true");
-    await h.click(rowNamed("Returns team stand-up")!);
-    // It opened as the active assignment; back on Home it has left the feed.
-    await h.click(homeButton());
-    expect(rowNamed("Returns team stand-up")).toBeUndefined();
+    await setLayout("twoColumn");
+    const home = h.container.querySelector("[data-home-layout=twoColumn]")!;
+    const header = home.querySelector("[data-home-header]")!;
+    expect(header.querySelector("[data-welcome-counts]")).not.toBeNull();
+    expect(header.closest("[data-home-scroll]")).toBeNull();
+    expect(home.querySelector("[data-home-scroll=feed] [data-activity-feed]")).not.toBeNull();
 
-    await h.click(chip("History")!);
-    expect(chip("History")?.getAttribute("aria-pressed")).toBe("true");
-    expect(chip("All")?.getAttribute("aria-pressed")).toBe("false");
-    expect(group("Today")).toBeNull();
-    expect(group("History")?.textContent).toContain("Returns team stand-up");
-    expect(group("History")?.textContent).toContain("Omar Farooq · Email · Sales");
+    // The queue: rows, not the stacked tiles.
+    const queueCard = home.querySelector('[data-home-card="queueList"]')!;
+    expect([...queueCard.querySelectorAll("[data-queue-row]")].map((r) => r.textContent)).toEqual([
+      expect.stringContaining("Inbound Voice"),
+      expect.stringContaining("Voicemail"),
+      expect.stringContaining("Outbound Voice"),
+    ]);
+    await h.click(queueCard.querySelector('[data-queue-row="2"]')!);
+    expect(h.container.textContent).toContain("Skills");
 
-    await h.click(chip("Assignments")!);
-    expect(group("Today")?.textContent).toContain("Callback · Priya Shah");
-    expect(group("History")).not.toBeNull();
-
-    await h.click(chip("All")!);
-    expect(group("History")).toBeNull();
-    expect(chip("Assignments")?.getAttribute("aria-pressed")).toBe("false");
+    // Docked (it fits in jsdom's last answer): the toggle collapses it to the overlay; the overlay's pin docks it.
+    expect(home.querySelector('[data-canvas-region="reference"][data-docked="true"]')).not.toBeNull();
+    await h.click(home.querySelector("[data-home-side-toggle]")!);
+    expect(home.querySelector('[data-canvas-region="reference"][data-docked="true"]')).toBeNull();
+    await h.click(home.querySelector("[data-home-side-toggle]")!);
+    const pin = [...document.querySelectorAll<HTMLElement>("button[aria-label]")].find((b) => /pin/i.test(b.getAttribute("aria-label") ?? ""));
+    expect(pin).toBeDefined();
+    await h.click(pin!);
+    expect(home.querySelector('[data-canvas-region="reference"][data-docked="true"]')).not.toBeNull();
   });
 
-  it("the kind chips filter every group, History included; none picked is every kind", async () => {
+  it("the view switcher (one always selected, All by default): opening a scheduled row moves it off the feed into History", async () => {
     turnOn();
     await showHome();
+    expect(view("All")?.getAttribute("aria-checked")).toBe("true");
+    // All is what's coming and History together.
+    expect(group("Today")).not.toBeNull();
+    expect(group("History")).not.toBeNull();
+    await h.click(rowNamed("Returns team stand-up")!);
+    // It opened as the active assignment; back on Home it has left the time groups for History.
+    await h.click(homeButton());
+    expect(rows("Today").some((r) => r.textContent?.includes("Returns team stand-up"))).toBe(false);
+    expect(group("History")?.textContent).toContain("Returns team stand-up");
+
+    await h.click(view("History")!);
+    expect(view("History")?.getAttribute("aria-checked")).toBe("true");
+    expect(view("All")?.getAttribute("aria-checked")).toBe("false");
+    expect(group("Today")).toBeNull();
+    expect(group("History")?.textContent).toContain("Omar Farooq · Email · Sales");
+
+    await h.click(view("Assignments")!);
+    expect(group("Today")?.textContent).toContain("Callback · Priya Shah");
+    expect(group("History")).toBeNull();
+    // Clicking the selected view again keeps it selected.
+    await h.click(view("Assignments")!);
+    expect(view("Assignments")?.getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("the kind chips, below the views, filter whichever view is selected, History included; none picked is every kind", async () => {
+    turnOn();
+    await showHome();
+    const order = [...feed().querySelectorAll("[data-feed-views], [data-feed-kinds]")].map((el) => (el.hasAttribute("data-feed-views") ? "views" : "kinds"));
+    expect(order).toEqual(["views", "kinds"]);
     expect([...feed().querySelectorAll("[data-feed-kinds] button")].map((b) => b.textContent?.trim())).toEqual([
       "Conversation",
       "Callback",
@@ -120,14 +156,14 @@ describe("Activity feed on Home", () => {
     await h.click(kindChip("Callback")!);
     expect(kindChip("Callback")?.getAttribute("aria-pressed")).toBe("true");
     expect(rows("Today").map((r) => r.textContent?.includes("Callback")).every(Boolean)).toBe(true);
-    await h.click(chip("History")!);
     expect(group("History")?.textContent).not.toContain("Omar Farooq");
     await h.click(kindChip("Conversation")!);
     expect(group("History")?.textContent).toContain("Omar Farooq");
+    await h.click(view("History")!);
+    expect(group("History")?.textContent).toContain("Omar Farooq");
     await h.click(kindChip("Callback")!);
     await h.click(kindChip("Conversation")!);
-    expect(rows("Today").length).toBe(0);
-    await h.click(chip("Assignments")!);
+    await h.click(view("Assignments")!);
     expect(rows("Today").length).toBe(5);
   });
 
@@ -138,7 +174,7 @@ describe("Activity feed on Home", () => {
     const decline = [...h.container.querySelectorAll("aside button")].find((b) => b.textContent === "Decline") as HTMLElement;
     await h.click(decline);
     await h.advance(500);
-    await h.click(chip("History")!);
+    await h.click(view("History")!);
     const tom = () => rowNamed("Tom Lewis");
     expect(tom()?.getAttribute("data-feed-status")).toBe("completed");
     // The History group's header carries Contact History's own date control.
@@ -155,7 +191,7 @@ describe("Activity feed on Home", () => {
   it("History's range follows Contact History's date control: Last 48 Hours adds Contact History's earlier contacts", async () => {
     turnOn();
     await showHome();
-    await h.click(chip("History")!);
+    await h.click(view("History")!);
     const before = rows("History").length;
     const trigger = [...group("History")!.querySelectorAll<HTMLElement>("button")].find((b) => b.textContent?.includes("Today"))!;
     await h.click(trigger);
@@ -190,7 +226,7 @@ describe("Activity feed on Home", () => {
     expect(h.container.querySelector("[data-activity-feed]")).toBeNull();
     await h.click(homeButton());
     expect(group("Needs a decision")).toBeNull();
-    await h.click(chip("History")!);
+    await h.click(view("History")!);
     const tom = rowNamed("Tom Lewis");
     expect(tom?.getAttribute("data-feed-status")).toBe("inRail");
   });

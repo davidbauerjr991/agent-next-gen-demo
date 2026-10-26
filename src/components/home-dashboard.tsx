@@ -3,11 +3,13 @@
 // Activity feed and the role cards are sections too, and `home.layout`
 // picks one column (rows) or two (the feed left, the rest stacked right).
 import * as React from "react";
-import { DashboardCard, DashboardQueue, LYRA_CARD_MAX_WIDTH } from "@nicecxone/lyra-ui";
+import { DashboardCard, DashboardQueue } from "@nicecxone/lyra-ui";
 import { cn } from "@/lib/utils";
 import { ActivityFeed } from "@/components/home/ActivityFeed";
 import { HomeGreetingHeader } from "@/components/home/HomeGreetingHeader";
 import { DueSoonCard, MetricCard } from "@/components/home/persona-cards";
+import { HomeSideToggle, HomeTwoColumn } from "@/components/home/HomeTwoColumn";
+import { QueueListCard } from "@/components/home/QueueListCard";
 import { t } from "@/i18n";
 import {
   LATEST_CONTACTS_STATIC,
@@ -121,29 +123,32 @@ export function HomeDashboard({ showPageHeader, headerActions, selectedQueueId, 
     </div>
   );
 
-  // Two columns (the wireframe): the welcome header, the feed as the main
-  // column, every other enabled section stacked on the right in its order.
+  // Two columns (the wireframe): the welcome header fixed on top, the feed as
+  // the main column, every other enabled section stacked on the right in its
+  // order (HomeTwoColumn). The queue is one compact card there.
   if (twoColumn && visible.includes("activity")) {
     // Due soon is a one-column card: the feed beside it already lists what's next.
     const side = visible.filter((key) => key !== "activity" && key !== "dueSoon").flatMap((key) => {
-      const node = nodeFor(key);
+      const node =
+        key === "queue"
+          ? queueBases.length > 0 && <QueueListCard bases={queueBases} selectedId={selectedQueueId} onSelect={onSelectQueue} />
+          : nodeFor(key);
       return node ? [<div key={key} data-home-section={key}>{node}</div>] : [];
     });
-    return (
-      <div className="flex flex-1 flex-col min-w-0 overflow-y-auto px-6 py-6 animate-in fade-in-0 duration-200" data-home-layout="twoColumn">
-        {header}
-        <div className="flex min-w-0 items-start gap-6">
-          <div className="min-w-0 flex-1" data-home-section="activity">
-            {nodeFor("activity")}
-          </div>
-          {side.length > 0 && (
-            <div className="flex shrink-0 flex-col gap-6" style={{ width: LYRA_CARD_MAX_WIDTH }} data-home-column="side">
-              {side}
+    const welcome = showPageHeader && home.showHeader && (
+      <div className="-mx-6">
+        <HomeGreetingHeader
+          actions={
+            <div className="flex items-center gap-2">
+              {headerActions}
+              {side.length > 0 && <HomeSideToggle />}
             </div>
-          )}
-        </div>
+          }
+          welcome
+        />
       </div>
     );
+    return <HomeTwoColumn header={welcome} feed={nodeFor("activity")} side={side} />;
   }
 
   // One column: rows in the stored order. Performance and Productivity next

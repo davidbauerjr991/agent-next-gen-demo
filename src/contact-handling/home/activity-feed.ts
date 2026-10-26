@@ -35,8 +35,9 @@ export interface FeedRow {
   redial?: boolean;
 }
 
-/** The chips: an empty set is All. */
-export type FeedFilter = "assignments" | "history";
+/** The view switcher: All is what's coming and History; Assignments drops
+ *  History; History is History alone. */
+export type FeedView = "all" | "assignments" | "history";
 
 export interface FeedInput {
   /** Pending provider offers, already rows. */
@@ -53,7 +54,7 @@ export interface FeedInput {
   kinds: readonly AssignmentKind[];
   /** The kind chips: an empty set is every kind. Applies to every group, History included. */
   kindFilter: ReadonlySet<AssignmentKind>;
-  filters: ReadonlySet<FeedFilter>;
+  view: FeedView;
 }
 
 export interface Feed {
@@ -88,7 +89,7 @@ function scheduleRow(item: ScheduleItem): FeedRow {
 const byTime = (a: FeedRow, b: FeedRow) => (a.at ?? 0) - (b.at ?? 0);
 
 export function buildFeed(input: FeedInput): Feed {
-  const { now, kinds, kindFilter, filters } = input;
+  const { now, kinds, kindFilter, view } = input;
   const ofKind = (row: FeedRow) => kinds.includes(row.kind) && (kindFilter.size === 0 || kindFilter.has(row.kind));
   const items = input.scheduleItems.map(scheduleRow).filter(ofKind);
   const inRail = new Set(input.railCards.map((r) => r.assignmentId));
@@ -107,8 +108,8 @@ export function buildFeed(input: FeedInput): Feed {
   const railed = [...input.railCards.filter(ofKind), ...items.filter((r) => r.status === "inRail" && !inRail.has(r.assignmentId))];
   const history = [...completed, ...railed];
 
-  const showHistory = filters.has("history");
-  const showAssignments = filters.size === 0 || filters.has("assignments");
+  const showHistory = view !== "assignments";
+  const showAssignments = view !== "history";
   return {
     needsDecision: showAssignments ? needsDecision : [],
     now: showAssignments ? nowRows : [],

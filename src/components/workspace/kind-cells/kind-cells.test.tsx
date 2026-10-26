@@ -36,7 +36,7 @@ const rowNamed = (text: string) => [...(feed()?.querySelectorAll<HTMLElement>("[
 const cell = () => h.container.querySelector<HTMLElement>("[data-kind-cell]");
 const button = (label: string) => [...h.container.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.trim() === label);
 const homeButton = () => [...h.container.querySelectorAll("aside button, aside [role=button]")].find((el) => el.textContent?.trim() === "Home")!;
-const chip = (label: string) => [...(feed()?.querySelectorAll<HTMLButtonElement>("button") ?? [])].find((b) => b.textContent?.trim().startsWith(label));
+const view = (label: string) => [...(feed()?.querySelectorAll<HTMLElement>("[data-feed-views] [role=radio]") ?? [])].find((b) => b.textContent?.trim().startsWith(label));
 
 async function type(el: HTMLTextAreaElement | HTMLInputElement, value: string) {
   await act(async () => {
@@ -67,8 +67,9 @@ describe("schedule items open as assignments", () => {
     await h.click(button("Save outcome")!);
     expect(cell()).toBeNull();
     expect(h.container.querySelector("aside [data-kind-nav-card]")).toBeNull();
-    expect(rowNamed(title)).toBeUndefined();
-    await h.click(chip("History")!);
+    // Out of the time groups; in History (the All view shows it) as completed.
+    expect(rowNamed(title)?.getAttribute("data-feed-status")).toBe("completed");
+    await h.click(view("History")!);
     expect(rowNamed(title)?.getAttribute("data-feed-status")).toBe("completed");
   });
 

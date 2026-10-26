@@ -18,28 +18,38 @@ export function ReferenceColumn({
   children,
   width = LYRA_CARD_MAX_WIDTH,
   transition,
+  collapsed = false,
+  onPin,
+  title,
 }: {
   children: ReactNode;
   /** The docked slot's width: the card width, or wider while a slide-over over it is (ReferenceSlot). */
   width?: number;
   transition?: string;
+  /** P-HOME-1c: the agent collapsed the column: it's the overlay even while it fits. */
+  collapsed?: boolean;
+  /** P-HOME-1c: docks a collapsed column again, from the overlay's pin button (shown only while it fits). */
+  onPin?: () => void;
+  /** The overlay's header; default "Summaries". */
+  title?: string;
 }) {
   const { activeInteraction } = useWorkspace();
-  // Measured by `ReferenceSlot`, which mounts this column.
+  // Measured by whoever mounts this column (`useReferenceColumnFit`: ReferenceSlot, two-column Home).
   const [fits] = useWorkspaceUiField("referenceColumnFits");
   const [overlayOpen, setOverlayOpen] = useWorkspaceUiField("summariesOverlayOpen");
   const columnRef = useRef<HTMLDivElement>(null);
+  const docked = fits && !collapsed;
 
   // The overlay closes when the column docks again and when the card changes.
   useEffect(() => {
-    if (fits) setOverlayOpen(false);
-  }, [fits, setOverlayOpen]);
+    if (docked) setOverlayOpen(false);
+  }, [docked, setOverlayOpen]);
   useEffect(() => {
     setOverlayOpen(false);
   }, [activeInteraction?.id, setOverlayOpen]);
 
   // Outside click closes the overlay (the toggle handles its own clicks).
-  const open = !fits && overlayOpen;
+  const open = !docked && overlayOpen;
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (e: PointerEvent) => {
@@ -53,7 +63,7 @@ export function ReferenceColumn({
 
   return (
     <>
-      {fits ? (
+      {docked ? (
         // Docked: a plain column on the content card's own background (no panel chrome).
         <div
           ref={columnRef}
@@ -73,9 +83,10 @@ export function ReferenceColumn({
           open={open}
           resizable={false}
           width={LYRA_CARD_MAX_WIDTH}
-          headerTitle={t("Summaries")}
+          headerTitle={title ?? t("Summaries")}
           showCloseButton
           onClose={() => setOverlayOpen(false)}
+          {...(onPin && fits ? { onPinToggle: onPin } : {})}
           data-canvas-region="reference"
         >
           <div className="flex flex-col gap-3 p-4">{children}</div>

@@ -1,16 +1,26 @@
 // The Activity feed (P-HOME-1): what is coming at the person, in time order.
-// Offers pin to the top; a row of kind chips and the All · Assignments ·
-// History chips (lyra selectable Tags, multi-select) filter; History lists
-// what left the feed in its range. The rules are activity-feed.ts; this file
-// only lays them out.
+// Offers pin to the top; the All · Assignments · History view switcher
+// (lyra ToggleGroup, single) picks the view and the kind chips below it
+// (lyra selectable Tags, multi-select) filter it; History lists what left the
+// feed in its range. The rules are activity-feed.ts; this file only lays them out.
 import * as React from "react";
-import { Container, Tag } from "@nicecxone/lyra-ui";
+import { Badge, Container, Tag, ToggleGroup } from "@nicecxone/lyra-ui";
 import { ContactHistoryDateFilterChip } from "@/components/agent-next-gen-contact-history";
-import type { FeedRow } from "@/contact-handling/home/activity-feed";
+import type { FeedRow, FeedView } from "@/contact-handling/home/activity-feed";
 import { useActivityFeed, type ActivityFeed as ActivityFeedApi } from "@/contact-handling/home/useActivityFeed";
 import { t } from "@/i18n";
 import { ActivityRow } from "./ActivityRow";
 import { KindIcon, kindLabel } from "./home-kinds";
+
+/** A view button's label: its name and, when it has one, its count. */
+function viewLabel(label: string, count?: number) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="truncate">{label}</span>
+      {count !== undefined && <Badge shape="circle" variant="neutral" fill="subtle" size="sm" count={count} max={99} />}
+    </span>
+  );
+}
 
 function FeedGroup({
   title,
@@ -53,7 +63,7 @@ function FeedGroup({
 /** The feed itself, for the `activity` Home section (both layouts). */
 export function ActivityFeed() {
   const api = useActivityFeed();
-  const { feed, filters } = api;
+  const { feed, view } = api;
   const now = Date.now();
   const nothingComing = feed.showAssignments && !feed.showHistory && feed.counts.needsDecision + feed.counts.assignments === 0;
 
@@ -71,7 +81,21 @@ export function ActivityFeed() {
         </Container>
       )}
       <div className="flex flex-col gap-2">
-        {/* The kinds the persona sees; none picked is every kind. */}
+        {/* The view switcher: one view always selected. */}
+        <div data-feed-views>
+          <ToggleGroup
+            type="single"
+            ariaLabel={t("Activity view")}
+            value={view}
+            onValueChange={(value) => api.setView(value as FeedView)}
+            items={[
+              { value: "all", label: viewLabel(t("All")) },
+              { value: "assignments", label: viewLabel(t("Assignments"), feed.counts.assignments) },
+              { value: "history", label: viewLabel(t("History"), feed.counts.history) },
+            ]}
+          />
+        </div>
+        {/* The kinds the persona sees, filtering whichever view is selected; none picked is every kind. */}
         <div className="flex flex-wrap gap-2" role="group" aria-label={t("Filter by kind")} data-feed-kinds>
           {api.kinds.map((kind) => (
             <Tag
@@ -84,25 +108,6 @@ export function ActivityFeed() {
               onClick={() => api.toggleKind(kind)}
             />
           ))}
-        </div>
-        <div className="flex flex-wrap gap-2" role="group" aria-label={t("Filter the activity feed")} data-feed-chips>
-          <Tag shape="pill" variant="neutral" label={t("All")} selected={filters.size === 0} onClick={api.clearFilters} />
-          <Tag
-            shape="pill"
-            variant="neutral"
-            label={t("Assignments")}
-            count={feed.counts.assignments}
-            selected={filters.has("assignments")}
-            onClick={() => api.toggleFilter("assignments")}
-          />
-          <Tag
-            shape="pill"
-            variant="neutral"
-            label={t("History")}
-            count={feed.counts.history}
-            selected={filters.has("history")}
-            onClick={() => api.toggleFilter("history")}
-          />
           {/* P-HOME-2: one chip per connected personal source, then "+ Apps", go here. */}
         </div>
       </div>

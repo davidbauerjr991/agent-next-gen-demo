@@ -41,7 +41,7 @@ function afterNextFrame(run: () => void): () => void {
 export function ReferenceSlot({ reference }: { reference?: ReactNode }) {
   const { selectedDetailPanelContent, setSelectedDetailPanelContent, slideOverMode } = useWorkspace();
   const anchorRef = useRef<HTMLDivElement>(null);
-  const rowWidth = useRegionsRowWidth(anchorRef);
+  const rowWidth = useReferenceColumnFit(anchorRef);
   const { body, ...header } = useDetailSlideOverParts();
 
   const wanted = slideOverMode === "referenceSlot" && !!selectedDetailPanelContent;
@@ -114,8 +114,9 @@ export function ReferenceSlot({ reference }: { reference?: ReactNode }) {
  *  reference column (`referenceColumnFits`), into the workspace UI store. A
  *  zero width (not laid out; jsdom) keeps the last answer. The row is the
  *  content card minus the docked Contact Details / thread panel, so an open
- *  thread panel under "main" counts. */
-function useRegionsRowWidth(anchorRef: React.RefObject<HTMLElement | null>): number {
+ *  thread panel under "main" counts. Two-column Home measures its row the
+ *  same way for its right column (P-HOME-1c). */
+export function useReferenceColumnFit(anchorRef: React.RefObject<HTMLElement | null>): number {
   const [rowWidth, setRowWidth] = useWorkspaceUiField("regionsRowWidth");
   const [, setFits] = useWorkspaceUiField("referenceColumnFits");
   useLayoutEffect(() => {

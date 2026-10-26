@@ -6,7 +6,7 @@ import { useScheduleProvider, useScheduleSnapshot } from "@/provider-context";
 import { useSettings } from "@/settings";
 import { useWorkspace } from "../workspace/WorkspaceContext";
 import { useWorkspaceUiField } from "../workspace-ui-store";
-import { buildFeed, type Feed, type FeedFilter, type FeedRow } from "./activity-feed";
+import { buildFeed, type Feed, type FeedRow, type FeedView } from "./activity-feed";
 import { CHANNEL_NAMES } from "./channel-names";
 import { PERSONA_KINDS } from "./persona-kinds";
 import { startOfDay } from "./time";
@@ -45,10 +45,9 @@ function historyRow(entry: ContactHistoryEntry): FeedRow {
 
 export interface ActivityFeed {
   feed: Feed;
-  filters: ReadonlySet<FeedFilter>;
-  /** All: clears the chips. */
-  clearFilters: () => void;
-  toggleFilter: (filter: FeedFilter) => void;
+  /** The view switcher (one always selected). */
+  view: FeedView;
+  setView: (view: FeedView) => void;
   /** The kinds the persona sees, for the kind chips, and the ones picked (empty: all). */
   kinds: readonly AssignmentKind[];
   kindFilter: ReadonlySet<AssignmentKind>;
@@ -99,7 +98,7 @@ export function useActivityFeed(): ActivityFeed {
   const snapshot = useScheduleSnapshot();
   const openScheduleItem = useOpenScheduleItem();
   const [{ persona }] = useSettings("workspace");
-  const [filters, setFilters] = useWorkspaceUiField("activityFilters");
+  const [view, setView] = useWorkspaceUiField("activityView");
   const [kindFilter, setKindFilter] = useWorkspaceUiField("activityKinds");
   const [historyRange, setHistoryRange] = useWorkspaceUiField("activityHistoryRange");
   // Time groups only move on the minute.
@@ -120,9 +119,9 @@ export function useActivityFeed(): ActivityFeed {
       now,
       kinds,
       kindFilter,
-      filters,
+      view,
     });
-  }, [interactions, historyEntries, historyRange, snapshot, kinds, kindFilter, filters, minute]);
+  }, [interactions, historyEntries, historyRange, snapshot, kinds, kindFilter, view, minute]);
 
   const open = useCallback(
     (row: FeedRow) => {
@@ -148,9 +147,8 @@ export function useActivityFeed(): ActivityFeed {
 
   return {
     feed,
-    filters,
-    clearFilters: useCallback(() => setFilters(new Set()), [setFilters]),
-    toggleFilter: useCallback((filter: FeedFilter) => setFilters((current) => toggled(current, filter)), [setFilters]),
+    view,
+    setView,
     kinds,
     kindFilter,
     toggleKind: useCallback((kind: AssignmentKind) => setKindFilter((current) => toggled(current, kind)), [setKindFilter]),
