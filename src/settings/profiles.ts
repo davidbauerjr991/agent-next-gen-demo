@@ -60,7 +60,12 @@ function aiFirst(): SettingsState {
   const base = phase2();
   return {
     ...base,
-    home: { ...base.home, layout: "twoColumn" },
+    // The Activity feed, two columns; every other built-in keeps the original Home.
+    home: {
+      ...base.home,
+      layout: "twoColumn",
+      sections: base.home.sections.map((s) => (s.key === "activity" ? { ...s, enabled: true } : s)),
+    },
     ai: { ...base.ai, displayLocation: "main", canvasLayout: "twoColumn" },
     // Legs as tabs until P-STREAM lands, then "stream" (PLAN Settings "Legs as one stream").
     assignments: { ...base.assignments, legs: "tabs" },

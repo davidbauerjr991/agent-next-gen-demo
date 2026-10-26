@@ -9,7 +9,6 @@ import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/setting
 import { profileValues } from "@/settings/profiles";
 import { AddChannelAdHocButton } from "@/components/agent-next-gen-add-channel-button";
 import { UNAVAILABLE_CALL_TOOLTIP, UNAVAILABLE_REPLY_REASON } from "./presence-gates";
-import { showContactHistoryOnHome } from "@/test-utils/home-sections";
 
 const h = createWorkspaceHarness();
 
@@ -107,7 +106,6 @@ describe("presence gates", () => {
   });
 
   it("Contact History's Redial: shown but disabled with \"Go Available to call\" until Available", async () => {
-    showContactHistoryOnHome();
     await h.show(AgentWorkspaceAdvancedPage);
     const nathan = [...h.container.querySelectorAll('[role="button"]')].find((el) => el.textContent?.includes("Nathan Cole"))!;
     await h.click(nathan as HTMLElement);

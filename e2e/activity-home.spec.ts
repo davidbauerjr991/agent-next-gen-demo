@@ -5,7 +5,24 @@ import { expect, test, type Page } from "@playwright/test";
 // chip, one column vs two (layout), and the persona switch. The rules
 // themselves are in jsdom (activity-feed.test.ts, home-activity.test.tsx).
 
+/** The default Home (Queue, Contact History, Performance) with the Activity feed turned on after them. */
+const HOME_WITH_FEED = {
+  v: 2,
+  value: {
+    sections: [
+      { key: "queue", enabled: true },
+      { key: "contactHistory", enabled: true },
+      { key: "performance", enabled: true },
+      { key: "productivity", enabled: false },
+      { key: "activity", enabled: true },
+    ],
+  },
+};
+
 async function open(page: Page) {
+  await page.addInitScript((home) => {
+    if (!localStorage.getItem("agent-next-gen:settings:home")) localStorage.setItem("agent-next-gen:settings:home", JSON.stringify(home));
+  }, HOME_WITH_FEED);
   await page.goto("?provider=sim&latency=off#/agent-advanced");
   await page.getByRole("button", { name: "Go Available" }).click();
   await expect(page.locator("[data-activity-feed]")).toBeVisible();
@@ -51,7 +68,7 @@ test("opening a scheduled row moves it to the rail and off the feed; History lis
   await expect(feed(page).locator("[data-feed-row]", { hasText: "Returns team stand-up" })).toHaveCount(0);
 
   await chip(page, "History").click();
-  const history = group(page, "History · left the feed today");
+  const history = group(page, "History");
   await expect(history.locator('[data-feed-row][data-feed-status="inRail"]', { hasText: "Returns team stand-up" })).toBeVisible();
   await expect(group(page, "Today")).toHaveCount(0);
 
@@ -62,7 +79,7 @@ test("opening a scheduled row moves it to the rail and off the feed; History lis
 
 test("one column: the feed is a row among the sections; two columns: the feed left, the other sections stacked right", async ({ page }) => {
   await open(page);
-  const perf = page.locator('[data-home-section="performance productivity"]');
+  const perf = page.locator('[data-home-section="performance"]');
   const activity = page.locator('[data-home-section="activity"]');
   const perfBox = (await perf.boundingBox())!;
   const activityBox = (await activity.boundingBox())!;
@@ -74,7 +91,7 @@ test("one column: the feed is a row among the sections; two columns: the feed le
   await home(page);
   await expect(page.locator("[data-home-layout=twoColumn]")).toBeVisible();
   const side = page.locator("[data-home-column=side]");
-  await expect(side.locator("[data-home-section]")).toHaveCount(4);
+  await expect(side.locator("[data-home-section]")).toHaveCount(3);
   const feedBox = (await page.locator('[data-home-section="activity"]').boundingBox())!;
   const sideBox = (await side.boundingBox())!;
   expect(sideBox.x).toBeGreaterThanOrEqual(feedBox.x + feedBox.width - 1);
@@ -85,7 +102,7 @@ test("one column: the feed is a row among the sections; two columns: the feed le
 test("switching persona re-seeds the feed and swaps the Home cards", async ({ page }) => {
   await open(page);
   await expect(feed(page)).toContainText("Callback · Priya Shah");
-  await expect(page.locator('[data-home-card="reminders"]')).toBeVisible();
+  await expect(page.locator('[data-home-section="queue"]')).toBeVisible();
 
   await settingsSection(page);
   await page.getByRole("radio", { name: "Supervisor" }).click();
@@ -94,6 +111,6 @@ test("switching persona re-seeds the feed and swaps the Home cards", async ({ pa
   await expect(feed(page)).not.toContainText("Callback · Priya Shah");
   await expect(group(page, "Needs a decision")).toContainText("Escalation · Lauren Briggs");
   await expect(page.locator('[data-home-card="teamToday"]')).toContainText("78%");
-  await expect(page.locator('[data-home-card="reminders"]')).toHaveCount(0);
+  await expect(page.locator('[data-home-card="dueSoon"]')).toHaveCount(0);
   await expect(page.locator('[data-home-section="queue"]')).toHaveCount(0);
 });

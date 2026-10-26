@@ -8,7 +8,7 @@ import { getSettingsStore } from "./settings-store";
 /** Which Home sections each persona has on. Contact History is in none of
  *  them: it stays a section the agent can turn on. */
 export const PERSONA_HOME_SECTIONS: Record<Persona, readonly HomeSectionKey[]> = {
-  agent: ["activity", "queue", "performance", "productivity", "reminders"],
+  agent: ["activity", "queue", "performance", "productivity", "dueSoon"],
   supervisor: ["activity", "teamQueues", "teamToday", "needsYou"],
   sales: ["activity", "pipeline", "campaignToday", "followUps"],
 };

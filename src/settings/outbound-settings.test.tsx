@@ -14,7 +14,6 @@ import { addressBookGroup, ADDRESS_BOOKS } from "@/contact-handling/address-book
 import { launcherGroups } from "@/contact-handling/launcher-groups";
 import { getSettingsStore, resetSettingsStoreForTests } from "./settings-store";
 import { PROFILES } from "./profiles";
-import { showContactHistoryOnHome } from "@/test-utils/home-sections";
 import { LAUNCHER_TABS, type LauncherTab, type SectionKey, type SettingsState } from "./settings-schema";
 
 const h = createWorkspaceHarness();
@@ -84,7 +83,6 @@ describe("Directory App (outbound.launcher)", () => {
 
 describe("Outbound Calling (outbound.calling)", () => {
   it("Redial off hides Contact History's Redial button", async () => {
-    showContactHistoryOnHome();
     await h.show(AgentWorkspaceAdvancedPage);
     const nathan = [...h.container.querySelectorAll('[role="button"]')].find((el) => el.textContent?.includes("Nathan Cole"))!;
     await h.click(nathan);

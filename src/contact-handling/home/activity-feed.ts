@@ -44,11 +44,15 @@ export interface FeedInput {
   scheduleItems: readonly ScheduleItem[];
   /** The rail's cards (accepted assignments), already rows. */
   railCards: readonly FeedRow[];
-  /** Today's completed conversations, already rows. */
-  todayHistory: readonly FeedRow[];
+  /** Completed conversations in History's range (Contact History's entries), already rows. */
+  completedHistory: readonly FeedRow[];
+  /** The start of History's range: schedule items completed before it are left out. */
+  historySince: EpochMs;
   now: EpochMs;
   /** The persona's kinds; schedule items and offers of other kinds are left out. */
   kinds: readonly AssignmentKind[];
+  /** The kind chips: an empty set is every kind. Applies to every group, History included. */
+  kindFilter: ReadonlySet<AssignmentKind>;
   filters: ReadonlySet<FeedFilter>;
 }
 
@@ -84,8 +88,8 @@ function scheduleRow(item: ScheduleItem): FeedRow {
 const byTime = (a: FeedRow, b: FeedRow) => (a.at ?? 0) - (b.at ?? 0);
 
 export function buildFeed(input: FeedInput): Feed {
-  const { now, kinds, filters } = input;
-  const ofKind = (row: FeedRow) => kinds.includes(row.kind);
+  const { now, kinds, kindFilter, filters } = input;
+  const ofKind = (row: FeedRow) => kinds.includes(row.kind) && (kindFilter.size === 0 || kindFilter.has(row.kind));
   const items = input.scheduleItems.map(scheduleRow).filter(ofKind);
   const inRail = new Set(input.railCards.map((r) => r.assignmentId));
 
@@ -97,8 +101,10 @@ export function buildFeed(input: FeedInput): Feed {
   const today = scheduled.filter((r) => (r.at ?? 0) > now && (r.at ?? 0) < endOfToday);
   const thisWeek = scheduled.filter((r) => (r.at ?? 0) >= endOfToday && (r.at ?? 0) < endOfWeek);
 
-  const completed = [...input.todayHistory, ...items.filter((r) => r.status === "completed")].sort(byTime);
-  const railed = [...input.railCards, ...items.filter((r) => r.status === "inRail" && !inRail.has(r.assignmentId))];
+  // Contact History's entries carry a display time, not a timestamp: they keep their own (newest-first) order.
+  const completedItems = items.filter((r) => r.status === "completed" && (r.at ?? 0) >= input.historySince).sort(byTime);
+  const completed = [...input.completedHistory.filter(ofKind), ...completedItems];
+  const railed = [...input.railCards.filter(ofKind), ...items.filter((r) => r.status === "inRail" && !inRail.has(r.assignmentId))];
   const history = [...completed, ...railed];
 
   const showHistory = filters.has("history");

@@ -16,7 +16,6 @@ import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/setting
 import type { ChannelKind, InteractionId } from "@/domain";
 import { DEFAULT_SLA } from "@/profiles/contact-center-profile";
 import { ProviderRoot } from "@/provider-context";
-import { showContactHistoryOnHome } from "@/test-utils/home-sections";
 import { LUCAS_THOMAS_SCRIPT, MARCUS_WEBB_SCRIPT, MAYA_CHEN_SCRIPT, SCENARIOS, TOM_LEWIS_SCRIPT } from "@/scenarios";
 
 // The workspace page, whole, against the sim (5d.1 recheck): the incoming
@@ -327,7 +326,6 @@ describe("Advanced: P0.5c browser-check fixes", () => {
   });
 
   it("3. declining names the caller and writes a Declined Contact History row", async () => {
-    showContactHistoryOnHome();
     await show(AgentWorkspaceAdvancedPage);
     await play(TOM_LEWIS_SCRIPT.id);
     const decline = [...container.querySelectorAll("aside button")].find((b) => b.textContent === "Decline") as HTMLElement;

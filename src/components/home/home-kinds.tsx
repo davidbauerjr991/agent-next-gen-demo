@@ -53,6 +53,10 @@ export function KindIcon({ kind }: { kind: AssignmentKind }) {
   return <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />;
 }
 
+/** A kind's name (English source; render through `t()`). */
+export const kindLabel = (kind: AssignmentKind): string => KIND_LABELS[kind];
+
+/** The kind's chip, with its icon. */
 export function KindTag({ kind }: { kind: AssignmentKind }) {
-  return <Tag shape="pill" variant={KIND_TAG_VARIANTS[kind]} label={t(KIND_LABELS[kind])} />;
+  return <Tag shape="pill" variant={KIND_TAG_VARIANTS[kind]} icon={<KindIcon kind={kind} />} label={t(KIND_LABELS[kind])} />;
 }

@@ -1,19 +1,21 @@
-// The role cards on Home (P-HOME-1): Reminders for agents; Team queues, Team
+// The role cards on Home (P-HOME-1): Due soon for agents; Team queues, Team
 // today and Needs you for supervisors; Pipeline, Campaign today and
 // Follow-ups for sales. Their figures come from the schedule source's day
-// until P-REPORTING supplies them; Reminders is the next items of the day.
+// until P-REPORTING supplies them; Due soon is the day's next items.
 import { DashboardCard, MenuItem } from "@nicecxone/lyra-ui";
 import { cn } from "@/lib/utils";
 import { useScheduleSnapshot } from "@/provider-context";
-import type { ScheduleCardMetric, ScheduleItem } from "@/providers";
-import type { HomeSectionKey } from "@/settings";
+import type { ScheduleCardMetric } from "@/providers";
+import { useSettings, type HomeSectionKey } from "@/settings";
 import { t } from "@/i18n";
+import { PERSONA_KINDS } from "@/contact-handling/home/persona-kinds";
 import { feedTimeLabel } from "@/contact-handling/home/time";
+import { useOpenScheduleItem } from "@/contact-handling/home/useActivityFeed";
 import { KindIcon } from "./home-kinds";
 
 export type MetricSectionKey = Extract<HomeSectionKey, "teamQueues" | "teamToday" | "needsYou" | "pipeline" | "campaignToday" | "followUps">;
 
-const METRIC_CARD_TITLES:Record<MetricSectionKey, string> = {
+const METRIC_CARD_TITLES: Record<MetricSectionKey, string> = {
   teamQueues: "Team queues",
   teamToday: "Team today",
   needsYou: "Needs you",
@@ -53,32 +55,36 @@ export function MetricCard({ section }: { section: MetricSectionKey }) {
   );
 }
 
-/** The next scheduled item of each of these kinds. */
-const REMINDER_KINDS: readonly ScheduleItem["kind"][] = ["training", "callback", "meeting"];
+/** How many items Due soon lists. */
+const DUE_SOON_COUNT = 3;
 
-/** Reminders: the day's next training, callback and meeting. */
-export function RemindersCard() {
+/** Due soon: the next three scheduled items (of the persona's kinds) by due
+ *  date; a row opens its item, exactly as the feed's row does. */
+export function DueSoonCard() {
   const items = useScheduleSnapshot()?.items ?? [];
+  const [{ persona }] = useSettings("workspace");
+  const openScheduleItem = useOpenScheduleItem();
   const now = Date.now();
-  const next = REMINDER_KINDS.flatMap((kind) => {
-    const first = items.filter((i) => i.kind === kind && i.state === "scheduled").sort((a, b) => a.dueAt - b.dueAt)[0];
-    return first ? [first] : [];
-  });
+  const next = items
+    .filter((i) => i.state === "scheduled" && PERSONA_KINDS[persona].includes(i.kind))
+    .sort((a, b) => a.dueAt - b.dueAt)
+    .slice(0, DUE_SOON_COUNT);
   return (
-    <DashboardCard variant="neutral-subtle" headerTitle={t("Reminders")} data-home-card="reminders">
+    <DashboardCard variant="neutral-subtle" headerTitle={t("Due soon")} data-home-card="dueSoon">
       {next.length === 0 ? (
-        <p className="px-4 pb-4 lyra-body-sm text-lyra-fg-secondary">{t("Nothing to remind you of.")}</p>
+        <p className="px-4 pb-4 lyra-body-sm text-lyra-fg-secondary">{t("Nothing due.")}</p>
       ) : (
         <div className="flex flex-col px-1 pb-2">
           {next.map((item) => (
             <MenuItem
               key={item.id}
               as="div"
-              static
               comfortable={false}
+              data-due-soon-row={item.id}
               icon={<KindIcon kind={item.kind} />}
               label={item.title}
-              description={item.detail.kind === "training" && item.detail.dueLabel ? item.detail.dueLabel : feedTimeLabel(item.dueAt, now)}
+              description={feedTimeLabel(item.dueAt, now)}
+              onClick={() => openScheduleItem(item.id)}
             />
           ))}
         </div>

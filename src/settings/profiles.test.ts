@@ -127,10 +127,14 @@ describe("workspace profiles", () => {
     expect(profile(store)).toBe("phase1");
   });
 
-  it("AI-first is Phase 2 with AI display \"main\", the two-column canvas and the two-column Home, and derives", () => {
+  it("AI-first is Phase 2 with AI display \"main\", the two-column canvas and the two-column Home with the Activity feed, and derives", () => {
     expect(PROFILES.aifirst).toEqual({
       ...PROFILES.phase2,
-      home: { ...PROFILES.phase2.home, layout: "twoColumn" },
+      home: {
+        ...PROFILES.phase2.home,
+        layout: "twoColumn",
+        sections: PROFILES.phase2.home.sections.map((s) => (s.key === "activity" ? { ...s, enabled: true } : s)),
+      },
       ai: { ...PROFILES.phase2.ai, displayLocation: "main", canvasLayout: "twoColumn" },
     });
     const store = freshStore();
@@ -140,7 +144,7 @@ describe("workspace profiles", () => {
     expect(profile(store)).toBe("aifirst");
     store.update("ai", { displayLocation: "inline" });
     expect(profile(store)).toBe("custom");
-    store.update("home", { layout: "oneColumn" });
+    store.update("home", { layout: "oneColumn", sections: PROFILES.phase2.home.sections });
     expect(profile(store)).toBe("phase2");
   });
 
@@ -148,6 +152,11 @@ describe("workspace profiles", () => {
     expect(PROFILES.phase1.home.layout).toBe("oneColumn");
     expect(PROFILES.phase2.home.layout).toBe("oneColumn");
     expect(PROFILES.aifirst.home.layout).toBe("twoColumn");
+    // Only AI-first turns the feed on; Phase 1 and Phase 2 keep the original Home.
+    const on = (id: "phase1" | "phase2" | "aifirst") => PROFILES[id].home.sections.filter((s) => s.enabled).map((s) => s.key);
+    expect(on("phase1")).toEqual(["queue", "contactHistory", "performance"]);
+    expect(on("phase2")).toEqual(["queue", "contactHistory", "performance"]);
+    expect(on("aifirst")).toEqual(["queue", "contactHistory", "performance", "activity"]);
     for (const id of ["phase1", "phase2", "aifirst"] as const) expect(PROFILES[id].workspace.persona).toBe("agent");
     expect(profileValues("aifirst")).toHaveProperty("home.layout", "twoColumn");
     expect(profileValues("phase1")).toHaveProperty("workspace.persona", "agent");

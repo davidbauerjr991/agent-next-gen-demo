@@ -108,7 +108,7 @@ const HOME_SECTION_LABELS: Record<HomeSectionKey, string> = {
   performance: "Performance",
   productivity: "Productivity",
   activity: "Activity",
-  reminders: "Reminders",
+  dueSoon: "Due soon",
   teamQueues: "Team queues",
   teamToday: "Team today",
   needsYou: "Needs you",

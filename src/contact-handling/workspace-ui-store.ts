@@ -3,6 +3,8 @@ import { useInteractionProvider } from "@/provider-context";
 import type { ReferenceCardFocus } from "@/providers";
 import type { DetailPanelContent, OutcomeKey, PanelArtifact } from "./workspace/workspace-types";
 import type { AssignmentToast } from "./toasts/assignment-toasts";
+import type { AssignmentKind } from "@/domain";
+import type { ContactHistoryDateFilterValue } from "@/components/agent-next-gen-contact-history";
 
 // The Workspace's UI state keyed by card or thread id (P-EXTRACT). State that
 // used to live in page `useState` or module-scope Sets, keyed by whichever
@@ -75,6 +77,10 @@ export interface WorkspaceUiState {
   assignmentsPanelOverlayOpen: boolean;
   /** P-HOME-1: the Activity feed's chips (empty: All), shared by the feed and the welcome header's counts. */
   activityFilters: ReadonlySet<"assignments" | "history">;
+  /** P-HOME-1b: the feed's kind chips (empty: every kind). */
+  activityKinds: ReadonlySet<AssignmentKind>;
+  /** P-HOME-1b: History's range, Contact History's date control. */
+  activityHistoryRange: ContactHistoryDateFilterValue;
   /** P-HOME-1: toasts for events on other assignments, in raise order; dismissed ones stay for the drawer's rows. */
   assignmentToasts: readonly AssignmentToast[];
 }
@@ -108,6 +114,8 @@ export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
   assignmentsPanelDocks: true,
   assignmentsPanelOverlayOpen: false,
   activityFilters: new Set<"assignments" | "history">(),
+  activityKinds: new Set<AssignmentKind>(),
+  activityHistoryRange: "today",
   assignmentToasts: Object.freeze([]),
 });
 

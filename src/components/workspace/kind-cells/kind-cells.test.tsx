@@ -15,6 +15,9 @@ const h = createWorkspaceHarness({ schedule: true });
 beforeEach(() => {
   localStorage.clear();
   resetSettingsStoreForTests();
+  // The agent persona's Home: the Activity feed on (the default Home doesn't have it).
+  const store = getSettingsStore();
+  store.update("home", { sections: withPersonaSections(store.getState().values.home.sections, "agent") });
   h.setUp();
   vi.setSystemTime(new Date(2026, 9, 24, 10, 30));
 });
@@ -83,7 +86,7 @@ describe("persona", () => {
   it("switching to Supervisor re-seeds the feed and swaps the Home cards; back to Agent restores them", async () => {
     await showHome();
     expect(rowNamed("Callback · Priya Shah")).toBeDefined();
-    expect(h.container.querySelector('[data-home-section="reminders"]')).not.toBeNull();
+    expect(h.container.querySelector('[data-home-section="dueSoon"]')).not.toBeNull();
 
     const store = getSettingsStore();
     await act(async () => {
@@ -102,6 +105,6 @@ describe("persona", () => {
       await vi.advanceTimersByTimeAsync(100);
     });
     expect(rowNamed("Callback · Priya Shah")).toBeDefined();
-    expect(h.container.querySelector('[data-home-section="reminders"]')).not.toBeNull();
+    expect(h.container.querySelector('[data-home-section="dueSoon"]')).not.toBeNull();
   });
 });

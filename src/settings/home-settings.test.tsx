@@ -42,14 +42,14 @@ const queueTileNames = () => {
 };
 
 describe("Home: the Dashboard follows Settings → Home", () => {
-  it("defaults: the header with Hello + first name, v3's sections (Contact History off) then Activity and Reminders, three queue tiles", async () => {
+  it("defaults: the original Home — header with Hello + first name, Queue, Contact History and Performance, three queue tiles", async () => {
     await h.show(AgentWorkspaceAdvancedPage);
     expect(headings()).toContain(`Hello ${CURRENT_AGENT_FIRST_NAME}`);
-    expect(renderedSections()).toEqual(["queue", "performance productivity", "activity", "reminders"]);
-    // Off by default, not deleted: still a section the agent can turn on.
-    expect(SECTIONS.home.defaults.sections.find((s) => s.key === "contactHistory")).toEqual({ key: "contactHistory", enabled: false });
-    await setHome({ sections: SECTIONS.home.defaults.sections.map((s) => (s.key === "contactHistory" ? { ...s, enabled: true } : s)) });
-    expect(renderedSections()).toEqual(["queue", "contactHistory", "performance productivity", "activity", "reminders"]);
+    expect(renderedSections()).toEqual(["queue", "contactHistory", "performance"]);
+    // Productivity, the Activity feed and every role card are off until a profile or persona turns them on.
+    const off = SECTIONS.home.defaults.sections.filter((s) => !s.enabled).map((s) => s.key);
+    expect(off).toEqual(["productivity", "activity", "dueSoon", "teamQueues", "teamToday", "needsYou", "pipeline", "campaignToday", "followUps"]);
+    expect(SECTIONS.home.defaults.layout).toBe("oneColumn");
     expect(queueTileNames()).toEqual(["Inbound Voice", "Voicemail", "Outbound Voice"]);
   });
 
@@ -141,7 +141,7 @@ describe("Settings → Home controls", () => {
       "performance",
       "productivity",
       "activity",
-      "reminders",
+      "dueSoon",
       "teamQueues",
       "teamToday",
       "needsYou",
@@ -182,10 +182,10 @@ describe("home section storage", () => {
     expect(value.sections).toEqual([
       { key: "productivity", enabled: false },
       { key: "queue", enabled: true },
-      { key: "contactHistory", enabled: false },
+      { key: "contactHistory", enabled: true },
       { key: "performance", enabled: true },
-      { key: "activity", enabled: true },
-      { key: "reminders", enabled: true },
+      { key: "activity", enabled: false },
+      { key: "dueSoon", enabled: false },
       { key: "teamQueues", enabled: false },
       { key: "teamToday", enabled: false },
       { key: "needsYou", enabled: false },
@@ -195,7 +195,7 @@ describe("home section storage", () => {
     ]);
   });
 
-  it("a stored v2 home from before P-HOME-1 keeps its order and gains the new keys and the oneColumn layout", () => {
+  it("a stored v2 home from before P-HOME-1 keeps its order, gains the new keys switched off, and the oneColumn layout", () => {
     const value = read({
       sections: [
         { key: "performance", enabled: true },
@@ -206,7 +206,7 @@ describe("home section storage", () => {
     });
     expect(value.sections.slice(0, 4).map((s) => s.key)).toEqual(["performance", "queue", "contactHistory", "productivity"]);
     expect(value.sections.find((s) => s.key === "queue")?.enabled).toBe(false);
-    expect(value.sections.find((s) => s.key === "activity")?.enabled).toBe(true);
+    expect(value.sections.find((s) => s.key === "activity")?.enabled).toBe(false);
     expect(value.layout).toBe("oneColumn");
     expect(read({ layout: "grid" }).layout).toBe("oneColumn");
     expect(read({ layout: "twoColumn" }).layout).toBe("twoColumn");

@@ -7,7 +7,7 @@ import { DashboardCard, DashboardQueue, LYRA_CARD_MAX_WIDTH } from "@nicecxone/l
 import { cn } from "@/lib/utils";
 import { ActivityFeed } from "@/components/home/ActivityFeed";
 import { HomeGreetingHeader } from "@/components/home/HomeGreetingHeader";
-import { MetricCard, RemindersCard } from "@/components/home/persona-cards";
+import { DueSoonCard, MetricCard } from "@/components/home/persona-cards";
 import { t } from "@/i18n";
 import {
   LATEST_CONTACTS_STATIC,
@@ -106,8 +106,8 @@ export function HomeDashboard({ showPageHeader, headerActions, selectedQueueId, 
             </div>
           </DashboardCard>
         );
-      case "reminders":
-        return <RemindersCard />;
+      case "dueSoon":
+        return <DueSoonCard />;
       default:
         return <MetricCard section={key} />;
     }
@@ -124,7 +124,8 @@ export function HomeDashboard({ showPageHeader, headerActions, selectedQueueId, 
   // Two columns (the wireframe): the welcome header, the feed as the main
   // column, every other enabled section stacked on the right in its order.
   if (twoColumn && visible.includes("activity")) {
-    const side = visible.filter((key) => key !== "activity").flatMap((key) => {
+    // Due soon is a one-column card: the feed beside it already lists what's next.
+    const side = visible.filter((key) => key !== "activity" && key !== "dueSoon").flatMap((key) => {
       const node = nodeFor(key);
       return node ? [<div key={key} data-home-section={key}>{node}</div>] : [];
     });

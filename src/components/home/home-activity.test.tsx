@@ -1,15 +1,25 @@
 // @vitest-environment jsdom
-// The Activity Home (P-HOME-1): the feed as a Home section in both layouts,
-// fed by the stub schedule source; opening a scheduled row moves it off the
-// feed into History.
+// The Activity Home (P-HOME-1, 1b): the feed as a Home section in both
+// layouts, fed by the stub schedule source; the kind chips and the
+// All · Assignments · History chips; History is Contact History's entries in
+// its range plus what left the feed, and a History row opens Contact
+// History's preview; Due soon opens its items like the feed does.
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
+import type { HomeSectionKey } from "@/settings/settings-schema";
 import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
 import { TOM_LEWIS_SCRIPT } from "@/scenarios";
 
 const h = createWorkspaceHarness({ schedule: true });
+
+/** The feed (and any other sections named) on: the default Home has neither. */
+function turnOn(...keys: HomeSectionKey[]) {
+  getSettingsStore().update("home", (prev) => ({
+    sections: prev.sections.map((s) => (s.key === "activity" || keys.includes(s.key) ? { ...s, enabled: true } : s)),
+  }));
+}
 
 beforeEach(() => {
   localStorage.clear();
@@ -37,60 +47,92 @@ async function setLayout(layout: "oneColumn" | "twoColumn") {
 
 const feed = () => h.container.querySelector<HTMLElement>("[data-activity-feed]")!;
 const group = (title: string) => feed().querySelector<HTMLElement>(`[data-feed-group="${title}"]`);
-const rowTitles = (title: string) =>
-  [...(group(title)?.querySelectorAll("[data-feed-row]") ?? [])].map((r) => r.querySelector("[class*=emphasis], strong, b")?.textContent ?? r.textContent ?? "");
+const rows = (title: string) => [...(group(title)?.querySelectorAll<HTMLElement>("[data-feed-row]") ?? [])];
 const rowNamed = (text: string) => [...feed().querySelectorAll<HTMLElement>("[data-feed-row]")].find((r) => r.textContent?.includes(text));
-const chip = (label: string) => [...feed().querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.trim().startsWith(label));
+const chip = (label: string) => [...feed().querySelectorAll<HTMLButtonElement>("[data-feed-chips] button")].find((b) => b.textContent?.trim().startsWith(label));
+const kindChip = (label: string) => [...feed().querySelectorAll<HTMLButtonElement>("[data-feed-kinds] button")].find((b) => b.textContent?.trim() === label);
 const homeButton = () => [...h.container.querySelectorAll("aside button, aside [role=button]")].find((el) => el.textContent?.trim() === "Home")!;
-const sectionsIn =(scope: Element) => [...scope.querySelectorAll(":scope > [data-home-section], :scope > * > [data-home-section]")].map((el) => el.getAttribute("data-home-section"));
+const sectionsIn = (scope: Element) => [...scope.querySelectorAll(":scope > [data-home-section], :scope > * > [data-home-section]")].map((el) => el.getAttribute("data-home-section"));
 
 describe("Activity feed on Home", () => {
   it("oneColumn: the feed is a container row in its stored position, grouped Today / This week", async () => {
+    turnOn();
     await showHome();
     expect(h.container.querySelector("[data-home-layout]")?.getAttribute("data-home-layout")).toBe("oneColumn");
     const order = [...h.container.querySelectorAll("[data-home-section]")].map((el) => el.getAttribute("data-home-section"));
-    expect(order).toEqual(["queue", "performance productivity", "activity", "reminders"]);
+    expect(order).toEqual(["queue", "contactHistory", "performance", "activity"]);
     expect(group("Today")?.textContent).toContain("Callback · Priya Shah");
     expect(group("This week")?.textContent).toContain("1:1 with Dana (supervisor)");
     expect(group("Needs a decision")).toBeNull();
     expect(h.container.querySelector("[data-welcome-counts]")).toBeNull();
-    expect(rowTitles("Today").length).toBe(5);
+    expect(rows("Today").length).toBe(5);
   });
 
-  it("twoColumn: the welcome counts, the feed as the main column and the other sections stacked right in order", async () => {
+  it("twoColumn: the welcome counts, the feed as the main column, the other sections stacked right in order — Due soon only in one column", async () => {
+    turnOn("dueSoon");
     await showHome();
+    expect(h.container.querySelector('[data-home-section="dueSoon"]')).not.toBeNull();
     await setLayout("twoColumn");
     const home = h.container.querySelector("[data-home-layout=twoColumn]")!;
     expect(home.querySelector("[data-home-section=activity] [data-activity-feed]")).not.toBeNull();
     const side = home.querySelector("[data-home-column=side]")!;
-    expect(sectionsIn(side)).toEqual(["queue", "performance", "productivity", "reminders"]);
+    expect(sectionsIn(side)).toEqual(["queue", "contactHistory", "performance"]);
     expect(h.container.querySelector("[data-welcome-counts]")?.textContent).toBe(
       "0 to decide · 0 now · 5 more today · 3 this week · 2 in history",
     );
   });
 
-  it("opening a scheduled row moves it off the feed; the History chip lists it; chips stack", async () => {
+  it("the chips are selectable Tags: opening a scheduled row moves it off the feed; History lists it; chips stack; All clears", async () => {
+    turnOn();
     await showHome();
+    expect(chip("All")?.getAttribute("aria-pressed")).toBe("true");
     await h.click(rowNamed("Returns team stand-up")!);
     // It opened as the active assignment; back on Home it has left the feed.
     await h.click(homeButton());
     expect(rowNamed("Returns team stand-up")).toBeUndefined();
 
     await h.click(chip("History")!);
+    expect(chip("History")?.getAttribute("aria-pressed")).toBe("true");
+    expect(chip("All")?.getAttribute("aria-pressed")).toBe("false");
     expect(group("Today")).toBeNull();
-    expect(group("History · left the feed today")?.textContent).toContain("Returns team stand-up");
-    expect(group("History · left the feed today")?.textContent).toContain("Omar Farooq · Email · Sales");
+    expect(group("History")?.textContent).toContain("Returns team stand-up");
+    expect(group("History")?.textContent).toContain("Omar Farooq · Email · Sales");
 
     await h.click(chip("Assignments")!);
     expect(group("Today")?.textContent).toContain("Callback · Priya Shah");
-    expect(group("History · left the feed today")).not.toBeNull();
+    expect(group("History")).not.toBeNull();
 
     await h.click(chip("All")!);
-    expect(group("History · left the feed today")).toBeNull();
-    expect(getSettingsStore().getState().values.home.layout).toBe("oneColumn");
+    expect(group("History")).toBeNull();
+    expect(chip("Assignments")?.getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("today's completed call is in History with Call back; Outbound Calling → Redial off hides it", async () => {
+  it("the kind chips filter every group, History included; none picked is every kind", async () => {
+    turnOn();
+    await showHome();
+    expect([...feed().querySelectorAll("[data-feed-kinds] button")].map((b) => b.textContent?.trim())).toEqual([
+      "Conversation",
+      "Callback",
+      "Meeting",
+      "Training",
+      "Task",
+    ]);
+    await h.click(kindChip("Callback")!);
+    expect(kindChip("Callback")?.getAttribute("aria-pressed")).toBe("true");
+    expect(rows("Today").map((r) => r.textContent?.includes("Callback")).every(Boolean)).toBe(true);
+    await h.click(chip("History")!);
+    expect(group("History")?.textContent).not.toContain("Omar Farooq");
+    await h.click(kindChip("Conversation")!);
+    expect(group("History")?.textContent).toContain("Omar Farooq");
+    await h.click(kindChip("Callback")!);
+    await h.click(kindChip("Conversation")!);
+    expect(rows("Today").length).toBe(0);
+    await h.click(chip("Assignments")!);
+    expect(rows("Today").length).toBe(5);
+  });
+
+  it("History is Contact History's entries in its range: a declined call today; a History row opens Contact History's preview with Redial, hidden when Redial is off", async () => {
+    turnOn();
     await showHome();
     await h.play(TOM_LEWIS_SCRIPT.id);
     const decline = [...h.container.querySelectorAll("aside button")].find((b) => b.textContent === "Decline") as HTMLElement;
@@ -99,17 +141,45 @@ describe("Activity feed on Home", () => {
     await h.click(chip("History")!);
     const tom = () => rowNamed("Tom Lewis");
     expect(tom()?.getAttribute("data-feed-status")).toBe("completed");
-    const callBack = () => [...(tom()?.querySelectorAll("button") ?? [])].find((b) => b.textContent?.trim() === "Call back");
-    expect(callBack()?.disabled).toBe(false);
+    // The History group's header carries Contact History's own date control.
+    expect(group("History")?.textContent).toContain("Today");
+    await h.click(tom()!);
+    expect(h.buttonByText("Redial")).toBeTruthy();
     await act(async () => {
       getSettingsStore().update("outbound", (prev) => ({ calling: { ...prev.calling, redial: false } }));
       await vi.advanceTimersByTimeAsync(50);
     });
-    expect(tom()).toBeDefined();
-    expect(callBack()).toBeUndefined();
+    expect(h.buttonByText("Redial")).toBeUndefined();
+  });
+
+  it("History's range follows Contact History's date control: Last 48 Hours adds Contact History's earlier contacts", async () => {
+    turnOn();
+    await showHome();
+    await h.click(chip("History")!);
+    const before = rows("History").length;
+    const trigger = [...group("History")!.querySelectorAll<HTMLElement>("button")].find((b) => b.textContent?.includes("Today"))!;
+    await h.click(trigger);
+    const option = [...document.querySelectorAll<HTMLElement>("[role=radio]")].find((r) => r.closest("label")?.textContent?.includes("Last 48") || r.getAttribute("aria-label")?.includes("Last 48") || r.parentElement?.textContent?.includes("Last 48"));
+    await h.click(option!);
+    expect(rows("History").length).toBeGreaterThan(before);
+    expect(rows("History").filter((r) => r.getAttribute("data-feed-status") === "completed").length).toBeGreaterThan(2);
+  });
+
+  it("Due soon lists the next three scheduled items; a row opens its item like the feed", async () => {
+    turnOn("dueSoon");
+    await showHome();
+    const dueSoon = h.container.querySelector('[data-home-card="dueSoon"]')!;
+    expect([...dueSoon.querySelectorAll("[data-due-soon-row]")].map((r) => r.getAttribute("data-due-soon-row"))).toEqual([
+      "agent-cb-priya",
+      "agent-mt-standup",
+      "agent-tr-ret13",
+    ]);
+    await h.click(dueSoon.querySelector('[data-due-soon-row="agent-mt-standup"]')!);
+    expect(h.container.querySelector("[data-kind-cell]")?.getAttribute("data-kind-cell")).toBe("meeting");
   });
 
   it("a ringing offer pins to Needs a decision; its row accepts it", async () => {
+    turnOn();
     await showHome();
     await h.goAvailable();
     await h.startInbound("voice", "+15555550123", "Tom Lewis");

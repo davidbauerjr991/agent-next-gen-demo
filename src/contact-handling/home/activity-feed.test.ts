@@ -2,7 +2,7 @@
 // as a chip, the time groups, the chip semantics and the counts.
 import { describe, expect, it } from "vitest";
 import { seedScheduleDay } from "@/adapters/sim/sim-schedule-seeds";
-import { assignmentIdFor, scheduleCardKey } from "@/domain";
+import { assignmentIdFor, scheduleCardKey, type AssignmentKind } from "@/domain";
 import type { ScheduleItem } from "@/providers";
 import { buildFeed, type FeedFilter, type FeedInput, type FeedRow } from "./activity-feed";
 import { PERSONA_KINDS } from "./persona-kinds";
@@ -34,9 +34,11 @@ function input(overrides: Partial<FeedInput> = {}): FeedInput {
     offers: [offer],
     scheduleItems: seedScheduleDay("agent", NOW),
     railCards: [railCard],
-    todayHistory: [completed],
+    completedHistory: [completed],
+    historySince: new Date(2026, 9, 24).getTime(),
     now: NOW,
     kinds: PERSONA_KINDS.agent,
+    kindFilter: new Set<AssignmentKind>(),
     filters: new Set<FeedFilter>(),
     ...overrides,
   };
@@ -84,7 +86,7 @@ describe("buildFeed", () => {
     expect(shadowed.today.some((r) => r.assignmentId === priya)).toBe(false);
   });
 
-  it("History lists what left the feed today: completed first in time order, then what's in the rail", () => {
+  it("History lists what left the feed in its range: Contact History's entries, completed items in time order, then what's in the rail", () => {
     const feed = buildFeed(input({ filters: new Set<FeedFilter>(["history"]) }));
     expect(titles(feed.history)).toEqual([
       "Sarah Brown · Chat · Billing",
@@ -92,6 +94,22 @@ describe("buildFeed", () => {
       "Nathan Cole · Voice · General Support",
       "Maya Chen · Voice",
     ]);
+    // A range starting after both seeded completions leaves them out; Contact History's entries are the caller's range.
+    const later = buildFeed(input({ filters: new Set<FeedFilter>(["history"]), historySince: NOW }));
+    expect(titles(later.history)).toEqual(["Sarah Brown · Chat · Billing", "Maya Chen · Voice"]);
+  });
+
+  it("the kind chips filter every group, History included; none picked is every kind", () => {
+    const callbacks = buildFeed(input({ kindFilter: new Set<AssignmentKind>(["callback"]), filters: new Set<FeedFilter>(["assignments", "history"]) }));
+    expect(callbacks.today.concat(callbacks.thisWeek).every((r) => r.kind === "callback")).toBe(true);
+    expect(titles(callbacks.today)).toEqual(["Callback · Priya Shah", "Callback · Sofia Ramirez"]);
+    expect(callbacks.needsDecision).toEqual([]);
+    expect(callbacks.history).toEqual([]);
+    const meetingsAndConversations = buildFeed(
+      input({ kindFilter: new Set<AssignmentKind>(["meeting", "conversation"]), filters: new Set<FeedFilter>(["assignments", "history"]) }),
+    );
+    expect(new Set(meetingsAndConversations.today.concat(meetingsAndConversations.thisWeek).map((r) => r.kind))).toEqual(new Set(["meeting"]));
+    expect(meetingsAndConversations.history.length).toBe(4);
   });
 
   it("chips: All shows the assignments, History alone hides them, Assignments + History stack", () => {

@@ -195,7 +195,7 @@ export const keyedList =
   };
 
 /** Dashboard sections, in v3's default order (Settings → Home), then the
- *  Activity feed and the role cards (P-HOME-1): Reminders for agents, Team
+ *  Activity feed and the role cards (P-HOME-1): Due soon for agents, Team
  *  queues / Team today / Needs you for supervisors, Pipeline / Campaign
  *  today / Follow-ups for sales. `workspace.persona` turns a role's set on. */
 export const HOME_SECTIONS = [
@@ -204,7 +204,7 @@ export const HOME_SECTIONS = [
   "performance",
   "productivity",
   "activity",
-  "reminders",
+  "dueSoon",
   "teamQueues",
   "teamToday",
   "needsYou",
@@ -218,18 +218,10 @@ export interface HomeSection {
   enabled: boolean;
 }
 
-/** The role cards are off until a persona turns its set on. Contact History
- *  is off by default too (P-HOME-1: today's slice is the feed's History
- *  chip), not deleted: the agent can still turn it on. */
-const HOME_SECTIONS_OFF_BY_DEFAULT: readonly HomeSectionKey[] = [
-  "contactHistory",
-  "teamQueues",
-  "teamToday",
-  "needsYou",
-  "pipeline",
-  "campaignToday",
-  "followUps",
-];
+/** The default Home is the original one (P-HOME-1b): Queue, Contact History
+ *  and Performance. Everything else is off until a profile (AI-first: the
+ *  Activity feed) or a persona turns it on. */
+const HOME_SECTIONS_ON_BY_DEFAULT: readonly HomeSectionKey[] = ["queue", "contactHistory", "performance"];
 
 /** oneColumn: today's rows, the feed as one more container row. twoColumn:
  *  the welcome header, the feed as the main column, the other sections
@@ -266,7 +258,7 @@ const home = defineSection<HomeSettings>({
     showHeader: true,
     greeting: "Hello",
     showFirstName: true,
-    sections: HOME_SECTIONS.map((key) => ({ key, enabled: !HOME_SECTIONS_OFF_BY_DEFAULT.includes(key) })),
+    sections: HOME_SECTIONS.map((key) => ({ key, enabled: HOME_SECTIONS_ON_BY_DEFAULT.includes(key) })),
     // v3's defaults: Digital and Work Item hidden.
     queue: { channels: { digital: false, inboundVoice: true, voicemail: true, workItem: false, outboundVoice: true } },
     layout: "oneColumn",

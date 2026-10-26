@@ -16,7 +16,6 @@ import { SettingsView } from "@/components/settings/SettingsView";
 import { getSettingsStore, resetSettingsStoreForTests } from "./settings-store";
 import { applyProfile } from "./hooks";
 import { PROFILES, deriveProfile, profileValues } from "./profiles";
-import { showContactHistoryOnHome } from "@/test-utils/home-sections";
 import { SECTIONS, SOCIAL_CHANNELS, type ChannelsSettings, type SectionKey, type SettingsState } from "./settings-schema";
 
 const h = createWorkspaceHarness();
@@ -300,7 +299,6 @@ describe("the workspace", () => {
     );
 
   it("Contact History follows Settings → Channels: voice only shows voice rows only; turning chat on restores its rows, off drops them again", async () => {
-    showContactHistoryOnHome();
     await h.show(AgentWorkspaceAdvancedPage);
     const rows = () => historySection()?.querySelectorAll('[role="button"]').length ?? 0;
     const snapshot = () => ({ rows: rows(), tags: historyTags() });
@@ -317,8 +315,6 @@ describe("the workspace", () => {
     // Every channel on (Phase 2): every channel's rows.
     await act(async () => {
       getSettingsStore().updateMany(profileValues("phase2"));
-      // Phase 2, like every built-in, has Contact History off on Home (P-HOME-1).
-      showContactHistoryOnHome();
       await vi.advanceTimersByTimeAsync(50);
     });
     expect(new Set(snapshot().tags).size).toBeGreaterThan(2);
