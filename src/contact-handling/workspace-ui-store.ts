@@ -77,6 +77,11 @@ export interface WorkspaceUiState {
   assignmentsPanelOverlayOpen: boolean;
   /** P-HOME-1e: the Activity feed's view (Assignments / History). */
   activityView: "assignments" | "history";
+  /** P-HOME-1f: History's search (Contact History's own search box). */
+  activityHistoryQuery: string;
+  /** P-HOME-1f: the schedule card (its key) whose kind row is selected while a call is joined to it: the main column
+   *  shows the kind's cell, not the call. The main column follows the selected row, as a channel row's does. */
+  kindCellShownFor: string | null;
   /** P-HOME-1b: the feed's kind chips (empty: every kind). */
   activityKinds: ReadonlySet<AssignmentKind>;
   /** P-HOME-1b: History's range, Contact History's date control. */
@@ -114,6 +119,8 @@ export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
   assignmentsPanelDocks: true,
   assignmentsPanelOverlayOpen: false,
   activityView: "assignments",
+  activityHistoryQuery: "",
+  kindCellShownFor: null,
   activityKinds: new Set<AssignmentKind>(),
   activityHistoryRange: "today",
   assignmentToasts: Object.freeze([]),

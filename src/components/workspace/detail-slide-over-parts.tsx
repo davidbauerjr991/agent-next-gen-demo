@@ -106,7 +106,7 @@ export function useDetailSlideOverParts(): DetailSlideOverParts {
       {content?.kind === "lucas-instruction" && (
         <LucasThomasInstructionPanelBody decision={content.decision} text={content.text} time={content.time} />
       )}
-      {content?.kind === "copilot-result" && <CopilotResultPanelBody text={content.text} time={content.time} />}
+      {content?.kind === "copilot-result" && <CopilotResultPanelBody text={content.text} time={content.time} answer={content.answer} />}
       {content?.kind === "lucas-order" && <LucasThomasOrderPanelBody orderId={content.orderId} />}
       {content?.kind === "lucas" && content.panel === "product" && <LucasThomasProductPanelBody />}
       {content?.kind === "lucas" && content.panel === "payments" && <LucasThomasPaymentsPanelBody />}

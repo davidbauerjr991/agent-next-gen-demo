@@ -14,6 +14,7 @@ import { hasCustomerInfo } from "@/components/customer-info/reference-sections";
 import { AI_CARD_ENTER } from "@/components/transcript/ai-rows/ai-card-enter";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
+import { KIND_CANVAS_CELLS } from "./kind-cells/kind-canvas-cells";
 
 const copy = (text: string) => void navigator.clipboard?.writeText(text).catch(() => {});
 
@@ -101,4 +102,6 @@ export const DEFAULT_CANVAS_CELLS: readonly CanvasCell[] = [
   // conversation as a row on a pause or the agent's request, next-best-action.ts; a scripted case's decisions too.)
   { id: "conversation", region: "action", order: 30 },
   { id: "voice-wrap-up", region: "action", order: 40, component: VoiceWrapUpCell, applies: (ws) => !!ws.activeWrapUpThread },
+  // A non-conversation assignment's kind cell (P-HOME-1f): its own reference cards.
+  ...KIND_CANVAS_CELLS,
 ];

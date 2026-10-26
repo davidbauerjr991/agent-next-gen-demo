@@ -41,8 +41,18 @@ function placeholderAnswer(question: string): { summary: string; points: string[
   };
 }
 
-export function CopilotResultPanelBody({ text, time, by = "John Smith" }: { text: string; time: string; by?: string }) {
-  const answer = placeholderAnswer(text);
+export function CopilotResultPanelBody({
+  text,
+  time,
+  by = "John Smith",
+  answer = placeholderAnswer(text),
+}: {
+  text: string;
+  time: string;
+  by?: string;
+  /** A scripted answer (a kind cell's, P-HOME-1f); else the placeholder for the question. */
+  answer?: { summary: string; points: readonly string[] };
+}) {
   return (
     <div data-slot="copilot-result" className="flex flex-col gap-4 p-4">
       <div className="flex flex-col gap-2 rounded-lyra-md border border-lyra-border-subtle bg-lyra-bg-surface-base p-3">

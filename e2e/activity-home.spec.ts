@@ -190,7 +190,7 @@ test("a kind card's Outcome popover opens below its button, aligned to its end, 
   expect(box.x + box.width).toBeGreaterThanOrEqual(button.x + button.width);
 });
 
-test("a call from a callback joins the callback's card: one card, a Voice row under its Callback chip", async ({ page }) => {
+test("a call from a callback joins the callback's card: the Callback row, then the Voice row; the main column follows the selected row", async ({ page }) => {
   await open(page);
   await feed(page).locator("[data-feed-row]", { hasText: "Callback · Priya Shah" }).click();
   await page.locator("[data-kind-cell=callback] [data-schedule-call]").click();
@@ -198,11 +198,45 @@ test("a call from a callback joins the callback's card: one card, a Voice row un
   const card = page.locator('aside [data-kind-nav-card="agent-cb-priya"]');
   await expect(card).toHaveAttribute("data-kind-leg", "schedule:agent-cb-priya", { timeout: 15_000 });
   await expect(card.locator('[title="End Call"], [aria-label="End Call"]').first()).toBeVisible();
-  await expect(card.locator("[data-kind-card-body]")).toContainText("Callback");
-  // One card for the customer, and one Outcome on it (the call's).
+  // One card for the customer, its rows in the order they were opened.
   await expect(page.locator("aside [data-kind-nav-card]")).toHaveCount(1);
   await expect(page.locator("aside").getByRole("button", { name: /^Priya Shah/ })).toHaveCount(1);
-  await expect(card.locator("[data-kind-outcome-trigger]")).toHaveCount(0);
+  const callbackRow = card.getByRole("button", { name: /^Callback channel/ });
+  const voiceRow = card.getByRole("button", { name: /^Voice channel/ });
+  const callbackBox = (await callbackRow.boundingBox())!;
+  const voiceBox = (await voiceRow.boundingBox())!;
+  expect(voiceBox.y).toBeGreaterThan(callbackBox.y);
+  // The call shows; the Callback row shows the callback's cell; the Voice row the call again. (A row's content sits
+  // over its stretched select button and the click bubbles to the row: `force` clicks there, as a pointer does.)
+  await expect(page.locator("[data-kind-cell]")).toHaveCount(0);
+  await callbackRow.click({ force: true });
+  await expect(page.locator("[data-kind-cell=callback]")).toBeVisible();
+  await voiceRow.click({ force: true });
+  await expect(page.locator("[data-kind-cell]")).toHaveCount(0);
+});
+
+test("History behaves as Contact History: its search and date controls, a row opens its preview and closes it again", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 720 });
+  await page.addInitScript((home) => {
+    localStorage.setItem("agent-next-gen:settings:home", JSON.stringify({ ...home, value: { ...home.value, layout: "twoColumn" } }));
+  }, HOME_WITH_FEED);
+  await open(page);
+  await view(page, "History").click();
+  const history = group(page, "History");
+  await history.getByRole("button", { name: /Today/ }).click();
+  await page.getByText("Last 48 Hours", { exact: true }).click();
+  const entries = feed(page).locator('[data-feed-row^="history:"]');
+  await expect(entries.first()).toBeVisible();
+  await entries.first().click();
+  await expect(entries.first()).toHaveAttribute("data-selected", "true");
+  const panel = page.locator('[data-slot="home-detail-panel"]');
+  await expect(panel.locator('[data-home-detail="history"]')).toBeVisible();
+  await entries.first().click();
+  await expect(entries.first()).not.toHaveAttribute("data-selected", "true");
+  // Its search narrows the list.
+  await history.getByPlaceholder("Search contact history").fill("zzz-no-match");
+  await expect(entries).toHaveCount(0);
+  await expect(history).toContainText("No matching contacts");
 });
 
 test("a callback's Dial opens the outbound dial pad anchored beneath the button, prefilled with the customer's number", async ({ page }) => {

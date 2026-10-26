@@ -4,7 +4,7 @@
 // (lyra selectable Tags, multi-select) filter it; History lists what left the
 // feed in its range. The rules are activity-feed.ts; this file only lays them out.
 import * as React from "react";
-import { Badge, Container, Tag, ToggleGroup } from "@nicecxone/lyra-ui";
+import { Badge, Container, SearchInput, Tag, ToggleGroup } from "@nicecxone/lyra-ui";
 import { ContactHistoryDateFilterChip } from "@/components/agent-next-gen-contact-history";
 import type { FeedRow, FeedView } from "@/contact-handling/home/activity-feed";
 import { useActivityFeed, type ActivityFeed as ActivityFeedApi } from "@/contact-handling/home/useActivityFeed";
@@ -41,7 +41,7 @@ function FeedGroup({
   if (rows.length === 0 && !empty) return null;
   return (
     <section className="flex flex-col gap-1" data-feed-group={title}>
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="lyra-label text-lyra-fg-secondary">{title}</h3>
         {action}
       </div>
@@ -51,7 +51,7 @@ function FeedGroup({
         <div role="list" className="flex flex-col">
           {rows.map((row) => (
             <div role="listitem" key={row.assignmentId}>
-              <ActivityRow row={row} now={now} onOpen={() => api.open(row)} />
+              <ActivityRow row={row} now={now} onOpen={() => api.open(row)} selected={api.isSelected(row)} />
             </div>
           ))}
         </div>
@@ -119,8 +119,20 @@ export function ActivityFeed() {
           rows={feed.history}
           now={now}
           api={api}
-          empty={t("Nothing in this range")}
-          action={<ContactHistoryDateFilterChip defaultValue={api.historyRange} onValueChange={api.setHistoryRange} />}
+          empty={api.historyQuery.trim() ? t("No matching contacts") : t("Nothing in this range")}
+          // Contact History's own controls: its search and its date range (it has no sort).
+          action={
+            <span className="flex min-w-0 flex-1 items-center justify-end gap-2" data-feed-history-controls>
+              <SearchInput
+                value={api.historyQuery}
+                onValueChange={api.setHistoryQuery}
+                placeholder={t("Search contact history")}
+                size="sm"
+                className="min-w-[200px] max-w-xs flex-1"
+              />
+              <ContactHistoryDateFilterChip defaultValue={api.historyRange} onValueChange={api.setHistoryRange} />
+            </span>
+          }
         />
       )}
       {nothingComing && <p className="lyra-body-sm text-lyra-fg-secondary">{t("Nothing coming up.")}</p>}

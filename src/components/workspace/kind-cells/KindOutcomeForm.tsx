@@ -3,8 +3,10 @@
 // items, a training's completion and score, a task's ticket status and note,
 // a callback's or conversation's disposition. Saving completes the item
 // through the schedule source; nothing is written until the agent saves.
+// P-HOME-1f: the fields and the save are separate, so the popover lays them
+// out in its header / content / footer slots as the conversation's does.
 import * as React from "react";
-import { Button, Checkbox, DispositionSelect, Input, Select, Textarea } from "@nicecxone/lyra-ui";
+import { Checkbox, DispositionSelect, Input, Select, Textarea } from "@nicecxone/lyra-ui";
 import { OUTCOME_DISPOSITION_OPTIONS } from "@/components/transcript/transcript-fixtures";
 import type { ScheduleItem, ScheduleOutcome } from "@/providers";
 import { t } from "@/i18n";
@@ -22,7 +24,8 @@ export function outcomeShapeOf(kind: ScheduleItem["kind"]): OutcomeShape {
   return "notes";
 }
 
-export function KindOutcomeForm({ item, onSave, onCancel }: { item: ScheduleItem; onSave: (outcome: ScheduleOutcome) => void; onCancel?: () => void }) {
+/** A kind's outcome form: its fields, whether it can be saved, and the outcome it records. */
+export function useKindOutcomeForm(item: ScheduleItem): { fields: React.ReactNode; canSave: boolean; outcome: () => ScheduleOutcome } {
   const shape = outcomeShapeOf(item.kind);
   const [note, setNote] = React.useState("");
   const [actionItems, setActionItems] = React.useState("");
@@ -31,23 +34,23 @@ export function KindOutcomeForm({ item, onSave, onCancel }: { item: ScheduleItem
   const [ticketStatus, setTicketStatus] = React.useState<string>("Pending");
   const [disposition, setDisposition] = React.useState("");
 
-  const save = () => {
-    const outcome: ScheduleOutcome = { ...(note.trim() ? { note: note.trim() } : {}) };
+  const outcome = () => {
+    const result: ScheduleOutcome = { ...(note.trim() ? { note: note.trim() } : {}) };
     if (shape === "notes") {
       const lines = actionItems.split("\n").map((l) => l.trim()).filter(Boolean);
-      if (lines.length) outcome.actionItems = lines;
+      if (lines.length) result.actionItems = lines;
     }
     if (shape === "completion") {
-      outcome.completed = completed;
+      result.completed = completed;
       const n = Number(score);
-      if (score.trim() && Number.isFinite(n)) outcome.score = n;
+      if (score.trim() && Number.isFinite(n)) result.score = n;
     }
-    if (shape === "ticket") outcome.ticketStatus = ticketStatus;
-    if (shape === "disposition" && disposition) outcome.disposition = disposition;
-    onSave(outcome);
+    if (shape === "ticket") result.ticketStatus = ticketStatus;
+    if (shape === "disposition" && disposition) result.disposition = disposition;
+    return result;
   };
 
-  return (
+  const fields = (
     <div className="flex flex-col gap-4" data-kind-outcome={shape}>
       {shape === "disposition" && (
         <DispositionSelect label={t("Disposition")} options={OUTCOME_DISPOSITION_OPTIONS} value={disposition} onValueChange={setDisposition} />
@@ -72,16 +75,8 @@ export function KindOutcomeForm({ item, onSave, onCancel }: { item: ScheduleItem
       {shape === "notes" && (
         <Textarea label={t("Action items")} labelHelpText={t("One per line.")} value={actionItems} onChange={(e) => setActionItems(e.target.value)} />
       )}
-      <div className="flex justify-end gap-2">
-        {onCancel && (
-          <Button variant="outline" size="md" onClick={onCancel}>
-            {t("Cancel")}
-          </Button>
-        )}
-        <Button variant="default" size="md" onClick={save} disabled={shape === "disposition" && !disposition}>
-          {t("Save outcome")}
-        </Button>
-      </div>
     </div>
   );
+
+  return { fields, canSave: shape !== "disposition" || !!disposition, outcome };
 }

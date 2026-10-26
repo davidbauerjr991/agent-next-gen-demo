@@ -85,7 +85,9 @@ describe("Activity feed on Home", () => {
     const header = home.querySelector("[data-home-header] [data-home-page-header]")!;
     expect(header.querySelector("h1")?.textContent).toBe("Hello John");
     expect(header.querySelector("[data-welcome-counts]")?.textContent).toBe("0 to decide · 0 now · 5 more today · 3 this week · 2 in history");
-    expect(h.buttonByText("Go Available", header)).toBeTruthy();
+    // Presence is the header's presence menu: no Go Available here. One line under the whole header, as the record header.
+    expect(h.buttonByText("Go Available", header)).toBeUndefined();
+    expect(header.className).toContain("border-b");
     expect(header.textContent).toContain("My Assignment Queue");
     // The counts don't follow the view.
     await h.click(view("History")!);
@@ -219,6 +221,45 @@ describe("Activity feed on Home", () => {
       await vi.advanceTimersByTimeAsync(50);
     });
     expect(h.buttonByText("Redial")).toBeUndefined();
+  });
+
+  it("History behaves as Contact History: its search and date controls in the header, a row opens the preview (selected) and closes it again; the kind chips still filter", async () => {
+    turnOn();
+    await showHome();
+    await h.click(view("History")!);
+    const controls = group("History")!.querySelector<HTMLElement>("[data-feed-history-controls]")!;
+    expect(controls.querySelector("input")?.getAttribute("placeholder")).toBe("Search contact history");
+    expect(controls.textContent).toContain("Today");
+    await h.click([...controls.querySelectorAll<HTMLElement>("button")].find((b) => b.textContent?.includes("Today"))!);
+    await h.click([...document.querySelectorAll<HTMLElement>("[role=radio]")].find((r) => r.parentElement?.textContent?.includes("Last 48"))!);
+    const entry = () => rows("History").find((r) => r.getAttribute("data-feed-row")?.startsWith("history:"))!;
+    const name = entry().textContent!.split(" · ")[0]!;
+    await h.click(entry());
+    await h.advance(100);
+    expect(entry().getAttribute("data-selected")).toBe("true");
+    expect(document.querySelector("[data-home-detail=history]")).not.toBeNull();
+    await h.click(entry());
+    await h.advance(400);
+    expect(entry().getAttribute("data-selected")).toBeNull();
+
+    // The search narrows History (the counts stay the day's).
+    const search = controls.querySelector<HTMLInputElement>("input")!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(search, "zzz-no-match");
+      search.dispatchEvent(new Event("input", { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(rows("History")).toHaveLength(0);
+    expect(group("History")?.textContent).toContain("No matching contacts");
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(search, name.slice(0, 4));
+      search.dispatchEvent(new Event("input", { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(rows("History").length).toBeGreaterThan(0);
+    // A kind chip with nothing in History empties it.
+    await h.click(kindChip("Training")!);
+    expect(rows("History")).toHaveLength(0);
   });
 
   it("History's range follows Contact History's date control: Last 48 Hours adds Contact History's earlier contacts", async () => {

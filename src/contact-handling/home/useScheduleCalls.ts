@@ -12,6 +12,7 @@ import { scheduleItemIdOf } from "@/domain";
 import { useInteractions, useScheduleProvider, useScheduleSnapshot } from "@/provider-context";
 import type { ScheduleItem } from "@/providers";
 import { useWorkspace } from "../workspace/WorkspaceContext";
+import { useWorkspaceUiField } from "../workspace-ui-store";
 
 /** The number and reason a call from `item` carries, or `null` when it has no number. */
 export function scheduleCallTarget(item: ScheduleItem): { phone: string; summary: string[] } | null {
@@ -25,10 +26,13 @@ export function scheduleCallTarget(item: ScheduleItem): { phone: string; summary
 /** Opens the dial pad beneath `anchorEl` for a call from `item`, prefilled with the customer's number. */
 export function useScheduleDial(): (item: ScheduleItem, anchorEl: HTMLElement | null) => void {
   const { outboundDial } = useWorkspace();
+  const [, setKindCellShownFor] = useWorkspaceUiField("kindCellShownFor");
   return useCallback(
     (item, anchorEl) => {
       const target = scheduleCallTarget(item);
       if (!target) return;
+      // The call becomes the card's selected row once it's placed (the main column follows it).
+      setKindCellShownFor(null);
       outboundDial.openScheduleDialPad(
         {
           itemId: item.id,
@@ -40,7 +44,7 @@ export function useScheduleDial(): (item: ScheduleItem, anchorEl: HTMLElement | 
         anchorEl,
       );
     },
-    [outboundDial],
+    [outboundDial, setKindCellShownFor],
   );
 }
 

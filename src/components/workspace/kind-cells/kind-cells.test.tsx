@@ -68,7 +68,7 @@ describe("schedule items open as assignments", () => {
 
     await h.click(card.querySelector("[data-kind-outcome-trigger]")!);
     expect(outcomeForm()?.getAttribute("data-kind-outcome")).toBe(shape);
-    const save = () => [...document.querySelectorAll<HTMLButtonElement>("[data-kind-outcome] button")].find((b) => b.textContent?.trim() === "Save outcome")!;
+    const save = () => [...document.querySelectorAll<HTMLButtonElement>("[data-kind-outcome-footer] button")].find((b) => b.textContent?.trim() === "Save outcome")!;
     if (shape === "disposition") {
       // A callback's outcome is a disposition, as a contact's: Save waits for one.
       expect(save().disabled).toBe(true);
@@ -98,31 +98,85 @@ describe("schedule items open as assignments", () => {
     expect(content.getAttribute("data-align")).toBe("end");
   });
 
-  it("the cell's header is a conversation's two lines: the name and subject in the PageHeader, the kind's session row under it", async () => {
+  it("the Outcome popover has the conversation popover's slots and spacing: a header, the fields, and a padded footer", async () => {
+    await showHome();
+    await h.click(rowNamed("Returns team stand-up")!);
+    await h.click(h.container.querySelector("aside [data-kind-nav-card] [data-kind-outcome-trigger]")!);
+    expect(outcomeForm()!.parentElement!.className).toContain("pb-2 pt-1");
+    expect(document.querySelector("[data-kind-outcome-footer]")!.className).toContain("px-5 pb-4 pt-1");
+  });
+
+  it("the cell's header is a conversation's two lines, with a back arrow Home; the session row has no default status and no kebab", async () => {
     await showHome();
     await h.click(rowNamed("Ticket #4821 · subscription renewal refund")!);
     const header = cell()!.querySelector<HTMLElement>('[data-slot="record-header"]')!;
     expect(header.querySelector("h1")?.textContent).toBe("Priya Shah");
     expect(header.textContent).toContain("#4821 · Credit RF-20452");
-    // No kind or status tags beside the title: they're on the session row, in the record header's session-row slot.
+    // The kind, time and source are the session row; an open item's status (the default) isn't shown, nor a kebab.
     const row = header.querySelector<HTMLElement>('[data-slot="record-session-row"] [data-kind-session-row]')!;
     expect(row.textContent).toContain("Task");
-    expect(row.textContent).toContain("Active");
+    expect(row.textContent).toContain("Ticket queue");
+    expect(row.querySelector("[data-kind-status]")).toBeNull();
+    expect(row.textContent).not.toContain("Active");
     expect(row.querySelector("[data-kind-outcome-trigger]")).not.toBeNull();
-    expect(row.querySelector('[aria-label="More options"]')).not.toBeNull();
-    expect(header.querySelector("h1")!.parentElement!.textContent).not.toContain("Active");
+    expect(row.querySelector('[aria-label="More options"]')).toBeNull();
+    // The back arrow returns Home.
+    await h.click(header.querySelector("[data-kind-back]")!);
+    expect(cell()).toBeNull();
+    expect(feed()).not.toBeNull();
   });
 
-  it("a kind card is formatted like an interaction card: the kind chip with its icon and the due time; collapsed, the kind icon sits top-left", async () => {
+  it("the cell's reference column is the canvas registry's kind cells, with canvas.cells overrides; the action area ends with the Copilot input, scoped to the item", async () => {
+    await showHome();
+    await h.click(rowNamed("Callback · Priya Shah")!);
+    const reference = () => cell()!.querySelector<HTMLElement>('[data-canvas-region="reference"]')!;
+    expect([...reference().querySelectorAll("[data-canvas-cell]")].map((el) => el.getAttribute("data-canvas-cell"))).toEqual([
+      "kind-summary",
+      "kind-related",
+      "kind-journey",
+    ]);
+    // The Real-Time Summary is the item's own detail.
+    expect(reference().querySelector('[data-canvas-cell="kind-summary"]')?.textContent).toContain("Refund RF-20451 hasn't posted");
+    await act(async () => {
+      getSettingsStore().update("canvas", { cells: { "kind-related": { enabled: false } } });
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(reference().querySelector('[data-canvas-cell="kind-related"]')).toBeNull();
+
+    // The Copilot input (lyra AIInput, single-line pill) under the action area, with the seed's chips; a chip opens its
+    // scripted answer in the reference slot's slide-over.
+    const copilot = cell()!.querySelector<HTMLElement>("[data-kind-action-area] [data-kind-copilot] [data-slot=copilot-composer]")!;
+    expect(copilot).not.toBeNull();
+    const chip = [...copilot.querySelectorAll<HTMLElement>("button, [role=button]")].find((b) => b.textContent?.includes("Where is refund RF-20451?"))!;
+    await h.click(chip);
+    await h.advance(100);
+    const answer = document.querySelector<HTMLElement>("[data-slot=copilot-result]")!;
+    expect(answer.textContent).toContain("RF-20451 was approved on the 22nd");
+    expect(answer.closest('[data-slot="reference-slide-over"]')).not.toBeNull();
+  });
+
+  it("a kind card's kind is a row like a channel's: the kind chip, the due time and the detail; collapsed, the kind icon sits top-left", async () => {
     await showHome();
     await h.click(rowNamed("Returns team stand-up")!);
     const card = () => h.container.querySelector<HTMLElement>("aside [data-kind-nav-card]")!;
-    const body = card().querySelector("[data-kind-card-body]")!;
-    expect(body.textContent).toContain("Meeting");
-    expect(body.querySelector("svg")).not.toBeNull();
-    expect(body.querySelector("[data-kind-card-due]")?.textContent).toMatch(/\d/);
+    // lyra's kind row: a selectable row (its stretched button) labeled by the kind, the Outcome in its cluster.
+    expect(card().querySelector('[aria-label^="Meeting channel"]')).not.toBeNull();
+    expect(card().textContent).toContain("Teams · 15 min · 6 attendees");
+    expect(card().querySelector("[data-kind-outcome-trigger]")).not.toBeNull();
     await h.click(h.container.querySelector('aside [aria-label="Collapse sidebar"]')!);
     expect(card().querySelector("[data-kind-icon] svg")).not.toBeNull();
+  });
+
+  it("a card not yet opened has the darker new outline until its first click", async () => {
+    await showHome();
+    await h.goAvailable();
+    await h.startInbound("voice", "+15555550188", "Lena Ortiz");
+    await h.advance(500);
+    const lena = () => [...h.container.querySelectorAll<HTMLElement>("aside [class*='border-lyra-border-strong']")].some((el) => el.textContent?.includes("Lena Ortiz"));
+    expect(lena()).toBe(true);
+    await h.click(h.navCard("Lena Ortiz"));
+    await h.click(homeButton());
+    expect(lena()).toBe(false);
   });
 
   it("the rail card reopens the cell after going Home", async () => {
@@ -193,16 +247,26 @@ describe("calls from schedule items (the leg-join P0.9 generalizes)", () => {
     const call = await callFrom("Callback · Priya Shah");
     expect(call.contactName).toBe("Priya Shah");
     expect(call.preContactSummary).toEqual(["Refund RF-20451 hasn't posted"]);
-    // The leg's journey is the callback's assignment: one card, the callback's, with a Voice row under its chip.
+    // The leg's journey is the callback's assignment: one card, the callback's, its rows in the order they were
+    // opened — the Callback row, then the Voice row.
     expect(call.journeyId).toBe("schedule:agent-cb-priya");
-    const card = h.container.querySelector<HTMLElement>('aside [data-kind-nav-card="agent-cb-priya"]')!;
-    expect(card.getAttribute("data-kind-leg")).toBe("schedule:agent-cb-priya");
+    const card = () => h.container.querySelector<HTMLElement>('aside [data-kind-nav-card="agent-cb-priya"]')!;
+    expect(card().getAttribute("data-kind-leg")).toBe("schedule:agent-cb-priya");
     expect(railCardsNamed("Priya Shah")).toHaveLength(1);
-    expect(card.querySelector("[data-kind-card-body]")?.textContent).toContain("Callback");
-    expect(card.querySelector('[aria-label="End Call"], [title="End Call"]')).not.toBeNull();
-    // One Outcome for the card: the call's, while the leg is on it.
-    expect(card.querySelector("[data-kind-outcome-trigger]")).toBeNull();
+    const rows = () => [...card().querySelectorAll<HTMLElement>('[aria-label$=" channel"], [aria-label*=" channel,"]')];
+    expect(rows().map((r) => r.getAttribute("aria-label")?.split(" channel")[0])).toEqual(["Callback", "Voice"]);
+    expect(card().querySelector('[aria-label="End Call"], [title="End Call"]')).not.toBeNull();
+    // The call is the selected row: the main column shows it.
+    expect(rows()[1]!.getAttribute("aria-current")).toBe("true");
+    expect(cell()).toBeNull();
     expect([...h.container.querySelectorAll("h1, h2")].map((el) => el.textContent?.trim())).toContain("Priya Shah");
+    // The Callback row shows the callback's cell; the Voice row the call again.
+    await h.click(rows()[0]!);
+    expect(cell()?.getAttribute("data-kind-cell")).toBe("callback");
+    expect(rows()[0]!.getAttribute("aria-current")).toBe("true");
+    await h.click(rows()[1]!);
+    expect(cell()).toBeNull();
+    expect(rows()[1]!.getAttribute("aria-current")).toBe("true");
 
     await wrapUp(call.id, { dispositionCode: "Issue Resolved" });
     expect(h.container.querySelector('aside [data-kind-nav-card="agent-cb-priya"]')).toBeNull();

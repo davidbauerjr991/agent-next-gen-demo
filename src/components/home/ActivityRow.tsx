@@ -15,7 +15,20 @@ const STATUS_LABELS: Record<FeedRow["status"], string> = {
 /** One feed row: the kind's icon and chip, the title, the one-line detail
  *  with its source, the time or due, and the status. Clicking opens it.
  *  A `div` row (the notification-row shape) so `action` can hold a button. */
-export function ActivityRow({ row, now, onOpen, action }: { row: FeedRow; now: number; onOpen: () => void; action?: React.ReactNode }) {
+export function ActivityRow({
+  row,
+  now,
+  onOpen,
+  action,
+  selected = false,
+}: {
+  row: FeedRow;
+  now: number;
+  onOpen: () => void;
+  action?: React.ReactNode;
+  /** Its preview is open (a History row, as Contact History's selected row). */
+  selected?: boolean;
+}) {
   const time = row.at !== undefined ? feedTimeLabel(row.at, now) : row.timeLabel;
   const detail = [row.subtitle, row.sourceLabel].filter(Boolean).join(" · ");
   return (
@@ -23,6 +36,8 @@ export function ActivityRow({ row, now, onOpen, action }: { row: FeedRow; now: n
       as="div"
       data-feed-row={row.assignmentId}
       data-feed-status={row.status}
+      data-selected={selected || undefined}
+      active={selected}
       icon={<KindIcon kind={row.kind} />}
       header={row.title}
       label={detail}

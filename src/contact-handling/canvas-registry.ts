@@ -26,7 +26,12 @@ export interface CanvasCell {
    *  area, outside the conversation's scroll (the Next Best Action), rather
    *  than scrolling with the conversation's top. */
   pinned?: boolean;
+  /** Which main column the cell is for: a conversation's (default) or a
+   *  non-conversation assignment's kind cell (P-HOME-1f). */
+  context?: CanvasContext;
 }
+
+export type CanvasContext = "conversation" | "kind";
 
 /** The action area's anchor: the conversation itself under inline (the
  *  transcript and composer), the AI feed under main. It is the action area's
@@ -76,11 +81,14 @@ function withOverride(cell: CanvasCell, overrides: CanvasCellOverrides): CanvasC
   return { ...cell, region: o.region ?? cell.region, order: o.order ?? cell.order };
 }
 
-/** One region's cells, in order, that apply to this card, with `overrides` applied. */
-export function canvasCells(region: CanvasRegion, ws: Workspace, overrides: CanvasCellOverrides = {}): CanvasCell[] {
+/** One region's cells, in order, that apply to this card, with `overrides` applied; a conversation's unless `context` says otherwise. */
+export function canvasCells(region: CanvasRegion, ws: Workspace, overrides: CanvasCellOverrides = {}, context: CanvasContext = "conversation"): CanvasCell[] {
   return [...cells.values()]
     .map((cell) => withOverride(cell, overrides))
-    .filter((cell): cell is CanvasCell => !!cell && cell.region === region && (cell.applies?.(ws) ?? true))
+    .filter(
+      (cell): cell is CanvasCell =>
+        !!cell && cell.region === region && (cell.context ?? "conversation") === context && (cell.applies?.(ws) ?? true),
+    )
     .sort((a, b) => a.order - b.order);
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useProviders } from "@/provider-context";
 import { t } from "@/i18n";
 import type { ChannelKind } from "@/domain";
@@ -38,9 +38,10 @@ export function NavCardItem({
   clockTick: number;
   /** Hides the channel chip on the card's rows (`assignments.channelChips`, P-PROFILES). */
   hideChip?: boolean;
-  /** P-HOME-1e: this card is a schedule item's, with the call as its leg (KindNavCard): the item's name, and its
-   *  kind row in place of the "+" and the offer actions. */
-  kind?: { name: string; identified: boolean; row: ReactNode };
+  /** P-HOME-1e, -1f: this card is a schedule item's, with the call as its leg (KindNavCard): the item's name, and its
+   *  kind row first among the rows (the order they were opened), no "+". `selected`: the kind row is the current row
+   *  (the main column shows the kind's cell); `onSelectRow` reports which kind of row was picked. */
+  kind?: { name: string; identified: boolean; row: InteractionChannel; selected: boolean; onSelectRow: (kindRow: boolean) => void };
 }) {
   const {
     activeInteractionId, addChannelActionFor, answerSla, assignmentsSettings, channelPreviewThreadKey,
@@ -639,6 +640,8 @@ export function NavCardItem({
                     // clicked on yet)") — see `useNewAssignments` for what
                     // counts as "clicked".
                     isNewAssignment={isNewAssignment(interaction.id)}
+                    // The darker "new" outline until the card's first click (P-HOME-1f).
+                    newOutline={isNewAssignment(interaction.id)}
                     active={activeInteractionId === interaction.id}
                     // Exits fullscreen directly here (not just via the
                     // `activeInteractionId`-keyed effect near
@@ -688,13 +691,11 @@ export function NavCardItem({
                         : ""
                     }
                     expanded={slotExpanded ?? navOpen}
-                    channels={channels}
+                    channels={kind ? [kind.row, ...channels] : channels}
                     onDismiss={() => confirmDismiss(() => handleDismissInteraction(interaction.id))}
                     onDismissChannel={(channel) => confirmDismiss(() => handleDismissChannel(interaction.id, channel))}
                     footerAction={
-                      kind ? (
-                        kind.row
-                      ) : interaction.offered ? (
+                      !kind && interaction.offered ? (
                         // A ringing offer: a call (P0.5d.1, P0.5c's Tom) or a digital one with Auto-accept off.
                         <IncomingOfferActions
                           onAccept={() => void incomingOffer.accept(interaction)}
@@ -738,8 +739,11 @@ export function NavCardItem({
                     // Kept in sync with the ChannelToggle bar in this
                     // interaction's record-header PageHeader — see
                     // Interaction.currentChannelId's own doc comment.
-                    currentChannelKey={currentId}
-                    onCurrentChannelChange={(key) => selectPanel({ kind: "thread", cardId: interaction.id, key })}
+                    currentChannelKey={kind?.selected ? kind.row.id : currentId}
+                    onCurrentChannelChange={(key) => {
+                      kind?.onSelectRow(key === kind.row.id);
+                      if (key !== kind?.row.id) selectPanel({ kind: "thread", cardId: interaction.id, key });
+                    }}
                   />
                 );
 }

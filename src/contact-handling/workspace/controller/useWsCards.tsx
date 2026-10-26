@@ -561,7 +561,9 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   // the PageHeader "record header" mode below) — starting/quick-dialing/
   // redialing a new assignment always sets this, so the screen switches
   // over automatically the moment one is added.
-  const activeInteraction = interactions.find((i) => i.id === activeInteractionId) ?? null;
+  // P-HOME-1f: a schedule card's kind row, selected over its joined call, shows the kind's cell instead.
+  const [kindCellShownFor] = useWorkspaceUiField("kindCellShownFor");
+  const activeInteraction = kindCellShownFor === activeInteractionId ? null : interactions.find((i) => i.id === activeInteractionId) ?? null;
   /** The scripted case key of the active card (`LUCAS_THOMAS_ID`, …), if any. */
   const activeScenarioKey = scenarioKeyOf(activeInteraction?.id);
 

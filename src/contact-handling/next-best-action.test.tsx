@@ -83,11 +83,15 @@ async function sendChat(text: string) {
 }
 
 describe("the registry", () => {
-  it("has no Next Best Action cell, and exactly the three reference cells", () => {
+  it("has no Next Best Action cell, and exactly the three reference cells for a conversation (the kind cell has its own)", () => {
     expect(canvasCellDefinition("next-best-action")).toBeUndefined();
     expect(canvasCellDefinition("autosummary")).toBeUndefined();
-    const reference = DEFAULT_CANVAS_CELLS.filter((c) => c.region === "reference").sort((a, b) => a.order - b.order).map((c) => c.id);
-    expect(reference).toEqual(["real-time-summary", "journey-summary", "customer-info"]);
+    const reference = (context: "conversation" | "kind") =>
+      DEFAULT_CANVAS_CELLS.filter((c) => c.region === "reference" && (c.context ?? "conversation") === context)
+        .sort((a, b) => a.order - b.order)
+        .map((c) => c.id);
+    expect(reference("conversation")).toEqual(["real-time-summary", "journey-summary", "customer-info"]);
+    expect(reference("kind")).toEqual(["kind-summary", "kind-related", "kind-journey"]);
   });
 });
 

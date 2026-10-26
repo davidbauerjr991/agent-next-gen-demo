@@ -56,8 +56,15 @@ export interface ActivityFeed {
   /** History's range (Contact History's date control). */
   historyRange: ContactHistoryDateFilterValue;
   setHistoryRange: (range: ContactHistoryDateFilterValue) => void;
+  /** History's search (Contact History's search box): matches a row's title or detail. */
+  historyQuery: string;
+  setHistoryQuery: (query: string) => void;
+  /** The History row whose Contact History preview is open. */
+  isSelected: (row: FeedRow) => boolean;
   open: (row: FeedRow) => void;
 }
+
+const matches = (row: FeedRow, query: string) => `${row.title} ${row.subtitle}`.toLowerCase().includes(query.trim().toLowerCase());
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -102,9 +109,13 @@ export function useActivityFeed(): ActivityFeed {
   const [view, setView] = useWorkspaceUiField("activityView");
   const [kindFilter, setKindFilter] = useWorkspaceUiField("activityKinds");
   const [historyRange, setHistoryRange] = useWorkspaceUiField("activityHistoryRange");
+  const [historyQuery, setHistoryQuery] = useWorkspaceUiField("activityHistoryQuery");
   // Time groups only move on the minute.
   const minute = useClockValue(ws.clock, (tick) => Math.floor(tick / 60));
-  const { interactions, contactHistoryByRange, incomingOffer, switchActiveInteraction, setSelectedQueueId, setSelectedContactHistoryEntry } = ws;
+  const {
+    interactions, contactHistoryByRange, incomingOffer, switchActiveInteraction, setSelectedQueueId, setSelectedContactHistoryEntry,
+    selectedContactHistoryEntry, setInteriorPanelOpen,
+  } = ws;
   const historyEntries = contactHistoryByRange[historyRange];
   const kinds = PERSONA_KINDS[persona];
   // A call joined to an open schedule item's card is that item's leg: the item's own row stands for the card.
@@ -113,7 +124,7 @@ export function useActivityFeed(): ActivityFeed {
   const feed = useMemo(() => {
     void minute;
     const now = Date.now();
-    return buildFeed({
+    const built = buildFeed({
       offers: interactions.filter((c) => c.offered).map((c) => cardRow(c, "offered")),
       railCards: interactions.filter((c) => !c.offered && !legCardKeys.has(c.id)).map((c) => cardRow(c, "inRail")),
       completedHistory: historyEntries.map(historyRow),
@@ -124,7 +135,9 @@ export function useActivityFeed(): ActivityFeed {
       kindFilter,
       view,
     });
-  }, [interactions, legCardKeys, historyEntries, historyRange, snapshot, kinds, kindFilter, view, minute]);
+    // The search narrows what History lists, as Contact History's does; the counts stay the day's.
+    return historyQuery.trim() ? { ...built, history: built.history.filter((r) => matches(r, historyQuery)) } : built;
+  }, [interactions, legCardKeys, historyEntries, historyRange, historyQuery, snapshot, kinds, kindFilter, view, minute]);
 
   const open = useCallback(
     (row: FeedRow) => {
@@ -137,15 +150,26 @@ export function useActivityFeed(): ActivityFeed {
         if (row.status === "offered" || row.status === "scheduled") openScheduleItem(target.itemId);
         else if (row.status === "inRail") switchActiveInteraction(scheduleCardKey(target.itemId));
       } else {
-        // A completed contact opens Contact History's own preview (Redial / reopen from there), not a direct reopen.
+        // A completed contact opens Contact History's own preview (Redial / reopen from there), not a direct reopen;
+        // as on Contact History's card, the open row's click closes it and one job at a time holds the panel.
         const entry = historyEntries.find((e) => e.id === target.entryId);
-        if (entry) {
+        if (entry?.id === selectedContactHistoryEntry?.id) setSelectedContactHistoryEntry(null);
+        else if (entry) {
           setSelectedQueueId(null);
+          setInteriorPanelOpen(false);
           setSelectedContactHistoryEntry(entry);
         }
       }
     },
-    [interactions, incomingOffer, switchActiveInteraction, openScheduleItem, historyEntries, setSelectedQueueId, setSelectedContactHistoryEntry],
+    [
+      interactions, incomingOffer, switchActiveInteraction, openScheduleItem, historyEntries, selectedContactHistoryEntry,
+      setSelectedQueueId, setSelectedContactHistoryEntry, setInteriorPanelOpen,
+    ],
+  );
+  const selectedEntryId = selectedContactHistoryEntry?.id;
+  const isSelected = useCallback(
+    (row: FeedRow) => row.target.type === "history" && row.target.entryId === selectedEntryId,
+    [selectedEntryId],
   );
 
   return {
@@ -157,6 +181,9 @@ export function useActivityFeed(): ActivityFeed {
     toggleKind: useCallback((kind: AssignmentKind) => setKindFilter((current) => toggled(current, kind)), [setKindFilter]),
     historyRange,
     setHistoryRange,
+    historyQuery,
+    setHistoryQuery,
+    isSelected,
     open,
   };
 }

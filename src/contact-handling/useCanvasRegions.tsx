@@ -54,6 +54,17 @@ export function useReferenceCells(): ReactNode {
   return ws.activeInteraction ? mount(canvasCells("reference", ws, overrides)) : undefined;
 }
 
+/** A kind cell's regions (P-HOME-1f): its reference cells (with `canvas.cells`
+ *  overrides) and any action cells, from the same registry. */
+export function useKindCanvasRegions(): { action: ReactNode; reference: ReactNode } {
+  const ws = useWorkspace();
+  const [{ cells: overrides }] = useSettings("canvas");
+  return {
+    action: mount(canvasCells("action", ws, overrides, "kind").filter((cell) => cell.component)),
+    reference: mount(canvasCells("reference", ws, overrides, "kind")),
+  };
+}
+
 function mount(cells: CanvasCell[]): ReactNode {
   if (cells.length === 0) return undefined;
   return cells.map(({ id, component: Cell }) => (
