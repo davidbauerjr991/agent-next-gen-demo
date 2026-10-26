@@ -53,7 +53,7 @@ const AGENT_DAY: readonly SeedItem[] = [
     title: "Ticket #4821 · subscription renewal refund",
     subtitle: "Follow up with Billing on the credit",
     sourceLabel: "Ticket queue",
-    customer: { name: "Priya Shah" },
+    customer: { name: "Priya Shah", phone: "(646) 555-0143" },
     inMin: 240,
     state: "scheduled",
     detail: {

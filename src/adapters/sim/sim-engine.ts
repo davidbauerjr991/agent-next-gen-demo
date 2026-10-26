@@ -429,6 +429,7 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
           address: request.addressLabel !== undefined ? { value: request.address, label: request.addressLabel } : { value: request.address },
           skill: { id: skill.id, name: skill.name },
           startedAt,
+          ...(request.summary?.length ? { preContactSummary: request.summary } : {}),
         };
         add(interaction);
         emit({ name: "stateChanged", payload: { kind: "interaction", interaction } });

@@ -149,6 +149,21 @@ test("two columns: the header stays put, the feed and the right column scroll on
   await expect(page.getByText(/Skills/).first()).toBeVisible();
 });
 
+test("a callback's Dial opens the outbound dial pad anchored beneath the button, prefilled with the customer's number", async ({ page }) => {
+  await open(page);
+  await feed(page).locator("[data-feed-row]", { hasText: "Callback · Priya Shah" }).click();
+  const dial = page.locator("[data-kind-cell=callback] [data-schedule-call]");
+  await dial.click();
+  const phone = page.getByLabel("Phone number");
+  await expect(phone).toHaveValue("(646) 555-0143");
+  const pad = page.locator("[data-radix-popper-content-wrapper]").filter({ has: phone });
+  const button = (await dial.boundingBox())!;
+  const popover = (await pad.boundingBox())!;
+  expect(popover.y).toBeGreaterThanOrEqual(button.y + button.height - 1);
+  expect(popover.x).toBeLessThan(button.x + button.width);
+  expect(popover.x + popover.width).toBeGreaterThan(button.x);
+});
+
 test("switching persona re-seeds the feed and swaps the Home cards", async ({ page }) => {
   await open(page);
   await expect(feed(page)).toContainText("Callback · Priya Shah");

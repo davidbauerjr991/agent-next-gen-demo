@@ -22,6 +22,8 @@ export type ScheduleItemDetail =
 /** The outcome a kind records when its item is completed (P-HOME-1's
  *  placeholder shapes; P-HOME-3 gives each kind its full form). */
 export interface ScheduleOutcome {
+  /** Callback, conversation: the disposition, as a contact's. */
+  disposition?: string;
   note?: string;
   /** Meeting: one action item per line. */
   actionItems?: readonly string[];
@@ -39,12 +41,14 @@ export interface ScheduleItem {
   subtitle: string;
   /** Where it came from, as the row says it: "WFM", "Customer request". */
   sourceLabel: string;
-  customer?: { name: string; entityId?: EntityId };
+  customer?: { name: string; entityId?: EntityId; phone?: string };
   dueAt: EpochMs;
   durationMin?: number;
   state: ScheduleItemState;
   completedAt?: EpochMs;
   outcome?: ScheduleOutcome;
+  /** Notes added while the item is open (a task's call summaries, P-HOME-1d). */
+  notes?: readonly string[];
   detail: ScheduleItemDetail;
 }
 
@@ -87,4 +91,6 @@ export interface ScheduleProvider extends EventSource<ScheduleEvents>, ProviderL
   open(id: string): Promise<void>;
   /** Records the outcome of an active item and marks it done. */
   complete(id: string, outcome: ScheduleOutcome): Promise<void>;
+  /** Appends a note to an open (offered, scheduled or active) item; it stays open. */
+  addNote(id: string, note: string): Promise<void>;
 }

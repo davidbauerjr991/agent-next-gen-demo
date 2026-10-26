@@ -15,7 +15,7 @@ import { createSimScheduleProvider } from "@/adapters/sim/sim-schedule-source";
 import { createSimCustomerClient, type SimCustomerClient } from "@/adapters/sim/sim-customer-client";
 import { createSimulatedInteractionProvider, type SimulatedInteractionProvider } from "@/adapters/sim/simulated-interaction-provider";
 import type { ChannelKind, InteractionId } from "@/domain";
-import type { ProviderSet } from "@/providers";
+import type { ProviderSet, ScheduleProvider } from "@/providers";
 import { DEFAULT_SLA } from "@/profiles/contact-center-profile";
 import { ProviderRoot } from "@/provider-context";
 import { SCENARIOS } from "@/scenarios";
@@ -87,6 +87,7 @@ export function createWorkspaceHarness(
   let root!: Root;
   let provider!: SimulatedInteractionProvider;
   let customer!: SimCustomerClient;
+  let schedule: ScheduleProvider | undefined;
   let databaseId = "";
 
   const advance = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
@@ -123,7 +124,7 @@ export function createWorkspaceHarness(
               customerData: createPlaceholderCustomerDataProvider(),
               assist: createSimAssistProvider({ sessionId: provider.sessionId, transport: bus.createTransport() }),
               transcriptExport: options.transcriptExport ?? createSimTranscriptExportProvider({ latency: ZERO }),
-              ...(options.schedule ? { schedule: createSimScheduleProvider({ latency: ZERO }) } : {}),
+              ...(options.schedule ? { schedule: (schedule = createSimScheduleProvider({ latency: ZERO })) } : {}),
             };
           }}
         >
@@ -156,6 +157,10 @@ export function createWorkspaceHarness(
     },
     get customer() {
       return customer;
+    },
+    /** The schedule source, with `schedule: true`. */
+    get schedule() {
+      return schedule;
     },
     setUp() {
       vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout", "setInterval", "clearInterval"] });

@@ -83,6 +83,8 @@ export interface WorkspaceUiState {
   activityHistoryRange: ContactHistoryDateFilterValue;
   /** P-HOME-1c: two-column Home's right column collapsed to the overlay by the agent. */
   homeSideCollapsed: boolean;
+  /** P-HOME-1d: calls placed from a schedule item (provider interaction id → item id), until P0.9 joins the call as a leg. */
+  scheduleCallLinks: Readonly<Record<string, string>>;
   /** P-HOME-1: toasts for events on other assignments, in raise order; dismissed ones stay for the drawer's rows. */
   assignmentToasts: readonly AssignmentToast[];
 }
@@ -119,6 +121,7 @@ export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
   activityKinds: new Set<AssignmentKind>(),
   activityHistoryRange: "today",
   homeSideCollapsed: false,
+  scheduleCallLinks: Object.freeze({}),
   assignmentToasts: Object.freeze([]),
 });
 

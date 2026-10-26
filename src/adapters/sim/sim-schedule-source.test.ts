@@ -101,6 +101,22 @@ describe("sim schedule source", () => {
     expect(due).toEqual(["agent-cb-priya"]);
   });
 
+  it("adds notes to an open item without completing it or cancelling its due time", async () => {
+    await settle(source.listItems({ role: "agent" }));
+    const due: string[] = [];
+    source.on("itemDue", (e) => due.push(e.item.id));
+    const changes: ScheduleEvents["itemChanged"][] = [];
+    source.on("itemChanged", (e) => changes.push(e));
+    await settle(source.addNote("agent-cb-priya", "Left a voicemail"));
+    await settle(source.addNote("agent-cb-priya", "Customer called back"));
+    expect(changes[changes.length - 1]?.item).toMatchObject({ state: "scheduled", notes: ["Left a voicemail", "Customer called back"] });
+    await vi.advanceTimersByTimeAsync(31 * 60_000);
+    expect(due).toEqual(["agent-cb-priya"]);
+    const rejected = expect(source.addNote("agent-done-omar", "late")).rejects.toMatchObject({ code: "invalid-state" });
+    await vi.advanceTimersByTimeAsync(LATENCY.maxMs);
+    await rejected;
+  });
+
   it("rejects every call once disposed", async () => {
     await source.dispose();
     await expect(source.listItems({ role: "agent" })).rejects.toMatchObject({ code: "invalid-state" });

@@ -68,6 +68,21 @@ interface DialTarget {
   /** The open card to add this contact to, if any. */
   card?: NavCard;
   mode: ActivationMode;
+  /** Why the agent is calling (a scheduled callback's reason): the call's summary line. */
+  summary?: string[];
+}
+
+/** A call the agent is about to place for a schedule item (a callback, or a
+ *  task's "Call <customer>"), waiting on the dial pad's skill and submit
+ *  (P-HOME-1d). The call carries the item's customer, and `onPlaced` ties
+ *  the new call back to the item. */
+export interface ScheduleDial {
+  itemId: string;
+  phoneNumber: string;
+  contactName: string;
+  entityId?: string;
+  summary: string[];
+  onPlaced: (callId: InteractionId) => void;
 }
 
 /** A voice contact the agent is on: ringing (either way), live, or held. */
@@ -130,6 +145,7 @@ export function useOutboundDial({
   const [dialpadRequest, setDialpadRequest] = useState<DialpadRequest | null>(null);
   const [redialEntry, setRedialEntry] = useState<ContactHistoryEntry | null>(null);
   const [redialActiveInteraction, setRedialActiveInteraction] = useState<{ interactionId: string; phoneNumber: string } | null>(null);
+  const [scheduleDial, setScheduleDial] = useState<ScheduleDial | null>(null);
 
   /** True (and reports it) when this page refuses a second voice call and
    *  the agent is already on one. */
@@ -141,15 +157,16 @@ export function useOutboundDial({
     return onCall;
   }, [secondVoiceCall, interactions, onVoiceCallRefused]);
 
+  /** Places the contact; resolves its id, or `null` when it wasn't placed. */
   const place = useCallback(
-    async (target: DialTarget) => {
+    async (target: DialTarget): Promise<InteractionId | null> => {
       const channel = target.channel as ChannelKind;
       // Presence blocks calls on every path (the buttons say so; this catches the rest).
       if (target.channel === "voice" && !available) {
         if (import.meta.env.DEV) console.warn("[outbound] a call needs the agent Available");
-        return false;
+        return null;
       }
-      if (target.channel === "voice" && refuseVoice()) return false;
+      if (target.channel === "voice" && refuseVoice()) return null;
       // One call per customer, on every path (the buttons are disabled too;
       // this catches a number typed into Quick Dial).
       const onCallWith =
@@ -158,11 +175,11 @@ export function useOutboundDial({
           : undefined;
       if (onCallWith) {
         onAlreadyOnCall?.(onCallWith);
-        return false;
+        return null;
       }
       if (!outboundChannels.includes(channel)) {
         if (import.meta.env.DEV) console.warn(`[outbound] the provider can't dial out on ${channel}`);
-        return false;
+        return null;
       }
       const key = `${target.channel}:${target.address}`;
       // A digital thread that's still live on this card restarts as a reopen,
@@ -178,7 +195,7 @@ export function useOutboundDial({
       // flashed and nothing happened). The pickers disable it ("Already open"); this catches the rest (k6 2).
       if (liveSameThread && ["connecting", "active", "held"].includes(liveSameThread.state)) {
         if (import.meta.env.DEV) console.warn(`[outbound] ${channel} is already open on ${target.address}`);
-        return false;
+        return null;
       }
       try {
         let id: InteractionId;
@@ -203,19 +220,20 @@ export function useOutboundDial({
             ...(target.contactName ? { contactName: target.contactName } : {}),
             ...(target.caseId ? { caseId: target.caseId } : {}),
             ...(target.card ? { journeyId: target.card.id as JourneyId } : {}),
+            ...(target.summary?.length ? { summary: target.summary } : {}),
           };
           id = await provider.dial(request);
         }
         activateWhenReady(id, target.mode, !target.card);
         onPlaced?.(id, target);
-        return true;
+        return id;
       } catch (error) {
         if (target.channel === "voice" && isProviderError(error) && error.code === "invalid-state" && agentState?.leg !== "connected") {
           onLegDisconnected();
-          return false;
+          return null;
         }
         if (import.meta.env.DEV) console.warn("[outbound] dial failed", error);
-        return false;
+        return null;
       }
     },
     [provider, interactions, agentState, available, outboundChannels, activateWhenReady, onLegDisconnected, refuseVoice, onAlreadyOnCall, onPlaced],
@@ -355,6 +373,20 @@ export function useOutboundDial({
     [findCustomer, refuseVoice, redialCallWith, onAlreadyOnCall],
   );
 
+  /** A schedule item's Dial / "Call <customer>" (P-HOME-1d): opens the dial pad
+   *  beneath `anchorEl`, prefilled with the customer's number; it never dials
+   *  directly — the agent picks the skill and submits. */
+  const openScheduleDialPad = useCallback(
+    (dial: ScheduleDial, anchorEl: HTMLElement | null) => {
+      if (refuseVoice()) return;
+      setRedialEntry(null);
+      setRedialActiveInteraction(null);
+      setScheduleDial(dial);
+      setDialpadRequest({ phoneNumber: dial.phoneNumber, anchorEl, customerName: dial.contactName });
+    },
+    [refuseVoice],
+  );
+
   /** Save & Redial from a card's Outcome popover. */
   const openCardRedialPad = useCallback(
     (interactionId: string, phoneNumber: string, anchorEl: HTMLElement | null) => {
@@ -374,6 +406,25 @@ export function useOutboundDial({
       setRedialEntry(null);
       const pendingCard = redialActiveInteraction;
       setRedialActiveInteraction(null);
+      const pendingSchedule = scheduleDial;
+      setScheduleDial(null);
+      // A schedule item's call keeps its customer (name, record, the reason as the summary line), whatever number was dialed.
+      if (pendingSchedule) {
+        const sameNumber = normalizePhone(pendingSchedule.phoneNumber) === normalizePhone(phoneNumber);
+        void place({
+          channel: "voice",
+          address: phoneNumber,
+          addressLabel: phoneNumber,
+          contactName: pendingSchedule.contactName,
+          ...(pendingSchedule.entityId && sameNumber ? { entityId: pendingSchedule.entityId } : {}),
+          skillId,
+          mode: "focus",
+          summary: pendingSchedule.summary,
+        }).then((id) => {
+          if (id) pendingSchedule.onPlaced(id);
+        });
+        return;
+      }
       if (pendingEntry) {
         const customer = pendingEntry.customerId ? findCustomer(pendingEntry.customerId) : undefined;
         const candidates = customer ? customer.phones.map((p) => p.value) : [knownOrSynthesizedAddress(pendingEntry, "voice")];
@@ -391,7 +442,7 @@ export function useOutboundDial({
       }
       quickDial(phoneNumber, skillId);
     },
-    [redialEntry, redialActiveInteraction, findCustomer, redial, redialCard, quickDial],
+    [redialEntry, redialActiveInteraction, scheduleDial, place, findCustomer, redial, redialCard, quickDial],
   );
 
   return {
@@ -414,7 +465,9 @@ export function useOutboundDial({
     cancelPendingRedial: useCallback(() => {
       setRedialEntry(null);
       setRedialActiveInteraction(null);
+      setScheduleDial(null);
     }, []),
     setRedialActiveInteraction,
+    openScheduleDialPad,
   };
 }

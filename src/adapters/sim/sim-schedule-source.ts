@@ -66,9 +66,12 @@ export function createSimScheduleProvider(options?: { latency?: LatencyRange; no
     if (!from.includes(item.state)) throw providerError("invalid-state", `ScheduleProvider.${method}: item ${id} is ${item.state}`);
     const next = { ...item, ...change };
     items.set(id, next);
-    const timer = dueTimers.get(id);
-    if (timer) clearTimeout(timer);
-    dueTimers.delete(id);
+    // Leaving `scheduled` (opened, completed) cancels the due timer; a note doesn't.
+    if (next.state !== item.state) {
+      const timer = dueTimers.get(id);
+      if (timer) clearTimeout(timer);
+      dueTimers.delete(id);
+    }
     emit("itemChanged", { item: next });
   }
 
@@ -108,6 +111,13 @@ export function createSimScheduleProvider(options?: { latency?: LatencyRange; no
       await delay();
       guard("complete");
       update(id, "complete", ["active"], { state: "done", completedAt: now(), outcome });
+    },
+    async addNote(id, note) {
+      guard("addNote");
+      await delay();
+      guard("addNote");
+      const notes = [...(items.get(id)?.notes ?? []), note];
+      update(id, "addNote", ["offered", "scheduled", "active"], { notes });
     },
     async dispose() {
       if (disposed) return;

@@ -94,6 +94,9 @@ export interface DialRequest {
   /** Case number for a new journey (e.g. the customer's own record id). A
    *  dial into an existing journey ignores it and inherits that journey's. */
   caseId?: string;
+  /** Why the agent is calling (a scheduled callback's reason, P-HOME-1d);
+   *  stored as the contact's `preContactSummary`. */
+  summary?: string[];
 }
 
 /** Reopens a past contact (Contact History, Search) as a new, active contact
