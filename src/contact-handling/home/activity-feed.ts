@@ -2,9 +2,9 @@
 // wireframe, docs/activity-home-wireframe.html, where the two differ):
 // (1) offers pin to the top in Needs a decision, whatever their time;
 // (2) a row is in the feed or in the rail, never both;
-// (3) History is a chip, not a group: what left the feed today (accepted,
-//     now in the rail, and completed). The time groups are Now / Today /
-//     This week; there is no Completed-today group.
+// (3) History is a view, not a group: what left the feed in its range
+//     (accepted, now in the rail, and completed). The time groups are Now /
+//     Today / This week; there is no Completed-today group.
 import { assignmentIdFor, scheduleCardKey, type AssignmentId, type AssignmentKind, type ChannelKind, type EpochMs } from "@/domain";
 import type { ScheduleItem } from "@/providers";
 import { DAY_MS, startOfDay } from "./time";
@@ -35,9 +35,9 @@ export interface FeedRow {
   redial?: boolean;
 }
 
-/** The view switcher: All is what's coming and History; Assignments drops
- *  History; History is History alone. */
-export type FeedView = "all" | "assignments" | "history";
+/** The view switcher (P-HOME-1e): Assignments is Needs a decision and the
+ *  time groups; History is everything that left the feed or completed. */
+export type FeedView = "assignments" | "history";
 
 export interface FeedInput {
   /** Pending provider offers, already rows. */
@@ -62,7 +62,7 @@ export interface Feed {
   now: FeedRow[];
   today: FeedRow[];
   thisWeek: FeedRow[];
-  /** Shown only while the History chip is on. */
+  /** Shown only in the History view. */
   history: FeedRow[];
   showAssignments: boolean;
   showHistory: boolean;
@@ -108,8 +108,8 @@ export function buildFeed(input: FeedInput): Feed {
   const railed = [...input.railCards.filter(ofKind), ...items.filter((r) => r.status === "inRail" && !inRail.has(r.assignmentId))];
   const history = [...completed, ...railed];
 
-  const showHistory = view !== "assignments";
-  const showAssignments = view !== "history";
+  const showHistory = view === "history";
+  const showAssignments = view === "assignments";
   return {
     needsDecision: showAssignments ? needsDecision : [],
     now: showAssignments ? nowRows : [],

@@ -165,6 +165,23 @@ describe("Settings → Home controls", () => {
     expect(labels()).not.toContain("Greeting");
     expect(labels()).not.toContain("Display agent first name");
   });
+
+  it("two columns with the feed on: Contact History reads as the feed's History view, not a switch; one column keeps its switch", async () => {
+    await h.show(AgentWorkspaceAdvancedPage);
+    const settings = [...h.container.querySelectorAll("aside button, aside [role=button]")].find(
+      (el) => el.textContent?.trim() === "Settings",
+    )!;
+    await h.click(settings);
+    const row = () => h.container.querySelector<HTMLElement>('[data-home-section-row="contactHistory"]')!;
+    expect(row().querySelector('[role="switch"]')).not.toBeNull();
+    await setHome({ layout: "twoColumn", sections: SECTIONS.home.defaults.sections.map((s) => (s.key === "activity" ? { ...s, enabled: true } : s)) });
+    expect(row().querySelector('[role="switch"]')).toBeNull();
+    expect(row().querySelector("[data-home-section-in-feed]")?.textContent).toContain("Shown in the Activity feed's History view");
+    // The section itself stays (and stays on), so one column without the feed still shows the card.
+    expect(getSettingsStore().getState().values.home.sections.find((s) => s.key === "contactHistory")?.enabled).toBe(true);
+    await setHome({ layout: "oneColumn" });
+    expect(row().querySelector('[role="switch"]')).not.toBeNull();
+  });
 });
 
 describe("home section storage", () => {

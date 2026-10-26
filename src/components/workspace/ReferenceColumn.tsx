@@ -18,27 +18,20 @@ export function ReferenceColumn({
   children,
   width = LYRA_CARD_MAX_WIDTH,
   transition,
-  collapsed = false,
-  onPin,
   title,
 }: {
   children: ReactNode;
   /** The docked slot's width: the card width, or wider while a slide-over over it is (ReferenceSlot). */
   width?: number;
   transition?: string;
-  /** P-HOME-1c: the agent collapsed the column: it's the overlay even while it fits. */
-  collapsed?: boolean;
-  /** P-HOME-1c: docks a collapsed column again, from the overlay's pin button (shown only while it fits). */
-  onPin?: () => void;
-  /** The overlay's header; default "Summaries". */
+  /** The overlay's header; default "Summaries" (two-column Home: "Cards"). */
   title?: string;
 }) {
   const { activeInteraction } = useWorkspace();
-  // Measured by whoever mounts this column (`useReferenceColumnFit`: ReferenceSlot, two-column Home).
-  const [fits] = useWorkspaceUiField("referenceColumnFits");
+  // Measured by whoever mounts this column (`useReferenceColumnFit`, in ReferenceSlotFrame).
+  const [docked] = useWorkspaceUiField("referenceColumnFits");
   const [overlayOpen, setOverlayOpen] = useWorkspaceUiField("summariesOverlayOpen");
   const columnRef = useRef<HTMLDivElement>(null);
-  const docked = fits && !collapsed;
 
   // The overlay closes when the column docks again and when the card changes.
   useEffect(() => {
@@ -86,7 +79,6 @@ export function ReferenceColumn({
           headerTitle={title ?? t("Summaries")}
           showCloseButton
           onClose={() => setOverlayOpen(false)}
-          {...(onPin && fits ? { onPinToggle: onPin } : {})}
           data-canvas-region="reference"
         >
           <div className="flex flex-col gap-3 p-4">{children}</div>

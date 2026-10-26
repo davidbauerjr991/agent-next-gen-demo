@@ -30,7 +30,7 @@ async function open(page: Page) {
 
 const feed = (page: Page) => page.locator("[data-activity-feed]");
 const group = (page: Page, title: string) => feed(page).locator(`[data-feed-group="${title}"]`);
-/** A view in the All · Assignments · History switcher. */
+/** A view in the Assignments · History switcher. */
 const view = (page: Page, label: string) => feed(page).locator("[data-feed-views]").getByRole("radio", { name: new RegExp(`^${label}`) });
 
 async function settingsSection(page: Page) {
@@ -46,11 +46,15 @@ test("the feed: today and this week's scheduled rows, the Assignments count matc
   const scheduled = feed(page).locator('[data-feed-row][data-feed-status="scheduled"]');
   await expect(scheduled).toHaveCount(8);
   await expect(view(page, "Assignments")).toContainText("8");
-  await expect(view(page, "All")).toHaveAttribute("aria-checked", "true");
+  // Two views, Assignments by default.
+  await expect(feed(page).locator("[data-feed-views]").getByRole("radio")).toHaveCount(2);
+  await expect(view(page, "Assignments")).toHaveAttribute("aria-checked", "true");
   await expect(feed(page).locator('[data-feed-group="Completed today"]')).toHaveCount(0);
   // Completed work is History, never a time group.
-  await view(page, "Assignments").click();
   await expect(feed(page).locator('[data-feed-row][data-feed-status="completed"]')).toHaveCount(0);
+  await view(page, "History").click();
+  await expect(feed(page).locator('[data-feed-row][data-feed-status="completed"]').first()).toBeVisible();
+  await expect(feed(page).locator('[data-feed-row][data-feed-status="scheduled"]')).toHaveCount(0);
 });
 
 test("Offered pins to the top in Needs a decision", async ({ page }) => {
@@ -71,11 +75,11 @@ test("opening a scheduled row moves it to the rail and off the time groups; Hist
   await home(page);
   await expect(feed(page).locator('[data-feed-row][data-feed-status="scheduled"]', { hasText: "Returns team stand-up" })).toHaveCount(0);
   const history = group(page, "History");
-  await expect(history.locator('[data-feed-row][data-feed-status="inRail"]', { hasText: "Returns team stand-up" })).toBeVisible();
+  await expect(history).toHaveCount(0);
 
   await view(page, "History").click();
   await expect(group(page, "Today")).toHaveCount(0);
-  await expect(history).toBeVisible();
+  await expect(history.locator('[data-feed-row][data-feed-status="inRail"]', { hasText: "Returns team stand-up" })).toBeVisible();
 
   await view(page, "Assignments").click();
   await expect(history).toHaveCount(0);
@@ -90,21 +94,30 @@ test("one column: the feed is a row among the sections; two columns: the feed le
   const activityBox = (await activity.boundingBox())!;
   expect(activityBox.y).toBeGreaterThan(perfBox.y + perfBox.height - 1);
   await expect(page.locator("[data-welcome-counts]")).toHaveCount(0);
+  await expect(page.locator('[data-home-section="contactHistory"]')).toBeVisible();
 
   await settingsSection(page);
   await page.getByRole("radio", { name: "Two columns" }).click();
+  // With the feed on in two columns, Contact History is the feed's History view: no switch for it.
+  await expect(page.locator('[data-home-section-row="contactHistory"]')).toContainText("Shown in the Activity feed's History view");
+  await expect(page.locator('[data-home-section-row="contactHistory"]').getByRole("switch")).toHaveCount(0);
   await home(page);
   await expect(page.locator("[data-home-layout=twoColumn]")).toBeVisible();
   const side = page.locator("[data-home-column=side]");
-  await expect(side.locator("[data-home-section]")).toHaveCount(3);
+  await expect(side.locator("[data-home-section]")).toHaveCount(2);
+  await expect(page.locator('[data-home-section="contactHistory"]')).toHaveCount(0);
   const feedBox = (await page.locator('[data-home-section="activity"]').boundingBox())!;
   const sideBox = (await side.boundingBox())!;
   expect(sideBox.x).toBeGreaterThanOrEqual(feedBox.x + feedBox.width - 1);
   expect(Math.abs(sideBox.y - feedBox.y)).toBeLessThan(40);
-  await expect(page.locator("[data-welcome-counts]")).toContainText("to decide");
+  // The welcome header is lyra's PageHeader: the greeting, the counts as its subtitle, the actions beside.
+  const header = page.locator("[data-home-page-header]");
+  await expect(header.locator("h1")).toHaveText("Hello John");
+  await expect(header.locator("[data-welcome-counts]")).toContainText("to decide");
+  await expect(header).toContainText("My Assignment Queue");
 });
 
-test("two columns: the header stays put, the feed and the right column scroll on their own, the column pushes the feed or collapses to the overlay, and a queue row opens the drill-down", async ({ page }) => {
+test("two columns: the header stays put, the feed and the right column scroll on their own, the column docks with no toggle and is the overlay only when it doesn't fit, and Home's panels open over the right column", async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 640 });
   await page.addInitScript((home) => {
     localStorage.setItem("agent-next-gen:settings:home", JSON.stringify({ ...home, value: { ...home.value, layout: "twoColumn" } }));
@@ -125,28 +138,71 @@ test("two columns: the header stays put, the feed and the right column scroll on
   expect(await side.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
   expect((await header.boundingBox())!.y).toBe(headerTop);
 
-  // Docked, the column pushes the feed narrower; collapsed, the feed takes the width back.
-  const dockedWidth = (await feedScroll.boundingBox())!.width;
-  await page.locator("[data-home-side-toggle]").click();
-  await expect(side).toHaveCount(0);
-  expect((await feedScroll.boundingBox())!.width).toBeGreaterThan(dockedWidth + 200);
-  // Collapsed, the toggle opens the overlay over the feed, which keeps its width; the overlay's pin docks it again.
-  await page.locator("[data-home-side-toggle]").click();
-  const overlay = page.locator('[data-canvas-region="reference"]').filter({ hasText: "Cards" });
-  await expect(overlay).toBeVisible();
-  expect((await feedScroll.boundingBox())!.width).toBeGreaterThan(dockedWidth + 200);
-  await overlay.getByRole("button", { name: /pin/i }).click();
-  await expect(side).toBeVisible();
+  // Docked while it fits: no toggle in the header.
+  await expect(header.locator("[data-summaries-toggle]")).toHaveCount(0);
 
-  // Too narrow to dock: the column is the overlay whatever the agent chose.
+  // Too narrow to dock: the overlay, opened by the header's toggle (shown only then), over the feed.
   await page.setViewportSize({ width: 1000, height: 640 });
   await expect(side).toHaveCount(0);
+  const toggle = header.locator("[data-summaries-toggle]");
+  await expect(toggle).toBeVisible();
+  await toggle.click();
+  await expect(page.locator('[data-canvas-region="reference"]').filter({ hasText: "Cards" })).toBeVisible();
   await page.setViewportSize({ width: 1600, height: 640 });
   await expect(side).toBeVisible();
+  await expect(header.locator("[data-summaries-toggle]")).toHaveCount(0);
 
-  // The queue is one compact card; a row opens the skills drill-down.
+  // The queue is one compact card; a row opens the skills drill-down over the right column, beside the feed (never
+  // over it): the interaction's slide-over layout, whose slot widens as the panel is dragged, pushing the feed.
+  const feedWidth = (await feedScroll.boundingBox())!.width;
   await page.locator('[data-home-card="queueList"] [data-queue-row="2"]').click();
-  await expect(page.getByText(/Skills/).first()).toBeVisible();
+  const panel = page.locator('[data-slot="home-detail-panel"]');
+  await expect(panel.locator('[data-home-detail="queue"]')).toBeVisible();
+  await expect(panel).toContainText("Skills");
+  const feedBox = (await feedScroll.boundingBox())!;
+  const panelBox = (await panel.boundingBox())!;
+  expect(panelBox.x).toBeGreaterThanOrEqual(feedBox.x + feedBox.width - 1);
+  expect(Math.abs(feedBox.width - feedWidth)).toBeLessThan(2);
+
+  // A Contact History row's preview opens in the same place (its earlier contacts: History's range widened).
+  await view(page, "History").click();
+  await group(page, "History").getByRole("button", { name: /Today/ }).click();
+  await page.getByText("Last 48 Hours", { exact: true }).click();
+  await feed(page).locator('[data-feed-row^="history:"]').first().click();
+  await expect(panel.locator('[data-home-detail="history"]')).toBeVisible();
+  const historyBox = (await panel.boundingBox())!;
+  expect(historyBox.x).toBeGreaterThanOrEqual(feedBox.x + feedBox.width - 1);
+});
+
+test("a kind card's Outcome popover opens below its button, aligned to its end, as a conversation row's does", async ({ page }) => {
+  await open(page);
+  await feed(page).locator("[data-feed-row]", { hasText: "Returns team stand-up" }).click();
+  const trigger = page.locator("aside [data-kind-nav-card] [data-kind-outcome-trigger]");
+  await trigger.click();
+  const popover = page.locator("[data-radix-popper-content-wrapper]").filter({ has: page.locator("[data-kind-outcome]") });
+  await expect(popover).toBeVisible();
+  const button = (await trigger.boundingBox())!;
+  const box = (await popover.boundingBox())!;
+  expect(box.y).toBeGreaterThanOrEqual(button.y + button.height - 1);
+  expect(box.y).toBeLessThan(button.y + button.height + 24);
+  // End-aligned to the button (as a row's), shifted only to stay in the viewport: it spans the button.
+  expect(box.x).toBeLessThanOrEqual(button.x);
+  expect(box.x + box.width).toBeGreaterThanOrEqual(button.x + button.width);
+});
+
+test("a call from a callback joins the callback's card: one card, a Voice row under its Callback chip", async ({ page }) => {
+  await open(page);
+  await feed(page).locator("[data-feed-row]", { hasText: "Callback · Priya Shah" }).click();
+  await page.locator("[data-kind-cell=callback] [data-schedule-call]").click();
+  await page.getByRole("button", { name: "Dial Number" }).click();
+  const card = page.locator('aside [data-kind-nav-card="agent-cb-priya"]');
+  await expect(card).toHaveAttribute("data-kind-leg", "schedule:agent-cb-priya", { timeout: 15_000 });
+  await expect(card.locator('[title="End Call"], [aria-label="End Call"]').first()).toBeVisible();
+  await expect(card.locator("[data-kind-card-body]")).toContainText("Callback");
+  // One card for the customer, and one Outcome on it (the call's).
+  await expect(page.locator("aside [data-kind-nav-card]")).toHaveCount(1);
+  await expect(page.locator("aside").getByRole("button", { name: /^Priya Shah/ })).toHaveCount(1);
+  await expect(card.locator("[data-kind-outcome-trigger]")).toHaveCount(0);
 });
 
 test("a callback's Dial opens the outbound dial pad anchored beneath the button, prefilled with the customer's number", async ({ page }) => {

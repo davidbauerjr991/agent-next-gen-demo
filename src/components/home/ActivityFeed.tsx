@@ -1,5 +1,5 @@
 // The Activity feed (P-HOME-1): what is coming at the person, in time order.
-// Offers pin to the top; the All · Assignments · History view switcher
+// Offers pin to the top; the Assignments · History view switcher
 // (lyra ToggleGroup, single) picks the view and the kind chips below it
 // (lyra selectable Tags, multi-select) filter it; History lists what left the
 // feed in its range. The rules are activity-feed.ts; this file only lays them out.
@@ -65,7 +65,7 @@ export function ActivityFeed() {
   const api = useActivityFeed();
   const { feed, view } = api;
   const now = Date.now();
-  const nothingComing = feed.showAssignments && !feed.showHistory && feed.counts.needsDecision + feed.counts.assignments === 0;
+  const nothingComing = feed.showAssignments && feed.counts.needsDecision + feed.counts.assignments === 0;
 
   return (
     <div className="flex flex-col gap-4" data-activity-feed>
@@ -89,7 +89,6 @@ export function ActivityFeed() {
             value={view}
             onValueChange={(value) => api.setView(value as FeedView)}
             items={[
-              { value: "all", label: viewLabel(t("All")) },
               { value: "assignments", label: viewLabel(t("Assignments"), feed.counts.assignments) },
               { value: "history", label: viewLabel(t("History"), feed.counts.history) },
             ]}

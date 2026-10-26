@@ -1,7 +1,8 @@
 import { useMemo } from "react";
-import { scheduleItemIdOf } from "@/domain";
+import { scheduleCardKey, scheduleItemIdOf } from "@/domain";
 import { useScheduleSnapshot } from "@/provider-context";
 import type { ScheduleItem } from "@/providers";
+import type { Interaction } from "@/components/agent-next-gen-interaction-dashboard";
 import { useWorkspace } from "../workspace/WorkspaceContext";
 
 /** The schedule items open in the rail (state `active`): opening a row on
@@ -9,6 +10,20 @@ import { useWorkspace } from "../workspace/WorkspaceContext";
 export function useScheduleCards(): readonly ScheduleItem[] {
   const snapshot = useScheduleSnapshot();
   return useMemo(() => (snapshot?.items ?? []).filter((i) => i.state === "active").sort((a, b) => a.dueAt - b.dueAt), [snapshot]);
+}
+
+/** The card keys of the open schedule items: a conversation card with one of
+ *  these keys is a call joined to that item's card as its leg (P-HOME-1e). */
+export function useScheduleLegCardKeys(): ReadonlySet<string> {
+  const cards = useScheduleCards();
+  return useMemo(() => new Set(cards.map((c) => scheduleCardKey(c.id))), [cards]);
+}
+
+/** The call joined to `item`'s card (its voice leg), while there is one. */
+export function useScheduleLeg(item: ScheduleItem): Interaction | undefined {
+  const { interactions } = useWorkspace();
+  const key = scheduleCardKey(item.id);
+  return interactions.find((i) => i.id === key);
 }
 
 /** The schedule item whose cell the main column shows, if the active card is one. */

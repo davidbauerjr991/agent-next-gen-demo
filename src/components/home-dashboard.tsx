@@ -8,7 +8,8 @@ import { cn } from "@/lib/utils";
 import { ActivityFeed } from "@/components/home/ActivityFeed";
 import { HomeGreetingHeader } from "@/components/home/HomeGreetingHeader";
 import { DueSoonCard, MetricCard } from "@/components/home/persona-cards";
-import { HomeSideToggle, HomeTwoColumn } from "@/components/home/HomeTwoColumn";
+import { HomeCardsToggle, HomeTwoColumn } from "@/components/home/HomeTwoColumn";
+import { homeIsTwoColumn } from "@/contact-handling/home/home-layout";
 import { QueueListCard } from "@/components/home/QueueListCard";
 import { t } from "@/i18n";
 import {
@@ -126,9 +127,10 @@ export function HomeDashboard({ showPageHeader, headerActions, selectedQueueId, 
   // Two columns (the wireframe): the welcome header fixed on top, the feed as
   // the main column, every other enabled section stacked on the right in its
   // order (HomeTwoColumn). The queue is one compact card there.
-  if (twoColumn && visible.includes("activity")) {
-    // Due soon is a one-column card: the feed beside it already lists what's next.
-    const side = visible.filter((key) => key !== "activity" && key !== "dueSoon").flatMap((key) => {
+  if (homeIsTwoColumn(home)) {
+    // Due soon is a one-column card: the feed beside it already lists what's next. Contact History is the
+    // feed's History view here (P-HOME-1e), so its card stays out of the right column.
+    const side = visible.filter((key) => key !== "activity" && key !== "dueSoon" && key !== "contactHistory").flatMap((key) => {
       const node =
         key === "queue"
           ? queueBases.length > 0 && <QueueListCard bases={queueBases} selectedId={selectedQueueId} onSelect={onSelectQueue} />
@@ -136,17 +138,15 @@ export function HomeDashboard({ showPageHeader, headerActions, selectedQueueId, 
       return node ? [<div key={key} data-home-section={key}>{node}</div>] : [];
     });
     const welcome = showPageHeader && home.showHeader && (
-      <div className="-mx-6">
-        <HomeGreetingHeader
-          actions={
-            <div className="flex items-center gap-2">
-              {headerActions}
-              {side.length > 0 && <HomeSideToggle />}
-            </div>
-          }
-          welcome
-        />
-      </div>
+      <HomeGreetingHeader
+        actions={
+          <>
+            {headerActions}
+            {side.length > 0 && <HomeCardsToggle />}
+          </>
+        }
+        welcome
+      />
     );
     return <HomeTwoColumn header={welcome} feed={nodeFor("activity")} side={side} />;
   }

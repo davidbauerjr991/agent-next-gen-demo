@@ -26,6 +26,7 @@ import { ProfileSettings } from "./ProfileSettings";
 import { NotificationSettings } from "./NotificationSettings";
 import { AssignmentsListSettings } from "./AssignmentsListSettings";
 import { DisabledReason } from "@/contact-handling/DisabledReason";
+import { homeIsTwoColumn } from "@/contact-handling/home/home-layout";
 import { IntSettingInput } from "./IntSettingInput";
 import { t } from "@/i18n";
 import {
@@ -437,6 +438,13 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
           {home.sections.map((section, index) => (
             <React.Fragment key={section.key}>
               <div className="flex max-w-sm items-center justify-between gap-2" data-home-section-row={section.key}>
+                {section.key === "contactHistory" && homeIsTwoColumn(home) ? (
+                  // P-HOME-1e: two-column Home's feed has a History view that is Contact History.
+                  <span className="flex flex-col" data-home-section-in-feed="">
+                    <span className="lyra-body-md text-lyra-fg-default">{HOME_SECTION_LABELS[section.key]}</span>
+                    <span className="lyra-body-sm text-lyra-fg-secondary">{t("Shown in the Activity feed's History view")}</span>
+                  </span>
+                ) : (
                 <Switch
                   size="sm"
                   label={HOME_SECTION_LABELS[section.key]}
@@ -447,6 +455,7 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
                     }))
                   }
                 />
+                )}
                 <div className="flex items-center gap-0.5">
                   <ActionIconButton
                     size="sm"

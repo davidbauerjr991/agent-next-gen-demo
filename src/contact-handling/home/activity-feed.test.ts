@@ -39,7 +39,7 @@ function input(overrides: Partial<FeedInput> = {}): FeedInput {
     now: NOW,
     kinds: PERSONA_KINDS.agent,
     kindFilter: new Set<AssignmentKind>(),
-    view: "all",
+    view: "assignments",
     ...overrides,
   };
 }
@@ -77,10 +77,9 @@ describe("buildFeed", () => {
 
   it("keeps a row in the feed or the rail, never both: an opened item leaves the feed and is in History", () => {
     const items = seedScheduleDay("agent", NOW).map((i) => (i.id === "agent-cb-priya" ? { ...i, state: "active" as const } : i));
-    const feed = buildFeed(input({ scheduleItems: items }));
     const priya = assignmentIdFor(scheduleCardKey("agent-cb-priya"));
-    expect(feed.today.some((r) => r.assignmentId === priya)).toBe(false);
-    expect(feed.history.find((r) => r.assignmentId === priya)?.status).toBe("inRail");
+    expect(buildFeed(input({ scheduleItems: items })).today.some((r) => r.assignmentId === priya)).toBe(false);
+    expect(buildFeed(input({ scheduleItems: items, view: "history" })).history.find((r) => r.assignmentId === priya)?.status).toBe("inRail");
     // A rail card with the same assignment hides a still-scheduled item too.
     const shadowed = buildFeed(input({ railCards: [{ ...railCard, assignmentId: priya }] }));
     expect(shadowed.today.some((r) => r.assignmentId === priya)).toBe(false);
@@ -104,22 +103,18 @@ describe("buildFeed", () => {
     expect(callbacks.today.concat(callbacks.thisWeek).every((r) => r.kind === "callback")).toBe(true);
     expect(titles(callbacks.today)).toEqual(["Callback · Priya Shah", "Callback · Sofia Ramirez"]);
     expect(callbacks.needsDecision).toEqual([]);
-    expect(callbacks.history).toEqual([]);
     const meetingsAndConversations = buildFeed(input({ kindFilter: new Set<AssignmentKind>(["meeting", "conversation"]) }));
     expect(new Set(meetingsAndConversations.today.concat(meetingsAndConversations.thisWeek).map((r) => r.kind))).toEqual(new Set(["meeting"]));
-    expect(meetingsAndConversations.history.length).toBe(4);
+    expect(buildFeed(input({ view: "history", kindFilter: new Set<AssignmentKind>(["meeting", "conversation"]) })).history.length).toBe(4);
     const historyCallbacks = buildFeed(input({ view: "history", kindFilter: new Set<AssignmentKind>(["callback"]) }));
     expect(historyCallbacks.history).toEqual([]);
   });
 
-  it("the view is one value: All is what's coming and History, Assignments drops History, History is History alone", () => {
-    const all = buildFeed(input());
-    expect([all.showAssignments, all.showHistory]).toEqual([true, true]);
-    expect(all.today.length).toBeGreaterThan(0);
-    expect(all.history.length).toBeGreaterThan(0);
-
+  it("the view is one value: Assignments is Needs a decision and the time groups, History is History alone", () => {
     const assignments = buildFeed(input({ view: "assignments" }));
     expect([assignments.showAssignments, assignments.showHistory]).toEqual([true, false]);
+    expect(assignments.needsDecision.length).toBe(1);
+    expect(assignments.today.length).toBeGreaterThan(0);
     expect(assignments.history).toEqual([]);
 
     const history = buildFeed(input({ view: "history" }));

@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import type { ChannelType, CreateNewOutboundContact } from "@nicecxone/lyra-ui";
 import type { CreateNewCustomerRecord } from "@nicecxone/lyra-ui/customers-data";
 import { threadKey, type NavCard } from "@/adapters/legacy/nav-card-view-model";
-import type { ChannelKind, EntityId, Interaction, InteractionId, JourneyId } from "@/domain";
+import { assignmentIdFor, scheduleCardKey, type AssignmentId, type ChannelKind, type EntityId, type Interaction, type InteractionId, type JourneyId } from "@/domain";
 import type { DialRequest } from "@/providers";
 import { isProviderError } from "@/adapters/provider-error";
 import { useAgentState, useInteractionProvider, useInteractions, useProviders } from "@/provider-context";
@@ -67,6 +67,9 @@ interface DialTarget {
   skillId: string;
   /** The open card to add this contact to, if any. */
   card?: NavCard;
+  /** The assignment whose card the contact joins as a leg when no conversation card is open for it yet (a
+   *  schedule item's, `assignmentIdFor`; P-HOME-1e). */
+  assignmentId?: AssignmentId;
   mode: ActivationMode;
   /** Why the agent is calling (a scheduled callback's reason): the call's summary line. */
   summary?: string[];
@@ -74,15 +77,14 @@ interface DialTarget {
 
 /** A call the agent is about to place for a schedule item (a callback, or a
  *  task's "Call <customer>"), waiting on the dial pad's skill and submit
- *  (P-HOME-1d). The call carries the item's customer, and `onPlaced` ties
- *  the new call back to the item. */
+ *  (P-HOME-1d). The call carries the item's customer and joins the item's
+ *  card as its voice leg (P-HOME-1e). */
 export interface ScheduleDial {
   itemId: string;
   phoneNumber: string;
   contactName: string;
   entityId?: string;
   summary: string[];
-  onPlaced: (callId: InteractionId) => void;
 }
 
 /** A voice contact the agent is on: ringing (either way), live, or held. */
@@ -171,7 +173,7 @@ export function useOutboundDial({
       // this catches a number typed into Quick Dial).
       const onCallWith =
         target.channel === "voice"
-          ? findCallWith(interactions, { entityId: target.entityId, addresses: [target.address], journeyId: target.card?.id })
+          ? findCallWith(interactions, { entityId: target.entityId, addresses: [target.address], journeyId: target.card?.id ?? target.assignmentId })
           : undefined;
       if (onCallWith) {
         onAlreadyOnCall?.(onCallWith);
@@ -219,7 +221,8 @@ export function useOutboundDial({
             ...(target.entityId ? { entityId: target.entityId as EntityId } : {}),
             ...(target.contactName ? { contactName: target.contactName } : {}),
             ...(target.caseId ? { caseId: target.caseId } : {}),
-            ...(target.card ? { journeyId: target.card.id as JourneyId } : {}),
+            // P0.9's leg-join generalizes this: the journey is the assignment the leg joins.
+            ...(target.card || target.assignmentId ? { journeyId: (target.card?.id ?? target.assignmentId) as JourneyId } : {}),
             ...(target.summary?.length ? { summary: target.summary } : {}),
           };
           id = await provider.dial(request);
@@ -408,7 +411,8 @@ export function useOutboundDial({
       setRedialActiveInteraction(null);
       const pendingSchedule = scheduleDial;
       setScheduleDial(null);
-      // A schedule item's call keeps its customer (name, record, the reason as the summary line), whatever number was dialed.
+      // A schedule item's call keeps its customer (name, record, the reason as the summary line), whatever number
+      // was dialed, and joins the item's card as its voice leg.
       if (pendingSchedule) {
         const sameNumber = normalizePhone(pendingSchedule.phoneNumber) === normalizePhone(phoneNumber);
         void place({
@@ -418,10 +422,9 @@ export function useOutboundDial({
           contactName: pendingSchedule.contactName,
           ...(pendingSchedule.entityId && sameNumber ? { entityId: pendingSchedule.entityId } : {}),
           skillId,
+          assignmentId: assignmentIdFor(scheduleCardKey(pendingSchedule.itemId)),
           mode: "focus",
           summary: pendingSchedule.summary,
-        }).then((id) => {
-          if (id) pendingSchedule.onPlaced(id);
         });
         return;
       }

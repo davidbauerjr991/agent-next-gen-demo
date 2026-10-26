@@ -11,6 +11,7 @@ import type { Interaction } from "@/components/agent-next-gen-interaction-dashbo
 import { sortAssignmentCards } from "./assignment-sort";
 import { setAssignmentsWorkingState, useAssignmentsWorkingState } from "./assignments-working-state";
 import { useWorkspace } from "./workspace/WorkspaceContext";
+import { useScheduleLegCardKeys } from "./home/useScheduleCards";
 
 export type AssignmentsMount = "leftNav" | "interiorPanel";
 
@@ -31,9 +32,16 @@ export function useAssignmentCards(enabled: boolean): {
   const { interactions, assignmentSort, assignmentSortDirection } = useWorkspace();
   const [, updateAssignments] = useSettings("assignments");
   const { order } = useAssignmentsWorkingState();
+  // P-HOME-1e: a call joined to an open schedule item's card is that card's leg: the kind card renders it.
+  const legCardKeys = useScheduleLegCardKeys();
   const cards = React.useMemo(
-    () => sortAssignmentCards(interactions, { mode: assignmentSort, direction: assignmentSortDirection }, order),
-    [interactions, assignmentSort, assignmentSortDirection, order],
+    () =>
+      sortAssignmentCards(
+        interactions.filter((i) => !legCardKeys.has(i.id)),
+        { mode: assignmentSort, direction: assignmentSortDirection },
+        order,
+      ),
+    [interactions, legCardKeys, assignmentSort, assignmentSortDirection, order],
   );
   const ids = React.useMemo(() => cards.map((c) => c.id), [cards]);
   const names = React.useMemo(() => new Map(cards.map((c) => [c.id, c.customerName ?? ""])), [cards]);

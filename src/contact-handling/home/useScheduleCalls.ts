@@ -1,17 +1,17 @@
-// Calls placed from schedule items (P-HOME-1d), until P0.9: a callback's Dial
-// (or a task's "Call <customer>") opens the dial pad, never dials directly; the
+// Calls placed from schedule items (P-HOME-1d, -1e): a callback's Dial (or a
+// task's "Call <customer>") opens the dial pad, never dials directly; the
 // call carries the item's customer (name, record, the reason as its summary
-// line); when the call's wrap-up is done, a callback completes with the call's
-// disposition and leaves the rail, while a task stays open and gets the call's
-// summary as a note.
-// P0.9: the call becomes a leg of the callback's (or task's) assignment
-// instead of its own card, and this link-and-watch goes away (PROGRESS Known gaps).
+// line) and joins the item's card as its voice leg — its journey is the
+// item's assignment (`assignmentIdFor(scheduleCardKey(id))`), the same way a
+// channel added to a conversation card joins that card. When the call's
+// wrap-up is done, a callback completes with the call's disposition and
+// leaves the rail, while a task stays open and gets the call's summary as a
+// note. P0.9 generalizes the leg-join to every assignment (PROGRESS Known gaps).
 import { useCallback, useEffect, useRef } from "react";
-import type { InteractionId } from "@/domain";
+import { scheduleItemIdOf } from "@/domain";
 import { useInteractions, useScheduleProvider, useScheduleSnapshot } from "@/provider-context";
 import type { ScheduleItem } from "@/providers";
 import { useWorkspace } from "../workspace/WorkspaceContext";
-import { useWorkspaceUiStore } from "../workspace-ui-store";
 
 /** The number and reason a call from `item` carries, or `null` when it has no number. */
 export function scheduleCallTarget(item: ScheduleItem): { phone: string; summary: string[] } | null {
@@ -25,7 +25,6 @@ export function scheduleCallTarget(item: ScheduleItem): { phone: string; summary
 /** Opens the dial pad beneath `anchorEl` for a call from `item`, prefilled with the customer's number. */
 export function useScheduleDial(): (item: ScheduleItem, anchorEl: HTMLElement | null) => void {
   const { outboundDial } = useWorkspace();
-  const store = useWorkspaceUiStore();
   return useCallback(
     (item, anchorEl) => {
       const target = scheduleCallTarget(item);
@@ -37,35 +36,27 @@ export function useScheduleDial(): (item: ScheduleItem, anchorEl: HTMLElement | 
           contactName: item.customer?.name ?? target.phone,
           ...(item.customer?.entityId ? { entityId: item.customer.entityId } : {}),
           summary: target.summary,
-          onPlaced: (callId: InteractionId) =>
-            store.update((state) => ({ ...state, scheduleCallLinks: { ...state.scheduleCallLinks, [callId]: item.id } })),
         },
         anchorEl,
       );
     },
-    [outboundDial, store],
+    [outboundDial],
   );
 }
 
-/** Watches the calls placed from schedule items; mount once, at the workspace controller. */
+/** Watches the voice legs on schedule items' cards; mount once, at the workspace controller. */
 export function useScheduleCallWrapUps(): void {
   const interactions = useInteractions();
   const snapshot = useScheduleSnapshot();
   const schedule = useScheduleProvider();
-  const store = useWorkspaceUiStore();
   const handled = useRef(new Set<string>());
 
   useEffect(() => {
     if (!schedule) return;
-    const links = store.getState().scheduleCallLinks;
-    for (const [callId, itemId] of Object.entries(links)) {
-      const call = interactions.find((i) => i.id === callId);
-      if (!call || call.state !== "ended" || handled.current.has(callId)) continue;
-      handled.current.add(callId);
-      store.update((state) => {
-        const { [callId]: _done, ...rest } = state.scheduleCallLinks;
-        return { ...state, scheduleCallLinks: rest };
-      });
+    for (const call of interactions) {
+      const itemId = scheduleItemIdOf(call.journeyId);
+      if (!itemId || call.state !== "ended" || handled.current.has(call.id)) continue;
+      handled.current.add(call.id);
       const item = snapshot?.items.find((i) => i.id === itemId);
       if (!item) continue;
       const disposition = call.outcome?.dispositionCode;
@@ -81,5 +72,5 @@ export function useScheduleCallWrapUps(): void {
         schedule.addNote(item.id, summary).catch(fail);
       }
     }
-  }, [interactions, snapshot, schedule, store]);
+  }, [interactions, snapshot, schedule]);
 }

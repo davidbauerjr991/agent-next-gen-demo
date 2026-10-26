@@ -82,10 +82,35 @@ describe("schedule items open as assignments", () => {
     await h.click(save());
     expect(cell()).toBeNull();
     expect(h.container.querySelector("aside [data-kind-nav-card]")).toBeNull();
-    // Out of the time groups; in History (the All view shows it) as completed.
-    expect(rowNamed(title)?.getAttribute("data-feed-status")).toBe("completed");
+    // Out of the time groups; in History as completed.
+    expect(rowNamed(title)).toBeUndefined();
     await h.click(view("History")!);
     expect(rowNamed(title)?.getAttribute("data-feed-status")).toBe("completed");
+  });
+
+  it("the Outcome popover is anchored to its button as a conversation row's is: below it, aligned to its end", async () => {
+    await showHome();
+    await h.click(rowNamed("Returns team stand-up")!);
+    await h.click(h.container.querySelector("aside [data-kind-nav-card] [data-kind-outcome-trigger]")!);
+    const content = outcomeForm()!.closest<HTMLElement>("[data-side]")!;
+    // jsdom's every-box-is-the-viewport geometry flips the side; the real placement is the Playwright spec's.
+    expect(["bottom", "top"]).toContain(content.getAttribute("data-side"));
+    expect(content.getAttribute("data-align")).toBe("end");
+  });
+
+  it("the cell's header is a conversation's two lines: the name and subject in the PageHeader, the kind's session row under it", async () => {
+    await showHome();
+    await h.click(rowNamed("Ticket #4821 · subscription renewal refund")!);
+    const header = cell()!.querySelector<HTMLElement>('[data-slot="record-header"]')!;
+    expect(header.querySelector("h1")?.textContent).toBe("Priya Shah");
+    expect(header.textContent).toContain("#4821 · Credit RF-20452");
+    // No kind or status tags beside the title: they're on the session row, in the record header's session-row slot.
+    const row = header.querySelector<HTMLElement>('[data-slot="record-session-row"] [data-kind-session-row]')!;
+    expect(row.textContent).toContain("Task");
+    expect(row.textContent).toContain("Active");
+    expect(row.querySelector("[data-kind-outcome-trigger]")).not.toBeNull();
+    expect(row.querySelector('[aria-label="More options"]')).not.toBeNull();
+    expect(header.querySelector("h1")!.parentElement!.textContent).not.toContain("Active");
   });
 
   it("a kind card is formatted like an interaction card: the kind chip with its icon and the due time; collapsed, the kind icon sits top-left", async () => {
@@ -110,7 +135,7 @@ describe("schedule items open as assignments", () => {
   });
 });
 
-describe("calls from schedule items (until P0.9)", () => {
+describe("calls from schedule items (the leg-join P0.9 generalizes)", () => {
   const phoneField = () => [...document.querySelectorAll<HTMLInputElement>("input")].find((i) => i.getAttribute("aria-label") === "Phone number" || i.placeholder === "Phone number");
   /** The provider's voice contacts (the sim's transport runs on the faked timers: advance, then read). */
   const voiceCalls = async () => {
@@ -159,18 +184,30 @@ describe("calls from schedule items (until P0.9)", () => {
     expect(await voiceCalls()).toEqual([]);
   });
 
-  it("a callback's call carries its customer and reason; the call's wrap-up completes the callback with the disposition and it leaves the rail", async () => {
+  /** The rail's cards (each card's button is labeled with its name). */
+  const railCardsNamed = (name: string) => [...h.container.querySelectorAll("aside [aria-label]")].filter((el) => el.getAttribute("aria-label")?.startsWith(name));
+
+  it("a callback's call joins the callback's card as its voice leg; the call's wrap-up completes the callback with the disposition and it leaves the rail", async () => {
     await showHome();
     await h.goAvailable();
     const call = await callFrom("Callback · Priya Shah");
     expect(call.contactName).toBe("Priya Shah");
     expect(call.preContactSummary).toEqual(["Refund RF-20451 hasn't posted"]);
+    // The leg's journey is the callback's assignment: one card, the callback's, with a Voice row under its chip.
+    expect(call.journeyId).toBe("schedule:agent-cb-priya");
+    const card = h.container.querySelector<HTMLElement>('aside [data-kind-nav-card="agent-cb-priya"]')!;
+    expect(card.getAttribute("data-kind-leg")).toBe("schedule:agent-cb-priya");
+    expect(railCardsNamed("Priya Shah")).toHaveLength(1);
+    expect(card.querySelector("[data-kind-card-body]")?.textContent).toContain("Callback");
+    expect(card.querySelector('[aria-label="End Call"], [title="End Call"]')).not.toBeNull();
+    // One Outcome for the card: the call's, while the leg is on it.
+    expect(card.querySelector("[data-kind-outcome-trigger]")).toBeNull();
     expect([...h.container.querySelectorAll("h1, h2")].map((el) => el.textContent?.trim())).toContain("Priya Shah");
-    // The callback is still open while the call is.
-    expect(h.container.querySelector('aside [data-kind-nav-card="agent-cb-priya"]')).not.toBeNull();
 
     await wrapUp(call.id, { dispositionCode: "Issue Resolved" });
     expect(h.container.querySelector('aside [data-kind-nav-card="agent-cb-priya"]')).toBeNull();
+    // Its leg went with it: no second card is left behind.
+    expect(railCardsNamed("Priya Shah")).toHaveLength(0);
     const done = await act(async () => {
       const snapshot = h.schedule!.listItems({ role: "agent" });
       await vi.advanceTimersByTimeAsync(50);
@@ -182,11 +219,16 @@ describe("calls from schedule items (until P0.9)", () => {
     expect(rowNamed("Callback · Priya Shah")?.getAttribute("data-feed-status")).toBe("completed");
   });
 
-  it("a task's call leaves the task open; the call's summary joins the task's notes", async () => {
+  it("a task's call joins the task's card as its voice leg and leaves the task open; the call's summary joins the task's notes", async () => {
     await showHome();
     await h.goAvailable();
     const call = await callFrom("Ticket #4821 · subscription renewal refund");
     expect(call.contactName).toBe("Priya Shah");
+    expect(call.journeyId).toBe("schedule:agent-tk-4821");
+    const card = h.container.querySelector<HTMLElement>('aside [data-kind-nav-card="agent-tk-4821"]')!;
+    expect(card.getAttribute("data-kind-leg")).toBe("schedule:agent-tk-4821");
+    expect(card.querySelector('[aria-label="End Call"], [title="End Call"]')).not.toBeNull();
+    expect(railCardsNamed("Priya Shah")).toHaveLength(1);
     await wrapUp(call.id, { dispositionCode: "Issue Resolved", summary: "Billing will release the credit today" });
     expect(h.container.querySelector('aside [data-kind-nav-card="agent-tk-4821"]')).not.toBeNull();
     await h.click(h.container.querySelector('aside [data-kind-nav-card="agent-tk-4821"] [role=button], aside [data-kind-nav-card="agent-tk-4821"] button')!);

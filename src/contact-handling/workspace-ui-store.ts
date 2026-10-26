@@ -75,16 +75,12 @@ export interface WorkspaceUiState {
   /** P-PROFILES: the assignments panel is open as an overlay (it doesn't dock,
    *  or the agent unpinned it), from the rail's Assignments item. */
   assignmentsPanelOverlayOpen: boolean;
-  /** P-HOME-1: the Activity feed's view (All / Assignments / History), shared by the feed and the welcome header's counts. */
-  activityView: "all" | "assignments" | "history";
+  /** P-HOME-1e: the Activity feed's view (Assignments / History). */
+  activityView: "assignments" | "history";
   /** P-HOME-1b: the feed's kind chips (empty: every kind). */
   activityKinds: ReadonlySet<AssignmentKind>;
   /** P-HOME-1b: History's range, Contact History's date control. */
   activityHistoryRange: ContactHistoryDateFilterValue;
-  /** P-HOME-1c: two-column Home's right column collapsed to the overlay by the agent. */
-  homeSideCollapsed: boolean;
-  /** P-HOME-1d: calls placed from a schedule item (provider interaction id → item id), until P0.9 joins the call as a leg. */
-  scheduleCallLinks: Readonly<Record<string, string>>;
   /** P-HOME-1: toasts for events on other assignments, in raise order; dismissed ones stay for the drawer's rows. */
   assignmentToasts: readonly AssignmentToast[];
 }
@@ -117,11 +113,9 @@ export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
   referenceSlotWidth: null,
   assignmentsPanelDocks: true,
   assignmentsPanelOverlayOpen: false,
-  activityView: "all",
+  activityView: "assignments",
   activityKinds: new Set<AssignmentKind>(),
   activityHistoryRange: "today",
-  homeSideCollapsed: false,
-  scheduleCallLinks: Object.freeze({}),
   assignmentToasts: Object.freeze([]),
 });
 

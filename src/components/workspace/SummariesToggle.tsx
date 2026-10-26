@@ -7,24 +7,21 @@ import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 
-/** P-CANVAS: the record header's "Summaries" toggle, right of Contact
- *  Details. Shown only under the two-column canvas while the reference
- *  column doesn't fit beside the action area; it opens the column as an
- *  overlay (`ReferenceColumn`). */
-export function SummariesToggle() {
-  const { twoColumn } = useCanvasRegions();
+/** The reference column's overlay toggle: shown only while the column
+ *  doesn't fit beside the main column (`referenceColumnFits`, measured by
+ *  `ReferenceSlotFrame`); it opens the column as an overlay
+ *  (`ReferenceColumn`). Docked, there is nothing to toggle. */
+export function ReferenceOverlayToggle({ label, hidden = false }: { label: string; hidden?: boolean }) {
   const [fits] = useWorkspaceUiField("referenceColumnFits");
   const [open, setOpen] = useWorkspaceUiField("summariesOverlayOpen");
-  const { selectedDetailPanelContent, slideOverMode } = useWorkspace();
-  // A slide-over in the reference slot takes the column's place, so there's nothing to toggle.
-  if (!twoColumn || fits || (slideOverMode === "referenceSlot" && selectedDetailPanelContent)) return null;
+  if (fits || hidden) return null;
   return (
-    <Tooltip content={t("Summaries")} placement="bottom">
+    <Tooltip content={label} placement="bottom">
       <Button
         variant="outline"
         size="md"
         className={cn("w-8 shrink-0 gap-0 px-0 animate-in fade-in-0 duration-200", panelToggleClass({ active: open }))}
-        aria-label={t("Summaries")}
+        aria-label={label}
         aria-pressed={open}
         data-summaries-toggle=""
         onClick={() => setOpen((v) => !v)}
@@ -32,5 +29,19 @@ export function SummariesToggle() {
         <PanelRight className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
       </Button>
     </Tooltip>
+  );
+}
+
+/** P-CANVAS: the record header's "Summaries" toggle, right of Contact
+ *  Details, under the two-column canvas. */
+export function SummariesToggle() {
+  const { twoColumn } = useCanvasRegions();
+  const { selectedDetailPanelContent, slideOverMode } = useWorkspace();
+  // A slide-over in the reference slot takes the column's place, so there's nothing to toggle.
+  return (
+    <ReferenceOverlayToggle
+      label={t("Summaries")}
+      hidden={!twoColumn || (slideOverMode === "referenceSlot" && !!selectedDetailPanelContent)}
+    />
   );
 }

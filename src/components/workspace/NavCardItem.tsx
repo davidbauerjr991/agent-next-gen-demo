@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useProviders } from "@/provider-context";
 import { t } from "@/i18n";
 import type { ChannelKind } from "@/domain";
@@ -31,12 +31,16 @@ export function NavCardItem({
   slotExpanded,
   clockTick,
   hideChip = false,
+  kind,
 }: {
   interaction: Interaction;
   slotExpanded: boolean | undefined;
   clockTick: number;
   /** Hides the channel chip on the card's rows (`assignments.channelChips`, P-PROFILES). */
   hideChip?: boolean;
+  /** P-HOME-1e: this card is a schedule item's, with the call as its leg (KindNavCard): the item's name, and its
+   *  kind row in place of the "+" and the offer actions. */
+  kind?: { name: string; identified: boolean; row: ReactNode };
 }) {
   const {
     activeInteractionId, addChannelActionFor, answerSla, assignmentsSettings, channelPreviewThreadKey,
@@ -619,7 +623,7 @@ export function NavCardItem({
                     // everything else reading this card's severity (the
                     // avatar/border, the elapsed timer, the corner dot).
                     badgeSeverity={cardAwaitingWaitSeconds !== undefined ? getAwaitingSeverity(cardAwaitingWaitSeconds) : undefined}
-                    customerName={interaction.customerName}
+                    customerName={kind?.name ?? interaction.customerName}
                     // `cardIsRealCustomer` (just above, in this same
                     // `.map()`) — was a narrow `!id.startsWith("adhoc:")`
                     // check that missed the `quickdial:`/`redial:`
@@ -629,7 +633,7 @@ export function NavCardItem({
                     // instead of deriving meaningless initials off a raw
                     // dialed number — `customerName` itself is untouched,
                     // so the card's title text still reads as the address.
-                    customerIdentified={cardIsRealCustomer}
+                    customerIdentified={kind?.identified ?? cardIsRealCustomer}
                     // Per explicit request ("add the new badge to any
                     // unread assignments (assignments that haven't been
                     // clicked on yet)") — see `useNewAssignments` for what
@@ -688,7 +692,9 @@ export function NavCardItem({
                     onDismiss={() => confirmDismiss(() => handleDismissInteraction(interaction.id))}
                     onDismissChannel={(channel) => confirmDismiss(() => handleDismissChannel(interaction.id, channel))}
                     footerAction={
-                      interaction.offered ? (
+                      kind ? (
+                        kind.row
+                      ) : interaction.offered ? (
                         // A ringing offer: a call (P0.5d.1, P0.5c's Tom) or a digital one with Auto-accept off.
                         <IncomingOfferActions
                           onAccept={() => void incomingOffer.accept(interaction)}
@@ -697,7 +703,7 @@ export function NavCardItem({
                       ) : undefined
                     }
                     // The card's "+" (add channel): the same control as the record header's (k6 1).
-                    headerAction={addChannelActionFor(interaction)}
+                    headerAction={kind ? undefined : addChannelActionFor(interaction)}
                     // Renders side by side with `collapsible`'s own
                     // expand/collapse chevron, rather than being replaced
                     // by it — see `InteractionNavItem`'s own `collapsible`

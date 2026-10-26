@@ -10,6 +10,7 @@ import { buildFeed, type Feed, type FeedRow, type FeedView } from "./activity-fe
 import { CHANNEL_NAMES } from "./channel-names";
 import { PERSONA_KINDS } from "./persona-kinds";
 import { startOfDay } from "./time";
+import { useScheduleLegCardKeys } from "./useScheduleCards";
 
 type Card = ReturnType<typeof useWorkspace>["interactions"][number];
 
@@ -106,13 +107,15 @@ export function useActivityFeed(): ActivityFeed {
   const { interactions, contactHistoryByRange, incomingOffer, switchActiveInteraction, setSelectedQueueId, setSelectedContactHistoryEntry } = ws;
   const historyEntries = contactHistoryByRange[historyRange];
   const kinds = PERSONA_KINDS[persona];
+  // A call joined to an open schedule item's card is that item's leg: the item's own row stands for the card.
+  const legCardKeys = useScheduleLegCardKeys();
 
   const feed = useMemo(() => {
     void minute;
     const now = Date.now();
     return buildFeed({
       offers: interactions.filter((c) => c.offered).map((c) => cardRow(c, "offered")),
-      railCards: interactions.filter((c) => !c.offered).map((c) => cardRow(c, "inRail")),
+      railCards: interactions.filter((c) => !c.offered && !legCardKeys.has(c.id)).map((c) => cardRow(c, "inRail")),
       completedHistory: historyEntries.map(historyRow),
       historySince: rangeStart(historyRange, now),
       scheduleItems: snapshot?.items ?? [],
@@ -121,7 +124,7 @@ export function useActivityFeed(): ActivityFeed {
       kindFilter,
       view,
     });
-  }, [interactions, historyEntries, historyRange, snapshot, kinds, kindFilter, view, minute]);
+  }, [interactions, legCardKeys, historyEntries, historyRange, snapshot, kinds, kindFilter, view, minute]);
 
   const open = useCallback(
     (row: FeedRow) => {
