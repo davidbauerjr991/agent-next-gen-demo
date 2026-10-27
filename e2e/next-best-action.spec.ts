@@ -77,8 +77,8 @@ for (const displayLocation of ["inline", "main"] as const) {
     // A row of the conversation (the transcript inline, the AI feed under "main"), not a canvas cell.
     const placement = await nba(page).evaluate((el) => ({ inMain: !!el.closest("[data-main-thread]"), inCell: !!el.closest("[data-canvas-cell]") }));
     expect(placement).toEqual({ inMain: true, inCell: false });
-    // Exactly one reference card is expanded at first.
-    expect(await page.locator("[data-canvas-region=reference] [aria-expanded=true]").count()).toBe(1);
+    // Every reference card starts collapsed (P-HOME-1g).
+    expect(await page.locator("[data-canvas-region=reference] [aria-expanded=true]").count()).toBe(0);
   });
 
   test(`${displayLocation}, sim chat: after the greeting, the chip surfaces the next one at once`, async ({ page }) => {
@@ -145,12 +145,12 @@ test("inline, Maya: her card-on-file turn expands Customer Info beside the agent
         (slot) => document.querySelector(`[data-slot=${slot}] [aria-expanded]`)?.getAttribute("aria-expanded") === "true",
       ),
     );
-  expect(await expanded()).toEqual(["real-time-summary"]);
-  // The agent opens the Journey Summary: additive.
+  // Every card starts collapsed (P-HOME-1g); the agent opens the Journey Summary.
+  expect(await expanded()).toEqual([]);
   await page.locator("[data-slot=journey-summary] [aria-expanded]").click();
-  expect(await expanded()).toEqual(["real-time-summary", "journey-summary"]);
-  // John's greeting waits on its suggestion; Said it, and Maya names her Visa next: Customer Info opens; the AI's
-  // summary closes; the agent's card stays.
+  expect(await expanded()).toEqual(["journey-summary"]);
+  // John's greeting waits on its suggestion; Said it, and Maya names her Visa next: Customer Info opens beside the
+  // agent's card.
   await nba(page).getByRole("button", { name: "Said it" }).click({ timeout: 10_000 });
   await expect.poll(expanded, { timeout: 10_000 }).toEqual(["journey-summary", "customer-info-card"]);
   const words = () => page.locator("[data-slot=real-time-summary]").getAttribute("data-words");

@@ -17,7 +17,7 @@ import { ArrowLeft, Clock } from "lucide-react";
 import { KindTag } from "@/components/home/home-kinds";
 import { CopilotComposer } from "@/components/copilot-composer";
 import { timeLabel } from "@/components/ai-cards/ai-card-icon";
-import { useDetailSlideOverParts } from "@/components/workspace/detail-slide-over-parts";
+import { useDetailSlideOverPanel } from "@/components/workspace/detail-slide-over-parts";
 import { ReferenceSlotFrame } from "@/components/workspace/ReferenceSlot";
 import { ReferenceOverlayToggle } from "@/components/workspace/SummariesToggle";
 import { scheduleCardKey } from "@/domain";
@@ -29,7 +29,7 @@ import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import type { ScheduleItem } from "@/providers";
 import { scheduleCopilotAnswer, scheduleCopilotFor } from "@/scenarios/schedule-copilot";
 import { t } from "@/i18n";
-import { KindOutcomeButton } from "../KindNavCard";
+import { KindOutcomeButton } from "./KindOutcomeButton";
 import { KindBody } from "./kind-bodies";
 
 /** The subject line under the name: the ticket for a task, else the item's title (when a customer names the header). */
@@ -58,7 +58,7 @@ function KindSessionRow({ item }: { item: ScheduleItem }) {
               <Clock className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />
               {feedTimeLabel(item.dueAt, Date.now())}
             </span>
-            <span>· {item.sourceLabel}</span>
+            <span>{t("· {source}", { source: item.sourceLabel })}</span>
           </div>
           <div className="flex items-center gap-1">
             {status && <Tag shape="pill" variant="neutral" label={status} data-kind-status="" />}
@@ -100,10 +100,11 @@ function KindCopilot({ item }: { item: ScheduleItem }) {
 }
 
 export function KindCell({ item }: { item: ScheduleItem }) {
-  const { sessionRowHost, switchActiveInteraction, selectedDetailPanelContent, setSelectedDetailPanelContent } = useWorkspace();
+  const { sessionRowHost, switchActiveInteraction, selectedDetailPanelContent } = useWorkspace();
   const [, setKindCellShownFor] = useWorkspaceUiField("kindCellShownFor");
   const regions = useKindCanvasRegions();
-  const { body: slideOverBody, ...slideOverHeader } = useDetailSlideOverParts();
+  // Always the reference slot: a kind cell has no docked Contact Details for the slide-over to open in instead.
+  const slideOver = useDetailSlideOverPanel({ wanted: !!selectedDetailPanelContent, assignmentKey: scheduleCardKey(item.id) });
   const backHome = () => {
     setKindCellShownFor(null);
     switchActiveInteraction(null);
@@ -144,14 +145,7 @@ export function KindCell({ item }: { item: ScheduleItem }) {
         </div>
         <ReferenceSlotFrame
           reference={regions.reference && <div className="contents" data-kind-reference="">{regions.reference}</div>}
-          panel={{
-            wanted: !!selectedDetailPanelContent,
-            onClose: () => setSelectedDetailPanelContent(null),
-            header: slideOverHeader,
-            body: slideOverBody,
-            slot: "reference-slide-over",
-            assignmentKey: scheduleCardKey(item.id),
-          }}
+          panel={slideOver}
         />
       </div>
     </div>

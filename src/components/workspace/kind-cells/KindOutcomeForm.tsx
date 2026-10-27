@@ -14,9 +14,9 @@ import { t } from "@/i18n";
 const TICKET_STATUSES = ["Open", "Pending", "Solved"] as const;
 
 /** Which form a kind's outcome takes. */
-export type OutcomeShape = "notes" | "completion" | "ticket" | "disposition";
+type OutcomeShape = "notes" | "completion" | "ticket" | "disposition";
 
-export function outcomeShapeOf(kind: ScheduleItem["kind"]): OutcomeShape {
+function outcomeShapeOf(kind: ScheduleItem["kind"]): OutcomeShape {
   if (kind === "meeting") return "notes";
   if (kind === "training") return "completion";
   if (kind === "task") return "ticket";

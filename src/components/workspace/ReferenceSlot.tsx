@@ -9,7 +9,7 @@ import {
   type SlideOverState,
 } from "@/contact-handling/workspace-ui-store";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
-import { useDetailSlideOverParts, type DetailSlideOverParts } from "@/components/workspace/detail-slide-over-parts";
+import { useDetailSlideOverPanel, type DetailSlideOverParts } from "@/components/workspace/detail-slide-over-parts";
 import { ReferenceColumn } from "@/components/workspace/ReferenceColumn";
 
 /** `InteriorPanel`'s close transition: the slide-over stays mounted (closed)
@@ -45,26 +45,18 @@ function afterNextFrame(run: () => void): () => void {
  *  the last child of the main column's row, which must be `relative`: both
  *  this slot and the panel measure it, and the panel positions against it. */
 export function ReferenceSlot({ reference }: { reference?: ReactNode }) {
-  const { activeInteractionId, selectedDetailPanelContent, setSelectedDetailPanelContent, slideOverMode } = useWorkspace();
-  const { body, ...header } = useDetailSlideOverParts();
+  const { activeInteractionId, selectedDetailPanelContent, slideOverMode } = useWorkspace();
+  const panel = useDetailSlideOverPanel({
+    wanted: slideOverMode === "referenceSlot" && !!selectedDetailPanelContent,
+    assignmentKey: activeInteractionId ?? undefined,
+  });
   // P-PROFILES: the assignments interior panel's dock rule counts this slot.
   const [, setReferenceSlotWidth] = useWorkspaceUiField("referenceSlotWidth");
   const hasReference = !!reference;
   const onSlotWidthChange = useCallback((width: number) => setReferenceSlotWidth(hasReference ? width : 0), [hasReference, setReferenceSlotWidth]);
   useEffect(() => () => setReferenceSlotWidth(null), [setReferenceSlotWidth]);
   return (
-    <ReferenceSlotFrame
-      reference={reference}
-      onSlotWidthChange={onSlotWidthChange}
-      panel={{
-        wanted: slideOverMode === "referenceSlot" && !!selectedDetailPanelContent,
-        onClose: () => setSelectedDetailPanelContent(null),
-        header,
-        body,
-        slot: "reference-slide-over",
-        assignmentKey: activeInteractionId ?? undefined,
-      }}
-    />
+    <ReferenceSlotFrame reference={reference} onSlotWidthChange={onSlotWidthChange} panel={panel} />
   );
 }
 
@@ -184,7 +176,7 @@ export function ReferenceSlotFrame({
  *  zero width (not laid out; jsdom) keeps the last answer. The row is the
  *  content card minus the docked Contact Details / thread panel, so an open
  *  thread panel under "main" counts. */
-export function useReferenceColumnFit(anchorRef: React.RefObject<HTMLElement | null>): number {
+function useReferenceColumnFit(anchorRef: React.RefObject<HTMLElement | null>): number {
   const [rowWidth, setRowWidth] = useWorkspaceUiField("regionsRowWidth");
   const [, setFits] = useWorkspaceUiField("referenceColumnFits");
   useLayoutEffect(() => {

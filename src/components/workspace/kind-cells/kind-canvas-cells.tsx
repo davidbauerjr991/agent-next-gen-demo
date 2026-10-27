@@ -22,7 +22,7 @@ import { t } from "@/i18n";
 const copy = (text: string) => void navigator.clipboard?.writeText(text).catch(() => {});
 
 /** The item's summary, from its own detail (the seed's content) and any notes added while it's open. */
-export function kindSummaryText(item: ScheduleItem): string {
+function kindSummaryText(item: ScheduleItem): string {
   const d = item.detail;
   const body =
     d.kind === "callback"

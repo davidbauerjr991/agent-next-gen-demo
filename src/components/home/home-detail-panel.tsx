@@ -15,6 +15,7 @@ import { INITIAL_QUEUE_SUB_ITEMS, LATEST_CONTACTS_STATIC } from "@/components/ag
 import { QueueSubItems } from "@/components/agent-next-gen-clock-tick";
 import type { ReferenceSlotPanel } from "@/components/workspace/ReferenceSlot";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /** One queue's skills: in-queue count, longest wait, and the agents by state. */
 function QueueDrillDown({ queueId }: { queueId: string }) {
@@ -31,27 +32,27 @@ function QueueDrillDown({ queueId }: { queueId: string }) {
                     <item.icon className="h-4 w-4 text-lyra-fg-secondary" strokeWidth={1.5} />
                     {item.label}
                   </span>
-                  <span className="lyra-body-sm text-lyra-fg-secondary whitespace-nowrap">{item.inQueueCount} In Queue</span>
+                  <span className="lyra-body-sm text-lyra-fg-secondary whitespace-nowrap">{t("{count} In Queue", { count: item.inQueueCount })}</span>
                 </div>
                 <span className="inline-flex items-center gap-1 lyra-body-sm text-lyra-fg-secondary">
                   <Clock className="h-3 w-3" strokeWidth={1.5} />
-                  Longest Wait Time: {item.wait}
+                  {t("Longest Wait Time: {wait}", { wait: item.wait })}
                 </span>
                 {/* Available / Working / Unavailable agents, the Productivity card's icons and colors. */}
                 <div className="flex items-center gap-3">
-                  <Tooltip content="Available Agents" placement="top">
+                  <Tooltip content={t("Available Agents")} placement="top">
                     <span className="inline-flex items-center gap-1.5">
                       <Icon icon={CheckCircle2} size="sm" background="success" shape="circle" decorative />
                       <span className="lyra-body-sm-emphasis text-lyra-fg-default">{item.available}</span>
                     </span>
                   </Tooltip>
-                  <Tooltip content="Working Agents" placement="top">
+                  <Tooltip content={t("Working Agents")} placement="top">
                     <span className="inline-flex items-center gap-1.5">
                       <Icon icon={CircleDot} size="sm" background="warning" shape="circle" decorative />
                       <span className="lyra-body-sm-emphasis text-lyra-fg-default">{item.working}</span>
                     </span>
                   </Tooltip>
-                  <Tooltip content="Unavailable Agents" placement="top">
+                  <Tooltip content={t("Unavailable Agents")} placement="top">
                     <span className="inline-flex items-center gap-1.5">
                       <Icon icon={MinusCircle} size="sm" background="critical" shape="circle" decorative />
                       <span className="lyra-body-sm-emphasis text-lyra-fg-default">{item.unavailable}</span>
@@ -85,7 +86,7 @@ function HistoryEntryDetail({ entry }: { entry: ContactHistoryEntry }) {
                 onClick={(e) => handleRedialButtonClick(entry, e.currentTarget)}
               >
                 <PhoneOutgoing className="h-3.5 w-3.5" strokeWidth={1.5} />
-                Redial
+                {t("Redial")}
               </Button>
             </DisabledReason>
           ) : (
@@ -96,7 +97,7 @@ function HistoryEntryDetail({ entry }: { entry: ContactHistoryEntry }) {
               }}
             >
               <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.5} />
-              Takeover Assignment
+              {t("Takeover Assignment")}
             </Button>
           )
         }
@@ -122,9 +123,9 @@ export function useHomeDetailPanel(): ReferenceSlotPanel {
       setSelectedContactHistoryEntry(null);
     },
     header: {
-      headerTitle: queueId ? LATEST_CONTACTS_STATIC.find((c) => c.id === queueId)?.name ?? "Queue" : entry ? entry.name : "Case Details",
+      headerTitle: queueId ? LATEST_CONTACTS_STATIC.find((c) => c.id === queueId)?.name ?? t("Queue") : entry ? entry.name : t("Case Details"),
       // The queue's skill count (list lengths never change, only counts), or the entry's routing skill.
-      headerSubhead: queueId ? `${(INITIAL_QUEUE_SUB_ITEMS[queueId] ?? []).length} Skills` : entry?.skillName,
+      headerSubhead: queueId ? t("{count} Skills", { count: (INITIAL_QUEUE_SUB_ITEMS[queueId] ?? []).length }) : entry?.skillName,
     },
     body: queueId ? (
       <QueueDrillDown queueId={queueId} />
@@ -132,10 +133,10 @@ export function useHomeDetailPanel(): ReferenceSlotPanel {
       <HistoryEntryDetail entry={entry} />
     ) : (
       <div className="flex flex-col gap-4 px-4 py-4">
-        <Input label="Subject" placeholder="Enter subject" />
-        <Input label="Priority" placeholder="Select priority" />
-        <Input label="Assignee" placeholder="Search agents" />
-        <Input label="Tags" placeholder="Add tags" />
+        <Input label={t("Subject")} placeholder={t("Enter subject")} />
+        <Input label={t("Priority")} placeholder={t("Select priority")} />
+        <Input label={t("Assignee")} placeholder={t("Search agents")} />
+        <Input label={t("Tags")} placeholder={t("Add tags")} />
       </div>
     ),
     storageKey: "home.detailPanel",

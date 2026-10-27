@@ -12,94 +12,22 @@
 // opened — the kind row, then the Voice row. The main column follows the
 // selected row: the kind row shows the kind's cell, the Voice row the call.
 // P-HOME-3 gives each kind its own nav-card row through the kinds registry.
-import * as React from "react";
-import { Button, ContainerHeader, Popover, SuccessIconSolid, type InteractionChannel } from "@nicecxone/lyra-ui";
+import type { InteractionChannel } from "@nicecxone/lyra-ui";
 import { scheduleCardKey } from "@/domain";
 import { feedTimeLabel } from "@/contact-handling/home/time";
-import { outcomeDraftKey } from "@/contact-handling/useChannelOutcomeDrafts";
 import { useScheduleLeg } from "@/contact-handling/home/useScheduleCards";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
-import { useScheduleProvider } from "@/provider-context";
 import type { ScheduleItem } from "@/providers";
 import { ClockTick } from "@/components/agent-next-gen-clock-tick";
 import { KindIcon, kindLabel } from "@/components/home/home-kinds";
 import { t } from "@/i18n";
-import { useKindOutcomeForm } from "./kind-cells/KindOutcomeForm";
+import { KindOutcomeButton } from "./kind-cells/KindOutcomeButton";
 import { InteractionNavCard } from "./left-nav-parts";
 import { NavCardItem } from "./NavCardItem";
 
 /** The kind row's key among a card's rows. */
-export const KIND_ROW_ID = "kind";
-
-/** Keeps a click inside the portaled popover from reaching the card (it would switch cards), as lyra's Outcome popover does. */
-const stopBubble = (e: React.SyntheticEvent) => e.stopPropagation();
-
-/** The kind's Outcome: anchored to its button and laid out in the popover's header / content / footer slots with the
- *  conversation row's Outcome popover's own spacing (lyra `buildOutcomePopoverSlots`). The card's and the cell's
- *  session row's. P-HOME-1g: it's the card's one Outcome; a joined call's Voice row ✓ is that call's wrap-up, and
- *  what the wrap-up records fills this form (`useKindOutcomeForm`'s `fill`). */
-export function KindOutcomeButton({ item }: { item: ScheduleItem }) {
-  const { activeInteractionId, outcomeDrafts, switchActiveInteraction } = useWorkspace();
-  const schedule = useScheduleProvider();
-  const [open, setOpen] = React.useState(false);
-  const leg = useScheduleLeg(item);
-  const legVoice = leg?.threads.find((th) => th.type === "voice");
-  const wrapUp = legVoice ? outcomeDrafts.draftFor(outcomeDraftKey(leg!.id, legVoice.id ?? legVoice.type)) : undefined;
-  const form = useKindOutcomeForm(item, wrapUp && { disposition: wrapUp.dispositionCode, note: wrapUp.summary });
-  const save = () => {
-    setOpen(false);
-    schedule?.complete(item.id, form.outcome()).then(
-      () => {
-        if (activeInteractionId === scheduleCardKey(item.id)) switchActiveInteraction(null);
-      },
-      (err) => {
-        if (import.meta.env.DEV) console.warn("[schedule] complete failed", err);
-      },
-    );
-  };
-  return (
-    <Popover
-      open={open}
-      onOpenChange={setOpen}
-      placement="bottom"
-      align="end"
-      className="z-[9999] w-80"
-      onCloseAutoFocus={(e) => e.preventDefault()}
-      header={
-        <div onClick={stopBubble}>
-          <ContainerHeader title={t("Outcome")} bordered={false} className="px-5 pb-0" onClose={() => setOpen(false)} />
-        </div>
-      }
-      content={
-        <div className="flex flex-col gap-4 pb-2 pt-1" onClick={stopBubble}>
-          {form.fields}
-        </div>
-      }
-      footer={
-        <div className="flex items-center justify-end gap-2 px-5 pb-4 pt-1" onClick={stopBubble} data-kind-outcome-footer="">
-          <Button variant="outline" size="md" onClick={() => setOpen(false)}>
-            {t("Cancel")}
-          </Button>
-          <Button variant="default" size="md" onClick={save} disabled={!form.canSave}>
-            {t("Save outcome")}
-          </Button>
-        </div>
-      }
-    >
-      <Button
-        variant="icon"
-        size="icon-sm"
-        aria-label={t("Outcome")}
-        className="shrink-0 text-lyra-fg-secondary"
-        data-kind-outcome-trigger=""
-        onClick={(e) => e.stopPropagation()}
-      >
-        <SuccessIconSolid className="h-4 w-4 text-lyra-status-info-strong" />
-      </Button>
-    </Popover>
-  );
-}
+const KIND_ROW_ID = "kind";
 
 /** The kind's row on its card: the kind chip, the due time, the detail line and the kind's Outcome; no kebab (a kind has
  *  no row actions yet). */
