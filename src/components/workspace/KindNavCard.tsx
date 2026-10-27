@@ -16,6 +16,7 @@ import * as React from "react";
 import { Button, ContainerHeader, Popover, SuccessIconSolid, type InteractionChannel } from "@nicecxone/lyra-ui";
 import { scheduleCardKey } from "@/domain";
 import { feedTimeLabel } from "@/contact-handling/home/time";
+import { outcomeDraftKey } from "@/contact-handling/useChannelOutcomeDrafts";
 import { useScheduleLeg } from "@/contact-handling/home/useScheduleCards";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
@@ -36,12 +37,16 @@ const stopBubble = (e: React.SyntheticEvent) => e.stopPropagation();
 
 /** The kind's Outcome: anchored to its button and laid out in the popover's header / content / footer slots with the
  *  conversation row's Outcome popover's own spacing (lyra `buildOutcomePopoverSlots`). The card's and the cell's
- *  session row's. */
+ *  session row's. P-HOME-1g: it's the card's one Outcome; a joined call's Voice row ✓ is that call's wrap-up, and
+ *  what the wrap-up records fills this form (`useKindOutcomeForm`'s `fill`). */
 export function KindOutcomeButton({ item }: { item: ScheduleItem }) {
-  const { activeInteractionId, switchActiveInteraction } = useWorkspace();
+  const { activeInteractionId, outcomeDrafts, switchActiveInteraction } = useWorkspace();
   const schedule = useScheduleProvider();
   const [open, setOpen] = React.useState(false);
-  const form = useKindOutcomeForm(item);
+  const leg = useScheduleLeg(item);
+  const legVoice = leg?.threads.find((th) => th.type === "voice");
+  const wrapUp = legVoice ? outcomeDrafts.draftFor(outcomeDraftKey(leg!.id, legVoice.id ?? legVoice.type)) : undefined;
+  const form = useKindOutcomeForm(item, wrapUp && { disposition: wrapUp.dispositionCode, note: wrapUp.summary });
   const save = () => {
     setOpen(false);
     schedule?.complete(item.id, form.outcome()).then(

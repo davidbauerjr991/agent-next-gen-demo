@@ -22,7 +22,13 @@ import { useCopilotAsk, useCopilotResultTimer } from "@/contact-handling/useCopi
 import { useBrand, useSettings, type ExtraHeaderApp } from "@/settings";
 import { LUCAS_THOMAS_PANEL_TITLES, LUCAS_THOMAS_ORDER_DETAILS, TOM_LEWIS_CALL_PANEL_TITLES } from "@/components/agent-next-gen-lucas-thomas-panels";
 import type { DetailPanelContent } from "@/contact-handling/workspace/workspace-types";
-import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
+import { assignmentIdFor } from "@/domain";
+import {
+  EMPTY_ASSIGNMENT_REFERENCE,
+  updateAssignmentReference,
+  useWorkspaceUiField,
+  useWorkspaceUiStore,
+} from "@/contact-handling/workspace-ui-store";
 import { slideOverPlacement } from "@/contact-handling/slide-over-placement";
 import { slideOverContent, slideOverEntry } from "@/contact-handling/slide-over-registry";
 import { MARCUS_WEBB_SCRIPT } from "@/scenarios/scripts/marcus-webb";
@@ -470,10 +476,7 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
     autoOpensResult: (cardId) => scenarioKeyOf(cardId) === LUCAS_THOMAS_ID || scenarioKeyOf(cardId) === MARCUS_WEBB_ID || isColdCallId(cardId),
     // A case that registers its slide-overs (Marcus) opens its own Copilot result; Lucas and the cold calls theirs.
     openResult: (cardId, { text, time, link }) =>
-      setDetailPanelByInteraction((prev) => ({
-        ...prev,
-        [cardId]: slideOverContent(scenarioKeyOf(cardId), link) ?? { kind: "lucas-instruction", decision: "copilot", text, time, link },
-      })),
+      setSlideOverContent(cardId, slideOverContent(scenarioKeyOf(cardId), link) ?? { kind: "lucas-instruction", decision: "copilot", text, time, link }),
   });
   const copilotResultTimer = useCopilotResultTimer();
   // "Call now" on Lucas's escalation card: opens the outbound popover on the button; `confirm` marks the card decided once launched.
@@ -645,19 +648,26 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
   // that interaction is active, is hidden when switching to another one, and
   // comes back when returning to it. Kept in the workspace UI store by card id, so it survives a remount of
   // whatever shows it (a layout switch).
-  const [detailPanelByInteraction, setDetailPanelByInteraction] = useWorkspaceUiField("detailPanelByCard");
+  // P-HOME-1g: keyed by assignment (`referenceByAssignment`) with the slide-over's full screen and width; a close
+  // starts the next open at the card width again.
+  const [referenceByAssignment] = useWorkspaceUiField("referenceByAssignment");
+  const workspaceUiStore = useWorkspaceUiStore();
   const selectedDetailPanelContent: DetailPanelContent | null = activeInteractionId
-    ? detailPanelByInteraction[activeInteractionId] ?? null
+    ? referenceByAssignment[assignmentIdFor(activeInteractionId)]?.slideOver.content ?? null
     : null;
+  const setSlideOverContent = (
+    cardId: string,
+    updater: DetailPanelContent | null | ((current: DetailPanelContent | null) => DetailPanelContent | null)
+  ) =>
+    updateAssignmentReference(workspaceUiStore, cardId, (r) => {
+      const next = typeof updater === "function" ? updater(r.slideOver.content) : updater;
+      if (next === r.slideOver.content) return r;
+      return { ...r, slideOver: next ? { ...r.slideOver, content: next } : EMPTY_ASSIGNMENT_REFERENCE.slideOver };
+    });
   const setSelectedDetailPanelContent = (
     updater: DetailPanelContent | null | ((current: DetailPanelContent | null) => DetailPanelContent | null)
   ) => {
-    if (!activeInteractionId) return;
-    setDetailPanelByInteraction((prev) => {
-      const current = prev[activeInteractionId] ?? null;
-      const next = typeof updater === "function" ? updater(current) : updater;
-      return { ...prev, [activeInteractionId]: next };
-    });
+    if (activeInteractionId) setSlideOverContent(activeInteractionId, updater);
   };
   // Every side panel the agent opens on an interaction is remembered here and
   // listed as a link in the Contact Details "Artifacts" card; clicking one
@@ -834,7 +844,7 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
     appearance, updateAppearance, darkMode, handleDarkModeToggle, appDisplayName, logoSrc, appMenuGroups, panelOpen,
     setPanelOpen, voiceVideoWindowOpen, setVoiceVideoWindowOpen, voiceVideoFullScreen, setVoiceVideoFullScreen,
     customerPanelActiveTab, setCustomerPanelActiveTab, restoredCustomerPanelTabRef,
-    detailPanelByInteraction, setDetailPanelByInteraction, selectedDetailPanelContent, setSelectedDetailPanelContent,
+    selectedDetailPanelContent, setSelectedDetailPanelContent,
     detailPanelArtifactKey, detailPanelArtifactLabel, panelArtifactsByInteraction, setPanelArtifactsByInteraction,
     lucasActiveLinkKey, panelArtifacts, reopenPanelArtifact, lastDetailPanelContent, setLastDetailPanelContent,
     slideOverInPanel, slideOverMode, channelPreviewThreadKey, channelPreviewThread, channelPreviewThreadStableKey, channelPreviewMeta,

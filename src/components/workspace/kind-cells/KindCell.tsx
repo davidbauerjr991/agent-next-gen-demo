@@ -20,6 +20,7 @@ import { timeLabel } from "@/components/ai-cards/ai-card-icon";
 import { useDetailSlideOverParts } from "@/components/workspace/detail-slide-over-parts";
 import { ReferenceSlotFrame } from "@/components/workspace/ReferenceSlot";
 import { ReferenceOverlayToggle } from "@/components/workspace/SummariesToggle";
+import { scheduleCardKey } from "@/domain";
 import { feedTimeLabel } from "@/contact-handling/home/time";
 import { HostSlot } from "@/contact-handling/portal-hosts";
 import { useKindCanvasRegions } from "@/contact-handling/useCanvasRegions";
@@ -108,7 +109,13 @@ export function KindCell({ item }: { item: ScheduleItem }) {
     switchActiveInteraction(null);
   };
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" data-kind-cell={item.kind} data-schedule-item={item.id}>
+    // P-HOME-1g: the main column's enter fade (the interaction body's, Home's and Settings' `animate-in fade-in-0
+    // duration-200`); WorkspaceHome keys the cell on its item, so it replays per item.
+    <div
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden animate-in fade-in-0 duration-200"
+      data-kind-cell={item.kind}
+      data-schedule-item={item.id}
+    >
       <div data-slot="record-header" className="shrink-0">
         <PageHeader
           title={item.customer?.name ?? item.title}
@@ -142,8 +149,8 @@ export function KindCell({ item }: { item: ScheduleItem }) {
             onClose: () => setSelectedDetailPanelContent(null),
             header: slideOverHeader,
             body: slideOverBody,
-            storageKey: "workspace.slideOver",
             slot: "reference-slide-over",
+            assignmentKey: scheduleCardKey(item.id),
           }}
         />
       </div>

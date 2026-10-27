@@ -3,7 +3,7 @@ import { useInteractionProvider } from "@/provider-context";
 import type { ReferenceCardFocus } from "@/providers";
 import type { DetailPanelContent, OutcomeKey, PanelArtifact } from "./workspace/workspace-types";
 import type { AssignmentToast } from "./toasts/assignment-toasts";
-import type { AssignmentKind } from "@/domain";
+import { assignmentIdFor, type AssignmentKind } from "@/domain";
 import type { ContactHistoryDateFilterValue } from "@/components/agent-next-gen-contact-history";
 
 // The Workspace's UI state keyed by card or thread id (P-EXTRACT). State that
@@ -18,8 +18,9 @@ export interface WorkspaceUiState {
   /** The channel whose Outcome popover is open, app-wide (one at a time).
    *  Which trigger shows it is the trigger's own business (`useOutcomeClaim`). */
   outcomeOpenFor: OutcomeKey | null;
-  /** Each card's interior slide-over selection. */
-  detailPanelByCard: Readonly<Record<string, DetailPanelContent | null>>;
+  /** P-HOME-1g: each assignment's reference slot, keyed `assignmentIdFor(cardKey)`: its reference cards' open state
+   *  and the slide-over over them (`AssignmentReferenceState`). */
+  referenceByAssignment: Readonly<Record<string, AssignmentReferenceState>>;
   /** Each card's Artifacts: every side panel the agent opened on it. */
   artifactsByCard: Readonly<Record<string, readonly PanelArtifact[]>>;
   /** Approval cards that already played their first reveal, `${cardId}:${revealKey}`. */
@@ -49,12 +50,6 @@ export interface WorkspaceUiState {
   nbaAwaitingSend: Readonly<Record<string, string>>;
   /** P-CANVAS: when the Journey Summary's lookup started for each contact (first shown); it resolves 800ms later. */
   journeyLookupStartedAt: Readonly<Record<string, number>>;
-  /** P-CANVAS: each card's reference column — which cards are open and who
-   *  opened each (absent = the Real-Time Summary, opened by the AI), the
-   *  guidance step a manual header click happened on (AI focus waits until
-   *  the step advances), and the card the AI just brought forward
-   *  (highlighted briefly). */
-  referenceFocusByCard: Readonly<Record<string, ReferenceFocusState>>;
   /** P-CANVAS: cards whose call transcript the agent hid ("Hide Transcript", AI display inline, voice): the main
    *  column keeps only the AI rows, and Contact Details offers the Transcript tab. */
   transcriptHiddenByCard: Readonly<Record<string, boolean>>;
@@ -90,15 +85,60 @@ export interface WorkspaceUiState {
   assignmentToasts: readonly AssignmentToast[];
 }
 
+/** A reference card's id in an assignment's open state: the guidance's focus vocabulary for a conversation's cards
+ *  (`ReferenceCardFocus`), the canvas cell id for a kind cell's. */
+export type ReferenceCardKey = ReferenceCardFocus | (string & {});
+
+/** P-CANVAS: an assignment's reference cards — which are open and who opened each (absent: collapsed, P-HOME-1g),
+ *  the guidance step a manual header click happened on (AI focus waits until the step advances), and the card the AI
+ *  just brought forward (highlighted briefly). */
 export interface ReferenceFocusState {
-  open: Readonly<Partial<Record<ReferenceCardFocus, "ai" | "user">>>;
+  open: Readonly<Partial<Record<ReferenceCardKey, "ai" | "user">>>;
   manualStepId?: string;
-  highlight?: { card: ReferenceCardFocus; at: number };
+  highlight?: { card: ReferenceCardKey; at: number };
+}
+
+/** P-HOME-1g: the slide-over over an assignment's reference slot: what it shows (null: closed), whether it's full
+ *  screen (lyra's ⤢) and its dragged width (null: the card width). */
+export interface SlideOverState {
+  content: DetailPanelContent | null;
+  fullScreen: boolean;
+  width: number | null;
+}
+
+/** P-HOME-1g: one assignment's reference slot, as the agent left it. In memory only: it outlives a switch to another
+ *  assignment or Home, never a reload. A new assignment starts with every card collapsed and nothing open. */
+export interface AssignmentReferenceState {
+  cards: ReferenceFocusState;
+  slideOver: SlideOverState;
+}
+
+export const EMPTY_ASSIGNMENT_REFERENCE: AssignmentReferenceState = Object.freeze({
+  cards: Object.freeze({ open: Object.freeze({}) }),
+  slideOver: Object.freeze({ content: null, fullScreen: false, width: null }),
+});
+
+/** `cardKey`'s assignment's reference slot. */
+export function assignmentReferenceOf(state: WorkspaceUiState, cardKey: string): AssignmentReferenceState {
+  return state.referenceByAssignment[assignmentIdFor(cardKey)] ?? EMPTY_ASSIGNMENT_REFERENCE;
+}
+
+/** Changes `cardKey`'s assignment's reference slot. */
+export function updateAssignmentReference(
+  store: WorkspaceUiStore,
+  cardKey: string,
+  change: (current: AssignmentReferenceState) => AssignmentReferenceState,
+) {
+  store.update((s) => {
+    const current = assignmentReferenceOf(s, cardKey);
+    const next = change(current);
+    return next === current ? s : { ...s, referenceByAssignment: { ...s.referenceByAssignment, [assignmentIdFor(cardKey)]: next } };
+  });
 }
 
 export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
   outcomeOpenFor: null,
-  detailPanelByCard: Object.freeze({}),
+  referenceByAssignment: Object.freeze({}),
   artifactsByCard: Object.freeze({}),
   revealedApprovals: new Set<string>(),
   touchedThreads: new Set<string>(),
@@ -110,7 +150,6 @@ export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
   nbaRowsShown: new Set<string>(),
   nbaAwaitingSend: Object.freeze({}),
   journeyLookupStartedAt: Object.freeze({}),
-  referenceFocusByCard: Object.freeze({}),
   transcriptHiddenByCard: Object.freeze({}),
   navChannelsAllExpanded: true,
   navChannelsOverrideVersion: 0,

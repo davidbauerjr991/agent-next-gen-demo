@@ -391,3 +391,37 @@ for (const displayLocation of ["inline", "main"] as const) {
     expect(Math.round((await row(page)).width)).toBe(Math.round(rowBefore.width));
   });
 }
+
+test("each assignment keeps its slide-over: Maya's order panel, dragged wider and full screen, is still open and full screen after Lucas; Lucas has nothing open", async ({ page }) => {
+  await mayaLive(page, "inline", 1600);
+  await page.locator(composerSel).getByRole("button", { name: "Show the order" }).click();
+  await expect(page.locator(slideOver)).toBeVisible();
+  await page.waitForTimeout(400);
+  const panelText = await page.locator(slideOver).innerText();
+  // Dragged 150px wider, then full screen.
+  const handle = page.locator(slideOver).getByRole("separator", { name: "Resize panel" });
+  const hb = (await handle.boundingBox())!;
+  await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(hb.x + hb.width / 2 - 150, hb.y + hb.height / 2, { steps: 5 });
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  const dragged = (await rect(page, slideOver))!.width;
+  await page.locator(slideOver).getByRole("button", { name: "Full screen" }).click();
+  await page.waitForTimeout(400);
+
+  await page.keyboard.press("a");
+  await page.locator("aside").getByText("Lucas Thomas").first().click({ timeout: 15_000 });
+  await page.waitForTimeout(600);
+  await expect(page.locator(slideOver)).toHaveCount(0);
+
+  await page.locator("aside").getByText("Maya Chen").first().click();
+  await page.waitForTimeout(800);
+  await expect(page.locator(slideOver)).toBeVisible();
+  expect(await page.locator(slideOver).innerText()).toBe(panelText);
+  expect(Math.round((await rect(page, slideOver))!.width)).toBe(Math.round((await row(page)).width));
+  // Out of full screen: the width it was dragged to.
+  await page.locator(slideOver).getByRole("button", { name: "Exit full screen" }).click();
+  await page.waitForTimeout(400);
+  expect(Math.round((await rect(page, slideOver))!.width)).toBe(Math.round(dragged));
+});

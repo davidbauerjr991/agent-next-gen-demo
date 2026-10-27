@@ -4,10 +4,11 @@
 // the open schedule item: a Real-Time Summary built from the item's own
 // detail, what it's related to, and the customer's journey where there is a
 // customer. P-HOME-3's kinds registry gives each kind its own cells.
-import { useState } from "react";
 import { AgenticAICard, AgenticSection } from "@nicecxone/lyra-ui";
 import { Link2 } from "lucide-react";
+import { scheduleCardKey } from "@/domain";
 import { journeySummaryFor } from "@/contact-handling/journey-summary";
+import { useAssignmentCardOpen } from "@/contact-handling/reference-cards";
 import { feedTimeLabel } from "@/contact-handling/home/time";
 import { useActiveScheduleItem } from "@/contact-handling/home/useScheduleCards";
 import type { CanvasCell } from "@/contact-handling/canvas-registry";
@@ -38,15 +39,15 @@ export function kindSummaryText(item: ScheduleItem): string {
   return item.notes?.length ? `${body} Notes: ${item.notes.join(" ")}` : body;
 }
 
-/** An Agentic AI card's open state, the agent's own (a kind cell has no AI focus to follow yet). */
-function useOpen() {
-  const [open, onOpenChange] = useState(true);
-  return { open, onOpenChange };
+/** A card's open state on the item's assignment: collapsed until the agent opens it, then kept per card per
+ *  assignment (P-HOME-1g; a kind cell has no AI focus to follow yet). */
+function useOpen(item: ScheduleItem | null, cellId: string) {
+  return useAssignmentCardOpen(item ? scheduleCardKey(item.id) : undefined, cellId);
 }
 
 function KindSummaryCell() {
   const item = useActiveScheduleItem();
-  const accordion = useOpen();
+  const accordion = useOpen(item, "kind-summary");
   if (!item) return null;
   const text = kindSummaryText(item);
   return (
@@ -63,7 +64,7 @@ function KindSummaryCell() {
 
 function KindRelatedCell() {
   const item = useActiveScheduleItem();
-  const accordion = useOpen();
+  const accordion = useOpen(item, "kind-related");
   if (!item) return null;
   return (
     <div data-slot="kind-related">
@@ -82,7 +83,7 @@ function KindRelatedCell() {
 
 function KindJourneyCell() {
   const item = useActiveScheduleItem();
-  const accordion = useOpen();
+  const accordion = useOpen(item, "kind-journey");
   const [channels] = useSettings("channels");
   if (!item?.customer) return null;
   const journey = journeySummaryFor({ customerName: item.customer.name, customerId: item.customer.entityId, channels });

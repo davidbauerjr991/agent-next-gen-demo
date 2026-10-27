@@ -546,16 +546,29 @@ describe("the reference column", () => {
   const header = (slot: string) => h.container.querySelector<HTMLElement>(`[data-slot=${slot}] [aria-expanded]`)!;
   const highlighted = () => [...h.container.querySelectorAll("[data-highlighted] [data-slot]")].map((el) => el.getAttribute("data-slot"));
 
-  it("any number open: the Real-Time Summary at first; manual opens add, closes remove", async () => {
+  it("any number open: every card collapsed at first (P-HOME-1g); manual opens add, closes remove", async () => {
     await open({ displayLocation: "inline" });
     await maya();
-    expect(expanded()).toEqual(["real-time-summary"]);
+    expect(expanded()).toEqual([]);
+    await h.click(header("real-time-summary"));
     await h.click(header("journey-summary"));
     expect(expanded()).toEqual(["real-time-summary", "journey-summary"]);
     await h.click(header("customer-info-card"));
     expect(expanded()).toEqual(["real-time-summary", "journey-summary", "customer-info-card"]);
     await h.click(header("real-time-summary"));
     expect(expanded()).toEqual(["journey-summary", "customer-info-card"]);
+  });
+
+  it("what the agent opened stays open per assignment: away to another and back, it's still open; the other starts collapsed", async () => {
+    await open({ displayLocation: "inline" });
+    await maya();
+    await h.click(header("real-time-summary"));
+    expect(expanded()).toEqual(["real-time-summary"]);
+    // (Noah's journey lookup brings his Journey Summary forward: the AI's open, not the agent's.)
+    await h.click(h.navCard("Noah Patel"));
+    expect(expanded()).not.toContain("real-time-summary");
+    await h.click(h.navCard("Maya Chen"));
+    expect(expanded()).toContain("real-time-summary");
   });
 
   /** Answers John's waiting turn (Said it), once its suggestion shows. */
@@ -601,7 +614,7 @@ describe("the reference column", () => {
       await dialed;
     });
     await h.click(h.navCard("Alex Miller"));
-    expect(expanded()).toEqual(["real-time-summary"]);
+    expect(expanded()).toEqual([]);
     await h.advance(1_000);
     expect(expanded()).toEqual(["journey-summary"]);
   });

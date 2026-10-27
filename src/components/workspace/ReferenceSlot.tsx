@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { InteriorPanel, LYRA_CARD_MAX_WIDTH } from "@nicecxone/lyra-ui";
 import { ACTION_AREA_MIN_WIDTH } from "@/contact-handling/canvas-registry";
-import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
+import { assignmentIdFor } from "@/domain";
+import {
+  updateAssignmentReference,
+  useWorkspaceUiField,
+  useWorkspaceUiStore,
+  type SlideOverState,
+} from "@/contact-handling/workspace-ui-store";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useDetailSlideOverParts, type DetailSlideOverParts } from "@/components/workspace/detail-slide-over-parts";
 import { ReferenceColumn } from "@/components/workspace/ReferenceColumn";
@@ -39,7 +45,7 @@ function afterNextFrame(run: () => void): () => void {
  *  the last child of the main column's row, which must be `relative`: both
  *  this slot and the panel measure it, and the panel positions against it. */
 export function ReferenceSlot({ reference }: { reference?: ReactNode }) {
-  const { selectedDetailPanelContent, setSelectedDetailPanelContent, slideOverMode } = useWorkspace();
+  const { activeInteractionId, selectedDetailPanelContent, setSelectedDetailPanelContent, slideOverMode } = useWorkspace();
   const { body, ...header } = useDetailSlideOverParts();
   // P-PROFILES: the assignments interior panel's dock rule counts this slot.
   const [, setReferenceSlotWidth] = useWorkspaceUiField("referenceSlotWidth");
@@ -55,8 +61,8 @@ export function ReferenceSlot({ reference }: { reference?: ReactNode }) {
         onClose: () => setSelectedDetailPanelContent(null),
         header,
         body,
-        storageKey: "workspace.slideOver",
         slot: "reference-slide-over",
+        assignmentKey: activeInteractionId ?? undefined,
       }}
     />
   );
@@ -68,10 +74,13 @@ export interface ReferenceSlotPanel {
   onClose: () => void;
   header: Omit<DetailSlideOverParts, "body">;
   body: ReactNode;
-  /** lyra `InteriorPanel`'s width memory. */
-  storageKey: string;
+  /** lyra `InteriorPanel`'s width memory (a cookie); for a panel that isn't an assignment's (Home's). */
+  storageKey?: string;
   /** `data-slot` on the panel. */
   slot: string;
+  /** P-HOME-1g: the assignment (its card key) whose slide-over this is: its full screen and dragged width are kept
+   *  per assignment in the workspace UI store (`referenceByAssignment`), in memory only, and come back with it. */
+  assignmentKey?: string;
 }
 
 /** The reference slot's layout, shared by the interaction (ReferenceSlot) and
@@ -106,8 +115,18 @@ export function ReferenceSlotFrame({
     return () => window.clearTimeout(timer);
   }, [wanted]);
 
+  // An assignment's slide-over comes back as the agent left it: full screen, at its dragged width.
+  const { assignmentKey } = panel;
+  const store = useWorkspaceUiStore();
+  const [byAssignment] = useWorkspaceUiField("referenceByAssignment");
+  const remembered = assignmentKey ? byAssignment[assignmentIdFor(assignmentKey)]?.slideOver : undefined;
+  const openWidth = remembered?.width ?? LYRA_CARD_MAX_WIDTH;
+  const remember = (change: Partial<SlideOverState>) => {
+    if (!assignmentKey) return;
+    updateAssignmentReference(store, assignmentKey, (r) => (r.slideOver.content ? { ...r, slideOver: { ...r.slideOver, ...change } } : r));
+  };
   // The slot follows the panel's width while it's open (a drag pushes the action area); lyra opens it at the card width.
-  const [panelWidth, setPanelWidth] = useState(LYRA_CARD_MAX_WIDTH);
+  const [panelWidth, setPanelWidth] = useState(openWidth);
   const [resizing, setResizing] = useState(false);
   useEffect(() => {
     if (!mounted) setPanelWidth(LYRA_CARD_MAX_WIDTH);
@@ -129,18 +148,24 @@ export function ReferenceSlotFrame({
       {mounted && (
         // A direct child of the row: the panel measures its parent and positions against it.
         <InteriorPanel
+          key={assignmentKey}
           side="right"
           open={open}
           onClose={panel.onClose}
           overlayHeader
-          width={LYRA_CARD_MAX_WIDTH}
+          width={openWidth}
           minWidth={LYRA_CARD_MAX_WIDTH}
           maxWidth={Math.max(LYRA_CARD_MAX_WIDTH, rowWidth - ACTION_AREA_MIN_WIDTH)}
-          onWidthChange={setPanelWidth}
+          onWidthChange={(width) => {
+            setPanelWidth(width);
+            remember({ width });
+          }}
           onResizeStateChange={setResizing}
           resizable
           allowFullScreen
           autoFullScreen
+          defaultFullScreen={!!remembered?.fullScreen}
+          onFullScreenChange={(fullScreen) => remember({ fullScreen })}
           storageKey={panel.storageKey}
           rounded={false}
           margin={false}

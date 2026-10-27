@@ -30,7 +30,8 @@ export function HomeTwoColumn({ header, feed, side }: { header: React.ReactNode;
       </div>
       {/* `relative`: the overlay and the detail panel position against this row (ReferenceSlotFrame). */}
       <div className="relative flex min-h-0 min-w-0 flex-1">
-        <div className="min-w-0 flex-1 overflow-y-auto px-6 pb-6" data-home-section="activity" data-home-scroll="feed">
+        {/* `pt-4`: the docked right column's own inset (ReferenceColumn), so both columns start at the same y. */}
+        <div className="min-w-0 flex-1 overflow-y-auto px-6 pb-6 pt-4" data-home-section="activity" data-home-scroll="feed">
           {feed}
         </div>
         <ReferenceSlotFrame

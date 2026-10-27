@@ -3,7 +3,17 @@ import type { ReferenceCardFocus } from "@/providers";
 import { useAssistCardsByContact, useContactAssistCards } from "@/provider-context";
 import { useSettings } from "@/settings";
 import { journeySummaryFor } from "./journey-summary";
-import { useWorkspaceUiField, useWorkspaceUiStore, type ReferenceFocusState, type WorkspaceUiStore } from "./workspace-ui-store";
+import { assignmentIdFor } from "@/domain";
+import {
+  EMPTY_ASSIGNMENT_REFERENCE,
+  assignmentReferenceOf,
+  updateAssignmentReference,
+  useWorkspaceUiField,
+  useWorkspaceUiStore,
+  type ReferenceCardKey,
+  type ReferenceFocusState,
+  type WorkspaceUiStore,
+} from "./workspace-ui-store";
 import { useWorkspace } from "./workspace/WorkspaceContext";
 
 /** How long a contact's Journey Summary reads "Looking up" after it arrives. */
@@ -12,14 +22,12 @@ const JOURNEY_LOOKUP_MS = 800;
 /** How long a card the AI brings forward stays highlighted. */
 const REFERENCE_HIGHLIGHT_MS = 1200;
 
-
-/** A card's reference column before anything was opened: the Real-Time Summary, opened by the AI. */
-const INITIAL: ReferenceFocusState = { open: { summary: "ai" } };
-
-const focusOf = (store: WorkspaceUiStore, cardId: string) => store.getState().referenceFocusByCard[cardId] ?? INITIAL;
+// P-HOME-1g: a reference card starts collapsed; what the agent (or the AI) opens is kept per card per assignment
+// (`referenceByAssignment`), so it's still open after a switch to another assignment or Home and back.
+const focusOf = (store: WorkspaceUiStore, cardId: string) => assignmentReferenceOf(store.getState(), cardId).cards;
 
 function write(store: WorkspaceUiStore, cardId: string, next: ReferenceFocusState) {
-  store.update((s) => ({ ...s, referenceFocusByCard: { ...s.referenceFocusByCard, [cardId]: next } }));
+  updateAssignmentReference(store, cardId, (r) => ({ ...r, cards: next }));
 }
 
 /** The AI brings `card` forward on `cardId` (P-CANVAS): it opens and is
@@ -29,8 +37,8 @@ function write(store: WorkspaceUiStore, cardId: string, next: ReferenceFocusStat
 export function focusReferenceCard(store: WorkspaceUiStore, cardId: string, card: ReferenceCardFocus, stepId: string, now = Date.now()) {
   const current = focusOf(store, cardId);
   if (current.manualStepId !== undefined && current.manualStepId === stepId) return;
-  const open: Partial<Record<ReferenceCardFocus, "ai" | "user">> = {};
-  for (const [id, by] of Object.entries(current.open) as [ReferenceCardFocus, "ai" | "user"][]) if (by === "user") open[id] = by;
+  const open: Partial<Record<ReferenceCardKey, "ai" | "user">> = {};
+  for (const [id, by] of Object.entries(current.open) as [ReferenceCardKey, "ai" | "user"][]) if (by === "user") open[id] = by;
   open[card] = current.open[card] === "user" ? "user" : "ai";
   write(store, cardId, { open, highlight: { card, at: now } });
 }
@@ -38,7 +46,7 @@ export function focusReferenceCard(store: WorkspaceUiStore, cardId: string, card
 /** The agent opens or closes a card by hand on guidance step `stepId`. Opens
  *  are additive (the others stay open); a close, even of a card the AI
  *  opened, counts as the agent's choice for that step. */
-export function setReferenceCardOpen(store: WorkspaceUiStore, cardId: string, card: ReferenceCardFocus, open: boolean, stepId: string | undefined) {
+export function setReferenceCardOpen(store: WorkspaceUiStore, cardId: string, card: ReferenceCardKey, open: boolean, stepId: string | undefined) {
   const current = focusOf(store, cardId);
   const next = { ...current.open };
   if (open) next[card] = "user";
@@ -52,10 +60,9 @@ export function setReferenceCardOpen(store: WorkspaceUiStore, cardId: string, ca
 export function useReferenceAccordion(id: ReferenceCardFocus) {
   const { activeInteraction, activeChannel } = useWorkspace();
   const store = useWorkspaceUiStore();
-  const [byCard] = useWorkspaceUiField("referenceFocusByCard");
+  const state = useAssignmentCards(activeInteraction?.id);
   const { nba } = useContactAssistCards(activeChannel?.providerInteractionId);
   const cardId = activeInteraction?.id;
-  const state = (cardId && byCard[cardId]) || INITIAL;
   const highlightAt = state.highlight?.card === id ? state.highlight.at : undefined;
   const [now, setNow] = useState(() => Date.now());
   const remaining = highlightAt !== undefined ? highlightAt + REFERENCE_HIGHLIGHT_MS - now : 0;
@@ -74,6 +81,25 @@ export function useReferenceAccordion(id: ReferenceCardFocus) {
       if (cardId) setReferenceCardOpen(store, cardId, id, open, nba?.stepId);
     },
     highlighted: remaining > 0,
+  };
+}
+
+/** `cardKey`'s assignment's reference cards (none open before anything was opened). */
+function useAssignmentCards(cardKey: string | undefined): ReferenceFocusState {
+  const [byAssignment] = useWorkspaceUiField("referenceByAssignment");
+  return (cardKey && byAssignment[assignmentIdFor(cardKey)]?.cards) || EMPTY_ASSIGNMENT_REFERENCE.cards;
+}
+
+/** A kind cell's reference card on `cardKey`'s assignment (P-HOME-1g): open or collapsed by the agent, kept per card
+ *  per assignment like a conversation's (no AI focus on a kind yet). */
+export function useAssignmentCardOpen(cardKey: string | undefined, cellId: string) {
+  const store = useWorkspaceUiStore();
+  const cards = useAssignmentCards(cardKey);
+  return {
+    open: !!cards.open[cellId],
+    onOpenChange: (open: boolean) => {
+      if (cardKey) setReferenceCardOpen(store, cardKey, cellId, open, undefined);
+    },
   };
 }
 

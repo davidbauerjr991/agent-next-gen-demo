@@ -24,8 +24,19 @@ export function outcomeShapeOf(kind: ScheduleItem["kind"]): OutcomeShape {
   return "notes";
 }
 
-/** A kind's outcome form: its fields, whether it can be saved, and the outcome it records. */
-export function useKindOutcomeForm(item: ScheduleItem): { fields: React.ReactNode; canSave: boolean; outcome: () => ScheduleOutcome } {
+/** What the card's call wrap-up fills in (P-HOME-1g): its disposition and summary. */
+export interface KindOutcomeFill {
+  disposition: string;
+  note: string;
+}
+
+/** A kind's outcome form: its fields, whether it can be saved, and the outcome it records. `fill` is the card's call
+ *  wrap-up: a disposition-shaped kind (a callback) takes its disposition and summary as they're written; a task keeps
+ *  its ticket status (the call's summary joins its notes instead). */
+export function useKindOutcomeForm(
+  item: ScheduleItem,
+  fill?: KindOutcomeFill,
+): { fields: React.ReactNode; canSave: boolean; outcome: () => ScheduleOutcome } {
   const shape = outcomeShapeOf(item.kind);
   const [note, setNote] = React.useState("");
   const [actionItems, setActionItems] = React.useState("");
@@ -33,6 +44,13 @@ export function useKindOutcomeForm(item: ScheduleItem): { fields: React.ReactNod
   const [score, setScore] = React.useState("");
   const [ticketStatus, setTicketStatus] = React.useState<string>("Pending");
   const [disposition, setDisposition] = React.useState("");
+  const fills = shape === "disposition" && !!fill;
+  React.useEffect(() => {
+    if (fills && fill.disposition) setDisposition(fill.disposition);
+  }, [fills, fill?.disposition]); // eslint-disable-line react-hooks/exhaustive-deps
+  React.useEffect(() => {
+    if (fills && fill.note) setNote(fill.note);
+  }, [fills, fill?.note]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const outcome = () => {
     const result: ScheduleOutcome = { ...(note.trim() ? { note: note.trim() } : {}) };

@@ -11,7 +11,9 @@ import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
 import { SIM_DEMO_SEED } from "@/adapters/sim/sim-fixtures";
 import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
+import { LYRA_CARD_MAX_WIDTH } from "@nicecxone/lyra-ui";
 import { LUCAS_THOMAS_SCRIPT } from "@/scenarios/scripts/lucas-thomas";
+import { MAYA_CHEN_SCRIPT } from "@/scenarios/scripts/maya-chen";
 import { profileValues } from "@/settings/profiles";
 import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
 import { SECTIONS, type AiSettings } from "@/settings/settings-schema";
@@ -271,6 +273,44 @@ describe("a slide-over takes the reference slot (inline and main)", () => {
       expect([...region("reference")!.querySelectorAll("[data-canvas-cell]")]).toEqual(cards);
     });
   }
+
+  it("each assignment keeps its own slide-over: the panel, full screen and width come back with it; another assignment has nothing open", async () => {
+    await open({ displayLocation: "inline", canvasLayout: "twoColumn" });
+    await h.play(MAYA_CHEN_SCRIPT.id);
+    await h.click(h.navCard("Maya Chen"));
+    await h.advance(300);
+    // The order panel (Maya's "Show the order" chip).
+    const chip = [...h.container.querySelectorAll<HTMLElement>("[data-canvas-region=action] [data-slot=copilot-composer] button, [data-canvas-region=action] [data-slot=copilot-composer] [role=button]")].find(
+      (c) => c.textContent?.trim() === "Show the order",
+    )!;
+    await h.click(chip);
+    await h.advance(2_500);
+    expect(slideOver()).not.toBeNull();
+    const panelText = slideOver()!.textContent;
+    // Wider by keyboard (the drag handle's arrow keys), then full screen.
+    const handle = slideOver()!.querySelector<HTMLElement>('[role="separator"]')!;
+    await act(async () => {
+      handle.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    await h.click(slideOver()!.querySelector<HTMLElement>('button[aria-label="Full screen"]')!);
+    // Kept on Maya's assignment, the only one with a slide-over open.
+    const remembered = () =>
+      Object.values(getWorkspaceUiStore(h.provider).getState().referenceByAssignment).find((r) => r.slideOver.content)?.slideOver;
+    const width = remembered()!.width!;
+    expect(width).toBeGreaterThan(LYRA_CARD_MAX_WIDTH);
+    expect(remembered()!.fullScreen).toBe(true);
+
+    await CASES.lucas();
+    expect(slideOver()).toBeNull();
+
+    await h.click(h.navCard("Maya Chen"));
+    await h.advance(300);
+    expect(slideOver()).not.toBeNull();
+    expect(slideOver()!.textContent).toBe(panelText);
+    expect(slideOver()!.querySelector('button[aria-label="Exit full screen"]')).not.toBeNull();
+    expect(remembered()!.width).toBe(width);
+  });
 });
 
 describe("the Summaries overlay when the column doesn't fit", () => {

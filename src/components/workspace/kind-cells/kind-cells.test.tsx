@@ -135,7 +135,10 @@ describe("schedule items open as assignments", () => {
       "kind-related",
       "kind-journey",
     ]);
-    // The Real-Time Summary is the item's own detail.
+    // Every card starts collapsed; the Real-Time Summary is the item's own detail.
+    const summaryHeader = () => reference().querySelector<HTMLElement>('[data-canvas-cell="kind-summary"] [aria-expanded]')!;
+    expect(summaryHeader().getAttribute("aria-expanded")).toBe("false");
+    await h.click(summaryHeader());
     expect(reference().querySelector('[data-canvas-cell="kind-summary"]')?.textContent).toContain("Refund RF-20451 hasn't posted");
     await act(async () => {
       getSettingsStore().update("canvas", { cells: { "kind-related": { enabled: false } } });
@@ -153,6 +156,25 @@ describe("schedule items open as assignments", () => {
     const answer = document.querySelector<HTMLElement>("[data-slot=copilot-result]")!;
     expect(answer.textContent).toContain("RF-20451 was approved on the 22nd");
     expect(answer.closest('[data-slot="reference-slide-over"]')).not.toBeNull();
+  });
+
+  it("reference cards start collapsed and stay as the agent left them per assignment: Home and back, still open; another item, collapsed", async () => {
+    await showHome();
+    const expandedCells = () =>
+      [...(cell()?.querySelectorAll<HTMLElement>('[data-canvas-region="reference"] [data-canvas-cell]') ?? [])]
+        .filter((el) => el.querySelector("[aria-expanded]")?.getAttribute("aria-expanded") === "true")
+        .map((el) => el.getAttribute("data-canvas-cell"));
+    await h.click(rowNamed("Callback · Priya Shah")!);
+    expect(expandedCells()).toEqual([]);
+    await h.click(cell()!.querySelector<HTMLElement>('[data-canvas-cell="kind-related"] [aria-expanded]')!);
+    expect(expandedCells()).toEqual(["kind-related"]);
+    await h.click(homeButton());
+    await h.click(rowNamed("Returns team stand-up")!);
+    expect(cell()?.getAttribute("data-kind-cell")).toBe("meeting");
+    expect(expandedCells()).toEqual([]);
+    await h.click(h.container.querySelector<HTMLElement>('aside [data-kind-nav-card="agent-cb-priya"] [aria-label^="Callback channel"]')!);
+    expect(cell()?.getAttribute("data-kind-cell")).toBe("callback");
+    expect(expandedCells()).toEqual(["kind-related"]);
   });
 
   it("a kind card's kind is a row like a channel's: the kind chip, the due time and the detail; collapsed, the kind icon sits top-left", async () => {
@@ -213,12 +235,19 @@ describe("calls from schedule items (the leg-join P0.9 generalizes)", () => {
     return call!;
   }
 
-  /** The customer hangs up and the agent saves the call's wrap-up. */
-  async function wrapUp(callId: string, outcome: { dispositionCode: string; summary?: string }) {
+  /** The customer hangs up: the call is in wrap-up. */
+  async function hangUp(callId: string) {
     await act(async () => {
       h.customer.hangUp({ interactionId: callId as never });
       await vi.advanceTimersByTimeAsync(300);
     });
+  }
+  /** The customer hangs up and the agent saves the call's wrap-up. */
+  async function wrapUp(callId: string, outcome: { dispositionCode: string; summary?: string }) {
+    await hangUp(callId);
+    await saveWrapUp(callId, outcome);
+  }
+  async function saveWrapUp(callId: string, outcome: { dispositionCode: string; summary?: string }) {
     await act(async () => {
       const saved = h.provider.completeWrapUp(callId as never, outcome);
       await vi.advanceTimersByTimeAsync(300);
@@ -268,7 +297,17 @@ describe("calls from schedule items (the leg-join P0.9 generalizes)", () => {
     expect(cell()).toBeNull();
     expect(rows()[1]!.getAttribute("aria-current")).toBe("true");
 
-    await wrapUp(call.id, { dispositionCode: "Issue Resolved" });
+    // One Outcome per card: the kind row carries it; the Voice row's ✓ is the call's wrap-up, and what the wrap-up
+    // records fills the card's Outcome.
+    expect(card().querySelectorAll("[data-kind-outcome-trigger]")).toHaveLength(1);
+    await hangUp(call.id);
+    const wrapUpCard = () => h.container.querySelector<HTMLElement>('[role="region"][aria-label="Wrap up"]');
+    await type(wrapUpCard()!.querySelector("textarea")!, "Refund posted while on the call");
+    await h.click(card().querySelector("[data-kind-outcome-trigger]")!);
+    expect(outcomeForm()?.querySelector("textarea")?.value).toBe("Refund posted while on the call");
+    await h.click([...document.querySelectorAll<HTMLButtonElement>("[data-kind-outcome-footer] button")].find((b) => b.textContent?.trim() === "Cancel")!);
+
+    await saveWrapUp(call.id, { dispositionCode: "Issue Resolved" });
     expect(h.container.querySelector('aside [data-kind-nav-card="agent-cb-priya"]')).toBeNull();
     // Its leg went with it: no second card is left behind.
     expect(railCardsNamed("Priya Shah")).toHaveLength(0);
@@ -283,6 +322,18 @@ describe("calls from schedule items (the leg-join P0.9 generalizes)", () => {
     expect(rowNamed("Callback · Priya Shah")?.getAttribute("data-feed-status")).toBe("completed");
   });
 
+  it("the kind cell mounts with the interaction body's enter fade", async () => {
+    await showHome();
+    await h.goAvailable();
+    await callFrom("Callback · Priya Shah");
+    const enter = (el: Element | null | undefined) => (el?.className.split(/\s+/) ?? []).filter((c) => /^(animate-in|fade-in-0|duration-)/.test(c));
+    // The call's main column: the keyed wrapper around its record header.
+    const interactionEnter = enter(h.container.querySelector('[data-slot="record-header"]')?.closest(".animate-in"));
+    expect(interactionEnter).toEqual(["animate-in", "fade-in-0", "duration-200"]);
+    await h.click(h.container.querySelector<HTMLElement>('aside [data-kind-nav-card="agent-cb-priya"] [aria-label^="Callback channel"]')!);
+    expect(enter(cell())).toEqual(interactionEnter);
+  });
+
   it("a task's call joins the task's card as its voice leg and leaves the task open; the call's summary joins the task's notes", async () => {
     await showHome();
     await h.goAvailable();
@@ -295,6 +346,11 @@ describe("calls from schedule items (the leg-join P0.9 generalizes)", () => {
     expect(railCardsNamed("Priya Shah")).toHaveLength(1);
     await wrapUp(call.id, { dispositionCode: "Issue Resolved", summary: "Billing will release the credit today" });
     expect(h.container.querySelector('aside [data-kind-nav-card="agent-tk-4821"]')).not.toBeNull();
+    // The task's outcome stays its ticket status: the card's Outcome is still the ticket form, unchanged by the call.
+    await h.click(h.container.querySelector('aside [data-kind-nav-card="agent-tk-4821"] [data-kind-outcome-trigger]')!);
+    expect(outcomeForm()?.getAttribute("data-kind-outcome")).toBe("ticket");
+    expect(outcomeForm()?.querySelector("textarea")?.value).toBe("");
+    await h.click([...document.querySelectorAll<HTMLButtonElement>("[data-kind-outcome-footer] button")].find((b) => b.textContent?.trim() === "Cancel")!);
     await h.click(h.container.querySelector('aside [data-kind-nav-card="agent-tk-4821"] [role=button], aside [data-kind-nav-card="agent-tk-4821"] button')!);
     expect(cell()?.querySelector("[data-task-notes]")?.textContent).toContain("Billing will release the credit today");
   });
