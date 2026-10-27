@@ -85,6 +85,8 @@ export function useKindOutcomeForm(
           options={TICKET_STATUSES.map((s) => ({ value: s, label: t(s) }))}
           value={ticketStatus}
           onValueChange={setTicketStatus}
+          // §4: a dropdown inside the Outcome popover clears it, at DispositionSelect's default tier.
+          dropdownClassName="z-[10005]"
         />
       )}
       {shape !== "completion" && (

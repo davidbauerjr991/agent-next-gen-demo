@@ -44,7 +44,9 @@ export function KindOutcomeButton({ item, labeled = false }: { item: ScheduleIte
       onOpenChange={setOpen}
       placement="bottom"
       align="end"
-      // lyra's Outcome popover's own layer (channel-row.tsx).
+      // CONTRIBUTING §4's portal tier (9999), the tier lyra's row Outcome popover uses (channel-row.tsx). Not §4's
+      // "nested popover" 10003: the header's Close tooltip and a Textarea's help tooltip inside it sit at 10000 and
+      // can't be raised from here (PROGRESS known gap: §4's table and lyra's code disagree on this popover).
       className="z-[9999] w-80"
       onCloseAutoFocus={(e) => e.preventDefault()}
       header={
