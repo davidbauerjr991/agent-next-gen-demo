@@ -76,6 +76,18 @@ const TYPING_SCRIPT: ScenarioScript = {
   content: { panelKeys: [] },
 };
 
+/** A bot-held chat whose launch timeline waits on an agent turn: takeover withdraws it with the rest of the timeline. */
+const GATED_REVIEW_SCRIPT: ScenarioScript = {
+  ...TYPING_SCRIPT,
+  id: "gated-review",
+  entity: { key: "gated", name: "Gia Gated", caseId: "CASE-GATED" },
+  start: { answer: "delivered", review: true },
+  steps: [
+    { id: "g-turn", kind: "say", speaker: "agent", at: 500, text: "Hi Gia.", nba: { type: "say", title: "Greet Gia", why: "She's waiting.", text: "Hi Gia." } },
+    { id: "g-bot", kind: "say", speaker: "bot", at: 1000, text: "One more thing from the bot." },
+  ],
+};
+
 /** A bot-held call whose decision is a guide step's Do NBA (P-SHRINK): a note on an alternative, fixed vars on
  *  another, an event that sets the case status and suggests the disposition, and a takeover. */
 const GUIDE_SCRIPT: ScenarioScript = {
@@ -151,7 +163,7 @@ function setup() {
     latency: ZERO,
     timings: { ring: ZERO, legConnect: ZERO, delivery: ZERO },
     createTransport: bus.createTransport,
-    scripts: [...SCENARIOS, BEATS_SCRIPT, GUIDE_SCRIPT, TYPING_SCRIPT],
+    scripts: [...SCENARIOS, BEATS_SCRIPT, GUIDE_SCRIPT, TYPING_SCRIPT, GATED_REVIEW_SCRIPT],
   });
   provider = new Proxy(raw, {
     get(target, key, receiver) {
@@ -482,6 +494,18 @@ describe("review and takeover", () => {
     for (const role of ["bot", "customer"]) {
       expect(finalTyping(role)?.isTyping).toBe(false);
     }
+  });
+
+  it("takeover withdraws a turn the launch timeline waits on: neither it nor the bot's line after it plays", async () => {
+    const id = await play(GATED_REVIEW_SCRIPT);
+    await advance(700);
+    await provider.takeOver(id, { handoff: false });
+    await flush();
+    await answerTurn(id);
+    await advance(5000);
+    const texts = messages(id).map((m) => m.text);
+    expect(texts).not.toContain("Hi Gia.");
+    expect(texts).not.toContain("One more thing from the bot.");
   });
 
   it("a voice call in review isn't the agent's: it's never auto-held and doesn't block a dial; takeover holds the other call", async () => {

@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Button, Popover, RadioGroup, RadioGroupItem, Tooltip, filterChipVariants } from "@nicecxone/lyra-ui";
 import { ChevronDown, MoreVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 export function RadioFilterChip<T extends string>({
   label,
@@ -20,11 +21,11 @@ export function RadioFilterChip<T extends string>({
 }) {
   const [open, setOpen] = useState(false);
   const selectedLabel = options.find((o) => o.value === value)?.label ?? "";
-  const filterName = label.toLowerCase();
+  const description = t("{label} filter: {value}", { label, value: selectedLabel });
 
   return (
     // The Tooltip wraps the Popover from outside (CONTRIBUTING.md §16), as `DateFilterChip` does.
-    <Tooltip content={`${label} filter: ${selectedLabel}`} placement="bottom" disabled={open}>
+    <Tooltip content={description} placement="bottom" disabled={open}>
       <span className="inline-flex">
         <Popover
           open={open}
@@ -42,7 +43,7 @@ export function RadioFilterChip<T extends string>({
         >
           <Button
             variant="ghost"
-            aria-label={open ? `Close ${filterName} filter` : `${label} filter: ${selectedLabel}`}
+            aria-label={open ? t("Close {label} filter", { label: label.toLowerCase() }) : description}
             className={cn(filterChipVariants({ variant: "default" }), "rounded-lyra-md lyra-container-header-filter-trigger")}
           >
             {/* The full label, hidden below 480px of the header's width (lyra-tokens.css's "Filter chip icon

@@ -97,7 +97,7 @@ interface Run {
   /** In-flight typing indicators, each with its pending off: one unit, so a pause or stop turns it off. */
   typing: Map<Typist, Pending>;
   /** The agent line the run waits on (P-CANVAS): its Next Best Action is the agent's turn. */
-  gate?: { step: ScenarioStep; inputs: Inputs };
+  gate?: { step: ScenarioStep; inputs: Inputs; timeline: Timeline };
 }
 
 /** An agent line with a Next Best Action, or a guide step with one: the agent's turn, which waits on the agent
@@ -294,7 +294,7 @@ export function createScenarioPlayer(
         // An agent line with a Next Best Action is the agent's turn (P-CANVAS): the run waits (every later step
         // keeps its remaining delay) until the agent answers the suggestion; `releaseTurn` plays the line or not.
         if (isAgentTurn(step)) {
-          run.gate = { step, inputs };
+          run.gate = { step, inputs, timeline };
           pause(run);
           host.onStep?.(run.interactionId, step, run.script);
           return;
@@ -376,7 +376,8 @@ export function createScenarioPlayer(
         resume(run);
         if (!run.answered) {
           run.answered = true;
-          schedule(run, anchored(run, "answered"), "answered");
+          // Taken over before it was answered: the answered timeline was the bot's, and it's over.
+          if (!run.takenOver) schedule(run, anchored(run, "answered"), "answered");
         }
       }
     },
@@ -385,8 +386,9 @@ export function createScenarioPlayer(
       const run = runs.get(id);
       if (!run || run.takenOver) return;
       run.takenOver = true;
-      // An unanswered guide turn was the bot's request to the agent; taking over withdraws it (P-SHRINK).
-      const withdrawn = run.gate?.step.kind === "guide";
+      // An unanswered guide turn was the bot's request to the agent; taking over withdraws it (P-SHRINK). So does a
+      // turn the launch or answered timeline was waiting on: those timelines end here.
+      const withdrawn = run.gate?.step.kind === "guide" || run.gate?.timeline === "launch" || run.gate?.timeline === "answered";
       if (withdrawn) run.gate = undefined;
       // What the bot hadn't said yet never will be, and the customer's pending lines answered it: the launch and
       // answered timelines end here (lines already delivered stay), and the bot's dots go with them.

@@ -9,14 +9,13 @@ import { ActionIconButton } from "@nicecxone/lyra-ui";
 import { X } from "lucide-react";
 import { scheduleCardKey } from "@/domain";
 import { DisabledReason } from "@/contact-handling/DisabledReason";
+import { LIVE } from "@/contact-handling/already-open";
 import { useScheduleLeg } from "@/contact-handling/home/useScheduleCards";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useScheduleProvider } from "@/provider-context";
 import type { ScheduleItem } from "@/providers";
 import { t } from "@/i18n";
-
-const LIVE_CALL = ["connecting", "active", "held"];
 
 export function KindCloseButton({ item }: { item: ScheduleItem }) {
   const { activeInteractionId, assignmentsSettings, confirmDismiss, contactStateById, switchActiveInteraction } = useWorkspace();
@@ -25,7 +24,7 @@ export function KindCloseButton({ item }: { item: ScheduleItem }) {
   const leg = useScheduleLeg(item);
   if (!assignmentsSettings.allowUnassignDismiss) return null;
   const key = scheduleCardKey(item.id);
-  const callLive = !!leg?.threads.some((th) => th.type === "voice" && LIVE_CALL.includes(contactStateById.get(th.providerInteractionId ?? "") ?? ""));
+  const callLive = !!leg?.threads.some((th) => th.type === "voice" && LIVE.has(contactStateById.get(th.providerInteractionId ?? "") ?? ""));
   const close = () =>
     confirmDismiss(() => {
       if (activeInteractionId === key) switchActiveInteraction(null);

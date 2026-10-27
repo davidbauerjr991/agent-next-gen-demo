@@ -87,7 +87,14 @@ function ScheduleItemPreview({ item }: { item: ScheduleItem }) {
         </div>
       </div>
       {item.state === "offered" ? (
-        <OfferActions onAccept={() => run(() => activate(target))} onDecline={() => run(() => void schedule?.decline(item.id))} />
+        <OfferActions onAccept={() => run(() => activate(target))} onDecline={() =>
+            run(() =>
+              schedule?.decline(item.id).catch((err) => {
+                if (import.meta.env.DEV) console.warn("[schedule] decline failed", err);
+              }),
+            )
+          }
+        />
       ) : (
         item.state === "scheduled" && (
           <div>
@@ -130,11 +137,13 @@ export function useFeedPreviewHeader(target: FeedTarget | null): { headerTitle: 
   const { interactions } = useWorkspace();
   const snapshot = useScheduleSnapshot();
   if (target?.type === "schedule") {
-    const item = snapshot?.items.find((i) => i.id === target.itemId);
+    // Only while it's still a feed row (offered, scheduled, or completed in History): opened into the rail or
+    // declined, it has nothing left to preview.
+    const item = snapshot?.items.find((i) => i.id === target.itemId && i.state !== "active" && i.state !== "declined");
     return item ? { headerTitle: item.title, headerSubhead: t(kindLabel(item.kind)) } : null;
   }
   if (target?.type === "card") {
-    const card = interactions.find((c) => c.id === target.cardId);
+    const card = interactions.find((c) => c.id === target.cardId && c.offered);
     return card ? { headerTitle: card.presentedName ?? card.customerName ?? card.customerId, headerSubhead: t("Waiting for you to accept") } : null;
   }
   return null;

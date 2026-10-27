@@ -8,11 +8,12 @@ import * as React from "react";
 import { PageHeader } from "@nicecxone/lyra-ui";
 import { CURRENT_AGENT_FIRST_NAME, CURRENT_AGENT_ID } from "@/components/agent-next-gen-shared-utils";
 import { useSettings } from "@/settings";
+import { t } from "@/i18n";
 
 export function HomeGreetingHeader({ actions, welcome }: { actions: React.ReactNode; welcome: boolean }) {
   const [home] = useSettings("home");
   const title = `${home.greeting.trim() || "Hello"}${home.showFirstName ? ` ${CURRENT_AGENT_FIRST_NAME}` : ""}`;
-  const subtitle = `User Name: ${CURRENT_AGENT_ID}`;
+  const subtitle = t("User Name: {id}", { id: CURRENT_AGENT_ID });
   if (!welcome) {
     return <PageHeader title={title} subtitle={subtitle} bordered={false} titleSize="2xl" actions={actions} />;
   }

@@ -359,15 +359,6 @@ export interface ContactHistoryEntry {
  * see that component's own doc comment — to avoid restating the name its
  * caller's `InteriorPanel` `headerTitle` already shows just above it.
  */
-/** Contact History's search (the card's, and Home's History view's, P-HOME-1h): the name, the one-line case summary,
- *  the case ID or the channel, case-insensitive; with names hidden, the identity that shows instead. */
-export function contactHistoryEntryMatches(entry: ContactHistoryEntry, query: string, hideCustomerNames?: boolean): boolean {
-  const q = query.trim().toLowerCase();
-  return [entry.name, entry.description, entry.caseId, entry.channelLabel, ...(hideCustomerNames ? [contactHistoryDisplayIdentity(entry)] : [])].some(
-    (field) => field.toLowerCase().includes(q),
-  );
-}
-
 export function contactHistoryDisplayIdentity(entry: ContactHistoryEntry): string {
   if (entry.channelType === "chat") return entry.name;
   if (entry.channelType === "email") return entry.email ?? entry.name;
@@ -376,6 +367,15 @@ export function contactHistoryDisplayIdentity(entry: ContactHistoryEntry): strin
   // with/without spaces, bare US-formatted) produced the underlying value —
   // see that function's own doc comment. Voice, SMS and WhatsApp alike.
   return formatPhoneForDisplay(entry.phone) || entry.name;
+}
+
+/** Contact History's search (the card's, and Home's History view's, P-HOME-1h): the name, the one-line case summary,
+ *  the case ID or the channel, case-insensitive; with names hidden, the identity that shows instead. */
+export function contactHistoryEntryMatches(entry: ContactHistoryEntry, query: string, hideCustomerNames?: boolean): boolean {
+  const q = query.trim().toLowerCase();
+  return [entry.name, entry.description, entry.caseId, entry.channelLabel, ...(hideCustomerNames ? [contactHistoryDisplayIdentity(entry)] : [])].some(
+    (field) => field.toLowerCase().includes(q),
+  );
 }
 
 /** One turn in a Contact History row's synthesized chat/SMS/WhatsApp

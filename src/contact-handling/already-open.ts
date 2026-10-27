@@ -14,7 +14,7 @@ export interface CustomerAddresses {
 }
 
 /** A thread that holds its address: live, not ringing, not over. */
-const LIVE = new Set(["connecting", "active", "held"]);
+export const LIVE = new Set(["connecting", "active", "held"]);
 
 const sameAddress = (a: string, b: string) => {
   const pa = normalizePhone(a);
