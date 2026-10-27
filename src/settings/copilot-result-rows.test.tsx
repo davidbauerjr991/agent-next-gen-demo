@@ -92,6 +92,9 @@ describe("a Copilot result row toggles the interior slide-over (email contact)",
       expect(first).not.toBe(second);
       const rowContainer = displayLocation !== "panel" ? "[data-main-thread]" : "[data-slot=right-panel]";
       expect(row(first).closest(rowContainer)).not.toBeNull();
+      // Each ask opens its result once Copilot "finishes" (P-HOME-1j): the last one asked is showing.
+      expect(openResult()!.textContent).toContain(second);
+      await h.click(row(second));
       expect(openResult()).toBeNull();
 
       // Click → open, with that result: over the whole content card inline,
@@ -154,12 +157,14 @@ describe("an unscripted voice call has an AI feed for its Copilot rows", () => {
       expect(summarize).toBeTruthy();
       expect(summarize.closest(feed)).not.toBeNull();
 
-      // Its result (the unscripted placeholder) opens, then closes, by the row.
-      await h.click(summarize);
+      // Its result (the unscripted placeholder) opened by itself once Copilot "finished" (P-HOME-1j); the row closes
+      // it and reopens it.
       expect(openResult()?.textContent).toContain("Summarize this call");
       expectSlideOverPlacement(displayLocation);
-      await h.click(row("Summarize this call"));
+      await h.click(summarize);
       expect(openResult()).toBeNull();
+      await h.click(row("Summarize this call"));
+      expect(openResult()?.textContent).toContain("Summarize this call");
     });
   }
 });

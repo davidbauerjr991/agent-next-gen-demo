@@ -166,7 +166,7 @@ describe("the Next Best Action: the greeting on connect, then on a pause or on r
     expect(button("Said it")).toBeDefined();
   });
 
-  it("the chip surfaces it at once; asked again with nothing queued, it answers Nothing to suggest", async () => {
+  it("the chip surfaces it at once; asked again with nothing queued, it still answers (the generic check, P-HOME-1j)", async () => {
     await open({ displayLocation: "inline" });
     await priyaChat();
     expect(chip()?.textContent).toContain(NBA_CHIP);
@@ -188,8 +188,39 @@ describe("the Next Best Action: the greeting on connect, then on a pause or on r
     await h.advance(1_500);
     await h.click(chip()!);
     await h.advance(50);
-    expect(frame()).toBe("nothing");
-    expect(nba()!.textContent).toContain("Nothing to suggest");
+    expect(frame()).toBe("ask");
+    expect(nba()!.textContent).toContain("Check whether Priya needs anything else");
+  });
+
+  it("every default chip on a seeded contact with no script (Ethan's SMS) answers: a row and its result for each; the Next Best Action chip every time it's asked", async () => {
+    await open({ displayLocation: "inline" });
+    await h.click(h.navCard("Ethan Zhang"));
+    await h.advance(500);
+    const composer = () => document.body.querySelector<HTMLElement>("[data-slot=copilot-composer]")!;
+    const result = () => document.querySelector<HTMLElement>("[data-slot=copilot-result]");
+    const rowFor = (text: string) =>
+      [...h.container.querySelectorAll<HTMLElement>("button")].find((b) => b.textContent?.startsWith(text) && b.textContent.includes("John Smith"));
+    for (const text of ["Suggest a reply", "Summarize this conversation", "What is the customer's history?"]) {
+      const chipButton = () =>
+        [...composer().querySelectorAll<HTMLElement>("[data-slot=copilot-chips] [role=button]")].find((c) => c.textContent?.trim() === text);
+      if (!chipButton()) await h.click(composer().querySelector("[data-slot=copilot-chips-refresh] button")!);
+      await h.click(chipButton()!);
+      await h.advance(100);
+      expect(main().textContent).toContain("AI agent is performing this now…");
+      // Once Copilot "finishes": the row, and its result open by itself.
+      await h.advance(2_000);
+      expect(rowFor(text), text).toBeTruthy();
+      expect(result()?.textContent, text).toContain(text);
+      expect(rowFor(text)!.getAttribute("aria-current")).toBe("true");
+    }
+    // What should I do next?: the greeting, the reason, then the generic check — never nothing.
+    for (const title of ["Greet Ethan", "Ask what Ethan is contacting us about", "Check whether Ethan needs anything else"]) {
+      await h.click(chip()!);
+      await h.advance(50);
+      expect(nba()?.textContent, title).toContain(title);
+      await h.click(button("Not now")!);
+      await h.advance(1_500);
+    }
   });
 
   it("asking Copilot what to do next surfaces it too", async () => {

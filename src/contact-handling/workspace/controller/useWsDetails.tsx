@@ -473,10 +473,16 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
               ? (MARCUS_WEBB_SCRIPT.content.copilot.links as Record<string, string>)[text]
               : undefined;
     },
-    autoOpensResult: (cardId) => scenarioKeyOf(cardId) === LUCAS_THOMAS_ID || scenarioKeyOf(cardId) === MARCUS_WEBB_ID || isColdCallId(cardId),
-    // A case that registers its slide-overs (Marcus) opens its own Copilot result; Lucas and the cold calls theirs.
+    // A case that registers its slide-overs (Marcus) opens its own Copilot result; Lucas and the cold calls theirs; any
+    // other contact the generic result (P-HOME-1j: every assignment's ask opens its result, as the row does).
     openResult: (cardId, { text, time, link }) =>
-      setSlideOverContent(cardId, slideOverContent(scenarioKeyOf(cardId), link) ?? { kind: "lucas-instruction", decision: "copilot", text, time, link }),
+      setSlideOverContent(
+        cardId,
+        slideOverContent(scenarioKeyOf(cardId), link) ??
+          (scenarioKeyOf(cardId) === LUCAS_THOMAS_ID || isColdCallId(cardId)
+            ? { kind: "lucas-instruction", decision: "copilot", text, time, link }
+            : { kind: "copilot-result", text, time, link }),
+      ),
   });
   const copilotResultTimer = useCopilotResultTimer();
   // "Call now" on Lucas's escalation card: opens the outbound popover on the button; `confirm` marks the card decided once launched.

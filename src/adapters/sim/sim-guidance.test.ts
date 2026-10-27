@@ -43,7 +43,7 @@ function setUp(name = "Priya Shah") {
 }
 
 describe("the rule set (a contact with no script)", () => {
-  it("on connect the greeting is the agent's turn (surfaced by the turn trigger, no pause); then the reason; then nothing to suggest on request", () => {
+  it("on connect the greeting is the agent's turn (surfaced by the turn trigger, no pause); then the reason; then the generic check on request", () => {
     const { guidance, contact, nba, nbaEvent, pause, request, resolve } = setUp();
     contact("offered");
     expect(nba()).toBeUndefined();
@@ -66,10 +66,25 @@ describe("the rule set (a contact with no script)", () => {
     request();
     expect(nbaEvent()).toMatchObject({ requestId: "req-1", card: { frame: "suggestion", suggestion: { type: "ask" } } });
     resolve("dismissed");
-    // Nothing left: a pause surfaces nothing; a request answers "nothing".
+    // Nothing queued: a pause surfaces nothing; a request still answers, with the generic check (P-HOME-1j: every
+    // ask answers), as often as it's asked.
     const before = nba()!.stepId;
     pause();
     expect(nba()!.stepId).toBe(before);
+    request();
+    expect(nbaEvent()).toMatchObject({
+      requestId: "req-1",
+      card: { frame: "suggestion", suggestion: { type: "ask", title: "Check whether Priya needs anything else" } },
+    });
+    resolve("dismissed");
+    request();
+    expect(nbaEvent()).toMatchObject({ card: { frame: "suggestion", suggestion: { title: "Check whether Priya needs anything else" } } });
+  });
+
+  it("once the contact is over, a request answers nothing, and there's nothing to resolve", () => {
+    const { contact, nbaEvent, request, resolve } = setUp();
+    contact("active");
+    contact("wrap-up");
     request();
     expect(nbaEvent()).toMatchObject({ requestId: "req-1", card: { frame: "nothing" } });
     expect(() => resolve("used")).toThrow(/nothing to answer/);
@@ -197,6 +212,17 @@ describe("a scripted contact (Maya Chen)", () => {
     expect(nba()).toMatchObject({ stepId: "mcc-do", suggestion: { type: "do", link: "maya-refund-steps", branch: "refund" } });
     guidance.resolve(`nba:${ID}`, { outcome: "used" });
     expect(order).toEqual(["branch", "release"]);
+  });
+
+  it("asked between its steps with nothing queued, a scripted run answers nothing (no generic check), and its next turn still surfaces and releases", () => {
+    const { guidance, nba, releaseTurn } = turnSetUp();
+    guidance.surface(ID, "request", REQ);
+    expect(nba()).toMatchObject({ frame: "nothing" });
+    guidance.onStep(ID, step("mcc-2"));
+    guidance.surface(ID, "turn", REQ);
+    expect(nba()).toMatchObject({ stepId: "mcc-2", frame: "suggestion", awaitingAgent: true });
+    guidance.resolve(`nba:${ID}`, { outcome: "used" });
+    expect(releaseTurn).toHaveBeenCalledWith(ID, false);
   });
 
   it("a turn trigger with no waiting turn surfaces nothing; wrap-up clears a waiting turn", () => {

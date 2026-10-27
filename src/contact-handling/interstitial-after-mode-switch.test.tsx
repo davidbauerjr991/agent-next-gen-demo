@@ -164,6 +164,12 @@ describe("Bug 2c: a Copilot result row asked before a mode switch still opens it
     const text = chip.textContent!.trim();
     await h.click(chip);
     await h.advance(2_500);
+    // The ask opened its result once Copilot "finished" (P-HOME-1j); close it by its X, so the rows are what's tested.
+    const open = openResult();
+    expect(open?.textContent).toContain(text);
+    const shell = open!.closest<HTMLElement>('[style*="visibility"]')!;
+    await h.click([...shell.querySelectorAll<HTMLElement>("button")].find((b) => /close/i.test(b.getAttribute("aria-label") ?? ""))!);
+    await h.advance(400);
     return text;
   }
   async function davidsEmail(displayLocation: AiDisplayLocation) {

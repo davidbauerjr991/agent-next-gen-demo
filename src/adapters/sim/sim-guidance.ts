@@ -19,7 +19,8 @@ import { isAgentTurn } from "./sim-scenario-player";
 // script's steps (`nba`); every other contact follows a small rule set —
 // greet the customer (and say the contact is recorded), surfaced at once on
 // connect, then ask what they need. A queued suggestion surfaces only when the agent asks
-// (`surface("request")`; "nothing to suggest" if the queue is empty) or the
+// (`surface("request")`; with the queue empty, a generic "anything else?"
+// check, and "nothing to suggest" only once the contact is over) or the
 // conversation pauses (`surface("pause")`, which the agent UI times from its
 // settings), one at a time, never while a bot holds the contact. The agent's
 // answer (`resolveCard`) clears it, and a used suggestion with a `branch`
@@ -137,6 +138,19 @@ function reasonNba(name: string | undefined): ScenarioNba {
     why: "Nothing on file says why they're reaching out yet.",
     text: "How can I help you today?",
     alt: [{ type: "ask", text: "Ask for their order or case number" }],
+  };
+}
+
+/** The answer to a request with nothing queued (P-HOME-1j: every ask answers): check what else the contact needs before
+ *  wrapping up, for any contact, scripted or not. */
+function genericNba(channel: Interaction["channel"], name: string | undefined): ScenarioNba {
+  const first = firstName(name);
+  return {
+    type: "ask",
+    title: `Check whether ${first ?? "the customer"} needs anything else`,
+    why: "Nothing else is queued for this contact: confirm it's resolved before you wrap up.",
+    text: channel === "voice" ? "Is there anything else I can help you with today?" : "Is there anything else I can help you with?",
+    alt: [{ type: "say", text: "Summarise what was done" }],
   };
 }
 
@@ -336,7 +350,15 @@ export function createGuidance(host: GuidanceHost): Guidance {
       // The agent's turn goes first; a "turn" trigger surfaces only it.
       const turn = g.over ? undefined : g.turn;
       g.turn = undefined;
-      const next = turn ?? (g.over || reason === "turn" ? undefined : g.queue.shift());
+      const queuedNext = turn ?? (g.over || reason === "turn" ? undefined : g.queue.shift());
+      // Asked with nothing queued, a live contact with no script still gets an answer (P-HOME-1j); "nothing" once it's
+      // over. A scripted run keeps "nothing" between its steps: a generic card there would hold the next scripted turn.
+      const contact = host.get(id);
+      const next =
+        queuedNext ??
+        (reason === "request" && !g.over && g.live && !g.scripted && contact
+          ? queued(`rule-generic-${g.seq + 1}`, genericNba(contact.channel, host.customerName(id) ?? contact.contactName))
+          : undefined);
       if (next) {
         g.current = next;
         sendNba(g, { requestId });

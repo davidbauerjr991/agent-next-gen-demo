@@ -146,8 +146,20 @@ async function askCopilot(page: Page, rotate = false) {
   const chip = composer.locator("[data-slot=copilot-chips] [role=button]").first();
   const text = (await chip.textContent())!.trim();
   await chip.click();
+  // Its result opens by itself once Copilot "finishes" (P-HOME-1j); close it by its X, so the rows are what's tested.
+  await expect.poll(() => resultOpen(page, text), { timeout: 10_000 }).toBe(true);
+  await closeResult(page);
+  await expect.poll(() => resultOpen(page, text), { timeout: 3_000 }).toBe(false);
   return text;
 }
+/** Closes the open Copilot result by its X. */
+const closeResult = (page: Page) =>
+  page.evaluate(() => {
+    const shell = [...document.querySelectorAll<HTMLElement>('[style*="visibility"]')].find(
+      (el) => el.style.visibility === "visible" && el.querySelector("[data-slot=copilot-result]"),
+    )!;
+    [...shell.firstElementChild!.querySelectorAll<HTMLElement>("button")].find((b) => /close/i.test(b.getAttribute("aria-label") ?? ""))!.click();
+  });
 const visibleRow = (page: Page, title: string) => row(page, title).filter({ visible: true });
 /** The Copilot result slide-over, open and on screen. */
 const resultOpen = (page: Page, title: string) =>

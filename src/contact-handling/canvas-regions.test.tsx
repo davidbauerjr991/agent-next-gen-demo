@@ -251,13 +251,12 @@ describe("a slide-over takes the reference slot (inline and main)", () => {
       expect(slideOver()).toBeNull();
       const cards = [...region("reference")!.querySelectorAll("[data-canvas-cell]")];
 
-      // Ask Copilot with the first chip (the click asks it), then open its result row's slide-over.
+      // Ask Copilot with the first chip (the click asks it): its result opens in the slide-over once Copilot
+      // "finishes" (P-HOME-1j).
       const chip = composer().querySelector<HTMLElement>("[data-slot=copilot-chips] [role=button]")!;
       const text = chip.textContent!.trim();
       await h.click(chip);
       await h.advance(2_500);
-      await h.click(resultRow(text));
-      await h.advance(50);
       expect(slideOver()).not.toBeNull();
       expect(slideOver()!.textContent).toContain(text);
       // The action area's sibling in the row, not inside it; lyra's overlay layout, over the cards.
