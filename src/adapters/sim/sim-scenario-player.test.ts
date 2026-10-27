@@ -57,6 +57,25 @@ const BEATS_SCRIPT: ScenarioScript = {
   },
 };
 
+/** A chat whose agent turn arrives while the bot is still typing: the run pauses mid-indicator. */
+const TYPING_SCRIPT: ScenarioScript = {
+  version: 1,
+  id: "typing",
+  title: "Typing",
+  summary: "The agent's turn pauses the run while the bot types.",
+  entity: { key: "typing", name: "Tia Typing", caseId: "CASE-TYPING" },
+  channel: "chat",
+  skill: { name: "AI Review", id: "ai-review" },
+  participants: { bot: "Type Bot" },
+  start: { answer: "delivered" },
+  steps: [
+    { id: "t-typing", kind: "typing", speaker: "bot", at: 0, durationMs: 3000 },
+    { id: "t-turn", kind: "say", speaker: "agent", at: 1000, text: "Hi Tia.", nba: { type: "say", title: "Greet Tia", why: "She's waiting.", text: "Hi Tia." } },
+    { id: "t-bot", kind: "say", speaker: "bot", at: 3000, text: "Here's what I found." },
+  ],
+  content: { panelKeys: [] },
+};
+
 /** A bot-held call whose decision is a guide step's Do NBA (P-SHRINK): a note on an alternative, fixed vars on
  *  another, an event that sets the case status and suggests the disposition, and a takeover. */
 const GUIDE_SCRIPT: ScenarioScript = {
@@ -132,7 +151,7 @@ function setup() {
     latency: ZERO,
     timings: { ring: ZERO, legConnect: ZERO, delivery: ZERO },
     createTransport: bus.createTransport,
-    scripts: [...SCENARIOS, BEATS_SCRIPT, GUIDE_SCRIPT],
+    scripts: [...SCENARIOS, BEATS_SCRIPT, GUIDE_SCRIPT, TYPING_SCRIPT],
   });
   provider = new Proxy(raw, {
     get(target, key, receiver) {
@@ -185,6 +204,11 @@ function latest(id: InteractionId): Interaction | undefined {
 }
 const utterances = (id: InteractionId) => rec.events("transcript").filter((e) => e.utterance.interactionId === id).map((e) => e.utterance);
 const messages = (id: InteractionId) => rec.events("message").filter((e) => e.message.interactionId === id).map((e) => e.message);
+/** The last typing event (of one role, if given). */
+function finalTyping(role?: string) {
+  const typing = rec.events("typing").filter((e) => !role || e.role === role);
+  return typing[typing.length - 1];
+}
 /** The latest version of each message, by id. */
 function currentMessages(id: InteractionId): Message[] {
   const byId = new Map<string, Message>();
@@ -368,6 +392,34 @@ describe("answer modes and live timing", () => {
     await advance(700);
     expect(lastTyping()).toEqual({ interactionId: id, role: "bot", isTyping: true });
   });
+
+  it("a pause turns an in-flight indicator off; resuming doesn't bring it back", async () => {
+    const id = await play(TYPING_SCRIPT);
+    const typing = () => rec.events("typing").filter((e) => e.interactionId === id);
+    await advance(500);
+    expect(typing()).toEqual([{ interactionId: id, role: "bot", isTyping: true }]);
+    // The agent's turn at 1s pauses the run with the bot's dots still showing: they go off at once.
+    await advance(600);
+    expect(typing()).toEqual([
+      { interactionId: id, role: "bot", isTyping: true },
+      { interactionId: id, role: "bot", isTyping: false },
+    ]);
+    await answerTurn(id);
+    await advance(5000);
+    expect(typing()).toHaveLength(2);
+    expect(messages(id).map((m) => m.text)).toContain("Here's what I found.");
+  });
+
+  it("stop turns an in-flight indicator off", async () => {
+    const id = await play(TYPING_SCRIPT);
+    await advance(500);
+    expect(finalTyping()).toMatchObject({ role: "bot", isTyping: true });
+    await provider.end(id);
+    await flush();
+    expect(finalTyping()).toMatchObject({ role: "bot", isTyping: false });
+    await advance(10_000);
+    expect(rec.events("typing").filter((e) => e.interactionId === id)).toHaveLength(2);
+  });
 });
 
 describe("review and takeover", () => {
@@ -404,6 +456,32 @@ describe("review and takeover", () => {
     const mark = messages(quiet).length;
     await advance(6000);
     expect(messages(quiet).slice(mark).map((m) => m.text)).not.toContain("Ok, sounds good");
+  });
+
+  it("takeover at 6s cancels the bot's remaining launch lines and their replies; no dots are left on", async () => {
+    const id = await play(LUCAS_THOMAS_SCRIPT);
+    await advance(6000);
+    expect(finalTyping()).toMatchObject({ role: "bot", isTyping: true });
+    const mark = rec.events("typing").length;
+    await provider.takeOver(id);
+    await flush();
+    // lt-5's dots go off first; then the warm handoff's own.
+    expect(rec.events("typing")[mark]).toMatchObject({ role: "bot", isTyping: false });
+    await advance(1500);
+    await answerTurn(id);
+    await advance(20_000);
+    const texts = currentMessages(id).map((m) => m.text);
+    // lt-4 had already landed; lt-5, lt-6, its event and the approval never do.
+    expect(texts).toContain("That failed too. Can someone just place it for me?");
+    for (const step of ["lt-5", "lt-6", "lt-6-event"]) {
+      const text = (LUCAS_THOMAS_SCRIPT.steps.find((s) => s.id === step) as { text: string }).text;
+      expect(texts).not.toContain(text);
+    }
+    expect(currentMessages(id).some((m) => m.annotation?.kind === "approval")).toBe(false);
+    expect(texts).toContain("Ok, sounds good");
+    for (const role of ["bot", "customer"]) {
+      expect(finalTyping(role)?.isTyping).toBe(false);
+    }
   });
 
   it("a voice call in review isn't the agent's: it's never auto-held and doesn't block a dial; takeover holds the other call", async () => {

@@ -73,8 +73,13 @@ export class ThreadCrossFade extends Component<ThreadCrossFadeProps> {
       return;
     }
     // Nothing else animates during the switch: an AI card's enter (a slide) on the incoming tab, or the CSS
-    // animations the copy replays on insertion, end at once; the cross-fade is the one motion.
-    for (const el of [clone, ...incoming]) for (const running of el.getAnimations({ subtree: true })) running.finish();
+    // animations the copy replays on insertion, end at once; the cross-fade is the one motion. A looping one (the
+    // typing dots, a spinner) has no end to finish at (`finish()` throws) and keeps running.
+    for (const el of [clone, ...incoming]) {
+      for (const running of el.getAnimations({ subtree: true })) {
+        if (Number.isFinite(running.effect?.getComputedTiming().endTime ?? Infinity)) running.finish();
+      }
+    }
     clone.animate([{ opacity: 1 }, { opacity: 0 }], { ...timing, fill: "forwards" }).finished.then(
       () => this.dropOutgoing(clone),
       () => this.dropOutgoing(clone),

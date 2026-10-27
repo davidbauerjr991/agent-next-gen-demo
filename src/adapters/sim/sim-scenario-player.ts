@@ -69,7 +69,13 @@ interface Pending {
   remainingMs: number;
   fire: () => void;
   timer?: ReturnType<typeof setTimeout>;
+  /** The timeline a scheduled step came from; takeover cancels what's left of launch and answered. */
+  timeline?: Timeline;
 }
+
+type Timeline = "launch" | "answered" | "takeover" | "branch";
+/** Who an in-flight typing indicator belongs to. */
+type Typist = "customer" | "bot" | "agent";
 
 /** What a playing branch was started with. */
 interface Inputs {
@@ -88,6 +94,8 @@ interface Run {
   paused: boolean;
   stopped: boolean;
   pending: Set<Pending>;
+  /** In-flight typing indicators, each with its pending off: one unit, so a pause or stop turns it off. */
+  typing: Map<Typist, Pending>;
   /** The agent line the run waits on (P-CANVAS): its Next Best Action is the agent's turn. */
   gate?: { step: ScenarioStep; inputs: Inputs };
 }
@@ -116,15 +124,32 @@ export function createScenarioPlayer(
     }, item.remainingMs);
   }
 
-  function later(run: Run, ms: number, fire: () => void) {
-    if (run.stopped) return;
-    const item: Pending = { dueAt: 0, remainingMs: Math.max(0, ms), fire };
+  function later(run: Run, ms: number, fire: () => void, timeline?: Timeline): Pending | undefined {
+    if (run.stopped) return undefined;
+    const item: Pending = { dueAt: 0, remainingMs: Math.max(0, ms), fire, ...(timeline ? { timeline } : {}) };
     run.pending.add(item);
     if (!run.paused) arm(run, item);
+    return item;
+  }
+
+  function cancel(run: Run, item: Pending) {
+    if (item.timer !== undefined) clearTimeout(item.timer);
+    run.pending.delete(item);
+  }
+
+  /** Turns off the run's in-flight typing indicators (one typist's, or all) now, dropping their pending offs. Nothing
+   *  restores them: the next typing step turns one on again. */
+  function typingOff(run: Run, only?: Typist) {
+    for (const [typist, off] of run.typing) {
+      if (only && typist !== only) continue;
+      cancel(run, off);
+      off.fire();
+    }
   }
 
   function pause(run: Run) {
     if (run.paused) return;
+    typingOff(run);
     run.paused = true;
     const now = host.now();
     for (const item of run.pending) {
@@ -142,6 +167,7 @@ export function createScenarioPlayer(
   }
 
   function stop(run: Run) {
+    typingOff(run);
     run.stopped = true;
     for (const item of run.pending) if (item.timer !== undefined) clearTimeout(item.timer);
     run.pending.clear();
@@ -202,14 +228,17 @@ export function createScenarioPlayer(
         return;
       }
       case "typing": {
-        if (step.speaker === "customer") {
-          host.customer({ kind: "typing", interactionId: id, isTyping: true });
-          later(run, step.durationMs, () => host.customer({ kind: "typing", interactionId: id, isTyping: false }));
-        } else {
-          const role = step.speaker === "bot" ? "bot" : "agent";
-          host.emitTyping(id, role, true);
-          later(run, step.durationMs, () => host.emitTyping(id, role, false));
-        }
+        const typist: Typist = step.speaker === "customer" ? "customer" : step.speaker === "bot" ? "bot" : "agent";
+        const emit = (isTyping: boolean) =>
+          typist === "customer" ? host.customer({ kind: "typing", interactionId: id, isTyping }) : host.emitTyping(id, typist, isTyping);
+        const previous = run.typing.get(typist);
+        if (previous) cancel(run, previous);
+        emit(true);
+        const off = later(run, step.durationMs, () => {
+          run.typing.delete(typist);
+          emit(false);
+        });
+        if (off) run.typing.set(typist, off);
         return;
       }
       case "event": {
@@ -258,7 +287,7 @@ export function createScenarioPlayer(
     }
   }
 
-  function schedule(run: Run, steps: ScenarioStep[], inputs: Inputs = {}) {
+  function schedule(run: Run, steps: ScenarioStep[], timeline: Timeline, inputs: Inputs = {}) {
     for (const step of steps) {
       later(run, step.at, () => {
         if (!host.get(run.interactionId) || skipped(run, step, inputs)) return;
@@ -273,7 +302,7 @@ export function createScenarioPlayer(
         play(run, step, inputs);
         // Guidance (the nba card, the running summary) follows what played.
         host.onStep?.(run.interactionId, step, run.script);
-      });
+      }, timeline);
     }
   }
 
@@ -328,9 +357,10 @@ export function createScenarioPlayer(
         paused: false,
         stopped: false,
         pending: new Set(),
+        typing: new Map(),
       };
       runs.set(interaction.id, run);
-      schedule(run, anchored(run, "launch"));
+      schedule(run, anchored(run, "launch"), "launch");
       this.onInteraction(host.get(interaction.id) ?? interaction);
     },
 
@@ -346,7 +376,7 @@ export function createScenarioPlayer(
         resume(run);
         if (!run.answered) {
           run.answered = true;
-          schedule(run, anchored(run, "answered"));
+          schedule(run, anchored(run, "answered"), "answered");
         }
       }
     },
@@ -358,7 +388,11 @@ export function createScenarioPlayer(
       // An unanswered guide turn was the bot's request to the agent; taking over withdraws it (P-SHRINK).
       const withdrawn = run.gate?.step.kind === "guide";
       if (withdrawn) run.gate = undefined;
-      if (handoff) schedule(run, anchored(run, "takeover"));
+      // What the bot hadn't said yet never will be, and the customer's pending lines answered it: the launch and
+      // answered timelines end here (lines already delivered stay), and the bot's dots go with them.
+      for (const item of run.pending) if (item.timeline === "launch" || item.timeline === "answered") cancel(run, item);
+      typingOff(run, "bot");
+      if (handoff) schedule(run, anchored(run, "takeover"), "takeover");
       if (withdrawn && host.get(id)?.state === "active") resume(run);
     },
 
@@ -395,14 +429,14 @@ export function createScenarioPlayer(
         branchKey = response.value;
       }
       const branch = branchKey !== undefined ? branches[branchKey] : undefined;
-      if (branch) schedule(run, stepsFor(run.script, run.channel, branch.steps), { note: response.note, vars: response.vars, branch: branchKey });
+      if (branch) schedule(run, stepsFor(run.script, run.channel, branch.steps), "branch", { note: response.note, vars: response.vars, branch: branchKey });
     },
 
     startAction(id, branchKey, inputs = {}) {
       const run = runs.get(id);
       const branch = run && !run.stopped ? run.script.branches?.[branchKey] : undefined;
       if (!run || branch?.trigger !== "action") return;
-      schedule(run, stepsFor(run.script, run.channel, branch.steps), { note: inputs.note, vars: inputs.vars, branch: branchKey });
+      schedule(run, stepsFor(run.script, run.channel, branch.steps), "branch", { note: inputs.note, vars: inputs.vars, branch: branchKey });
     },
 
     releaseTurn(id, { skipLine }) {
