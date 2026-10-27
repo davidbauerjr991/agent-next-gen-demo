@@ -19,6 +19,15 @@ export function useScheduleLegCardKeys(): ReadonlySet<string> {
   return useMemo(() => new Set(cards.map((c) => scheduleCardKey(c.id))), [cards]);
 }
 
+/** The rail's assignment count ("Assignments (n)", My Assignment Queue): the conversation cards plus the open schedule
+ *  items' kind cards; a kind card with a joined call is one card, counted once (P-HOME-1b; regression fixed in 1h). */
+export function useRailAssignmentCount(): number {
+  const { interactions } = useWorkspace();
+  const cards = useScheduleCards();
+  const keys = new Set(interactions.map((i) => i.id));
+  return interactions.length + cards.filter((c) => !keys.has(scheduleCardKey(c.id))).length;
+}
+
 /** The call joined to `item`'s card (its voice leg), while there is one. */
 export function useScheduleLeg(item: ScheduleItem): Interaction | undefined {
   const { interactions } = useWorkspace();

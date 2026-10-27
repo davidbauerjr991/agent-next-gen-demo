@@ -17,6 +17,15 @@ import { useScheduleProvider } from "@/provider-context";
 import type { ScheduleItem } from "@/providers";
 import { t } from "@/i18n";
 
+/** The confirm's title, by kind. */
+function returnTitle(item: ScheduleItem): string {
+  if (item.kind === "callback") return t("Return this callback to the feed?");
+  if (item.kind === "meeting") return t("Return this meeting to the feed?");
+  if (item.kind === "training") return t("Return this training to the feed?");
+  if (item.kind === "task") return t("Return this task to the feed?");
+  return t("Return this assignment to the feed?");
+}
+
 export function KindCloseButton({ item }: { item: ScheduleItem }) {
   const { activeInteractionId, assignmentsSettings, confirmDismiss, contactStateById, switchActiveInteraction } = useWorkspace();
   const schedule = useScheduleProvider();
@@ -32,6 +41,10 @@ export function KindCloseButton({ item }: { item: ScheduleItem }) {
       schedule?.release(item.id).catch((err) => {
         if (import.meta.env.DEV) console.warn("[schedule] release failed", err);
       });
+    }, {
+      title: returnTitle(item),
+      description: t("It goes back to Scheduled and leaves your list. No outcome is recorded."),
+      confirmLabel: t("Return to feed"),
     });
   return (
     <DisabledReason reason={callLive ? t("End the call first") : undefined}>

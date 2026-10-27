@@ -8,6 +8,7 @@ import { createPortal } from "react-dom";
 import { useToast, type CreateNewOutboundContact } from "@nicecxone/lyra-ui";
 import { CREATE_NEW_CUSTOMERS, type CreateNewCustomerRecord } from "@nicecxone/lyra-ui/customers-data";
 import { buildCustomerContextOverviewInfo } from "@/components/agent-next-gen-shared-utils";
+import type { ConfirmCloseCopy } from "@/contact-handling/ConfirmCloseDialog";
 import type { TranscriptMessage } from "@/components/transcript/InteractionTranscript";
 import { isAiActionMessage } from "@/components/agent-next-gen-ai-messages";
 import { OUTBOUND_AGENTS } from "@/components/agent-next-gen-outbound-data";
@@ -450,8 +451,14 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   };
   // Settings → Assignments → "Confirm before closing": an agent's dismiss
   // waits for the confirm dialog (ConfirmCloseDialog, mounted with the modals).
+  // `copy`: what the confirm says when it isn't a contact's close (a kind card's Return to feed).
   const [pendingClose, setPendingClose] = useState<(() => void) | null>(null);
-  const confirmDismiss = (dismiss: () => void) => (assignmentsSettings.confirmClose ? setPendingClose(() => dismiss) : dismiss());
+  const [pendingCloseCopy, setPendingCloseCopy] = useState<ConfirmCloseCopy | undefined>(undefined);
+  const confirmDismiss = (dismiss: () => void, copy?: ConfirmCloseCopy) => {
+    if (!assignmentsSettings.confirmClose) return dismiss();
+    setPendingCloseCopy(copy);
+    setPendingClose(() => dismiss);
+  };
   const [voiceSettings] = useSettings("voice");
   // Settings → AI display "panel" moves the AI content out of the transcript
   // into the docked Contact Details panel (`renderAiPanelFeed`). AI display
@@ -1035,7 +1042,7 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
     contactHistoryByRange, assignmentSort, setAssignmentSort, assignmentSortDirection, setAssignmentSortDirection,
     channelsAllExpanded, setChannelsAllExpanded, channelsExpandedOverrideVersion, setChannelsExpandedOverrideVersion,
     handleToggleAllChannelsExpanded, assignmentsSettings, outboundSettings, enabledChannels, calling, pendingClose,
-    setPendingClose, confirmDismiss, voiceSettings, panelPlacement, placement, aiInPanel, asyncPlacement,
+    setPendingClose, pendingCloseCopy, confirmDismiss, voiceSettings, panelPlacement, placement, aiInPanel, asyncPlacement,
     aiWorkspaceInMain, tabs, omnichannel, rightPanelEl, rightPanelSlotMounted, setRightPanelSlotMounted,
     rightPanelRef, portalInto, stripAiInPanel, copilotHost, hoverDockMounted, setHoverDockMounted, aiFollowSignal,
     setAiFollowSignal, copilotFollows, voiceBarHost, sessionRowHost, voiceNavSlotMounted, setVoiceNavSlotMounted,

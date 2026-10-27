@@ -301,10 +301,27 @@ describe("schedule items open as assignments", () => {
     await h.click(cell()!.querySelector<HTMLElement>("[data-kind-session-row] [data-kind-close]")!);
     // The confirm holds it: still open until it's confirmed.
     expect(cell()).not.toBeNull();
-    expect(document.body.textContent).toContain("Close this contact?");
-    await h.click(h.buttonByText("Close contact")!);
+    // The kind's own copy, not a contact's.
+    expect(document.body.textContent).toContain("Return this meeting to the feed?");
+    expect(document.body.textContent).not.toContain("Close this contact?");
+    await h.click(h.buttonByText("Return to feed")!);
     await h.advance(100);
     expect(cell()).toBeNull();
+  });
+
+  it("the rail's count includes kind cards: Assignments (n) and My Assignment Queue", async () => {
+    await showHome();
+    const caption = () => [...h.container.querySelectorAll<HTMLElement>("aside *")].find((el) => el.children.length === 0 && /^\(\d+\)$/.test(el.textContent?.trim() ?? ""))?.textContent?.trim();
+    const queueChip = () => h.buttonByText("My Assignment Queue", h.container)?.textContent ?? h.container.textContent ?? "";
+    expect(caption()).toBe("(0)");
+    expect(queueChip()).toContain("My Assignment Queue: Empty");
+    await openItem(rowNamed("Returns team stand-up")!);
+    expect(caption()).toBe("(1)");
+    await h.click(homeButton());
+    await openItem(rowNamed("RET-1.3 refund policy update")!);
+    expect(caption()).toBe("(2)");
+    await h.click(homeButton());
+    expect(h.container.textContent).toContain("My Assignment Queue: 2");
   });
 
   it("the rail card reopens the cell after going Home", async () => {
@@ -399,6 +416,8 @@ describe("calls from schedule items (the leg-join P0.9 generalizes)", () => {
     const card = () => h.container.querySelector<HTMLElement>('aside [data-kind-nav-card="agent-cb-priya"]')!;
     expect(card().getAttribute("data-kind-leg")).toBe("schedule:agent-cb-priya");
     expect(railCardsNamed("Priya Shah")).toHaveLength(1);
+    // One card, counted once.
+    expect(h.container.querySelector("aside")?.textContent).toContain("(1)");
     const rows = () => [...card().querySelectorAll<HTMLElement>('[aria-label$=" channel"], [aria-label*=" channel,"]')];
     expect(rows().map((r) => r.getAttribute("aria-label")?.split(" channel")[0])).toEqual(["Callback", "Voice"]);
     expect(card().querySelector('[aria-label="End Call"], [title="End Call"]')).not.toBeNull();

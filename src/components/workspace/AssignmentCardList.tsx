@@ -7,6 +7,7 @@ import type { ListReorderItemProps } from "@nicecxone/lyra-ui";
 import { AssignmentsSectionCaption } from "@/components/agent-next-gen-interaction-dashboard";
 import type { AssignmentsMount } from "@/contact-handling/useAssignmentCards";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
+import { useRailAssignmentCount } from "@/contact-handling/home/useScheduleCards";
 import type { AssignmentSortMode } from "@/settings";
 import { ADVANCED_ASSIGNMENT_SORT_OPTIONS } from "./workspace-constants";
 
@@ -26,13 +27,14 @@ export function DraggableAssignment({ props, children }: { props: ListReorderIte
  *  sort modes and direction). */
 export function AssignmentsCaption({ expanded, mount }: { expanded: boolean; mount: AssignmentsMount }) {
   const {
-    assignmentSort, assignmentSortDirection, channelsAllExpanded, handleToggleAllChannelsExpanded, interactions,
+    assignmentSort, assignmentSortDirection, channelsAllExpanded, handleToggleAllChannelsExpanded,
     noInteractionCollapse, setAssignmentSort, setAssignmentSortDirection,
   } = useWorkspace();
+  const count = useRailAssignmentCount();
   return (
     <AssignmentsSectionCaption
       expanded={expanded}
-      count={interactions.length}
+      count={count}
       sort={assignmentSort}
       // The options exclude Longest Wait, so every value is a settings mode.
       onSortChange={(value) => setAssignmentSort(value as AssignmentSortMode)}

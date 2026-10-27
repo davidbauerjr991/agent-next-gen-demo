@@ -13,7 +13,7 @@ import { WELCOME_MODAL_LAST_LOGIN } from "@/components/agent-next-gen-interactio
 export function WorkspaceModals() {
   const {
     activeChannelType, activeInteraction, agentLegDisconnectedToastOpen, appDisplayName, dismissAllToasts, liveVoiceCallInteraction,
-    dismissToast, handleConnectAgentLeg, handleGoAvailable, handleStartUnavailable, logoSrc, pendingClose,
+    dismissToast, handleConnectAgentLeg, handleGoAvailable, handleStartUnavailable, logoSrc, pendingClose, pendingCloseCopy,
     setAgentLegDisconnectedToastOpen, setPendingClose, setShowWelcomeModal, setVoiceVideoFullScreen,
     setVoiceVideoWindowOpen, showWelcomeModal, toasts, voiceVideoFullScreen, voiceVideoWindowOpen,
   } = useWorkspace();
@@ -28,6 +28,7 @@ export function WorkspaceModals() {
           dismiss?.();
         }}
         onCancel={() => setPendingClose(null)}
+        copy={pendingCloseCopy}
       />
       {/* ── Welcome modal — shown once on page load. Uses the real lyra-ui
           `Modal` component (variant="light": frosted blur backdrop,

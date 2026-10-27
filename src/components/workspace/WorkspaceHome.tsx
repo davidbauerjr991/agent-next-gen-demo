@@ -1,7 +1,7 @@
 import { Button, InteriorPanel, Tooltip } from "@nicecxone/lyra-ui";
 import { ChevronRight, CircleAlert } from "lucide-react";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
-import { useActiveScheduleItem } from "@/contact-handling/home/useScheduleCards";
+import { useActiveScheduleItem, useRailAssignmentCount } from "@/contact-handling/home/useScheduleCards";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { homeIsTwoColumn } from "@/contact-handling/home/home-layout";
 import { KindCell } from "./kind-cells/KindCell";
@@ -37,6 +37,8 @@ export function WorkspaceHome() {
   } = useWorkspace();
   const [home] = useSettings("home");
   const [, setHomePreview] = useWorkspaceUiField("homePreview");
+  // The rail's count: conversation cards and kind cards alike.
+  const railCount = useRailAssignmentCount();
   // P-HOME-1: an opened schedule item (meeting, training, task, …) isn't a conversation card, so the page lands
   // here; its minimal per-kind cell takes the main column until P-HOME-3's kinds registry.
   const activeScheduleItem = useActiveScheduleItem();
@@ -104,12 +106,12 @@ export function WorkspaceHome() {
                                   "h-6 shrink-0 gap-0.5 rounded-lyra-md px-2 lyra-body-md-emphasis",
                                   hasBreachedSlaAssignment
                                     ? "bg-lyra-status-critical-subtle text-lyra-status-critical-strong hover:bg-lyra-status-critical-subtle hover:opacity-80"
-                                    : interactions.length > 0
+                                    : railCount > 0
                                     ? "bg-lyra-status-warning-subtle text-lyra-status-warning-strong hover:bg-lyra-status-warning-subtle hover:opacity-80"
                                     : "bg-lyra-status-success-subtle text-lyra-status-success-strong hover:bg-lyra-status-success-subtle hover:opacity-80"
                                 )}
                               >
-                                My Assignment Queue: {interactions.length > 0 ? interactions.length : "Empty"}
+                                My Assignment Queue: {railCount > 0 ? railCount : "Empty"}
                                 {hasBreachedSlaAssignment && (
                                   <CircleAlert className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
                                 )}
