@@ -5,6 +5,19 @@ import type { DetailPanelContent, OutcomeKey, PanelArtifact } from "./workspace/
 import type { AssignmentToast } from "./toasts/assignment-toasts";
 import { assignmentIdFor, type AssignmentKind } from "@/domain";
 import type { ContactHistoryDateFilterValue } from "@/components/agent-next-gen-contact-history";
+import type { AssignmentsRange, FeedTarget } from "./home/activity-feed";
+
+/** P-HOME-1h: one Copilot ask on a schedule item: its question, when, the answer, and the link its row and summary
+ *  line open (the result's slide-over). */
+export interface KindCopilotAsk {
+  id: string;
+  text: string;
+  /** "8:31 AM". */
+  time: string;
+  askedAt: number;
+  link: string;
+  answer: { summary: string; points: readonly string[] };
+}
 
 // The Workspace's UI state keyed by card or thread id (P-EXTRACT). State that
 // used to live in page `useState` or module-scope Sets, keyed by whichever
@@ -81,6 +94,13 @@ export interface WorkspaceUiState {
   activityKinds: ReadonlySet<AssignmentKind>;
   /** P-HOME-1b: History's range, Contact History's date control. */
   activityHistoryRange: ContactHistoryDateFilterValue;
+  /** P-HOME-1h: the Assignments view's date range. */
+  activityRange: AssignmentsRange;
+  /** P-HOME-1h: the Assignments row previewed in Home's detail panel (a schedule item, or an offer's card). */
+  homePreview: FeedTarget | null;
+  /** P-HOME-1h: each schedule item's Copilot asks, in ask order: inline rows in its action area and lines in its
+   *  Real-Time Summary. In memory only, as the transcript's own rows are. */
+  kindCopilotAsks: Readonly<Record<string, readonly KindCopilotAsk[]>>;
   /** P-HOME-1: toasts for events on other assignments, in raise order; dismissed ones stay for the drawer's rows. */
   assignmentToasts: readonly AssignmentToast[];
 }
@@ -162,6 +182,9 @@ export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
   kindCellShownFor: null,
   activityKinds: new Set<AssignmentKind>(),
   activityHistoryRange: "today",
+  activityRange: "week",
+  homePreview: null,
+  kindCopilotAsks: Object.freeze({}),
   assignmentToasts: Object.freeze([]),
 });
 

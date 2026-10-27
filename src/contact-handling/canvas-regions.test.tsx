@@ -271,6 +271,15 @@ describe("a slide-over takes the reference slot (inline and main)", () => {
       await h.advance(300);
       expect(slideOver()).toBeNull();
       expect([...region("reference")!.querySelectorAll("[data-canvas-cell]")]).toEqual(cards);
+
+      // P-HOME-1h: the Real-Time Summary lists the ask ("{time} · {question}"); its line opens the same result.
+      const summary = region("reference")!.querySelector<HTMLElement>("[data-slot=real-time-summary]")!;
+      await h.click(summary.querySelector<HTMLElement>("[aria-expanded]")!);
+      const line = summary.querySelector<HTMLElement>("[data-slot=summary-asks] a, [data-slot=summary-asks] button")!;
+      expect(line.textContent).toMatch(new RegExp(`\\d{1,2}:\\d{2}\\s?[AP]M · ${text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+      await h.click(line);
+      await h.advance(50);
+      expect(slideOver()!.textContent).toContain(text);
     });
   }
 

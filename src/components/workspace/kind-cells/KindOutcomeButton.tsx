@@ -19,7 +19,7 @@ const stopBubble = (e: React.SyntheticEvent) => e.stopPropagation();
  *  contact's fields only (tags, disposition, summary), so a kind's own form composes the same parts here. The card's
  *  and the cell's session row's. P-HOME-1g: it's the card's one Outcome; a joined call's Voice row ✓ is that call's
  *  wrap-up, and what the wrap-up records fills this form (`useKindOutcomeForm`'s `fill`). */
-export function KindOutcomeButton({ item }: { item: ScheduleItem }) {
+export function KindOutcomeButton({ item, labeled = false }: { item: ScheduleItem; /** The session row's form: the icon and "Outcome" (P-HOME-1h); the card's row stays icon-only. */ labeled?: boolean }) {
   const { activeInteractionId, outcomeDrafts, switchActiveInteraction } = useWorkspace();
   const schedule = useScheduleProvider();
   const [open, setOpen] = React.useState(false);
@@ -68,16 +68,30 @@ export function KindOutcomeButton({ item }: { item: ScheduleItem }) {
         </div>
       }
     >
-      <Button
-        variant="icon"
-        size="icon-sm"
-        aria-label={t("Outcome")}
-        className="shrink-0 text-lyra-fg-secondary"
-        data-kind-outcome-trigger=""
-        onClick={(e) => e.stopPropagation()}
-      >
-        <SuccessIconSolid className="h-4 w-4 text-lyra-status-info-strong" />
-      </Button>
+      {labeled ? (
+        // The conversation session row's Outcome (SessionOutcomeButton): a ghost button, the solid check and its label.
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1.5 text-lyra-fg-default"
+          data-kind-outcome-trigger="labeled"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <SuccessIconSolid className="h-4 w-4 text-lyra-status-info-strong" />
+          <span>{t("Outcome")}</span>
+        </Button>
+      ) : (
+        <Button
+          variant="icon"
+          size="icon-sm"
+          aria-label={t("Outcome")}
+          className="shrink-0 text-lyra-fg-secondary"
+          data-kind-outcome-trigger=""
+          onClick={(e) => e.stopPropagation()}
+        >
+          <SuccessIconSolid className="h-4 w-4 text-lyra-status-info-strong" />
+        </Button>
+      )}
     </Popover>
   );
 }

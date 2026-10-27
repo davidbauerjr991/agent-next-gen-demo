@@ -1,15 +1,15 @@
 import { useCallback, useMemo } from "react";
 import { useClockValue } from "@/components/agent-next-gen-page-clock";
-import type { ContactHistoryDateFilterValue, ContactHistoryEntry } from "@/components/agent-next-gen-contact-history";
+import { contactHistoryEntryMatches, type ContactHistoryDateFilterValue, type ContactHistoryEntry } from "@/components/agent-next-gen-contact-history";
 import { assignmentIdFor, scheduleCardKey, type AssignmentKind, type ChannelKind } from "@/domain";
 import { useScheduleProvider, useScheduleSnapshot } from "@/provider-context";
 import { useSettings } from "@/settings";
 import { useWorkspace } from "../workspace/WorkspaceContext";
 import { useWorkspaceUiField } from "../workspace-ui-store";
-import { buildFeed, type Feed, type FeedRow, type FeedView } from "./activity-feed";
+import { buildFeed, type AssignmentsRange, type Feed, type FeedRow, type FeedTarget, type FeedView } from "./activity-feed";
 import { CHANNEL_NAMES } from "./channel-names";
 import { PERSONA_KINDS } from "./persona-kinds";
-import { startOfDay } from "./time";
+import { agoMs, startOfDay } from "./time";
 import { useScheduleLegCardKeys } from "./useScheduleCards";
 
 type Card = ReturnType<typeof useWorkspace>["interactions"][number];
@@ -29,14 +29,16 @@ function cardRow(card: Card, status: "offered" | "inRail"): FeedRow {
   };
 }
 
-function historyRow(entry: ContactHistoryEntry): FeedRow {
+function historyRow(entry: ContactHistoryEntry, now: number): FeedRow {
   const channel = entry.channelType as ChannelKind;
   return {
     assignmentId: assignmentIdFor(`history:${entry.id}`),
     kind: "conversation",
     title: `${entry.name} · ${CHANNEL_NAMES[channel] ?? entry.channelLabel} · ${entry.skillName}`,
     subtitle: `${entry.statusLabel} · ${entry.description}`,
+    // Shows the card's own "8m ago"; `at` only places it among timestamped rows.
     timeLabel: entry.timeAgo,
+    at: now - agoMs(entry.timeAgo),
     status: "completed",
     target: { type: "history", entryId: entry.id },
     channel,
@@ -56,15 +58,23 @@ export interface ActivityFeed {
   /** History's range (Contact History's date control). */
   historyRange: ContactHistoryDateFilterValue;
   setHistoryRange: (range: ContactHistoryDateFilterValue) => void;
-  /** History's search (Contact History's search box): matches a row's title or detail. */
+  /** History's search (Contact History's search box and its match rule; a schedule row by its title or detail). */
   historyQuery: string;
   setHistoryQuery: (query: string) => void;
-  /** The History row whose Contact History preview is open. */
+  /** The Assignments view's date range. */
+  range: AssignmentsRange;
+  setRange: (range: AssignmentsRange) => void;
+  /** The row whose preview is open in Home's detail panel. */
   isSelected: (row: FeedRow) => boolean;
+  /** A row's click: toggles its preview (Contact History's for a completed contact, the item's for the rest). */
   open: (row: FeedRow) => void;
 }
 
-const matches = (row: FeedRow, query: string) => `${row.title} ${row.subtitle}`.toLowerCase().includes(query.trim().toLowerCase());
+const rowMatches = (row: FeedRow, query: string) => `${row.title} ${row.subtitle}`.toLowerCase().includes(query.trim().toLowerCase());
+
+const sameTarget = (a: FeedTarget | null, b: FeedTarget) =>
+  !!a && a.type === b.type && (a.type === "card" ? a.cardId : a.type === "schedule" ? a.itemId : a.entryId) ===
+    (b.type === "card" ? b.cardId : b.type === "schedule" ? b.itemId : b.entryId);
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -98,23 +108,45 @@ export function useOpenScheduleItem(): (itemId: string) => void {
   );
 }
 
-/** The Activity feed for the current persona: offers, the schedule, the rail
- *  and History (Contact History's entries in its range), through the feed's
- *  rules (activity-feed.ts). */
+/** What a feed row's click did before P-HOME-1h, now its preview's primary action: an offer's card is accepted, a
+ *  rail card made active, a schedule item opened into the rail (or made active, if it's there). */
+export function useActivateFeedTarget(): (target: FeedTarget) => void {
+  const { interactions, incomingOffer, switchActiveInteraction } = useWorkspace();
+  const snapshot = useScheduleSnapshot();
+  const openScheduleItem = useOpenScheduleItem();
+  return useCallback(
+    (target: FeedTarget) => {
+      if (target.type === "card") {
+        const card = interactions.find((c) => c.id === target.cardId);
+        if (card?.offered) void incomingOffer.accept(card);
+        else if (card) switchActiveInteraction(card.id);
+      } else if (target.type === "schedule") {
+        const state = snapshot?.items.find((i) => i.id === target.itemId)?.state;
+        if (state === "offered" || state === "scheduled") openScheduleItem(target.itemId);
+        else if (state === "active") switchActiveInteraction(scheduleCardKey(target.itemId));
+      }
+    },
+    [interactions, incomingOffer, switchActiveInteraction, snapshot, openScheduleItem],
+  );
+}
+
+/** The Activity feed for the current persona: offers, the schedule and
+ *  History (Contact History's entries in its range), through the feed's rules
+ *  (activity-feed.ts). A row's click previews it in Home's detail panel. */
 export function useActivityFeed(): ActivityFeed {
   const ws = useWorkspace();
   const snapshot = useScheduleSnapshot();
-  const openScheduleItem = useOpenScheduleItem();
   const [{ persona }] = useSettings("workspace");
   const [view, setView] = useWorkspaceUiField("activityView");
   const [kindFilter, setKindFilter] = useWorkspaceUiField("activityKinds");
   const [historyRange, setHistoryRange] = useWorkspaceUiField("activityHistoryRange");
   const [historyQuery, setHistoryQuery] = useWorkspaceUiField("activityHistoryQuery");
+  const [range, setRange] = useWorkspaceUiField("activityRange");
+  const [preview, setPreview] = useWorkspaceUiField("homePreview");
   // Time groups only move on the minute.
   const minute = useClockValue(ws.clock, (tick) => Math.floor(tick / 60));
   const {
-    interactions, contactHistoryByRange, incomingOffer, switchActiveInteraction, setSelectedQueueId, setSelectedContactHistoryEntry,
-    selectedContactHistoryEntry, setInteriorPanelOpen,
+    interactions, contactHistoryByRange, setSelectedQueueId, setSelectedContactHistoryEntry, selectedContactHistoryEntry, setInteriorPanelOpen,
   } = ws;
   const historyEntries = contactHistoryByRange[historyRange];
   const kinds = PERSONA_KINDS[persona];
@@ -124,52 +156,50 @@ export function useActivityFeed(): ActivityFeed {
   const feed = useMemo(() => {
     void minute;
     const now = Date.now();
-    const built = buildFeed({
+    const byId = new Map(historyEntries.map((e) => [e.id, e]));
+    return buildFeed({
       offers: interactions.filter((c) => c.offered).map((c) => cardRow(c, "offered")),
       railCards: interactions.filter((c) => !c.offered && !legCardKeys.has(c.id)).map((c) => cardRow(c, "inRail")),
-      completedHistory: historyEntries.map(historyRow),
+      completedHistory: historyEntries.map((e) => historyRow(e, now)),
       historySince: rangeStart(historyRange, now),
+      // Contact History's own match rule for its entries; a schedule row by its title or detail.
+      historyMatches: historyQuery.trim()
+        ? (row) => {
+            const entry = row.target.type === "history" ? byId.get(row.target.entryId) : undefined;
+            return entry ? contactHistoryEntryMatches(entry, historyQuery) : rowMatches(row, historyQuery);
+          }
+        : undefined,
       scheduleItems: snapshot?.items ?? [],
       now,
       kinds,
       kindFilter,
       view,
+      range,
     });
-    // The search narrows what History lists, as Contact History's does; the counts stay the day's.
-    return historyQuery.trim() ? { ...built, history: built.history.filter((r) => matches(r, historyQuery)) } : built;
-  }, [interactions, legCardKeys, historyEntries, historyRange, historyQuery, snapshot, kinds, kindFilter, view, minute]);
+  }, [interactions, legCardKeys, historyEntries, historyRange, historyQuery, snapshot, kinds, kindFilter, view, range, minute]);
 
   const open = useCallback(
     (row: FeedRow) => {
       const target = row.target;
-      if (target.type === "card") {
-        const card = interactions.find((c) => c.id === target.cardId);
-        if (card?.offered) void incomingOffer.accept(card);
-        else if (card) switchActiveInteraction(card.id);
-      } else if (target.type === "schedule") {
-        if (row.status === "offered" || row.status === "scheduled") openScheduleItem(target.itemId);
-        else if (row.status === "inRail") switchActiveInteraction(scheduleCardKey(target.itemId));
-      } else {
-        // A completed contact opens Contact History's own preview (Redial / reopen from there), not a direct reopen;
-        // as on Contact History's card, the open row's click closes it and one job at a time holds the panel.
+      // One job at a time in the panel (home-detail-panel.tsx); the open row's click closes it, as on Contact History.
+      setSelectedQueueId(null);
+      setInteriorPanelOpen(false);
+      if (target.type === "history") {
+        // A completed contact opens Contact History's own preview (Redial / reopen from there).
+        setPreview(null);
         const entry = historyEntries.find((e) => e.id === target.entryId);
-        if (entry?.id === selectedContactHistoryEntry?.id) setSelectedContactHistoryEntry(null);
-        else if (entry) {
-          setSelectedQueueId(null);
-          setInteriorPanelOpen(false);
-          setSelectedContactHistoryEntry(entry);
-        }
+        setSelectedContactHistoryEntry(!entry || entry.id === selectedContactHistoryEntry?.id ? null : entry);
+      } else {
+        setSelectedContactHistoryEntry(null);
+        setPreview((current) => (sameTarget(current, target) ? null : target));
       }
     },
-    [
-      interactions, incomingOffer, switchActiveInteraction, openScheduleItem, historyEntries, selectedContactHistoryEntry,
-      setSelectedQueueId, setSelectedContactHistoryEntry, setInteriorPanelOpen,
-    ],
+    [historyEntries, selectedContactHistoryEntry, setSelectedQueueId, setSelectedContactHistoryEntry, setInteriorPanelOpen, setPreview],
   );
   const selectedEntryId = selectedContactHistoryEntry?.id;
   const isSelected = useCallback(
-    (row: FeedRow) => row.target.type === "history" && row.target.entryId === selectedEntryId,
-    [selectedEntryId],
+    (row: FeedRow) => (row.target.type === "history" ? row.target.entryId === selectedEntryId : sameTarget(preview, row.target)),
+    [selectedEntryId, preview],
   );
 
   return {
@@ -183,6 +213,8 @@ export function useActivityFeed(): ActivityFeed {
     setHistoryRange,
     historyQuery,
     setHistoryQuery,
+    range,
+    setRange,
     isSelected,
     open,
   };

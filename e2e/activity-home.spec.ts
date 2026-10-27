@@ -1,8 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 
 // The Activity Home (P-HOME-1) in a real browser: the feed's groups and
-// counts, Offered pinned, a scheduled row moving to the rail, the History
-// chip, one column vs two (layout), and the persona switch. The rules
+// counts, Offered pinned, a row's preview and its Start moving it to the
+// rail, Return to feed, the Assignments range, History as Contact History's
+// list, one column vs two (layout), and the persona switch. The rules
 // themselves are in jsdom (activity-feed.test.ts, home-activity.test.tsx).
 
 /** The default Home (Queue, Contact History, Performance) with the Activity feed turned on after them. */
@@ -39,6 +40,16 @@ async function settingsSection(page: Page) {
 async function home(page: Page) {
   await page.locator("aside").getByText("Home", { exact: true }).first().click();
 }
+/** A row previews in Home's detail panel (P-HOME-1h); the preview's primary action (Open / Start / Dial) opens it. */
+async function openItem(page: Page, title: string) {
+  await feed(page).locator("[data-feed-row]", { hasText: title }).click();
+  await page.locator("[data-home-detail=item] [data-preview-primary]").click();
+}
+/** Widens History's range to Contact History's earlier contacts. */
+async function last48(page: Page) {
+  await group(page, "History").getByRole("button", { name: /Today/ }).click();
+  await page.getByText("Last 48 Hours", { exact: true }).click();
+}
 
 test("the feed: today and this week's scheduled rows, the Assignments count matches, no Completed-today group", async ({ page }) => {
   await open(page);
@@ -53,6 +64,7 @@ test("the feed: today and this week's scheduled rows, the Assignments count matc
   // Completed work is History, never a time group.
   await expect(feed(page).locator('[data-feed-row][data-feed-status="completed"]')).toHaveCount(0);
   await view(page, "History").click();
+  await last48(page);
   await expect(feed(page).locator('[data-feed-row][data-feed-status="completed"]').first()).toBeVisible();
   await expect(feed(page).locator('[data-feed-row][data-feed-status="scheduled"]')).toHaveCount(0);
 });
@@ -67,9 +79,20 @@ test("Offered pins to the top in Needs a decision", async ({ page }) => {
   expect(first).toBe("Needs a decision");
 });
 
-test("opening a scheduled row moves it to the rail and off the time groups; History lists it; the views switch", async ({ page }) => {
+test("a row previews in Home's panel; Start moves it to the rail and off the time groups; its X returns it to the feed; the views switch", async ({ page }) => {
   await open(page);
-  await feed(page).locator("[data-feed-row]", { hasText: "Returns team stand-up" }).click();
+  const row = feed(page).locator("[data-feed-row]", { hasText: "Returns team stand-up" });
+  await row.click();
+  const preview = page.locator("[data-home-detail=item]");
+  await expect(preview).toBeVisible();
+  await expect(row).toHaveAttribute("data-selected", "true");
+  await expect(preview).toContainText("Refund policy RET-1.3 rollout");
+  await expect(page.locator("[data-kind-cell]")).toHaveCount(0);
+  // The second click closes it; the panel's X does too.
+  await row.click();
+  await expect(row).not.toHaveAttribute("data-selected", "true");
+  await row.click();
+  await preview.getByRole("button", { name: "Start" }).click();
   await expect(page.locator("[data-kind-cell=meeting]")).toBeVisible();
   await expect(page.locator("aside [data-kind-nav-card]")).toHaveCount(1);
   await home(page);
@@ -77,13 +100,55 @@ test("opening a scheduled row moves it to the rail and off the time groups; Hist
   const history = group(page, "History");
   await expect(history).toHaveCount(0);
 
+  // History is Contact History's list: the rail isn't in it.
   await view(page, "History").click();
   await expect(group(page, "Today")).toHaveCount(0);
-  await expect(history.locator('[data-feed-row][data-feed-status="inRail"]', { hasText: "Returns team stand-up" })).toBeVisible();
+  await expect(history).not.toContainText("Returns team stand-up");
 
   await view(page, "Assignments").click();
   await expect(history).toHaveCount(0);
   await expect(feed(page).locator('[data-feed-row][data-feed-status="scheduled"]')).toHaveCount(7);
+
+  // Return to feed: the card's X; the item is Scheduled again, with no outcome.
+  const card = page.locator("aside [data-kind-nav-card]");
+  await card.hover();
+  await card.locator("[data-kind-close]").click({ force: true });
+  await expect(card).toHaveCount(0);
+  await expect(feed(page).locator('[data-feed-row][data-feed-status="scheduled"]', { hasText: "Returns team stand-up" })).toBeVisible();
+  await expect(feed(page).locator('[data-feed-row][data-feed-status="scheduled"]')).toHaveCount(8);
+});
+
+test("the Assignments range: This week by default; Next 30 days adds Later; Today drops This week", async ({ page }) => {
+  await open(page);
+  const range = feed(page).locator("[data-feed-range]").getByRole("button");
+  await expect(range).toContainText("This week");
+  await expect(group(page, "Later")).toHaveCount(0);
+  await range.click();
+  await page.getByText("Next 30 days", { exact: true }).click();
+  await expect(group(page, "Later")).toContainText("Q4 compliance refresher");
+  await expect(view(page, "Assignments")).toContainText("9");
+  await page.getByText("Today", { exact: true }).last().click();
+  await expect(group(page, "This week")).toHaveCount(0);
+  await expect(group(page, "Later")).toHaveCount(0);
+});
+
+test("History's rows are the Contact History card's entries, in its order and with its times; the History count is that list", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 1400 });
+  await open(page);
+  await view(page, "History").click();
+  await last48(page);
+  const rows = feed(page).locator('[data-feed-row^="history:"]');
+  await expect(rows.first()).toBeVisible();
+  const card = page.locator('[data-home-section="contactHistory"]');
+  // The card's own date control: Last 48 Hours too (its default is 72).
+  await card.getByRole("button", { name: /Date filter/ }).click();
+  await page.getByRole("radio", { name: "Last 48 Hours" }).last().click();
+  await page.keyboard.press("Escape");
+  const cardTimes = (await card.locator("span").allInnerTexts()).filter((s) => /^(\d+[mhd] ago|Just now)$/.test(s.trim()));
+  const feedTimes = (await rows.allInnerTexts()).map((r) => /(\d+[mhd] ago|Just now)/.exec(r)?.[1]);
+  expect(feedTimes.length).toBeGreaterThan(0);
+  expect(feedTimes).toEqual(cardTimes.slice(0, feedTimes.length));
+  await expect(view(page, "History")).toContainText(String(feedTimes.length));
 });
 
 test("one column: the feed is a row among the sections; two columns: the feed left, the other sections stacked right", async ({ page }) => {
@@ -93,7 +158,6 @@ test("one column: the feed is a row among the sections; two columns: the feed le
   const perfBox = (await perf.boundingBox())!;
   const activityBox = (await activity.boundingBox())!;
   expect(activityBox.y).toBeGreaterThan(perfBox.y + perfBox.height - 1);
-  await expect(page.locator("[data-welcome-counts]")).toHaveCount(0);
   await expect(page.locator('[data-home-section="contactHistory"]')).toBeVisible();
 
   await settingsSection(page);
@@ -116,10 +180,12 @@ test("one column: the feed is a row among the sections; two columns: the feed le
     document.querySelector("[data-home-column=side]")!.firstElementChild!.getBoundingClientRect().top,
   ]);
   expect(firstTops[0]).toBe(firstTops[1]);
-  // The welcome header is lyra's PageHeader: the greeting, the counts as its subtitle, the actions beside.
+  // The welcome header is lyra's PageHeader: the greeting, oneColumn's user-name line as its subtitle (the counts are
+  // on the view buttons), the actions beside.
   const header = page.locator("[data-home-page-header]");
   await expect(header.locator("h1")).toHaveText("Hello John");
-  await expect(header.locator("[data-welcome-counts]")).toContainText("to decide");
+  await expect(header).toContainText("User Name:");
+  await expect(header).not.toContainText("to decide");
   await expect(header).toContainText("My Assignment Queue");
 });
 
@@ -182,7 +248,7 @@ test("two columns: the header stays put, the feed and the right column scroll on
 
 test("a kind card's Outcome popover opens below its button, aligned to its end, as a conversation row's does", async ({ page }) => {
   await open(page);
-  await feed(page).locator("[data-feed-row]", { hasText: "Returns team stand-up" }).click();
+  await openItem(page, "Returns team stand-up");
   const trigger = page.locator("aside [data-kind-nav-card] [data-kind-outcome-trigger]");
   await trigger.click();
   const popover = page.locator("[data-radix-popper-content-wrapper]").filter({ has: page.locator("[data-kind-outcome]") });
@@ -198,7 +264,7 @@ test("a kind card's Outcome popover opens below its button, aligned to its end, 
 
 test("a call from a callback joins the callback's card: the Callback row, then the Voice row; the main column follows the selected row", async ({ page }) => {
   await open(page);
-  await feed(page).locator("[data-feed-row]", { hasText: "Callback · Priya Shah" }).click();
+  await openItem(page, "Callback · Priya Shah");
   await page.locator("[data-kind-cell=callback] [data-schedule-call]").click();
   await page.getByRole("button", { name: "Dial Number" }).click();
   const card = page.locator('aside [data-kind-nav-card="agent-cb-priya"]');
@@ -229,8 +295,7 @@ test("History behaves as Contact History: its search and date controls, a row op
   await open(page);
   await view(page, "History").click();
   const history = group(page, "History");
-  await history.getByRole("button", { name: /Today/ }).click();
-  await page.getByText("Last 48 Hours", { exact: true }).click();
+  await last48(page);
   const entries = feed(page).locator('[data-feed-row^="history:"]');
   await expect(entries.first()).toBeVisible();
   await entries.first().click();
@@ -247,7 +312,7 @@ test("History behaves as Contact History: its search and date controls, a row op
 
 test("a callback's Dial opens the outbound dial pad anchored beneath the button, prefilled with the customer's number", async ({ page }) => {
   await open(page);
-  await feed(page).locator("[data-feed-row]", { hasText: "Callback · Priya Shah" }).click();
+  await openItem(page, "Callback · Priya Shah");
   const dial = page.locator("[data-kind-cell=callback] [data-schedule-call]");
   await dial.click();
   const phone = page.getByLabel("Phone number");

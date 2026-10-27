@@ -106,6 +106,20 @@ export function createSimScheduleProvider(options?: { latency?: LatencyRange; no
       guard("open");
       update(id, "open", ["offered", "scheduled"], { state: "active" });
     },
+    async release(id) {
+      guard("release");
+      await delay();
+      guard("release");
+      update(id, "release", ["active"], { state: "scheduled" });
+      // Back in the feed: still due when it was.
+      armDue(items.get(id)!);
+    },
+    async decline(id) {
+      guard("decline");
+      await delay();
+      guard("decline");
+      update(id, "decline", ["offered"], { state: "declined" });
+    },
     async complete(id, outcome) {
       guard("complete");
       await delay();

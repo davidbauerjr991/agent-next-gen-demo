@@ -70,7 +70,7 @@ export function useScheduleCallWrapUps(): void {
       if (item.kind === "callback" && item.state === "active") {
         // The callback is done: it completes with the call's disposition and leaves the rail (its cell closes with it).
         schedule.complete(item.id, { ...(disposition ? { disposition } : {}), note: call.outcome?.summary?.trim() || "Called" }).catch(fail);
-      } else if (item.state !== "done") {
+      } else if (item.state !== "done" && item.state !== "declined") {
         // A task (or anything else) stays open; the call's summary joins its notes.
         const summary = call.outcome?.summary?.trim() || (disposition ? `Call: ${disposition}` : "Call completed");
         schedule.addNote(item.id, summary).catch(fail);

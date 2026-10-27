@@ -9,6 +9,15 @@ export function startOfDay(at: number): number {
   return d.getTime();
 }
 
+const UNIT_MS: Record<string, number> = { m: 60_000, h: 60 * 60_000, d: DAY_MS };
+
+/** How long ago a Contact History entry's "8m ago" / "2h ago" / "1d ago" (or "Just now") is, for merging it in time
+ *  order with timestamped rows; 0 for anything else. */
+export function agoMs(label: string): number {
+  const match = /^(\d+)\s*([mhd]) ago$/.exec(label.trim());
+  return match ? Number(match[1]) * UNIT_MS[match[2]!]! : 0;
+}
+
 /** "11:00 AM" today; "Tue 11:30 AM" within a week; a date beyond. */
 export function feedTimeLabel(at: number, now: number): string {
   const time = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(at);

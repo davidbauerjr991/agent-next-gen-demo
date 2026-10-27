@@ -22,6 +22,7 @@ import type { ScheduleItem } from "@/providers";
 import { ClockTick } from "@/components/agent-next-gen-clock-tick";
 import { KindIcon, kindLabel } from "@/components/home/home-kinds";
 import { t } from "@/i18n";
+import { KindCloseButton } from "./kind-cells/KindCloseButton";
 import { KindOutcomeButton } from "./kind-cells/KindOutcomeButton";
 import { InteractionNavCard } from "./left-nav-parts";
 import { NavCardItem } from "./NavCardItem";
@@ -29,13 +30,22 @@ import { NavCardItem } from "./NavCardItem";
 /** The kind row's key among a card's rows. */
 const KIND_ROW_ID = "kind";
 
-/** The kind's row on its card: the kind chip, the due time, the detail line and the kind's Outcome; no kebab (a kind has
- *  no row actions yet). */
+/** The kind's row on its card: the kind chip, the due time, the detail line, the kind's Outcome and its close (Return to
+ *  feed, where a conversation row has End call / Dismiss); no kebab (a kind has no row actions yet). */
 function kindRow(item: ScheduleItem): InteractionChannel {
   return {
     id: KIND_ROW_ID,
     type: "chat",
-    kind: { label: t(kindLabel(item.kind)), icon: <KindIcon kind={item.kind} />, outcome: <KindOutcomeButton item={item} /> },
+    kind: {
+      label: t(kindLabel(item.kind)),
+      icon: <KindIcon kind={item.kind} />,
+      outcome: (
+        <span className="flex items-center">
+          <KindOutcomeButton item={item} />
+          <KindCloseButton item={item} />
+        </span>
+      ),
+    },
     elapsed: feedTimeLabel(item.dueAt, Date.now()),
     preview: item.subtitle,
     showConsultTransfer: false,

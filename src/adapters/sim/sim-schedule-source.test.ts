@@ -31,10 +31,11 @@ const kindsOf = (items: readonly { kind: AssignmentKind }[]) => new Set(items.ma
 describe("sim schedule source", () => {
   it("seeds each role's day with that role's kinds", async () => {
     const agent = await settle(source.listItems({ role: "agent" }));
-    expect(kindsOf(agent.items)).toEqual(new Set(["callback", "meeting", "training", "task", "conversation"]));
+    // Completed conversations are Contact History's, not the schedule's (P-HOME-1h).
+    expect(kindsOf(agent.items)).toEqual(new Set(["callback", "meeting", "training", "task"]));
     expect(agent.items.filter((i) => i.kind === "callback")).toHaveLength(3);
-    expect(agent.items.filter((i) => i.kind === "training")).toHaveLength(2);
-    expect(agent.items.filter((i) => i.state === "done").every((i) => i.kind === "conversation")).toBe(true);
+    expect(agent.items.filter((i) => i.kind === "training")).toHaveLength(3);
+    expect(agent.items.some((i) => i.state === "done")).toBe(false);
 
     const supervisor = await settle(source.listItems({ role: "supervisor" }));
     expect(kindsOf(supervisor.items)).toEqual(new Set(["conversation", "evaluation", "coaching", "meeting"]));
@@ -42,7 +43,7 @@ describe("sim schedule source", () => {
     expect(Object.keys(supervisor.cards)).toEqual(["teamQueues", "teamToday", "needsYou"]);
 
     const sales = await settle(source.listItems({ role: "sales" }));
-    expect(kindsOf(sales.items)).toEqual(new Set(["callback", "meeting", "campaign-block", "conversation"]));
+    expect(kindsOf(sales.items)).toEqual(new Set(["callback", "meeting", "campaign-block"]));
     expect(Object.keys(sales.cards)).toEqual(["pipeline", "campaignToday", "followUps"]);
   });
 
@@ -85,7 +86,8 @@ describe("sim schedule source", () => {
     await settle(source.listItems({ role: "agent" }));
     const rejected = Promise.all([
       expect(source.complete("agent-tr-ret13", {})).rejects.toMatchObject({ code: "invalid-state" }),
-      expect(source.open("agent-done-omar")).rejects.toMatchObject({ code: "invalid-state" }),
+      expect(source.release("agent-tr-ret13")).rejects.toMatchObject({ code: "invalid-state" }),
+      expect(source.decline("agent-tr-ret13")).rejects.toMatchObject({ code: "invalid-state" }),
       expect(source.open("nope")).rejects.toMatchObject({ code: "not-found" }),
     ]);
     await vi.advanceTimersByTimeAsync(LATENCY.maxMs);
@@ -112,9 +114,29 @@ describe("sim schedule source", () => {
     expect(changes[changes.length - 1]?.item).toMatchObject({ state: "scheduled", notes: ["Left a voicemail", "Customer called back"] });
     await vi.advanceTimersByTimeAsync(31 * 60_000);
     expect(due).toEqual(["agent-cb-priya"]);
-    const rejected = expect(source.addNote("agent-done-omar", "late")).rejects.toMatchObject({ code: "invalid-state" });
+    await settle(source.open("agent-mt-standup"));
+    await settle(source.complete("agent-mt-standup", {}));
+    const rejected = expect(source.addNote("agent-mt-standup", "late")).rejects.toMatchObject({ code: "invalid-state" });
     await vi.advanceTimersByTimeAsync(LATENCY.maxMs);
     await rejected;
+  });
+
+  it("release returns an open item to the feed, still due when it was; decline turns an offer down", async () => {
+    await settle(source.listItems({ role: "agent" }));
+    const due: string[] = [];
+    source.on("itemDue", (e) => due.push(e.item.id));
+    const changes: ScheduleEvents["itemChanged"][] = [];
+    source.on("itemChanged", (e) => changes.push(e));
+    await settle(source.open("agent-cb-priya"));
+    await settle(source.release("agent-cb-priya"));
+    expect(changes.map((c) => c.item.state)).toEqual(["active", "scheduled"]);
+    expect(changes[1]?.item.outcome).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(31 * 60_000);
+    expect(due).toEqual(["agent-cb-priya"]);
+
+    await settle(source.listItems({ role: "supervisor" }));
+    await settle(source.decline("sup-esc-briggs"));
+    expect(changes[changes.length - 1]?.item).toMatchObject({ id: "sup-esc-briggs", state: "declined" });
   });
 
   it("rejects every call once disposed", async () => {

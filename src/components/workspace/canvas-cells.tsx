@@ -6,6 +6,7 @@
 import { VoiceWrapUpCard } from "@/contact-handling/VoiceWrapUpCard";
 import { useActiveContactSummary, useActiveJourney, useReferenceAccordion } from "@/contact-handling/reference-cards";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
+import { copilotAsksOf } from "@/contact-handling/useCopilotAsk";
 import type { CanvasCell } from "@/contact-handling/canvas-registry";
 import { CustomerInfoCard } from "@/components/ai-cards/CustomerInfoCard";
 import { JourneySummaryCard } from "@/components/ai-cards/JourneySummaryCard";
@@ -36,10 +37,20 @@ function FocusRing({ highlighted, children }: { highlighted: boolean; children: 
 }
 
 function RealTimeSummaryCell() {
+  const { activeInteraction, snapshotLinkHandlerFor } = useWorkspace();
   const { highlighted, ...accordion } = useReferenceAccordion("summary");
+  // The contact's Copilot asks as linked lines, each opening (or closing) its result as its row does (P-HOME-1h).
+  const asks = activeInteraction
+    ? copilotAsksOf(activeInteraction).map((m) => ({
+        id: m.id,
+        time: m.timestamp,
+        text: m.text,
+        onOpen: () => snapshotLinkHandlerFor(activeInteraction.id)(m.instruction.link),
+      }))
+    : undefined;
   return (
     <FocusRing highlighted={highlighted}>
-      <RealTimeSummaryCard summary={useActiveContactSummary()} onCopy={copy} {...accordion} />
+      <RealTimeSummaryCard summary={useActiveContactSummary()} onCopy={copy} asks={asks} {...accordion} />
     </FocusRing>
   );
 }

@@ -2,6 +2,7 @@ import { Button, InteriorPanel, Tooltip } from "@nicecxone/lyra-ui";
 import { ChevronRight, CircleAlert } from "lucide-react";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useActiveScheduleItem } from "@/contact-handling/home/useScheduleCards";
+import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { homeIsTwoColumn } from "@/contact-handling/home/home-layout";
 import { KindCell } from "./kind-cells/KindCell";
 import { AppTabBody, CustomerTabBodies, CustomersTabBody, HomeTabStrip } from "@/components/home-tabs";
@@ -35,6 +36,7 @@ export function WorkspaceHome() {
     showPageHeader, tabApps, updateHeaderSettings,
   } = useWorkspace();
   const [home] = useSettings("home");
+  const [, setHomePreview] = useWorkspaceUiField("homePreview");
   // P-HOME-1: an opened schedule item (meeting, training, task, …) isn't a conversation card, so the page lands
   // here; its minimal per-kind cell takes the main column until P-HOME-3's kinds registry.
   const activeScheduleItem = useActiveScheduleItem();
@@ -89,6 +91,7 @@ export function WorkspaceHome() {
                   // click replaces a Contact History entry's summary.
                   onSelectQueue={(id) => {
                     setSelectedContactHistoryEntry(null);
+                    setHomePreview(null);
                     setSelectedQueueId(id);
                   }}
                   headerActions={
@@ -125,6 +128,7 @@ export function WorkspaceHome() {
                           // One job at a time in the shared panel slot (home-detail-panel.tsx).
                           setSelectedQueueId(null);
                           setInteriorPanelOpen(false);
+                          setHomePreview(null);
                           setSelectedContactHistoryEntry(entry);
                         }}
                         selectedEntryId={selectedContactHistoryEntry?.id ?? null}

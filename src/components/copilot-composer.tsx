@@ -161,9 +161,12 @@ export function CopilotComposer({
   focusable = true,
   paneRef,
   className,
+  placeholder = "Ask Copilot about this customer or conversation...",
   ...rest
 }: {
   placement: "inline" | "panel";
+  /** The input's placeholder; a kind cell names its kind (P-HOME-1h). */
+  placeholder?: string;
   value: string;
   onChange: (value: string) => void;
   onSubmit: (value: string) => void;
@@ -274,7 +277,7 @@ export function CopilotComposer({
         value={value}
         onChange={onChange}
         onSubmit={onSubmit}
-        placeholder="Ask Copilot about this customer or conversation..."
+        placeholder={placeholder}
         helperText=""
         // lyra's single-line pill (+ left, mic right), as v3: every dock this composer portals into.
         singleLine

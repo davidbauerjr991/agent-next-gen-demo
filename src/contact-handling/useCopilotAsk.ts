@@ -34,6 +34,17 @@ export function useCopilotResultTimer(): (run: () => void, ms: number) => void {
   }, []);
 }
 
+const ASK_ID_PREFIX = "copilot-ask-";
+
+/** A card's Copilot asks across its threads, in ask order: the instruction rows `useCopilotAsk` logs (P-HOME-1h: the
+ *  Real-Time Summary lists them). */
+export function copilotAsksOf(card: Pick<NavCard, "liveMessages"> | undefined): (TranscriptMessage & { instruction: NonNullable<TranscriptMessage["instruction"]> })[] {
+  return Object.values(card?.liveMessages ?? {})
+    .flat()
+    .filter((m): m is TranscriptMessage & { instruction: NonNullable<TranscriptMessage["instruction"]> } => m.id.startsWith(ASK_ID_PREFIX) && !!m.instruction)
+    .sort((a, b) => (a.instruction.performedAt ?? 0) - (b.instruction.performedAt ?? 0));
+}
+
 export interface CopilotAskOptions {
   setCards: (update: (prev: NavCard[]) => NavCard[]) => void;
   /** The panel a lookup chip opens (so the row reopens the same content), if `text` is one. */
@@ -68,7 +79,7 @@ export function useCopilotAsk({ setCards, linkFor, autoOpensResult, openResult, 
       asked?.();
       const time = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
       const chipLink = link(cardId, text);
-      const id = `copilot-ask-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const id = `${ASK_ID_PREFIX}${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       // A free-form question's row is identified by its own id (the trailing segment), not by its text and
       // minute: the same question asked twice is two rows, each opening and marking its own result (P-EXTRACT).
       const ownLink = `instruction:copilot:${encodeURIComponent(text)}:${encodeURIComponent(time)}:${id}`;

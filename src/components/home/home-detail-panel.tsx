@@ -1,8 +1,9 @@
 // Home's detail panel (moved out of WorkspaceHome for P-HOME-1e): one slot
-// for three jobs — the queue drill-down, a Contact History entry's preview
-// and the "Case Details" form — since only one detail view is ever relevant
-// at a time. `selectedQueueId` takes priority over the entry, which takes
-// priority over `interiorPanelOpen`. One column mounts it as Home's docked
+// for four jobs — the queue drill-down, a Contact History entry's preview,
+// an Assignments row's preview (P-HOME-1h) and the "Case Details" form —
+// since only one detail view is ever relevant at a time. `selectedQueueId`
+// takes priority over the entry, then the row's preview, then
+// `interiorPanelOpen`. One column mounts it as Home's docked
 // `InteriorPanel`; two columns mount it over the right column through the
 // interaction's reference slot (`ReferenceSlotFrame`), so it pushes the feed.
 import { useRef } from "react";
@@ -14,6 +15,8 @@ import { ContactHistoryEntryDetail, type ContactHistoryEntry } from "@/component
 import { INITIAL_QUEUE_SUB_ITEMS, LATEST_CONTACTS_STATIC } from "@/components/agent-next-gen-interaction-dashboard";
 import { QueueSubItems } from "@/components/agent-next-gen-clock-tick";
 import type { ReferenceSlotPanel } from "@/components/workspace/ReferenceSlot";
+import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
+import { FeedItemPreview, useFeedPreviewHeader } from "./FeedItemPreview";
 import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 
@@ -111,18 +114,25 @@ function HistoryEntryDetail({ entry }: { entry: ContactHistoryEntry }) {
 export function useHomeDetailPanel(): ReferenceSlotPanel {
   const { interiorPanelOpen, selectedContactHistoryEntry, selectedQueueId, setInteriorPanelOpen, setSelectedContactHistoryEntry, setSelectedQueueId } =
     useWorkspace();
-  const wanted = interiorPanelOpen || Boolean(selectedQueueId) || Boolean(selectedContactHistoryEntry);
-  const last = useRef({ queueId: selectedQueueId, entry: selectedContactHistoryEntry });
-  if (wanted) last.current = { queueId: selectedQueueId, entry: selectedContactHistoryEntry };
+  const [homePreview, setHomePreview] = useWorkspaceUiField("homePreview");
+  // A previewed row that has left (opened elsewhere, completed) has nothing to show.
+  const previewHeader = useFeedPreviewHeader(homePreview);
+  const preview = previewHeader ? homePreview : null;
+  const wanted = interiorPanelOpen || Boolean(selectedQueueId) || Boolean(selectedContactHistoryEntry) || Boolean(preview);
+  const last = useRef({ queueId: selectedQueueId, entry: selectedContactHistoryEntry, preview, previewHeader });
+  if (wanted) last.current = { queueId: selectedQueueId, entry: selectedContactHistoryEntry, preview, previewHeader };
   const { queueId, entry } = last.current;
+  const shownPreview = !queueId && !entry ? last.current.preview : null;
+  const shownPreviewHeader = shownPreview ? last.current.previewHeader : null;
   return {
     wanted,
     onClose: () => {
       setInteriorPanelOpen(false);
       setSelectedQueueId(null);
       setSelectedContactHistoryEntry(null);
+      setHomePreview(null);
     },
-    header: {
+    header: shownPreviewHeader ?? {
       headerTitle: queueId ? LATEST_CONTACTS_STATIC.find((c) => c.id === queueId)?.name ?? t("Queue") : entry ? entry.name : t("Case Details"),
       // The queue's skill count (list lengths never change, only counts), or the entry's routing skill.
       headerSubhead: queueId ? t("{count} Skills", { count: (INITIAL_QUEUE_SUB_ITEMS[queueId] ?? []).length }) : entry?.skillName,
@@ -131,6 +141,8 @@ export function useHomeDetailPanel(): ReferenceSlotPanel {
       <QueueDrillDown queueId={queueId} />
     ) : entry ? (
       <HistoryEntryDetail entry={entry} />
+    ) : shownPreview ? (
+      <FeedItemPreview target={shownPreview} />
     ) : (
       <div className="flex flex-col gap-4 px-4 py-4">
         <Input label={t("Subject")} placeholder={t("Enter subject")} />

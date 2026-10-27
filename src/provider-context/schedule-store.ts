@@ -79,6 +79,8 @@ const NO_STORE: ScheduleStore = createScheduleStore({
   open: () => Promise.reject(new Error("no schedule source")),
   complete: () => Promise.reject(new Error("no schedule source")),
   addNote: () => Promise.reject(new Error("no schedule source")),
+  release: () => Promise.reject(new Error("no schedule source")),
+  decline: () => Promise.reject(new Error("no schedule source")),
   dispose: async () => {},
 });
 

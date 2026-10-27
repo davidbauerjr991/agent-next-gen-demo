@@ -6,11 +6,19 @@
 import * as React from "react";
 import { Badge, Container, SearchInput, Tag, ToggleGroup } from "@nicecxone/lyra-ui";
 import { ContactHistoryDateFilterChip } from "@/components/agent-next-gen-contact-history";
-import type { FeedRow, FeedView } from "@/contact-handling/home/activity-feed";
+import { RadioFilterChip } from "@/components/RadioFilterChip";
+import { ASSIGNMENTS_RANGES, type AssignmentsRange, type FeedRow, type FeedView } from "@/contact-handling/home/activity-feed";
 import { useActivityFeed, type ActivityFeed as ActivityFeedApi } from "@/contact-handling/home/useActivityFeed";
 import { t } from "@/i18n";
 import { ActivityRow } from "./ActivityRow";
 import { KindIcon, kindLabel } from "./home-kinds";
+
+const RANGE_LABELS: Record<AssignmentsRange, string> = {
+  today: "Today",
+  week: "This week",
+  next30: "Next 30 days",
+  all: "All",
+};
 
 /** A view button's label: its name and, when it has one, its count. */
 function viewLabel(label: string, count?: number) {
@@ -74,7 +82,7 @@ export function ActivityFeed() {
           <div role="list" className="flex flex-col px-1 pb-2">
             {feed.needsDecision.map((row) => (
               <div role="listitem" key={row.assignmentId}>
-                <ActivityRow row={row} now={now} onOpen={() => api.open(row)} />
+                <ActivityRow row={row} now={now} onOpen={() => api.open(row)} selected={api.isSelected(row)} />
               </div>
             ))}
           </div>
@@ -94,25 +102,39 @@ export function ActivityFeed() {
             ]}
           />
         </div>
-        {/* The kinds the persona sees, filtering whichever view is selected; none picked is every kind. */}
-        <div className="flex flex-wrap gap-2" role="group" aria-label={t("Filter by kind")} data-feed-kinds>
-          {api.kinds.map((kind) => (
-            <Tag
-              key={kind}
-              shape="pill"
-              variant="neutral"
-              icon={<KindIcon kind={kind} />}
-              label={t(kindLabel(kind))}
-              selected={api.kindFilter.has(kind)}
-              onClick={() => api.toggleKind(kind)}
-            />
-          ))}
-          {/* P-HOME-2: one chip per connected personal source, then "+ Apps", go here. */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {/* The kinds the persona sees, filtering whichever view is selected; none picked is every kind. */}
+          <div className="flex flex-wrap gap-2" role="group" aria-label={t("Filter by kind")} data-feed-kinds>
+            {api.kinds.map((kind) => (
+              <Tag
+                key={kind}
+                shape="pill"
+                variant="neutral"
+                icon={<KindIcon kind={kind} />}
+                label={t(kindLabel(kind))}
+                selected={api.kindFilter.has(kind)}
+                onClick={() => api.toggleKind(kind)}
+              />
+            ))}
+            {/* P-HOME-2: one chip per connected personal source, then "+ Apps", go here. */}
+          </div>
+          {/* The Assignments range: it bounds Today and This week, and adds Later past the week. */}
+          {feed.showAssignments && (
+            <span data-feed-range>
+              <RadioFilterChip
+                label={t("Date")}
+                options={ASSIGNMENTS_RANGES.map((value) => ({ value, label: t(RANGE_LABELS[value]) }))}
+                value={api.range}
+                onValueChange={api.setRange}
+              />
+            </span>
+          )}
         </div>
       </div>
       <FeedGroup title={t("Now")} rows={feed.now} now={now} api={api} />
       <FeedGroup title={t("Today")} rows={feed.today} now={now} api={api} />
       <FeedGroup title={t("This week")} rows={feed.thisWeek} now={now} api={api} />
+      <FeedGroup title={t("Later")} rows={feed.later} now={now} api={api} />
       {feed.showHistory && (
         <FeedGroup
           title={t("History")}

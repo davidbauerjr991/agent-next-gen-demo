@@ -38,6 +38,12 @@ const button = (label: string) => [...h.container.querySelectorAll<HTMLButtonEle
 const homeButton = () => [...h.container.querySelectorAll("aside button, aside [role=button]")].find((el) => el.textContent?.trim() === "Home")!;
 const view = (label: string) => [...(feed()?.querySelectorAll<HTMLElement>("[data-feed-views] [role=radio]") ?? [])].find((b) => b.textContent?.trim().startsWith(label));
 
+/** A feed row's click previews it (P-HOME-1h); the preview's primary action (Open / Start / Dial) opens it. */
+async function openItem(row: HTMLElement) {
+  await h.click(row);
+  await h.click(document.querySelector<HTMLElement>("[data-home-detail=item] [data-preview-primary]")!);
+}
+
 async function type(el: HTMLTextAreaElement | HTMLInputElement, value: string) {
   await act(async () => {
     const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), "value")!.set!;
@@ -57,7 +63,7 @@ describe("schedule items open as assignments", () => {
     ["Callback · Priya Shah", "callback", "Refund RF-20451", "disposition"],
   ] as const)("%s opens its %s cell and a rail card; the card's Outcome is the kind's form, and saving completes it into History", async (title, kind, body, shape) => {
     await showHome();
-    await h.click(rowNamed(title)!);
+    await openItem(rowNamed(title)!);
     expect(cell()?.getAttribute("data-kind-cell")).toBe(kind);
     expect(cell()?.textContent).toContain(body);
     // The outcome is on the card, not the cell.
@@ -90,7 +96,7 @@ describe("schedule items open as assignments", () => {
 
   it("the Outcome popover is anchored to its button as a conversation row's is: below it, aligned to its end", async () => {
     await showHome();
-    await h.click(rowNamed("Returns team stand-up")!);
+    await openItem(rowNamed("Returns team stand-up")!);
     await h.click(h.container.querySelector("aside [data-kind-nav-card] [data-kind-outcome-trigger]")!);
     const content = outcomeForm()!.closest<HTMLElement>("[data-side]")!;
     // jsdom's every-box-is-the-viewport geometry flips the side; the real placement is the Playwright spec's.
@@ -100,7 +106,7 @@ describe("schedule items open as assignments", () => {
 
   it("the Outcome popover has the conversation popover's slots and spacing: a header, the fields, and a padded footer", async () => {
     await showHome();
-    await h.click(rowNamed("Returns team stand-up")!);
+    await openItem(rowNamed("Returns team stand-up")!);
     await h.click(h.container.querySelector("aside [data-kind-nav-card] [data-kind-outcome-trigger]")!);
     expect(outcomeForm()!.parentElement!.className).toContain("pb-2 pt-1");
     expect(document.querySelector("[data-kind-outcome-footer]")!.className).toContain("px-5 pb-4 pt-1");
@@ -108,7 +114,7 @@ describe("schedule items open as assignments", () => {
 
   it("the cell's header is a conversation's two lines, with a back arrow Home; the session row has no default status and no kebab", async () => {
     await showHome();
-    await h.click(rowNamed("Ticket #4821 · subscription renewal refund")!);
+    await openItem(rowNamed("Ticket #4821 · subscription renewal refund")!);
     const header = cell()!.querySelector<HTMLElement>('[data-slot="record-header"]')!;
     expect(header.querySelector("h1")?.textContent).toBe("Priya Shah");
     expect(header.textContent).toContain("#4821 · Credit RF-20452");
@@ -128,7 +134,7 @@ describe("schedule items open as assignments", () => {
 
   it("the cell's reference column is the canvas registry's kind cells, with canvas.cells overrides; the action area ends with the Copilot input, scoped to the item", async () => {
     await showHome();
-    await h.click(rowNamed("Callback · Priya Shah")!);
+    await openItem(rowNamed("Callback · Priya Shah")!);
     const reference = () => cell()!.querySelector<HTMLElement>('[data-canvas-region="reference"]')!;
     expect([...reference().querySelectorAll("[data-canvas-cell]")].map((el) => el.getAttribute("data-canvas-cell"))).toEqual([
       "kind-summary",
@@ -146,16 +152,44 @@ describe("schedule items open as assignments", () => {
     });
     expect(reference().querySelector('[data-canvas-cell="kind-related"]')).toBeNull();
 
-    // The Copilot input (lyra AIInput, single-line pill) under the action area, with the seed's chips; a chip opens its
-    // scripted answer in the reference slot's slide-over.
+    // The Copilot input (lyra AIInput, single-line pill) under the action area, with the seed's chips and the kind's
+    // placeholder; a chip is logged inline as the transcript's instruction row, and its scripted answer opens in the
+    // reference slot's slide-over once Copilot "finishes".
     const copilot = cell()!.querySelector<HTMLElement>("[data-kind-action-area] [data-kind-copilot] [data-slot=copilot-composer]")!;
     expect(copilot).not.toBeNull();
+    expect(copilot.querySelector("textarea, input")?.getAttribute("placeholder")).toBe("Ask Copilot about this callback…");
     const chip = [...copilot.querySelectorAll<HTMLElement>("button, [role=button]")].find((b) => b.textContent?.includes("Where is refund RF-20451?"))!;
     await h.click(chip);
     await h.advance(100);
-    const answer = document.querySelector<HTMLElement>("[data-slot=copilot-result]")!;
-    expect(answer.textContent).toContain("RF-20451 was approved on the 22nd");
-    expect(answer.closest('[data-slot="reference-slide-over"]')).not.toBeNull();
+    const asks = () => cell()!.querySelector<HTMLElement>("[data-kind-action-column] [data-kind-copilot-rows]")!;
+    expect(asks().textContent).toContain("AI agent is performing this now…");
+    expect(document.querySelector("[data-slot=copilot-result]")).toBeNull();
+    await h.advance(1800);
+    const answer = () => document.querySelector<HTMLElement>("[data-slot=copilot-result]");
+    expect(answer()!.textContent).toContain("RF-20451 was approved on the 22nd");
+    expect(answer()!.closest('[data-slot="reference-slide-over"]')).not.toBeNull();
+    // The row (the question, the time, who asked; selected while its result is open) and the result card under it.
+    const row = () => asks().querySelector<HTMLButtonElement>("button[aria-current], button")!;
+    expect(row().textContent).toContain("Where is refund RF-20451?");
+    expect(row().textContent).toContain("John Smith");
+    expect(row().getAttribute("aria-current")).toBe("true");
+    expect(asks().querySelector("[data-kind-copilot-result]")?.textContent).toContain("RF-20451 was approved on the 22nd");
+    // The row closes the result and reopens it.
+    await h.click(row());
+    await h.advance(400);
+    expect(answer()).toBeNull();
+    await h.click(row());
+    await h.advance(100);
+    expect(answer()).not.toBeNull();
+    // The Real-Time Summary lists the ask as a linked line that toggles the same result.
+    const line = () => reference().querySelector<HTMLElement>('[data-canvas-cell="kind-summary"] [data-slot=summary-asks] a, [data-canvas-cell="kind-summary"] [data-slot=summary-asks] button');
+    expect(line()?.textContent).toMatch(/\d{1,2}:\d{2}\s?[AP]M · Where is refund RF-20451\?/);
+    await h.click(line()!);
+    await h.advance(400);
+    expect(answer()).toBeNull();
+    await h.click(line()!);
+    await h.advance(100);
+    expect(answer()).not.toBeNull();
   });
 
   it("reference cards start collapsed and stay as the agent left them per assignment: Home and back, still open; another item, collapsed", async () => {
@@ -164,12 +198,12 @@ describe("schedule items open as assignments", () => {
       [...(cell()?.querySelectorAll<HTMLElement>('[data-canvas-region="reference"] [data-canvas-cell]') ?? [])]
         .filter((el) => el.querySelector("[aria-expanded]")?.getAttribute("aria-expanded") === "true")
         .map((el) => el.getAttribute("data-canvas-cell"));
-    await h.click(rowNamed("Callback · Priya Shah")!);
+    await openItem(rowNamed("Callback · Priya Shah")!);
     expect(expandedCells()).toEqual([]);
     await h.click(cell()!.querySelector<HTMLElement>('[data-canvas-cell="kind-related"] [aria-expanded]')!);
     expect(expandedCells()).toEqual(["kind-related"]);
     await h.click(homeButton());
-    await h.click(rowNamed("Returns team stand-up")!);
+    await openItem(rowNamed("Returns team stand-up")!);
     expect(cell()?.getAttribute("data-kind-cell")).toBe("meeting");
     expect(expandedCells()).toEqual([]);
     await h.click(h.container.querySelector<HTMLElement>('aside [data-kind-nav-card="agent-cb-priya"] [aria-label^="Callback channel"]')!);
@@ -179,7 +213,7 @@ describe("schedule items open as assignments", () => {
 
   it("a kind card's kind is a row like a channel's: the kind chip, the due time and the detail; collapsed, the kind icon sits top-left", async () => {
     await showHome();
-    await h.click(rowNamed("Returns team stand-up")!);
+    await openItem(rowNamed("Returns team stand-up")!);
     const card = () => h.container.querySelector<HTMLElement>("aside [data-kind-nav-card]")!;
     // lyra's kind row: a selectable row (its stretched button) labeled by the kind, the Outcome in its cluster.
     expect(card().querySelector('[aria-label^="Meeting channel"]')).not.toBeNull();
@@ -201,9 +235,81 @@ describe("schedule items open as assignments", () => {
     expect(lena()).toBe(false);
   });
 
+  it("the session row's Outcome is the conversation header's (icon and label); the card row's stays icon-only; the action area is the conversation's 768px column; the Copilot placeholder names the kind", async () => {
+    await showHome();
+    await openItem(rowNamed("RET-1.3 refund policy update")!);
+    const sessionTrigger = cell()!.querySelector<HTMLElement>("[data-kind-session-row] [data-kind-outcome-trigger]")!;
+    expect(sessionTrigger.getAttribute("data-kind-outcome-trigger")).toBe("labeled");
+    expect(sessionTrigger.textContent?.trim()).toBe("Outcome");
+    const cardTrigger = h.container.querySelector<HTMLElement>("aside [data-kind-nav-card] [data-kind-outcome-trigger]")!;
+    expect(cardTrigger.textContent?.trim()).toBe("");
+    expect(cardTrigger.getAttribute("aria-label")).toBe("Outcome");
+    const column = cell()!.querySelector<HTMLElement>("[data-kind-action-column]")!;
+    expect(column.className).toContain("max-w-[768px]");
+    expect(column.className).toContain("mx-auto");
+    expect(cell()!.querySelector("[data-kind-copilot]")!.className).toContain("max-w-[768px]");
+    const placeholder = () => cell()!.querySelector("[data-kind-copilot] textarea, [data-kind-copilot] input")?.getAttribute("placeholder");
+    expect(placeholder()).toBe("Ask Copilot about this module…");
+    await h.click(homeButton());
+    await openItem(rowNamed("Returns team stand-up")!);
+    expect(placeholder()).toBe("Ask Copilot about this meeting…");
+    await h.click(homeButton());
+    await openItem(rowNamed("Ticket #4821")!);
+    expect(placeholder()).toBe("Ask Copilot about this ticket…");
+  });
+
+  it("a kind card closes with its X (Return to feed): on the card's row and the cell's session row; the item is Scheduled again, off the rail, with no outcome", async () => {
+    await showHome();
+    await openItem(rowNamed("Returns team stand-up")!);
+    const card = () => h.container.querySelector<HTMLElement>('aside [data-kind-nav-card="agent-mt-standup"]');
+    expect(card()!.querySelector("[data-kind-close]")).not.toBeNull();
+    // No kebab: a kind has no row actions.
+    expect(card()!.querySelector('[aria-label="More options"]')).toBeNull();
+    const closeInCell = cell()!.querySelector<HTMLElement>("[data-kind-session-row] [data-kind-close]")!;
+    expect(closeInCell.getAttribute("aria-label") ?? closeInCell.getAttribute("title")).toBe("Return to feed");
+    await h.click(closeInCell);
+    await h.advance(100);
+    expect(cell()).toBeNull();
+    expect(card()).toBeNull();
+    expect(rowNamed("Returns team stand-up")?.getAttribute("data-feed-status")).toBe("scheduled");
+    // From the card's row too.
+    await openItem(rowNamed("Returns team stand-up")!);
+    await h.click(card()!.querySelector("[data-kind-close]")!);
+    await h.advance(100);
+    expect(card()).toBeNull();
+    const item = await act(async () => {
+      const snapshot = h.schedule!.listItems({ role: "agent" });
+      await vi.advanceTimersByTimeAsync(50);
+      return (await snapshot).items.find((i) => i.id === "agent-mt-standup");
+    });
+    expect(item?.state).toBe("scheduled");
+    expect(item?.outcome).toBeUndefined();
+  });
+
+  it("the kind card's X follows Settings → Assignments: hidden without Unassign & Dismiss; the Close confirm when it's on", async () => {
+    await act(async () => {
+      getSettingsStore().update("assignments", { allowUnassignDismiss: false });
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    await showHome();
+    await openItem(rowNamed("Returns team stand-up")!);
+    expect(h.container.querySelector("[data-kind-close]")).toBeNull();
+    await act(async () => {
+      getSettingsStore().update("assignments", { allowUnassignDismiss: true, confirmClose: true });
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    await h.click(cell()!.querySelector<HTMLElement>("[data-kind-session-row] [data-kind-close]")!);
+    // The confirm holds it: still open until it's confirmed.
+    expect(cell()).not.toBeNull();
+    expect(document.body.textContent).toContain("Close this contact?");
+    await h.click(h.buttonByText("Close contact")!);
+    await h.advance(100);
+    expect(cell()).toBeNull();
+  });
+
   it("the rail card reopens the cell after going Home", async () => {
     await showHome();
-    await h.click(rowNamed("Returns team stand-up")!);
+    await openItem(rowNamed("Returns team stand-up")!);
     await h.click(homeButton());
     expect(cell()).toBeNull();
     await h.click(h.container.querySelector("aside [data-kind-nav-card] [role=button], aside [data-kind-nav-card] button")!);
@@ -226,7 +332,7 @@ describe("calls from schedule items (the leg-join P0.9 generalizes)", () => {
 
   /** Opens `title`'s cell, clicks its call button and dials from the pad; returns the call. */
   async function callFrom(title: string) {
-    await h.click(rowNamed(title)!);
+    await openItem(rowNamed(title)!);
     await h.click(cell()!.querySelector("[data-schedule-call]")!);
     await h.click([...document.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.trim() === "Dial Number")!);
     // The pad shows "Connecting…" for 2s before it dials (lyra's CONNECTING_DURATION_MS); then the call rings and connects.
@@ -259,12 +365,23 @@ describe("calls from schedule items (the leg-join P0.9 generalizes)", () => {
   it("Dial opens the existing dial pad prefilled with the customer's number, skill and all; it never dials by itself", async () => {
     await showHome();
     await h.goAvailable();
-    await h.click(rowNamed("Callback · Priya Shah")!);
+    await openItem(rowNamed("Callback · Priya Shah")!);
     await h.click(cell()!.querySelector("[data-schedule-call]")!);
     expect(phoneField()?.value).toBe("(646) 555-0143");
     expect([...document.querySelectorAll("[role=combobox]")].map((c) => c.textContent)).toContain("General Support");
     await h.advance(1000);
     expect(await voiceCalls()).toEqual([]);
+  });
+
+  it("the kind card's X is disabled, with the reason, while its call is live", async () => {
+    await showHome();
+    await h.goAvailable();
+    const call = await callFrom("Callback · Priya Shah");
+    const close = () => h.container.querySelector<HTMLButtonElement>('aside [data-kind-nav-card="agent-cb-priya"] [data-kind-close]')!;
+    expect(close().disabled).toBe(true);
+    expect(close().closest("[data-disabled-reason]")?.getAttribute("data-disabled-reason") ?? h.container.textContent).toContain("End the call first");
+    await hangUp(call.id);
+    expect(close().disabled).toBe(false);
   });
 
   /** The rail's cards (each card's button is labeled with its name). */

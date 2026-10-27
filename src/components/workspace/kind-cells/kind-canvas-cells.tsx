@@ -18,6 +18,7 @@ import { RealTimeSummaryCard } from "@/components/ai-cards/RealTimeSummaryCard";
 import { aiCardIcon as ic } from "@/components/ai-cards/ai-card-icon";
 import { useSettings } from "@/settings";
 import { t } from "@/i18n";
+import { useKindCopilotAsks, useToggleAskResult } from "./KindCopilot";
 
 const copy = (text: string) => void navigator.clipboard?.writeText(text).catch(() => {});
 
@@ -48,6 +49,8 @@ function useOpen(item: ScheduleItem | null, cellId: string) {
 function KindSummaryCell() {
   const item = useActiveScheduleItem();
   const accordion = useOpen(item, "kind-summary");
+  const asks = useKindCopilotAsks(item?.id);
+  const { toggle } = useToggleAskResult();
   if (!item) return null;
   const text = kindSummaryText(item);
   return (
@@ -57,6 +60,7 @@ function KindSummaryCell() {
         updatedAt: Date.now(),
       }}
       onCopy={copy}
+      asks={asks.map((ask) => ({ id: ask.id, time: ask.time, text: ask.text, onOpen: () => toggle(ask) }))}
       {...accordion}
     />
   );

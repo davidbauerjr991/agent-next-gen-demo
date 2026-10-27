@@ -32,6 +32,7 @@ import { onEnabledChannels } from "@/contact-handling/channel-gates";
 import type { ChannelsSettings } from "@/settings";
 import { OUTCOME_DISPOSITION_OPTIONS } from "@/components/transcript/InteractionTranscript";
 import { cn } from "@/lib/utils";
+import { RadioFilterChip } from "./RadioFilterChip";
 import {
   type LucideIcon,
   Phone,
@@ -358,6 +359,15 @@ export interface ContactHistoryEntry {
  * see that component's own doc comment — to avoid restating the name its
  * caller's `InteriorPanel` `headerTitle` already shows just above it.
  */
+/** Contact History's search (the card's, and Home's History view's, P-HOME-1h): the name, the one-line case summary,
+ *  the case ID or the channel, case-insensitive; with names hidden, the identity that shows instead. */
+export function contactHistoryEntryMatches(entry: ContactHistoryEntry, query: string, hideCustomerNames?: boolean): boolean {
+  const q = query.trim().toLowerCase();
+  return [entry.name, entry.description, entry.caseId, entry.channelLabel, ...(hideCustomerNames ? [contactHistoryDisplayIdentity(entry)] : [])].some(
+    (field) => field.toLowerCase().includes(q),
+  );
+}
+
 export function contactHistoryDisplayIdentity(entry: ContactHistoryEntry): string {
   if (entry.channelType === "chat") return entry.name;
   if (entry.channelType === "email") return entry.email ?? entry.name;
@@ -1108,12 +1118,8 @@ export function buildContactHistoryByRange(
   };
 }
 
-/* Same trigger/popover chrome as `DateFilterChip` above (filterChipVariants
-   "default" trigger, RadioGroup popover) but for `ContactHistoryDateFilterValue`
-   specifically and with no "Custom" branch/DateRangePicker — kept as its own
-   small component rather than genericizing `DateFilterChip` itself, since
-   the two have different value sets and this one is intentionally simpler
-   (no custom-range case to handle). */
+/* `DateFilterChip`'s trigger/popover chrome (RadioFilterChip) for
+   `ContactHistoryDateFilterValue`, with no "Custom" branch/DateRangePicker. */
 export function ContactHistoryDateFilterChip({
   onValueChange,
   defaultValue = "last48h",
@@ -1128,7 +1134,6 @@ export function ContactHistoryDateFilterChip({
    *  "why must these two stay matched" reasoning. */
   defaultValue?: ContactHistoryDateFilterValue;
 }) {
-  const [open, setOpen] = useState(false);
   // Seeded from `defaultValue` (default "Last 48 Hours") — must match
   // `ContactHistoryCard`'s own `dateFilter` initial state below, since
   // that's a second, independent piece of state this chip doesn't own
@@ -1136,52 +1141,16 @@ export function ContactHistoryDateFilterChip({
   // would show the wrong label in the trigger while the card was actually
   // filtered to a different window underneath it.
   const [value, setValue] = useState<ContactHistoryDateFilterValue>(defaultValue);
-
-  const selectedLabel = CONTACT_HISTORY_DATE_FILTER_OPTIONS.find((o) => o.value === value)?.label ?? "";
-
-  const handleValueChange = (v: ContactHistoryDateFilterValue) => {
-    setValue(v);
-    onValueChange?.(v);
-  };
-
   return (
-    // See `DateFilterChip`'s identical Tooltip-wraps-Popover composition
-    // above (CONTRIBUTING.md §16) for why this is structured outside-in.
-    <Tooltip content={`Date filter: ${selectedLabel}`} placement="bottom" disabled={open}>
-      <span className="inline-flex">
-        <Popover
-          open={open}
-          onOpenChange={setOpen}
-          placement="bottom"
-          content={
-            <div className="flex flex-col gap-3 p-3 w-[260px]">
-              <RadioGroup value={value} onValueChange={(v) => handleValueChange(v as ContactHistoryDateFilterValue)}>
-                {CONTACT_HISTORY_DATE_FILTER_OPTIONS.map((option) => (
-                  <RadioGroupItem key={option.value} value={option.value} label={option.label} />
-                ))}
-              </RadioGroup>
-            </div>
-          }
-        >
-          <Button
-            variant="ghost"
-            aria-label={open ? "Close date filter" : `Date filter: ${selectedLabel}`}
-            className={cn(filterChipVariants({ variant: "default" }), "rounded-lyra-md lyra-container-header-filter-trigger")}
-          >
-            {/* Full label — hidden below 480px of the header's own width (see
-                lyra-tokens.css's "Filter chip icon collapse" family) in favor
-                of the compact kebab icon below, both wired to this same
-                Popover trigger/open state. */}
-            <span className="lyra-container-header-filter-full inline-flex items-baseline gap-1">
-              <span className="lyra-body-md-emphasis whitespace-nowrap">Date:</span>
-              <span className="lyra-body-md truncate">{selectedLabel}</span>
-            </span>
-            <ChevronDown className={cn("lyra-container-header-filter-full h-3.5 w-3.5 flex-shrink-0 transition-transform", open && "rotate-180")} strokeWidth={1.5} aria-hidden="true" />
-            <MoreVertical className="lyra-container-header-filter-compact h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-          </Button>
-        </Popover>
-      </span>
-    </Tooltip>
+    <RadioFilterChip
+      label="Date"
+      options={CONTACT_HISTORY_DATE_FILTER_OPTIONS}
+      value={value}
+      onValueChange={(v) => {
+        setValue(v);
+        onValueChange?.(v);
+      }}
+    />
   );
 }
 
@@ -1271,19 +1240,10 @@ export function ContactHistoryCard({
   // showing (`contactHistoryDisplayIdentity`) — a phone/email/handle
   // search should find its row even though `entry.name` itself is never
   // on screen in that mode.
-  const filteredEntries = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return entries;
-    return entries.filter((entry) =>
-      [
-        entry.name,
-        entry.description,
-        entry.caseId,
-        entry.channelLabel,
-        ...(hideCustomerNames ? [contactHistoryDisplayIdentity(entry)] : []),
-      ].some((field) => field.toLowerCase().includes(query))
-    );
-  }, [entries, searchQuery, hideCustomerNames]);
+  const filteredEntries = useMemo(
+    () => (searchQuery.trim() ? entries.filter((entry) => contactHistoryEntryMatches(entry, searchQuery, hideCustomerNames)) : entries),
+    [entries, searchQuery, hideCustomerNames],
+  );
 
   // Reset back to page 1 whenever the date range, search query, or page
   // size changes — otherwise switching from "Last 72 Hours" (page 9 of a

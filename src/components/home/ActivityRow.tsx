@@ -29,7 +29,8 @@ export function ActivityRow({
   /** Its preview is open (a History row, as Contact History's selected row). */
   selected?: boolean;
 }) {
-  const time = row.at !== undefined ? feedTimeLabel(row.at, now) : row.timeLabel;
+  // A row's own label (Contact History's "8m ago") wins over its timestamp.
+  const time = row.timeLabel ?? (row.at !== undefined ? feedTimeLabel(row.at, now) : undefined);
   const detail = [row.subtitle, row.sourceLabel].filter(Boolean).join(" · ");
   return (
     <MenuItem

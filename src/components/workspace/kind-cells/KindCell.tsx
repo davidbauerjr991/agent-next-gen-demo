@@ -10,13 +10,10 @@
 // cells (`canvas.cells` overrides apply) in the interaction's reference slot,
 // with its slide-over; the action area ends with the Copilot input, whose
 // answers are scoped to the item (src/scenarios/schedule-copilot.ts).
-import { useState } from "react";
 import { createPortal } from "react-dom";
 import { ActionIconButton, PageHeader, Tag } from "@nicecxone/lyra-ui";
 import { ArrowLeft, Clock } from "lucide-react";
 import { KindTag } from "@/components/home/home-kinds";
-import { CopilotComposer } from "@/components/copilot-composer";
-import { timeLabel } from "@/components/ai-cards/ai-card-icon";
 import { useDetailSlideOverPanel } from "@/components/workspace/detail-slide-over-parts";
 import { ReferenceSlotFrame } from "@/components/workspace/ReferenceSlot";
 import { ReferenceOverlayToggle } from "@/components/workspace/SummariesToggle";
@@ -27,8 +24,9 @@ import { useKindCanvasRegions } from "@/contact-handling/useCanvasRegions";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import type { ScheduleItem } from "@/providers";
-import { scheduleCopilotAnswer, scheduleCopilotFor } from "@/scenarios/schedule-copilot";
 import { t } from "@/i18n";
+import { KindCloseButton } from "./KindCloseButton";
+import { KindCopilot, KindCopilotRows } from "./KindCopilot";
 import { KindOutcomeButton } from "./KindOutcomeButton";
 import { KindBody } from "./kind-bodies";
 
@@ -62,39 +60,11 @@ function KindSessionRow({ item }: { item: ScheduleItem }) {
           </div>
           <div className="flex items-center gap-1">
             {status && <Tag shape="pill" variant="neutral" label={status} data-kind-status="" />}
-            <KindOutcomeButton item={item} />
+            <KindOutcomeButton item={item} labeled />
+            <KindCloseButton item={item} />
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-/** Ask Copilot about the item: the seed's suggestion chips (a used one drops out), answers in the slide-over. */
-function KindCopilot({ item }: { item: ScheduleItem }) {
-  const { openDetailPanelContent } = useWorkspace();
-  const [question, setQuestion] = useState("");
-  const [used, setUsed] = useState<readonly string[]>([]);
-  const ask = (text: string) => {
-    const asked = text.trim();
-    if (!asked) return;
-    const time = timeLabel(Date.now());
-    openDetailPanelContent({ kind: "copilot-result", text: asked, time, link: `kind-copilot:${item.id}:${asked}:${time}`, answer: scheduleCopilotAnswer(item, asked) });
-    setQuestion("");
-  };
-  return (
-    <div className="shrink-0 px-6 pb-4 pt-2" data-kind-copilot="">
-      <CopilotComposer
-        placement="inline"
-        value={question}
-        onChange={setQuestion}
-        onSubmit={ask}
-        suggestions={scheduleCopilotFor(item).suggestions.filter((s) => !used.includes(s))}
-        onActivateSuggestion={(s) => {
-          setUsed((prev) => [...prev, s]);
-          ask(s);
-        }}
-      />
     </div>
   );
 }
@@ -137,9 +107,14 @@ export function KindCell({ item }: { item: ScheduleItem }) {
       {/* `relative`: the reference column's overlay and its slide-over position against this row. */}
       <div className="relative flex min-h-0 min-w-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col" data-kind-action-area="">
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-6">
-            <KindBody item={item} />
-            {regions.action}
+          {/* The conversation action area's column (the transcript's and composer's `max-w-[768px] mx-auto px-6`), so
+              the kind's card and the Copilot input don't stretch the full width. */}
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto py-6">
+            <div className="mx-auto flex w-full max-w-[768px] flex-col gap-4 px-6" data-kind-action-column="">
+              <KindBody item={item} />
+              <KindCopilotRows item={item} />
+              {regions.action}
+            </div>
           </div>
           <KindCopilot item={item} />
         </div>

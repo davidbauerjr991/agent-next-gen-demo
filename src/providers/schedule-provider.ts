@@ -6,8 +6,9 @@ import type { EventSource, ProviderLifecycle } from "./events";
 export type ScheduleRole = "agent" | "supervisor" | "sales";
 
 /** Where a schedule item is in its life. `offered` waits for a decision,
- *  `scheduled` is coming, `active` is open in the rail, `done` is outcomed. */
-export type ScheduleItemState = "offered" | "scheduled" | "active" | "done";
+ *  `scheduled` is coming, `active` is open in the rail, `done` is outcomed,
+ *  `declined` was an offer turned down (it leaves the feed). */
+export type ScheduleItemState = "offered" | "scheduled" | "active" | "done" | "declined";
 
 /** What each kind carries for its row and its cell. Content is data, as in
  *  the scenario scripts. */
@@ -89,6 +90,10 @@ export interface ScheduleProvider extends EventSource<ScheduleEvents>, ProviderL
   listItems(query: { role: ScheduleRole }): Promise<ScheduleSnapshot>;
   /** Opens an offered or scheduled item as an active assignment. */
   open(id: string): Promise<void>;
+  /** Returns an active item to the feed unfinished (scheduled again, no outcome): it leaves the rail. */
+  release(id: string): Promise<void>;
+  /** Turns down an offered item; it leaves the feed. */
+  decline(id: string): Promise<void>;
   /** Records the outcome of an active item and marks it done. */
   complete(id: string, outcome: ScheduleOutcome): Promise<void>;
   /** Appends a note to an open (offered, scheduled or active) item; it stays open. */
