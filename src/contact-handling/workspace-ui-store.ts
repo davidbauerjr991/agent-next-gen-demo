@@ -5,7 +5,7 @@ import type { DetailPanelContent, OutcomeKey, PanelArtifact } from "./workspace/
 import type { AssignmentToast } from "./toasts/assignment-toasts";
 import { assignmentIdFor, type AssignmentKind } from "@/domain";
 import type { ContactHistoryDateFilterValue } from "@/components/agent-next-gen-contact-history";
-import type { AssignmentsRange, FeedTarget } from "./home/activity-feed";
+import type { AssignmentsRange, FeedTarget, FeedView } from "./home/activity-feed";
 
 /** P-HOME-1h: one Copilot ask on a schedule item: its question, when, the answer, and the link its row and summary
  *  line open (the result's slide-over). */
@@ -84,7 +84,7 @@ export interface WorkspaceUiState {
    *  or the agent unpinned it), from the rail's Assignments item. */
   assignmentsPanelOverlayOpen: boolean;
   /** P-HOME-1e: the Activity feed's view (Assignments / History). */
-  activityView: "assignments" | "history";
+  activityView: FeedView;
   /** P-HOME-1f: History's search (Contact History's own search box). */
   activityHistoryQuery: string;
   /** P-HOME-1f: the schedule card (its key) whose kind row is selected while a call is joined to it: the main column
@@ -103,6 +103,9 @@ export interface WorkspaceUiState {
   kindCopilotAsks: Readonly<Record<string, readonly KindCopilotAsk[]>>;
   /** P-HOME-1i: the trainings started and meetings joined (their Start / Join, from the preview or the cell). */
   kindStarted: ReadonlySet<string>;
+  /** P-HOME-1k: the card keys whose feed row has been previewed: read, as having been the active card is
+   *  (`useNewAssignments`). In memory only: unread comes back on reload. */
+  previewedAssignments: ReadonlySet<string>;
   /** P-HOME-1: toasts for events on other assignments, in raise order; dismissed ones stay for the drawer's rows. */
   assignmentToasts: readonly AssignmentToast[];
 }
@@ -188,6 +191,7 @@ export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
   homePreview: null,
   kindCopilotAsks: Object.freeze({}),
   kindStarted: new Set<string>(),
+  previewedAssignments: new Set<string>(),
   assignmentToasts: Object.freeze([]),
 });
 

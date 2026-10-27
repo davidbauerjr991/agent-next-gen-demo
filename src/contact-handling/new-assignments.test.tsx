@@ -23,8 +23,9 @@ describe("useNewAssignments", () => {
   let root: Root;
   let isNew: (cardId: string) => boolean;
 
+  let previewed: ReadonlySet<string> = new Set();
   function Page({ active }: { active: string | null }) {
-    isNew = useNewAssignments(active);
+    isNew = useNewAssignments(active, previewed);
     return null;
   }
 
@@ -72,5 +73,16 @@ describe("useNewAssignments", () => {
     render(null, "na-2");
     expect(isNew("lauren")).toBe(true);
     expect(isNew("jordan")).toBe(true);
+  });
+
+  it("a card whose feed row was previewed isn't new either (P-HOME-1k: the feed's unread is this state)", () => {
+    previewed = new Set();
+    render(null);
+    expect(isNew("schedule:agent-cb-priya")).toBe(true);
+    previewed = new Set(["schedule:agent-cb-priya"]);
+    render(null);
+    expect(isNew("schedule:agent-cb-priya")).toBe(false);
+    expect(isNew("schedule:agent-mt-standup")).toBe(true);
+    previewed = new Set();
   });
 });

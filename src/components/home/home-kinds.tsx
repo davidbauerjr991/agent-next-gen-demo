@@ -56,6 +56,28 @@ export function KindIcon({ kind }: { kind: AssignmentKind }) {
 /** A kind's name (English source; render through `t()`). */
 export const kindLabel = (kind: AssignmentKind): string => KIND_LABELS[kind];
 
+/** The kind in a sentence ("Park this callback", P-HOME-1k), through t(). */
+export function kindNoun(kind: AssignmentKind): string {
+  switch (kind) {
+    case "callback":
+      return t("callback");
+    case "meeting":
+      return t("meeting");
+    case "training":
+      return t("training");
+    case "task":
+      return t("task");
+    case "conversation":
+      return t("conversation");
+    case "coaching":
+      return t("coaching session");
+    case "evaluation":
+      return t("evaluation");
+    case "campaign-block":
+      return t("campaign block");
+  }
+}
+
 /** The kind's chip, with its icon. */
 export function KindTag({ kind }: { kind: AssignmentKind }) {
   return <Tag shape="pill" variant={KIND_TAG_VARIANTS[kind]} icon={<KindIcon kind={kind} />} label={t(KIND_LABELS[kind])} />;

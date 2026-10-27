@@ -1,5 +1,5 @@
 // The Activity feed (P-HOME-1): what is coming at the person, in time order.
-// Offers pin to the top; the Assignments · History view switcher
+// Offers pin to the top; the Assignments · Parked · History view switcher
 // (lyra ToggleGroup, single) picks the view and the kind chips below it
 // (lyra selectable Tags, multi-select) filter it; History lists what left the
 // feed in its range. The rules are activity-feed.ts; this file only lays them out.
@@ -9,8 +9,10 @@ import { ContactHistoryDateFilterChip } from "@/components/agent-next-gen-contac
 import { RadioFilterChip } from "@/components/RadioFilterChip";
 import { ASSIGNMENTS_RANGES, type AssignmentsRange, type FeedRow, type FeedView } from "@/contact-handling/home/activity-feed";
 import { useActivityFeed, type ActivityFeed as ActivityFeedApi } from "@/contact-handling/home/useActivityFeed";
+import { useScheduleSnapshot } from "@/provider-context";
 import { t } from "@/i18n";
 import { ActivityRow } from "./ActivityRow";
+import { FeedRowActions } from "./FeedRowActions";
 import { KindIcon, kindLabel } from "./home-kinds";
 
 const RANGE_LABELS: Record<AssignmentsRange, string> = {
@@ -20,14 +22,27 @@ const RANGE_LABELS: Record<AssignmentsRange, string> = {
   all: "All",
 };
 
-/** A view button's label: its name and, when it has one, its count. */
-function viewLabel(label: string, count?: number) {
+/** A view button's label: its name, its count and, when there are any, its unread ("3 new", P-HOME-1k). */
+function viewLabel(label: string, count?: number, unread = 0) {
   return (
     <span className="flex items-center gap-1.5">
       <span className="truncate">{label}</span>
       {count !== undefined && <Badge shape="circle" variant="neutral" fill="subtle" size="sm" count={count} max={99} />}
+      {unread > 0 && (
+        <Badge shape="pill" color="blue" fontSize={12} data-feed-unread="">
+          {t("{count} new", { count: unread })}
+        </Badge>
+      )}
     </span>
   );
+}
+
+/** A schedule row's hover cluster: Park (or Unpark), and Delete when the agent created it. */
+function RowActions({ row }: { row: FeedRow }) {
+  const snapshot = useScheduleSnapshot();
+  const target = row.target;
+  const item = target.type === "schedule" ? snapshot?.items.find((i) => i.id === target.itemId) : undefined;
+  return item ? <FeedRowActions item={item} form="icon" /> : null;
 }
 
 function FeedGroup({
@@ -59,7 +74,14 @@ function FeedGroup({
         <div role="list" className="flex flex-col">
           {rows.map((row) => (
             <div role="listitem" key={row.assignmentId}>
-              <ActivityRow row={row} now={now} onOpen={() => api.open(row)} selected={api.isSelected(row)} />
+              <ActivityRow
+                row={row}
+                now={now}
+                onOpen={() => api.open(row)}
+                selected={api.isSelected(row)}
+                // Only a scheduled or parked schedule item has actions (no empty cluster on the others).
+                action={row.target.type === "schedule" && (row.status === "scheduled" || row.status === "parked") ? <RowActions row={row} /> : undefined}
+              />
             </div>
           ))}
         </div>
@@ -97,7 +119,8 @@ export function ActivityFeed() {
             value={view}
             onValueChange={(value) => api.setView(value as FeedView)}
             items={[
-              { value: "assignments", label: viewLabel(t("Assignments"), feed.counts.assignments) },
+              { value: "assignments", label: viewLabel(t("Assignments"), feed.counts.assignments, feed.counts.unread) },
+              { value: "parked", label: viewLabel(t("Parked"), feed.counts.parked) },
               { value: "history", label: viewLabel(t("History"), feed.counts.history) },
             ]}
           />
@@ -112,6 +135,8 @@ export function ActivityFeed() {
                 variant="neutral"
                 icon={<KindIcon kind={kind} />}
                 label={t(kindLabel(kind))}
+                // Its unread rows (P-HOME-1k), whatever the other chips pick.
+                {...(feed.unreadByKind[kind] ? { count: feed.unreadByKind[kind] } : {})}
                 selected={api.kindFilter.has(kind)}
                 onClick={() => api.toggleKind(kind)}
               />
@@ -135,6 +160,7 @@ export function ActivityFeed() {
       <FeedGroup title={t("Today")} rows={feed.today} now={now} api={api} />
       <FeedGroup title={t("This week")} rows={feed.thisWeek} now={now} api={api} />
       <FeedGroup title={t("Later")} rows={feed.later} now={now} api={api} />
+      {feed.showParked && <FeedGroup title={t("Parked")} rows={feed.parked} now={now} api={api} empty={t("Nothing parked")} />}
       {feed.showHistory && (
         <FeedGroup
           title={t("History")}

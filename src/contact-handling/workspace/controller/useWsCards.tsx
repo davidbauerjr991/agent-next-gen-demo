@@ -557,7 +557,9 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
    *  it has become the active one by any path (a card click, the Marcus
    *  Webb toast's Review/Takeover, a launched call landing on itself, ...).
    *  Shared with Desk since P0.5b.2 (`useNewAssignments`). */
-  const isNewAssignment = useNewAssignments(activeInteractionId);
+  // P-HOME-1k: a feed row's preview reads it too (the feed's unread is this state).
+  const [previewedAssignments] = useWorkspaceUiField("previewedAssignments");
+  const isNewAssignment = useNewAssignments(activeInteractionId, previewedAssignments);
   // The incoming tile's answer SLA thresholds (the active profile's).
   const answerSla = useAnswerSla();
   // The Customers table's search, filters, sort and selection, shared by the

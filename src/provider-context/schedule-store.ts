@@ -52,6 +52,9 @@ function createScheduleStore(provider: ScheduleProvider): ScheduleStore {
       if (refs !== 1) return;
       unsubscribes = [
         provider.on("reset", ({ snapshot }) => commit(snapshot)),
+        provider.on("itemRemoved", ({ id }) => {
+          if (state) commit({ ...state, items: state.items.filter((i) => i.id !== id) });
+        }),
         provider.on("itemChanged", ({ item }) => {
           if (!state) return;
           const exists = state.items.some((i) => i.id === item.id);
@@ -81,6 +84,9 @@ const NO_STORE: ScheduleStore = createScheduleStore({
   addNote: () => Promise.reject(new Error("no schedule source")),
   release: () => Promise.reject(new Error("no schedule source")),
   decline: () => Promise.reject(new Error("no schedule source")),
+  park: () => Promise.reject(new Error("no schedule source")),
+  unpark: () => Promise.reject(new Error("no schedule source")),
+  remove: () => Promise.reject(new Error("no schedule source")),
   dispose: async () => {},
 });
 

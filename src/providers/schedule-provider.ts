@@ -7,8 +7,9 @@ export type ScheduleRole = "agent" | "supervisor" | "sales";
 
 /** Where a schedule item is in its life. `offered` waits for a decision,
  *  `scheduled` is coming, `active` is open in the rail, `done` is outcomed,
- *  `declined` was an offer turned down (it leaves the feed). */
-export type ScheduleItemState = "offered" | "scheduled" | "active" | "done" | "declined";
+ *  `declined` was an offer turned down (it leaves the feed), `parked` is set
+ *  aside by the agent (out of the feed and the rail, no due, until unparked). */
+export type ScheduleItemState = "offered" | "scheduled" | "active" | "done" | "declined" | "parked";
 
 /** What each kind carries for its row and its cell. Content is data, as in
  *  the scenario scripts. */
@@ -47,6 +48,10 @@ export interface ScheduleItem {
   durationMin?: number;
   state: ScheduleItemState;
   completedAt?: EpochMs;
+  /** When it was parked (state `parked`). */
+  parkedAt?: EpochMs;
+  /** The agent created it (a callback they scheduled): it can be removed; anything else is parked instead. */
+  deletable?: boolean;
   outcome?: ScheduleOutcome;
   /** Notes added while the item is open (a task's call summaries, P-HOME-1d). */
   notes?: readonly string[];
@@ -74,6 +79,8 @@ export interface ScheduleEvents {
   itemChanged: { item: ScheduleItem };
   /** A scheduled item reached its due time. */
   itemDue: { item: ScheduleItem };
+  /** An item was removed (`remove`): it's gone from the day. */
+  itemRemoved: { id: string };
   /** The day was replaced (a different role was listed). */
   reset: { snapshot: ScheduleSnapshot };
 }
@@ -94,6 +101,12 @@ export interface ScheduleProvider extends EventSource<ScheduleEvents>, ProviderL
   release(id: string): Promise<void>;
   /** Turns down an offered item; it leaves the feed. */
   decline(id: string): Promise<void>;
+  /** Sets a scheduled item aside: out of the feed, no due event while parked (its due time is kept for `unpark`). */
+  park(id: string): Promise<void>;
+  /** Returns a parked item to the feed at its original due, or now if that has passed. */
+  unpark(id: string): Promise<void>;
+  /** Removes an item the agent created (`deletable`); anything else is refused. */
+  remove(id: string): Promise<void>;
   /** Records the outcome of an active item and marks it done. */
   complete(id: string, outcome: ScheduleOutcome): Promise<void>;
   /** Appends a note to an open (offered, scheduled or active) item; it stays open. */

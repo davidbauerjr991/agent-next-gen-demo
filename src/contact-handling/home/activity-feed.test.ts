@@ -153,7 +153,41 @@ describe("buildFeed", () => {
 
   it("counts the groups whatever the view shows", () => {
     const { counts } = buildFeed(input({ view: "history" }));
-    expect(counts).toEqual({ needsDecision: 1, now: 0, today: 5, thisWeek: 3, later: 0, assignments: 8, history: 1 });
+    expect(counts).toEqual({ needsDecision: 1, now: 0, today: 5, thisWeek: 3, later: 0, assignments: 8, unread: 0, parked: 0, history: 1 });
+  });
+
+  it("unread (P-HOME-1k): the rows the predicate reads as new; the Assignments count's rows and each kind's, whatever the chips pick", () => {
+    const unreadIds = new Set(["agent-cb-priya", "agent-mt-standup", "agent-cb-sofia"]);
+    const isUnread = (r: FeedRow) => r.target.type === "schedule" && unreadIds.has(r.target.itemId);
+    const feed = buildFeed(input({ isUnread }));
+    expect(feed.today.filter((r) => r.unread).map((r) => r.title)).toEqual(["Callback · Priya Shah", "Returns team stand-up", "Callback · Sofia Ramirez"]);
+    expect(feed.counts.unread).toBe(3);
+    expect(feed.unreadByKind).toEqual({ callback: 2, meeting: 1 });
+    // A chip narrows the rows, not the chips' own counts.
+    const meetings = buildFeed(input({ isUnread, kindFilter: new Set<AssignmentKind>(["meeting"]) }));
+    expect(meetings.counts.unread).toBe(1);
+    expect(meetings.unreadByKind).toEqual({ callback: 2, meeting: 1 });
+  });
+
+  it("parked (P-HOME-1k): out of the feed's groups, in the Parked view newest parked first, its own count; the chips filter it", () => {
+    const items = seedScheduleDay("agent", NOW).map((i) =>
+      i.id === "agent-cb-priya"
+        ? { ...i, state: "parked" as const, parkedAt: NOW - 30 * MIN }
+        : i.id === "agent-mt-standup"
+          ? { ...i, state: "parked" as const, parkedAt: NOW - 5 * MIN }
+          : i,
+    );
+    const assignments = buildFeed(input({ scheduleItems: items }));
+    expect(assignments.today.map((r) => r.title)).not.toContain("Callback · Priya Shah");
+    expect(assignments.counts).toMatchObject({ today: 3, parked: 2 });
+    expect(assignments.parked).toEqual([]);
+    const parked = buildFeed(input({ scheduleItems: items, view: "parked" }));
+    expect([parked.showAssignments, parked.showParked, parked.showHistory]).toEqual([false, true, false]);
+    expect(titles(parked.parked)).toEqual(["Returns team stand-up", "Callback · Priya Shah"]);
+    expect(parked.today).toEqual([]);
+    expect(titles(buildFeed(input({ scheduleItems: items, view: "parked", kindFilter: new Set<AssignmentKind>(["callback"]) })).parked)).toEqual([
+      "Callback · Priya Shah",
+    ]);
   });
 
   it("leaves out kinds the persona doesn't see", () => {

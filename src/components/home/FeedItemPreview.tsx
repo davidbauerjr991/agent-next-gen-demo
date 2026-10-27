@@ -19,6 +19,7 @@ import { useScheduleProvider, useScheduleSnapshot } from "@/provider-context";
 import type { ScheduleItem } from "@/providers";
 import { t } from "@/i18n";
 import { CHANNEL_NAMES } from "@/contact-handling/home/channel-names";
+import { FeedRowActions } from "./FeedRowActions";
 import { KindTag, kindLabel } from "./home-kinds";
 
 /** The seed's detail, one line each: the agenda, the module, the ticket, the callback's reason… */
@@ -120,14 +121,20 @@ function ScheduleItemPreview({ item }: { item: ScheduleItem }) {
             )
           }
         />
+      ) : item.state === "scheduled" ? (
+        // The kind's action is the primary; Open, the secondary, moves it to the rail and makes it active, nothing else.
+        // Park (and Delete, for one the agent created) beside them (P-HOME-1k).
+        <div className="flex flex-wrap items-center gap-2">
+          <KindAction item={item} run={run} />
+          <Button variant="outline" onClick={() => run(() => activate(target))} data-preview-open="">
+            {t("Open")}
+          </Button>
+          <FeedRowActions item={item} form="button" after={() => setPreview(null)} />
+        </div>
       ) : (
-        item.state === "scheduled" && (
-          // The kind's action is the primary; Open, the secondary, moves it to the rail and makes it active, nothing else.
-          <div className="flex items-center gap-2">
-            <KindAction item={item} run={run} />
-            <Button variant="outline" onClick={() => run(() => activate(target))} data-preview-open="">
-              {t("Open")}
-            </Button>
+        item.state === "parked" && (
+          <div className="flex flex-wrap items-center gap-2">
+            <FeedRowActions item={item} form="button" after={() => setPreview(null)} />
           </div>
         )
       )}

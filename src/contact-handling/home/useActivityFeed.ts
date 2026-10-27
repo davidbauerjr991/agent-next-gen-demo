@@ -72,6 +72,10 @@ export interface ActivityFeed {
 
 const rowMatches = (row: FeedRow, query: string) => `${row.title} ${row.subtitle}`.toLowerCase().includes(query.trim().toLowerCase());
 
+/** The card key a row's target reads its new state by (a schedule item's or an offer's); none for a History entry. */
+const targetCardKey = (target: FeedTarget): string | null =>
+  target.type === "schedule" ? scheduleCardKey(target.itemId) : target.type === "card" ? target.cardId : null;
+
 const sameTarget = (a: FeedTarget | null, b: FeedTarget) =>
   !!a && a.type === b.type && (a.type === "card" ? a.cardId : a.type === "schedule" ? a.itemId : a.entryId) ===
     (b.type === "card" ? b.cardId : b.type === "schedule" ? b.itemId : b.entryId);
@@ -143,10 +147,12 @@ export function useActivityFeed(): ActivityFeed {
   const [historyQuery, setHistoryQuery] = useWorkspaceUiField("activityHistoryQuery");
   const [range, setRange] = useWorkspaceUiField("activityRange");
   const [preview, setPreview] = useWorkspaceUiField("homePreview");
+  const [, setPreviewed] = useWorkspaceUiField("previewedAssignments");
   // Time groups only move on the minute.
   const minute = useClockValue(ws.clock, (tick) => Math.floor(tick / 60));
   const {
     interactions, contactHistoryByRange, setSelectedQueueId, setSelectedContactHistoryEntry, selectedContactHistoryEntry, setInteriorPanelOpen,
+    isNewAssignment,
   } = ws;
   const historyEntries = contactHistoryByRange[historyRange];
   const kinds = PERSONA_KINDS[persona];
@@ -175,8 +181,13 @@ export function useActivityFeed(): ActivityFeed {
       kindFilter,
       view,
       range,
+      // Unread is the nav card's new state: not yet previewed (below) nor the active card.
+      isUnread: (row) => {
+        const key = targetCardKey(row.target);
+        return !!key && isNewAssignment(key);
+      },
     });
-  }, [interactions, legCardKeys, historyEntries, historyRange, historyQuery, snapshot, kinds, kindFilter, view, range, minute]);
+  }, [interactions, legCardKeys, historyEntries, historyRange, historyQuery, snapshot, kinds, kindFilter, view, range, minute, isNewAssignment]);
 
   const open = useCallback(
     (row: FeedRow) => {
@@ -192,9 +203,12 @@ export function useActivityFeed(): ActivityFeed {
       } else {
         setSelectedContactHistoryEntry(null);
         setPreview((current) => (sameTarget(current, target) ? null : target));
+        // A preview reads it (unread clears; the nav card's new outline too).
+        const key = targetCardKey(target);
+        if (key) setPreviewed((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
       }
     },
-    [historyEntries, selectedContactHistoryEntry, setSelectedQueueId, setSelectedContactHistoryEntry, setInteriorPanelOpen, setPreview],
+    [historyEntries, selectedContactHistoryEntry, setSelectedQueueId, setSelectedContactHistoryEntry, setInteriorPanelOpen, setPreview, setPreviewed],
   );
   const selectedEntryId = selectedContactHistoryEntry?.id;
   const isSelected = useCallback(

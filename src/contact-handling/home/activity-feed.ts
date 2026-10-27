@@ -2,6 +2,8 @@
 // wireframe, docs/activity-home-wireframe.html, where the two differ):
 // (1) offers pin to the top in Needs a decision, whatever their time;
 // (2) a row is in the feed or in the rail, never both;
+// (P-HOME-1k) a row is unread until previewed or opened (the nav card's new
+//     state); a parked item is out of the feed and the rail, in the Parked view;
 // (3) History is a view, not a group: Contact History's entries in its range
 //     (P-HOME-1h: the same entries, order and times as the card), with
 //     completed schedule items of other kinds merged in by completion time.
@@ -18,7 +20,7 @@ export type FeedTarget =
   | { type: "schedule"; itemId: string }
   | { type: "history"; entryId: string };
 
-type FeedRowStatus ="offered" | "scheduled" | "inRail" | "completed";
+type FeedRowStatus = "offered" | "scheduled" | "inRail" | "completed" | "parked";
 
 export interface FeedRow {
   assignmentId: AssignmentId;
@@ -35,11 +37,15 @@ export interface FeedRow {
   channel?: ChannelKind;
   /** A completed voice contact that can be called back. */
   redial?: boolean;
+  /** Not yet previewed or opened (P-HOME-1k): the nav card's new state (`isNewAssignment`). */
+  unread?: boolean;
+  /** The agent created it: Delete instead of only Park (P-HOME-1k). */
+  deletable?: boolean;
 }
 
 /** The view switcher (P-HOME-1e): Assignments is Needs a decision and the
  *  time groups; History is everything that left the feed or completed. */
-export type FeedView = "assignments" | "history";
+export type FeedView = "assignments" | "parked" | "history";
 
 /** The Assignments view's date range (P-HOME-1h): it bounds the time groups; past the week adds Later. */
 export type AssignmentsRange = "today" | "week" | "next30" | "all";
@@ -66,6 +72,8 @@ export interface FeedInput {
   view: FeedView;
   /** Default `week`. */
   range?: AssignmentsRange;
+  /** Whether a row hasn't been previewed or opened yet (the nav card's new state). Unset: every row is read. */
+  isUnread?: (row: FeedRow) => boolean;
 }
 
 export interface Feed {
@@ -77,22 +85,47 @@ export interface Feed {
   later: FeedRow[];
   /** Shown only in the History view. */
   history: FeedRow[];
+  /** Shown only in the Parked view: parked items, newest parked first. */
+  parked: FeedRow[];
   showAssignments: boolean;
+  showParked: boolean;
   showHistory: boolean;
-  counts: { needsDecision: number; now: number; today: number; thisWeek: number; later: number; assignments: number; history: number };
+  counts: {
+    needsDecision: number;
+    now: number;
+    today: number;
+    thisWeek: number;
+    later: number;
+    assignments: number;
+    /** The Assignments view's unread rows (offers and the time groups). */
+    unread: number;
+    parked: number;
+    history: number;
+  };
+  /** Unread Assignments rows by kind, whatever the kind chips pick (the chips' counts). */
+  unreadByKind: Partial<Record<AssignmentKind, number>>;
 }
 
 /** A schedule item as a feed row. */
 function scheduleRow(item: ScheduleItem): FeedRow {
   const status: FeedRowStatus =
-    item.state === "offered" ? "offered" : item.state === "scheduled" ? "scheduled" : item.state === "active" ? "inRail" : "completed";
+    item.state === "offered"
+      ? "offered"
+      : item.state === "scheduled"
+        ? "scheduled"
+        : item.state === "active"
+          ? "inRail"
+          : item.state === "parked"
+            ? "parked"
+            : "completed";
   return {
+    ...(item.deletable ? { deletable: true } : {}),
     assignmentId: assignmentIdFor(scheduleCardKey(item.id)),
     kind: item.kind,
     title: item.title,
     subtitle: item.subtitle,
     sourceLabel: item.sourceLabel,
-    at: item.state === "done" ? (item.completedAt ?? item.dueAt) : item.dueAt,
+    at: item.state === "done" ? (item.completedAt ?? item.dueAt) : item.state === "parked" ? (item.parkedAt ?? item.dueAt) : item.dueAt,
     status,
     target: { type: "schedule", itemId: item.id },
     ...(item.detail.kind === "conversation" ? { channel: item.detail.channel } : {}),
@@ -104,12 +137,18 @@ const NEXT_30_DAYS_MS = 30 * DAY_MS;
 
 export function buildFeed(input: FeedInput): Feed {
   const { now, kinds, kindFilter, view, range = "week" } = input;
-  const ofKind = (row: FeedRow) => kinds.includes(row.kind) && (kindFilter.size === 0 || kindFilter.has(row.kind));
-  // A declined offer has left the feed.
-  const items = input.scheduleItems.filter((i) => i.state !== "declined").map(scheduleRow).filter(ofKind);
+  const persona = (row: FeedRow) => kinds.includes(row.kind);
+  const picked = (row: FeedRow) => kindFilter.size === 0 || kindFilter.has(row.kind);
+  const ofKind = (row: FeedRow) => persona(row) && picked(row);
+  const isUnread = input.isUnread ?? (() => false);
+  const withUnread = (row: FeedRow): FeedRow => (isUnread(row) ? { ...row, unread: true } : row);
+  // A declined offer has left the feed. Every persona row first (the chips' unread counts), then the chips' pick.
+  const personaItems = input.scheduleItems.filter((i) => i.state !== "declined").map(scheduleRow).filter(persona).map(withUnread);
+  const items = personaItems.filter(picked);
+  const offers = input.offers.filter(persona).map(withUnread);
   const inRail = new Set(input.railCards.map((r) => r.assignmentId));
 
-  const needsDecision = [...input.offers.filter(ofKind), ...items.filter((r) => r.status === "offered")].sort(byTime);
+  const needsDecision = [...offers.filter(picked), ...items.filter((r) => r.status === "offered")].sort(byTime);
   const scheduled = items.filter((r) => r.status === "scheduled" && !inRail.has(r.assignmentId)).sort(byTime);
   const endOfToday = startOfDay(now) + DAY_MS;
   const endOfWeek = endOfToday + 6 * DAY_MS;
@@ -128,7 +167,23 @@ export function buildFeed(input: FeedInput): Feed {
   const matches = input.historyMatches ?? (() => true);
   const history = [...input.completedHistory.filter(ofKind), ...completedItems].sort((a, b) => due(b) - due(a)).filter(matches);
 
+  // Parked (P-HOME-1k): out of the feed and the rail, newest parked first; the chips filter it.
+  const parked = items.filter((r) => r.status === "parked").sort((a, b) => due(b) - due(a));
+
+  // Unread: the rows the Assignments count counts (the time groups; Needs a decision has its own header count); by
+  // kind over every persona row in the range, whatever the chips pick, so each chip can show its own.
+  const inAssignments = (r: FeedRow) =>
+    r.status === "scheduled" &&
+    !inRail.has(r.assignmentId) &&
+    (range === "all" || due(r) < (range === "today" ? endOfToday : range === "week" ? endOfWeek : now + NEXT_30_DAYS_MS));
+  const unreadByKind: Partial<Record<AssignmentKind, number>> = {};
+  for (const r of personaItems) {
+    if (r.unread && inAssignments(r)) unreadByKind[r.kind] = (unreadByKind[r.kind] ?? 0) + 1;
+  }
+  const assignmentRows = [...nowRows, ...today, ...thisWeek, ...later];
+
   const showHistory = view === "history";
+  const showParked = view === "parked";
   const showAssignments = view === "assignments";
   return {
     needsDecision: showAssignments ? needsDecision : [],
@@ -137,7 +192,9 @@ export function buildFeed(input: FeedInput): Feed {
     thisWeek: showAssignments ? thisWeek : [],
     later: showAssignments ? later : [],
     history: showHistory ? history : [],
+    parked: showParked ? parked : [],
     showAssignments,
+    showParked,
     showHistory,
     counts: {
       needsDecision: needsDecision.length,
@@ -146,7 +203,10 @@ export function buildFeed(input: FeedInput): Feed {
       thisWeek: thisWeek.length,
       later: later.length,
       assignments: nowRows.length + today.length + thisWeek.length + later.length,
+      unread: assignmentRows.filter((r) => r.unread).length,
+      parked: parked.length,
       history: history.length,
     },
+    unreadByKind,
   };
 }

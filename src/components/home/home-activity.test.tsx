@@ -52,7 +52,9 @@ const rows = (title: string) => [...(group(title)?.querySelectorAll<HTMLElement>
 const rowNamed = (text: string) => [...feed().querySelectorAll<HTMLElement>("[data-feed-row]")].find((r) => r.textContent?.includes(text));
 /** A view in the Assignments · History switcher (a radio). */
 const view = (label: string) => [...feed().querySelectorAll<HTMLElement>("[data-feed-views] [role=radio]")].find((b) => b.textContent?.trim().startsWith(label));
-const kindChip = (label: string) => [...feed().querySelectorAll<HTMLButtonElement>("[data-feed-kinds] button")].find((b) => b.textContent?.trim() === label);
+/** A kind chip by its label (its unread count, when it has one, follows the label). */
+const chipLabel = (b: Element) => b.textContent?.trim().replace(/\d+$/, "");
+const kindChip = (label: string) => [...feed().querySelectorAll<HTMLButtonElement>("[data-feed-kinds] button")].find((b) => chipLabel(b) === label);
 const homeButton = () => [...h.container.querySelectorAll("aside button, aside [role=button]")].find((el) => el.textContent?.trim() === "Home")!;
 const sectionsIn = (scope: Element) => [...scope.querySelectorAll(":scope > [data-home-section], :scope > * > [data-home-section]")].map((el) => el.getAttribute("data-home-section"));
 
@@ -145,11 +147,12 @@ describe("Activity feed on Home", () => {
     }
   });
 
-  it("the view switcher is Assignments | History (one always selected, Assignments by default): a row previews; its Join moves it off the feed into the rail", async () => {
+  it("the view switcher is Assignments | Parked | History (one always selected, Assignments by default): a row previews; its Join moves it off the feed into the rail", async () => {
     turnOn();
     await showHome();
-    expect([...feed().querySelectorAll("[data-feed-views] [role=radio]")].map((b) => b.textContent?.replace(/\d+$/, "").trim())).toEqual([
+    expect([...feed().querySelectorAll("[data-feed-views] [role=radio]")].map((b) => b.textContent?.replace(/\d+( new)?$/, "").replace(/\d+$/, "").trim())).toEqual([
       "Assignments",
+      "Parked",
       "History",
     ]);
     expect(view("Assignments")?.getAttribute("aria-checked")).toBe("true");
@@ -200,7 +203,7 @@ describe("Activity feed on Home", () => {
     await showHome();
     const order = [...feed().querySelectorAll("[data-feed-views], [data-feed-kinds]")].map((el) => (el.hasAttribute("data-feed-views") ? "views" : "kinds"));
     expect(order).toEqual(["views", "kinds"]);
-    expect([...feed().querySelectorAll("[data-feed-kinds] button")].map((b) => b.textContent?.trim())).toEqual([
+    expect([...feed().querySelectorAll("[data-feed-kinds] button")].map(chipLabel)).toEqual([
       "Conversation",
       "Callback",
       "Meeting",
@@ -368,6 +371,88 @@ describe("Activity feed on Home", () => {
     // Not on History.
     await h.click(view("History")!);
     expect(feed().querySelector("[data-feed-range]")).toBeNull();
+  });
+
+  it("unread (P-HOME-1k): every new row is bold with a dot and counted on Assignments and its kind chip; a preview reads it, across view switches", async () => {
+    turnOn();
+    await showHome();
+    const unread = () => feed().querySelector("[data-feed-views] [data-feed-unread]")?.textContent;
+    const row = () => rowNamed("Returns team stand-up")!;
+    expect(row().getAttribute("data-unread")).toBe("true");
+    expect(unread()).toBe("8 new");
+    expect(kindChip("Meeting")?.textContent?.trim()).toBe("Meeting2");
+    await h.click(row());
+    await h.advance(100);
+    expect(row().getAttribute("data-unread")).toBeNull();
+    expect(unread()).toBe("7 new");
+    expect(kindChip("Meeting")?.textContent?.trim()).toBe("Meeting1");
+    // Still read after a round trip through the other views.
+    await h.click(view("Parked")!);
+    await h.click(view("History")!);
+    await h.click(view("Assignments")!);
+    expect(row().getAttribute("data-unread")).toBeNull();
+    expect(unread()).toBe("7 new");
+  });
+
+  it("park (P-HOME-1k): from the row's hover cluster in the kind's words; out of the feed into Parked, its count; Unpark returns it", async () => {
+    turnOn();
+    await showHome();
+    const priya = () => rowNamed("Callback · Priya Shah");
+    const park = priya()!.querySelector<HTMLElement>('[data-feed-action="park"]')!;
+    expect(park.getAttribute("aria-label") ?? park.getAttribute("title")).toBe("Park this callback");
+    await h.click(park);
+    await h.advance(200);
+    expect(priya()).toBeUndefined();
+    expect(view("Assignments")?.textContent).toContain("7");
+    expect(view("Parked")?.textContent).toMatch(/^Parked1/);
+    await h.click(view("Parked")!);
+    expect(rows("Parked").map((r) => r.getAttribute("data-feed-status"))).toEqual(["parked"]);
+    // Still unread, and the same preview, with Unpark.
+    expect(priya()!.getAttribute("data-unread")).toBe("true");
+    await h.click(priya()!.querySelector<HTMLElement>('[data-feed-action="unpark"]')!);
+    await h.advance(200);
+    expect(group("Parked")?.textContent).toContain("Nothing parked");
+    await h.click(view("Assignments")!);
+    expect(priya()?.getAttribute("data-feed-status")).toBe("scheduled");
+  });
+
+  it("delete (P-HOME-1k): only on an item the agent created, after a confirm; a WFM or calendar item has no Delete anywhere", async () => {
+    turnOn();
+    await showHome();
+    // WFM training: Park, no Delete, on the row and in its preview.
+    const training = rowNamed("RET-1.3 refund policy update")!;
+    expect(training.querySelector('[data-feed-action="park"]')).not.toBeNull();
+    expect(training.querySelector('[data-feed-action="delete"]')).toBeNull();
+    await h.click(training);
+    await h.advance(100);
+    const preview = () => document.querySelector<HTMLElement>("[data-home-detail=item]")!;
+    expect(preview().querySelector('[data-feed-action="park"]')).not.toBeNull();
+    expect(preview().querySelector('[data-feed-action="delete"]')).toBeNull();
+    // The agent's own callback: Delete, confirmed.
+    const sofia = () => rowNamed("Callback · Sofia Ramirez");
+    await h.click(sofia()!.querySelector<HTMLElement>('[data-feed-action="delete"]')!);
+    expect(document.body.textContent).toContain("Delete this callback?");
+    expect(document.body.textContent).toContain("It won't come back.");
+    expect(sofia()).toBeDefined();
+    // The confirm's own Delete (the only labeled one: the row's is an icon).
+    await h.click([...document.querySelectorAll<HTMLButtonElement>("button")].filter((b) => b.textContent?.trim() === "Delete").pop()!);
+    await h.advance(200);
+    expect(sofia()).toBeUndefined();
+    await h.click(view("Parked")!);
+    await h.click(view("History")!);
+    expect(feed().textContent).not.toContain("Sofia Ramirez");
+    // From the preview too, in the kind's words, after the same confirm.
+    await h.click(view("Assignments")!);
+    await h.click(rowNamed("Callback · Nathan Cole")!);
+    await h.advance(100);
+    const del = preview().querySelector<HTMLElement>('[data-feed-action="delete"]')!;
+    expect(del.textContent).toBe("Delete this callback");
+    expect(preview().querySelector('[data-feed-action="park"]')?.textContent).toBe("Park this callback");
+    await h.click(del);
+    expect(document.body.textContent).toContain("Delete this callback?");
+    await h.click([...document.querySelectorAll<HTMLButtonElement>("button")].filter((b) => b.textContent?.trim() === "Delete").pop()!);
+    await h.advance(200);
+    expect(rowNamed("Callback · Nathan Cole")).toBeUndefined();
   });
 
   it("History is Contact History's list: the same entries, order and times as the card; the History count is that list", async () => {

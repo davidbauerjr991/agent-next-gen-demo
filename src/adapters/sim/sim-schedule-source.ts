@@ -120,6 +120,35 @@ export function createSimScheduleProvider(options?: { latency?: LatencyRange; no
       guard("decline");
       update(id, "decline", ["offered"], { state: "declined" });
     },
+    async park(id) {
+      guard("park");
+      await delay();
+      guard("park");
+      // Leaving `scheduled` cancels its due timer (update); the original due is kept for unpark.
+      update(id, "park", ["scheduled"], { state: "parked", parkedAt: now() });
+    },
+    async unpark(id) {
+      guard("unpark");
+      await delay();
+      guard("unpark");
+      const item = items.get(id);
+      const dueAt = item && item.dueAt > now() ? item.dueAt : now();
+      update(id, "unpark", ["parked"], { state: "scheduled", dueAt, parkedAt: undefined });
+      armDue(items.get(id)!);
+    },
+    async remove(id) {
+      guard("remove");
+      await delay();
+      guard("remove");
+      const item = items.get(id);
+      if (!item) throw providerError("not-found", `ScheduleProvider.remove: no item ${id}`);
+      if (!item.deletable) throw providerError("invalid-state", `ScheduleProvider.remove: item ${id} wasn't created by the agent`);
+      items.delete(id);
+      const timer = dueTimers.get(id);
+      if (timer) clearTimeout(timer);
+      dueTimers.delete(id);
+      emit("itemRemoved", { id });
+    },
     async complete(id, outcome) {
       guard("complete");
       await delay();

@@ -139,6 +139,53 @@ describe("sim schedule source", () => {
     expect(changes[changes.length - 1]?.item).toMatchObject({ id: "sup-esc-briggs", state: "declined" });
   });
 
+  it("park keeps the item with no due (no due event while parked); unpark returns it at its due, or now once that's past", async () => {
+    await settle(source.listItems({ role: "agent" }));
+    const due: string[] = [];
+    source.on("itemDue", (e) => due.push(e.item.id));
+    const changes: ScheduleEvents["itemChanged"][] = [];
+    source.on("itemChanged", (e) => changes.push(e));
+    await settle(source.park("agent-cb-priya"));
+    const parked = changes[changes.length - 1]!.item;
+    expect(parked).toMatchObject({ state: "parked", parkedAt: NOW + 2 * LATENCY.maxMs });
+    const originalDue = parked.dueAt;
+    await vi.advanceTimersByTimeAsync(31 * 60_000);
+    expect(due).toEqual([]);
+    // Past its due: back at now.
+    await settle(source.unpark("agent-cb-priya"));
+    const back = changes[changes.length - 1]!.item;
+    expect(back.state).toBe("scheduled");
+    expect(back.parkedAt).toBeUndefined();
+    expect(back.dueAt).toBeGreaterThan(originalDue);
+    // Still ahead: back at its original due, which then fires.
+    await settle(source.park("agent-mt-standup"));
+    const meetingDue = changes[changes.length - 1]!.item.dueAt;
+    await settle(source.unpark("agent-mt-standup"));
+    expect(changes[changes.length - 1]!.item.dueAt).toBe(meetingDue);
+    await vi.advanceTimersByTimeAsync(90 * 60_000);
+    expect(due).toContain("agent-mt-standup");
+    const rejected = expect(source.unpark("agent-tr-ret13")).rejects.toMatchObject({ code: "invalid-state" });
+    await vi.advanceTimersByTimeAsync(LATENCY.maxMs);
+    await rejected;
+  });
+
+  it("remove deletes only what the agent created (itemRemoved); anything else is refused", async () => {
+    const { items } = await settle(source.listItems({ role: "agent" }));
+    expect(items.filter((i) => i.deletable).map((i) => i.id)).toEqual(["agent-cb-sofia", "agent-cb-nathan"]);
+    const removed: string[] = [];
+    source.on("itemRemoved", (e) => removed.push(e.id));
+    await settle(source.remove("agent-cb-sofia"));
+    expect(removed).toEqual(["agent-cb-sofia"]);
+    const after = await settle(source.listItems({ role: "agent" }));
+    expect(after.items.some((i) => i.id === "agent-cb-sofia")).toBe(false);
+    const rejected = Promise.all([
+      expect(source.remove("agent-tr-ret13")).rejects.toMatchObject({ code: "invalid-state" }),
+      expect(source.remove("agent-cb-sofia")).rejects.toMatchObject({ code: "not-found" }),
+    ]);
+    await vi.advanceTimersByTimeAsync(LATENCY.maxMs);
+    await rejected;
+  });
+
   it("rejects every call once disposed", async () => {
     await source.dispose();
     await expect(source.listItems({ role: "agent" })).rejects.toMatchObject({ code: "invalid-state" });

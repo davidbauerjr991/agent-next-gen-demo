@@ -57,8 +57,8 @@ test("the feed: today and this week's scheduled rows, the Assignments count matc
   const scheduled = feed(page).locator('[data-feed-row][data-feed-status="scheduled"]');
   await expect(scheduled).toHaveCount(8);
   await expect(view(page, "Assignments")).toContainText("8");
-  // Two views, Assignments by default.
-  await expect(feed(page).locator("[data-feed-views]").getByRole("radio")).toHaveCount(2);
+  // Three views (Assignments | Parked | History, P-HOME-1k), Assignments by default.
+  await expect(feed(page).locator("[data-feed-views]").getByRole("radio")).toHaveCount(3);
   await expect(view(page, "Assignments")).toHaveAttribute("aria-checked", "true");
   await expect(feed(page).locator('[data-feed-group="Completed today"]')).toHaveCount(0);
   // Completed work is History, never a time group.
@@ -152,6 +152,42 @@ test("a callback's preview: Open puts it in the rail undialled; Dial opens the d
   // The call shows, and nothing asks to dial again.
   await expect(page.locator("[data-kind-cell]")).toHaveCount(0);
   await expect(page.getByLabel("Phone number")).toHaveCount(0);
+});
+
+test("unread: the Assignments badge drops after a preview and stays down across views; a reload brings it back", async ({ page }) => {
+  await open(page);
+  const badge = feed(page).locator("[data-feed-views] [data-feed-unread]");
+  await expect(badge).toHaveText("8 new");
+  const row = feed(page).locator("[data-feed-row]", { hasText: "Returns team stand-up" });
+  await expect(row).toHaveAttribute("data-unread", "true");
+  await row.click();
+  await expect(row).not.toHaveAttribute("data-unread", "true");
+  await expect(badge).toHaveText("7 new");
+  await view(page, "History").click();
+  await view(page, "Assignments").click();
+  await expect(badge).toHaveText("7 new");
+  await page.reload();
+  await page.getByRole("button", { name: "Go Available" }).click();
+  await expect(feed(page).locator("[data-feed-views] [data-feed-unread]")).toHaveText("8 new");
+});
+
+test("park a callback from its row's hover cluster: it leaves the feed for Parked; Unpark returns it", async ({ page }) => {
+  await open(page);
+  const row = feed(page).locator("[data-feed-row]", { hasText: "Callback · Priya Shah" });
+  await row.hover();
+  const park = row.getByRole("button", { name: "Park this callback" });
+  await expect(park).toBeVisible();
+  await park.click();
+  await expect(row).toHaveCount(0);
+  await expect(view(page, "Parked")).toContainText("1");
+  await view(page, "Parked").click();
+  const parked = group(page, "Parked").locator("[data-feed-row]", { hasText: "Callback · Priya Shah" });
+  await expect(parked).toHaveAttribute("data-feed-status", "parked");
+  await parked.hover();
+  await parked.getByRole("button", { name: "Unpark" }).click();
+  await expect(group(page, "Parked")).toContainText("Nothing parked");
+  await view(page, "Assignments").click();
+  await expect(feed(page).locator('[data-feed-row][data-feed-status="scheduled"]', { hasText: "Callback · Priya Shah" })).toBeVisible();
 });
 
 test("the Assignments range: This week by default; Next 30 days adds Later; Today drops This week", async ({ page }) => {
