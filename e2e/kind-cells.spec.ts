@@ -12,7 +12,7 @@ test("ask Copilot on a training: the inline row and its result under the Module 
   await page.goto("?provider=sim&latency=off#/agent-advanced");
   await page.getByRole("button", { name: "Go Available" }).click();
   await page.locator("[data-activity-feed] [data-feed-row]", { hasText: "RET-1.3 refund policy update" }).click();
-  await page.locator("[data-home-detail=item] [data-preview-primary]").click();
+  await page.locator("[data-home-detail=item] [data-preview-open]").click();
   const cell = page.locator("[data-kind-cell=training]");
   await expect(cell).toBeVisible();
   await expect(cell.locator("[data-kind-copilot] textarea, [data-kind-copilot] input").first()).toHaveAttribute("placeholder", "Ask Copilot about this module…");

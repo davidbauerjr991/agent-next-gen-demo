@@ -8,7 +8,7 @@
 // leaves the rail, while a task stays open and gets the call's summary as a
 // note. P0.9 generalizes the leg-join to every assignment (PROGRESS Known gaps).
 import { useCallback, useEffect, useRef } from "react";
-import { scheduleItemIdOf } from "@/domain";
+import { scheduleCardKey, scheduleItemIdOf } from "@/domain";
 import { useInteractions, useScheduleProvider, useScheduleSnapshot } from "@/provider-context";
 import type { ScheduleItem } from "@/providers";
 import { useWorkspace } from "../workspace/WorkspaceContext";
@@ -23,12 +23,15 @@ export function scheduleCallTarget(item: ScheduleItem): { phone: string; summary
   return { phone, summary: d.kind === "task" ? [`${d.ticket}: ${d.summary}`] : [item.subtitle] };
 }
 
-/** Opens the dial pad beneath `anchorEl` for a call from `item`, prefilled with the customer's number. */
-export function useScheduleDial(): (item: ScheduleItem, anchorEl: HTMLElement | null) => void {
+/** Opens the dial pad beneath `anchorEl` for a call from `item`, prefilled with the customer's number. `openFirst`
+ *  (a Home preview's Dial, P-HOME-1i): confirming opens the item into the rail, then places the call, which joins its
+ *  card as the voice leg and shows; cancelling leaves the item where it was. */
+export function useScheduleDial(): (item: ScheduleItem, anchorEl: HTMLElement | null, options?: { openFirst?: boolean }) => void {
   const { outboundDial } = useWorkspace();
+  const schedule = useScheduleProvider();
   const [, setKindCellShownFor] = useWorkspaceUiField("kindCellShownFor");
   return useCallback(
-    (item, anchorEl) => {
+    (item, anchorEl, options) => {
       const target = scheduleCallTarget(item);
       if (!target) return;
       // The call becomes the card's selected row once it's placed (the main column follows it).
@@ -40,11 +43,34 @@ export function useScheduleDial(): (item: ScheduleItem, anchorEl: HTMLElement | 
           contactName: item.customer?.name ?? target.phone,
           ...(item.customer?.entityId ? { entityId: item.customer.entityId } : {}),
           summary: target.summary,
+          ...(options?.openFirst && schedule ? { beforePlace: () => schedule.open(item.id) } : {}),
         },
         anchorEl,
       );
     },
-    [outboundDial, setKindCellShownFor],
+    [outboundDial, schedule, setKindCellShownFor],
+  );
+}
+
+/** A training's Start or a meeting's Join (P-HOME-1i): marks it started and, if it isn't open yet, opens it into the
+ *  rail as the active assignment. The cell shows it started. */
+export function useStartScheduleItem(): (item: ScheduleItem) => void {
+  const [, setStarted] = useWorkspaceUiField("kindStarted");
+  const { switchActiveInteraction } = useWorkspace();
+  const schedule = useScheduleProvider();
+  return useCallback(
+    (item) => {
+      // Started once it's open (a failed open leaves it as it was).
+      const show = () => {
+        setStarted((prev) => new Set(prev).add(item.id));
+        switchActiveInteraction(scheduleCardKey(item.id));
+      };
+      if (item.state === "active") return show();
+      schedule?.open(item.id).then(show, (err) => {
+        if (import.meta.env.DEV) console.warn("[schedule] start failed", err);
+      });
+    },
+    [setStarted, switchActiveInteraction, schedule],
   );
 }
 

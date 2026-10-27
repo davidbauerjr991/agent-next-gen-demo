@@ -40,10 +40,10 @@ async function settingsSection(page: Page) {
 async function home(page: Page) {
   await page.locator("aside").getByText("Home", { exact: true }).first().click();
 }
-/** A row previews in Home's detail panel (P-HOME-1h); the preview's primary action (Open / Start / Dial) opens it. */
+/** A row previews in Home's detail panel (P-HOME-1h); the preview's Open opens it, nothing else (P-HOME-1i). */
 async function openItem(page: Page, title: string) {
   await feed(page).locator("[data-feed-row]", { hasText: title }).click();
-  await page.locator("[data-home-detail=item] [data-preview-primary]").click();
+  await page.locator("[data-home-detail=item] [data-preview-open]").click();
 }
 /** Widens History's range to Contact History's earlier contacts. */
 async function last48(page: Page) {
@@ -79,7 +79,7 @@ test("Offered pins to the top in Needs a decision", async ({ page }) => {
   expect(first).toBe("Needs a decision");
 });
 
-test("a row previews in Home's panel; Start moves it to the rail and off the time groups; its X returns it to the feed; the views switch", async ({ page }) => {
+test("a row previews in Home's panel; Join moves it to the rail and off the time groups; its X returns it to the feed; the views switch", async ({ page }) => {
   await open(page);
   const row = feed(page).locator("[data-feed-row]", { hasText: "Returns team stand-up" });
   await row.click();
@@ -92,7 +92,8 @@ test("a row previews in Home's panel; Start moves it to the rail and off the tim
   await row.click();
   await expect(row).not.toHaveAttribute("data-selected", "true");
   await row.click();
-  await preview.getByRole("button", { name: "Start" }).click();
+  await expect(preview.getByRole("button", { name: "Open" })).toBeVisible();
+  await preview.getByRole("button", { name: "Join" }).click();
   await expect(page.locator("[data-kind-cell=meeting]")).toBeVisible();
   await expect(page.locator("aside [data-kind-nav-card]")).toHaveCount(1);
   await home(page);
@@ -116,6 +117,41 @@ test("a row previews in Home's panel; Start moves it to the rail and off the tim
   await expect(card).toHaveCount(0);
   await expect(feed(page).locator('[data-feed-row][data-feed-status="scheduled"]', { hasText: "Returns team stand-up" })).toBeVisible();
   await expect(feed(page).locator('[data-feed-row][data-feed-status="scheduled"]')).toHaveCount(8);
+});
+
+test("a callback's preview: Open puts it in the rail undialled; Dial opens the dial pad on itself and confirming joins the call to the card as its active Voice row", async ({ page }) => {
+  await open(page);
+  const row = feed(page).locator("[data-feed-row]", { hasText: "Callback · Priya Shah" });
+  const preview = page.locator("[data-home-detail=item]");
+  const card = page.locator('aside [data-kind-nav-card="agent-cb-priya"]');
+  // Open: the card, the cell, no dial pad, no call.
+  await row.click();
+  await expect(preview.locator("[data-preview-primary]")).toHaveText("Dial");
+  await preview.locator("[data-preview-open]").click();
+  await expect(page.locator("[data-kind-cell=callback]")).toBeVisible();
+  await expect(card).toBeVisible();
+  await expect(page.getByLabel("Phone number")).toHaveCount(0);
+  await expect(card).not.toHaveAttribute("data-kind-leg", /.+/);
+  // Back to the feed, then Dial from the preview.
+  await card.hover();
+  await card.locator("[data-kind-close]").click({ force: true });
+  await expect(card).toHaveCount(0);
+  await row.click();
+  const dial = preview.locator("[data-preview-primary]");
+  await dial.click();
+  const phone = page.getByLabel("Phone number");
+  await expect(phone).toHaveValue("(646) 555-0143");
+  const pad = page.locator("[data-radix-popper-content-wrapper]").filter({ has: phone });
+  const dialBox = (await dial.boundingBox())!;
+  const padBox = (await pad.boundingBox())!;
+  expect(padBox.y).toBeGreaterThanOrEqual(dialBox.y + dialBox.height - 1);
+  await page.getByRole("button", { name: "Dial Number" }).click();
+  await expect(card).toHaveAttribute("data-kind-leg", "schedule:agent-cb-priya", { timeout: 15_000 });
+  await expect(page.locator("aside [data-kind-nav-card]")).toHaveCount(1);
+  await expect(card.getByRole("button", { name: /^Voice channel/ })).toHaveAttribute("aria-current", "true");
+  // The call shows, and nothing asks to dial again.
+  await expect(page.locator("[data-kind-cell]")).toHaveCount(0);
+  await expect(page.getByLabel("Phone number")).toHaveCount(0);
 });
 
 test("the Assignments range: This week by default; Next 30 days adds Later; Today drops This week", async ({ page }) => {

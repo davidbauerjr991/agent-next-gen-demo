@@ -6,7 +6,7 @@
 // `interiorPanelOpen`. One column mounts it as Home's docked
 // `InteriorPanel`; two columns mount it over the right column through the
 // interaction's reference slot (`ReferenceSlotFrame`), so it pushes the feed.
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Button, Icon, Input, Tooltip } from "@nicecxone/lyra-ui";
 import { CheckCircle2, CircleDot, Clock, MinusCircle, PhoneOutgoing, RotateCcw } from "lucide-react";
 import { DisabledReason } from "@/contact-handling";
@@ -118,6 +118,10 @@ export function useHomeDetailPanel(): ReferenceSlotPanel {
   // A previewed row that has left (opened elsewhere, completed) has nothing to show.
   const previewHeader = useFeedPreviewHeader(homePreview);
   const preview = previewHeader ? homePreview : null;
+  // Gone from the feed (a Dial confirmed, opened from the rail): drop it, so it doesn't come back with the item.
+  useEffect(() => {
+    if (homePreview && !previewHeader) setHomePreview(null);
+  }, [homePreview, previewHeader, setHomePreview]);
   const wanted = interiorPanelOpen || Boolean(selectedQueueId) || Boolean(selectedContactHistoryEntry) || Boolean(preview);
   const last = useRef({ queueId: selectedQueueId, entry: selectedContactHistoryEntry, preview, previewHeader });
   if (wanted) last.current = { queueId: selectedQueueId, entry: selectedContactHistoryEntry, preview, previewHeader };

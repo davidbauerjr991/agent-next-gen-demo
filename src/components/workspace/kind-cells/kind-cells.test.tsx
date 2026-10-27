@@ -38,10 +38,10 @@ const button = (label: string) => [...h.container.querySelectorAll<HTMLButtonEle
 const homeButton = () => [...h.container.querySelectorAll("aside button, aside [role=button]")].find((el) => el.textContent?.trim() === "Home")!;
 const view = (label: string) => [...(feed()?.querySelectorAll<HTMLElement>("[data-feed-views] [role=radio]") ?? [])].find((b) => b.textContent?.trim().startsWith(label));
 
-/** A feed row's click previews it (P-HOME-1h); the preview's primary action (Open / Start / Dial) opens it. */
+/** A feed row's click previews it (P-HOME-1h); the preview's Open opens it, nothing else (P-HOME-1i). */
 async function openItem(row: HTMLElement) {
   await h.click(row);
-  await h.click(document.querySelector<HTMLElement>("[data-home-detail=item] [data-preview-primary]")!);
+  await h.click(document.querySelector<HTMLElement>("[data-home-detail=item] [data-preview-open]")!);
 }
 
 async function type(el: HTMLTextAreaElement | HTMLInputElement, value: string) {
@@ -388,6 +388,63 @@ describe("calls from schedule items (the leg-join P0.9 generalizes)", () => {
     expect([...document.querySelectorAll("[role=combobox]")].map((c) => c.textContent)).toContain("General Support");
     await h.advance(1000);
     expect(await voiceCalls()).toEqual([]);
+  });
+
+  const preview = () => document.querySelector<HTMLElement>("[data-home-detail=item]");
+
+  it("a callback's preview: Dial is the primary, Open beside it; Open puts the card in the rail without dialling", async () => {
+    await showHome();
+    await h.goAvailable();
+    await h.click(rowNamed("Callback · Priya Shah")!);
+    await h.advance(100);
+    expect(preview()!.querySelector("[data-preview-primary]")?.textContent).toBe("Dial");
+    expect(preview()!.querySelector("[data-preview-open]")?.textContent).toBe("Open");
+    await h.click(preview()!.querySelector<HTMLElement>("[data-preview-open]")!);
+    await h.advance(1000);
+    expect(cell()?.getAttribute("data-kind-cell")).toBe("callback");
+    expect(h.container.querySelector('aside [data-kind-nav-card="agent-cb-priya"]')).not.toBeNull();
+    expect(phoneField()).toBeUndefined();
+    expect(await voiceCalls()).toEqual([]);
+  });
+
+  it("the preview's Dial opens the dial pad on itself; confirming opens the callback with its call joined as the active Voice row, with no second dial", async () => {
+    await showHome();
+    await h.goAvailable();
+    await h.click(rowNamed("Callback · Priya Shah")!);
+    await h.advance(100);
+    await h.click(preview()!.querySelector<HTMLElement>("[data-preview-primary]")!);
+    // Prefilled with the callback's number; nothing opened or dialled yet.
+    expect(phoneField()?.value).toBe("(646) 555-0143");
+    expect(h.container.querySelector("aside [data-kind-nav-card]")).toBeNull();
+    await h.click([...document.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.trim() === "Dial Number")!);
+    await h.advance(3000);
+    const calls = await voiceCalls();
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.journeyId).toBe("schedule:agent-cb-priya");
+    const card = h.container.querySelector<HTMLElement>('aside [data-kind-nav-card="agent-cb-priya"]')!;
+    expect(card.getAttribute("data-kind-leg")).toBe("schedule:agent-cb-priya");
+    expect(h.container.querySelectorAll("aside [data-kind-nav-card]")).toHaveLength(1);
+    const voiceRow = card.querySelector<HTMLElement>('[aria-label^="Voice channel"]')!;
+    expect(voiceRow.getAttribute("aria-current")).toBe("true");
+    // The call shows; no dial pad asks again.
+    expect(cell()).toBeNull();
+    expect(phoneField()).toBeUndefined();
+  });
+
+  it("a training's preview Start opens it started; opened with Open, the cell's own Start starts it", async () => {
+    await showHome();
+    await h.click(rowNamed("RET-1.3 refund policy update")!);
+    await h.advance(100);
+    expect(preview()!.querySelector("[data-preview-primary]")?.textContent).toBe("Start");
+    await h.click(preview()!.querySelector<HTMLElement>("[data-preview-primary]")!);
+    await h.advance(100);
+    expect(cell()?.getAttribute("data-kind-cell")).toBe("training");
+    expect(cell()!.querySelector("[data-kind-started]")?.textContent).toBe("Module started");
+    await h.click(homeButton());
+    await openItem(rowNamed("WhatsApp templates · intro")!);
+    expect(cell()!.querySelector("[data-kind-started]")).toBeNull();
+    await h.click(cell()!.querySelector<HTMLElement>("[data-kind-start]")!);
+    expect(cell()!.querySelector("[data-kind-started]")?.textContent).toBe("Module started");
   });
 
   it("the kind card's X is disabled, with the reason, while its call is live", async () => {

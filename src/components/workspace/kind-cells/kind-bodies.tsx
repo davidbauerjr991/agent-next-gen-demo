@@ -1,11 +1,13 @@
 // Each non-conversation kind's minimal action area (P-HOME-1): what the
 // schedule source says about it. Only actions that exist are shown — a
-// callback's Dial and a task's "Call <customer>" (P-HOME-1d); joining a
-// meeting or starting a module arrive with their connections (P-HOME-2 and
-// later), so they aren't buttons yet. The outcome is on the card (Outcome).
-import { Button, Container, MenuItem } from "@nicecxone/lyra-ui";
+// callback's Dial and a task's "Call <customer>" (P-HOME-1d); a meeting's Join
+// and a training's Start (P-HOME-1i) mark it joined / started, as the Home
+// preview's do (the real join and module arrive with their connections,
+// P-HOME-2 and later). The outcome is on the card (Outcome).
+import { Button, Container, MenuItem, Tag } from "@nicecxone/lyra-ui";
 import { DisabledReason } from "@/contact-handling/DisabledReason";
-import { scheduleCallTarget, useScheduleDial } from "@/contact-handling/home/useScheduleCalls";
+import { scheduleCallTarget, useScheduleDial, useStartScheduleItem } from "@/contact-handling/home/useScheduleCalls";
+import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { UNAVAILABLE_CALL_TOOLTIP, useAgentAvailable } from "@/contact-handling/presence-gates";
 import type { ScheduleItem } from "@/providers";
 import { t } from "@/i18n";
@@ -60,6 +62,27 @@ function CallbackBody({ item }: { item: ScheduleItem }) {
   );
 }
 
+/** A training's Start or a meeting's Join in its cell (P-HOME-1i), the same action as the Home preview's; once
+ *  done, the cell says so instead. */
+function StartButton({ item, label, done }: { item: ScheduleItem; label: string; done: string }) {
+  const [started] = useWorkspaceUiField("kindStarted");
+  const start = useStartScheduleItem();
+  if (started.has(item.id)) {
+    return (
+      <div>
+        <Tag shape="pill" variant="success" label={done} data-kind-started="" />
+      </div>
+    );
+  }
+  return (
+    <div>
+      <Button variant="default" size="md" data-kind-start="" onClick={() => start(item)}>
+        {label}
+      </Button>
+    </div>
+  );
+}
+
 export function KindBody({ item }: { item: ScheduleItem }) {
   const d = item.detail;
   switch (d.kind) {
@@ -71,6 +94,7 @@ export function KindBody({ item }: { item: ScheduleItem }) {
           <div className="flex flex-col gap-2 px-4 pb-4">
             <Summary item={item} />
             <Lines lines={d.agenda} />
+            <StartButton item={item} label={t("Join")} done={t("Joined")} />
           </div>
         </Container>
       );
@@ -81,6 +105,7 @@ export function KindBody({ item }: { item: ScheduleItem }) {
             <Summary item={item} />
             <p className="lyra-body-md">{d.module}</p>
             {d.dueLabel && <p className="lyra-body-sm text-lyra-fg-secondary">{d.dueLabel}</p>}
+            <StartButton item={item} label={t("Start")} done={t("Module started")} />
           </div>
         </Container>
       );

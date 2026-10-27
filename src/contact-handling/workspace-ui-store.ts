@@ -101,6 +101,8 @@ export interface WorkspaceUiState {
   /** P-HOME-1h: each schedule item's Copilot asks, in ask order: inline rows in its action area and lines in its
    *  Real-Time Summary. In memory only, as the transcript's own rows are. */
   kindCopilotAsks: Readonly<Record<string, readonly KindCopilotAsk[]>>;
+  /** P-HOME-1i: the trainings started and meetings joined (their Start / Join, from the preview or the cell). */
+  kindStarted: ReadonlySet<string>;
   /** P-HOME-1: toasts for events on other assignments, in raise order; dismissed ones stay for the drawer's rows. */
   assignmentToasts: readonly AssignmentToast[];
 }
@@ -185,6 +187,7 @@ export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
   activityRange: "week",
   homePreview: null,
   kindCopilotAsks: Object.freeze({}),
+  kindStarted: new Set<string>(),
   assignmentToasts: Object.freeze([]),
 });
 

@@ -145,7 +145,7 @@ describe("Activity feed on Home", () => {
     }
   });
 
-  it("the view switcher is Assignments | History (one always selected, Assignments by default): a row previews; its Start moves it off the feed into the rail", async () => {
+  it("the view switcher is Assignments | History (one always selected, Assignments by default): a row previews; its Join moves it off the feed into the rail", async () => {
     turnOn();
     await showHome();
     expect([...feed().querySelectorAll("[data-feed-views] [role=radio]")].map((b) => b.textContent?.replace(/\d+$/, "").trim())).toEqual([
@@ -171,7 +171,10 @@ describe("Activity feed on Home", () => {
     await h.advance(400);
     expect(rowNamed("Returns team stand-up")?.getAttribute("data-selected")).toBeNull();
     await h.click(rowNamed("Returns team stand-up")!);
-    await h.click(h.buttonByText("Start", preview()!)!);
+    // Open (secondary) beside the meeting's own Join (primary, P-HOME-1i); Join joins and opens it.
+    expect(h.buttonByText("Open", preview()!)).toBeTruthy();
+    await h.click(h.buttonByText("Join", preview()!)!);
+    expect(h.container.querySelector("[data-kind-started]")?.textContent).toBe("Joined");
     // It opened as the active assignment; back on Home it has left the time groups (it's in the rail, not History).
     expect(h.container.querySelector("[data-kind-cell]")?.getAttribute("data-kind-cell")).toBe("meeting");
     await h.click(homeButton());

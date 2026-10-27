@@ -1,13 +1,18 @@
 // An Assignments row's preview (P-HOME-1h), in Home's detail panel where a
 // Contact History entry's opens: the item's title, kind, due, source, the
 // seed's detail and its customer, with one primary action that does what the
-// row's click did before (it moves to the rail and becomes active). An offer
-// keeps Accept and Decline. A completed item (a History row) has no action.
+// row's click did before (it moves to the rail and becomes active). P-HOME-1i:
+// that's Open, the secondary on every one, beside the kind's own action as
+// the primary (Dial / Start / Join), which does the thing. An offer keeps
+// Accept and Decline. A completed item (a History row) has no action.
 import { Button, MenuItem, Tag } from "@nicecxone/lyra-ui";
 import { Check, X } from "lucide-react";
 import type { FeedTarget } from "@/contact-handling/home/activity-feed";
 import { feedTimeLabel } from "@/contact-handling/home/time";
 import { useActivateFeedTarget } from "@/contact-handling/home/useActivityFeed";
+import { useScheduleDial, useStartScheduleItem } from "@/contact-handling/home/useScheduleCalls";
+import { DisabledReason } from "@/contact-handling/DisabledReason";
+import { UNAVAILABLE_CALL_TOOLTIP, useAgentAvailable } from "@/contact-handling/presence-gates";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useScheduleProvider, useScheduleSnapshot } from "@/provider-context";
@@ -27,11 +32,31 @@ function detailLines(item: ScheduleItem): string[] {
   return [...d.points];
 }
 
-/** The primary action's label: Start for a training or meeting, Dial for a callback, else Open. */
-function primaryLabel(item: ScheduleItem): string {
-  if (item.kind === "training" || item.kind === "meeting") return t("Start");
-  if (item.kind === "callback") return t("Dial");
-  return t("Open");
+/** The kind's own action (P-HOME-1i), the preview's primary: it does the thing — a callback's Dial (the dial pad
+ *  beneath it; confirming opens the item and places the call as its voice leg), a training's Start, a meeting's Join.
+ *  None for the other kinds: Open is then the only action. Open, beside it, only opens. */
+function KindAction({ item, run }: { item: ScheduleItem; run: (action: () => void) => void }) {
+  const dial = useScheduleDial();
+  const start = useStartScheduleItem();
+  const available = useAgentAvailable();
+  const d = item.detail;
+  if (d.kind === "callback") {
+    return (
+      <DisabledReason reason={available ? undefined : UNAVAILABLE_CALL_TOOLTIP}>
+        <Button disabled={!available} data-preview-primary="" onClick={(e) => dial(item, e.currentTarget, { openFirst: true })}>
+          {t("Dial")}
+        </Button>
+      </DisabledReason>
+    );
+  }
+  if (d.kind === "training" || d.kind === "meeting") {
+    return (
+      <Button data-preview-primary="" onClick={() => run(() => start(item))}>
+        {d.kind === "meeting" ? t("Join") : t("Start")}
+      </Button>
+    );
+  }
+  return null;
 }
 
 function Field({ label, value }: { label: string; value: string }) {
@@ -97,9 +122,11 @@ function ScheduleItemPreview({ item }: { item: ScheduleItem }) {
         />
       ) : (
         item.state === "scheduled" && (
-          <div>
-            <Button onClick={() => run(() => activate(target))} data-preview-primary="">
-              {primaryLabel(item)}
+          // The kind's action is the primary; Open, the secondary, moves it to the rail and makes it active, nothing else.
+          <div className="flex items-center gap-2">
+            <KindAction item={item} run={run} />
+            <Button variant="outline" onClick={() => run(() => activate(target))} data-preview-open="">
+              {t("Open")}
             </Button>
           </div>
         )

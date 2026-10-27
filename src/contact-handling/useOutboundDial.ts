@@ -85,6 +85,9 @@ export interface ScheduleDial {
   contactName: string;
   entityId?: string;
   summary: string[];
+  /** Runs on submit, before the call is placed: a Home preview's Dial opens the item into the rail first, so the
+   *  call joins its card (P-HOME-1i). */
+  beforePlace?: () => Promise<unknown>;
 }
 
 /** A voice contact the agent is on: ringing (either way), live, or held. */
@@ -415,7 +418,8 @@ export function useOutboundDial({
       // was dialed, and joins the item's card as its voice leg.
       if (pendingSchedule) {
         const sameNumber = normalizePhone(pendingSchedule.phoneNumber) === normalizePhone(phoneNumber);
-        void place({
+        const before = pendingSchedule.beforePlace?.() ?? Promise.resolve();
+        void before.then(() => place({
           channel: "voice",
           address: phoneNumber,
           addressLabel: phoneNumber,
@@ -425,6 +429,8 @@ export function useOutboundDial({
           assignmentId: assignmentIdFor(scheduleCardKey(pendingSchedule.itemId)),
           mode: "focus",
           summary: pendingSchedule.summary,
+        }), (err) => {
+          if (import.meta.env.DEV) console.warn("[schedule] open before dial failed", err);
         });
         return;
       }

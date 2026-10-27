@@ -30,6 +30,7 @@ export function KindCloseButton({ item }: { item: ScheduleItem }) {
   const { activeInteractionId, assignmentsSettings, confirmDismiss, contactStateById, switchActiveInteraction } = useWorkspace();
   const schedule = useScheduleProvider();
   const [kindCellShownFor, setKindCellShownFor] = useWorkspaceUiField("kindCellShownFor");
+  const [, setStarted] = useWorkspaceUiField("kindStarted");
   const leg = useScheduleLeg(item);
   if (!assignmentsSettings.allowUnassignDismiss) return null;
   const key = scheduleCardKey(item.id);
@@ -38,6 +39,12 @@ export function KindCloseButton({ item }: { item: ScheduleItem }) {
     confirmDismiss(() => {
       if (activeInteractionId === key) switchActiveInteraction(null);
       if (kindCellShownFor === key) setKindCellShownFor(null);
+      // Back in the feed unstarted: a later Start / Join starts it again.
+      setStarted((prev) => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
       schedule?.release(item.id).catch((err) => {
         if (import.meta.env.DEV) console.warn("[schedule] release failed", err);
       });
