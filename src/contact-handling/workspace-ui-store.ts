@@ -4,7 +4,7 @@ import type { ReferenceCardFocus } from "@/providers";
 import type { DetailPanelContent, OutcomeKey, PanelArtifact } from "./workspace/workspace-types";
 import type { AssignmentToast } from "./toasts/assignment-toasts";
 import { assignmentIdFor, type AssignmentKind } from "@/domain";
-import type { ContactHistoryDateFilterValue } from "@/components/agent-next-gen-contact-history";
+import type { DateRange, DateRangeFilterValue } from "@nicecxone/lyra-ui";
 import type { FeedTarget, FeedView } from "./home/activity-feed";
 
 /** P-HOME-1h: one Copilot ask on a schedule item: its question, when, the answer, and the link its row and summary
@@ -83,17 +83,22 @@ export interface WorkspaceUiState {
   /** P-PROFILES: the assignments panel is open as an overlay (it doesn't dock,
    *  or the agent unpinned it), from the rail's Assignments item. */
   assignmentsPanelOverlayOpen: boolean;
-  /** P-HOME-1e: the Activity feed's view (Assignments / History). */
+  /** P-HOME-1e: the Activity feed's view (Activity / Parked / History). */
   activityView: FeedView;
   /** P-HOME-1f: History's search (Contact History's own search box). */
   activityHistoryQuery: string;
+  /** P-HOME-1m: the Activity view's and the Parked view's searches. */
+  activityQuery: string;
+  activityParkedQuery: string;
   /** P-HOME-1f: the schedule card (its key) whose kind row is selected while a call is joined to it: the main column
    *  shows the kind's cell, not the call. The main column follows the selected row, as a channel row's does. */
   kindCellShownFor: string | null;
   /** P-HOME-1b: the feed's kind chips (empty: every kind). */
   activityKinds: ReadonlySet<AssignmentKind>;
-  /** P-HOME-1b: History's range, Contact History's date control. */
-  activityHistoryRange: ContactHistoryDateFilterValue;
+  /** P-HOME-1b: History's range, Contact History's date control (P-HOME-1m: lyra's DateRangeFilterChip ranges), and
+   *  its Custom days. */
+  activityHistoryRange: DateRangeFilterValue;
+  activityHistoryCustom: DateRange | undefined;
   /** P-HOME-1h: the Assignments row previewed in Home's detail panel (a schedule item, or an offer's card). */
   homePreview: FeedTarget | null;
   /** P-HOME-1h: each schedule item's Copilot asks, in ask order: inline rows in its action area and lines in its
@@ -185,9 +190,12 @@ export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
   assignmentsPanelOverlayOpen: false,
   activityView: "assignments",
   activityHistoryQuery: "",
+  activityQuery: "",
+  activityParkedQuery: "",
   kindCellShownFor: null,
   activityKinds: new Set<AssignmentKind>(),
   activityHistoryRange: "today",
+  activityHistoryCustom: undefined,
   homePreview: null,
   kindCopilotAsks: Object.freeze({}),
   kindStarted: new Set<string>(),

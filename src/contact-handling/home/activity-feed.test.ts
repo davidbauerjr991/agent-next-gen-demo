@@ -37,7 +37,7 @@ function input(overrides: Partial<FeedInput> = {}): FeedInput {
     scheduleItems: seedScheduleDay("agent", NOW),
     railCards: [railCard],
     completedHistory: [completed],
-    historySince: new Date(2026, 9, 24).getTime(),
+    historyWindow: { from: new Date(2026, 9, 24).getTime(), to: Infinity },
     now: NOW,
     kinds: PERSONA_KINDS.agent,
     kindFilter: new Set<AssignmentKind>(),
@@ -94,7 +94,9 @@ describe("buildFeed", () => {
     // No rail rows: they're in the rail.
     expect(feed.history.some((r) => r.status === "inRail")).toBe(false);
     // A range starting after the completions leaves the items out; Contact History's entries are the caller's range.
-    expect(titles(buildFeed(input({ view: "history", scheduleItems: items, historySince: NOW })).history)).toEqual(["Sarah Brown · Chat · Billing"]);
+    expect(titles(buildFeed(input({ view: "history", scheduleItems: items, historyWindow: { from: NOW, to: Infinity } })).history)).toEqual(["Sarah Brown · Chat · Billing"]);
+    // …and one ending before them (Yesterday's) too.
+    expect(titles(buildFeed(input({ view: "history", scheduleItems: items, historyWindow: { from: 0, to: NOW - 60 * MIN } })).history)).toEqual(["Sarah Brown · Chat · Billing"]);
     // A declined offer has left the feed: not in History either.
     const declined = seedScheduleDay("supervisor", NOW).map((i) => (i.state === "offered" ? { ...i, state: "declined" as const } : i));
     const supervisor = buildFeed(input({ scheduleItems: declined, kinds: PERSONA_KINDS.supervisor, offers: [] }));
@@ -122,7 +124,6 @@ describe("buildFeed", () => {
     expect(feed.counts.today).toBe(5);
     // Its unread doesn't count: it's been opened.
     expect(feed.counts.unread).toBe(8);
-    expect(feed.unreadByKind.meeting).toBe(1);
     // A rail card holding a still-scheduled item's assignment shows it open too.
     const priya = assignmentIdFor(scheduleCardKey("agent-cb-priya"));
     const held = buildFeed(input({ railCards: [{ ...railCard, assignmentId: priya }] }));
@@ -160,17 +161,26 @@ describe("buildFeed", () => {
     expect(counts).toEqual({ needsDecision: 1, today: 5, thisWeek: 3, later: 1, assignments: 9, unread: 0, parked: 0, history: 1 });
   });
 
-  it("unread (P-HOME-1k): the rows the predicate reads as new; the Assignments count's rows and each kind's, whatever the chips pick", () => {
+  it("unread (P-HOME-1k): the rows the predicate reads as new, and the Activity count's; the kinds narrow it", () => {
     const unreadIds = new Set(["agent-cb-priya", "agent-mt-standup", "agent-cb-sofia"]);
     const isUnread = (r: FeedRow) => r.target.type === "schedule" && unreadIds.has(r.target.itemId);
     const feed = buildFeed(input({ isUnread }));
     expect(feed.today.filter((r) => r.unread).map((r) => r.title)).toEqual(["Callback · Priya Shah", "Returns team stand-up", "Callback · Sofia Ramirez"]);
     expect(feed.counts.unread).toBe(3);
-    expect(feed.unreadByKind).toEqual({ callback: 2, meeting: 1 });
-    // A chip narrows the rows, not the chips' own counts.
     const meetings = buildFeed(input({ isUnread, kindFilter: new Set<AssignmentKind>(["meeting"]) }));
     expect(meetings.counts.unread).toBe(1);
-    expect(meetings.unreadByKind).toEqual({ callback: 2, meeting: 1 });
+  });
+
+  it("the views' searches (P-HOME-1m): title, subtitle, customer or source, with the kinds; Parked has its own", () => {
+    const bySource = buildFeed(input({ query: "ticket queue" }));
+    expect(titles(bySource.today.concat(bySource.thisWeek, bySource.later))).toEqual(["Ticket #4821 · subscription renewal refund"]);
+    const priya = buildFeed(input({ query: "Priya", kindFilter: new Set<AssignmentKind>(["callback"]) }));
+    expect(titles(priya.today)).toEqual(["Callback · Priya Shah"]);
+    // The Activity search doesn't narrow Parked, and Parked's doesn't narrow Activity.
+    const items = seedScheduleDay("agent", NOW).map((i) => (i.id === "agent-cb-priya" ? { ...i, state: "parked" as const, parkedAt: NOW } : i));
+    expect(titles(buildFeed(input({ view: "parked", scheduleItems: items, query: "zzz" })).parked)).toEqual(["Callback · Priya Shah"]);
+    expect(buildFeed(input({ view: "parked", scheduleItems: items, parkedQuery: "zzz" })).parked).toEqual([]);
+    expect(buildFeed(input({ scheduleItems: items, parkedQuery: "zzz" })).counts.assignments).toBe(8);
   });
 
   it("parked (P-HOME-1k): out of the feed's groups, in the Parked view newest parked first, its own count; the chips filter it", () => {

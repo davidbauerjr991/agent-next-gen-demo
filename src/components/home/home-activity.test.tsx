@@ -13,6 +13,7 @@ import type { HomeSectionKey } from "@/settings/settings-schema";
 import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
 import { TOM_LEWIS_SCRIPT } from "@/scenarios";
 import { seedScheduleDay } from "@/adapters/sim/sim-schedule-seeds";
+import { getWorkspaceUiStore } from "@/contact-handling/workspace-ui-store";
 
 const h = createWorkspaceHarness({ schedule: true });
 
@@ -54,8 +55,30 @@ const rowNamed = (text: string) => [...feed().querySelectorAll<HTMLElement>("[da
 /** A view in the Assignments · History switcher (a radio). */
 const view = (label: string) => [...feed().querySelectorAll<HTMLElement>("[data-feed-views] [role=radio]")].find((b) => b.textContent?.trim().startsWith(label));
 /** A kind chip by its label (its unread count, when it has one, follows the label). */
-const chipLabel = (b: Element) => b.textContent?.trim().replace(/\d+$/, "");
-const kindChip = (label: string) => [...feed().querySelectorAll<HTMLButtonElement>("[data-feed-kinds] button")].find((b) => chipLabel(b) === label);
+/** The filter row every view shares (P-HOME-1m): the view's search, the kinds chip, History's date. */
+const filters = () => feed().querySelector<HTMLElement>("[data-feed-filters]")!;
+/** The kinds filter's trigger (lyra's FilterChip, "Filter"). */
+const kindsChip = () => filters().querySelector<HTMLButtonElement>("[data-feed-kinds] button[aria-haspopup]")!;
+/** The kinds dropdown's options (lyra's multi-select: search, Select All, a checkbox per kind). */
+const kindOptions = () => [...document.body.querySelectorAll<HTMLElement>('[role="option"]')];
+/** Ticks (or unticks) a kind in the kinds dropdown, opening and closing it around the click. */
+async function pickKind(label: string) {
+  await h.click(kindsChip());
+  await h.click(kindOptions().find((o) => o.textContent?.trim() === label)!);
+  await h.click(kindsChip());
+}
+/** Picks History's range in lyra's DateRangeFilterChip ("Date: …"), closing it again unless `keepOpen`. */
+async function pickRange(label: string, options?: { keepOpen?: boolean }) {
+  const trigger = () => [...filters().querySelectorAll<HTMLElement>("button")].find((b) => b.textContent?.startsWith("Date:"))!;
+  await h.click(trigger());
+  const radio = [...document.body.querySelectorAll<HTMLElement>('[role="radio"]')].find(
+    (r) => (r.id && document.querySelector(`label[for="${r.id}"]`)?.textContent?.trim()) === label || r.parentElement?.textContent?.trim() === label,
+  )!;
+  await h.click(radio);
+  if (!options?.keepOpen) await h.click(trigger());
+}
+/** The picked kinds as tokens below the filter row. */
+const kindTokens = () => [...feed().querySelectorAll<HTMLElement>("[data-feed-tokens] [data-feed-token]")].map((t) => t.getAttribute("data-feed-token"));
 const homeButton = () => [...h.container.querySelectorAll("aside button, aside [role=button]")].find((el) => el.textContent?.trim() === "Home")!;
 const sectionsIn = (scope: Element) => [...scope.querySelectorAll(":scope > [data-home-section], :scope > * > [data-home-section]")].map((el) => el.getAttribute("data-home-section"));
 
@@ -148,15 +171,15 @@ describe("Activity feed on Home", () => {
     }
   });
 
-  it("the view switcher is Assignments | Parked | History (one always selected, Assignments by default): a row previews; its Join opens it, and it stays in the feed marked open", async () => {
+  it("the view switcher is Activity | Parked | History (one always selected, Activity by default): a row previews; its Join opens it, and it stays in the feed marked open", async () => {
     turnOn();
     await showHome();
     expect([...feed().querySelectorAll("[data-feed-views] [role=radio]")].map((b) => b.textContent?.replace(/\d+( new)?$/, "").replace(/\d+$/, "").trim())).toEqual([
-      "Assignments",
+      "Activity",
       "Parked",
       "History",
     ]);
-    expect(view("Assignments")?.getAttribute("aria-checked")).toBe("true");
+    expect(view("Activity")?.getAttribute("aria-checked")).toBe("true");
     expect(group("Today")).not.toBeNull();
     expect(group("History")).toBeNull();
     // A row's click previews it in Home's detail panel: title, kind, due, source, the agenda; Start, not yet opened.
@@ -193,44 +216,55 @@ describe("Activity feed on Home", () => {
 
     await h.click(view("History")!);
     expect(view("History")?.getAttribute("aria-checked")).toBe("true");
-    expect(view("Assignments")?.getAttribute("aria-checked")).toBe("false");
+    expect(view("Activity")?.getAttribute("aria-checked")).toBe("false");
     expect(group("Today")).toBeNull();
     expect(group("Needs a decision")).toBeNull();
     expect(group("History")?.textContent).not.toContain("Returns team stand-up");
 
-    await h.click(view("Assignments")!);
+    await h.click(view("Activity")!);
     expect(group("Today")?.textContent).toContain("Callback · Priya Shah");
     expect(group("History")).toBeNull();
     // Clicking the selected view again keeps it selected.
-    await h.click(view("Assignments")!);
-    expect(view("Assignments")?.getAttribute("aria-checked")).toBe("true");
+    await h.click(view("Activity")!);
+    expect(view("Activity")?.getAttribute("aria-checked")).toBe("true");
   });
 
-  it("the kind chips, below the views, filter whichever view is selected, History included; none picked is every kind", async () => {
+  it("one filter row under the views (P-HOME-1m), no view heading: the search first, then lyra's FilterChip (\"Filter\"); picked kinds filter the current view and show as removable tokens below (+N past three, Clear); the selection holds across views", async () => {
     turnOn();
     await showHome();
-    const order = [...feed().querySelectorAll("[data-feed-views], [data-feed-kinds]")].map((el) => (el.hasAttribute("data-feed-views") ? "views" : "kinds"));
-    expect(order).toEqual(["views", "kinds"]);
-    expect([...feed().querySelectorAll("[data-feed-kinds] button")].map(chipLabel)).toEqual([
-      "Conversation",
-      "Callback",
-      "Meeting",
-      "Training",
-      "Task",
-    ]);
-    await h.click(kindChip("Callback")!);
-    expect(kindChip("Callback")?.getAttribute("aria-pressed")).toBe("true");
+    const order = [...feed().querySelectorAll("[data-feed-views], [data-feed-filters]")].map((el) => (el.hasAttribute("data-feed-views") ? "views" : "filters"));
+    expect(order).toEqual(["views", "filters"]);
+    // Search first, then the kinds filter.
+    expect(filters().firstElementChild?.querySelector("input")?.placeholder).toBe("Search activity");
+    expect(kindsChip().textContent?.trim()).toBe("Filter");
+    // The dropdown lists the persona's kinds (with lyra's search and Select All).
+    await h.click(kindsChip());
+    expect(kindOptions().map((o) => o.textContent?.trim())).toEqual(["Conversation", "Callback", "Meeting", "Training", "Task"]);
+    expect(document.body.textContent).toContain("Select All");
+    await h.click(kindsChip());
+    expect(feed().querySelector("[data-feed-tokens]")).toBeNull();
+    await pickKind("Callback");
+    expect(kindTokens()).toEqual(["callback"]);
     expect(rows("Today").map((r) => r.textContent?.includes("Callback")).every(Boolean)).toBe(true);
+    // A token's × removes its kind.
+    await h.click(feed().querySelector<HTMLElement>('[data-feed-token="callback"] button')!);
+    expect(kindTokens()).toEqual([]);
+    for (const kind of ["Callback", "Task", "Meeting", "Training"]) await pickKind(kind);
+    // Three tokens, then +1 for the rest.
+    expect(kindTokens()).toEqual(["callback", "meeting", "training"]);
+    expect(feed().querySelector("[data-feed-tokens-more]")?.textContent?.trim()).toBe("+1");
+    // The same selection in History (no view heading; its date chip after the kinds filter) and Parked.
     await h.click(view("History")!);
-    // Contact History's earlier contacts (Last 48 Hours) are conversations.
-    await h.click([...group("History")!.querySelectorAll<HTMLElement>("button")].find((b) => b.textContent?.includes("Today"))!);
-    await h.click([...document.querySelectorAll<HTMLElement>("[role=radio]")].find((r) => r.parentElement?.textContent?.includes("Last 48"))!);
-    expect(rows("History")).toHaveLength(0);
-    await h.click(kindChip("Conversation")!);
-    expect(rows("History").length).toBeGreaterThan(0);
-    await h.click(kindChip("Callback")!);
-    await h.click(kindChip("Conversation")!);
-    await h.click(view("Assignments")!);
+    expect(kindTokens()).toEqual(["callback", "meeting", "training"]);
+    expect(group("History")?.querySelector("h3")).toBeNull();
+    expect(filters().lastElementChild?.textContent).toContain("Date");
+    await h.click(view("Parked")!);
+    expect(group("Parked")?.querySelector("h3")).toBeNull();
+    expect(feed().querySelector("[data-feed-tokens-more]")?.textContent?.trim()).toBe("+1");
+    // Clear resets it: every kind again.
+    await h.click(view("Activity")!);
+    await h.click(feed().querySelector<HTMLElement>("[data-feed-tokens-clear]")!);
+    expect(feed().querySelector("[data-feed-tokens]")).toBeNull();
     expect(rows("Today").length).toBe(5);
   });
 
@@ -244,8 +278,8 @@ describe("Activity feed on Home", () => {
     await h.click(view("History")!);
     const tom = () => rowNamed("Tom Lewis");
     expect(tom()?.getAttribute("data-feed-status")).toBe("completed");
-    // The History group's header carries Contact History's own date control.
-    expect(group("History")?.textContent).toContain("Today");
+    // The filter row carries Contact History's own date control in History.
+    expect(filters().textContent).toContain("Today");
     await h.click(tom()!);
     expect(h.buttonByText("Redial")).toBeTruthy();
     await act(async () => {
@@ -255,15 +289,14 @@ describe("Activity feed on Home", () => {
     expect(h.buttonByText("Redial")).toBeUndefined();
   });
 
-  it("History behaves as Contact History: its search and date controls in the header, a row opens the preview (selected) and closes it again; the kind chips still filter", async () => {
+  it("History behaves as Contact History: its search and date controls in the filter row, a row opens the preview (selected) and closes it again; the kinds still filter", async () => {
     turnOn();
     await showHome();
     await h.click(view("History")!);
-    const controls = group("History")!.querySelector<HTMLElement>("[data-feed-history-controls]")!;
+    const controls = filters();
     expect(controls.querySelector("input")?.getAttribute("placeholder")).toBe("Search contact history");
-    expect(controls.textContent).toContain("Today");
-    await h.click([...controls.querySelectorAll<HTMLElement>("button")].find((b) => b.textContent?.includes("Today"))!);
-    await h.click([...document.querySelectorAll<HTMLElement>("[role=radio]")].find((r) => r.parentElement?.textContent?.includes("Last 48"))!);
+    expect(controls.textContent).toContain("Date:Today");
+    await pickRange("Last 7 days");
     const entry = () => rows("History").find((r) => r.getAttribute("data-feed-row")?.startsWith("history:"))!;
     const name = entry().textContent!.split(" · ")[0]!;
     await h.click(entry());
@@ -282,29 +315,40 @@ describe("Activity feed on Home", () => {
       await vi.advanceTimersByTimeAsync(50);
     });
     expect(rows("History")).toHaveLength(0);
-    expect(group("History")?.textContent).toContain("No matching contacts");
+    expect(group("History")?.textContent).toContain("No results for “zzz-no-match”");
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(search, name.slice(0, 4));
       search.dispatchEvent(new Event("input", { bubbles: true }));
       await vi.advanceTimersByTimeAsync(50);
     });
     expect(rows("History").length).toBeGreaterThan(0);
-    // A kind chip with nothing in History empties it.
-    await h.click(kindChip("Training")!);
+    // A kind with nothing in History empties it.
+    await pickKind("Training");
     expect(rows("History")).toHaveLength(0);
   });
 
-  it("History's range follows Contact History's date control: Last 48 Hours adds Contact History's earlier contacts", async () => {
+  it("History's range is lyra's DateRangeFilterChip (Today / Yesterday / Last 7 days / Custom), applied by when each contact happened", async () => {
     turnOn();
     await showHome();
     await h.click(view("History")!);
-    const before = rows("History").length;
-    const trigger = [...group("History")!.querySelectorAll<HTMLElement>("button")].find((b) => b.textContent?.includes("Today"))!;
-    await h.click(trigger);
-    const option = [...document.querySelectorAll<HTMLElement>("[role=radio]")].find((r) => r.closest("label")?.textContent?.includes("Last 48") || r.getAttribute("aria-label")?.includes("Last 48") || r.parentElement?.textContent?.includes("Last 48"));
-    await h.click(option!);
-    expect(rows("History").length).toBeGreaterThan(before);
+    const times = () => rows("History").map((r) => r.textContent ?? "");
+    // Today: this morning's contacts (minutes and hours ago), none a day or more back.
+    const today = times();
+    expect(today.length).toBeGreaterThan(0);
+    expect(today.some((r) => /\dd ago/.test(r))).toBe(false);
+    // Yesterday: the day before only.
+    await pickRange("Yesterday");
+    expect(times().length).toBeGreaterThan(0);
+    expect(times().every((r) => r.includes("1d ago"))).toBe(true);
+    // Last 7 days: the whole week, today's and yesterday's included.
+    await pickRange("Last 7 days");
+    expect(times().length).toBeGreaterThan(today.length);
     expect(rows("History").every((r) => r.getAttribute("data-feed-status") === "completed")).toBe(true);
+    // Custom: the picker appears in the chip's popover (lyra's DateRangePicker).
+    await pickRange("Custom", { keepOpen: true });
+    expect(document.body.querySelector('input[placeholder="Select date range"]')).not.toBeNull();
+    // No 48h / 72h wording anywhere.
+    expect(document.body.textContent).not.toMatch(/48 Hours|72 Hours/);
   });
 
   it("Due soon lists the next three scheduled items; a row opens its item like the feed", async () => {
@@ -365,17 +409,16 @@ describe("Activity feed on Home", () => {
     expect(later().querySelector("[data-feed-row]")).toBeNull();
     await h.click(later().querySelector<HTMLElement>("button[aria-expanded]")!);
     expect(later().querySelector("[data-feed-row]")?.textContent).toContain("Q4 compliance refresher");
-    expect(view("Assignments")?.textContent).toMatch(/^Assignments9/);
+    expect(view("Activity")?.textContent).toMatch(/^Activity9/);
     await h.click(view("Parked")!);
     expect(feed().querySelector("[data-feed-range]")).toBeNull();
     // History keeps its date control, with no kebab.
     await h.click(view("History")!);
-    const controls = group("History")!.querySelector<HTMLElement>("[data-feed-history-controls]")!;
-    expect(controls.textContent).toContain("Today");
+    expect(filters().textContent).toContain("Today");
     expect(feed().querySelector(".lyra-container-header-filter-compact")).toBeNull();
   });
 
-  it("unread (P-HOME-1m): the seeded day loads read; an item that comes due afterwards is unread (tinted, with a dot, counted on Assignments and its chip); a preview reads it, across view switches", async () => {
+  it("unread (P-HOME-1m): the seeded day loads read; an item that comes due afterwards is unread (tinted, with a dot, counted on Activity); a preview reads it, across view switches", async () => {
     turnOn();
     await showHome();
     const unread = () => feed().querySelector("[data-feed-views] [data-feed-unread]")?.textContent;
@@ -387,7 +430,6 @@ describe("Activity feed on Home", () => {
     expect(row().getAttribute("data-unread")).toBe("true");
     expect(row().className).toContain("bg-lyra-state-hover");
     expect(unread()).toBe("1 new");
-    expect(kindChip("Callback")?.textContent?.trim()).toBe("Callback1");
     await h.click(row());
     await h.advance(100);
     expect(row().getAttribute("data-unread")).toBeNull();
@@ -395,7 +437,7 @@ describe("Activity feed on Home", () => {
     // Still read after a round trip through the other views.
     await h.click(view("Parked")!);
     await h.click(view("History")!);
-    await h.click(view("Assignments")!);
+    await h.click(view("Activity")!);
     expect(row().getAttribute("data-unread")).toBeNull();
   });
 
@@ -461,7 +503,7 @@ describe("Activity feed on Home", () => {
     await h.click(park);
     await h.advance(200);
     expect(priya()).toBeUndefined();
-    expect(view("Assignments")?.textContent).toMatch(/^Assignments8/);
+    expect(view("Activity")?.textContent).toMatch(/^Activity8/);
     expect(view("Parked")?.textContent).toMatch(/^Parked1/);
     await h.click(view("Parked")!);
     expect(rows("Parked").map((r) => r.getAttribute("data-feed-status"))).toEqual(["parked"]);
@@ -470,8 +512,71 @@ describe("Activity feed on Home", () => {
     await h.click(priya()!.querySelector<HTMLElement>('[data-feed-action="unpark"]')!);
     await h.advance(200);
     expect(group("Parked")?.textContent).toContain("Nothing parked");
-    await h.click(view("Assignments")!);
+    await h.click(view("Activity")!);
     expect(priya()?.getAttribute("data-feed-status")).toBe("scheduled");
+  });
+
+  /** Types into the current view's search (the filter row's input). */
+  async function search(value: string) {
+    const input = filters().querySelector<HTMLInputElement>("input")!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(50);
+    });
+  }
+  const titlesShown = () => [...feed().querySelectorAll<HTMLElement>("[data-feed-row]")].map((r) => r.textContent ?? "");
+
+  it("search (P-HOME-1m): Activity's matches title, subtitle, customer and source, with the kinds; no hits says so, and Clear search clears it", async () => {
+    turnOn();
+    await showHome();
+    const input = filters().querySelector<HTMLInputElement>("input")!;
+    expect(input.placeholder).toBe("Search activity");
+    // A source ("Ticket queue") finds the task.
+    await search("ticket queue");
+    expect(titlesShown()).toEqual([expect.stringContaining("Ticket #4821")]);
+    // A customer finds her rows; the Callback kind keeps the callback alone.
+    await search("priya");
+    expect(titlesShown().length).toBeGreaterThan(1);
+    await pickKind("Callback");
+    expect(titlesShown()).toEqual([expect.stringContaining("Callback · Priya Shah")]);
+    // No hits: lyra's EmptyState says so, with Clear search.
+    await search("zzz-no-match");
+    const empty = feed().querySelector<HTMLElement>('[data-feed-empty="assignments"]')!;
+    expect(empty.textContent).toContain("No results for “zzz-no-match”");
+    await h.click(empty.querySelector<HTMLElement>("[data-feed-clear-search]")!);
+    expect(input.value).toBe("");
+    // Cleared: every callback again (the chip still applies).
+    expect(titlesShown().some((r) => r.includes("Callback · Sofia Ramirez"))).toBe(true);
+    expect(titlesShown().every((r) => r.includes("Callback"))).toBe(true);
+  });
+
+  it("empty states (P-HOME-1m): Activity with filters, Parked's (with its line), History's; Parked has its own search", async () => {
+    turnOn();
+    await showHome();
+    // Conversation alone: no offers, so nothing matches the filters.
+    await pickKind("Conversation");
+    expect(feed().querySelector('[data-feed-empty="assignments"]')?.textContent).toContain("No activity matches these filters");
+    await pickKind("Conversation");
+    await h.click(view("Parked")!);
+    const parked = feed().querySelector<HTMLElement>('[data-feed-empty="parked"]')!;
+    expect(parked.textContent).toContain("Nothing parked");
+    expect(parked.textContent).toContain("Parked items wait here until you bring them back.");
+    expect(parked.querySelector("svg")).not.toBeNull();
+    expect(filters().querySelector("input")?.placeholder).toBe("Search parked");
+    await search("zzz");
+    expect(feed().querySelector('[data-feed-empty="parked"]')?.textContent).toContain("No results for “zzz”");
+    await h.click(view("History")!);
+    // A kind with nothing in History: the filtered line.
+    await pickKind("Training");
+    expect(feed().querySelector('[data-feed-empty="history"]')?.textContent).toContain("No history matches");
+    await pickKind("Training");
+    // A range with nothing in it (Custom, days in 2020; set in the store, lyra's calendar isn't driven here).
+    await act(async () => {
+      getWorkspaceUiStore(h.provider).update((s) => ({ ...s, activityHistoryRange: "custom", activityHistoryCustom: { from: new Date(2020, 0, 1), to: new Date(2020, 0, 2) } }));
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(feed().querySelector('[data-feed-empty="history"]')?.textContent).toContain("Nothing completed yet");
   });
 
   it("delete (P-HOME-1k): only on an item the agent created, after a confirm; a WFM or calendar item has no Delete anywhere", async () => {
@@ -500,7 +605,7 @@ describe("Activity feed on Home", () => {
     await h.click(view("History")!);
     expect(feed().textContent).not.toContain("Sofia Ramirez");
     // From the preview too, in the kind's words, after the same confirm.
-    await h.click(view("Assignments")!);
+    await h.click(view("Activity")!);
     await h.click(rowNamed("Callback · Nathan Cole")!);
     await h.advance(100);
     const del = preview().querySelector<HTMLElement>('[data-feed-action="delete"]')!;
@@ -521,13 +626,12 @@ describe("Activity feed on Home", () => {
     turnOn("contactHistory");
     await showHome();
     await h.click(view("History")!);
-    await h.click([...group("History")!.querySelectorAll<HTMLElement>("button")].find((b) => b.textContent?.includes("Today"))!);
-    await h.click([...document.querySelectorAll<HTMLElement>("[role=radio]")].find((r) => r.parentElement?.textContent?.includes("Last 48"))!);
+    await pickRange("Yesterday");
     const feedRows = rows("History").map((r) => r.textContent ?? "");
     const card = h.container.querySelector<HTMLElement>('[data-home-section="contactHistory"]')!;
-    // The card's own range: Last 48 Hours too.
-    await h.click([...card.querySelectorAll<HTMLElement>("button")].find((b) => /Date filter/.test(b.getAttribute("aria-label") ?? ""))!);
-    await h.click([...document.querySelectorAll<HTMLElement>("[role=radio]")].find((r) => r.parentElement?.textContent?.includes("Last 48"))!);
+    // The card's own range (lyra's DateRangeFilterChip too, from Last 7 days): Yesterday as well.
+    await h.click([...card.querySelectorAll<HTMLElement>("button")].find((b) => b.textContent?.startsWith("Date:"))!);
+    await h.click([...document.body.querySelectorAll<HTMLElement>('[role="radio"]')].find((r) => (r.id && document.querySelector(`label[for="${r.id}"]`)?.textContent?.trim()) === "Yesterday" || r.parentElement?.textContent?.trim() === "Yesterday")!);
     const cardTimes = [...card.querySelectorAll<HTMLElement>("span")].map((s) => s.textContent ?? "").filter((t) => /^(\d+[mhd] ago|Just now)$/.test(t));
     expect(feedRows.length).toBeGreaterThan(0);
     expect(feedRows.map((r) => /(\d+[mhd] ago|Just now)/.exec(r)?.[1])).toEqual(cardTimes.slice(0, feedRows.length));

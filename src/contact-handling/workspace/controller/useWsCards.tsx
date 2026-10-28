@@ -16,7 +16,7 @@ import type { Thread, Interaction, AssignmentSortDirection } from "@/components/
 import type { AssignmentSortMode } from "@/settings";
 import { DEFAULT_SORT_DIRECTION } from "@/contact-handling/assignment-sort";
 import { usePageClockSource } from "@/components/agent-next-gen-page-clock";
-import { type ContactHistoryEntry, buildContactHistoryByRange } from "@/components/agent-next-gen-contact-history";
+import { type ContactHistoryEntry, buildContactHistory } from "@/components/agent-next-gen-contact-history";
 import { saveCaseRecord } from "@/components/agent-next-gen-case-database";
 import { useAgentLegTransitions, useAgentState, useCapability, useInteractionProvider, useInteractions, useScheduleSnapshot } from "@/provider-context";
 import {
@@ -403,8 +403,8 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   // what the agent can start or receive, and the seeded lists keyed by channel.
   const [channelSettings] = useSettings("channels");
   // Contact History: only contacts on channels that are on (a channel turned off drops its rows).
-  const contactHistoryByRange = useMemo(
-    () => buildContactHistoryByRange(dismissedContactHistory, channelSettings),
+  const contactHistory = useMemo(
+    () => buildContactHistory(dismissedContactHistory, channelSettings),
     [dismissedContactHistory, channelSettings],
   );
   // Drives `AssignmentsExpandCollapseAllButton` — see that component's own
@@ -1060,7 +1060,7 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
     setCustomerTyping, customerMatchStep, setCustomerMatchStep, customerMatchQuery, setCustomerMatchQuery,
     handleOutcomeOpenChange, handleOutcomeTagsChange, handleOutcomeDispositionChange, handleOutcomeSave,
     handleOutcomeCancel, handleOutcomeSaveAndDismiss, handleOutcomeSaveAndRedial, channelSettings,
-    contactHistoryByRange, assignmentSort, setAssignmentSort, assignmentSortDirection, setAssignmentSortDirection,
+    contactHistory, assignmentSort, setAssignmentSort, assignmentSortDirection, setAssignmentSortDirection,
     channelsAllExpanded, setChannelsAllExpanded, channelsExpandedOverrideVersion, setChannelsExpandedOverrideVersion,
     handleToggleAllChannelsExpanded, assignmentsSettings, outboundSettings, enabledChannels, calling, pendingClose,
     setPendingClose, pendingCloseCopy, confirmDismiss, voiceSettings, panelPlacement, placement, aiInPanel, asyncPlacement,

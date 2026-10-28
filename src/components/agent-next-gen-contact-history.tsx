@@ -24,7 +24,11 @@ import {
   VoiceDirectionIcon,
   SmsDirectionIcon,
   formatPhoneForDisplay,
+  DateRangeFilterChip,
+  type DateRange,
+  type DateRangeFilterValue,
 } from "@nicecxone/lyra-ui";
+import { contactHistoryInRange } from "@/contact-handling/contact-history-range";
 import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
 import { type Interaction } from "@/components/agent-next-gen-interaction-dashboard";
 import { formatElapsedTime, CURRENT_AGENT_NAME, initialsFor } from "@/components/agent-next-gen-shared-utils";
@@ -32,7 +36,6 @@ import { onEnabledChannels } from "@/contact-handling/channel-gates";
 import type { ChannelsSettings } from "@/settings";
 import { OUTCOME_DISPOSITION_OPTIONS } from "@/components/transcript/InteractionTranscript";
 import { cn } from "@/lib/utils";
-import { RadioFilterChip } from "./RadioFilterChip";
 import {
   type LucideIcon,
   Phone,
@@ -63,12 +66,8 @@ const SHOW_VOICE_TRANSCRIPT_IN_CONTACT_HISTORY = false;
    from a screenshot of exactly this content, so those values are that
    screenshot's own data, not derived from any other part of the app.
    Composed entirely from existing lyra-ui atoms — `DashboardCard` for the
-   card shell (`headerActions` holding this card's own
-   `ContactHistoryDateFilterChip` — a separate, 3-option "Today / Last 48
-   Hours / Last 72 Hours" control, not the shared `DateFilterChip` the
-   Performance/Productivity cards' headers use, since this card's range
-   options and cumulative-window semantics are its own — see
-   `ContactHistoryDateFilterValue`'s own doc comment for why), and `Badge`
+   card shell (`headerActions` holding lyra's `DateRangeFilterChip` with its
+   own ranges, P-HOME-1m: `contactHistoryInRange`), and `Badge`
    (`shape="circle" dot`) + plain text for the status indicator
    (critical=red/Escalated, info=blue/In Progress, success=green/Resolved,
    neutral=gray/New) — no hand-rolled badge/pill markup.
@@ -87,12 +86,10 @@ const SHOW_VOICE_TRANSCRIPT_IN_CONTACT_HISTORY = false;
    actually reopens the contact as a live assignment in the left nav (the
    row's own previous click behavior), read the summary first.
 
-   Row set is driven by the selected date range (`buildContactHistoryByRange`):
-   "Today" starts EMPTY on login — there's no real backend here to have
-   loaded any actual prior-contact history from, so this app no longer
-   pretends otherwise with hand-authored placeholder rows the way it used
-   to (a `TODAY_CONTACT_HISTORY` fixture, since removed). "Today" instead
-   fills in for real, as the agent actually works: "Unassign & Dismiss"ing
+   Rows are `buildContactHistory`'s one list narrowed by the date range
+   (lyra's DateRangeFilterChip: Today / Yesterday / Last 7 days / Custom,
+   by when each contact happened; `contactHistoryInRange`, P-HOME-1m). The
+   list grows for real as the agent works: "Unassign & Dismiss"ing
    a whole assignment (`handleDismissInteraction`, main component) is what
    counts as a completed contact in this demo, and appends a genuine
    `ContactHistoryEntry` (`buildDismissedContactHistoryEntry`) onto
@@ -103,14 +100,12 @@ const SHOW_VOICE_TRANSCRIPT_IN_CONTACT_HISTORY = false;
    "Closed"/read-only one — an earlier pass tried that and it conflated
    leaving an assignment (a LeftNav/UI action) with the assignment's own
    status (a real-world fact about the case); per explicit follow-up,
-   dismissing must never itself decide or change that. "Last 48 Hours"
-   adds the 5 hand-authored `CONTACT_HISTORY` rows on top of whatever's
-   been dismissed so far; "Last 72 Hours" adds 5 more
+   dismissing must never itself decide or change that. After the dismissed
+   rows come the 5 hand-authored `CONTACT_HISTORY` rows, then 5 more
    (`EXTENDED_CONTACT_HISTORY`) pulled from the shared customer "database"
    (`CREATE_NEW_CUSTOMERS`, the same fixture `OUTBOUND_CUSTOMERS` above
-   already sources from) rather than inventing unrelated names. Each range
-   is a strict superset of the one before it — today's own (dismissed)
-   rows never disappear just because a wider range is selected. */
+   already sources from) rather than inventing unrelated names, then the
+   pagination batch; each entry's own "8m ago" places it in a range. */
 
 /** Case-status color — "critical" (red, Escalated), "info" (blue, Pending),
  *  "warning" (orange, Open), "success" (green, Resolved), "neutral" (gray,
@@ -968,15 +963,11 @@ export function buildDismissedContactHistoryEntry(
   };
 }
 
-// Fixed customer indexes + content templates for the 5 extra rows that
-// appear once "Last 72 Hours" is selected (on top of "Last 48 Hours"'s own
-// today+yesterday rows) — deterministic (not `Math.random()`), matching
-// the rest of this file's dummy-data convention. Names/case IDs come from
-// the real `CREATE_NEW_CUSTOMERS` records at these indexes; only the
-// description/status/timing are authored here. `timeAgo` is capped at
-// "2d ago" (hour 49-72 of the window: today=hours 0-24, yesterday=hours
-// 24-48, this batch=hours 48-72) so nothing in "Last 72 Hours" reads as
-// older than its own label.
+// Fixed customer indexes + content templates for the 5 earlier rows (two
+// days back, inside Last 7 days) — deterministic (not `Math.random()`),
+// matching the rest of this file's dummy-data convention. Names/case IDs
+// come from the real `CREATE_NEW_CUSTOMERS` records at these indexes; only
+// the description/status/timing are authored here. `timeAgo` is "2d ago".
 export const EXTENDED_CONTACT_HISTORY_CUSTOMER_INDEXES = [5, 12, 19, 26, 33];
 export const EXTENDED_CONTACT_HISTORY_TEMPLATES: ContactHistoryTemplate[] = [
   { statusLabel: "Resolved", statusVariant: "success", description: "Password reset — identity verified via KBA, access restored", timeAgo: "1d ago", duration: "7m 40s", skillName: "Technical Support", direction: "inbound" },
@@ -1019,12 +1010,12 @@ const CONTACT_HISTORY_STRESS_DURATIONS = ["4m 12s", "6m 45s", "9m 03s", "3m 58s"
 
 export const CONTACT_HISTORY_STRESS_COUNT = 115;
 
-/** Simulated bulk batch for "Last 72 Hours" — per explicit request, to
- *  demonstrate real footer pagination (see `ContactHistoryCard` below)
- *  rather than the card's old `max-h-[600px]` body scroll, this range needs
- *  ~125 total contacts. 125 = the 5 hand-authored `CONTACT_HISTORY` rows +
- *  5 `EXTENDED_CONTACT_HISTORY` rows already shown under "Last 72 Hours" +
- *  this 115-row batch (see `buildContactHistoryByRange` below).
+/** Simulated bulk batch (two days back, inside Last 7 days) — per explicit
+ *  request, to demonstrate real footer pagination (see `ContactHistoryCard`
+ *  below) rather than the card's old `max-h-[600px]` body scroll, the week
+ *  needs ~125 total contacts. 125 = the 5 hand-authored `CONTACT_HISTORY`
+ *  rows + 5 `EXTENDED_CONTACT_HISTORY` rows + this 115-row batch (see
+ *  `buildContactHistory` below).
  *
  *  Cycles through all 60 `CREATE_NEW_CUSTOMERS` records
  *  (`i % CREATE_NEW_CUSTOMERS.length`) rather than a fixed index list like
@@ -1067,97 +1058,26 @@ export const CONTACT_HISTORY_STRESS_BATCH: ContactHistoryEntry[] = Array.from(
   }
 );
 
-/** Contact History's own date filter — deliberately a separate type/value
- *  set from the shared `DateFilterValue` (Today/Yesterday/Last 7 days/
- *  Custom) the Productivity/Performance cards' `DateFilterChip` uses: this
- *  card only ever wants 3 cumulative, "as of now" windows, no custom range
- *  picker. Reusing `DateFilterValue` here would either force those other
- *  two cards' filter to change too (they weren't asked to) or require
- *  awkwardly repurposing "yesterday"/"last7" values to mean something else
- *  than their names say. */
-export type ContactHistoryDateFilterValue = "today" | "last48h" | "last72h";
-
-export const CONTACT_HISTORY_DATE_FILTER_OPTIONS: { value: ContactHistoryDateFilterValue; label: string }[] = [
-  { value: "today",   label: "Today" },
-  { value: "last48h", label: "Last 48 Hours" },
-  { value: "last72h", label: "Last 72 Hours" },
-];
-
-/* Each range is cumulative (a superset of the one before it) — "Last 48
-   Hours" is today's rows plus yesterday's, "Last 72 Hours" adds the day
-   before that on top — rather than each range being its own disjoint
-   bucket the way the old Today/Yesterday/Last 7 days setup was (selecting
-   "Last 7 days" there dropped today's own rows entirely, which read as a
-   bug once the range names started actually promising "the last N hours"
-   instead of a single day or a disjoint window).
-
-   "Today" is `dismissedContactHistory` (main component) — real, agent-
-   dismissed assignments (`buildDismissedContactHistoryEntry`), empty until
-   the agent actually dismisses one; there's no real backend here to have
-   loaded any actual prior-contact history from, so it starts genuinely
-   empty rather than pretending otherwise with hand-authored placeholder
-   rows the way it used to (a `TODAY_CONTACT_HISTORY` fixture, since
-   removed). A function, not a static object, so it can be recomputed as
-   that state grows — called from `AgentNextGenPage` inside a `useMemo`
-   keyed on `dismissedContactHistory`. */
-export function buildContactHistoryByRange(
+/* Contact History's entries, newest first (P-HOME-1m): the contacts the
+   agent dismissed this session (`buildDismissedContactHistoryEntry`), then
+   the seeded earlier ones. Its date control is lyra's DateRangeFilterChip
+   with its own ranges (Today / Yesterday / Last 7 days / Custom), applied by
+   when each entry happened (`contactHistoryInRange`), so the card and the
+   Activity feed's History view read the same list the same way. Recomputed
+   as the dismissed list grows (a `useMemo` in the workspace controller). */
+export function buildContactHistory(
   dismissedContactHistory: ContactHistoryEntry[],
-  /** Settings → Channels: only contacts on channels that are on (every range). */
+  /** Settings → Channels: only contacts on channels that are on. */
   channels?: ChannelsSettings
-): Record<ContactHistoryDateFilterValue, ContactHistoryEntry[]> {
-  const on = (rows: ContactHistoryEntry[]) => (channels ? onEnabledChannels(rows, channels, (entry) => entry.channelType) : rows);
-  return {
-    today: on(dismissedContactHistory),
-    last48h: on([...dismissedContactHistory, ...CONTACT_HISTORY]),
-    last72h: on([
-      ...dismissedContactHistory,
-      ...CONTACT_HISTORY,
-      ...EXTENDED_CONTACT_HISTORY,
-      ...CONTACT_HISTORY_STRESS_BATCH,
-    ]),
-  };
-}
-
-/* `DateFilterChip`'s trigger/popover chrome (RadioFilterChip) for
-   `ContactHistoryDateFilterValue`, with no "Custom" branch/DateRangePicker. */
-export function ContactHistoryDateFilterChip({
-  onValueChange,
-  defaultValue = "last48h",
-}: {
-  onValueChange?: (value: ContactHistoryDateFilterValue) => void;
-  /** Per explicit request, Phase 1 (Advanced) only — ("default the phase 1
-   *  contact history filter to last 72 hours"): `ContactHistoryCard`
-   *  passes `"last72h"` here so this chip's own trigger label starts in
-   *  sync with that card's now-also-`"last72h"` initial `dateFilter`.
-   *  Defaults to `"last48h"`, unchanged for every other consumer/tier. See
-   *  `ContactHistoryCard`'s own identically-named prop below for the fuller
-   *  "why must these two stay matched" reasoning. */
-  defaultValue?: ContactHistoryDateFilterValue;
-}) {
-  // Seeded from `defaultValue` (default "Last 48 Hours") — must match
-  // `ContactHistoryCard`'s own `dateFilter` initial state below, since
-  // that's a second, independent piece of state this chip doesn't own
-  // (kept in sync only via `onValueChange`); a mismatched default here
-  // would show the wrong label in the trigger while the card was actually
-  // filtered to a different window underneath it.
-  const [value, setValue] = useState<ContactHistoryDateFilterValue>(defaultValue);
-  return (
-    <RadioFilterChip
-      label="Date"
-      options={CONTACT_HISTORY_DATE_FILTER_OPTIONS}
-      value={value}
-      onValueChange={(v) => {
-        setValue(v);
-        onValueChange?.(v);
-      }}
-    />
-  );
+): ContactHistoryEntry[] {
+  const rows = [...dismissedContactHistory, ...CONTACT_HISTORY, ...EXTENDED_CONTACT_HISTORY, ...CONTACT_HISTORY_STRESS_BATCH];
+  return channels ? onEnabledChannels(rows, channels, (entry) => entry.channelType) : rows;
 }
 
 export function ContactHistoryCard({
   onSelectEntry,
   selectedEntryId,
-  historyByRange,
+  history,
   hideCustomerNames,
   onOpenAllContacts,
   defaultDateFilter,
@@ -1177,11 +1097,11 @@ export function ContactHistoryCard({
    *  uses for its own selected-row state (channel-row.tsx), not a one-off
    *  style. */
   selectedEntryId?: string | null;
-  /** Built by `buildContactHistoryByRange` (main component, via `useMemo`
+  /** Built by `buildContactHistory` (the workspace controller, via `useMemo`
    *  keyed on `dismissedContactHistory`) — passed down rather than read
-   *  from a module-level constant, since "Today" is real, growing state
-   *  (see this card's own doc comment above), not a fixed fixture. */
-  historyByRange: Record<ContactHistoryDateFilterValue, ContactHistoryEntry[]>;
+   *  from a module-level constant, since the dismissed contacts are real,
+   *  growing state, not a fixed fixture. The card's date range narrows it. */
+  history: ContactHistoryEntry[];
   /**
    * Per explicit request, Agent Workspace 2.0 only: rows show
    * `contactHistoryDisplayIdentity(entry)` (a real reach-back address —
@@ -1205,31 +1125,23 @@ export function ContactHistoryCard({
    *  Omit to render the card with no such button at all (no consumer
    *  currently does this — all 3 tiers pass it). */
   onOpenAllContacts?: () => void;
-  /** Per explicit request, Phase 1 (Advanced) only ("default the phase 1
-   *  contact history filter to last 72 hours") — `AgentWorkspaceAdvancedPage
-   *  .tsx`'s own call site passes `"last72h"`; every other consumer (Agent
-   *  Workspace 2.0, Premium) omits this and keeps the original "Last 48
-   *  Hours" default. Threaded straight into this card's own `dateFilter`
-   *  state below AND into `ContactHistoryDateFilterChip`'s matching
-   *  `defaultValue` a few lines down, so the trigger label and the actual
-   *  filtered rows never start out of sync. */
-  defaultDateFilter?: ContactHistoryDateFilterValue;
+  /** The date range it opens on (lyra's DateRangeFilterChip value; default Last 7 days, the whole seeded history). */
+  defaultDateFilter?: DateRangeFilterValue;
 }) {
-  // Seeded from `defaultDateFilter` (default "Last 48 Hours", was "Today"
-  // before that) — see `ContactHistoryDateFilterChip`'s own `value` state
-  // above for why this default must stay matched to that one.
-  const [dateFilter, setDateFilter] = useState<ContactHistoryDateFilterValue>(defaultDateFilter ?? "last48h");
+  // The chip is controlled by this state, so its label and the rows can't disagree.
+  const [dateFilter, setDateFilter] = useState<DateRangeFilterValue>(defaultDateFilter ?? "last7");
+  const [customRange, setCustomRange] = useState<DateRange | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState("");
   // Footer pagination (replaces the old reliance on `DashboardCard`'s own
   // `max-h-[600px] overflow-y-auto` body scroll — see `CONTACT_HISTORY_STRESS_BATCH`'s
-  // own doc comment above for why "Last 72 Hours" needs this: 125 fixed rows
+  // own doc comment above for why Last 7 days needs this: 125 fixed rows
   // don't fit in a scrolling 600px box in any usable way). Default 5 rows/page
   // per explicit request, with 10/25 as user-selectable alternatives — same
   // `currentPage`/`rowsPerPage` state shape `CustomersListView` already uses
   // for its own `TableFooter` (agent-next-gen-customers-table.tsx).
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(5);
-  const entries = historyByRange[dateFilter];
+  const entries = useMemo(() => contactHistoryInRange(history, dateFilter, Date.now(), customRange), [history, dateFilter, customRange]);
 
   // Filters the already date-ranged `entries` down to whatever matches the
   // search box — name, case ID, channel, or the one-line case summary, so
@@ -1246,13 +1158,13 @@ export function ContactHistoryCard({
   );
 
   // Reset back to page 1 whenever the date range, search query, or page
-  // size changes — otherwise switching from "Last 72 Hours" (page 9 of a
+  // size changes — otherwise switching from Last 7 days (page 9 of a
   // 25-page list) to "Today" (0-3 rows) could leave `currentPage` pointing
   // past the end of the new, much shorter list until the `safePage` clamp
   // below catches up on next render.
   useEffect(() => {
     setCurrentPage(1);
-  }, [dateFilter, searchQuery, rowsPerPage]);
+  }, [dateFilter, customRange, searchQuery, rowsPerPage]);
 
   const totalRecords = filteredEntries.length;
   const totalPages = Math.max(1, Math.ceil(totalRecords / rowsPerPage));
@@ -1292,7 +1204,7 @@ export function ContactHistoryCard({
           // contacts button the same height as the search and date filter
           // chips") — matches `SearchInput`'s own `size="sm"` (32px,
           // confusingly a different name for the same height) and
-          // `ContactHistoryDateFilterChip`'s default `filterChipVariants`
+          // `DateRangeFilterChip`'s default `filterChipVariants`
           // size (also 32px), all three of which sit in this same header
           // row. `variant="outline"` — briefly tried `variant="default"`
           // (primary-colored) per the same request, reverted one turn
@@ -1323,7 +1235,7 @@ export function ContactHistoryCard({
             size="sm"
             className="lyra-container-header-search-inline flex-1 min-w-[240px]"
           />
-          <ContactHistoryDateFilterChip onValueChange={setDateFilter} defaultValue={defaultDateFilter ?? "last48h"} />
+          <DateRangeFilterChip value={dateFilter} onValueChange={setDateFilter} customValue={customRange} onCustomValueChange={setCustomRange} />
         </>
       }
       headerTabs={

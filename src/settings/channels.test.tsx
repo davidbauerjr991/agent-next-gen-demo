@@ -9,7 +9,7 @@ import type { CreateNewOutboundConfig } from "@nicecxone/lyra-ui";
 import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
 import { OUTBOUND_CONFIG } from "@/components/agent-next-gen-outbound-data";
-import { buildContactHistoryByRange } from "@/components/agent-next-gen-contact-history";
+import { buildContactHistory } from "@/components/agent-next-gen-contact-history";
 import { journeySummaryFor } from "@/contact-handling/journey-summary";
 import { enabledChannelOptions, withEnabledChannels } from "@/contact-handling/channel-gates";
 import { SettingsView } from "@/components/settings/SettingsView";
@@ -60,19 +60,19 @@ describe("channel gates (pure)", () => {
   });
 
   it("the Contact History fixtures span several channels (so the page tests below mean something)", () => {
-    const channels = new Set(Object.values(buildContactHistoryByRange([])).flat().map((e) => e.channelType));
+    const channels = new Set(buildContactHistory([]).map((e) => e.channelType));
     expect(channels.has("voice")).toBe(true);
     expect(channels.size).toBeGreaterThan(1);
   });
 
-  it("the seeded lists keep only the rows on channels that are on: Contact History (every range, this session's rows too) and the Journey Summary's history rows", () => {
-    const types = (byRange: ReturnType<typeof buildContactHistoryByRange>) => new Set(Object.values(byRange).flat().map((e) => e.channelType));
-    const dismissed = { ...buildContactHistoryByRange([]).last48h.find((e) => e.channelType === "chat")!, id: "dismissed-chat" };
-    expect(types(buildContactHistoryByRange([dismissed], PHASE1))).toEqual(new Set(["voice"]));
-    expect(buildContactHistoryByRange([dismissed], PHASE1).today).toEqual([]);
-    expect(types(buildContactHistoryByRange([dismissed], { ...PHASE1, chat: true }))).toEqual(new Set(["voice", "chat"]));
+  it("the seeded lists keep only the rows on channels that are on: Contact History (this session's rows too) and the Journey Summary's history rows", () => {
+    const types = (rows: ReturnType<typeof buildContactHistory>) => new Set(rows.map((e) => e.channelType));
+    const dismissed = { ...buildContactHistory([]).find((e) => e.channelType === "chat")!, id: "dismissed-chat" };
+    expect(types(buildContactHistory([dismissed], PHASE1))).toEqual(new Set(["voice"]));
+    expect(buildContactHistory([dismissed], PHASE1).some((e) => e.id === "dismissed-chat")).toBe(false);
+    expect(types(buildContactHistory([dismissed], { ...PHASE1, chat: true }))).toEqual(new Set(["voice", "chat"]));
     // A customer whose history includes an off channel: those rows are left out of the Journey Summary.
-    const entry = buildContactHistoryByRange([]).last72h.find((e) => e.channelType !== "voice" && e.customerId)!;
+    const entry = buildContactHistory([]).find((e) => e.channelType !== "voice" && e.customerId)!;
     const all = journeySummaryFor({ customerName: entry.name, customerId: entry.customerId });
     const voiceOnly = journeySummaryFor({ customerName: entry.name, customerId: entry.customerId, channels: PHASE1 });
     expect(all!.rows.length).toBeGreaterThan(voiceOnly?.rows.length ?? 0);

@@ -32,6 +32,8 @@ export interface FeedRow {
   title: string;
   subtitle: string;
   sourceLabel?: string;
+  /** The customer's name, when the row has one (the search matches it). */
+  customer?: string;
   /** Due (scheduled), arrival (offered) or completion (done; a Contact History entry's is from its "8m ago"). */
   at?: EpochMs;
   /** A display time the row already carries ("12m ago"), when `at` isn't known. */
@@ -59,8 +61,9 @@ export interface FeedInput {
   railCards: readonly FeedRow[];
   /** Contact History's entries in History's range, already rows, in the card's order. */
   completedHistory: readonly FeedRow[];
-  /** The start of History's range: schedule items completed before it are left out. */
-  historySince: EpochMs;
+  /** History's range, [from, to): schedule items completed outside it are left out (Contact History's own entries
+   *  arrive already in it). */
+  historyWindow: { from: EpochMs; to: EpochMs };
   /** History's search (Contact History's): keeps the rows it matches. Unset: every row. */
   historyMatches?: (row: FeedRow) => boolean;
   now: EpochMs;
@@ -69,6 +72,10 @@ export interface FeedInput {
   /** The kind chips: an empty set is every kind. Applies to every group, History included. */
   kindFilter: ReadonlySet<AssignmentKind>;
   view: FeedView;
+  /** The Activity view's search and the Parked view's (P-HOME-1m): a row's title, subtitle, customer or source;
+   *  with the kind chips. Empty: every row. */
+  query?: string;
+  parkedQuery?: string;
   /** Whether a row hasn't been previewed or opened yet (the nav card's new state). Unset: every row is read. */
   isUnread?: (row: FeedRow) => boolean;
 }
@@ -93,13 +100,11 @@ export interface Feed {
     thisWeek: number;
     later: number;
     assignments: number;
-    /** The Assignments view's unread rows (offers and the time groups). */
+    /** The Activity view's unread rows (the time groups). */
     unread: number;
     parked: number;
     history: number;
   };
-  /** Unread Assignments rows by kind, whatever the kind chips pick (the chips' counts). */
-  unreadByKind: Partial<Record<AssignmentKind, number>>;
 }
 
 /** A schedule item as a feed row. */
@@ -121,6 +126,7 @@ function scheduleRow(item: ScheduleItem): FeedRow {
     title: item.title,
     subtitle: item.subtitle,
     sourceLabel: item.sourceLabel,
+    ...(item.customer ? { customer: item.customer.name } : {}),
     at: item.state === "done" ? (item.completedAt ?? item.dueAt) : item.state === "parked" ? (item.parkedAt ?? item.dueAt) : item.dueAt,
     status,
     target: { type: "schedule", itemId: item.id },
@@ -129,6 +135,12 @@ function scheduleRow(item: ScheduleItem): FeedRow {
 }
 
 const byTime = (a: FeedRow, b: FeedRow) => (a.at ?? 0) - (b.at ?? 0);
+
+/** A view search's match (P-HOME-1m): the query in the row's title, subtitle, customer or source. */
+export function feedRowMatches(row: FeedRow, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  return !q || [row.title, row.subtitle, row.customer, row.sourceLabel].some((field) => field?.toLowerCase().includes(q));
+}
 
 export function buildFeed(input: FeedInput): Feed {
   const { now, kinds, kindFilter, view } = input;
@@ -143,12 +155,14 @@ export function buildFeed(input: FeedInput): Feed {
   const offers = input.offers.filter(persona).map(withUnread);
   const inRail = new Set(input.railCards.map((r) => r.assignmentId));
 
-  const needsDecision = [...offers.filter(picked), ...items.filter((r) => r.status === "offered")].sort(byTime);
+  // The Activity view's search narrows Needs a decision and the time groups, with the chips.
+  const searched = (r: FeedRow) => feedRowMatches(r, input.query ?? "");
+  const needsDecision = [...offers.filter(picked), ...items.filter((r) => r.status === "offered")].filter(searched).sort(byTime);
   // Scheduled and open items, nearest first; one on a rail card is open (an item opened from the feed, or a card that
   // holds its assignment).
   const asOpen = (r: FeedRow): FeedRow => (r.status === "scheduled" && inRail.has(r.assignmentId) ? { ...r, status: "inRail", unread: undefined } : r);
   const inTimeGroups = (r: FeedRow) => r.status === "scheduled" || r.status === "inRail";
-  const scheduled = items.filter(inTimeGroups).map(asOpen).sort(byTime);
+  const scheduled = items.filter(inTimeGroups).filter(searched).map(asOpen).sort(byTime);
   const endOfToday = startOfDay(now) + DAY_MS;
   const endOfWeek = endOfToday + 6 * DAY_MS;
   const due = (r: FeedRow) => r.at ?? 0;
@@ -159,19 +173,17 @@ export function buildFeed(input: FeedInput): Feed {
 
   // Contact History's entries (newest first, as the card lists them) with the completed schedule items merged in by
   // completion time; a stable sort keeps the card's own order among its entries.
-  const completedItems = items.filter((r) => r.status === "completed" && r.kind !== "conversation" && due(r) >= input.historySince);
+  const { from, to } = input.historyWindow;
+  const completedItems = items.filter((r) => r.status === "completed" && r.kind !== "conversation" && due(r) >= from && due(r) < to);
   const matches = input.historyMatches ?? (() => true);
   const history = [...input.completedHistory.filter(ofKind), ...completedItems].sort((a, b) => due(b) - due(a)).filter(matches);
 
   // Parked (P-HOME-1k): out of the feed and the rail, newest parked first; the chips filter it.
-  const parked = items.filter((r) => r.status === "parked").sort((a, b) => due(b) - due(a));
+  const parked = items
+    .filter((r) => r.status === "parked" && feedRowMatches(r, input.parkedQuery ?? ""))
+    .sort((a, b) => due(b) - due(a));
 
-  // Unread: the rows the Assignments count counts (the time groups; Needs a decision has its own header count); by
-  // kind over every persona row, whatever the chips pick, so each chip can show its own.
-  const unreadByKind: Partial<Record<AssignmentKind, number>> = {};
-  for (const r of personaItems.filter(inTimeGroups).map(asOpen)) {
-    if (r.unread && r.status === "scheduled") unreadByKind[r.kind] = (unreadByKind[r.kind] ?? 0) + 1;
-  }
+  // Unread: the rows the Activity count counts (the time groups; Needs a decision has its own header count).
   const assignmentRows = [...today, ...thisWeek, ...later];
 
   const showHistory = view === "history";
@@ -197,6 +209,5 @@ export function buildFeed(input: FeedInput): Feed {
       parked: parked.length,
       history: history.length,
     },
-    unreadByKind,
   };
 }

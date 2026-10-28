@@ -29,7 +29,7 @@ function HomeDockedDetailPanel() {
  *  (P-EXTRACT C8, from the page). */
 export function WorkspaceHome() {
   const {
-    activeDeskTab, addToast, contactHistoryByRange, contentByPanelKey, customerTable,
+    activeDeskTab, addToast, contactHistory, contentByPanelKey, customerTable,
     handleStartCall, hasBreachedSlaAssignment, homeTabs,
     interactions, selectedContactHistoryEntry, selectedQueueId,
     setInteriorPanelOpen, setNavOpen, setSelectedContactHistoryEntry, setSelectedQueueId, showInteriorPanel,
@@ -134,9 +134,9 @@ export function WorkspaceHome() {
                           setSelectedContactHistoryEntry(entry);
                         }}
                         selectedEntryId={selectedContactHistoryEntry?.id ?? null}
-                        historyByRange={contactHistoryByRange}
-                        // Phase 1's filter defaults to the last 72 hours (`defaultDateFilter`'s doc comment).
-                        defaultDateFilter="last72h"
+                        history={contactHistory}
+                        // The whole seeded history at first (lyra's Last 7 days).
+                        defaultDateFilter="last7"
                         // No `onOpenAllContacts`: the card's "All Contacts" button is off on Home by request.
                       />
                   }

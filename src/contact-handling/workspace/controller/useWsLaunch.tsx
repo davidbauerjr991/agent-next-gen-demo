@@ -621,7 +621,7 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
         // Only ever collapses entries within `dismissedContactHistory`
         // itself (today's real, agent-generated rows) — the separate
         // hand-authored `CONTACT_HISTORY`/`EXTENDED_CONTACT_HISTORY` fixture
-        // rows `buildContactHistoryByRange` layers in for "Last 48/72 Hours"
+        // rows `buildContactHistory` adds after them
         // are untouched, different (fictional) cases entirely.
         setDismissedContactHistory((prev) => [entry, ...prev.filter((e) => e.caseId !== entry.caseId)]);
       }

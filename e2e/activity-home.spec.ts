@@ -45,27 +45,31 @@ async function openItem(page: Page, title: string) {
   await feed(page).locator("[data-feed-row]", { hasText: title }).click();
   await page.locator("[data-home-detail=item] [data-preview-open]").click();
 }
-/** Widens History's range to Contact History's earlier contacts. */
-async function last48(page: Page) {
-  await group(page, "History").getByRole("button", { name: /Today/ }).click();
-  await page.getByText("Last 48 Hours", { exact: true }).click();
+/** The filter row every view shares (P-HOME-1m): search, kinds, History's date. */
+const filters = (page: Page) => feed(page).locator("[data-feed-filters]");
+
+/** Picks History's range in lyra's DateRangeFilterChip (Today / Yesterday / Last 7 days / Custom). */
+async function historyRange(page: Page, label: string) {
+  await filters(page).getByRole("button", { name: /^Date:/ }).click();
+  await page.getByRole("radio", { name: label }).last().click();
+  await page.keyboard.press("Escape");
 }
 
-test("the feed: today and this week's scheduled rows, the Assignments count matches, no Completed-today group", async ({ page }) => {
+test("the feed: today and this week's scheduled rows, the Activity count matches, no Completed-today group", async ({ page }) => {
   await open(page);
   // Eight of the agent's scheduled items fall within the week, whatever the hour; the ninth is Later, collapsed.
   const scheduled = feed(page).locator('[data-feed-row][data-feed-status="scheduled"]');
   await expect(scheduled).toHaveCount(8);
-  await expect(view(page, "Assignments")).toContainText("9");
+  await expect(view(page, "Activity")).toContainText("9");
   await expect(group(page, "Later")).toContainText("Later · 1");
   // Three views (Assignments | Parked | History, P-HOME-1k), Assignments by default.
   await expect(feed(page).locator("[data-feed-views]").getByRole("radio")).toHaveCount(3);
-  await expect(view(page, "Assignments")).toHaveAttribute("aria-checked", "true");
+  await expect(view(page, "Activity")).toHaveAttribute("aria-checked", "true");
   await expect(feed(page).locator('[data-feed-group="Completed today"]')).toHaveCount(0);
   // Completed work is History, never a time group.
   await expect(feed(page).locator('[data-feed-row][data-feed-status="completed"]')).toHaveCount(0);
   await view(page, "History").click();
-  await last48(page);
+  await historyRange(page, "Last 7 days");
   await expect(feed(page).locator('[data-feed-row][data-feed-status="completed"]').first()).toBeVisible();
   await expect(feed(page).locator('[data-feed-row][data-feed-status="scheduled"]')).toHaveCount(0);
 });
@@ -108,7 +112,7 @@ test("a row previews in Home's panel; Join moves it to the rail and off the time
   await expect(group(page, "Today")).toHaveCount(0);
   await expect(history).not.toContainText("Returns team stand-up");
 
-  await view(page, "Assignments").click();
+  await view(page, "Activity").click();
   await expect(history).toHaveCount(0);
   await expect(feed(page).locator('[data-feed-row][data-feed-status="scheduled"]')).toHaveCount(7);
 
@@ -171,7 +175,7 @@ test("unread: the day loads read; an item that comes due is unread (tinted, a do
   await expect(row).not.toHaveAttribute("data-unread", "true");
   await expect(badge).toHaveCount(0);
   await view(page, "History").click();
-  await view(page, "Assignments").click();
+  await view(page, "Activity").click();
   await expect(badge).toHaveCount(0);
 });
 
@@ -190,11 +194,11 @@ test("park a callback from its row's hover cluster: it leaves the feed for Parke
   await parked.hover();
   await parked.getByRole("button", { name: "Unpark" }).click();
   await expect(group(page, "Parked")).toContainText("Nothing parked");
-  await view(page, "Assignments").click();
+  await view(page, "Activity").click();
   await expect(feed(page).locator('[data-feed-row][data-feed-status="scheduled"]', { hasText: "Callback · Priya Shah" })).toBeVisible();
 });
 
-test("no date control on Assignments: Later is collapsed until opened; an opened item stays in the feed marked open", async ({ page }) => {
+test("no date control on Activity: Later is collapsed until opened; an opened item stays in the feed marked open", async ({ page }) => {
   await open(page);
   await expect(feed(page).locator("[data-feed-range]")).toHaveCount(0);
   const later = group(page, "Later");
@@ -213,13 +217,13 @@ test("History's rows are the Contact History card's entries, in its order and wi
   await page.setViewportSize({ width: 1600, height: 1400 });
   await open(page);
   await view(page, "History").click();
-  await last48(page);
+  await historyRange(page, "Yesterday");
   const rows = feed(page).locator('[data-feed-row^="history:"]');
   await expect(rows.first()).toBeVisible();
   const card = page.locator('[data-home-section="contactHistory"]');
-  // The card's own date control: Last 48 Hours too (its default is 72).
-  await card.getByRole("button", { name: /Date filter/ }).click();
-  await page.getByRole("radio", { name: "Last 48 Hours" }).last().click();
+  // The card's own date control (lyra's DateRangeFilterChip too, from Last 7 days): Yesterday as well.
+  await card.getByRole("button", { name: /^Date:/ }).click();
+  await page.getByRole("radio", { name: "Yesterday" }).last().click();
   await page.keyboard.press("Escape");
   const cardTimes = (await card.locator("span").allInnerTexts()).filter((s) => /^(\d+[mhd] ago|Just now)$/.test(s.trim()));
   const feedTimes = (await rows.allInnerTexts()).map((r) => /(\d+[mhd] ago|Just now)/.exec(r)?.[1]);
@@ -315,8 +319,7 @@ test("two columns: the header stays put, the feed and the right column scroll on
 
   // A Contact History row's preview opens in the same place (its earlier contacts: History's range widened).
   await view(page, "History").click();
-  await group(page, "History").getByRole("button", { name: /Today/ }).click();
-  await page.getByText("Last 48 Hours", { exact: true }).click();
+  await historyRange(page, "Last 7 days");
   await feed(page).locator('[data-feed-row^="history:"]').first().click();
   await expect(panel.locator('[data-home-detail="history"]')).toBeVisible();
   const historyBox = (await panel.boundingBox())!;
@@ -372,7 +375,7 @@ test("History behaves as Contact History: its search and date controls, a row op
   await open(page);
   await view(page, "History").click();
   const history = group(page, "History");
-  await last48(page);
+  await historyRange(page, "Last 7 days");
   const entries = feed(page).locator('[data-feed-row^="history:"]');
   await expect(entries.first()).toBeVisible();
   await entries.first().click();
@@ -382,9 +385,9 @@ test("History behaves as Contact History: its search and date controls, a row op
   await entries.first().click();
   await expect(entries.first()).not.toHaveAttribute("data-selected", "true");
   // Its search narrows the list.
-  await history.getByPlaceholder("Search contact history").fill("zzz-no-match");
+  await filters(page).getByPlaceholder("Search contact history").fill("zzz-no-match");
   await expect(entries).toHaveCount(0);
-  await expect(history).toContainText("No matching contacts");
+  await expect(history).toContainText("No results for “zzz-no-match”");
 });
 
 test("a callback's Dial opens the outbound dial pad anchored beneath the button, prefilled with the customer's number", async ({ page }) => {
