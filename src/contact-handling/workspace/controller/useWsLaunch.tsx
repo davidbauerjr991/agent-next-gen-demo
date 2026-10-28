@@ -6,7 +6,6 @@
 // (hook order unchanged); see `useWorkspaceController`.
 import { useState, useEffect, useRef } from "react";
 import type { AgentStatus, ChannelType, CreateNewOutboundContact, InteractionChannel } from "@nicecxone/lyra-ui";
-import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
 import { OUTBOUND_AGENTS } from "@/components/agent-next-gen-outbound-data";
 import { type ContactHistoryEntry, buildDismissedContactHistoryEntry } from "@/components/agent-next-gen-contact-history";
 import { saveCaseRecord } from "@/components/agent-next-gen-case-database";
@@ -45,8 +44,8 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
   const {
     LUCAS_THOMAS_PHONE, activeChannel, activeChannelKey, activeChannelStatus, activeCustomerOverviewEditing,
     activeCustomerRecordDraft, activeInteraction, activeInteractionId, addToast, agentStatus, cardIdentityOf, channelPreviewThread,
-    channelPreviewThreadKey, clock, containerRef, createdCustomerRecords, customerTable, dismissInteractionRef,
-    enabledChannels, findOpenCard, fireDismissToast, interactions, isNavNarrow, launchLucasCall, lucasCallConfirmRef,
+    channelPreviewThreadKey, clock, containerRef, customerTable, dismissInteractionRef,
+    enabledChannels, findDirectoryCustomer, findOpenCard, fireDismissToast, interactions, isNavNarrow, launchLucasCall, lucasCallConfirmRef,
     mainPins, navOpen, omni, omnichannel, outcomeDrafts, panelOpen, panelPlacement, placement,
     scenarioKeyOf, seedOverlay, sessionDetailsPick, setActiveCustomerOverviewEditing, setAgentLegDisconnectedToastOpen,
     setAgentStatus, setCustomerPanelActiveTab, setDismissedContactHistory, setHistoryConversationTab, setInteractions,
@@ -223,8 +222,6 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
   };
   const { activateWhenReady } = useContactActivation(handleContactActivated, seedOverlay);
   const { allOptions: allOutboundSkills, idForName: skillIdForName } = useOutboundSkills();
-  const findDirectoryCustomer = (entityId: string) =>
-    createdCustomerRecords.find((c) => c.id === entityId) ?? CREATE_NEW_CUSTOMERS.find((c) => c.id === entityId);
   /** A card's contact methods (E2): what Contact Details shows for it, plus added addresses; the "+" picker
    *  and the save-address offer both read it. */
   const cardContactMethodsOf = (card: Interaction) => {

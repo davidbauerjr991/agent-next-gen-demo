@@ -466,3 +466,4 @@ All of these live in a new UI-side folder (e.g. `src/contact-handling/`). They c
 - **Provider-contract scope cuts (P0.2)** — consult merge/cancel flows, directory search for transfer targets, profile-named collection shortcuts (P1 helper over `getCollection`), compliance gates on cards (Phase 4), vendor-only features (barge, whisper, conference, callbacks). See PLAN.md Decisions.
 - **Email simulation** — composer, outbox-store, delivery states, console tab (PLAN.md "Parked"; prompt: P-PARKED).
 - **SMS simulation** — same shape plus segment counting (PLAN.md "Parked"; prompt: P-PARKED).
+- **Linking a schedule item's customer writes the UI store from the component (P-HOME-1m)** — `LinkCustomerBody` (`src/components/workspace/customer-slide-over.tsx`) sets `linkedItemCustomers` itself; the controller has no handler for linking a schedule item (`handleLinkCustomerRecord` is the conversation's). Move it into one when P0.9 makes the link a provider call.
