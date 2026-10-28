@@ -109,18 +109,18 @@ export function useOpenScheduleItem(): (itemId: string) => void {
   );
 }
 
-/** Opens a schedule item's or offer's preview in Home's detail panel (one job at a time there, home-detail-panel.tsx);
- *  previewing reads it. A row's click toggles it (`toggle`); the arrival banner's View always opens it. */
-export function usePreviewFeedTarget(): (target: Exclude<FeedTarget, { type: "history" }>, options?: { toggle?: boolean }) => void {
+/** Toggles a schedule item's or offer's preview in Home's detail panel (one job at a time there,
+ *  home-detail-panel.tsx); previewing reads it. */
+function usePreviewFeedTarget(): (target: Exclude<FeedTarget, { type: "history" }>) => void {
   const { setSelectedQueueId, setInteriorPanelOpen, setSelectedContactHistoryEntry } = useWorkspace();
   const [, setPreview] = useWorkspaceUiField("homePreview");
   const [, setPreviewed] = useWorkspaceUiField("previewedAssignments");
   return useCallback(
-    (target, options) => {
+    (target) => {
       setSelectedQueueId(null);
       setInteriorPanelOpen(false);
       setSelectedContactHistoryEntry(null);
-      setPreview((current) => (options?.toggle && sameTarget(current, target) ? null : target));
+      setPreview((current) => (sameTarget(current, target) ? null : target));
       const key = targetCardKey(target);
       if (key) setPreviewed((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
     },
@@ -210,7 +210,7 @@ export function useActivityFeed(): ActivityFeed {
       // An item already open in the rail (P-HOME-1m: it stays in the feed) goes to its card.
       if (row.status === "inRail") return activate(target);
       // The open row's click closes its preview, as on Contact History.
-      if (target.type !== "history") return previewTarget(target, { toggle: true });
+      if (target.type !== "history") return previewTarget(target);
       // A completed contact opens Contact History's own preview (Redial / reopen from there); one job at a time.
       setSelectedQueueId(null);
       setInteriorPanelOpen(false);
