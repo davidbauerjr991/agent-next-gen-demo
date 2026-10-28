@@ -112,7 +112,7 @@ describe("schedule items open as assignments", () => {
     expect(document.querySelector("[data-kind-outcome-footer]")!.className).toContain("px-5 pb-4 pt-1");
   });
 
-  it("the cell's header is a conversation's two lines, with a back arrow Home; the session row has no default status and no kebab", async () => {
+  it("the cell's header is a conversation's two lines, with no back arrow (Home is the left nav's); the session row has no default status and no kebab", async () => {
     await showHome();
     await openItem(rowNamed("Ticket #4821 · subscription renewal refund")!);
     const header = cell()!.querySelector<HTMLElement>('[data-slot="record-header"]')!;
@@ -126,8 +126,9 @@ describe("schedule items open as assignments", () => {
     expect(row.textContent).not.toContain("Active");
     expect(row.querySelector("[data-kind-outcome-trigger]")).not.toBeNull();
     expect(row.querySelector('[aria-label="More options"]')).toBeNull();
-    // The back arrow returns Home.
-    await h.click(header.querySelector("[data-kind-back]")!);
+    // No back arrow (P-HOME-1m): the left nav's Home and the X / Return to feed reach Home.
+    expect(header.querySelector('[aria-label="Back to Home"], [title="Back to Home"]')).toBeNull();
+    await h.click(homeButton());
     expect(cell()).toBeNull();
     expect(feed()).not.toBeNull();
   });

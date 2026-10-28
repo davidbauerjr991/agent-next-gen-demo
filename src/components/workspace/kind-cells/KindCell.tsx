@@ -5,14 +5,14 @@
 // one the lyra `PageHeader` (the name and the subject line), line two the
 // session row (the kind where the channel would be, the time, the source and
 // Outcome), portaled into the host the record header holds the session row
-// in (`sessionRowHost`). P-HOME-1f: a back arrow in the PageHeader's leading
-// slot returns Home; the reference column is the canvas registry's kind
+// in (`sessionRowHost`); the PageHeader's leading slot is the customer's
+// avatar (P-HOME-1m removed 1f's back arrow). The reference column is the canvas registry's kind
 // cells (`canvas.cells` overrides apply) in the interaction's reference slot,
 // with its slide-over; the action area ends with the Copilot input, whose
 // answers are scoped to the item (src/scenarios/schedule-copilot.ts).
 import { createPortal } from "react-dom";
-import { ActionIconButton, Avatar, Button, PageHeader, Tag } from "@nicecxone/lyra-ui";
-import { ArrowLeft, Clock, IdCard } from "lucide-react";
+import { Avatar, Button, PageHeader, Tag } from "@nicecxone/lyra-ui";
+import { Clock, IdCard } from "lucide-react";
 import { initialsFor } from "@/components/agent-next-gen-shared-utils";
 import { KindTag } from "@/components/home/home-kinds";
 import { useScheduleItemCustomer } from "@/contact-handling/home/useScheduleCards";
@@ -23,7 +23,6 @@ import { scheduleCardKey } from "@/domain";
 import { feedTimeLabel } from "@/contact-handling/home/time";
 import { HostSlot } from "@/contact-handling/portal-hosts";
 import { useKindCanvasRegions } from "@/contact-handling/useCanvasRegions";
-import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import type { ScheduleItem } from "@/providers";
 import { t } from "@/i18n";
@@ -98,16 +97,11 @@ function KindCustomerActions({ item }: { item: ScheduleItem }) {
 }
 
 export function KindCell({ item }: { item: ScheduleItem }) {
-  const { sessionRowHost, switchActiveInteraction, selectedDetailPanelContent } = useWorkspace();
+  const { sessionRowHost, selectedDetailPanelContent } = useWorkspace();
   const customer = useScheduleItemCustomer(item);
-  const [, setKindCellShownFor] = useWorkspaceUiField("kindCellShownFor");
   const regions = useKindCanvasRegions();
   // Always the reference slot: a kind cell has no docked Contact Details for the slide-over to open in instead.
   const slideOver = useDetailSlideOverPanel({ wanted: !!selectedDetailPanelContent, assignmentKey: scheduleCardKey(item.id) });
-  const backHome = () => {
-    setKindCellShownFor(null);
-    switchActiveInteraction(null);
-  };
   return (
     // P-HOME-1g: the main column's enter fade (the interaction body's, Home's and Settings' `animate-in fade-in-0
     // duration-200`); WorkspaceHome keys the cell on its item, so it replays per item.
@@ -122,18 +116,14 @@ export function KindCell({ item }: { item: ScheduleItem }) {
           subtitle={subjectLine(item)}
           bordered={false}
           compact
+          // The customer's avatar, as a conversation's record header shows it (P-HOME-1m). No back arrow: Home is the
+          // left nav's, and the X / Return to feed's.
           icon={
-            <span className="flex items-center gap-2">
-              <ActionIconButton title={t("Back to Home")} onClick={backHome} data-kind-back="">
-                <ArrowLeft className="h-4 w-4" strokeWidth={1.5} />
-              </ActionIconButton>
-              {/* The customer's avatar, as a conversation's record header shows it (P-HOME-1m). */}
-              {customer && (
-                <span className="inline-flex" data-kind-avatar="">
-                  <Avatar initials={customer.entityId ? initialsFor(customer.name) : undefined} color={customer.entityId ? "primary" : "shell"} size="md" />
-                </span>
-              )}
-            </span>
+            customer && (
+              <span className="inline-flex" data-kind-avatar="">
+                <Avatar initials={customer.entityId ? initialsFor(customer.name) : undefined} color={customer.entityId ? "primary" : "shell"} size="md" />
+              </span>
+            )
           }
           iconDivider={false}
           actions={
