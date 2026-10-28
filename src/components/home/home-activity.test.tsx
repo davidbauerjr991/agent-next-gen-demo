@@ -167,7 +167,7 @@ describe("Activity feed on Home", () => {
     expect(h.container.textContent).toContain("Skills");
   });
 
-  it("twoColumn: the right column is the overlay only when it doesn't fit, opened by the header's toggle — on Dashboard only (another Home tab has no right column)", async () => {
+  it("twoColumn: the right column is the overlay only when it doesn't fit, opened by a ghost icon toggle in the feed's switcher row (right of list / table, not the header) — on Dashboard only", async () => {
     turnOn();
     await act(async () => {
       getSettingsStore().update("header", (prev) => ({ apps: { ...prev.apps, customers: { enabled: true, placement: "tab" as const } } }));
@@ -182,15 +182,19 @@ describe("Activity feed on Home", () => {
       await setLayout("twoColumn");
       const home = h.container.querySelector("[data-home-layout=twoColumn]")!;
       expect(home.querySelector('[data-canvas-region="reference"][data-docked="true"]')).toBeNull();
-      const toggle = h.container.querySelector<HTMLElement>("[data-home-header] [data-summaries-toggle]")!;
+      expect(h.container.querySelector("[data-home-header] [data-summaries-toggle]")).toBeNull();
+      const display = h.container.querySelector("[data-feed-display]")!;
+      const toggle = display.querySelector<HTMLElement>("[data-summaries-toggle]")!;
       expect(toggle.getAttribute("aria-label")).toBe("Cards");
+      // Immediately right of the list / table toggle.
+      expect(toggle.previousElementSibling?.querySelector('[aria-label="Table"]')).not.toBeNull();
       await h.click(toggle);
       expect(toggle.getAttribute("aria-pressed")).toBe("true");
       expect(document.querySelector('[data-canvas-region="reference"]')?.textContent).toContain("Cards");
       // The Customers tab: the header stays, its Cards toggle doesn't.
       await h.click([...h.container.querySelectorAll<HTMLElement>("[data-slot=home-tabs] [role=tab]")].find((tab) => tab.textContent?.includes("Customers"))!);
       expect(h.container.querySelector("[data-home-header] [data-home-page-header]")).not.toBeNull();
-      expect(h.container.querySelector("[data-home-header] [data-summaries-toggle]")).toBeNull();
+      expect(h.container.querySelector("[data-summaries-toggle]")).toBeNull();
     } finally {
       Element.prototype.getBoundingClientRect = rect;
     }
@@ -666,6 +670,14 @@ describe("Activity feed on Home", () => {
     await h.click(dueHead().querySelector<HTMLElement>("button") ?? dueHead());
     expect(tableTitles()[0]).toContain("Q4 compliance refresher");
     expect(tableTitles()).toEqual([...before].reverse());
+    // Every column sorts: Title ascending is alphabetical (and not the feed's order).
+    const titleHead = () => [...table()!.querySelectorAll<HTMLElement>("thead th")].find((th) => th.textContent?.trim() === "Title")!;
+    await h.click(titleHead().querySelector<HTMLElement>("button") ?? titleHead());
+    const alphabetical = [...before].sort((a, b) => (a ?? "").localeCompare(b ?? ""));
+    expect(tableTitles()).toEqual(alphabetical);
+    expect(alphabetical).not.toEqual(before);
+    // Each of the six column headers is lyra's sortable head (aria-sort).
+    expect(table()!.querySelectorAll("thead th[aria-sort]").length).toBe(6);
     // The unread tint carries over; a row's click opens the same preview.
     const priya = () => [...table()!.querySelectorAll<HTMLElement>("[data-feed-row]")].find((r) => r.textContent?.includes("Callback · Priya Shah"))!;
     expect(priya().getAttribute("data-unread")).toBe("true");

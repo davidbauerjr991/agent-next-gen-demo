@@ -7,30 +7,20 @@
 import * as React from "react";
 import { PageHeader } from "@nicecxone/lyra-ui";
 import { CURRENT_AGENT_FIRST_NAME, CURRENT_AGENT_ID } from "@/components/agent-next-gen-shared-utils";
-import { homeIsTwoColumn, homeSideSections } from "@/contact-handling/home/home-layout";
+import { homeIsTwoColumn } from "@/contact-handling/home/home-layout";
 import { useSettings } from "@/settings";
 import { t } from "@/i18n";
-import { HomeCardsToggle } from "./HomeTwoColumn";
 
 /** Home's page header, above the Home tabs (P-HOME-1m: the header, then the tab row, then the dashboard, in one
  *  column and two). Settings → Home "Show header" hides it. One column: its old place's spacing, centred like the
- *  dashboard; two columns: the welcome header, with the right column's Cards toggle when that column has cards and
- *  Dashboard is the tab showing (`dashboard`: the other tabs have no right column). */
-export function HomePageHeader({ actions, dashboard }: { actions: React.ReactNode; dashboard: boolean }) {
+ *  dashboard; two columns: the welcome header. (The right column's Cards toggle is in the feed's switcher row.) */
+export function HomePageHeader({ actions }: { actions: React.ReactNode }) {
   const [home] = useSettings("home");
   if (!home.showHeader) return null;
   if (homeIsTwoColumn(home)) {
     return (
       <div className="shrink-0" data-home-header="">
-        <HomeGreetingHeader
-          welcome
-          actions={
-            <>
-              {actions}
-              {dashboard && homeSideSections(home).length > 0 && <HomeCardsToggle />}
-            </>
-          }
-        />
+        <HomeGreetingHeader welcome actions={actions} />
       </div>
     );
   }

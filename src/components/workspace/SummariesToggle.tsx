@@ -1,4 +1,4 @@
-import { Button, Tooltip } from "@nicecxone/lyra-ui";
+import { ActionIconButton, Button, Tooltip } from "@nicecxone/lyra-ui";
 import { PanelRight } from "lucide-react";
 import { panelToggleClass } from "@/contact-handling";
 import { useCanvasRegions } from "@/contact-handling/useCanvasRegions";
@@ -11,10 +11,18 @@ import { cn } from "@/lib/utils";
  *  doesn't fit beside the main column (`referenceColumnFits`, measured by
  *  `ReferenceSlotFrame`); it opens the column as an overlay
  *  (`ReferenceColumn`). Docked, there is nothing to toggle. */
-export function ReferenceOverlayToggle({ label, hidden = false }: { label: string; hidden?: boolean }) {
+export function ReferenceOverlayToggle({ label, hidden = false, ghost = false }: { label: string; hidden?: boolean; ghost?: boolean }) {
   const [fits] = useWorkspaceUiField("referenceColumnFits");
   const [open, setOpen] = useWorkspaceUiField("summariesOverlayOpen");
   if (fits || hidden) return null;
+  // `ghost`: lyra's ghost icon button, for a toolbar row (Home's Cards toggle beside the list / table toggle, P-HOME-1m).
+  if (ghost) {
+    return (
+      <ActionIconButton title={label} aria-label={label} aria-pressed={open} data-summaries-toggle="" onClick={() => setOpen((v) => !v)}>
+        <PanelRight className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+      </ActionIconButton>
+    );
+  }
   return (
     <Tooltip content={label} placement="bottom">
       <Button

@@ -99,7 +99,9 @@ export function HomeDashboard({ selectedQueueId, onSelectQueue, contactHistory }
           <ActivityFeed />
         ) : (
           <DashboardCard variant="neutral-subtle" headerTitle={t("Activity")}>
-            <div className="px-4 pb-4">
+            {/* Table mode needs a height to fill (P-HOME-1m): one column's card is a row in the page's scroll, so its
+                body gets one — the viewport's, less the header above it. */}
+            <div className={cn("px-4 pb-4", home.activityView === "table" && "flex h-[70vh] min-h-[420px] flex-col")} data-feed-area="">
               <ActivityFeed />
             </div>
           </DashboardCard>

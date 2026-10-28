@@ -291,19 +291,21 @@ test("two columns: the header stays put, the feed and the right column scroll on
   expect(await side.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
   expect((await header.boundingBox())!.y).toBe(headerTop);
 
-  // Docked while it fits: no toggle in the header.
-  await expect(header.locator("[data-summaries-toggle]")).toHaveCount(0);
+  // Docked while it fits: no Cards toggle anywhere.
+  await expect(page.locator("[data-summaries-toggle]")).toHaveCount(0);
 
-  // Too narrow to dock: the overlay, opened by the header's toggle (shown only then), over the feed.
+  // Too narrow to dock: the overlay, opened by the Cards toggle (shown only then) — in the feed's switcher row, right
+  // of the list / table toggle, not the header — over the feed.
   await page.setViewportSize({ width: 1000, height: 640 });
   await expect(side).toHaveCount(0);
-  const toggle = header.locator("[data-summaries-toggle]");
+  await expect(header.locator("[data-summaries-toggle]")).toHaveCount(0);
+  const toggle = page.locator("[data-feed-display] [data-summaries-toggle]");
   await expect(toggle).toBeVisible();
   await toggle.click();
   await expect(page.locator('[data-canvas-region="reference"]').filter({ hasText: "Cards" })).toBeVisible();
   await page.setViewportSize({ width: 1600, height: 640 });
   await expect(side).toBeVisible();
-  await expect(header.locator("[data-summaries-toggle]")).toHaveCount(0);
+  await expect(page.locator("[data-summaries-toggle]")).toHaveCount(0);
 
   // The queue is one compact card; a row opens the skills drill-down over the right column, beside the feed (never
   // over it): the interaction's slide-over layout, whose slot widens as the panel is dragged, pushing the feed.
@@ -365,6 +367,40 @@ test("a call from a callback joins the callback's card: the Callback row, then t
   await expect(page.locator("[data-kind-cell=callback]")).toBeVisible();
   await voiceRow.click({ force: true });
   await expect(page.locator("[data-kind-cell]")).toHaveCount(0);
+});
+
+test("table mode fills the feed area (P-HOME-1m): its header stays while its body scrolls, the Customers table's footer pinned below with the page controls, no page scroll", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.addInitScript((home) => {
+    localStorage.setItem("agent-next-gen:settings:home", JSON.stringify({ ...home, value: { ...home.value, layout: "twoColumn", activityView: "table" } }));
+  }, HOME_WITH_FEED);
+  await open(page);
+  // History over the week: well over a page of rows, so the body has something to scroll.
+  await view(page, "History").click();
+  await historyRange(page, "Last 7 days");
+  const area = page.locator("[data-home-scroll=feed]");
+  const frame = page.locator("[data-feed-table-frame]");
+  await expect(frame).toBeVisible();
+  // The frame reaches the bottom of the feed area (less its 24px bottom padding); the area itself doesn't scroll.
+  const areaBox = (await area.boundingBox())!;
+  const frameBox = (await frame.boundingBox())!;
+  expect(Math.abs(frameBox.y + frameBox.height - (areaBox.y + areaBox.height - 24))).toBeLessThan(2);
+  expect(await area.evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
+  // The footer: pinned at the frame's bottom, with lyra's page controls.
+  const footer = frame.locator('nav[aria-label="Pagination"]');
+  await expect(footer).toBeVisible();
+  await expect(frame.getByRole("button", { name: "Next page" })).toBeVisible();
+  await expect(frame).toContainText(/Displaying 1-25 of \d+/);
+  // The body scrolls; the header row stays where it was.
+  const head = frame.locator("thead");
+  const body = frame.locator("tbody");
+  const headTop = (await head.boundingBox())!.y;
+  const scrolled = await body.evaluate((el) => {
+    el.scrollTop = 300;
+    return el.scrollTop;
+  });
+  expect(scrolled).toBeGreaterThan(0);
+  expect((await head.boundingBox())!.y).toBe(headTop);
 });
 
 test("History behaves as Contact History: its search and date controls, a row opens its preview and closes it again", async ({ page }) => {

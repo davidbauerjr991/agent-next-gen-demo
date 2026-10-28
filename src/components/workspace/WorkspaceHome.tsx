@@ -69,7 +69,7 @@ export function WorkspaceHome() {
   return (
                 <div key="dashboard" className="flex flex-1 flex-col min-w-0 overflow-hidden animate-in fade-in-0 duration-200">
               {/* The page header first, then the Home tabs, then the tab's body (P-HOME-1m; one column and two). */}
-              {showPageHeader && <HomePageHeader actions={queueChip} dashboard={activeDeskTab === "dashboard"} />}
+              {showPageHeader && <HomePageHeader actions={queueChip} />}
               {/* Home tabs: shown while any app is placed as "tab" (Settings → Header). */}
               {showPageHeader && tabApps.length > 0 && (
                 <HomeTabStrip

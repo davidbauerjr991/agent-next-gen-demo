@@ -12,6 +12,7 @@ import type { AssignmentKind } from "@/domain";
 import { useSettings, type HomeActivityView } from "@/settings";
 import { CONTACT_HISTORY_RANGE_OPTIONS } from "@/components/agent-next-gen-contact-history";
 import type { FeedRow, FeedView } from "@/contact-handling/home/activity-feed";
+import { homeIsTwoColumn, homeSideSections } from "@/contact-handling/home/home-layout";
 import { useActivityFeed, type ActivityFeed as ActivityFeedApi } from "@/contact-handling/home/useActivityFeed";
 import { useScheduleSnapshot } from "@/provider-context";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,7 @@ import { t } from "@/i18n";
 import { ActivityRow } from "./ActivityRow";
 import { FeedRowActions } from "./FeedRowActions";
 import { FeedTable } from "./FeedTable";
+import { HomeCardsToggle } from "./HomeTwoColumn";
 import { kindLabel } from "./home-kinds";
 
 /** A view button's label: its name, its count and, when there are any, its unread ("3 new", P-HOME-1k). */
@@ -144,7 +146,8 @@ function FeedGroup({
   const [expanded, setExpanded] = React.useState(!collapsible);
   if (rows.length === 0 && !empty) return null;
   return (
-    <section className="flex flex-col gap-1" data-feed-group={title} data-expanded={expanded}>
+    // A table fills what's left of the feed area (its own header, scrolling body and footer, P-HOME-1m).
+    <section className={cn("flex flex-col gap-1", table && rows.length > 0 && "min-h-0 flex-1")} data-feed-group={title} data-expanded={expanded}>
       {heading && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           {collapsible ? (
@@ -190,7 +193,8 @@ export function ActivityFeed() {
   const nothingComing = feed.showAssignments && feed.counts.needsDecision + feed.counts.assignments === 0;
 
   return (
-    <div className="flex flex-col gap-4" data-activity-feed>
+    // Table mode fills the feed area (its parent gives it the height); the list flows in the area's own scroll.
+    <div className={cn("flex flex-col gap-4", asTable && "h-full min-h-0")} data-activity-feed>
       {feed.needsDecision.length > 0 && (
         <Container variant="error-subtle" headerTitle={t("Needs a decision · {count}", { count: feed.needsDecision.length })} data-feed-group="Needs a decision">
           <div role="list" className="flex flex-col px-1 pb-2">
@@ -219,7 +223,8 @@ export function ActivityFeed() {
             />
           </div>
           {/* List or table, for all three views (P-HOME-1m): one setting, `home.activityView`. */}
-          <div data-feed-display={home.activityView}>
+          {/* The right column's Cards toggle sits just after it (two columns, while the column doesn't fit). */}
+          <div className="flex items-center gap-2" data-feed-display={home.activityView}>
             <ToggleGroup
               type="single"
               ariaLabel={t("Show the feed as")}
@@ -230,6 +235,7 @@ export function ActivityFeed() {
                 { value: "table", ariaLabel: t("Table"), label: <Table2 className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" /> },
               ]}
             />
+            {homeIsTwoColumn(home) && homeSideSections(home).length > 0 && <HomeCardsToggle />}
           </div>
         </div>
         {/* One filter row for every view (P-HOME-1m): the view's search first, then the kinds (lyra's FilterChip
