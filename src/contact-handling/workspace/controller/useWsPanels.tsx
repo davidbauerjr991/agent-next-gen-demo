@@ -25,8 +25,14 @@ import {
   LUCAS_THOMAS_COPILOT_SUGGESTION_LINKS,
   LUCAS_THOMAS_COPILOT_SUGGESTION_REPLACEMENTS,
 } from "@/components/workspace/workspace-constants";
+import { useMeasuredWidth } from "@/contact-handling/useMeasuredWidth";
 import type { WorkspaceLate } from "./workspace-late";
 import type { WsDetails } from "./useWsDetails";
+
+/** The breakpoints the measured widths' readers branch on (`useMeasuredWidth`): the narrow layout (768), and the
+ *  side panel's max-width and minimal thresholds (425, 350). */
+const NARROW_BANDS = [(w: number) => w < 768] as const;
+const SIDE_PANEL_CONTAINER_BANDS = [(w: number) => w < 768, (w: number) => w <= 425, (w: number) => w <= 350] as const;
 
 export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
   const {
@@ -221,15 +227,11 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
   // children — so whether the docked panel INSIDE it is pinned or
   // floating doesn't change this box's own measured width.
   const containerRef  = useRef<HTMLDivElement>(null);
-  const [sidePanelContainerWidth, setSidePanelContainerWidth] = useState(9999);
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    setSidePanelContainerWidth(el.getBoundingClientRect().width);
-    const ro = new ResizeObserver(([entry]) => setSidePanelContainerWidth(entry.contentRect.width));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+  // Its readers' breakpoints commit at once; other changes once the size settles (no render per frame of the rail's
+  // or the panel's width animation, P-HOME-1m).
+  // A full-screen panel sizes itself to this width, so it follows every frame while full screen (set below).
+  const sidePanelFullScreenRef = useRef(false);
+  const sidePanelContainerWidth = useMeasuredWidth(containerRef, SIDE_PANEL_CONTAINER_BANDS, () => sidePanelFullScreenRef.current);
   // The "Body: LeftNav + Content" row (both the nav and everything to its
   // right sit inside this one div, see its own JSX comment further down) —
   // measured via ResizeObserver so `isNavNarrow` below reacts to this row's
@@ -242,15 +244,7 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
   // LeftNav") does; this row includes LeftNav itself, so its width is
   // unaffected by the nav's own open/collapsed state.
   const bodyContainerRef = useRef<HTMLDivElement>(null);
-  const [bodyContainerWidth, setBodyContainerWidth] = useState(9999);
-  useEffect(() => {
-    const el = bodyContainerRef.current;
-    if (!el) return;
-    setBodyContainerWidth(el.getBoundingClientRect().width);
-    const ro = new ResizeObserver(([entry]) => setBodyContainerWidth(entry.contentRect.width));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+  const bodyContainerWidth = useMeasuredWidth(bodyContainerRef, NARROW_BANDS);
   // Record header's own measured width — drives the Add Channel/Customer
   // Information buttons' icon-only collapse (`recordHeaderWidth < 768`,
   // render site further down). Used to just reuse `sidePanelContainerWidth`
@@ -299,15 +293,7 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
   const recordHeaderRef = useCallback((node: HTMLDivElement | null) => {
     setRecordHeaderNode(node);
   }, []);
-  const [recordHeaderWidth, setRecordHeaderWidth] = useState(9999);
-  useEffect(() => {
-    const el = recordHeaderNode;
-    if (!el) return;
-    setRecordHeaderWidth(el.getBoundingClientRect().width);
-    const ro = new ResizeObserver(([entry]) => setRecordHeaderWidth(entry.contentRect.width));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [recordHeaderNode]);
+  const recordHeaderWidth = useMeasuredWidth(recordHeaderNode, NARROW_BANDS);
   const panelFloatLeft = useRef<number | null>(null);
   const panelFloatTop  = useRef<number | null>(null);
   const panelRef       = useRef<HTMLDivElement>(null);
@@ -523,6 +509,7 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
   // explicitly closed (`handleSidePanelClose` below) — a freshly reopened
   // panel shouldn't silently reopen full-screen from a previous session.
   const [sidePanelFullScreen, setSidePanelFullScreen] = useState(false);
+  sidePanelFullScreenRef.current = sidePanelFullScreen;
   const sidePanelHoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // Per the MOST RECENT explicit follow-up request ("start every
   // conversation with the contact details panel closed") — reverses yet
@@ -930,8 +917,8 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
     setPanelVariant, panelWidth, setPanelWidth, panelHeight, setPanelHeight, panelIsResizing, setPanelIsResizing,
     panelFullScreen, setPanelFullScreen, fullScreenRendered, setFullScreenRendered, fullScreenVisible,
     setFullScreenVisible, selectedOutboundTeamId, setSelectedOutboundTeamId, containerRef, sidePanelContainerWidth,
-    setSidePanelContainerWidth, bodyContainerRef, bodyContainerWidth, setBodyContainerWidth, recordHeaderNode,
-    setRecordHeaderNode, recordHeaderRef, recordHeaderWidth, setRecordHeaderWidth, panelFloatLeft, panelFloatTop,
+    bodyContainerRef, bodyContainerWidth, recordHeaderNode,
+    setRecordHeaderNode, recordHeaderRef, recordHeaderWidth, panelFloatLeft, panelFloatTop,
     panelRef, panelAnimTimer, fullScreenAnimTimer, screenPopApp, setScreenPopApp, headerSettings,
     updateHeaderSettings, pinnedKeys, togglePinnedKey, tabApps, homeTabs, customersPageTabs, activeDeskTab,
     appsMenuOpen, setAppsMenuOpen, interiorPanelOpen, setInteriorPanelOpen, selectedQueueId, setSelectedQueueId,
