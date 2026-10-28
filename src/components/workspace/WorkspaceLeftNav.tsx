@@ -5,7 +5,6 @@ import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { ClockTick } from "@/components/agent-next-gen-clock-tick";
 import { t } from "@/i18n";
 import { useAssignmentCards, useChannelChipsShown } from "@/contact-handling/useAssignmentCards";
-import { useScheduleCards } from "@/contact-handling/home/useScheduleCards";
 import { KindNavCard } from "./KindNavCard";
 import { useAssignmentsPanel } from "@/contact-handling/useAssignmentsPanel";
 import { AssignmentsCaption, DraggableAssignment } from "./AssignmentCardList";
@@ -22,9 +21,8 @@ export function WorkspaceLeftNav() {
     newOutboundLauncher, setNavOpen, setVoiceNavSlotMounted, voiceBarHost, voiceSettings,
   } = useWorkspace();
   // P-PROFILES 0b: the cards' order (Custom drags only while the nav is open).
-  const { cards, itemProps } = useAssignmentCards(navOpen && !isNavNarrow);
+  const { entries, itemProps } = useAssignmentCards(navOpen && !isNavNarrow);
   const chipsShown = useChannelChipsShown("leftNav");
-  const scheduleCards = useScheduleCards();
   // P-PROFILES 0c: with the cards in the interior panel, the rail's first
   // item opens it, badged with the cards that need the agent.
   const panel = useAssignmentsPanel();
@@ -182,7 +180,7 @@ export function WorkspaceLeftNav() {
                   Close needs no equivalent — this block unmounts instantly
                   when `navOpen` goes false, before the aside starts
                   collapsing, so nothing is ever visible to reflow. */}
-              {!panel.inPanel && interactions.length === 0 && scheduleCards.length === 0 && navOpen && (
+              {!panel.inPanel && interactions.length === 0 && entries.length === 0 && navOpen && (
                 <div className="flex flex-1 min-h-0 items-center justify-center animate-in fade-in-0 duration-150 delay-200 fill-mode-backwards">
                   <EmptyState
                     icon={<Inbox className="h-8 w-8" strokeWidth={1.5} />}
@@ -213,28 +211,30 @@ export function WorkspaceLeftNav() {
                   re-renders that card (its elapsed/hold/awaiting timers)
                   and not the page. The card body is `NavCardItem`; its
                   wrapper is the drag target (P-PROFILES: Sort → Custom). */}
-              {!panel.inPanel && cards.map((interaction) => (
+              {/* Every card, conversations and opened schedule items' kind cards alike, in one sorted list with one
+                  drag wiring (P-HOME-1m: Custom order covers both). */}
+              {!panel.inPanel && entries.map((entry) => (
                 // `LeftNavSlot` is the top-level element LeftNav's overlay
                 // mode clones its hover `expanded` onto (`injectExpanded`
                 // reaches only top-level children); it hands that value
                 // through `ClockTick` to the card, as lyra's "Agent Next
                 // Gen Left Nav" story wires its cards. Inline mode injects
                 // nothing, so the card falls back to `navOpen`.
-                <LeftNavSlot key={interaction.id}>
+                <LeftNavSlot key={entry.key}>
                   {(slotExpanded) => (
-                    <DraggableAssignment props={itemProps(interaction.id)}>
-                      <ClockTick>
-                        {(clockTick) => (
-                          <NavCardItem interaction={interaction} slotExpanded={slotExpanded} clockTick={clockTick} hideChip={!chipsShown} />
-                        )}
-                      </ClockTick>
+                    <DraggableAssignment props={itemProps(entry.key)}>
+                      {entry.type === "schedule" ? (
+                        <KindNavCard item={entry.item} expanded={slotExpanded ?? navOpen} />
+                      ) : (
+                        <ClockTick>
+                          {(clockTick) => (
+                            <NavCardItem interaction={entry.interaction} slotExpanded={slotExpanded} clockTick={clockTick} hideChip={!chipsShown} />
+                          )}
+                        </ClockTick>
+                      )}
                     </DraggableAssignment>
                   )}
                 </LeftNavSlot>
-              ))}
-              {/* P-HOME-1: opened schedule items (meetings, trainings, tasks, …), after the conversations. */}
-              {!panel.inPanel && scheduleCards.map((item) => (
-                <LeftNavSlot key={item.id}>{(slotExpanded) => <KindNavCard item={item} expanded={slotExpanded ?? navOpen} />}</LeftNavSlot>
               ))}
             </>
           }

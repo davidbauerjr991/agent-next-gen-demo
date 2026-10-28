@@ -48,7 +48,8 @@ import { findContactHistoryMatch, extractPriorContactInfo } from "@/contact-hand
 import { TOM_LEWIS_CALL_OVERVIEW, MAYA_CHEN_CALL_OVERVIEW, LUCAS_THOMAS_OVERVIEW } from "@/components/workspace/workspace-constants";
 import { scheduleItemCustomer } from "@/contact-handling/contact-identity";
 import type { ContactSubject } from "@/contact-handling/workspace/workspace-types";
-import { scheduleItemIdOf } from "@/domain";
+import { scheduleCardKey, scheduleItemIdOf } from "@/domain";
+import { useScheduleCards } from "@/contact-handling/home/useScheduleCards";
 import type { WorkspaceControllerProps, WorkspaceLate } from "./workspace-late";
 import { useSuggestedDispositions } from "@/contact-handling/useSuggestedDispositions";
 
@@ -418,13 +419,21 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   // object (interaction-nav-item.tsx) at each card's own call site below.
   const [channelsAllExpanded, setChannelsAllExpanded] = useWorkspaceUiField("navChannelsAllExpanded");
   const [channelsExpandedOverrideVersion, setChannelsExpandedOverrideVersion] = useWorkspaceUiField("navChannelsOverrideVersion");
+  const scheduleSnapshot = useScheduleSnapshot();
+  // Every rail card's key: the conversation cards and the open schedule items' kind cards (P-HOME-1m: both sit in
+  // the same collapse state; a kind card with a joined call is its leg, whose id is the same key).
+  const railScheduleCards = useScheduleCards();
+  const railCardKeys = useMemo(
+    () => [...new Set([...interactions.map((i) => i.id), ...railScheduleCards.map((i) => scheduleCardKey(i.id))])],
+    [interactions, railScheduleCards],
+  );
   const handleToggleAllChannelsExpanded = () => {
     const next = !channelsAllExpanded;
     setChannelsAllExpanded(next);
     setChannelsExpandedOverrideVersion((v) => v + 1);
-    // Collapsed keeps only the active card open (NavCardItem), so the mirror
+    // Collapsed keeps only the active card open (useCardCollapse), so the mirror
     // below must not read the pre-click states as "every card agrees".
-    setChannelsExpandedById(Object.fromEntries(interactions.map((i) => [i.id, next || i.id === activeInteractionId])));
+    setChannelsExpandedById(Object.fromEntries(railCardKeys.map((key) => [key, next || key === activeInteractionId])));
   };
   // Settings → Assignments (P-SETTINGS, ported from v3 f0b13dc): the
   // left-nav layout toggles. Turning "Don't allow interactions to collapse"
@@ -546,15 +555,15 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   // label/icon to reflect reality, it never re-applies an override onto
   // cards that already got there by hand.
   useEffect(() => {
-    if (interactions.length === 0) return;
-    const states = interactions.map((i) => channelsExpandedById[i.id]);
+    if (railCardKeys.length === 0) return;
+    const states = railCardKeys.map((key) => channelsExpandedById[key]);
     if (states.some((s) => s === undefined)) return;
     if (states.every((s) => s === true) && !channelsAllExpanded) {
       setChannelsAllExpanded(true);
     } else if (states.every((s) => s === false) && channelsAllExpanded) {
       setChannelsAllExpanded(false);
     }
-  }, [channelsExpandedById, interactions, channelsAllExpanded]);
+  }, [channelsExpandedById, railCardKeys, channelsAllExpanded]);
   const [activeInteractionId, setActiveInteractionId] = useState<string | null>(
     () => initialInteraction?.id ?? null
   );
@@ -584,7 +593,6 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   // Contact Details' subject (P-HOME-1m): the active conversation, or the active schedule item's customer when the
   // directory has their record (a kind cell, its kind row picked over a joined call included). A schedule item has
   // no thread: its Contact Details is its record's tabs alone (`hasThread`, the tab registry's `applies`).
-  const scheduleSnapshot = useScheduleSnapshot();
   const [linkedItemCustomers] = useWorkspaceUiField("linkedItemCustomers");
   const activeScheduleItemId = !activeInteraction && activeInteractionId ? scheduleItemIdOf(activeInteractionId) : undefined;
   const activeScheduleItem = activeScheduleItemId ? scheduleSnapshot?.items.find((i) => i.id === activeScheduleItemId) : undefined;

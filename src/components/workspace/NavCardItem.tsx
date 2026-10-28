@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
 import { useProviders } from "@/provider-context";
+import { useCardCollapse } from "@/contact-handling/useCardCollapse";
 import { t } from "@/i18n";
 import type { ChannelKind } from "@/domain";
 import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
@@ -45,30 +45,19 @@ export function NavCardItem({
 }) {
   const {
     activeInteractionId, addChannelActionFor, answerSla, assignmentsSettings, channelPreviewThreadKey,
-    channelsAllExpanded, channelsExpandedOverrideVersion, clock, confirmDismiss, contactCommands,
+    clock, confirmDismiss, contactCommands,
     contactStateById, createdCustomerRecords, findLiveVoiceThread, handleCallHoldChip, handleDismissChannel,
     handleDismissInteraction, incomingOffer, isNewAssignment, lucasThomasReviewing, mainPins,
     marcusWebbReviewing, navOpen, noInteractionCollapse, omnichannel, outcomeConfigFor, outcomeDrafts,
-    panelPlacement, scenarioKeyOf, selectPanel, setChannelsExpandedById, setInteractions, setPanelFullScreen,
-    setVoiceVideoFullScreen, setVoiceVideoWindowOpen, switchActiveInteraction, channelsExpandedById, botHolds,
+    panelPlacement, scenarioKeyOf, selectPanel, setInteractions, setPanelFullScreen,
+    setVoiceVideoFullScreen, setVoiceVideoWindowOpen, switchActiveInteraction, botHolds,
   } = useWorkspace();
   const consultChannels = useProviders().capabilities.interaction.transfer.consultChannels ?? [];
   const cardHeldByBot = botHolds(interaction.id);
   /** A voice leg is live until the call ends or the card closes; its timer follows the leg, not the case status. */
   const legLive = (c: Thread) => !interaction.closed && !interaction.voiceCallEnded && c.wrapUpSinceTick === undefined;
-  // A remounted card (nav collapsed to the rail and back, the placement swap) restores the expanded state the
-  // store kept for it: lyra's card starts open and applies an override only when its version changes, so the
-  // restore is a version bump after mount, and the card's first report (its default) isn't taken as the agent's.
-  const [restoredExpanded] = useState(() => channelsExpandedById[interaction.id]);
-  const restoring = restoredExpanded !== undefined;
-  const [mounted, setMounted] = useState(false);
-  const firstReportSkipped = useRef(!restoring);
-  useEffect(() => setMounted(true), []);
-  const overrideLow = !channelsAllExpanded && interaction.id === activeInteractionId ? 1 : 0;
-  const overrideBase = channelsExpandedOverrideVersion * 2 + overrideLow;
-  const [baseAtMount] = useState(overrideBase);
-  // Until the next bulk click or active-card change, the restored state stands in for the bulk one.
-  const overrideExpanded = restoring && mounted && overrideBase === baseAtMount ? restoredExpanded : channelsAllExpanded || interaction.id === activeInteractionId;
+  // Collapse all / Expand all and the accordion rule, shared with kind cards (P-HOME-1m).
+  const collapse = useCardCollapse(interaction.id);
                 const mostRecentId = interaction.threads[interaction.threads.length - 1]?.id;
                 // For the active card specifically, an open channel preview
                 // (`channelPreviewThreadKey`) takes over which channel this
@@ -718,24 +707,10 @@ export function NavCardItem({
                     // `{ expanded, version }` override object rather than a
                     // plain controlled boolean.
                     // While collapsed (after "Collapse all") only the active
-                    // card stays open: the version's low bit flips when this
-                    // card gains or loses the active slot, which re-applies
-                    // the override. Expanded keeps the plain even version.
-                    channelsExpandedOverride={{ expanded: overrideExpanded, version: overrideBase * 2 + (restoring && mounted ? 1 : 0) }}
-                    // Mirrors this card's own expanded state up into
-                    // `channelsExpandedById` — see that state's own doc
-                    // comment for why (catching up
-                    // `AssignmentsExpandCollapseAllButton`'s own label once
-                    // every card happens to agree by hand).
-                    onChannelsExpandedChange={(expanded) => {
-                      if (!firstReportSkipped.current) {
-                        firstReportSkipped.current = true;
-                        return;
-                      }
-                      setChannelsExpandedById((prev) =>
-                        prev[interaction.id] === expanded ? prev : { ...prev, [interaction.id]: expanded }
-                      );
-                    }}
+                    // card stays open (`useCardCollapse`), and this card's own
+                    // expanded state is mirrored into `channelsExpandedById`.
+                    channelsExpandedOverride={collapse.channelsExpandedOverride}
+                    onChannelsExpandedChange={collapse.onChannelsExpandedChange}
                     // Kept in sync with the ChannelToggle bar in this
                     // interaction's record-header PageHeader — see
                     // Interaction.currentChannelId's own doc comment.

@@ -16,6 +16,7 @@ import type { InteractionChannel } from "@nicecxone/lyra-ui";
 import { scheduleCardKey } from "@/domain";
 import { feedTimeLabel } from "@/contact-handling/home/time";
 import { useScheduleLeg } from "@/contact-handling/home/useScheduleCards";
+import { useCardCollapse } from "@/contact-handling/useCardCollapse";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import type { ScheduleItem } from "@/providers";
@@ -60,6 +61,9 @@ export function KindNavCard({ item, expanded }: { item: ScheduleItem; expanded: 
   const key = scheduleCardKey(item.id);
   const name = item.customer?.name ?? item.title;
   const row = kindRow(item);
+  // The same Collapse all / accordion state as a conversation card, under the card's key (P-HOME-1m); a card with a
+  // joined call is NavCardItem, keyed by the leg, whose id is this same key.
+  const collapse = useCardCollapse(key);
 
   if (leg) {
     return (
@@ -105,6 +109,8 @@ export function KindNavCard({ item, expanded }: { item: ScheduleItem; expanded: 
         currentChannelKey={KIND_ROW_ID}
         onCurrentChannelChange={() => switchActiveInteraction(key)}
         collapsible={!noInteractionCollapse}
+        channelsExpandedOverride={collapse.channelsExpandedOverride}
+        onChannelsExpandedChange={collapse.onChannelsExpandedChange}
       />
     </div>
   );
