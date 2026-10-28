@@ -14,8 +14,10 @@ export interface AssignmentToast {
   cardId: string;
   /** The leg it's about, for View to open. */
   threadKey?: string;
-  /** For a schedule item that isn't open yet: View opens it. */
+  /** For a schedule item that isn't open yet: View opens it (or, with `preview`, its feed row's preview). */
   scheduleItemId?: string;
+  /** View opens the schedule item's feed-row preview on Home rather than the item (a new work item, P-HOME-1m). */
+  preview?: boolean;
   name: string;
   channel?: ChannelKind;
   line: string;

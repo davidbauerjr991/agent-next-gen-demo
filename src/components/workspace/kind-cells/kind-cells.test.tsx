@@ -9,6 +9,7 @@ import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
 import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
 import { withPersonaSections } from "@/settings/persona";
+import { getWorkspaceUiStore } from "@/contact-handling/workspace-ui-store";
 
 const h = createWorkspaceHarness({ schedule: true });
 
@@ -34,7 +35,6 @@ async function showHome() {
 const feed = () => h.container.querySelector<HTMLElement>("[data-activity-feed]");
 const rowNamed = (text: string) => [...(feed()?.querySelectorAll<HTMLElement>("[data-feed-row]") ?? [])].find((r) => r.textContent?.includes(text));
 const cell = () => h.container.querySelector<HTMLElement>("[data-kind-cell]");
-const button = (label: string) => [...h.container.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.trim() === label);
 const homeButton = () => [...h.container.querySelectorAll("aside button, aside [role=button]")].find((el) => el.textContent?.trim() === "Home")!;
 const view = (label: string) => [...(feed()?.querySelectorAll<HTMLElement>("[data-feed-views] [role=radio]") ?? [])].find((b) => b.textContent?.trim().startsWith(label));
 
@@ -559,6 +559,13 @@ describe("calls from schedule items (the leg-join P0.9 generalizes)", () => {
     await h.click(rows()[1]!);
     expect(cell()).toBeNull();
     expect(rows()[1]!.getAttribute("aria-current")).toBe("true");
+    // The picked Callback row resets on leaving the card (P-HOME-1m: Home here; the X and another card alike).
+    await h.click(rows()[0]!);
+    const shownFor = () => getWorkspaceUiStore(h.provider).getState().kindCellShownFor;
+    expect(shownFor()).toBe("schedule:agent-cb-priya");
+    await h.click(homeButton());
+    expect(shownFor()).toBeNull();
+    await h.click(rows()[1]!);
 
     // One Outcome per card: the kind row carries it; the Voice row's ✓ is the call's wrap-up, and what the wrap-up
     // records fills the card's Outcome.

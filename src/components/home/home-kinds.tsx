@@ -80,5 +80,5 @@ export function kindNoun(kind: AssignmentKind): string {
 
 /** The kind's chip, with its icon. */
 export function KindTag({ kind }: { kind: AssignmentKind }) {
-  return <Tag shape="pill" variant={KIND_TAG_VARIANTS[kind]} icon={<KindIcon kind={kind} />} label={t(KIND_LABELS[kind])} />;
+  return <Tag shape="pill" variant={KIND_TAG_VARIANTS[kind]} icon={<KindIcon kind={kind} />} label={t(KIND_LABELS[kind])} data-kind-tag={kind} />;
 }

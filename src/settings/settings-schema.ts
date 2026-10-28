@@ -279,14 +279,16 @@ const home = defineSection<HomeSettings>({
 });
 
 /** Events on assignments other than the active one that can raise a toast
- *  (PLAN.md "Toasts for other assignments"). `awaitingReply`, `workItem` and
- *  `transfer` are declared ahead of what raises them (the awaiting-reply
- *  toast, P0.9's work items, P-TRANSFER) and hidden in Settings until then
- *  (`TOAST_EVENTS_RAISED`). Offers never toast: they keep the incoming tile. */
+ *  (PLAN.md "Toasts for other assignments"). `awaitingReply` and `transfer`
+ *  are declared ahead of what raises them (the awaiting-reply toast,
+ *  P-TRANSFER) and hidden in Settings until then (`TOAST_EVENTS_RAISED`);
+ *  `workItem` is raised since P-HOME-1m by a schedule item added after its day
+ *  loaded (P0.9's work items will raise it too). Offers never toast: they keep
+ *  the incoming tile. */
 export const TOAST_EVENTS = ["message", "approval", "callbackDue", "awaitingReply", "workItem", "transfer"] as const;
 export type ToastEvent = (typeof TOAST_EVENTS)[number];
 /** The events something raises today: Settings shows a switch for these only. */
-export const TOAST_EVENTS_RAISED: readonly ToastEvent[] = ["message", "approval", "callbackDue"];
+export const TOAST_EVENTS_RAISED: readonly ToastEvent[] = ["message", "approval", "callbackDue", "workItem"];
 export const TOAST_POSITIONS = ["bottomEnd", "topEnd"] as const;
 export type ToastPosition = (typeof TOAST_POSITIONS)[number];
 
@@ -295,7 +297,7 @@ export const TOAST_EVENT_FIELDS: Record<ToastEvent, FieldMeta> = {
   approval: { label: "AI agent approval request", description: "An AI agent asks you to approve something. Stays until you act on it." },
   callbackDue: { label: "Callback coming due", description: "A scheduled callback reaches its time." },
   awaitingReply: { label: "Waiting for your reply", description: "A conversation crosses the awaiting-reply threshold." },
-  workItem: { label: "Work item finished or failed", description: "A work item on another assignment finishes or fails." },
+  workItem: { label: "New work item", description: "A callback, meeting, training or task lands on your schedule while you're elsewhere." },
   transfer: { label: "Transfer or consult arriving", description: "A colleague transfers or consults you on an assignment." },
 };
 

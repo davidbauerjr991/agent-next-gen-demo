@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { AgentNotification } from "@nicecxone/lyra-ui";
 import { assignmentIdFor, scheduleCardKey, type ChannelKind } from "@/domain";
-import { useInteractionProvider, useScheduleProvider } from "@/provider-context";
+import { useInteractionProvider, useScheduleProvider, useScheduleSnapshot } from "@/provider-context";
 import { useSettings, type ToastEvent } from "@/settings";
 import { t } from "@/i18n";
 import type { useWsHeaderApps } from "../workspace/controller/useWsHeaderApps";
 import { useWorkspaceUiStore } from "../workspace-ui-store";
+import { withFeedItemPreview } from "../home/feed-preview";
+import { feedTimeLabel } from "../home/time";
 import { TOAST_NOTIFICATION_PREFIX, URGENT_TOAST_EVENTS, toastAllowed, type AssignmentToast } from "./assignment-toasts";
 
 /** The workspace as the controller's last slice builds it (before this hook's own API is added). */
@@ -16,7 +18,7 @@ const NOTIFICATION_TITLES: Record<ToastEvent, string> = {
   approval: "Approval requested",
   callbackDue: "Callback due",
   awaitingReply: "Waiting for your reply",
-  workItem: "Work item update",
+  workItem: "New work item",
   transfer: "Transfer arriving",
 };
 
@@ -88,6 +90,38 @@ export function useAssignmentToasts(ws: WorkspaceBase) {
     [provider, raise],
   );
 
+  // A new work item (P-HOME-1m): a schedule item that appears after its day was listed (a source's `add`; P0.9's work
+  // items later). Its toast names the kind, the title and when it's due.
+  const snapshot = useScheduleSnapshot();
+  const listed = useRef<Set<string> | null>(null);
+  if (!listed.current && snapshot) listed.current = new Set(snapshot.items.map((i) => i.id));
+  useEffect(() => {
+    if (!schedule) return;
+    const offReset = schedule.on("reset", ({ snapshot: day }) => {
+      listed.current = new Set(day.items.map((i) => i.id));
+    });
+    const offChanged = schedule.on("itemChanged", ({ item }) => {
+      if (!listed.current || listed.current.has(item.id)) return;
+      listed.current.add(item.id);
+      // Scheduled only: an offered item is Needs a decision, and offers never toast.
+      if (item.state !== "scheduled") return;
+      raise({
+        event: "workItem",
+        assignmentId: assignmentIdFor(scheduleCardKey(item.id)),
+        kind: item.kind,
+        cardId: scheduleCardKey(item.id),
+        scheduleItemId: item.id,
+        preview: true,
+        name: item.title,
+        line: t("Due {time}", { time: feedTimeLabel(item.dueAt, Date.now()) }),
+      });
+    });
+    return () => {
+      offReset();
+      offChanged();
+    };
+  }, [schedule, raise]);
+
   // A scheduled callback reaching its time.
   useEffect(() => {
     if (!schedule) return;
@@ -120,6 +154,18 @@ export function useAssignmentToasts(ws: WorkspaceBase) {
       const { ws: w } = latest.current;
       dismiss(toast.id);
       w.setNotifications((prev) => prev.map((n) => (n.id === toast.id ? { ...n, read: true } : n)));
+      if (toast.scheduleItemId && toast.preview) {
+        // Home, with the item's feed row previewed (as its click does).
+        const itemId = toast.scheduleItemId;
+        w.switchActiveInteraction(null);
+        w.setShowSettings(false);
+        w.setLeftNavPage(null);
+        w.setSelectedQueueId(null);
+        w.setInteriorPanelOpen(false);
+        w.setSelectedContactHistoryEntry(null);
+        store.update((state) => withFeedItemPreview(state, itemId, toast.kind));
+        return;
+      }
       if (toast.scheduleItemId) {
         const itemId = toast.scheduleItemId;
         schedule?.open(itemId).then(
@@ -132,7 +178,7 @@ export function useAssignmentToasts(ws: WorkspaceBase) {
       else w.switchActiveInteraction(toast.cardId);
       focusComposerSoon();
     },
-    [dismiss, schedule],
+    [dismiss, schedule, store],
   );
 
   /** A drawer row a toast logged: View again. False for any other row. */

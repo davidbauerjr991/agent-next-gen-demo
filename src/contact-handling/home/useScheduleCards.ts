@@ -62,6 +62,16 @@ export function useScheduleReadBaseline(): void {
   }, [schedule, setRead]);
 }
 
+/** The kind row picked on a schedule card with a joined call (`kindCellShownFor`) resets when the agent leaves that
+ *  card, by any path (X / Return to feed, Home, another card): coming back shows the card's call, its default row
+ *  (P-HOME-1m: the reset the kind cell's back arrow used to do). Mount once, at the workspace controller. */
+export function useResetKindCellOnLeave(activeInteractionId: string | null): void {
+  const [kindCellShownFor, setKindCellShownFor] = useWorkspaceUiField("kindCellShownFor");
+  useEffect(() => {
+    if (kindCellShownFor && kindCellShownFor !== activeInteractionId) setKindCellShownFor(null);
+  }, [kindCellShownFor, activeInteractionId, setKindCellShownFor]);
+}
+
 /** `item`'s customer through the directory (P-HOME-1m): the record (its name wins) when the item, or a link the agent
  *  made, names one; else the item's own name, unmatched. Every kind surface reads its customer here. */
 export function useScheduleItemCustomer(item: ScheduleItem | null | undefined) {

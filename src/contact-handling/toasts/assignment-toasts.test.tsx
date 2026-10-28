@@ -10,6 +10,7 @@ import { SECTIONS } from "@/settings/settings-schema";
 import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
 import { assignmentIdFor } from "@/domain";
 import { LUCAS_THOMAS_SCRIPT, MAYA_CHEN_SCRIPT } from "@/scenarios";
+import { seedScheduleDay } from "@/adapters/sim/sim-schedule-seeds";
 import { toastAllowed, toastStack, type AssignmentToast } from "./assignment-toasts";
 
 const defaults = SECTIONS.notifications.defaults.toasts;
@@ -153,5 +154,64 @@ describe("toasts in the workspace", () => {
     await h.startInbound("voice", "+15555550123", "Tom Lewis");
     await h.advance(300);
     expect(toasts()).toHaveLength(0);
+  });
+});
+
+describe("a new work item toasts (P-HOME-1m: notifications.toasts.events.workItem)", () => {
+  const h = createWorkspaceHarness({ schedule: true });
+  const toasts = () => [...document.querySelectorAll<HTMLElement>("[data-assignment-toast]")];
+
+  beforeEach(() => {
+    localStorage.clear();
+    resetSettingsStoreForTests();
+    // The Activity feed on Home, so View has the row to preview.
+    getSettingsStore().update("home", (prev) => ({ sections: prev.sections.map((s) => (s.key === "activity" ? { ...s, enabled: true } : s)) }));
+    h.setUp();
+    vi.setSystemTime(new Date(2026, 9, 24, 10, 30));
+  });
+
+  afterEach(async () => {
+    await h.tearDown();
+  });
+
+  async function addCallback() {
+    const [template] = seedScheduleDay("agent", Date.now());
+    await act(async () => {
+      const added = h.schedule!.add({ ...template!, id: "added-callback", title: "Callback · Ana Lopez", customer: { name: "Ana Lopez" }, dueAt: Date.now() + 45 * 60_000 });
+      await vi.advanceTimersByTimeAsync(50);
+      await added;
+    });
+  }
+
+  it("an item added after load toasts with its kind, title and due; the seeded day doesn't; View opens its feed row's preview on Home", async () => {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await h.advance(100);
+    expect(toasts()).toHaveLength(0);
+    // Somewhere else than Home: a kind cell open.
+    await h.click([...h.container.querySelectorAll<HTMLElement>("[data-feed-row]")].find((r) => r.textContent?.includes("Returns team stand-up"))!);
+    await h.click(document.querySelector<HTMLElement>("[data-home-detail=item] [data-preview-open]")!);
+    expect(h.container.querySelector("[data-kind-cell]")).not.toBeNull();
+    await addCallback();
+    expect(toasts()).toHaveLength(1);
+    const toast = toasts()[0]!;
+    expect(toast.getAttribute("data-assignment-toast")).toBe("workItem");
+    expect(toast.textContent).toContain("Callback · Ana Lopez");
+    // The kind chip (KindTag), not just the word in the title.
+    expect(toast.querySelector("[data-kind-tag]")?.getAttribute("data-kind-tag")).toBe("callback");
+    expect(toast.textContent).toMatch(/Due /);
+    await h.click([...toast.querySelectorAll("button")].find((b) => b.textContent?.trim() === "View")!);
+    await h.advance(200);
+    expect(h.container.querySelector("[data-kind-cell]")).toBeNull();
+    expect(document.querySelector("[data-home-detail=item]")?.getAttribute("data-schedule-item")).toBe("added-callback");
+    expect(toasts()).toHaveLength(0);
+  });
+
+  it("its switch off, nothing; quiet during a call holds it back like the other non-urgent toasts", async () => {
+    getSettingsStore().update("notifications", { toasts: { ...defaults, events: { ...defaults.events, workItem: false } } });
+    await h.show(AgentWorkspaceAdvancedPage);
+    await addCallback();
+    expect(toasts()).toHaveLength(0);
+    expect(toastAllowed("workItem", { ...defaults, quietOnVoice: true }, true)).toBe(false);
+    expect(toastAllowed("workItem", defaults, false)).toBe(true);
   });
 });

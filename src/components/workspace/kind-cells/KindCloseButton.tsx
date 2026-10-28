@@ -29,7 +29,6 @@ function returnTitle(item: ScheduleItem): string {
 export function KindCloseButton({ item }: { item: ScheduleItem }) {
   const { activeInteractionId, assignmentsSettings, confirmDismiss, contactStateById, switchActiveInteraction } = useWorkspace();
   const schedule = useScheduleProvider();
-  const [kindCellShownFor, setKindCellShownFor] = useWorkspaceUiField("kindCellShownFor");
   const [, setStarted] = useWorkspaceUiField("kindStarted");
   const leg = useScheduleLeg(item);
   if (!assignmentsSettings.allowUnassignDismiss) return null;
@@ -37,8 +36,8 @@ export function KindCloseButton({ item }: { item: ScheduleItem }) {
   const callLive = !!leg?.threads.some((th) => th.type === "voice" && LIVE.has(contactStateById.get(th.providerInteractionId ?? "") ?? ""));
   const close = () =>
     confirmDismiss(() => {
+      // Leaving the card resets its picked kind row (useResetKindCellOnLeave).
       if (activeInteractionId === key) switchActiveInteraction(null);
-      if (kindCellShownFor === key) setKindCellShownFor(null);
       // Back in the feed unstarted: a later Start / Join starts it again.
       setStarted((prev) => {
         const next = new Set(prev);
