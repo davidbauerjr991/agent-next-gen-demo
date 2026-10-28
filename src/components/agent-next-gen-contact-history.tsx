@@ -25,10 +25,16 @@ import {
   SmsDirectionIcon,
   formatPhoneForDisplay,
   DateRangeFilterChip,
+  DATE_RANGE_FILTER_OPTIONS,
   type DateRange,
+  type DateRangeFilterOption,
   type DateRangeFilterValue,
 } from "@nicecxone/lyra-ui";
 import { contactHistoryInRange } from "@/contact-handling/contact-history-range";
+
+/** The one option set Contact History's date chip and the Activity feed's History chip both pass their
+ *  DateRangeFilterChip (P-HOME-1m): lyra's own ranges, in its order; `contactHistoryInRange` is their one mapping. */
+export const CONTACT_HISTORY_RANGE_OPTIONS: DateRangeFilterOption[] = DATE_RANGE_FILTER_OPTIONS;
 import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
 import { type Interaction } from "@/components/agent-next-gen-interaction-dashboard";
 import { formatElapsedTime, CURRENT_AGENT_NAME, initialsFor } from "@/components/agent-next-gen-shared-utils";
@@ -1235,7 +1241,13 @@ export function ContactHistoryCard({
             size="sm"
             className="lyra-container-header-search-inline flex-1 min-w-[240px]"
           />
-          <DateRangeFilterChip value={dateFilter} onValueChange={setDateFilter} customValue={customRange} onCustomValueChange={setCustomRange} />
+          <DateRangeFilterChip
+            options={CONTACT_HISTORY_RANGE_OPTIONS}
+            value={dateFilter}
+            onValueChange={setDateFilter}
+            customValue={customRange}
+            onCustomValueChange={setCustomRange}
+          />
         </>
       }
       headerTabs={

@@ -9,6 +9,7 @@ import * as React from "react";
 import { Badge, Button, Container, DateRangeFilterChip, EmptyState, FilterChip, Popover, SearchInput, Tag, ToggleGroup } from "@nicecxone/lyra-ui";
 import { ChevronDown, CirclePause, History as HistoryIcon, ListChecks } from "lucide-react";
 import type { AssignmentKind } from "@/domain";
+import { CONTACT_HISTORY_RANGE_OPTIONS } from "@/components/agent-next-gen-contact-history";
 import type { FeedRow, FeedView } from "@/contact-handling/home/activity-feed";
 import { useActivityFeed, type ActivityFeed as ActivityFeedApi } from "@/contact-handling/home/useActivityFeed";
 import { useScheduleSnapshot } from "@/provider-context";
@@ -219,7 +220,13 @@ export function ActivityFeed() {
             />
           </span>
           {view === "history" && (
-            <DateRangeFilterChip value={api.historyRange} onValueChange={api.setHistoryRange} customValue={api.historyCustom} onCustomValueChange={api.setHistoryCustom} />
+            <DateRangeFilterChip
+              options={CONTACT_HISTORY_RANGE_OPTIONS}
+              value={api.historyRange}
+              onValueChange={api.setHistoryRange}
+              customValue={api.historyCustom}
+              onCustomValueChange={api.setHistoryCustom}
+            />
           )}
           {/* P-HOME-2: one chip per connected personal source, then "+ Apps", go here. */}
         </div>

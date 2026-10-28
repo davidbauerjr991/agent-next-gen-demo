@@ -2,6 +2,7 @@
 // its own ranges (Today / Yesterday / Last 7 days / Custom), mapped onto the
 // entries by when each happened (its "8m ago", from now). Contact History's
 // card and the Activity feed's History view read it the same way.
+// Types only from lyra here: the options themselves (a lyra value) are CONTACT_HISTORY_RANGE_OPTIONS, UI-side.
 import type { DateRange, DateRangeFilterValue } from "@nicecxone/lyra-ui";
 import { DAY_MS, agoMs, startOfDay } from "./home/time";
 
@@ -16,10 +17,7 @@ export function contactHistoryWindow(range: DateRangeFilterValue, now: number, c
     case "custom":
       if (custom?.from) return { from: startOfDay(custom.from.getTime()), to: startOfDay((custom.to ?? custom.from).getTime()) + DAY_MS };
       return { from: now - 7 * DAY_MS, to: Infinity };
-    case "last30":
-      return { from: now - 30 * DAY_MS, to: Infinity };
-    case "last90":
-      return { from: now - 90 * DAY_MS, to: Infinity };
+    // Last 7 days (the shared option set offers no other range).
     default:
       return { from: now - 7 * DAY_MS, to: Infinity };
   }

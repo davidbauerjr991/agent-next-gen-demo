@@ -687,6 +687,26 @@ describe("Activity feed on Home", () => {
     expect(rowNamed("Callback · Nathan Cole")).toBeUndefined();
   });
 
+  it("History's date chip and Contact History's card offer the same options, in the same order (one shared set)", async () => {
+    turnOn("contactHistory");
+    await showHome();
+    await h.click(view("History")!);
+    const card = h.container.querySelector<HTMLElement>('[data-home-section="contactHistory"]')!;
+    const labelsOf = async (trigger: HTMLElement) => {
+      await h.click(trigger);
+      const labels = [...document.body.querySelectorAll<HTMLElement>('[data-radix-popper-content-wrapper] [role="radio"]')].map(
+        (r) => (r.id && document.querySelector(`label[for="${r.id}"]`)?.textContent?.trim()) || r.parentElement?.textContent?.trim(),
+      );
+      await h.click(trigger);
+      return labels;
+    };
+    const dateTrigger = (scope: ParentNode) => [...scope.querySelectorAll<HTMLElement>("button")].find((b) => b.textContent?.startsWith("Date:"))!;
+    const feedOptions = await labelsOf(dateTrigger(filters()));
+    const cardOptions = await labelsOf(dateTrigger(card));
+    expect(feedOptions).toEqual(["Today", "Yesterday", "Last 7 days", "Custom"]);
+    expect(cardOptions).toEqual(feedOptions);
+  });
+
   it("History is Contact History's list: the same entries, order and times as the card; the History count is that list", async () => {
     turnOn("contactHistory");
     await showHome();
