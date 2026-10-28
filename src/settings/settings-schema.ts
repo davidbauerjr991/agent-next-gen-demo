@@ -233,6 +233,14 @@ export const HOME_LAYOUT_FIELD = oneOf(HOME_LAYOUTS, {
   description: "One column keeps the sections as rows with the Activity feed among them; two columns puts the feed on the left and the other sections on the right.",
 });
 
+/** How the Activity feed lists its rows (P-HOME-1m), every view alike: the list, or a table (sortable columns). */
+export const HOME_ACTIVITY_VIEWS = ["list", "table"] as const;
+export type HomeActivityView = (typeof HOME_ACTIVITY_VIEWS)[number];
+export const HOME_ACTIVITY_VIEW_FIELD = oneOf(HOME_ACTIVITY_VIEWS, {
+  label: "Activity feed as",
+  description: "A list of rows, or a table with sortable columns. The same for Activity, Parked and History; the toggle beside the views sets it too.",
+});
+
 /** The Dashboard's queue tiles (`LATEST_CONTACTS_STATIC`). */
 export const HOME_QUEUE_CHANNELS = ["digital", "inboundVoice", "voicemail", "workItem", "outboundVoice"] as const;
 export type HomeQueueChannel = (typeof HOME_QUEUE_CHANNELS)[number];
@@ -247,6 +255,8 @@ export interface HomeSettings {
   sections: HomeSection[];
   queue: { channels: Record<HomeQueueChannel, boolean> };
   layout: HomeLayout;
+  /** P-HOME-1m: the Activity feed's rows as a list or a table. */
+  activityView: HomeActivityView;
 }
 
 const home = defineSection<HomeSettings>({
@@ -262,6 +272,7 @@ const home = defineSection<HomeSettings>({
     // v3's defaults: Digital and Work Item hidden.
     queue: { channels: { digital: false, inboundVoice: true, voicemail: true, workItem: false, outboundVoice: true } },
     layout: "oneColumn",
+    activityView: "list",
   },
   fields: {
     showHeader: bool(),
@@ -275,6 +286,8 @@ const home = defineSection<HomeSettings>({
     }),
     // A new field, not a version bump: a stored v2 value without it reads the default.
     layout: HOME_LAYOUT_FIELD,
+    // A new field, not a version bump, as `layout`.
+    activityView: HOME_ACTIVITY_VIEW_FIELD,
   },
 });
 

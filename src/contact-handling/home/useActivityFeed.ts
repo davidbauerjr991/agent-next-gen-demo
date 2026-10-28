@@ -25,19 +25,23 @@ function cardRow(card: Card, status: "offered" | "inRail"): FeedRow {
     kind: "conversation",
     title: channel ? `${name} · ${CHANNEL_NAMES[channel]}` : name,
     subtitle: thread?.preview ?? "",
+    customer: name,
     status,
     target: { type: "card", cardId: card.id },
     ...(channel ? { channel } : {}),
   };
 }
 
-function historyRow(entry: ContactHistoryEntry, now: number): FeedRow {
+/** A Contact History entry as a feed row: History's rows, and what a Contact History table (FeedTable's columns,
+ *  P-HOME-1m) renders. */
+export function historyRow(entry: ContactHistoryEntry, now: number): FeedRow {
   const channel = entry.channelType as ChannelKind;
   return {
     assignmentId: assignmentIdFor(`history:${entry.id}`),
     kind: "conversation",
     title: `${entry.name} · ${CHANNEL_NAMES[channel] ?? entry.channelLabel} · ${entry.skillName}`,
     subtitle: `${entry.statusLabel} · ${entry.description}`,
+    customer: entry.name,
     // Shows the card's own "8m ago"; `at` only places it among timestamped rows.
     timeLabel: entry.timeAgo,
     at: now - agoMs(entry.timeAgo),

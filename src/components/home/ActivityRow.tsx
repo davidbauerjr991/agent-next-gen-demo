@@ -7,7 +7,8 @@ import { t } from "@/i18n";
 import { Eye } from "lucide-react";
 import { KindTag } from "./home-kinds";
 
-const STATUS_LABELS: Record<FeedRow["status"], string> = {
+/** A row's status in words (English source; through `t()`): the list's and the table's (FeedTable). */
+export const STATUS_LABELS: Record<FeedRow["status"], string> = {
   offered: "Waiting for you to accept",
   scheduled: "Scheduled",
   inRail: "Open",

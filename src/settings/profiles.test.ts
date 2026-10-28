@@ -77,6 +77,17 @@ describe("workspace profiles", () => {
     expect(profile(store)).toBe("phase2");
   });
 
+  it("home.activityView (P-HOME-1m: the feed as a list or a table) is agent scope: a profile snapshot carries it and applying it restores it", () => {
+    const store = freshStore();
+    expect(store.getState().values.home.activityView).toBe("list");
+    store.update("home", { activityView: "table" });
+    const snapshot = agentSettings(store.getState().values);
+    expect(snapshot.home.activityView).toBe("table");
+    const other = freshStore();
+    other.updateMany(snapshot);
+    expect(other.getState().values.home.activityView).toBe("table");
+  });
+
   it("personal settings never make a profile read Custom, and a snapshot carries none of them", () => {
     const store = freshStore();
     store.updateMany(profileValues("phase2"));

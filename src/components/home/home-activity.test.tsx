@@ -644,6 +644,49 @@ describe("Activity feed on Home", () => {
     expect(rowNamed("Callback · Sofia Ramirez")?.getAttribute("data-feed-status")).toBe("scheduled");
   });
 
+  it("list / table (P-HOME-1m): one toggle beside the views (home.activityView) switches all three; the table's columns, sorting by Due / Time, a row's preview, the unread tint, Park from the actions cell", async () => {
+    turnOn();
+    await showHome();
+    const table = () => feed().querySelector<HTMLElement>("[data-feed-table]");
+    const tableTitles = () => [...(table()?.querySelectorAll<HTMLElement>("[data-feed-row]") ?? [])].map((r) => r.querySelector('[data-column-key="title"], td:nth-child(2)')?.textContent?.trim());
+    expect(table()).toBeNull();
+    // Priya's callback comes due: unread.
+    await h.advance(31 * 60_000);
+    const display = () => feed().querySelector<HTMLElement>("[data-feed-display]")!;
+    await h.click(display().querySelector<HTMLElement>('[role="radio"][aria-label="Table"]')!);
+    expect(getSettingsStore().getState().values.home.activityView).toBe("table");
+    expect(display().getAttribute("data-feed-display")).toBe("table");
+    // The columns.
+    expect([...table()!.querySelectorAll("thead th")].map((th) => th.textContent?.trim()).slice(0, 6)).toEqual(["Kind", "Title", "Customer", "Source", "Due / Time", "Status"]);
+    // Nearest first (the feed's order); Due / Time twice: descending, Later's first.
+    const before = tableTitles();
+    expect(before[0]).toContain("Callback · Priya Shah");
+    const dueHead = () => [...table()!.querySelectorAll<HTMLElement>("thead th")].find((th) => th.textContent?.trim() === "Due / Time")!;
+    await h.click(dueHead().querySelector<HTMLElement>("button") ?? dueHead());
+    await h.click(dueHead().querySelector<HTMLElement>("button") ?? dueHead());
+    expect(tableTitles()[0]).toContain("Q4 compliance refresher");
+    expect(tableTitles()).toEqual([...before].reverse());
+    // The unread tint carries over; a row's click opens the same preview.
+    const priya = () => [...table()!.querySelectorAll<HTMLElement>("[data-feed-row]")].find((r) => r.textContent?.includes("Callback · Priya Shah"))!;
+    expect(priya().getAttribute("data-unread")).toBe("true");
+    expect(priya().className).toContain("bg-lyra-state-hover");
+    await h.click(priya());
+    await h.advance(100);
+    expect(document.querySelector("[data-home-detail=item]")?.getAttribute("data-schedule-item")).toBe("agent-cb-priya");
+    // Park from the actions cell: out of Activity's table, into Parked's (still a table).
+    await h.click(priya().querySelector<HTMLElement>('[data-feed-action="park"]')!);
+    await h.advance(200);
+    expect(tableTitles().some((title) => title?.includes("Callback · Priya Shah"))).toBe(false);
+    await h.click(view("Parked")!);
+    expect(tableTitles()).toEqual([expect.stringContaining("Callback · Priya Shah")]);
+    // History is a table too; the toggle back to List switches all three.
+    await h.click(view("History")!);
+    expect(table()).not.toBeNull();
+    await h.click(display().querySelector<HTMLElement>('[role="radio"][aria-label="List"]')!);
+    expect(table()).toBeNull();
+    expect(getSettingsStore().getState().values.home.activityView).toBe("list");
+  });
+
   it("delete (P-HOME-1k): only on an item the agent created, after a confirm; a WFM or calendar item has no Delete anywhere", async () => {
     turnOn();
     await showHome();

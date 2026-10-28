@@ -52,6 +52,9 @@ import {
   HOME_LAYOUTS,
   HOME_LAYOUT_FIELD,
   type HomeLayout,
+  HOME_ACTIVITY_VIEWS,
+  HOME_ACTIVITY_VIEW_FIELD,
+  type HomeActivityView,
   PERSONAS,
   PERSONA_FIELD,
   type Persona,
@@ -121,6 +124,11 @@ const HOME_SECTION_LABELS: Record<HomeSectionKey, string> = {
 const HOME_LAYOUT_LABELS: Record<HomeLayout, string> = {
   oneColumn: "One column",
   twoColumn: "Two columns",
+};
+
+const HOME_ACTIVITY_VIEW_LABELS: Record<HomeActivityView, string> = {
+  list: "List",
+  table: "Table",
 };
 
 const PERSONA_LABELS: Record<Persona, string> = {
@@ -433,6 +441,17 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
           >
             {HOME_LAYOUTS.map((layout) => (
               <RadioGroupItem key={layout} value={layout} label={t(HOME_LAYOUT_LABELS[layout])} />
+            ))}
+          </RadioGroup>
+          <RadioGroup
+            label={t(HOME_ACTIVITY_VIEW_FIELD.meta!.label)}
+            labelHelpText={t(HOME_ACTIVITY_VIEW_FIELD.meta!.description)}
+            value={home.activityView}
+            onValueChange={(value) => updateHome({ activityView: value as HomeActivityView })}
+            data-setting="home.activityView"
+          >
+            {HOME_ACTIVITY_VIEWS.map((view) => (
+              <RadioGroupItem key={view} value={view} label={t(HOME_ACTIVITY_VIEW_LABELS[view])} />
             ))}
           </RadioGroup>
           {home.sections.map((section, index) => (

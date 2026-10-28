@@ -7,8 +7,9 @@
 // activity-feed.ts; this file only lays them out.
 import * as React from "react";
 import { Badge, Button, Container, DateRangeFilterChip, EmptyState, FilterChip, Popover, SearchInput, Tag, ToggleGroup } from "@nicecxone/lyra-ui";
-import { ChevronDown, CirclePause, History as HistoryIcon, ListChecks } from "lucide-react";
+import { ChevronDown, CirclePause, History as HistoryIcon, List, ListChecks, Table2 } from "lucide-react";
 import type { AssignmentKind } from "@/domain";
+import { useSettings, type HomeActivityView } from "@/settings";
 import { CONTACT_HISTORY_RANGE_OPTIONS } from "@/components/agent-next-gen-contact-history";
 import type { FeedRow, FeedView } from "@/contact-handling/home/activity-feed";
 import { useActivityFeed, type ActivityFeed as ActivityFeedApi } from "@/contact-handling/home/useActivityFeed";
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 import { ActivityRow } from "./ActivityRow";
 import { FeedRowActions } from "./FeedRowActions";
+import { FeedTable } from "./FeedTable";
 import { kindLabel } from "./home-kinds";
 
 /** A view button's label: its name, its count and, when there are any, its unread ("3 new", P-HOME-1k). */
@@ -111,6 +113,11 @@ function KindTokens({ api }: { api: ActivityFeedApi }) {
   );
 }
 
+/** A row's Park / Unpark / Delete: only a scheduled or parked schedule item has them (none on an open one or the
+ *  others). The list's hover cluster and the table's actions cell alike. */
+const rowActions = (row: FeedRow): React.ReactNode =>
+  row.target.type === "schedule" && (row.status === "scheduled" || row.status === "parked") ? <RowActions row={row} /> : undefined;
+
 function FeedGroup({
   title,
   rows,
@@ -119,6 +126,7 @@ function FeedGroup({
   empty,
   collapsible = false,
   heading = true,
+  table = false,
 }: {
   title: string;
   rows: readonly FeedRow[];
@@ -130,6 +138,8 @@ function FeedGroup({
   collapsible?: boolean;
   /** The group's heading; off for a view that is one list (Parked, History: the switcher names it, P-HOME-1m). */
   heading?: boolean;
+  /** The rows as a table (`home.activityView`, P-HOME-1m): the same rows, preview and actions. */
+  table?: boolean;
 }) {
   const [expanded, setExpanded] = React.useState(!collapsible);
   if (rows.length === 0 && !empty) return null;
@@ -149,6 +159,8 @@ function FeedGroup({
       )}
       {!expanded ? null : rows.length === 0 ? (
         empty
+      ) : table ? (
+        <FeedTable data-feed-table="" rows={rows} now={now} onOpen={api.open} isSelected={api.isSelected} actionsFor={rowActions} />
       ) : (
         <div role="list" className="flex flex-col">
           {rows.map((row) => (
@@ -158,8 +170,7 @@ function FeedGroup({
                 now={now}
                 onOpen={() => api.open(row)}
                 selected={api.isSelected(row)}
-                // Only a scheduled or parked schedule item has actions (none on an open one or the others).
-                action={row.target.type === "schedule" && (row.status === "scheduled" || row.status === "parked") ? <RowActions row={row} /> : undefined}
+                action={rowActions(row)}
               />
             </div>
           ))}
@@ -173,6 +184,8 @@ function FeedGroup({
 export function ActivityFeed() {
   const api = useActivityFeed();
   const { feed, view } = api;
+  const [home, updateHome] = useSettings("home");
+  const asTable = home.activityView === "table";
   const now = Date.now();
   const nothingComing = feed.showAssignments && feed.counts.needsDecision + feed.counts.assignments === 0;
 
@@ -190,19 +203,34 @@ export function ActivityFeed() {
         </Container>
       )}
       <div className="flex flex-col gap-2">
-        {/* The view switcher: one view always selected. */}
-        <div data-feed-views>
-          <ToggleGroup
-            type="single"
-            ariaLabel={t("Activity view")}
-            value={view}
-            onValueChange={(value) => api.setView(value as FeedView)}
-            items={[
-              { value: "assignments", label: viewLabel(t("Activity"), feed.counts.assignments, feed.counts.unread) },
-              { value: "parked", label: viewLabel(t("Parked"), feed.counts.parked) },
-              { value: "history", label: viewLabel(t("History"), feed.counts.history) },
-            ]}
-          />
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {/* The view switcher: one view always selected. */}
+          <div data-feed-views>
+            <ToggleGroup
+              type="single"
+              ariaLabel={t("Activity view")}
+              value={view}
+              onValueChange={(value) => api.setView(value as FeedView)}
+              items={[
+                { value: "assignments", label: viewLabel(t("Activity"), feed.counts.assignments, feed.counts.unread) },
+                { value: "parked", label: viewLabel(t("Parked"), feed.counts.parked) },
+                { value: "history", label: viewLabel(t("History"), feed.counts.history) },
+              ]}
+            />
+          </div>
+          {/* List or table, for all three views (P-HOME-1m): one setting, `home.activityView`. */}
+          <div data-feed-display={home.activityView}>
+            <ToggleGroup
+              type="single"
+              ariaLabel={t("Show the feed as")}
+              value={home.activityView}
+              onValueChange={(value) => updateHome({ activityView: value as HomeActivityView })}
+              items={[
+                { value: "list", ariaLabel: t("List"), label: <List className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" /> },
+                { value: "table", ariaLabel: t("Table"), label: <Table2 className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" /> },
+              ]}
+            />
+          </div>
         </div>
         {/* One filter row for every view (P-HOME-1m): the view's search first, then the kinds (lyra's FilterChip
             as-is, the same selection in every view), then History's date (lyra's DateRangeFilterChip as-is). The
@@ -232,9 +260,16 @@ export function ActivityFeed() {
         </div>
         <KindTokens api={api} />
       </div>
-      <FeedGroup title={t("Today")} rows={feed.today} now={now} api={api} />
-      <FeedGroup title={t("This week")} rows={feed.thisWeek} now={now} api={api} />
-      <FeedGroup title={t("Later")} rows={feed.later} now={now} api={api} collapsible />
+      {asTable ? (
+        // One table of the time groups' rows (a table sorts across them); Needs a decision stays above it.
+        <FeedGroup title={t("Activity")} heading={false} rows={[...feed.today, ...feed.thisWeek, ...feed.later]} now={now} api={api} table />
+      ) : (
+        <>
+          <FeedGroup title={t("Today")} rows={feed.today} now={now} api={api} />
+          <FeedGroup title={t("This week")} rows={feed.thisWeek} now={now} api={api} />
+          <FeedGroup title={t("Later")} rows={feed.later} now={now} api={api} collapsible />
+        </>
+      )}
       {nothingComing && (
         <FeedEmpty
           view="assignments"
@@ -248,6 +283,7 @@ export function ActivityFeed() {
         <FeedGroup
           title={t("Parked")}
           heading={false}
+          table={asTable}
           rows={feed.parked}
           now={now}
           api={api}
@@ -267,6 +303,7 @@ export function ActivityFeed() {
         <FeedGroup
           title={t("History")}
           heading={false}
+          table={asTable}
           rows={feed.history}
           now={now}
           api={api}
