@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { scheduleCardKey, scheduleItemIdOf } from "@/domain";
 import { useScheduleProvider, useScheduleSnapshot } from "@/provider-context";
 import { useWorkspaceUiField } from "../workspace-ui-store";
+import { scheduleItemCustomer } from "../contact-identity";
 import type { ScheduleItem } from "@/providers";
 import type { Interaction } from "@/components/agent-next-gen-interaction-dashboard";
 import { useWorkspace } from "../workspace/WorkspaceContext";
@@ -59,6 +60,14 @@ export function useScheduleReadBaseline(): void {
       }),
     );
   }, [schedule, setRead]);
+}
+
+/** `item`'s customer through the directory (P-HOME-1m): the record (its name wins) when the item, or a link the agent
+ *  made, names one; else the item's own name, unmatched. Every kind surface reads its customer here. */
+export function useScheduleItemCustomer(item: ScheduleItem | null | undefined) {
+  const { findDirectoryCustomer } = useWorkspace();
+  const [linked] = useWorkspaceUiField("linkedItemCustomers");
+  return item ? scheduleItemCustomer(item.customer, findDirectoryCustomer, linked[item.id]) : undefined;
 }
 
 /** The call joined to `item`'s card (its voice leg), while there is one. */

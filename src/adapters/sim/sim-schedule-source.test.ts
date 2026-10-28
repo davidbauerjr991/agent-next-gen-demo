@@ -2,13 +2,13 @@
 // through it, state changes only as events after the sim's latency.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AssignmentKind } from "../../domain";
-import type { ScheduleEvents, ScheduleProvider } from "../../providers";
-import { createSimScheduleProvider } from "./sim-schedule-source";
+import type { ScheduleEvents } from "../../providers";
+import { createSimScheduleProvider, type SimScheduleProvider } from "./sim-schedule-source";
 
 const NOW = new Date(2026, 9, 24, 10, 30).getTime();
 const LATENCY = { minMs: 50, maxMs: 50 };
 
-let source: ScheduleProvider;
+let source: SimScheduleProvider;
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -182,6 +182,22 @@ describe("sim schedule source", () => {
       expect(source.remove("agent-tr-ret13")).rejects.toMatchObject({ code: "invalid-state" }),
       expect(source.remove("agent-cb-sofia")).rejects.toMatchObject({ code: "not-found" }),
     ]);
+    await vi.advanceTimersByTimeAsync(LATENCY.maxMs);
+    await rejected;
+  });
+
+  it("add (sim-only) puts an item in the day after it was listed, as an itemChanged, with its due armed; a duplicate is refused", async () => {
+    const { items } = await settle(source.listItems({ role: "agent" }));
+    const changes: ScheduleEvents["itemChanged"][] = [];
+    source.on("itemChanged", (e) => changes.push(e));
+    const due: string[] = [];
+    source.on("itemDue", (e) => due.push(e.item.id));
+    const added = { ...items[0]!, id: "added", dueAt: Date.now() + 10 * 60_000 };
+    await settle(source.add(added));
+    expect(changes.map((c) => c.item.id)).toEqual(["added"]);
+    await vi.advanceTimersByTimeAsync(11 * 60_000);
+    expect(due).toContain("added");
+    const rejected = expect(source.add(added)).rejects.toMatchObject({ code: "invalid-state" });
     await vi.advanceTimersByTimeAsync(LATENCY.maxMs);
     await rejected;
   });

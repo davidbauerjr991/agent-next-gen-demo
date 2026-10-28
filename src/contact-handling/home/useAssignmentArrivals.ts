@@ -8,9 +8,14 @@
 // keyed by journey (useNavCards). The workspace's toasts (useAssignmentToasts)
 // have no arrival event yet: they raise on messages and due callbacks.
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { useInteractionProvider, useInteractions } from "@/provider-context";
+import { scheduleCardKey, scheduleItemIdOf } from "@/domain";
+import { useInteractionProvider, useInteractions, useScheduleProvider, useScheduleSnapshot } from "@/provider-context";
 import { useWorkspaceUiField } from "../workspace-ui-store";
 import { useWorkspace } from "../workspace/WorkspaceContext";
+import { CHANNEL_NAMES } from "./channel-names";
+import { useOpenScheduleItem } from "./useActivityFeed";
+import { kindLabel } from "@/components/home/home-kinds";
+import { t } from "@/i18n";
 
 /** Records arrivals from the provider's events; mount once, at the workspace controller. */
 export function useRecordAssignmentArrivals(): void {
@@ -41,36 +46,72 @@ export function useRecordAssignmentArrivals(): void {
       offState();
     };
   }, [provider, setArrivals]);
+
+  // The schedule's arrivals: an item that appears after its day was listed (a source's `add`).
+  const schedule = useScheduleProvider();
+  const snapshot = useScheduleSnapshot();
+  const listed = useRef<Set<string> | null>(null);
+  if (!listed.current && snapshot) listed.current = new Set(snapshot.items.map((i) => i.id));
+  useEffect(() => {
+    if (!schedule) return;
+    const offReset = schedule.on("reset", ({ snapshot: day }) => {
+      listed.current = new Set(day.items.map((i) => i.id));
+    });
+    const offChanged = schedule.on("itemChanged", ({ item }) => {
+      if (!listed.current || listed.current.has(item.id)) return;
+      listed.current.add(item.id);
+      if (item.state !== "offered" && item.state !== "scheduled") return;
+      const card = scheduleCardKey(item.id);
+      setArrivals((prev) => (prev.includes(card) ? prev : [...prev, card]));
+    });
+    return () => {
+      offReset();
+      offChanged();
+    };
+  }, [schedule, setArrivals]);
 }
 
 export interface AssignmentArrival {
   id: string;
   name: string;
-  channel?: string;
+  /** Its channel (a contact) or kind (a schedule item), translated. */
+  detail?: string;
 }
 
 /** The banner's arrivals (still new: not yet the active card), newest first, with View and Dismiss. */
 export function useAssignmentArrivals(): { arrivals: AssignmentArrival[]; view: (id: string) => void; dismiss: () => void } {
   const { interactions, isNewAssignment, switchActiveInteraction } = useWorkspace();
+  const snapshot = useScheduleSnapshot();
+  const openScheduleItem = useOpenScheduleItem();
   const [ids, setArrivals] = useWorkspaceUiField("homeArrivals");
   const arrivals = useMemo(
     () =>
       [...ids]
         .reverse()
-        .flatMap((id) => {
+        .flatMap((id): AssignmentArrival[] => {
+          if (!isNewAssignment(id)) return [];
+          // A schedule arrival: still in the feed (not opened, parked or done), named by its customer or title.
+          const itemId = scheduleItemIdOf(id);
+          if (itemId) {
+            const item = snapshot?.items.find((i) => i.id === itemId && (i.state === "offered" || i.state === "scheduled"));
+            return item ? [{ id, name: item.customer?.name ?? item.title, detail: t(kindLabel(item.kind)) }] : [];
+          }
           const card = interactions.find((c) => c.id === id);
-          if (!card || !isNewAssignment(id)) return [];
+          if (!card) return [];
           const thread = card.threads.find((t) => t.id === card.currentThreadId) ?? card.threads[0];
-          return [{ id, name: card.presentedName ?? card.customerName ?? card.customerId, ...(thread ? { channel: thread.type } : {}) }];
+          const channel = thread ? CHANNEL_NAMES[thread.type as keyof typeof CHANNEL_NAMES] : undefined;
+          return [{ id, name: card.presentedName ?? card.customerName ?? card.customerId, ...(channel ? { detail: t(channel) } : {}) }];
         }),
-    [ids, interactions, isNewAssignment],
+    [ids, interactions, isNewAssignment, snapshot],
   );
   const view = useCallback(
     (id: string) => {
       setArrivals((prev) => prev.filter((x) => x !== id));
-      switchActiveInteraction(id);
+      const itemId = scheduleItemIdOf(id);
+      if (itemId) openScheduleItem(itemId);
+      else switchActiveInteraction(id);
     },
-    [setArrivals, switchActiveInteraction],
+    [setArrivals, switchActiveInteraction, openScheduleItem],
   );
   const dismiss = useCallback(() => setArrivals([]), [setArrivals]);
   return { arrivals, view, dismiss };

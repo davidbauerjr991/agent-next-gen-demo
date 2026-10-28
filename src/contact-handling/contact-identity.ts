@@ -41,6 +41,21 @@ export function directoryDisplayName(findRecord: (entityId: string) => { name: s
   };
 }
 
+/** A schedule item's customer through the directory (P-HOME-1m), the same match an inbound contact gets (P0.5d.1):
+ *  its record when it has one — the record's name wins — else the name the item carries, unmatched. `linked` is a
+ *  record the agent linked the item to (Link to existing customer), which wins over the item's own. P0.9's
+ *  DirectoryProvider replaces `findRecord`'s body alone. */
+export function scheduleItemCustomer<R extends { id: string; name: string }>(
+  customer: { name: string; entityId?: string } | undefined,
+  findRecord: (entityId: string) => R | undefined,
+  linked?: string,
+): { name: string; entityId?: string; record?: R } | undefined {
+  const entityId = linked ?? customer?.entityId;
+  const record = entityId ? findRecord(entityId) : undefined;
+  if (record) return { name: record.name, entityId: record.id, record };
+  return customer ? { name: customer.name } : undefined;
+}
+
 /** Who a contact is, for a toast: the name its card shows (else the name it
  *  presented) and its number or address. A name that's only the raw
  *  address is left out. */

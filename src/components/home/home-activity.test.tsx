@@ -12,6 +12,7 @@ import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedP
 import type { HomeSectionKey } from "@/settings/settings-schema";
 import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
 import { LUCAS_THOMAS_SCRIPT, MARCUS_WEBB_SCRIPT, TOM_LEWIS_SCRIPT } from "@/scenarios";
+import { seedScheduleDay } from "@/adapters/sim/sim-schedule-seeds";
 
 const h = createWorkspaceHarness({ schedule: true });
 
@@ -429,6 +430,25 @@ describe("Activity feed on Home", () => {
     const offer = group("Needs a decision")!.querySelector<HTMLElement>("[data-feed-row]")!;
     expect(offer.getAttribute("data-unread")).toBe("true");
     expect(offer.className).toContain("bg-lyra-state-hover");
+  });
+
+  it("an item the schedule source adds after load is unread, counted (badge 1), and raises the arrival banner; View opens it", async () => {
+    turnOn();
+    await showHome();
+    const [template] = seedScheduleDay("agent", Date.now());
+    await act(async () => {
+      const added = h.schedule!.add({ ...template!, id: "added-callback", title: "Callback · Ana Lopez", customer: { name: "Ana Lopez" }, dueAt: Date.now() + 45 * 60_000 });
+      await vi.advanceTimersByTimeAsync(50);
+      await added;
+    });
+    const row = rowNamed("Callback · Ana Lopez")!;
+    expect(row.getAttribute("data-unread")).toBe("true");
+    expect(feed().querySelector("[data-feed-views] [data-feed-unread]")?.textContent).toBe("1 new");
+    const banner = feed().querySelector<HTMLElement>("[data-feed-arrivals]")!;
+    expect(banner.textContent).toContain("New assignment · Ana Lopez · Callback");
+    await h.click([...banner.querySelectorAll<HTMLElement>("a, button")].find((b) => b.textContent?.trim() === "View")!);
+    await h.advance(100);
+    expect(h.container.querySelector("[data-kind-cell]")?.getAttribute("data-kind-cell")).toBe("callback");
   });
 
   it("a persona switch re-seeds its day as read", async () => {

@@ -107,6 +107,9 @@ export interface WorkspaceUiState {
   /** P-HOME-1m: cards that arrived after the workspace loaded, newest last, for Home's arrival banner; one leaves when
    *  it's viewed or the banner is dismissed. */
   homeArrivals: readonly string[];
+  /** P-HOME-1m: a schedule item's customer the agent linked to a directory record (Link to existing customer), by item
+   *  id; it wins over the item's own (`scheduleItemCustomer`). */
+  linkedItemCustomers: Readonly<Record<string, string>>;
   /** P-HOME-1: toasts for events on other assignments, in raise order; dismissed ones stay for the drawer's rows. */
   assignmentToasts: readonly AssignmentToast[];
 }
@@ -193,6 +196,7 @@ export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
   kindStarted: new Set<string>(),
   previewedAssignments: new Set<string>(),
   homeArrivals: Object.freeze([]),
+  linkedItemCustomers: Object.freeze({}),
   assignmentToasts: Object.freeze([]),
 });
 

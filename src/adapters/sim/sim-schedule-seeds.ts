@@ -1,5 +1,12 @@
-import type { EpochMs } from "../../domain";
+import type { EntityId, EpochMs } from "../../domain";
 import type { ScheduleCardMetric, ScheduleItem, ScheduleRole } from "../../providers";
+
+/** The seeded customers' directory records (P-HOME-1m): the item resolves its customer through the directory, and
+ *  the record's name wins. Sofia Ramirez has no record (an unmatched customer: Link to existing customer). */
+const PRIYA = "priya-shah-history" as EntityId;
+const NATHAN = "nathan-cole-history" as EntityId;
+const OMAR = "omar-farooq-history" as EntityId;
+const LAUREN = "lauren-briggs-history" as EntityId;
 
 // One seeded day per role (PLAN.md "Persona (demo)"; the wireframe's
 // docs/activity-home-wireframe.html). Times are minutes from when the day is
@@ -15,7 +22,7 @@ const AGENT_DAY: readonly SeedItem[] = [
     title: "Callback · Priya Shah",
     subtitle: "Requested yesterday · refund hasn't posted",
     sourceLabel: "Customer request",
-    customer: { name: "Priya Shah" },
+    customer: { name: "Priya Shah", entityId: PRIYA },
     inMin: 30,
     state: "scheduled",
     detail: { kind: "callback", phone: "(646) 555-0143", reason: "Refund RF-20451 hasn't posted" },
@@ -53,7 +60,7 @@ const AGENT_DAY: readonly SeedItem[] = [
     title: "Ticket #4821 · subscription renewal refund",
     subtitle: "Follow up with Billing on the credit",
     sourceLabel: "Ticket queue",
-    customer: { name: "Priya Shah", phone: "(646) 555-0143" },
+    customer: { name: "Priya Shah", entityId: PRIYA, phone: "(646) 555-0143" },
     inMin: 240,
     state: "scheduled",
     detail: {
@@ -82,7 +89,7 @@ const AGENT_DAY: readonly SeedItem[] = [
     subtitle: "Confirm access after the reset",
     sourceLabel: "Agent scheduled",
     deletable: true,
-    customer: { name: "Nathan Cole" },
+    customer: { name: "Nathan Cole", entityId: NATHAN },
     inMin: 1500,
     state: "scheduled",
     detail: { kind: "callback", phone: "(415) 555-0119", reason: "Confirm access after the password reset" },
@@ -130,7 +137,7 @@ const SUPERVISOR_DAY: readonly SeedItem[] = [
     title: "Escalation · Lauren Briggs · Voice",
     subtitle: "Agent raised hand · fraud dispute",
     sourceLabel: "Escalation",
-    customer: { name: "Lauren Briggs" },
+    customer: { name: "Lauren Briggs", entityId: LAUREN },
     inMin: -2,
     state: "offered",
     detail: { kind: "conversation", channel: "voice", summary: "Fraud dispute; John Smith raised his hand" },
@@ -212,7 +219,7 @@ const SALES_DAY: readonly SeedItem[] = [
     title: "Follow-up · Acme Corp · Omar Farooq",
     subtitle: "Quote sent Tuesday · decision due",
     sourceLabel: "Sales cadence",
-    customer: { name: "Omar Farooq" },
+    customer: { name: "Omar Farooq", entityId: OMAR },
     inMin: 45,
     state: "scheduled",
     detail: { kind: "callback", phone: "(206) 555-0170", reason: "Quote sent Tuesday; decision due" },
@@ -248,7 +255,7 @@ const SALES_DAY: readonly SeedItem[] = [
     title: "Follow-up · Northwind · Lauren Briggs",
     subtitle: "Renewal call · cadence step 3",
     sourceLabel: "Sales cadence",
-    customer: { name: "Lauren Briggs" },
+    customer: { name: "Lauren Briggs", entityId: LAUREN },
     inMin: 1560,
     state: "scheduled",
     detail: { kind: "callback", phone: "(503) 555-0152", reason: "Renewal call; cadence step 3" },

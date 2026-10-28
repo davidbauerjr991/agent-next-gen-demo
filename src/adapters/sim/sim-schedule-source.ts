@@ -7,10 +7,16 @@ import { sampleMs } from "./sim-util";
 
 type AnyHandler = (payload: never) => void;
 
+/** The sim's schedule source: the contract, plus `add` (sim-only, P-HOME-1m): an item that arrives after the day was
+ *  listed (tests, and later moments and hotkeys). */
+export interface SimScheduleProvider extends ScheduleProvider {
+  add(item: ScheduleItem): Promise<void>;
+}
+
 /** The stub schedule source (P-HOME-1): one seeded day per role, held in
  *  memory. Listing a different role replaces the day; opening and completing
  *  items, and items coming due, arrive as events after the sim's latency. */
-export function createSimScheduleProvider(options?: { latency?: LatencyRange; now?: () => EpochMs }): ScheduleProvider {
+export function createSimScheduleProvider(options?: { latency?: LatencyRange; now?: () => EpochMs }): SimScheduleProvider {
   const latency = options?.latency ?? DEFAULT_LATENCY;
   const now = options?.now ?? (() => Date.now());
   const listeners = new Map<keyof ScheduleEvents, Set<AnyHandler>>();
@@ -119,6 +125,15 @@ export function createSimScheduleProvider(options?: { latency?: LatencyRange; no
       await delay();
       guard("decline");
       update(id, "decline", ["offered"], { state: "declined" });
+    },
+    async add(item) {
+      guard("add");
+      await delay();
+      guard("add");
+      if (items.has(item.id)) throw providerError("invalid-state", `ScheduleProvider.add: item ${item.id} already exists`);
+      items.set(item.id, item);
+      armDue(item);
+      emit("itemChanged", { item });
     },
     async park(id) {
       guard("park");

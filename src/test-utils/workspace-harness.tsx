@@ -11,7 +11,7 @@ import { createSimAssistProvider } from "@/adapters/sim/sim-assist-provider";
 import { SIM_DEMO_DIRECTORY } from "@/adapters/sim/sim-demo-directory";
 import type { SimSeedContact } from "@/adapters/sim/sim-fixtures";
 import { createSimTranscriptExportProvider } from "@/adapters/sim/sim-transcript-export-provider";
-import { createSimScheduleProvider } from "@/adapters/sim/sim-schedule-source";
+import { createSimScheduleProvider, type SimScheduleProvider } from "@/adapters/sim/sim-schedule-source";
 import { createSimCustomerClient, type SimCustomerClient } from "@/adapters/sim/sim-customer-client";
 import { createSimulatedInteractionProvider, type SimulatedInteractionProvider } from "@/adapters/sim/simulated-interaction-provider";
 import type { ChannelKind, InteractionId } from "@/domain";
@@ -87,7 +87,7 @@ export function createWorkspaceHarness(
   let root!: Root;
   let provider!: SimulatedInteractionProvider;
   let customer!: SimCustomerClient;
-  let schedule: ScheduleProvider | undefined;
+  let schedule: SimScheduleProvider | undefined;
   let databaseId = "";
 
   const advance = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));

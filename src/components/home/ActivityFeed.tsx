@@ -11,7 +11,6 @@ import { ChevronDown } from "lucide-react";
 import { CONTACT_HISTORY_DATE_FILTER_OPTIONS } from "@/components/agent-next-gen-contact-history";
 import { RadioFilterChip } from "@/components/RadioFilterChip";
 import type { FeedRow, FeedView } from "@/contact-handling/home/activity-feed";
-import { CHANNEL_NAMES } from "@/contact-handling/home/channel-names";
 import { useAssignmentArrivals } from "@/contact-handling/home/useAssignmentArrivals";
 import { useActivityFeed, type ActivityFeed as ActivityFeedApi } from "@/contact-handling/home/useActivityFeed";
 import { useScheduleSnapshot } from "@/provider-context";
@@ -27,7 +26,7 @@ function ArrivalBanner() {
   const { arrivals, view, dismiss } = useAssignmentArrivals();
   const newest = arrivals[0];
   if (!newest) return null;
-  const channel = newest.channel ? t(CHANNEL_NAMES[newest.channel as keyof typeof CHANNEL_NAMES] ?? newest.channel) : undefined;
+  const detail = newest.detail;
   return (
     <InlineNotification
       variant="info"
@@ -37,8 +36,8 @@ function ArrivalBanner() {
       actionPlacement="inline"
       action={<Link onClick={() => view(newest.id)}>{t("View")}</Link>}
     >
-      {channel
-        ? t("New assignment · {name} · {channel}", { name: newest.name, channel })
+      {detail
+        ? t("New assignment · {name} · {detail}", { name: newest.name, detail })
         : t("New assignment · {name}", { name: newest.name })}
     </InlineNotification>
   );
