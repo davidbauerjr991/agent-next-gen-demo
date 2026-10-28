@@ -58,6 +58,18 @@ export const FEED_TABLE_COLUMNS: readonly FeedTableColumn[] = [
   { key: "status", label: "Status", className: "w-[130px] shrink-0", sortValue: (row) => t(STATUS_LABELS[row.status]), cell: (row) => t(STATUS_LABELS[row.status]) },
 ];
 
+/** The actions column, pinned to the end edge as the Customers table's trailing column is (`sticky end-0`), with a
+ *  divider before it, so its icons stay reachable while the other columns scroll sideways. */
+const ACTIONS_COLUMN = "sticky end-0 z-[1] w-[88px] shrink-0 justify-end border-s border-lyra-border-subtle bg-lyra-bg-surface-base";
+
+/** The row's own tint over the pinned cell's opaque surface: the row tints (lyra's hover, `status-info-subtle`) are
+ *  translucent, so the cell can't take the row's colour alone or the scrolled content would show through. */
+function actionsCellTint(selected: boolean, unread: boolean): string {
+  if (selected) return "[background-image:linear-gradient(var(--lyra-color-status-info-subtle),var(--lyra-color-status-info-subtle))]";
+  if (unread) return "[background-image:linear-gradient(var(--lyra-color-state-bg-hover-opacity),var(--lyra-color-state-bg-hover-opacity))]";
+  return "group-hover:[background-image:linear-gradient(var(--lyra-color-state-bg-hover-opacity),var(--lyra-color-state-bg-hover-opacity))]";
+}
+
 /** A page's rows, as the Customers table opens with. */
 const FEED_TABLE_ROWS_PER_PAGE = 25;
 
@@ -125,7 +137,7 @@ export function FeedTable({
               {t(column.label)}
             </SortableTableHead>
           ))}
-          <TableHead className="w-[88px] shrink-0">
+          <TableHead className={ACTIONS_COLUMN} data-feed-actions-column="">
             <span className="sr-only">{t("Actions")}</span>
           </TableHead>
         </TableRow>
@@ -150,7 +162,11 @@ export function FeedTable({
                   {column.cell(row, now)}
                 </TableCell>
               ))}
-              <TableCell className="w-[88px] shrink-0" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+              <TableCell
+                className={cn(ACTIONS_COLUMN, actionsCellTint(selected, !!row.unread))}
+                data-feed-actions-cell=""
+                onClick={(e: React.MouseEvent) => e.stopPropagation()}
+              >
                 {actionsFor?.(row)}
               </TableCell>
             </TableRow>
