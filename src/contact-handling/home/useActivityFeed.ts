@@ -109,6 +109,25 @@ export function useOpenScheduleItem(): (itemId: string) => void {
   );
 }
 
+/** Opens a schedule item's or offer's preview in Home's detail panel (one job at a time there, home-detail-panel.tsx);
+ *  previewing reads it. A row's click toggles it (`toggle`); the arrival banner's View always opens it. */
+export function usePreviewFeedTarget(): (target: Exclude<FeedTarget, { type: "history" }>, options?: { toggle?: boolean }) => void {
+  const { setSelectedQueueId, setInteriorPanelOpen, setSelectedContactHistoryEntry } = useWorkspace();
+  const [, setPreview] = useWorkspaceUiField("homePreview");
+  const [, setPreviewed] = useWorkspaceUiField("previewedAssignments");
+  return useCallback(
+    (target, options) => {
+      setSelectedQueueId(null);
+      setInteriorPanelOpen(false);
+      setSelectedContactHistoryEntry(null);
+      setPreview((current) => (options?.toggle && sameTarget(current, target) ? null : target));
+      const key = targetCardKey(target);
+      if (key) setPreviewed((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
+    },
+    [setSelectedQueueId, setInteriorPanelOpen, setSelectedContactHistoryEntry, setPreview, setPreviewed],
+  );
+}
+
 /** What a feed row's click did before P-HOME-1h, now its preview's primary action: an offer's card is accepted, a
  *  rail card made active, a schedule item opened into the rail (or made active, if it's there). */
 export function useActivateFeedTarget(): (target: FeedTarget) => void {
@@ -144,7 +163,7 @@ export function useActivityFeed(): ActivityFeed {
   const [historyQuery, setHistoryQuery] = useWorkspaceUiField("activityHistoryQuery");
   const activate = useActivateFeedTarget();
   const [preview, setPreview] = useWorkspaceUiField("homePreview");
-  const [, setPreviewed] = useWorkspaceUiField("previewedAssignments");
+  const previewTarget = usePreviewFeedTarget();
   // Time groups only move on the minute.
   const minute = useClockValue(ws.clock, (tick) => Math.floor(tick / 60));
   const {
@@ -190,23 +209,16 @@ export function useActivityFeed(): ActivityFeed {
       const target = row.target;
       // An item already open in the rail (P-HOME-1m: it stays in the feed) goes to its card.
       if (row.status === "inRail") return activate(target);
-      // One job at a time in the panel (home-detail-panel.tsx); the open row's click closes it, as on Contact History.
+      // The open row's click closes its preview, as on Contact History.
+      if (target.type !== "history") return previewTarget(target, { toggle: true });
+      // A completed contact opens Contact History's own preview (Redial / reopen from there); one job at a time.
       setSelectedQueueId(null);
       setInteriorPanelOpen(false);
-      if (target.type === "history") {
-        // A completed contact opens Contact History's own preview (Redial / reopen from there).
-        setPreview(null);
-        const entry = historyEntries.find((e) => e.id === target.entryId);
-        setSelectedContactHistoryEntry(!entry || entry.id === selectedContactHistoryEntry?.id ? null : entry);
-      } else {
-        setSelectedContactHistoryEntry(null);
-        setPreview((current) => (sameTarget(current, target) ? null : target));
-        // A preview reads it (unread clears; the nav card's new outline too).
-        const key = targetCardKey(target);
-        if (key) setPreviewed((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
-      }
+      setPreview(null);
+      const entry = historyEntries.find((e) => e.id === target.entryId);
+      setSelectedContactHistoryEntry(!entry || entry.id === selectedContactHistoryEntry?.id ? null : entry);
     },
-    [historyEntries, selectedContactHistoryEntry, setSelectedQueueId, setSelectedContactHistoryEntry, setInteriorPanelOpen, setPreview, setPreviewed, activate],
+    [historyEntries, selectedContactHistoryEntry, setSelectedQueueId, setSelectedContactHistoryEntry, setInteriorPanelOpen, setPreview, previewTarget, activate],
   );
   const selectedEntryId = selectedContactHistoryEntry?.id;
   const isSelected = useCallback(

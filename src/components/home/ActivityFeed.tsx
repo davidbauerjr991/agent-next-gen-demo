@@ -6,12 +6,13 @@
 // what completed in its range. The rules are activity-feed.ts; this file only
 // lays them out.
 import * as React from "react";
-import { Badge, Button, Container, InlineNotification, Link, SearchInput, Tag, ToggleGroup } from "@nicecxone/lyra-ui";
+import { ActionIconButton, Badge, Button, Container, InlineNotification, Link, SearchInput, Tag, ToggleGroup } from "@nicecxone/lyra-ui";
 import { ChevronDown } from "lucide-react";
+import { timeLabel } from "@/components/ai-cards/ai-card-icon";
 import { CONTACT_HISTORY_DATE_FILTER_OPTIONS } from "@/components/agent-next-gen-contact-history";
 import { RadioFilterChip } from "@/components/RadioFilterChip";
 import type { FeedRow, FeedView } from "@/contact-handling/home/activity-feed";
-import { useAssignmentArrivals } from "@/contact-handling/home/useAssignmentArrivals";
+import { useAssignmentArrivals, type AssignmentArrival } from "@/contact-handling/home/useAssignmentArrivals";
 import { useActivityFeed, type ActivityFeed as ActivityFeedApi } from "@/contact-handling/home/useActivityFeed";
 import { useScheduleSnapshot } from "@/provider-context";
 import { cn } from "@/lib/utils";
@@ -20,25 +21,60 @@ import { ActivityRow } from "./ActivityRow";
 import { FeedRowActions } from "./FeedRowActions";
 import { KindIcon, kindLabel } from "./home-kinds";
 
-/** New assignments that arrived while the agent wasn't on them (P-HOME-1m): one line each, or a count when several;
- *  View opens the newest, the X dismisses them all. */
+/** One arrival's line: name · channel or kind · time. */
+const arrivalLine = (a: AssignmentArrival) =>
+  a.detail ? t("{name} · {detail} · {time}", { name: a.name, detail: a.detail, time: timeLabel(a.at) }) : t("{name} · {time}", { name: a.name, time: timeLabel(a.at) });
+
+/** What landed while the agent was elsewhere (P-HOME-1m). One: its line and View. Several: the count, and a chevron
+ *  that lists them, each with its own View (collapsed there's no View). Dismiss clears them all; the rows stay
+ *  unread. */
 function ArrivalBanner() {
   const { arrivals, view, dismiss } = useAssignmentArrivals();
+  const [expanded, setExpanded] = React.useState(false);
+  // A list that drops below two closes, so the next pair comes back collapsed.
+  React.useEffect(() => {
+    if (arrivals.length < 2) setExpanded(false);
+  }, [arrivals.length]);
   const newest = arrivals[0];
   if (!newest) return null;
-  const detail = newest.detail;
+  if (arrivals.length === 1) {
+    return (
+      <InlineNotification
+        variant="info"
+        data-feed-arrivals={1}
+        onDismiss={dismiss}
+        actionPlacement="inline"
+        action={<Link onClick={() => view(newest.id)}>{t("View")}</Link>}
+      >
+        {t("New assignment · {line}", { line: arrivalLine(newest) })}
+      </InlineNotification>
+    );
+  }
   return (
     <InlineNotification
       variant="info"
       data-feed-arrivals={arrivals.length}
-      heading={arrivals.length > 1 ? t("{count} new assignments", { count: arrivals.length }) : undefined}
+      data-expanded={expanded}
       onDismiss={dismiss}
-      actionPlacement="inline"
-      action={<Link onClick={() => view(newest.id)}>{t("View")}</Link>}
+      action={
+        expanded && (
+          <ul className="flex flex-col gap-1" data-feed-arrival-list="">
+            {arrivals.map((a) => (
+              <li key={a.id} className="flex items-center gap-2 lyra-body-md text-lyra-fg-default" data-feed-arrival={a.id}>
+                <span className="min-w-0 truncate">{arrivalLine(a)}</span>
+                <Link onClick={() => view(a.id)}>{t("View")}</Link>
+              </li>
+            ))}
+          </ul>
+        )
+      }
     >
-      {detail
-        ? t("New assignment · {name} · {detail}", { name: newest.name, detail })
-        : t("New assignment · {name}", { name: newest.name })}
+      <span className="inline-flex items-center gap-1">
+        {t("{count} new assignments", { count: arrivals.length })}
+        <ActionIconButton title={expanded ? t("Hide new assignments") : t("Show new assignments")} aria-expanded={expanded} onClick={() => setExpanded((v) => !v)}>
+          <ChevronDown className={cn("h-4 w-4 transition-transform", expanded && "rotate-180")} strokeWidth={1.5} />
+        </ActionIconButton>
+      </span>
     </InlineNotification>
   );
 }

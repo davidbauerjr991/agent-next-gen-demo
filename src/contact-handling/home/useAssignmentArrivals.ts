@@ -12,11 +12,17 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { scheduleCardKey, scheduleItemIdOf } from "@/domain";
 import { useInteractionProvider, useInteractions, useScheduleProvider, useScheduleSnapshot } from "@/provider-context";
-import { useWorkspaceUiField } from "../workspace-ui-store";
+import { useWorkspaceUiField, type WorkspaceUiState } from "../workspace-ui-store";
 import { useWorkspace } from "../workspace/WorkspaceContext";
 import { CHANNEL_NAMES } from "./channel-names";
+import { usePreviewFeedTarget } from "./useActivityFeed";
 import { kindLabel } from "@/components/home/home-kinds";
 import { t } from "@/i18n";
+
+type Arrivals = WorkspaceUiState["homeArrivals"];
+
+/** `prev` with `card` arrived now, unless it's already there. */
+const withArrival = (prev: Arrivals, card: string): Arrivals => (prev.some((a) => a.id === card) ? prev : [...prev, { id: card, at: Date.now() }]);
 
 /** Records arrivals from the provider's events; mount once, at the workspace controller. */
 export function useRecordAssignmentArrivals(): void {
@@ -40,7 +46,7 @@ export function useRecordAssignmentArrivals(): void {
       if (interaction.state !== "active" || interaction.direction !== "inbound" || interaction.origin !== "routed") return;
       if (loaded.current!.has(interaction.id) || rang.has(card) || recorded.has(card)) return;
       recorded.add(card);
-      setArrivals((prev) => (prev.includes(card) ? prev : [...prev, card]));
+      setArrivals((prev) => withArrival(prev, card));
     });
     return () => {
       offIncoming();
@@ -62,8 +68,7 @@ export function useRecordAssignmentArrivals(): void {
       if (!listed.current || listed.current.has(item.id)) return;
       listed.current.add(item.id);
       if (item.state !== "offered" && item.state !== "scheduled") return;
-      const card = scheduleCardKey(item.id);
-      setArrivals((prev) => (prev.includes(card) ? prev : [...prev, card]));
+      setArrivals((prev) => withArrival(prev, scheduleCardKey(item.id)));
     });
     return () => {
       offReset();
@@ -77,52 +82,52 @@ export interface AssignmentArrival {
   name: string;
   /** Its channel (a contact) or kind (a schedule item), translated. */
   detail?: string;
+  /** When it arrived. */
+  at: number;
 }
 
-/** The banner's arrivals (still new: not yet the active card), newest first, with View and Dismiss. */
+/** The banner's arrivals (still new: not yet the active card), newest first, with View and Dismiss (all of them; the
+ *  rows stay unread). */
 export function useAssignmentArrivals(): { arrivals: AssignmentArrival[]; view: (id: string) => void; dismiss: () => void } {
-  const { interactions, isNewAssignment, switchActiveInteraction, setSelectedQueueId, setInteriorPanelOpen, setSelectedContactHistoryEntry } =
-    useWorkspace();
+  const { interactions, isNewAssignment, switchActiveInteraction } = useWorkspace();
   const snapshot = useScheduleSnapshot();
-  const [ids, setArrivals] = useWorkspaceUiField("homeArrivals");
+  const [recorded, setArrivals] = useWorkspaceUiField("homeArrivals");
   const [, setView] = useWorkspaceUiField("activityView");
-  const [, setPreview] = useWorkspaceUiField("homePreview");
-  const [, setPreviewed] = useWorkspaceUiField("previewedAssignments");
+  const [kindFilter, setKindFilter] = useWorkspaceUiField("activityKinds");
+  const previewTarget = usePreviewFeedTarget();
   const arrivals = useMemo(
     () =>
-      [...ids]
+      [...recorded]
         .reverse()
-        .flatMap((id): AssignmentArrival[] => {
+        .flatMap(({ id, at }): AssignmentArrival[] => {
           if (!isNewAssignment(id)) return [];
           // A schedule arrival: still in the feed (not opened, parked or done), named by its customer or title.
           const itemId = scheduleItemIdOf(id);
           if (itemId) {
             const item = snapshot?.items.find((i) => i.id === itemId && (i.state === "offered" || i.state === "scheduled"));
-            return item ? [{ id, name: item.customer?.name ?? item.title, detail: t(kindLabel(item.kind)) }] : [];
+            return item ? [{ id, at, name: item.customer?.name ?? item.title, detail: t(kindLabel(item.kind)) }] : [];
           }
           const card = interactions.find((c) => c.id === id);
           if (!card) return [];
           const thread = card.threads.find((t) => t.id === card.currentThreadId) ?? card.threads[0];
           const channel = thread ? CHANNEL_NAMES[thread.type as keyof typeof CHANNEL_NAMES] : undefined;
-          return [{ id, name: card.presentedName ?? card.customerName ?? card.customerId, ...(channel ? { detail: t(channel) } : {}) }];
+          return [{ id, at, name: card.presentedName ?? card.customerName ?? card.customerId, ...(channel ? { detail: t(channel) } : {}) }];
         }),
-    [ids, interactions, isNewAssignment, snapshot],
+    [recorded, interactions, isNewAssignment, snapshot],
   );
   const view = useCallback(
     (id: string) => {
-      setArrivals((prev) => prev.filter((x) => x !== id));
+      setArrivals((prev) => prev.filter((a) => a.id !== id));
       const itemId = scheduleItemIdOf(id);
       if (!itemId) return switchActiveInteraction(id);
-      // A schedule item opens its feed row's preview (as the row's click does), in the Assignments view; previewing
-      // reads it.
+      // A schedule item opens its feed row's preview, in the first view, with its row showing (the kind chips cleared
+      // if they'd hide it).
+      const kind = snapshot?.items.find((i) => i.id === itemId)?.kind;
+      if (kind && kindFilter.size > 0 && !kindFilter.has(kind)) setKindFilter(new Set());
       setView("assignments");
-      setSelectedQueueId(null);
-      setInteriorPanelOpen(false);
-      setSelectedContactHistoryEntry(null);
-      setPreview({ type: "schedule", itemId });
-      setPreviewed((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+      previewTarget({ type: "schedule", itemId });
     },
-    [setArrivals, switchActiveInteraction, setView, setSelectedQueueId, setInteriorPanelOpen, setSelectedContactHistoryEntry, setPreview, setPreviewed],
+    [setArrivals, switchActiveInteraction, snapshot, kindFilter, setKindFilter, setView, previewTarget],
   );
   const dismiss = useCallback(() => setArrivals([]), [setArrivals]);
   return { arrivals, view, dismiss };

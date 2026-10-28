@@ -104,9 +104,9 @@ export interface WorkspaceUiState {
   /** P-HOME-1k: the card keys read without having been the active card — a feed row previewed, or (1m) a listed day's
    *  items, which load read (`useNewAssignments` reads it). In memory only: a reload lists the day again. */
   previewedAssignments: ReadonlySet<string>;
-  /** P-HOME-1m: cards that arrived after the workspace loaded, newest last, for Home's arrival banner; one leaves when
-   *  it's viewed or the banner is dismissed. */
-  homeArrivals: readonly string[];
+  /** P-HOME-1m: cards that arrived after the workspace loaded (card key, arrival time), newest last, for Home's
+   *  arrival banner; one leaves when it's viewed or the banner is dismissed. */
+  homeArrivals: readonly { readonly id: string; readonly at: number }[];
   /** P-HOME-1m: a schedule item's customer the agent linked to a directory record (Link to existing customer), by item
    *  id; it wins over the item's own (`scheduleItemCustomer`). */
   linkedItemCustomers: Readonly<Record<string, string>>;

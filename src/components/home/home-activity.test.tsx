@@ -57,6 +57,10 @@ const view = (label: string) => [...feed().querySelectorAll<HTMLElement>("[data-
 const chipLabel = (b: Element) => b.textContent?.trim().replace(/\d+$/, "");
 const kindChip = (label: string) => [...feed().querySelectorAll<HTMLButtonElement>("[data-feed-kinds] button")].find((b) => chipLabel(b) === label);
 const homeButton = () => [...h.container.querySelectorAll("aside button, aside [role=button]")].find((el) => el.textContent?.trim() === "Home")!;
+/** A scope's View links (the arrival banner's). */
+const viewLinks = (scope: Element) => [...scope.querySelectorAll<HTMLElement>("a, button")].filter((b) => b.textContent?.trim() === "View");
+/** The active card's name: the record header's title. */
+const recordName = () => h.container.querySelector('[data-slot="record-header"] h1')?.textContent;
 const sectionsIn = (scope: Element) => [...scope.querySelectorAll(":scope > [data-home-section], :scope > * > [data-home-section]")].map((el) => el.getAttribute("data-home-section"));
 
 describe("Activity feed on Home", () => {
@@ -399,7 +403,7 @@ describe("Activity feed on Home", () => {
     expect(row().getAttribute("data-unread")).toBeNull();
   });
 
-  it("a new assignment arriving while the agent isn't on it raises Home's banner above Needs a decision; several stack as a count; View opens it; X dismisses", async () => {
+  it("a new assignment arriving while the agent isn't on it raises Home's banner above Needs a decision: one names it and View opens its card", async () => {
     turnOn();
     await showHome();
     await h.goAvailable();
@@ -407,19 +411,43 @@ describe("Activity feed on Home", () => {
     expect(banner()).toBeNull();
     await h.play(LUCAS_THOMAS_SCRIPT.id);
     await h.advance(500);
-    expect(banner()?.textContent).toContain("New assignment · Lucas Thomas · Chat");
+    expect(banner()?.textContent).toMatch(/New assignment · Lucas Thomas · Chat · \d{1,2}:\d{2}/);
     expect(feed().firstElementChild).toBe(banner());
+    await h.click(viewLinks(banner()!)[0]!);
+    expect(h.container.querySelector("[data-activity-feed]")).toBeNull();
+    expect(recordName()).toBe("Lucas Thomas");
+  });
+
+  it("several arrivals: the count with no bare View; the chevron lists each (name · channel · time) with its own View; Dismiss clears all and leaves them unread", async () => {
+    turnOn();
+    await showHome();
+    await h.goAvailable();
+    const banner = () => feed().querySelector<HTMLElement>("[data-feed-arrivals]");
+    await h.play(LUCAS_THOMAS_SCRIPT.id);
+    await h.advance(500);
     await h.play(MARCUS_WEBB_SCRIPT.id);
     await h.advance(500);
     expect(banner()?.getAttribute("data-feed-arrivals")).toBe("2");
     expect(banner()?.textContent).toContain("2 new assignments");
-    // View opens the newest (Marcus); Lucas stays in the banner.
-    await h.click([...banner()!.querySelectorAll<HTMLElement>("a, button")].find((b) => b.textContent?.trim() === "View")!);
-    expect(h.container.querySelector("[data-activity-feed]")).toBeNull();
+    expect(viewLinks(banner()!)).toHaveLength(0);
+    await h.click(banner()!.querySelector<HTMLElement>('[aria-expanded="false"]')!);
+    const lines = [...banner()!.querySelectorAll<HTMLElement>("[data-feed-arrival]")];
+    expect(lines.map((l) => l.textContent)).toEqual([
+      expect.stringMatching(/^Marcus Webb · \w+ · \d{1,2}:\d{2}.*View$/),
+      expect.stringMatching(/^Lucas Thomas · Chat · \d{1,2}:\d{2}.*View$/),
+    ]);
+    // Each View opens its own: Lucas's (the second line) leaves Marcus in the banner.
+    await h.click(viewLinks(lines[1]!)[0]!);
+    expect(recordName()).toBe("Lucas Thomas");
     await h.click(homeButton());
-    expect(banner()?.textContent).toContain("New assignment · Lucas Thomas");
+    expect(banner()?.getAttribute("data-feed-arrivals")).toBe("1");
+    expect(banner()?.textContent).toContain("Marcus Webb");
+    // Dismiss: the banner goes; Marcus's card is still new (the new outline).
+    const marcusNew = () => [...h.container.querySelectorAll<HTMLElement>("aside [class*='border-lyra-border-strong']")].some((el) => el.textContent?.includes("Marcus Webb"));
+    expect(marcusNew()).toBe(true);
     await h.click(banner()!.querySelector<HTMLElement>('button[aria-label^="Dismiss"]')!);
     expect(banner()).toBeNull();
+    expect(marcusNew()).toBe(true);
   });
 
   it("an offer that arrives after load is unread (tinted, with the dot) in Needs a decision", async () => {
@@ -448,7 +476,10 @@ describe("Activity feed on Home", () => {
     expect(banner.textContent).toContain("New assignment · Ana Lopez · Callback");
     // Due in 45 minutes: Today's (there is no Now group).
     expect(row.closest("[data-feed-group]")?.getAttribute("data-feed-group")).toBe("Today");
-    await h.click([...banner.querySelectorAll<HTMLElement>("a, button")].find((b) => b.textContent?.trim() === "View")!);
+    // The kind chips hide it (meetings only): View clears them so its row shows.
+    await h.click(kindChip("Meeting")!);
+    expect(rowNamed("Callback · Ana Lopez")).toBeUndefined();
+    await h.click(viewLinks(feed().querySelector("[data-feed-arrivals]")!)[0]!);
     await h.advance(100);
     // The feed row's preview, not the item opened: it stays on Home, read.
     expect(h.container.querySelector("[data-kind-cell]")).toBeNull();
