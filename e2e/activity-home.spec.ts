@@ -403,7 +403,7 @@ test("table mode fills the feed area (P-HOME-1m): its header stays while its bod
   expect((await head.boundingBox())!.y).toBe(headTop);
 });
 
-test("the table's actions column is pinned to the end edge (P-HOME-1m): scrolled sideways, a row's actions stay in view and clickable", async ({ page }) => {
+test("the table's actions column is the pinned kebab column (P-HOME-1m): scrolled sideways, a row's kebab stays in view and its menu works", async ({ page }) => {
   // Narrow enough that the columns' minimums overflow the feed area, so the body scrolls sideways.
   await page.setViewportSize({ width: 1000, height: 800 });
   await page.addInitScript((home) => {
@@ -419,8 +419,8 @@ test("the table's actions column is pinned to the end edge (P-HOME-1m): scrolled
   });
   expect(scrolled.overflow).toBeGreaterThan(0);
   expect(scrolled.left).toBeGreaterThan(0);
-  // A row with a Park: its pinned cell sits at the body's end edge, inside the visible frame, with a divider before it.
-  const row = body.locator("[data-feed-row]").filter({ has: page.locator('[data-feed-action="park"]') }).first();
+  // A scheduled callback's row: its pinned cell sits at the body's end edge, inside the visible frame, with its kebab.
+  const row = body.locator("[data-feed-row]").filter({ hasText: "Callback" }).filter({ has: page.locator("[data-feed-actions-cell] button") }).first();
   const id = await row.getAttribute("data-feed-row");
   const cell = row.locator("[data-feed-actions-cell]");
   const bodyBox = (await body.boundingBox())!;
@@ -428,13 +428,14 @@ test("the table's actions column is pinned to the end edge (P-HOME-1m): scrolled
   expect(cellBox.x).toBeGreaterThanOrEqual(bodyBox.x);
   expect(cellBox.x + cellBox.width).toBeLessThanOrEqual(bodyBox.x + bodyBox.width + 1);
   expect(await cell.evaluate((el) => getComputedStyle(el).position)).toBe("sticky");
-  expect(await cell.evaluate((el) => getComputedStyle(el).borderInlineStartWidth)).toBe("1px");
   // Scrolled back to the start, it's still in the same place.
   await body.evaluate((el) => (el.scrollLeft = 0));
   expect(Math.abs((await cell.boundingBox())!.x - cellBox.x)).toBeLessThan(1);
   await body.evaluate((el) => (el.scrollLeft = el.scrollWidth));
-  // Clickable without scrolling back: Park takes the row out of Activity.
-  await cell.locator('[data-feed-action="park"]').click();
+  // No icons in the cell, only the kebab; its menu holds the row's actions, and Park takes the row out of Activity.
+  await expect(cell.locator("[data-feed-action]")).toHaveCount(0);
+  await cell.getByRole("button", { name: "More options" }).click();
+  await page.getByRole("menuitem", { name: "Park this callback" }).click();
   await expect(body.locator(`[data-feed-row="${id}"]`)).toHaveCount(0);
 });
 

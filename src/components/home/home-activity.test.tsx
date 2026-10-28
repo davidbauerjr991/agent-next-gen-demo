@@ -685,8 +685,16 @@ describe("Activity feed on Home", () => {
     await h.click(priya());
     await h.advance(100);
     expect(document.querySelector("[data-home-detail=item]")?.getAttribute("data-schedule-item")).toBe("agent-cb-priya");
-    // Park from the actions cell: out of Activity's table, into Parked's (still a table).
-    await h.click(priya().querySelector<HTMLElement>('[data-feed-action="park"]')!);
+    // Park from the pinned actions column's kebab (no icons there): out of Activity's table, into Parked's (still a
+    // table). Radix opens the menu on Enter, not a synthetic click.
+    const cell = priya().querySelector<HTMLElement>("[data-feed-actions-cell]")!;
+    expect(cell.querySelector("[data-feed-action]")).toBeNull();
+    await act(async () => {
+      cell.querySelector<HTMLElement>('[aria-label="More options"]')!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect([...document.body.querySelectorAll('[role="menuitem"]')].map((m) => m.textContent?.trim())).toEqual(["Park this callback"]);
+    await h.click([...document.body.querySelectorAll<HTMLElement>('[role="menuitem"]')].find((m) => m.textContent?.trim() === "Park this callback")!);
     await h.advance(200);
     expect(tableTitles().some((title) => title?.includes("Callback · Priya Shah"))).toBe(false);
     await h.click(view("Parked")!);

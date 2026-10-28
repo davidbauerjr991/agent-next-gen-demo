@@ -80,11 +80,11 @@ function ViewSearch({ value, onChange, placeholder }: { value: string; onChange:
 }
 
 /** A schedule row's hover cluster: Park (or Unpark), and Delete when the agent created it. */
-function RowActions({ row }: { row: FeedRow }) {
+function RowActions({ row, menu }: { row: FeedRow; menu?: boolean }) {
   const snapshot = useScheduleSnapshot();
   const target = row.target;
   const item = target.type === "schedule" ? snapshot?.items.find((i) => i.id === target.itemId) : undefined;
-  return item ? <FeedRowActions item={item} /> : null;
+  return item ? <FeedRowActions item={item} menu={menu} /> : null;
 }
 
 /** The picked kinds below the filter row (P-HOME-1m): lyra's applied-filter tokens as in FilterChip's stories (removable
@@ -116,9 +116,10 @@ function KindTokens({ api }: { api: ActivityFeedApi }) {
 }
 
 /** A row's Park / Unpark / Delete: only a scheduled or parked schedule item has them (none on an open one or the
- *  others). The list's hover cluster and the table's actions cell alike. */
-const rowActions = (row: FeedRow): React.ReactNode =>
-  row.target.type === "schedule" && (row.status === "scheduled" || row.status === "parked") ? <RowActions row={row} /> : undefined;
+ *  others). The list's hover cluster as icons; the table's actions column as a kebab (`menu`). */
+const rowActions = (row: FeedRow, menu = false): React.ReactNode =>
+  row.target.type === "schedule" && (row.status === "scheduled" || row.status === "parked") ? <RowActions row={row} menu={menu} /> : undefined;
+const rowMenu = (row: FeedRow) => rowActions(row, true);
 
 function FeedGroup({
   title,
@@ -163,7 +164,7 @@ function FeedGroup({
       {!expanded ? null : rows.length === 0 ? (
         empty
       ) : table ? (
-        <FeedTable data-feed-table="" rows={rows} now={now} onOpen={api.open} isSelected={api.isSelected} actionsFor={rowActions} />
+        <FeedTable data-feed-table="" rows={rows} now={now} onOpen={api.open} isSelected={api.isSelected} actionsFor={rowMenu} />
       ) : (
         <div role="list" className="flex flex-col">
           {rows.map((row) => (

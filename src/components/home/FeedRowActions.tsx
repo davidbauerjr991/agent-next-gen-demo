@@ -5,7 +5,7 @@
 // (`deletable`), after a confirm; anything else has no Delete (it parks
 // instead): hidden, never greyed.
 import { useState } from "react";
-import { ActionIconButton } from "@nicecxone/lyra-ui";
+import { ActionIconButton, KebabMenuButton } from "@nicecxone/lyra-ui";
 import { ArchiveRestore, Archive, Trash2 } from "lucide-react";
 import { ConfirmCloseDialog } from "@/contact-handling/ConfirmCloseDialog";
 import { useScheduleProvider } from "@/provider-context";
@@ -19,9 +19,9 @@ const warn = (what: string) => (err: unknown) => {
   if (import.meta.env.DEV) console.warn(`[schedule] ${what} failed`, err);
 };
 
-/** The item's actions as icons, left of its kind chip on a row and in the preview (P-HOME-1m). `after` runs once one
- *  is chosen. */
-export function FeedRowActions({ item, after }: { item: Item; after?: () => void }) {
+/** The item's actions as icons, left of its kind chip on a row and in the preview (P-HOME-1m); `menu`: the same
+ *  actions in lyra's `KebabMenuButton`, for the table's pinned actions column. `after` runs once one is chosen. */
+export function FeedRowActions({ item, after, menu = false }: { item: Item; after?: () => void; menu?: boolean }) {
   const schedule = useScheduleProvider();
   const [confirming, setConfirming] = useState(false);
   if (!schedule) return null;
@@ -43,11 +43,24 @@ export function FeedRowActions({ item, after }: { item: Item; after?: () => void
   if (actions.length === 0) return null;
   return (
     <span className="flex items-center gap-2" data-feed-row-actions="" onClick={(e) => e.stopPropagation()}>
-      {actions.map(({ key, label, icon: Icon, onClick }) => (
-        <ActionIconButton key={key} size="xs" title={label} data-feed-action={key} onClick={onClick}>
-          <Icon className="h-4 w-4" strokeWidth={1.5} />
-        </ActionIconButton>
-      ))}
+      {menu ? (
+        <KebabMenuButton
+          ariaLabel={t("More options")}
+          items={actions.map(({ key, label, icon: Icon, onClick }) => ({
+            id: key,
+            label,
+            icon: <Icon className="h-4 w-4" strokeWidth={1.5} />,
+            destructive: key === "delete",
+            onClick,
+          }))}
+        />
+      ) : (
+        actions.map(({ key, label, icon: Icon, onClick }) => (
+          <ActionIconButton key={key} size="xs" title={label} data-feed-action={key} onClick={onClick}>
+            <Icon className="h-4 w-4" strokeWidth={1.5} />
+          </ActionIconButton>
+        ))
+      )}
       <ConfirmCloseDialog
         open={confirming}
         onCancel={() => setConfirming(false)}

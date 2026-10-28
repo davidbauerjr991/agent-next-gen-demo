@@ -5,7 +5,7 @@
 // already map to (useActivityFeed's `historyRow`), so Phase 1's Contact
 // History can render its own table from them. A row's click opens the same
 // preview; the unread tint and dot, and the eye on a row open in the rail,
-// carry over; the trailing cell holds the row's Park / Unpark / Delete.
+// carry over; the pinned trailing cell holds the row's kebab (Park / Unpark / Delete).
 import * as React from "react";
 import { Badge, SortableTableHead, Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow, type SortDirection } from "@nicecxone/lyra-ui";
 import { Eye } from "lucide-react";
@@ -58,17 +58,9 @@ export const FEED_TABLE_COLUMNS: readonly FeedTableColumn[] = [
   { key: "status", label: "Status", className: "w-[130px] shrink-0", sortValue: (row) => t(STATUS_LABELS[row.status]), cell: (row) => t(STATUS_LABELS[row.status]) },
 ];
 
-/** The actions column, pinned to the end edge as the Customers table's trailing column is (`sticky end-0`), with a
- *  divider before it, so its icons stay reachable while the other columns scroll sideways. */
-const ACTIONS_COLUMN = "sticky end-0 z-[1] w-[88px] shrink-0 justify-end border-s border-lyra-border-subtle bg-lyra-bg-surface-base";
-
-/** The row's own tint over the pinned cell's opaque surface: the row tints (lyra's hover, `status-info-subtle`) are
- *  translucent, so the cell can't take the row's colour alone or the scrolled content would show through. */
-function actionsCellTint(selected: boolean, unread: boolean): string {
-  if (selected) return "[background-image:linear-gradient(var(--lyra-color-status-info-subtle),var(--lyra-color-status-info-subtle))]";
-  if (unread) return "[background-image:linear-gradient(var(--lyra-color-state-bg-hover-opacity),var(--lyra-color-state-bg-hover-opacity))]";
-  return "group-hover:[background-image:linear-gradient(var(--lyra-color-state-bg-hover-opacity),var(--lyra-color-state-bg-hover-opacity))]";
-}
+/** The pinned actions column, as-is from lyra's DataManagement table story and the app's Customers / Interactions /
+ *  Desktop Designs tables: a 48px trailing `TableHead` / `TableCell` stuck to the edge, holding the row's kebab. */
+const ACTIONS_COLUMN = "w-[48px] shrink-0 sticky right-0 bg-lyra-bg-surface-base";
 
 /** A page's rows, as the Customers table opens with. */
 const FEED_TABLE_ROWS_PER_PAGE = 25;
@@ -98,7 +90,7 @@ export function FeedTable({
   now: number;
   onOpen: (row: FeedRow) => void;
   isSelected: (row: FeedRow) => boolean;
-  /** The trailing cell (the row's Park / Unpark / Delete), when it has any. */
+  /** The trailing cell's content (the row's kebab: Park / Unpark / Delete), when it has any. */
   actionsFor?: (row: FeedRow) => React.ReactNode;
   "data-feed-table"?: string;
 }) {
@@ -162,11 +154,7 @@ export function FeedTable({
                   {column.cell(row, now)}
                 </TableCell>
               ))}
-              <TableCell
-                className={cn(ACTIONS_COLUMN, actionsCellTint(selected, !!row.unread))}
-                data-feed-actions-cell=""
-                onClick={(e: React.MouseEvent) => e.stopPropagation()}
-              >
+              <TableCell className={ACTIONS_COLUMN} data-feed-actions-cell="" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                 {actionsFor?.(row)}
               </TableCell>
             </TableRow>
