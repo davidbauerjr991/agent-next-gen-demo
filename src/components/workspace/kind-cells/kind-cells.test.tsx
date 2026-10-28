@@ -236,6 +236,28 @@ describe("schedule items open as assignments", () => {
     expect(lena()).toBe(false);
   });
 
+  it("the collapsed rail's tile has the new outline too (lyra ddf11f4), until the card is opened", async () => {
+    await showHome();
+    await h.goAvailable();
+    await h.startInbound("voice", "+15555550188", "Lena Ortiz");
+    await h.advance(500);
+    const collapses = h.container.querySelectorAll<HTMLElement>('button[aria-label="Collapse sidebar"]');
+    const collapse = collapses[collapses.length - 1];
+    await h.click(collapse);
+    await h.advance(300);
+    // The tile is the collapsed card's only square (its avatar); Lena's is the rail's only card.
+    const tile = () => h.container.querySelector<HTMLElement>("aside span[class*='h-8 w-8'][class*='rounded-lyra-sm border']");
+    expect(tile()).not.toBeNull();
+    expect(tile()!.className).toContain("border-lyra-border-strong");
+    await h.click(tile()!);
+    await h.advance(300);
+    // Opened, then inactive again (Home, an icon in the collapsed rail): no outline, so it's the opened state that
+    // cleared it, not being active.
+    await h.click(h.container.querySelector<HTMLElement>('aside [aria-label="Home"]')!);
+    await h.advance(100);
+    expect(tile()!.className).not.toContain("border-lyra-border-strong");
+  });
+
   it("the session row's Outcome is the conversation header's (icon and label); the card row's stays icon-only; the action area is the conversation's 768px column; the Copilot placeholder names the kind", async () => {
     await showHome();
     await openItem(rowNamed("RET-1.3 refund policy update")!);
