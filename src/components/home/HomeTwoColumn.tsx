@@ -1,5 +1,5 @@
-// Two-column Home (P-HOME-1c, -1e): the welcome header fixed at the top;
-// below it the feed and the right column scroll on their own, laid out as
+// Two-column Home (P-HOME-1c, -1e): under the page header and the Home tabs
+// (HomePageHeader, P-HOME-1m), the feed and the right column scroll on their own, laid out as
 // the interaction's action area and reference slot (`ReferenceSlotFrame`):
 // the right column docks beside the feed while it fits and is the
 // Summaries-style overlay only when it doesn't (its toggle shows only then);
@@ -19,15 +19,11 @@ export function HomeCardsToggle() {
   return <ReferenceOverlayToggle label={t("Cards")} hidden={wanted} />;
 }
 
-export function HomeTwoColumn({ header, feed, side }: { header: React.ReactNode; feed: React.ReactNode; side: React.ReactNode[] }) {
+export function HomeTwoColumn({ feed, side }: { feed: React.ReactNode; side: React.ReactNode[] }) {
   const { showInteriorPanel } = useWorkspace();
   const panel = useHomeDetailPanel();
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden animate-in fade-in-0 duration-200" data-home-layout="twoColumn">
-      {/* The PageHeader carries its own side padding. */}
-      <div className="shrink-0" data-home-header>
-        {header}
-      </div>
       {/* `relative`: the overlay and the detail panel position against this row (ReferenceSlotFrame). */}
       <div className="relative flex min-h-0 min-w-0 flex-1">
         {/* `pt-4`: the docked right column's own inset (ReferenceColumn), so both columns start at the same y. */}

@@ -8,6 +8,7 @@ import { KindCell } from "./kind-cells/KindCell";
 import { AppTabBody, CustomerTabBodies, CustomersTabBody, HomeTabStrip } from "@/components/home-tabs";
 import { isCustomerTab, keptMountedClass } from "@/components/home-tabs-state";
 import { HomeDashboard } from "@/components/home-dashboard";
+import { HomePageHeader } from "@/components/home/HomeGreetingHeader";
 import { useHomeDetailPanel } from "@/components/home/home-detail-panel";
 import { CUSTOMER_PANEL_TABS } from "@/components/customer-info";
 import { ContactHistoryCard } from "@/components/agent-next-gen-contact-history";
@@ -43,8 +44,32 @@ export function WorkspaceHome() {
   // here; its minimal per-kind cell takes the main column until P-HOME-3's kinds registry.
   const activeScheduleItem = useActiveScheduleItem();
   if (activeScheduleItem) return <KindCell key={activeScheduleItem.id} item={activeScheduleItem} />;
+  // The page header's right side: the My Assignment Queue chip (toggles the rail).
+  const queueChip = (
+    <Tooltip content="Toggle Assignment Panel" placement="bottom" asLabel>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setNavOpen((v) => !v)}
+        className={cn(
+          "h-6 shrink-0 gap-0.5 rounded-lyra-md px-2 lyra-body-md-emphasis",
+          hasBreachedSlaAssignment
+            ? "bg-lyra-status-critical-subtle text-lyra-status-critical-strong hover:bg-lyra-status-critical-subtle hover:opacity-80"
+            : railCount > 0
+            ? "bg-lyra-status-warning-subtle text-lyra-status-warning-strong hover:bg-lyra-status-warning-subtle hover:opacity-80"
+            : "bg-lyra-status-success-subtle text-lyra-status-success-strong hover:bg-lyra-status-success-subtle hover:opacity-80"
+        )}
+      >
+        My Assignment Queue: {railCount > 0 ? railCount : "Empty"}
+        {hasBreachedSlaAssignment && <CircleAlert className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />}
+        <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+      </Button>
+    </Tooltip>
+  );
   return (
                 <div key="dashboard" className="flex flex-1 flex-col min-w-0 overflow-hidden animate-in fade-in-0 duration-200">
+              {/* The page header first, then the Home tabs, then the tab's body (P-HOME-1m; one column and two). */}
+              {showPageHeader && <HomePageHeader actions={queueChip} dashboard={activeDeskTab === "dashboard"} />}
               {/* Home tabs: shown while any app is placed as "tab" (Settings → Header). */}
               {showPageHeader && tabApps.length > 0 && (
                 <HomeTabStrip
@@ -87,7 +112,6 @@ export function WorkspaceHome() {
                 <>
                 <HomeDashboard
                   key={activeDeskTab}
-                  showPageHeader={showPageHeader}
                   selectedQueueId={selectedQueueId}
                   // Only one job at a time in the shared docked slot: a queue
                   // click replaces a Contact History entry's summary.
@@ -96,29 +120,6 @@ export function WorkspaceHome() {
                     setHomePreview(null);
                     setSelectedQueueId(id);
                   }}
-                  headerActions={
-                            <Tooltip content="Toggle Assignment Panel" placement="bottom" asLabel>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setNavOpen((v) => !v)}
-                                className={cn(
-                                  "h-6 shrink-0 gap-0.5 rounded-lyra-md px-2 lyra-body-md-emphasis",
-                                  hasBreachedSlaAssignment
-                                    ? "bg-lyra-status-critical-subtle text-lyra-status-critical-strong hover:bg-lyra-status-critical-subtle hover:opacity-80"
-                                    : railCount > 0
-                                    ? "bg-lyra-status-warning-subtle text-lyra-status-warning-strong hover:bg-lyra-status-warning-subtle hover:opacity-80"
-                                    : "bg-lyra-status-success-subtle text-lyra-status-success-strong hover:bg-lyra-status-success-subtle hover:opacity-80"
-                                )}
-                              >
-                                My Assignment Queue: {railCount > 0 ? railCount : "Empty"}
-                                {hasBreachedSlaAssignment && (
-                                  <CircleAlert className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-                                )}
-                                <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-                              </Button>
-                            </Tooltip>
-                  }
                   contactHistory={
                       <ContactHistoryCard
                         onSelectEntry={(entry) => {

@@ -6,10 +6,9 @@ import * as React from "react";
 import { DashboardCard, DashboardQueue } from "@nicecxone/lyra-ui";
 import { cn } from "@/lib/utils";
 import { ActivityFeed } from "@/components/home/ActivityFeed";
-import { HomeGreetingHeader } from "@/components/home/HomeGreetingHeader";
 import { DueSoonCard, MetricCard } from "@/components/home/persona-cards";
-import { HomeCardsToggle, HomeTwoColumn } from "@/components/home/HomeTwoColumn";
-import { homeIsTwoColumn } from "@/contact-handling/home/home-layout";
+import { HomeTwoColumn } from "@/components/home/HomeTwoColumn";
+import { homeIsTwoColumn, homeSideSections } from "@/contact-handling/home/home-layout";
 import { QueueListCard } from "@/components/home/QueueListCard";
 import { t } from "@/i18n";
 import {
@@ -32,10 +31,6 @@ const QUEUE_CHANNEL_BY_ID: Record<string, HomeQueueChannel> = {
 };
 
 export interface HomeDashboardProps {
-  /** The page's own header switch; Settings → Home "Show header" also applies. */
-  showPageHeader: boolean;
-  /** The header's right side (the My Assignment Queue chip). */
-  headerActions: React.ReactNode;
   selectedQueueId: string | null;
   /** `null` when the selected tile is clicked again. */
   onSelectQueue: (id: string | null) => void;
@@ -53,7 +48,7 @@ const QUEUE_CONTACT_CHANNELS: Record<HomeQueueChannel, readonly string[] | undef
   workItem: undefined,
 };
 
-export function HomeDashboard({ showPageHeader, headerActions, selectedQueueId, onSelectQueue, contactHistory }: HomeDashboardProps) {
+export function HomeDashboard({ selectedQueueId, onSelectQueue, contactHistory }: HomeDashboardProps) {
   const [home] = useSettings("home");
   const [channels] = useSettings("channels");
   const queueBases = LATEST_CONTACTS_STATIC.filter((base) => {
@@ -116,39 +111,20 @@ export function HomeDashboard({ showPageHeader, headerActions, selectedQueueId, 
     }
   };
 
-  // Enabled sections in the stored order.
+  // Enabled sections in the stored order. The page header is above the Home tabs (P-HOME-1m: HomePageHeader).
   const visible = home.sections.filter((s) => s.enabled).map((s) => s.key);
-  const header = showPageHeader && home.showHeader && (
-    <div className="-mx-6 mb-6">
-      <HomeGreetingHeader actions={headerActions} welcome={twoColumn} />
-    </div>
-  );
 
-  // Two columns (the wireframe): the welcome header fixed on top, the feed as
-  // the main column, every other enabled section stacked on the right in its
-  // order (HomeTwoColumn). The queue is one compact card there.
+  // Two columns (the wireframe): the feed as the main column, every other enabled section stacked on the right in
+  // its order (HomeTwoColumn). The queue is one compact card there.
   if (homeIsTwoColumn(home)) {
-    // Due soon is a one-column card: the feed beside it already lists what's next. Contact History is the
-    // feed's History view here (P-HOME-1e), so its card stays out of the right column.
-    const side = visible.filter((key) => key !== "activity" && key !== "dueSoon" && key !== "contactHistory").flatMap((key) => {
+    const side = homeSideSections(home).flatMap((key) => {
       const node =
         key === "queue"
           ? queueBases.length > 0 && <QueueListCard bases={queueBases} selectedId={selectedQueueId} onSelect={onSelectQueue} />
           : nodeFor(key);
       return node ? [<div key={key} data-home-section={key}>{node}</div>] : [];
     });
-    const welcome = showPageHeader && home.showHeader && (
-      <HomeGreetingHeader
-        actions={
-          <>
-            {headerActions}
-            {side.length > 0 && <HomeCardsToggle />}
-          </>
-        }
-        welcome
-      />
-    );
-    return <HomeTwoColumn header={welcome} feed={nodeFor("activity")} side={side} />;
+    return <HomeTwoColumn feed={nodeFor("activity")} side={side} />;
   }
 
   // One column: rows in the stored order. Performance and Productivity next
@@ -181,7 +157,6 @@ export function HomeDashboard({ showPageHeader, headerActions, selectedQueueId, 
   return (
     <div className="flex flex-1 flex-col min-w-0 overflow-y-auto px-6 py-6 animate-in fade-in-0 duration-200" data-home-layout="oneColumn">
       <div className="w-full max-w-[1024px] mx-auto lyra-container-grid-wrap">
-        {header}
         {rows}
       </div>
     </div>

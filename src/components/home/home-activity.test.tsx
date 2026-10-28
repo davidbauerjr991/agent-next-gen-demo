@@ -109,7 +109,9 @@ describe("Activity feed on Home", () => {
     expect(h.container.querySelector('[data-home-section="contactHistory"]')).toBeNull();
     // The record header's form: lyra PageHeader, the greeting as its title, oneColumn's user-name line as its subtitle
     // (the counts are on the view buttons, P-HOME-1h), the actions beside.
-    const header = home.querySelector("[data-home-header] [data-home-page-header]")!;
+    // Above the Home tabs and the two columns (P-HOME-1m), not inside them.
+    expect(home.querySelector("[data-home-header]")).toBeNull();
+    const header = h.container.querySelector("[data-home-header] [data-home-page-header]")!;
     expect(header.querySelector("h1")?.textContent).toBe("Hello John");
     expect(header.textContent).toContain("User Name:");
     expect(header.textContent).not.toContain("to decide");
@@ -119,12 +121,27 @@ describe("Activity feed on Home", () => {
     expect(header.textContent).toContain("My Assignment Queue");
   });
 
+  it.each(["oneColumn", "twoColumn"] as const)("%s (P-HOME-1m): the page header first, then the Home tabs, then the view switcher and the feed", async (layout) => {
+    turnOn();
+    await act(async () => {
+      getSettingsStore().update("header", (prev) => ({ apps: { ...prev.apps, customers: { enabled: true, placement: "tab" as const } } }));
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    await showHome();
+    await setLayout(layout);
+    const order = [...h.container.querySelectorAll("[data-home-header], [data-slot=home-tabs], [data-feed-views]")].map((el) =>
+      el.hasAttribute("data-home-header") ? "header" : el.getAttribute("data-slot") === "home-tabs" ? "tabs" : "views",
+    );
+    expect(order).toEqual(["header", "tabs", "views"]);
+    expect(h.container.querySelector("[data-home-header] h1")?.textContent).toBe("Hello John");
+  });
+
   it("twoColumn: the welcome header outside the feed's scroll; no toggle while the right column fits; the queue's drill-down opens over the right column, in the feed's row", async () => {
     turnOn();
     await showHome();
     await setLayout("twoColumn");
     const home = h.container.querySelector("[data-home-layout=twoColumn]")!;
-    const header = home.querySelector("[data-home-header]")!;
+    const header = h.container.querySelector("[data-home-header]")!;
     expect(header.querySelector("[data-home-page-header]")).not.toBeNull();
     expect(header.closest("[data-home-scroll]")).toBeNull();
     expect(home.querySelector("[data-home-scroll=feed] [data-activity-feed]")).not.toBeNull();
@@ -150,8 +167,12 @@ describe("Activity feed on Home", () => {
     expect(h.container.textContent).toContain("Skills");
   });
 
-  it("twoColumn: the right column is the overlay only when it doesn't fit, opened by the header's toggle", async () => {
+  it("twoColumn: the right column is the overlay only when it doesn't fit, opened by the header's toggle — on Dashboard only (another Home tab has no right column)", async () => {
     turnOn();
+    await act(async () => {
+      getSettingsStore().update("header", (prev) => ({ apps: { ...prev.apps, customers: { enabled: true, placement: "tab" as const } } }));
+      await vi.advanceTimersByTimeAsync(50);
+    });
     await showHome();
     const rect = Element.prototype.getBoundingClientRect;
     // A narrow row: the feed's minimum plus the card column doesn't fit.
@@ -161,11 +182,15 @@ describe("Activity feed on Home", () => {
       await setLayout("twoColumn");
       const home = h.container.querySelector("[data-home-layout=twoColumn]")!;
       expect(home.querySelector('[data-canvas-region="reference"][data-docked="true"]')).toBeNull();
-      const toggle = home.querySelector<HTMLElement>("[data-home-header] [data-summaries-toggle]")!;
+      const toggle = h.container.querySelector<HTMLElement>("[data-home-header] [data-summaries-toggle]")!;
       expect(toggle.getAttribute("aria-label")).toBe("Cards");
       await h.click(toggle);
       expect(toggle.getAttribute("aria-pressed")).toBe("true");
       expect(document.querySelector('[data-canvas-region="reference"]')?.textContent).toContain("Cards");
+      // The Customers tab: the header stays, its Cards toggle doesn't.
+      await h.click([...h.container.querySelectorAll<HTMLElement>("[data-slot=home-tabs] [role=tab]")].find((tab) => tab.textContent?.includes("Customers"))!);
+      expect(h.container.querySelector("[data-home-header] [data-home-page-header]")).not.toBeNull();
+      expect(h.container.querySelector("[data-home-header] [data-summaries-toggle]")).toBeNull();
     } finally {
       Element.prototype.getBoundingClientRect = rect;
     }
