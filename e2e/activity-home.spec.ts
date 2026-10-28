@@ -146,7 +146,7 @@ test("a callback's preview: Open puts it in the rail undialled; Dial opens the d
   const dial = preview.locator("[data-preview-primary]");
   await dial.click();
   const phone = page.getByLabel("Phone number");
-  await expect(phone).toHaveValue("(646) 555-0143");
+  await expect(phone).toHaveValue("(415) 555-0178");
   const pad = page.locator("[data-radix-popper-content-wrapper]").filter({ has: phone });
   const dialBox = (await dial.boundingBox())!;
   const padBox = (await pad.boundingBox())!;
@@ -468,7 +468,7 @@ test("a callback's Dial opens the outbound dial pad anchored beneath the button,
   const dial = page.locator("[data-kind-cell=callback] [data-schedule-call]");
   await dial.click();
   const phone = page.getByLabel("Phone number");
-  await expect(phone).toHaveValue("(646) 555-0143");
+  await expect(phone).toHaveValue("(415) 555-0178");
   const pad = page.locator("[data-radix-popper-content-wrapper]").filter({ has: phone });
   const button = (await dial.boundingBox())!;
   const popover = (await pad.boundingBox())!;

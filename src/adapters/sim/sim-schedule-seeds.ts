@@ -25,7 +25,9 @@ const AGENT_DAY: readonly SeedItem[] = [
     customer: { name: "Priya Shah", entityId: PRIYA },
     inMin: 30,
     state: "scheduled",
-    detail: { kind: "callback", phone: "(646) 555-0143", reason: "Refund RF-20451 hasn't posted" },
+    // Priya's own number, her directory record's (it was Maya Chen's scenario number, so a callback dialed during
+    // Maya's call matched Maya's call).
+    detail: { kind: "callback", phone: "(415) 555-0178", reason: "Refund RF-20451 hasn't posted" },
   },
   {
     id: "agent-mt-standup",
@@ -60,7 +62,7 @@ const AGENT_DAY: readonly SeedItem[] = [
     title: "Ticket #4821 · subscription renewal refund",
     subtitle: "Follow up with Billing on the credit",
     sourceLabel: "Ticket queue",
-    customer: { name: "Priya Shah", entityId: PRIYA, phone: "(646) 555-0143" },
+    customer: { name: "Priya Shah", entityId: PRIYA, phone: "(415) 555-0178" },
     inMin: 240,
     state: "scheduled",
     detail: {

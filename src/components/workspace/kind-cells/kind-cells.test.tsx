@@ -469,7 +469,7 @@ describe("calls from schedule items (the leg-join P0.9 generalizes)", () => {
     await h.goAvailable();
     await openItem(rowNamed("Callback · Priya Shah")!);
     await h.click(cell()!.querySelector("[data-schedule-call]")!);
-    expect(phoneField()?.value).toBe("(646) 555-0143");
+    expect(phoneField()?.value).toBe("(415) 555-0178");
     expect([...document.querySelectorAll("[role=combobox]")].map((c) => c.textContent)).toContain("General Support");
     await h.advance(1000);
     expect(await voiceCalls()).toEqual([]);
@@ -499,7 +499,7 @@ describe("calls from schedule items (the leg-join P0.9 generalizes)", () => {
     await h.advance(100);
     await h.click(preview()!.querySelector<HTMLElement>("[data-preview-primary]")!);
     // Prefilled with the callback's number; nothing opened or dialled yet.
-    expect(phoneField()?.value).toBe("(646) 555-0143");
+    expect(phoneField()?.value).toBe("(415) 555-0178");
     expect(h.container.querySelector("aside [data-kind-nav-card]")).toBeNull();
     await h.click([...document.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.trim() === "Dial Number")!);
     await h.advance(3000);
@@ -514,6 +514,33 @@ describe("calls from schedule items (the leg-join P0.9 generalizes)", () => {
     // The call shows; no dial pad asks again.
     expect(cell()).toBeNull();
     expect(phoneField()).toBeUndefined();
+  });
+
+  it("Maya Chen's call on hold doesn't block Priya's callback (P-HOME-1m live run): the dial joins Priya's card and no 'Already on a call' warning shows", async () => {
+    await showHome();
+    await h.goAvailable();
+    await h.play("maya-chen-refund-call");
+    await h.advance(3000);
+    const [maya] = await voiceCalls();
+    expect(maya!.state).toBe("active");
+    await act(async () => {
+      const held = h.provider.hold(maya!.id, true);
+      await vi.advanceTimersByTimeAsync(300);
+      await held;
+    });
+    expect((await voiceCalls()).find((c) => c.id === maya!.id)!.state).toBe("held");
+    await h.click(homeButton());
+    await h.advance(100);
+    await h.click(rowNamed("Callback · Priya Shah")!);
+    await h.advance(100);
+    await h.click(preview()!.querySelector<HTMLElement>("[data-preview-primary]")!);
+    expect(phoneField()?.value).toBe("(415) 555-0178");
+    await h.click([...document.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.trim() === "Dial Number")!);
+    await h.advance(3000);
+    const calls = await voiceCalls();
+    expect(calls.find((c) => c.journeyId === "schedule:agent-cb-priya")?.state).toBe("active");
+    expect(calls.find((c) => c.id === maya!.id)!.state).toBe("held");
+    expect(document.body.textContent).not.toContain("Already on a call");
   });
 
   it("a training's preview Start opens it started; opened with Open, the cell's own Start starts it", async () => {

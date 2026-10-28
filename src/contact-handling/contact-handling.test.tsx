@@ -298,7 +298,7 @@ describe("contact handling", () => {
     expect(refused).toBe(3);
   });
 
-  it("one call per customer: Redial, Quick Dial and the '+' voice option are blocked only while that customer's call is live or held", async () => {
+  it("one call per customer: Redial and Quick Dial are blocked only while that customer's call is ringing or live (not held); the '+' voice option while live or held", async () => {
     const entry = { id: "h1", name: customer.name, caseId: "CASE-H1", customerId: customer.id, channelType: "voice", direction: "outbound", statusLabel: "Resolved" } as ContactHistoryEntry;
     const other = CREATE_NEW_CUSTOMERS.find((c) => c.id !== customer.id)!;
     const otherEntry = { ...entry, id: "h2", name: other.name, customerId: other.id };
@@ -333,14 +333,21 @@ describe("contact handling", () => {
     expect(alreadyOnCall).toBe(2);
     expect(alreadyOnCallMessage(callerOfInteraction(alreadyOnCallWith!, api.cards).name)).toBe(`Already on a call with ${customer.name}`);
 
-    // Held: still blocked.
+    // Held: the dial guard lets the call through (auto-hold: a held call doesn't block, P-HOME-1m); the "+"
+    // picker's Voice option still reads the customer as on a call (k8 6's `onCallReasons`).
     const voice = () => api.cards[0].threads.find((t) => t.type === "voice")!;
     act(() => {
       api.commands.setHold(voice(), true);
     });
     await until(() => !!voice().heldByAgent, "held");
-    expect(api.dial.redialBlocked(entry)).toBe(true);
+    expect(api.dial.redialBlocked(entry)).toBe(false);
     expect(plusVoiceBlocked()).toBe(true);
+    // Resumed: blocked again.
+    act(() => {
+      api.commands.setHold(voice(), false);
+    });
+    await until(() => !voice().heldByAgent, "resumed");
+    expect(api.dial.redialBlocked(entry)).toBe(true);
 
     // Wrap-up: free again.
     act(() => {
@@ -349,6 +356,42 @@ describe("contact handling", () => {
     await until(() => !!api.cards[0]?.voiceCallEnded, "wrap-up");
     expect(api.dial.redialBlocked(entry)).toBe(false);
     expect(plusVoiceBlocked()).toBe(false);
+  });
+
+  it("a kind card's call checks only its own joined Voice row (P-HOME-1m): another call on the same number doesn't block it (auto-hold holds that one); its own live leg does, and the refusal names it", async () => {
+    const number = customer.phones[0].value;
+    const voiceOf = (journeyId: string) => api.cards.find((c) => c.id === journeyId)?.threads.find((t) => t.type === "voice");
+    // A live call with the customer on a conversation card.
+    act(() => api.dial.quickDial(number, "general"));
+    await until(() => activations.length === 1, "first call");
+    const first = activations[0].journeyId;
+    await until(() => !!voiceOf(first)?.onCall, "first live");
+    // A callback's dial to the same number joins its own card: not refused, and the first call is held.
+    const dialCallback = () => {
+      act(() => api.dial.openScheduleDialPad({ itemId: "cb-1", phoneNumber: number, contactName: "Callback Customer", summary: [] }, null));
+      act(() => api.dial.dialpadSubmit(number, "general", () => undefined));
+    };
+    dialCallback();
+    await until(() => activations.length === 2, "callback call");
+    expect(alreadyOnCall).toBe(0);
+    expect(activations[1].journeyId).toBe("schedule:cb-1");
+    await until(() => !!voiceOf(first)?.heldByAgent, "first held");
+    await until(() => !!voiceOf("schedule:cb-1")?.onCall, "callback live");
+    // The callback's own leg is live: dialling it again is refused, naming that call's contact.
+    dialCallback();
+    await until(() => alreadyOnCall === 1, "refused");
+    await settle();
+    expect(activations).toHaveLength(2);
+    expect(alreadyOnCallWith?.journeyId).toBe("schedule:cb-1");
+    expect(alreadyOnCallMessage(callerOfInteraction(alreadyOnCallWith!, api.cards).name)).toBe("Already on a call with Callback Customer");
+    // With that leg held too, nothing blocks: a held call never does.
+    act(() => {
+      api.commands.setHold(voiceOf("schedule:cb-1")!, true);
+    });
+    await until(() => !!voiceOf("schedule:cb-1")?.heldByAgent, "callback held");
+    act(() => api.dial.quickDial(number, "general"));
+    await settle();
+    expect(alreadyOnCall).toBe(1);
   });
 
   it("holds and resumes a call, and hang-up takes it to wrap-up (shown as ended)", async () => {

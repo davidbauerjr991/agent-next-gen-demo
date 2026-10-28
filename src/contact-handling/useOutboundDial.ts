@@ -105,8 +105,12 @@ export interface CallTarget {
   journeyId?: string;
 }
 
-/** A ringing-out, live or held voice call with the target, if any: the same
- *  entity, or (for a call without one) the same number. A call in wrap-up
+/** A voice contact that blocks another call with the same customer: ringing (either way) or live. A held call
+ *  doesn't (auto-hold: the agent may call while others are held, P0.5d.1 row 15). */
+const BLOCKING_CALL_STATES = new Set(["offered", "connecting", "active"]);
+
+/** A ringing or live (not held) voice call with the target, if any: the same
+ *  entity, the same card, or the same number. A held call or one in wrap-up
  *  doesn't count, and neither do digital contacts. */
 export function findCallWith<T extends { channel: string; state: string; entityId?: string; journeyId?: string; address?: { value: string } }>(
   interactions: readonly T[],
@@ -116,7 +120,7 @@ export function findCallWith<T extends { channel: string; state: string; entityI
   return interactions.find(
     (i) =>
       i.channel === "voice" &&
-      ON_CALL_STATES.has(i.state) &&
+      BLOCKING_CALL_STATES.has(i.state) &&
       ((!!target.entityId && i.entityId === target.entityId) ||
         (!!target.journeyId && i.journeyId === target.journeyId) ||
         (!!i.address && numbers.has(normalizePhone(i.address.value)))),
@@ -173,11 +177,15 @@ export function useOutboundDial({
       }
       if (target.channel === "voice" && refuseVoice()) return null;
       // One call per customer, on every path (the buttons are disabled too;
-      // this catches a number typed into Quick Dial).
+      // this catches a number typed into Quick Dial). A kind card's call (its
+      // assignment, no conversation card) checks only that card's own joined
+      // Voice row, not any call that shares a number or record (P-HOME-1m).
       const onCallWith =
-        target.channel === "voice"
-          ? findCallWith(interactions, { entityId: target.entityId, addresses: [target.address], journeyId: target.card?.id ?? target.assignmentId })
-          : undefined;
+        target.channel !== "voice"
+          ? undefined
+          : target.assignmentId && !target.card
+            ? findCallWith(interactions, { journeyId: target.assignmentId })
+            : findCallWith(interactions, { entityId: target.entityId, addresses: [target.address], journeyId: target.card?.id ?? target.assignmentId });
       if (onCallWith) {
         onAlreadyOnCall?.(onCallWith);
         return null;
