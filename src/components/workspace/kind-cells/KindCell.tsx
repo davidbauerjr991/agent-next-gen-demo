@@ -16,6 +16,7 @@ import { Clock } from "lucide-react";
 import { initialsFor } from "@/components/agent-next-gen-shared-utils";
 import { KindTag } from "@/components/home/home-kinds";
 import { useScheduleItemCustomer } from "@/contact-handling/home/useScheduleCards";
+import { useScheduleAddChannel } from "@/contact-handling/home/useScheduleCalls";
 import { useDetailSlideOverPanel } from "@/components/workspace/detail-slide-over-parts";
 import { ContactDetailsControl } from "@/components/workspace/ContactDetailsControl";
 import { ReferenceSlotFrame } from "@/components/workspace/ReferenceSlot";
@@ -75,12 +76,13 @@ function KindSessionRow({ item }: { item: ScheduleItem }) {
  *  working item — not a supervisor's escalation, a review surface like Lucas's) and Contact Details, the
  *  conversation's own control (its hover preview and the docked panel, the item's customer its subject). */
 function KindCustomerActions({ item }: { item: ScheduleItem }) {
-  const { getHeaderAction } = useWorkspace();
+  // The "+" joins its leg to this card as a row (useScheduleAddChannel), as the Dial does.
+  const addChannel = useScheduleAddChannel();
   const customer = useScheduleItemCustomer(item);
   if (!customer?.entityId) return null;
   return (
     <>
-      {item.kind !== "conversation" && <span data-slot="header-add-channel" className="inline-flex">{getHeaderAction(customer.entityId)}</span>}
+      {item.kind !== "conversation" && <span data-slot="header-add-channel" className="inline-flex">{addChannel(item, customer.entityId)}</span>}
       <ContactDetailsControl />
     </>
   );

@@ -607,6 +607,52 @@ describe("calls from schedule items (the leg-join P0.9 generalizes)", () => {
     expect(rowNamed("Callback · Priya Shah")?.getAttribute("data-feed-status")).toBe("completed");
   });
 
+  /** The kind card's rows, in order ("Callback", "Email", …). */
+  const cardRows = (itemId: string) =>
+    [...(h.container.querySelector(`aside [data-kind-nav-card="${itemId}"]`)?.querySelectorAll<HTMLElement>('[aria-label$=" channel"], [aria-label*=" channel,"]') ?? [])].map(
+      (r) => r.getAttribute("aria-label")?.split(" channel")[0],
+    );
+  /** The kind cell's header "+": picks `channel` in the customer's picker (the first skill, if asked), then starts it. */
+  async function addFromHeader(channel: string) {
+    await h.click(cell()!.querySelector<HTMLElement>('[data-slot="header-add-channel"] button')!);
+    const radio = [...document.body.querySelectorAll<HTMLElement>('[role="radio"]')].find(
+      (r) => (r.id && document.querySelector(`label[for="${r.id}"]`)?.textContent?.trim()) === channel,
+    )!;
+    await h.click(radio);
+    const skill = [...document.body.querySelectorAll<HTMLElement>('[role="combobox"]')].find((c) => /Select Outbound Skill/i.test(c.textContent ?? ""));
+    if (skill) {
+      await h.click(skill);
+      await h.click(document.body.querySelector<HTMLElement>('[role="option"]')!);
+    }
+    await h.click([...document.body.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.trim() === "Start Interaction")!);
+    await h.advance(3000);
+  }
+
+  it.each([
+    ["Callback · Priya Shah", "agent-cb-priya", "Callback", "Email"],
+    ["Ticket #4821 · subscription renewal refund", "agent-tk-4821", "Task", "SMS"],
+  ])("%s (%s, kind row %s): the header \"+\" → %s joins the item's card as a row (P-HOME-1m), no second card; the Outcome stays on the kind row", async (title, itemId, kindRow, channel) => {
+    await act(async () => {
+      getSettingsStore().update("channels", { voice: true, chat: true, email: true, sms: true, whatsapp: true });
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    await showHome();
+    await h.goAvailable();
+    await openItem(rowNamed(title)!);
+    await addFromHeader(channel);
+    // One card for Priya, the item's: its kind row, then the new leg's.
+    expect(railCardsNamed("Priya Shah")).toHaveLength(1);
+    expect(cardRows(itemId)).toEqual([kindRow, channel]);
+    const card = h.container.querySelector<HTMLElement>(`aside [data-kind-nav-card="${itemId}"]`)!;
+    expect(card.getAttribute("data-kind-leg")).toBe(`schedule:${itemId}`);
+    expect(card.querySelectorAll("[data-kind-outcome-trigger]")).toHaveLength(1);
+    // On the kind row: the nearest row around the trigger is the kind's, not the new leg's.
+    let rowBox: Element | null = card.querySelector("[data-kind-outcome-trigger]");
+    while (rowBox && !rowBox.querySelector('[aria-label$=" channel"], [aria-label*=" channel,"]')) rowBox = rowBox.parentElement;
+    const rowsInBox = [...(rowBox?.querySelectorAll('[aria-label$=" channel"], [aria-label*=" channel,"]') ?? [])];
+    expect(rowsInBox.map((r) => r.getAttribute("aria-label")?.split(" channel")[0])).toEqual([kindRow]);
+  });
+
   it("the kind cell mounts with the interaction body's enter fade", async () => {
     await showHome();
     await h.goAvailable();

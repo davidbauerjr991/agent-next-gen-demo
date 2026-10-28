@@ -62,7 +62,7 @@ import { useTouchThread } from "@/contact-handling/touched-threads";
 export function useWsOutbound(prev: WsLaunch, late: WorkspaceLate) {
   const {
     SHARED_PANEL_MAX_WIDTH, activateWhenReady, activeInteractionId, addToast, allOutboundSkills, calling, cardContactMethodsOf, channelSettings,
-    clock, computePanelHeight, confirmDismiss, contactReopen, containerRef, createdCustomerRecords,
+    clock, computePanelHeight, confirmDismiss, contactReopen, containerRef, findDirectoryCustomer,
     dismissedContactHistory, enabledChannels, findOpenCard, fullScreenAnimTimer, handleDismissChannel, handleDismissInteraction,
     handleOutcomeCancel, handleOutcomeOpenChange, handleOutcomeSave, handleOutcomeSaveAndRedial, handleStartCall,
     handleStatusChange, interactions, liveVoiceCallThread, notifications, outboundDial, outcomeDraftKey, outcomeDrafts,
@@ -536,7 +536,7 @@ export function useWsOutbound(prev: WsLaunch, late: WorkspaceLate) {
       groups: [...outboundConfig.groups, { id: "contact-history", label: "Contact History", contacts: contactHistoryOutboundContacts }],
       onStartCall: handleStartCall,
     },
-    findCustomer: (entityId) => createdCustomerRecords.find((c) => c.id === entityId) ?? CREATE_NEW_CUSTOMERS.find((c) => c.id === entityId),
+    findCustomer: findDirectoryCustomer,
   });
   // A card with no directory entity, once an address was saved for it: the picker over its own addresses (Bug 3).
   // E2: a known card without a directory contact (a scripted case, a created or history customer) gets the

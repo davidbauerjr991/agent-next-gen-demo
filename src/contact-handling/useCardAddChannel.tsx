@@ -42,7 +42,14 @@ export function useCardAddChannel({ outboundConfig, findCustomer }: UseCardAddCh
     (
       entityId: string,
       className?: string,
-      options?: { label?: string; showLabel?: boolean; icon?: ReactNode; initialChannel?: ChannelType },
+      options?: {
+        label?: string;
+        showLabel?: boolean;
+        icon?: ReactNode;
+        initialChannel?: ChannelType;
+        /** In place of New Outbound's start (P-HOME-1m: a kind card's "+" joins the leg to that card). */
+        onStartCall?: CreateNewOutboundConfig["onStartCall"];
+      },
     ): ReactNode => {
       const contact = contactsById.get(entityId);
       if (!contact) return null;
@@ -74,7 +81,7 @@ export function useCardAddChannel({ outboundConfig, findCustomer }: UseCardAddCh
           channelOptions={outboundConfig.channelOptions.filter((c) => contact.channels.includes(c.id))}
           phoneOptions={phones.length > 0 ? phones.map((value) => ({ value, label: value })) : outboundConfig.phoneOptions ?? []}
           skillOptions={outboundConfig.skillOptions ?? []}
-          onStartCall={(selection) => outboundConfig.onStartCall?.(selection)}
+          onStartCall={(selection) => (options?.onStartCall ?? outboundConfig.onStartCall)?.(selection)}
           className={className}
           label={options?.label}
           showLabel={options?.showLabel}

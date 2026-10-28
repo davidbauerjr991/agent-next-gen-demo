@@ -7,8 +7,8 @@
 // wrap-up is done, a callback completes with the call's disposition and
 // leaves the rail, while a task stays open and gets the call's summary as a
 // note. P0.9 generalizes the leg-join to every assignment (PROGRESS Known gaps).
-import { useCallback, useEffect, useRef } from "react";
-import { scheduleCardKey, scheduleItemIdOf } from "@/domain";
+import { useCallback, useEffect, useRef, type ReactNode } from "react";
+import { assignmentIdFor, scheduleCardKey, scheduleItemIdOf } from "@/domain";
 import { useInteractions, useScheduleProvider, useScheduleSnapshot } from "@/provider-context";
 import type { ScheduleItem } from "@/providers";
 import { useWorkspace } from "../workspace/WorkspaceContext";
@@ -49,6 +49,26 @@ export function useScheduleDial(): (item: ScheduleItem, anchorEl: HTMLElement | 
       );
     },
     [outboundDial, schedule, setKindCellShownFor],
+  );
+}
+
+/** A kind card's "+" add-channel (P-HOME-1m: 1e's leg-join, every channel): the customer's picker, whose new leg
+ *  joins the item's card as a row (its journey is the item's assignment), never a second card. The leg becomes the
+ *  card's selected row (the main column follows it), as a Dial's call does. It calls `outboundDial.startCall`
+ *  directly, not the workspace's `handleStartCall` (New Outbound's start: its agent-chat redirect and Customers-table
+ *  reset don't apply to a kind card's customer); a check added there must be added here too. */
+export function useScheduleAddChannel(): (item: ScheduleItem, entityId: string) => ReactNode {
+  const { getHeaderAction, outboundDial } = useWorkspace();
+  const [, setKindCellShownFor] = useWorkspaceUiField("kindCellShownFor");
+  return useCallback(
+    (item, entityId) =>
+      getHeaderAction(entityId, undefined, {
+        onStartCall: (selection) => {
+          setKindCellShownFor(null);
+          outboundDial.startCall(selection, { assignmentId: assignmentIdFor(scheduleCardKey(item.id)) });
+        },
+      }),
+    [getHeaderAction, outboundDial, setKindCellShownFor],
   );
 }
 

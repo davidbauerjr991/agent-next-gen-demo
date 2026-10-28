@@ -264,11 +264,13 @@ export function useOutboundDial({
   );
 
   /** New Outbound's Start Interaction (and the record header's "+", which
-   *  passes the card's own contact). */
+   *  passes the card's own contact). `assignmentId` (P-HOME-1m: a kind card's
+   *  "+"): the leg joins that assignment's card as a new row, as a schedule
+   *  item's Dial does, never a card of its own. */
   const startCall = useCallback(
-    (selection: { contact: CreateNewOutboundContact; channel: ChannelType; phone: string; skillId: string }) => {
+    (selection: { contact: CreateNewOutboundContact; channel: ChannelType; phone: string; skillId: string }, options?: { assignmentId?: AssignmentId }) => {
       const entityId = selection.contact.id.startsWith("adhoc:") ? undefined : selection.contact.id;
-      const card = entityId ? findOpenCard({ entityId }) : findOpenCard({ address: selection.phone });
+      const card = options?.assignmentId ? undefined : entityId ? findOpenCard({ entityId }) : findOpenCard({ address: selection.phone });
       void place({
         channel: selection.channel,
         address: selection.phone,
@@ -277,8 +279,7 @@ export function useOutboundDial({
         contactName: selection.contact.name,
         caseId: selection.contact.subtitle,
         skillId: selection.skillId,
-        card,
-        mode: card ? "added" : "focus",
+        ...(options?.assignmentId ? { assignmentId: options.assignmentId, mode: "focus" as const } : { card, mode: card ? ("added" as const) : ("focus" as const) }),
       });
     },
     [findOpenCard, place],
