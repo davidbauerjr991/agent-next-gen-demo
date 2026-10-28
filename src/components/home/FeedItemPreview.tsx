@@ -97,7 +97,9 @@ function ScheduleItemPreview({ item }: { item: ScheduleItem }) {
   };
   return (
     <div className="flex flex-col gap-4 px-4 py-4" data-home-detail="item" data-schedule-item={item.id}>
+      {/* Park / Unpark / Delete as on the row: the icons left of the kind's chip (P-HOME-1m). */}
       <div className="flex flex-wrap items-center gap-2">
+        <FeedRowActions item={item} after={() => setPreview(null)} />
         <KindTag kind={item.kind} />
         {item.state === "done" && <Tag shape="pill" variant="neutral" label={t("Completed")} />}
       </div>
@@ -121,20 +123,14 @@ function ScheduleItemPreview({ item }: { item: ScheduleItem }) {
             )
           }
         />
-      ) : item.state === "scheduled" ? (
-        // The kind's action is the primary; Open, the secondary, moves it to the rail and makes it active, nothing else.
-        // Park (and Delete, for one the agent created) beside them (P-HOME-1k).
-        <div className="flex flex-wrap items-center gap-2">
-          <KindAction item={item} run={run} />
-          <Button variant="outline" onClick={() => run(() => activate(target))} data-preview-open="">
-            {t("Open")}
-          </Button>
-          <FeedRowActions item={item} form="button" after={() => setPreview(null)} />
-        </div>
       ) : (
-        item.state === "parked" && (
+        item.state === "scheduled" && (
+          // The kind's action is the primary; Open, the secondary, moves it to the rail and makes it active, nothing else.
           <div className="flex flex-wrap items-center gap-2">
-            <FeedRowActions item={item} form="button" after={() => setPreview(null)} />
+            <KindAction item={item} run={run} />
+            <Button variant="outline" onClick={() => run(() => activate(target))} data-preview-open="">
+              {t("Open")}
+            </Button>
           </div>
         )
       )}

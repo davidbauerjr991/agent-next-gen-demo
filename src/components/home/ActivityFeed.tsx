@@ -1,26 +1,48 @@
-// The Activity feed (P-HOME-1): what is coming at the person, in time order.
-// Offers pin to the top; the Assignments · Parked · History view switcher
-// (lyra ToggleGroup, single) picks the view and the kind chips below it
-// (lyra selectable Tags, multi-select) filter it; History lists what left the
-// feed in its range. The rules are activity-feed.ts; this file only lays them out.
+// The Activity feed (P-HOME-1): what is coming at the person, nearest first.
+// A banner for assignments that arrived while the agent wasn't on them
+// (P-HOME-1m), then offers pinned; the Assignments · Parked · History view
+// switcher (lyra ToggleGroup, single) picks the view and the kind chips below
+// it (lyra selectable Tags, multi-select) filter every view; History lists
+// what completed in its range. The rules are activity-feed.ts; this file only
+// lays them out.
 import * as React from "react";
-import { Badge, Container, SearchInput, Tag, ToggleGroup } from "@nicecxone/lyra-ui";
-import { ContactHistoryDateFilterChip } from "@/components/agent-next-gen-contact-history";
+import { Badge, Button, Container, InlineNotification, Link, SearchInput, Tag, ToggleGroup } from "@nicecxone/lyra-ui";
+import { ChevronDown } from "lucide-react";
+import { CONTACT_HISTORY_DATE_FILTER_OPTIONS } from "@/components/agent-next-gen-contact-history";
 import { RadioFilterChip } from "@/components/RadioFilterChip";
-import { ASSIGNMENTS_RANGES, type AssignmentsRange, type FeedRow, type FeedView } from "@/contact-handling/home/activity-feed";
+import type { FeedRow, FeedView } from "@/contact-handling/home/activity-feed";
+import { CHANNEL_NAMES } from "@/contact-handling/home/channel-names";
+import { useAssignmentArrivals } from "@/contact-handling/home/useAssignmentArrivals";
 import { useActivityFeed, type ActivityFeed as ActivityFeedApi } from "@/contact-handling/home/useActivityFeed";
 import { useScheduleSnapshot } from "@/provider-context";
+import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 import { ActivityRow } from "./ActivityRow";
 import { FeedRowActions } from "./FeedRowActions";
 import { KindIcon, kindLabel } from "./home-kinds";
 
-const RANGE_LABELS: Record<AssignmentsRange, string> = {
-  today: "Today",
-  week: "This week",
-  next30: "Next 30 days",
-  all: "All",
-};
+/** New assignments that arrived while the agent wasn't on them (P-HOME-1m): one line each, or a count when several;
+ *  View opens the newest, the X dismisses them all. */
+function ArrivalBanner() {
+  const { arrivals, view, dismiss } = useAssignmentArrivals();
+  const newest = arrivals[0];
+  if (!newest) return null;
+  const channel = newest.channel ? t(CHANNEL_NAMES[newest.channel as keyof typeof CHANNEL_NAMES] ?? newest.channel) : undefined;
+  return (
+    <InlineNotification
+      variant="info"
+      data-feed-arrivals={arrivals.length}
+      heading={arrivals.length > 1 ? t("{count} new assignments", { count: arrivals.length }) : undefined}
+      onDismiss={dismiss}
+      actionPlacement="inline"
+      action={<Link onClick={() => view(newest.id)}>{t("View")}</Link>}
+    >
+      {channel
+        ? t("New assignment · {name} · {channel}", { name: newest.name, channel })
+        : t("New assignment · {name}", { name: newest.name })}
+    </InlineNotification>
+  );
+}
 
 /** A view button's label: its name, its count and, when there are any, its unread ("3 new", P-HOME-1k). */
 function viewLabel(label: string, count?: number, unread = 0) {
@@ -42,7 +64,7 @@ function RowActions({ row }: { row: FeedRow }) {
   const snapshot = useScheduleSnapshot();
   const target = row.target;
   const item = target.type === "schedule" ? snapshot?.items.find((i) => i.id === target.itemId) : undefined;
-  return item ? <FeedRowActions item={item} form="icon" /> : null;
+  return item ? <FeedRowActions item={item} /> : null;
 }
 
 function FeedGroup({
@@ -52,6 +74,7 @@ function FeedGroup({
   api,
   empty,
   action,
+  collapsible = false,
 }: {
   title: string;
   rows: readonly FeedRow[];
@@ -60,15 +83,25 @@ function FeedGroup({
   empty?: string;
   /** A control in the group's header (History's date range). */
   action?: React.ReactNode;
+  /** Collapsed until the agent opens it (Later, P-HOME-1m). */
+  collapsible?: boolean;
 }) {
+  const [expanded, setExpanded] = React.useState(!collapsible);
   if (rows.length === 0 && !empty) return null;
   return (
-    <section className="flex flex-col gap-1" data-feed-group={title}>
+    <section className="flex flex-col gap-1" data-feed-group={title} data-expanded={expanded}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="lyra-label text-lyra-fg-secondary">{title}</h3>
+        {collapsible ? (
+          <Button variant="ghost" size="sm" className="-ms-2 gap-1 lyra-label text-lyra-fg-secondary" aria-expanded={expanded} onClick={() => setExpanded((v) => !v)}>
+            {t("{title} · {count}", { title, count: rows.length })}
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} strokeWidth={1.5} aria-hidden="true" />
+          </Button>
+        ) : (
+          <h3 className="lyra-label text-lyra-fg-secondary">{title}</h3>
+        )}
         {action}
       </div>
-      {rows.length === 0 ? (
+      {!expanded ? null : rows.length === 0 ? (
         <p className="lyra-body-sm text-lyra-fg-secondary">{empty}</p>
       ) : (
         <div role="list" className="flex flex-col">
@@ -79,7 +112,7 @@ function FeedGroup({
                 now={now}
                 onOpen={() => api.open(row)}
                 selected={api.isSelected(row)}
-                // Only a scheduled or parked schedule item has actions (no empty cluster on the others).
+                // Only a scheduled or parked schedule item has actions (none on an open one or the others).
                 action={row.target.type === "schedule" && (row.status === "scheduled" || row.status === "parked") ? <RowActions row={row} /> : undefined}
               />
             </div>
@@ -99,6 +132,7 @@ export function ActivityFeed() {
 
   return (
     <div className="flex flex-col gap-4" data-activity-feed>
+      <ArrivalBanner />
       {feed.needsDecision.length > 0 && (
         <Container variant="error-subtle" headerTitle={t("Needs a decision · {count}", { count: feed.needsDecision.length })} data-feed-group="Needs a decision">
           <div role="list" className="flex flex-col px-1 pb-2">
@@ -125,8 +159,9 @@ export function ActivityFeed() {
             ]}
           />
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          {/* The kinds the persona sees, filtering whichever view is selected; none picked is every kind. */}
+        {/* The kinds the persona sees, filtering every view; none picked is every kind. No date control here: the feed
+            is nearest first, Later collapsed (P-HOME-1m). */}
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex flex-wrap gap-2" role="group" aria-label={t("Filter by kind")} data-feed-kinds>
             {api.kinds.map((kind) => (
               <Tag
@@ -143,23 +178,12 @@ export function ActivityFeed() {
             ))}
             {/* P-HOME-2: one chip per connected personal source, then "+ Apps", go here. */}
           </div>
-          {/* The Assignments range: it bounds Today and This week, and adds Later past the week. */}
-          {feed.showAssignments && (
-            <span data-feed-range>
-              <RadioFilterChip
-                label={t("Date")}
-                options={ASSIGNMENTS_RANGES.map((value) => ({ value, label: t(RANGE_LABELS[value]) }))}
-                value={api.range}
-                onValueChange={api.setRange}
-              />
-            </span>
-          )}
         </div>
       </div>
       <FeedGroup title={t("Now")} rows={feed.now} now={now} api={api} />
       <FeedGroup title={t("Today")} rows={feed.today} now={now} api={api} />
       <FeedGroup title={t("This week")} rows={feed.thisWeek} now={now} api={api} />
-      <FeedGroup title={t("Later")} rows={feed.later} now={now} api={api} />
+      <FeedGroup title={t("Later")} rows={feed.later} now={now} api={api} collapsible />
       {feed.showParked && <FeedGroup title={t("Parked")} rows={feed.parked} now={now} api={api} empty={t("Nothing parked")} />}
       {feed.showHistory && (
         <FeedGroup
@@ -178,7 +202,14 @@ export function ActivityFeed() {
                 size="sm"
                 className="min-w-[200px] max-w-xs flex-1"
               />
-              <ContactHistoryDateFilterChip defaultValue={api.historyRange} onValueChange={api.setHistoryRange} />
+              {/* Contact History's date options; not in a container header, so no kebab (P-HOME-1m). */}
+              <RadioFilterChip
+                label={t("Date")}
+                options={CONTACT_HISTORY_DATE_FILTER_OPTIONS}
+                value={api.historyRange}
+                onValueChange={api.setHistoryRange}
+                collapsible={false}
+              />
             </span>
           }
         />

@@ -77,14 +77,10 @@ describe("buildFeed", () => {
     expect(titles(buildFeed(input({ scheduleItems: [late] })).now)).toEqual(["Late callback"]);
   });
 
-  it("keeps a row in the feed or the rail, never both: an opened item leaves the feed (the rail isn't History)", () => {
+  it("an opened item isn't History (History keeps completed items only)", () => {
     const items = seedScheduleDay("agent", NOW).map((i) => (i.id === "agent-cb-priya" ? { ...i, state: "active" as const } : i));
     const priya = assignmentIdFor(scheduleCardKey("agent-cb-priya"));
-    expect(buildFeed(input({ scheduleItems: items })).today.some((r) => r.assignmentId === priya)).toBe(false);
     expect(buildFeed(input({ scheduleItems: items, view: "history" })).history.some((r) => r.assignmentId === priya)).toBe(false);
-    // A rail card with the same assignment hides a still-scheduled item too.
-    const shadowed = buildFeed(input({ railCards: [{ ...railCard, assignmentId: priya }] }));
-    expect(shadowed.today.some((r) => r.assignmentId === priya)).toBe(false);
   });
 
   it("History is Contact History's entries in the card's order, with completed schedule items merged in by completion time", () => {
@@ -110,19 +106,26 @@ describe("buildFeed", () => {
     expect(buildFeed(input({ view: "history", historyMatches: () => false })).counts.history).toBe(0);
   });
 
-  it("the Assignments range bounds the groups: Today drops This week; Next 30 days and All add Later", () => {
-    const today = buildFeed(input({ range: "today" }));
-    expect(today.thisWeek).toEqual([]);
-    expect(today.later).toEqual([]);
-    expect(today.counts.assignments).toBe(5);
-    expect(buildFeed(input()).later).toEqual([]);
-    expect(titles(buildFeed(input({ range: "next30" })).later)).toEqual(["Q4 compliance refresher"]);
+  it("Later is everything past the week, nearest first (P-HOME-1m: no range control)", () => {
     const far: ScheduleItem = { ...seedScheduleDay("agent", NOW)[0]!, id: "far", title: "Far callback", dueAt: NOW + 60 * 24 * 60 * MIN };
-    const items = [...seedScheduleDay("agent", NOW), far];
-    expect(titles(buildFeed(input({ range: "next30", scheduleItems: items })).later)).toEqual(["Q4 compliance refresher"]);
-    const all = buildFeed(input({ range: "all", scheduleItems: items }));
-    expect(titles(all.later)).toEqual(["Q4 compliance refresher", "Far callback"]);
-    expect(all.counts.assignments).toBe(10);
+    const feed = buildFeed(input({ scheduleItems: [...seedScheduleDay("agent", NOW), far] }));
+    expect(titles(feed.later)).toEqual(["Q4 compliance refresher", "Far callback"]);
+    expect(feed.counts).toMatchObject({ today: 5, thisWeek: 3, later: 2, assignments: 10 });
+  });
+
+  it("an item open in the rail stays in its time group, marked open and read (P-HOME-1m: supersedes 1e's feed-or-rail)", () => {
+    const items = seedScheduleDay("agent", NOW).map((i) => (i.id === "agent-mt-standup" ? { ...i, state: "active" as const } : i));
+    const feed = buildFeed(input({ scheduleItems: items, isUnread: () => true }));
+    const standup = feed.today.find((r) => r.title === "Returns team stand-up")!;
+    expect(standup.status).toBe("inRail");
+    expect(feed.counts.today).toBe(5);
+    // Its unread doesn't count: it's been opened.
+    expect(feed.counts.unread).toBe(8);
+    expect(feed.unreadByKind.meeting).toBe(1);
+    // A rail card holding a still-scheduled item's assignment shows it open too.
+    const priya = assignmentIdFor(scheduleCardKey("agent-cb-priya"));
+    const held = buildFeed(input({ railCards: [{ ...railCard, assignmentId: priya }] }));
+    expect(held.today.find((r) => r.assignmentId === priya)?.status).toBe("inRail");
   });
 
   it("the kind chips filter whichever view is selected, History included; none picked is every kind", () => {
@@ -153,7 +156,7 @@ describe("buildFeed", () => {
 
   it("counts the groups whatever the view shows", () => {
     const { counts } = buildFeed(input({ view: "history" }));
-    expect(counts).toEqual({ needsDecision: 1, now: 0, today: 5, thisWeek: 3, later: 0, assignments: 8, unread: 0, parked: 0, history: 1 });
+    expect(counts).toEqual({ needsDecision: 1, now: 0, today: 5, thisWeek: 3, later: 1, assignments: 9, unread: 0, parked: 0, history: 1 });
   });
 
   it("unread (P-HOME-1k): the rows the predicate reads as new; the Assignments count's rows and each kind's, whatever the chips pick", () => {

@@ -6,7 +6,7 @@ import { useScheduleProvider, useScheduleSnapshot } from "@/provider-context";
 import { useSettings } from "@/settings";
 import { useWorkspace } from "../workspace/WorkspaceContext";
 import { useWorkspaceUiField } from "../workspace-ui-store";
-import { buildFeed, type AssignmentsRange, type Feed, type FeedRow, type FeedTarget, type FeedView } from "./activity-feed";
+import { buildFeed, type Feed, type FeedRow, type FeedTarget, type FeedView } from "./activity-feed";
 import { CHANNEL_NAMES } from "./channel-names";
 import { PERSONA_KINDS } from "./persona-kinds";
 import { agoMs, startOfDay } from "./time";
@@ -61,9 +61,6 @@ export interface ActivityFeed {
   /** History's search (Contact History's search box and its match rule; a schedule row by its title or detail). */
   historyQuery: string;
   setHistoryQuery: (query: string) => void;
-  /** The Assignments view's date range. */
-  range: AssignmentsRange;
-  setRange: (range: AssignmentsRange) => void;
   /** The row whose preview is open in Home's detail panel. */
   isSelected: (row: FeedRow) => boolean;
   /** A row's click: toggles its preview (Contact History's for a completed contact, the item's for the rest). */
@@ -145,7 +142,7 @@ export function useActivityFeed(): ActivityFeed {
   const [kindFilter, setKindFilter] = useWorkspaceUiField("activityKinds");
   const [historyRange, setHistoryRange] = useWorkspaceUiField("activityHistoryRange");
   const [historyQuery, setHistoryQuery] = useWorkspaceUiField("activityHistoryQuery");
-  const [range, setRange] = useWorkspaceUiField("activityRange");
+  const activate = useActivateFeedTarget();
   const [preview, setPreview] = useWorkspaceUiField("homePreview");
   const [, setPreviewed] = useWorkspaceUiField("previewedAssignments");
   // Time groups only move on the minute.
@@ -180,18 +177,19 @@ export function useActivityFeed(): ActivityFeed {
       kinds,
       kindFilter,
       view,
-      range,
       // Unread is the nav card's new state: not yet previewed (below) nor the active card.
       isUnread: (row) => {
         const key = targetCardKey(row.target);
         return !!key && isNewAssignment(key);
       },
     });
-  }, [interactions, legCardKeys, historyEntries, historyRange, historyQuery, snapshot, kinds, kindFilter, view, range, minute, isNewAssignment]);
+  }, [interactions, legCardKeys, historyEntries, historyRange, historyQuery, snapshot, kinds, kindFilter, view, minute, isNewAssignment]);
 
   const open = useCallback(
     (row: FeedRow) => {
       const target = row.target;
+      // An item already open in the rail (P-HOME-1m: it stays in the feed) goes to its card.
+      if (row.status === "inRail") return activate(target);
       // One job at a time in the panel (home-detail-panel.tsx); the open row's click closes it, as on Contact History.
       setSelectedQueueId(null);
       setInteriorPanelOpen(false);
@@ -208,7 +206,7 @@ export function useActivityFeed(): ActivityFeed {
         if (key) setPreviewed((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
       }
     },
-    [historyEntries, selectedContactHistoryEntry, setSelectedQueueId, setSelectedContactHistoryEntry, setInteriorPanelOpen, setPreview, setPreviewed],
+    [historyEntries, selectedContactHistoryEntry, setSelectedQueueId, setSelectedContactHistoryEntry, setInteriorPanelOpen, setPreview, setPreviewed, activate],
   );
   const selectedEntryId = selectedContactHistoryEntry?.id;
   const isSelected = useCallback(
@@ -227,8 +225,6 @@ export function useActivityFeed(): ActivityFeed {
     setHistoryRange,
     historyQuery,
     setHistoryQuery,
-    range,
-    setRange,
     isSelected,
     open,
   };

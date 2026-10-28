@@ -11,7 +11,7 @@ import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
 import type { HomeSectionKey } from "@/settings/settings-schema";
 import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
-import { TOM_LEWIS_SCRIPT } from "@/scenarios";
+import { LUCAS_THOMAS_SCRIPT, MARCUS_WEBB_SCRIPT, TOM_LEWIS_SCRIPT } from "@/scenarios";
 
 const h = createWorkspaceHarness({ schedule: true });
 
@@ -147,7 +147,7 @@ describe("Activity feed on Home", () => {
     }
   });
 
-  it("the view switcher is Assignments | Parked | History (one always selected, Assignments by default): a row previews; its Join moves it off the feed into the rail", async () => {
+  it("the view switcher is Assignments | Parked | History (one always selected, Assignments by default): a row previews; its Join opens it, and it stays in the feed marked open", async () => {
     turnOn();
     await showHome();
     expect([...feed().querySelectorAll("[data-feed-views] [role=radio]")].map((b) => b.textContent?.replace(/\d+( new)?$/, "").replace(/\d+$/, "").trim())).toEqual([
@@ -178,10 +178,17 @@ describe("Activity feed on Home", () => {
     expect(h.buttonByText("Open", preview()!)).toBeTruthy();
     await h.click(h.buttonByText("Join", preview()!)!);
     expect(h.container.querySelector("[data-kind-started]")?.textContent).toBe("Joined");
-    // It opened as the active assignment; back on Home it has left the time groups (it's in the rail, not History).
+    // It opened as the active assignment; back on Home it stays in its time group, marked open (P-HOME-1m), not in
+    // History; its row goes to its card.
     expect(h.container.querySelector("[data-kind-cell]")?.getAttribute("data-kind-cell")).toBe("meeting");
     await h.click(homeButton());
-    expect(rows("Today").some((r) => r.textContent?.includes("Returns team stand-up"))).toBe(false);
+    const open = rows("Today").find((r) => r.textContent?.includes("Returns team stand-up"))!;
+    expect(open.getAttribute("data-feed-status")).toBe("inRail");
+    expect(open.textContent).toContain("Open");
+    expect(open.querySelector("[data-feed-action]")).toBeNull();
+    await h.click(open);
+    expect(h.container.querySelector("[data-kind-cell]")?.getAttribute("data-kind-cell")).toBe("meeting");
+    await h.click(homeButton());
 
     await h.click(view("History")!);
     expect(view("History")?.getAttribute("aria-checked")).toBe("true");
@@ -347,51 +354,92 @@ describe("Activity feed on Home", () => {
     expect(group("Needs a decision")).toBeNull();
   });
 
-  it("the Assignments range (Today / This week / Next 30 days / All, This week by default) bounds the groups; past the week adds Later", async () => {
+  it("no date control on Assignments or Parked (P-HOME-1m): nearest first, Later (past the week) collapsed until opened; no kebab beside any filter", async () => {
     turnOn();
     await showHome();
-    const chip = () => feed().querySelector<HTMLElement>("[data-feed-range] button")!;
-    expect(chip().textContent).toContain("This week");
-    expect(group("Later")).toBeNull();
-    // The chip's popover stays open after a pick (as Contact History's does): open it only when it's closed.
-    const radio = (label: string) => [...document.querySelectorAll<HTMLElement>("[role=radio]")].find((r) => r.parentElement?.textContent?.includes(label));
-    const pick = async (label: string) => {
-      if (!radio("Next 30 days")) await h.click(chip());
-      await h.click(radio(label)!);
-    };
-    await pick("Today");
-    expect(group("This week")).toBeNull();
-    expect(view("Assignments")?.textContent).toContain("5");
-    await pick("Next 30 days");
-    expect(group("This week")).not.toBeNull();
-    expect(group("Later")?.textContent).toContain("Q4 compliance refresher");
-    expect(view("Assignments")?.textContent).toContain("9");
-    await pick("All");
-    expect(group("Later")?.textContent).toContain("Q4 compliance refresher");
-    // Not on History.
-    await h.click(view("History")!);
     expect(feed().querySelector("[data-feed-range]")).toBeNull();
+    const later = () => group("Later")!;
+    expect(later().getAttribute("data-expanded")).toBe("false");
+    expect(later().textContent).toContain("Later · 1");
+    expect(later().querySelector("[data-feed-row]")).toBeNull();
+    await h.click(later().querySelector<HTMLElement>("button[aria-expanded]")!);
+    expect(later().querySelector("[data-feed-row]")?.textContent).toContain("Q4 compliance refresher");
+    expect(view("Assignments")?.textContent).toMatch(/^Assignments9/);
+    await h.click(view("Parked")!);
+    expect(feed().querySelector("[data-feed-range]")).toBeNull();
+    // History keeps its date control, with no kebab.
+    await h.click(view("History")!);
+    const controls = group("History")!.querySelector<HTMLElement>("[data-feed-history-controls]")!;
+    expect(controls.textContent).toContain("Today");
+    expect(feed().querySelector(".lyra-container-header-filter-compact")).toBeNull();
   });
 
-  it("unread (P-HOME-1k): every new row is bold with a dot and counted on Assignments and its kind chip; a preview reads it, across view switches", async () => {
+  it("unread (P-HOME-1m): the seeded day loads read; an item that comes due afterwards is unread (tinted, with a dot, counted on Assignments and its chip); a preview reads it, across view switches", async () => {
     turnOn();
     await showHome();
     const unread = () => feed().querySelector("[data-feed-views] [data-feed-unread]")?.textContent;
-    const row = () => rowNamed("Returns team stand-up")!;
+    const row = () => rowNamed("Callback · Priya Shah")!;
+    expect(feed().querySelectorAll("[data-unread]")).toHaveLength(0);
+    expect(unread()).toBeUndefined();
+    // Priya's callback comes due (30 minutes in): it arrived since the agent last looked.
+    await h.advance(31 * 60_000);
     expect(row().getAttribute("data-unread")).toBe("true");
-    expect(unread()).toBe("8 new");
-    expect(kindChip("Meeting")?.textContent?.trim()).toBe("Meeting2");
+    expect(row().className).toContain("bg-lyra-state-hover");
+    expect(unread()).toBe("1 new");
+    expect(kindChip("Callback")?.textContent?.trim()).toBe("Callback1");
     await h.click(row());
     await h.advance(100);
     expect(row().getAttribute("data-unread")).toBeNull();
-    expect(unread()).toBe("7 new");
-    expect(kindChip("Meeting")?.textContent?.trim()).toBe("Meeting1");
+    expect(unread()).toBeUndefined();
     // Still read after a round trip through the other views.
     await h.click(view("Parked")!);
     await h.click(view("History")!);
     await h.click(view("Assignments")!);
     expect(row().getAttribute("data-unread")).toBeNull();
-    expect(unread()).toBe("7 new");
+  });
+
+  it("a new assignment arriving while the agent isn't on it raises Home's banner above Needs a decision; several stack as a count; View opens it; X dismisses", async () => {
+    turnOn();
+    await showHome();
+    await h.goAvailable();
+    const banner = () => feed().querySelector<HTMLElement>("[data-feed-arrivals]");
+    expect(banner()).toBeNull();
+    await h.play(LUCAS_THOMAS_SCRIPT.id);
+    await h.advance(500);
+    expect(banner()?.textContent).toContain("New assignment · Lucas Thomas · Chat");
+    expect(feed().firstElementChild).toBe(banner());
+    await h.play(MARCUS_WEBB_SCRIPT.id);
+    await h.advance(500);
+    expect(banner()?.getAttribute("data-feed-arrivals")).toBe("2");
+    expect(banner()?.textContent).toContain("2 new assignments");
+    // View opens the newest (Marcus); Lucas stays in the banner.
+    await h.click([...banner()!.querySelectorAll<HTMLElement>("a, button")].find((b) => b.textContent?.trim() === "View")!);
+    expect(h.container.querySelector("[data-activity-feed]")).toBeNull();
+    await h.click(homeButton());
+    expect(banner()?.textContent).toContain("New assignment · Lucas Thomas");
+    await h.click(banner()!.querySelector<HTMLElement>('button[aria-label^="Dismiss"]')!);
+    expect(banner()).toBeNull();
+  });
+
+  it("an offer that arrives after load is unread (tinted, with the dot) in Needs a decision", async () => {
+    turnOn();
+    await showHome();
+    await h.goAvailable();
+    await h.startInbound("voice", "+15555550123", "Tom Lewis");
+    const offer = group("Needs a decision")!.querySelector<HTMLElement>("[data-feed-row]")!;
+    expect(offer.getAttribute("data-unread")).toBe("true");
+    expect(offer.className).toContain("bg-lyra-state-hover");
+  });
+
+  it("a persona switch re-seeds its day as read", async () => {
+    turnOn();
+    await act(async () => {
+      getSettingsStore().update("workspace", { persona: "supervisor" });
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    await showHome();
+    expect(feed().textContent).toContain("Coaching · John Smith");
+    expect(feed().querySelectorAll("[data-unread]")).toHaveLength(0);
   });
 
   it("park (P-HOME-1k): from the row's hover cluster in the kind's words; out of the feed into Parked, its count; Unpark returns it", async () => {
@@ -403,12 +451,12 @@ describe("Activity feed on Home", () => {
     await h.click(park);
     await h.advance(200);
     expect(priya()).toBeUndefined();
-    expect(view("Assignments")?.textContent).toContain("7");
+    expect(view("Assignments")?.textContent).toMatch(/^Assignments8/);
     expect(view("Parked")?.textContent).toMatch(/^Parked1/);
     await h.click(view("Parked")!);
     expect(rows("Parked").map((r) => r.getAttribute("data-feed-status"))).toEqual(["parked"]);
-    // Still unread, and the same preview, with Unpark.
-    expect(priya()!.getAttribute("data-unread")).toBe("true");
+    // Its read state as it was (the day loaded read), and Unpark.
+    expect(priya()!.getAttribute("data-unread")).toBeNull();
     await h.click(priya()!.querySelector<HTMLElement>('[data-feed-action="unpark"]')!);
     await h.advance(200);
     expect(group("Parked")?.textContent).toContain("Nothing parked");
@@ -446,8 +494,12 @@ describe("Activity feed on Home", () => {
     await h.click(rowNamed("Callback · Nathan Cole")!);
     await h.advance(100);
     const del = preview().querySelector<HTMLElement>('[data-feed-action="delete"]')!;
-    expect(del.textContent).toBe("Delete this callback");
-    expect(preview().querySelector('[data-feed-action="park"]')?.textContent).toBe("Park this callback");
+    // The row's icons, left of the chip (P-HOME-1m), named in the kind's words.
+    const named = (el: Element | null) => el?.getAttribute("aria-label") ?? el?.getAttribute("title");
+    expect(named(del)).toBe("Delete this callback");
+    expect(named(preview().querySelector('[data-feed-action="park"]'))).toBe("Park this callback");
+    const actions = del.closest<HTMLElement>("[data-feed-row-actions]")!;
+    expect(actions.nextElementSibling?.textContent).toContain("Callback");
     await h.click(del);
     expect(document.body.textContent).toContain("Delete this callback?");
     await h.click([...document.querySelectorAll<HTMLButtonElement>("button")].filter((b) => b.textContent?.trim() === "Delete").pop()!);

@@ -5,7 +5,7 @@ import type { DetailPanelContent, OutcomeKey, PanelArtifact } from "./workspace/
 import type { AssignmentToast } from "./toasts/assignment-toasts";
 import { assignmentIdFor, type AssignmentKind } from "@/domain";
 import type { ContactHistoryDateFilterValue } from "@/components/agent-next-gen-contact-history";
-import type { AssignmentsRange, FeedTarget, FeedView } from "./home/activity-feed";
+import type { FeedTarget, FeedView } from "./home/activity-feed";
 
 /** P-HOME-1h: one Copilot ask on a schedule item: its question, when, the answer, and the link its row and summary
  *  line open (the result's slide-over). */
@@ -94,8 +94,6 @@ export interface WorkspaceUiState {
   activityKinds: ReadonlySet<AssignmentKind>;
   /** P-HOME-1b: History's range, Contact History's date control. */
   activityHistoryRange: ContactHistoryDateFilterValue;
-  /** P-HOME-1h: the Assignments view's date range. */
-  activityRange: AssignmentsRange;
   /** P-HOME-1h: the Assignments row previewed in Home's detail panel (a schedule item, or an offer's card). */
   homePreview: FeedTarget | null;
   /** P-HOME-1h: each schedule item's Copilot asks, in ask order: inline rows in its action area and lines in its
@@ -103,9 +101,12 @@ export interface WorkspaceUiState {
   kindCopilotAsks: Readonly<Record<string, readonly KindCopilotAsk[]>>;
   /** P-HOME-1i: the trainings started and meetings joined (their Start / Join, from the preview or the cell). */
   kindStarted: ReadonlySet<string>;
-  /** P-HOME-1k: the card keys whose feed row has been previewed: read, as having been the active card is
-   *  (`useNewAssignments`). In memory only: unread comes back on reload. */
+  /** P-HOME-1k: the card keys read without having been the active card — a feed row previewed, or (1m) a listed day's
+   *  items, which load read (`useNewAssignments` reads it). In memory only: a reload lists the day again. */
   previewedAssignments: ReadonlySet<string>;
+  /** P-HOME-1m: cards that arrived after the workspace loaded, newest last, for Home's arrival banner; one leaves when
+   *  it's viewed or the banner is dismissed. */
+  homeArrivals: readonly string[];
   /** P-HOME-1: toasts for events on other assignments, in raise order; dismissed ones stay for the drawer's rows. */
   assignmentToasts: readonly AssignmentToast[];
 }
@@ -187,11 +188,11 @@ export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
   kindCellShownFor: null,
   activityKinds: new Set<AssignmentKind>(),
   activityHistoryRange: "today",
-  activityRange: "week",
   homePreview: null,
   kindCopilotAsks: Object.freeze({}),
   kindStarted: new Set<string>(),
   previewedAssignments: new Set<string>(),
+  homeArrivals: Object.freeze([]),
   assignmentToasts: Object.freeze([]),
 });
 
