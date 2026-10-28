@@ -78,7 +78,7 @@ async function pickRange(label: string, options?: { keepOpen?: boolean }) {
   if (!options?.keepOpen) await h.click(trigger());
 }
 /** The picked kinds as tokens below the filter row. */
-const kindTokens = () => [...feed().querySelectorAll<HTMLElement>("[data-feed-tokens] [data-feed-token]")].map((t) => t.getAttribute("data-feed-token"));
+const kindsClear = () => filters().querySelector<HTMLElement>("[data-feed-kinds-clear]");
 const homeButton = () => [...h.container.querySelectorAll("aside button, aside [role=button]")].find((el) => el.textContent?.trim() === "Home")!;
 const sectionsIn = (scope: Element) => [...scope.querySelectorAll(":scope > [data-home-section], :scope > * > [data-home-section]")].map((el) => el.getAttribute("data-home-section"));
 
@@ -258,7 +258,7 @@ describe("Activity feed on Home", () => {
     expect(view("Activity")?.getAttribute("aria-checked")).toBe("true");
   });
 
-  it("one filter row under the views (P-HOME-1m), no view heading: the search first, then lyra's FilterChip (\"Filter\"); picked kinds filter the current view and show as removable tokens below (+N past three, Clear); the selection holds across views", async () => {
+  it("one filter row under the views (P-HOME-1m), no view heading: the search first, then lyra's FilterChip (\"Filter\"); picked kinds filter the current view and the chip's trigger names them (\"Filter: Callback\" +N); Clear right after the chip only while any is picked; no removable tokens; the selection holds across views", async () => {
     turnOn();
     await showHome();
     const order = [...feed().querySelectorAll("[data-feed-views], [data-feed-filters]")].map((el) => (el.hasAttribute("data-feed-views") ? "views" : "filters"));
@@ -271,29 +271,32 @@ describe("Activity feed on Home", () => {
     expect(kindOptions().map((o) => o.textContent?.trim())).toEqual(["Conversation", "Callback", "Meeting", "Training", "Task"]);
     expect(document.body.textContent).toContain("Select All");
     await h.click(kindsChip());
-    expect(feed().querySelector("[data-feed-tokens]")).toBeNull();
+    // Nothing picked: no Clear.
+    expect(kindsClear()).toBeNull();
     await pickKind("Callback");
-    expect(kindTokens()).toEqual(["callback"]);
+    // The chip's trigger names the pick; Clear sits immediately after the chip; no tokens or removable tags anywhere.
+    // ("Filter:" and "Callback" are two spans with a gap between them, so no space in textContent.)
+    expect(kindsChip().textContent?.trim()).toBe("Filter:Callback");
+    expect(filters().querySelector("[data-feed-kinds]")!.nextElementSibling).toBe(kindsClear());
+    expect(feed().querySelector("[data-feed-tokens], [data-feed-token]")).toBeNull();
+    expect(feed().querySelector('[aria-label^="Remove"]')).toBeNull();
     expect(rows("Today").map((r) => r.textContent?.includes("Callback")).every(Boolean)).toBe(true);
-    // A token's × removes its kind.
-    await h.click(feed().querySelector<HTMLElement>('[data-feed-token="callback"] button')!);
-    expect(kindTokens()).toEqual([]);
-    for (const kind of ["Callback", "Task", "Meeting", "Training"]) await pickKind(kind);
-    // Three tokens, then +1 for the rest.
-    expect(kindTokens()).toEqual(["callback", "meeting", "training"]);
-    expect(feed().querySelector("[data-feed-tokens-more]")?.textContent?.trim()).toBe("+1");
-    // The same selection in History (no view heading; its date chip after the kinds filter) and Parked.
+    for (const kind of ["Task", "Meeting"]) await pickKind(kind);
+    expect(kindsChip().textContent).toContain("+2");
+    // The same selection in History (no view heading; Clear after the kinds filter, its date chip last) and Parked.
     await h.click(view("History")!);
-    expect(kindTokens()).toEqual(["callback", "meeting", "training"]);
+    expect(kindsChip().textContent).toContain("+2");
     expect(group("History")?.querySelector("h3")).toBeNull();
+    expect(filters().querySelector("[data-feed-kinds]")!.nextElementSibling).toBe(kindsClear());
     expect(filters().lastElementChild?.textContent).toContain("Date");
     await h.click(view("Parked")!);
     expect(group("Parked")?.querySelector("h3")).toBeNull();
-    expect(feed().querySelector("[data-feed-tokens-more]")?.textContent?.trim()).toBe("+1");
-    // Clear resets it: every kind again.
+    expect(kindsClear()).not.toBeNull();
+    // Clear resets it: every kind again, and Clear goes.
     await h.click(view("Activity")!);
-    await h.click(feed().querySelector<HTMLElement>("[data-feed-tokens-clear]")!);
-    expect(feed().querySelector("[data-feed-tokens]")).toBeNull();
+    await h.click(kindsClear()!);
+    expect(kindsClear()).toBeNull();
+    expect(kindsChip().textContent?.trim()).toBe("Filter");
     expect(rows("Today").length).toBe(5);
   });
 

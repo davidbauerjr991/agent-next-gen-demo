@@ -1,12 +1,12 @@
 // The Activity feed (P-HOME-1): what is coming at the person, nearest first.
 // Offers pinned; the Activity · Parked · History view switcher (lyra
 // ToggleGroup, single) picks the view, over one filter row every view shares
-// (P-HOME-1m): its search, lyra's FilterChip for the kinds (the picked ones
-// as removable tokens below), History's DateRangeFilterChip. Each view has a
+// (P-HOME-1m): its search, lyra's FilterChip for the kinds (its trigger names
+// the picks; Clear right after it), History's DateRangeFilterChip. Each view has a
 // lyra EmptyState; History lists what completed in its range. The rules are
 // activity-feed.ts; this file only lays them out.
 import * as React from "react";
-import { Badge, Button, Container, DateRangeFilterChip, EmptyState, FilterChip, Popover, SearchInput, Tag, ToggleGroup } from "@nicecxone/lyra-ui";
+import { Badge, Button, Container, DateRangeFilterChip, EmptyState, FilterChip, SearchInput, ToggleGroup } from "@nicecxone/lyra-ui";
 import { ChevronDown, CirclePause, History as HistoryIcon, List, ListChecks, Table2 } from "lucide-react";
 import type { AssignmentKind } from "@/domain";
 import { useSettings, type HomeActivityView } from "@/settings";
@@ -87,33 +87,6 @@ function RowActions({ row, menu }: { row: FeedRow; menu?: boolean }) {
   return item ? <FeedRowActions item={item} menu={menu} /> : null;
 }
 
-/** The picked kinds below the filter row (P-HOME-1m): lyra's applied-filter tokens as in FilterChip's stories (removable
- *  `Tag`s, a "+N" for the rest, Clear), composed from lyra's exported parts — the story's own row isn't a component. */
-const VISIBLE_KIND_TOKENS = 3;
-function KindTokens({ api }: { api: ActivityFeedApi }) {
-  const picked = api.kinds.filter((kind) => api.kindFilter.has(kind));
-  if (picked.length === 0) return null;
-  const remove = (kind: AssignmentKind) => api.setKinds(picked.filter((k) => k !== kind));
-  const token = (kind: AssignmentKind) => (
-    <Tag key={kind} shape="pill" variant="neutral" label={t(kindLabel(kind))} onRemove={() => remove(kind)} removeLabel={t("Remove {kind}", { kind: t(kindLabel(kind)) })} data-feed-token={kind} />
-  );
-  const rest = picked.slice(VISIBLE_KIND_TOKENS);
-  return (
-    <div className="flex flex-wrap items-center gap-2" data-feed-tokens="">
-      {picked.slice(0, VISIBLE_KIND_TOKENS).map(token)}
-      {rest.length > 0 && (
-        <Popover placement="bottom" align="start" bodyPadding={false} content={<div className="flex flex-wrap gap-2 p-3">{rest.map(token)}</div>}>
-          <Button variant="outline" size="sm" data-feed-tokens-more="">
-            {t("+{count}", { count: rest.length })}
-          </Button>
-        </Popover>
-      )}
-      <Button variant="ghost" size="sm" onClick={() => api.setKinds([])} data-feed-tokens-clear="">
-        {t("Clear")}
-      </Button>
-    </div>
-  );
-}
 
 /** A row's Park / Unpark / Delete: only a scheduled or parked schedule item has them (none on an open one or the
  *  others). The list's hover cluster as icons; the table's actions column as a kebab (`menu`). */
@@ -241,7 +214,8 @@ export function ActivityFeed() {
         </div>
         {/* One filter row for every view (P-HOME-1m): the view's search first, then the kinds (lyra's FilterChip
             as-is, the same selection in every view), then History's date (lyra's DateRangeFilterChip as-is). The
-            feed has no date control: it is nearest first, Later collapsed. The picked kinds are tokens below. */}
+            feed has no date control: it is nearest first, Later collapsed. The chip's own trigger names the picked
+            kinds ("Filter: Meeting" +N); Clear sits right after it while any is picked. No removable tokens. */}
         <div className="flex flex-wrap items-center gap-2" data-feed-filters={view}>
           {view === "assignments" && <ViewSearch value={api.query} onChange={api.setQuery} placeholder={t("Search activity")} />}
           {view === "parked" && <ViewSearch value={api.parkedQuery} onChange={api.setParkedQuery} placeholder={t("Search parked")} />}
@@ -254,6 +228,11 @@ export function ActivityFeed() {
               onSelectionChange={(values) => api.setKinds(values as AssignmentKind[])}
             />
           </span>
+          {api.kindFilter.size > 0 && (
+            <Button variant="ghost" size="sm" onClick={() => api.setKinds([])} data-feed-kinds-clear="">
+              {t("Clear")}
+            </Button>
+          )}
           {view === "history" && (
             <DateRangeFilterChip
               options={CONTACT_HISTORY_RANGE_OPTIONS}
@@ -265,7 +244,6 @@ export function ActivityFeed() {
           )}
           {/* P-HOME-2: one chip per connected personal source, then "+ Apps", go here. */}
         </div>
-        <KindTokens api={api} />
       </div>
       {asTable ? (
         // One table of the time groups' rows (a table sorts across them); Needs a decision stays above it.
