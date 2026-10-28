@@ -8,7 +8,8 @@ import { isProviderError } from "@/adapters/provider-error";
 import { useAgentState, useInteractionProvider, useInteractions, useProviders } from "@/provider-context";
 import { OUTBOUND_CONFIG } from "@/components/agent-next-gen-outbound-data";
 import type { ContactHistoryEntry } from "@/components/agent-next-gen-contact-history";
-import { knownOrSynthesizedAddress, normalizePhone, historyEntityId } from "./contact-identity";
+import { callerOfInteraction, knownOrSynthesizedAddress, normalizePhone, historyEntityId } from "./contact-identity";
+import { alreadyOnCallMessage, findCallWith } from "./already-open";
 import { useAgentAvailable, UNAVAILABLE_CALL_TOOLTIP } from "./presence-gates";
 import type { ActivationMode } from "./useContactActivation";
 
@@ -44,8 +45,8 @@ export interface UseOutboundDialOptions {
   secondVoiceCall: "refuse" | "auto-hold";
   /** A voice launch was refused by `secondVoiceCall: "refuse"`. */
   onVoiceCallRefused?: () => void;
-  /** A voice launch was refused because the agent is already on a live or
-   *  held call with that customer (`isOnCallWith`). Only reachable where the
+  /** A voice launch was refused because the agent is already on a ringing or
+   *  live call with that customer (`findCallWith`, already-open.ts). Only reachable where the
    *  UI can't disable the button first, e.g. a number typed into Quick Dial,
    *  or a Redial opened anyway. `call` is the call it's on. */
   onAlreadyOnCall?: (call: Interaction) => void;
@@ -93,45 +94,6 @@ export interface ScheduleDial {
 /** A voice contact the agent is on: ringing (either way), live, or held. */
 const ON_CALL_STATES = new Set(["offered", "connecting", "active", "held"]);
 
-/** The tooltip on a voice launch disabled by `isOnCallWith`. */
-const ALREADY_ON_CALL_TOOLTIP = "Already on a call with this customer";
-
-/** Who a voice launch would call: the directory entity, if known, and the
- *  numbers it could dial. */
-export interface CallTarget {
-  entityId?: string;
-  addresses?: readonly string[];
-  /** The card it would join: a customer with no directory record is its card (k8 6). */
-  journeyId?: string;
-}
-
-/** A voice contact that blocks another call with the same customer: ringing (either way) or live. A held call
- *  doesn't (auto-hold: the agent may call while others are held, P0.5d.1 row 15). */
-const BLOCKING_CALL_STATES = new Set(["offered", "connecting", "active"]);
-
-/** A ringing or live (not held) voice call with the target, if any: the same
- *  entity, the same card, or the same number. A held call or one in wrap-up
- *  doesn't count, and neither do digital contacts. */
-export function findCallWith<T extends { channel: string; state: string; entityId?: string; journeyId?: string; address?: { value: string } }>(
-  interactions: readonly T[],
-  target: CallTarget,
-): T | undefined {
-  const numbers = new Set((target.addresses ?? []).map(normalizePhone).filter((n) => n !== ""));
-  return interactions.find(
-    (i) =>
-      i.channel === "voice" &&
-      BLOCKING_CALL_STATES.has(i.state) &&
-      ((!!target.entityId && i.entityId === target.entityId) ||
-        (!!target.journeyId && i.journeyId === target.journeyId) ||
-        (!!i.address && numbers.has(normalizePhone(i.address.value)))),
-  );
-}
-
-/** The warning when a dial is refused because the agent is already on a
- *  call with that customer (Quick Dial, Redial, the dial pad). */
-export function alreadyOnCallMessage(name: string | undefined): string {
-  return name ? `Already on a call with ${name}` : ALREADY_ON_CALL_TOOLTIP;
-}
 
 export function useOutboundDial({
   findOpenCard,
@@ -265,10 +227,17 @@ export function useOutboundDial({
   );
   const redialBlocked = useCallback((entry: ContactHistoryEntry) => redialCallWith(entry) !== undefined, [redialCallWith]);
   /** Why Contact History's Redial is disabled, if it is: presence (not
-   *  Available), or already on a call with that customer. */
+   *  Available), or already on a call with that customer — the guard's
+   *  message, naming the call that blocks. */
   const redialBlockedReason = useCallback(
-    (entry: ContactHistoryEntry) => (!available ? UNAVAILABLE_CALL_TOOLTIP : redialBlocked(entry) ? ALREADY_ON_CALL_TOOLTIP : undefined),
-    [available, redialBlocked],
+    (entry: ContactHistoryEntry) => {
+      if (!available) return UNAVAILABLE_CALL_TOOLTIP;
+      const call = redialCallWith(entry);
+      if (!call) return undefined;
+      const caller = callerOfInteraction(call, []);
+      return alreadyOnCallMessage(caller.name ?? caller.number);
+    },
+    [available, redialCallWith],
   );
 
   /** New Outbound's Start Interaction (and the record header's "+", which

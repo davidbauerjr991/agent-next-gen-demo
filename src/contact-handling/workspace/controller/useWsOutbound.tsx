@@ -396,7 +396,7 @@ export function useWsOutbound(prev: WsLaunch, late: WorkspaceLate) {
   const presenceChannelReasons = useChannelDisabledReasons();
   const outboundConfig = useMemo<CreateNewOutboundConfig>(() => {
     // Settings → Channels hides what's off; presence disables voice, with its reason (New Outbound and the "+").
-    const tagChannels = buildOpenChannelTagger(interactions);
+    const tagChannels = buildOpenChannelTagger(interactions, storeContacts);
     // A channel open on every one of the customer's addresses is disabled here too (k6 2; no tooltip in lyra's CreateNew).
     const tagOpenChannels = (contact: CreateNewOutboundContact) =>
       markAlreadyOpen(withEnabledChannels(tagChannels(contact), channelSettings), alreadyOpenReasons(CREATE_NEW_CUSTOMERS.find((c) => c.id === contact.id), liveAddressesFor(storeContacts, contact.id)), OUTBOUND_CONFIG.phoneOptions);
@@ -466,9 +466,9 @@ export function useWsOutbound(prev: WsLaunch, late: WorkspaceLate) {
   const contactHistoryOutboundContacts = useMemo(
     () =>
       [...CONTACT_HISTORY_OUTBOUND_CONTACTS, ...buildContactHistoryOutboundContacts(dismissedContactHistory)].map(
-        buildOpenChannelTagger(interactions)
+        buildOpenChannelTagger(interactions, storeContacts)
       ),
-    [interactions, dismissedContactHistory]
+    [interactions, storeContacts, dismissedContactHistory]
   );
 
   // Every "Agent Next Gen" consumer (this app, AgentNextGenTemplate.

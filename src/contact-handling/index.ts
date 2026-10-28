@@ -4,7 +4,8 @@
 export { useNavCards } from "./useNavCards";
 export { useContactActivation, type Activation } from "./useContactActivation";
 export { useOutboundSkills } from "./useOutboundSkills";
-export { useOutboundDial, alreadyOnCallMessage } from "./useOutboundDial";
+export { useOutboundDial } from "./useOutboundDial";
+export { alreadyOnCallMessage } from "./already-open";
 export { useContactReopen } from "./useContactReopen";
 export { useContactCommands } from "./useContactCommands";
 export { useNewAssignments } from "./useNewAssignments";

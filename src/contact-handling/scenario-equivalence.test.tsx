@@ -243,12 +243,6 @@ describe("scenario player ≡ startInbound", () => {
     await until(() => latest(id)?.state === "held", "auto-held");
     await step("auto-held by a second call");
 
-    // One call per customer: a Quick Dial to this customer's number is refused.
-    const refusedBefore = alreadyOnCall;
-    act(() => api.dial.quickDial(phone, "general"));
-    await until(() => alreadyOnCall === refusedBefore + 1, "already on a call");
-    await step("quick dial refused");
-
     // Resume from the hold chip: the second call is held instead.
     const thread = () => cardOf(id)!.threads.find((t) => t.type === "voice")!;
     act(() => {
@@ -256,6 +250,13 @@ describe("scenario player ≡ startInbound", () => {
     });
     await until(() => latest(id)?.state === "active" && latest(other)?.state === "held", "resumed");
     await step("resumed");
+
+    // One call per customer: with this customer's call live, a Quick Dial to their number is refused (a held call
+    // wouldn't block it, P-HOME-1m, so this runs after the resume).
+    const refusedBefore = alreadyOnCall;
+    act(() => api.dial.quickDial(phone, "general"));
+    await until(() => alreadyOnCall === refusedBefore + 1, "already on a call");
+    await step("quick dial refused");
 
     // Hang up → wrap-up (card and chip), then the outcome closes it.
     act(() => {

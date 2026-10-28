@@ -16,9 +16,8 @@ import type { EntityId, Interaction, InteractionId, JourneyId } from "@/domain";
 import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
 import { profileValues } from "@/settings/profiles";
 import type { AiDisplayLocation } from "@/settings/settings-schema";
-import { ALREADY_OPEN_REASON, ON_A_CALL_REASON, customerChannelAddresses, onCallReasons } from "./already-open";
+import { ALREADY_OPEN_REASON, alreadyOnCallMessage, customerChannelAddresses, findCallWith, onCallReasons } from "./already-open";
 import { isKnownAddress, linkContactMethod, resetContactMethodsForTests, withLinkedContactMethods } from "./contact-methods";
-import { findCallWith } from "./useOutboundDial";
 
 const h = createWorkspaceHarness();
 const customer = (id: string) => CREATE_NEW_CUSTOMERS.find((c) => c.id === id)!;
@@ -242,12 +241,21 @@ describe("5: the voice bar's call switcher", () => {
 });
 
 describe("6: one call per customer on every launch path", () => {
-  it("the rules: a ringing, live or held call blocks Voice by entity, card or number", () => {
-    const call = (state: string, extra: Partial<Interaction> = {}) => [{ id: "c", channel: "voice", state, journeyId: "j1", ...extra } as Interaction];
-    for (const state of ["offered", "connecting", "active", "held"]) expect(onCallReasons(call(state), { journeyId: "j1" })).toEqual({ voice: ON_A_CALL_REASON });
+  it("the rules (one shared guard, findCallWith): a ringing or live call blocks Voice by entity, card or number, naming that call; a held call doesn't (P-HOME-1m)", () => {
+    const call = (state: string, extra: Partial<Interaction> = {}) =>
+      [{ id: "c", channel: "voice", state, journeyId: "j1", contactName: "Maya Chen", ...extra } as Interaction];
+    for (const state of ["offered", "connecting", "active"]) expect(onCallReasons(call(state), { journeyId: "j1" })).toEqual({ voice: "Already on a call with Maya Chen" });
+    expect(onCallReasons(call("held"), { journeyId: "j1" })).toEqual({});
     expect(onCallReasons(call("wrap-up"), { journeyId: "j1" })).toEqual({});
-    expect(onCallReasons(call("active", { entityId: "e1" as EntityId }), { entityId: "e1" })).toEqual({ voice: ON_A_CALL_REASON });
-    expect(findCallWith(call("active"), { journeyId: "j1", addresses: ["(555) 000-0000"] })).toBeTruthy();
+    expect(onCallReasons(call("active", { entityId: "e1" as EntityId }), { entityId: "e1" })).toEqual({ voice: "Already on a call with Maya Chen" });
+    // The "+" reason and the dial guard are one check: the same call, the same message.
+    const live = call("active");
+    expect(findCallWith(live, { journeyId: "j1", addresses: ["(555) 000-0000"] })).toBe(live[0]);
+    expect(onCallReasons(live, { journeyId: "j1" }).voice).toBe(alreadyOnCallMessage("Maya Chen"));
+    // No name: the number.
+    expect(onCallReasons(call("active", { contactName: undefined, address: { value: "(555) 000-0000" } } as Partial<Interaction>), { journeyId: "j1" })).toEqual({
+      voice: "Already on a call with (555) 000-0000",
+    });
   });
 
   it("Maya Chen on a call: Voice disabled \"Already on a call\" in her header \"+\" and nav \"+\"", async () => {
@@ -260,10 +268,36 @@ describe("6: one call per customer on every launch path", () => {
       await h.click(plus);
       expect(document.body.querySelector('input[placeholder="Email or phone number"]')).toBeNull();
       expect(radio("Voice")!.disabled).toBe(true);
-      expect(reasonOf(radio("Voice"))).toBe(ON_A_CALL_REASON);
+      expect(reasonOf(radio("Voice"))).toBe("Already on a call with Maya Chen");
       expect(radio("SMS")!.disabled).toBe(false);
       await escape();
     }
+  });
+
+  it("the \"+\" is the dial's own guard (P-HOME-1m): Maya Chen held, Voice is allowed in her \"+\"; resumed, it's refused again, naming her", async () => {
+    await setUp("inline");
+    await h.play(MAYA);
+    await h.advance(3_000);
+    await h.click(h.navCard("Maya Chen"));
+    const maya = (await snapshot()).find((i) => i.channel === "voice")!;
+    const setHold = async (onHold: boolean) =>
+      act(async () => {
+        const done = h.provider.hold(maya.id, onHold);
+        await vi.advanceTimersByTimeAsync(300);
+        await done;
+      });
+    await setHold(true);
+    expect((await snapshot()).find((i) => i.id === maya.id)!.state).toBe("held");
+    await h.click(headerPlus());
+    expect(reasonOf(radio("Voice"))).toBeFalsy();
+    expect(radio("Voice")!.disabled).toBe(false);
+    expect(reasonOf(radio("Voice"))).toBeFalsy();
+    await escape();
+    await setHold(false);
+    await h.click(headerPlus());
+    expect(radio("Voice")!.disabled).toBe(true);
+    expect(reasonOf(radio("Voice"))).toBe("Already on a call with Maya Chen");
+    await escape();
   });
 
   it("a directory customer on a call (Alex Miller): header \"+\", nav \"+\", Customers table with the reason; New Outbound disabled", async () => {
@@ -274,7 +308,7 @@ describe("6: one call per customer on every launch path", () => {
     await h.click(h.navCard(alex.name));
     await h.click(headerPlus());
     expect(radio("Voice")!.disabled).toBe(true);
-    expect(reasonOf(radio("Voice"))).toBe(ON_A_CALL_REASON);
+    expect(reasonOf(radio("Voice"))).toBe(`Already on a call with ${alex.name}`);
     await escape();
     await h.click(h.navCard(alex.name).closest("aside")!.querySelector<HTMLElement>('[aria-label="Add Outbound"]')!);
     expect(radio("Voice")!.disabled).toBe(true);
@@ -285,7 +319,7 @@ describe("6: one call per customer on every launch path", () => {
     const row = [...h.container.querySelectorAll<HTMLElement>("table tr")].find((tr) => tr.textContent?.includes("Alex") && tr.textContent?.includes("Miller"))!;
     await h.click(row.querySelector<HTMLElement>('[title="Email"], [aria-label="Email"]')!);
     expect(radio("Voice")!.disabled).toBe(true);
-    expect(reasonOf(radio("Voice"))).toBe(ON_A_CALL_REASON);
+    expect(reasonOf(radio("Voice"))).toBe(`Already on a call with ${alex.name}`);
     await escape();
     // New Outbound (lyra CreateNew: disabled, no per-contact reason yet).
     await h.click([...h.container.querySelectorAll<HTMLElement>("aside button")].find((b) => b.textContent?.includes("New Outbound"))!);

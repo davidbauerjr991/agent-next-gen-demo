@@ -1,6 +1,7 @@
 import type { ChannelType } from "@nicecxone/lyra-ui";
 import type { Interaction as DomainInteraction } from "@/domain";
 import { normalizePhone } from "@/domain";
+import { callerOfInteraction } from "./contact-identity";
 
 /** The reason an add-channel picker gives a channel whose every address for
  *  this customer already has a live thread (P-AIFIRST (k6) 2). */
@@ -35,49 +36,76 @@ export function customerChannelAddresses(record: CustomerAddresses | undefined, 
   return all.filter((a, i) => all.findIndex((b) => sameAddress(a, b)) === i);
 }
 
-/** The reason Voice is disabled while the customer has a call (k8 6). */
-export const ON_A_CALL_REASON = "Already on a call";
-
-/** A call the agent is on with someone: ringing (either way), live or held. */
-const ON_CALL = new Set(["offered", "connecting", "active", "held"]);
-
-/** `{ voice: "Already on a call" }` while the customer has a ringing, live
- *  or held call: the same entity, the same card (a customer with no
- *  directory record, e.g. a scripted case), or the same number. One call
- *  per customer, on every launch path (k8 6). */
-export function onCallReasons(
-  contacts: readonly DomainInteraction[],
-  customer: { entityId?: string; journeyId?: string; addresses?: readonly string[] },
-): Partial<Record<ChannelType, string>> {
-  const onCall = contacts.some(
-    (c) =>
-      c.channel === "voice" &&
-      ON_CALL.has(c.state) &&
-      ((!!customer.entityId && c.entityId === customer.entityId) ||
-        (!!customer.journeyId && c.journeyId === customer.journeyId) ||
-        (!!c.address?.value && (customer.addresses ?? []).some((a) => sameAddress(a, c.address!.value)))),
-  );
-  return onCall ? { voice: ON_A_CALL_REASON } : {};
+/** Who a voice launch would call: the directory entity, if known, and the
+ *  numbers it could dial. */
+export interface CallTarget {
+  entityId?: string;
+  addresses?: readonly string[];
+  /** The card it would join: a customer with no directory record is its card (k8 6). */
+  journeyId?: string;
 }
 
-/** Each channel's addresses that have a live thread for this entity (a call
- *  only counts while on it, as `buildOpenChannelTagger`). */
+/** A voice contact that blocks another call with the same customer: ringing (either way) or live. A held call
+ *  doesn't (auto-hold: the agent may call while others are held, P0.5d.1 row 15; P-HOME-1m). */
+const BLOCKING_CALL_STATES = new Set(["offered", "connecting", "active"]);
+
+/** The one-call-per-customer guard (k8 6), for every launch path — the dial
+ *  (Quick Dial, Redial, the dial pad) and the "+" pickers alike: a ringing or
+ *  live (not held) voice call with the target, if any — the same entity, the
+ *  same card (a customer with no directory record, e.g. a scripted case), or
+ *  the same number. A held call or one in wrap-up doesn't count, and neither
+ *  do digital contacts. */
+export function findCallWith<T extends { channel: string; state: string; entityId?: string; journeyId?: string; address?: { value: string } }>(
+  interactions: readonly T[],
+  target: CallTarget,
+): T | undefined {
+  const numbers = new Set((target.addresses ?? []).map(normalizePhone).filter((n) => n !== ""));
+  return interactions.find(
+    (i) =>
+      i.channel === "voice" &&
+      BLOCKING_CALL_STATES.has(i.state) &&
+      ((!!target.entityId && i.entityId === target.entityId) ||
+        (!!target.journeyId && i.journeyId === target.journeyId) ||
+        (!!i.address && numbers.has(normalizePhone(i.address.value)))),
+  );
+}
+
+/** The guard's message, naming the call that blocked: "Already on a call with Maya Chen" (the dial's warning toast
+ *  and the "+" pickers' Voice reason alike). */
+export function alreadyOnCallMessage(name: string | undefined): string {
+  return name ? `Already on a call with ${name}` : "Already on a call with this customer";
+}
+
+/** `{ voice: "Already on a call with …" }` while `findCallWith` finds a call for the customer, naming that call's
+ *  contact (its name, else its number): the "+" pickers' Voice reason. */
+export function onCallReasons(contacts: readonly DomainInteraction[], customer: CallTarget): Partial<Record<ChannelType, string>> {
+  const call = findCallWith(contacts, customer);
+  if (!call) return {};
+  const caller = callerOfInteraction(call, []);
+  return { voice: alreadyOnCallMessage(caller.name ?? caller.number) };
+}
+
+/** Each channel's addresses that have a live thread for this entity. Voice
+ *  isn't listed: whether a call may start is the one-call guard's
+ *  (`findCallWith`, `onCallReasons`), never lyra's "every address open" rule
+ *  (P-HOME-1m: a held call's number disabled Voice there with no reason). */
 export function liveAddressesFor(contacts: readonly DomainInteraction[], entityId: string | undefined): Partial<Record<ChannelType, string[]>> {
   const open: Partial<Record<ChannelType, string[]>> = {};
   if (!entityId) return open;
   for (const c of contacts) {
-    if (c.entityId !== entityId || !LIVE.has(c.state) || !c.address?.value) continue;
+    if (c.entityId !== entityId || c.channel === "voice" || !LIVE.has(c.state) || !c.address?.value) continue;
     (open[c.channel as ChannelType] ??= []).push(c.address.value);
   }
   return open;
 }
 
 /** A card's live addresses per channel, by its journey (a card with no
- *  directory entity: a scripted case, a history or ad-hoc contact; E3). */
+ *  directory entity: a scripted case, a history or ad-hoc contact; E3). Voice
+ *  isn't listed, as in `liveAddressesFor`. */
 export function liveAddressesForJourney(contacts: readonly DomainInteraction[], journeyId: string): Partial<Record<ChannelType, string[]>> {
   const open: Partial<Record<ChannelType, string[]>> = {};
   for (const c of contacts) {
-    if (c.journeyId !== journeyId || !LIVE.has(c.state) || !c.address?.value) continue;
+    if (c.journeyId !== journeyId || c.channel === "voice" || !LIVE.has(c.state) || !c.address?.value) continue;
     (open[c.channel as ChannelType] ??= []).push(c.address.value);
   }
   return open;
@@ -119,7 +147,7 @@ export function markAlreadyOpen<C extends TaggableContact>(contact: C, reasons: 
 /** `{ [channel]: "Already open" }` for every channel with a live thread and
  *  no unused address of the customer's for it (an unknown customer: any
  *  live thread). Voice is left to the call rules (one call per customer,
- *  `isOnCallWith`). */
+ *  `findCallWith`). */
 export function alreadyOpenReasons(record: CustomerAddresses | undefined, open: Partial<Record<ChannelType, string[]>>): Partial<Record<ChannelType, string>> {
   const reasons: Partial<Record<ChannelType, string>> = {};
   for (const channel of Object.keys(open) as ChannelType[]) {

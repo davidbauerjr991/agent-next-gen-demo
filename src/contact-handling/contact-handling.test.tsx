@@ -17,12 +17,13 @@ import type { ContactHistoryEntry } from "@/components/agent-next-gen-contact-hi
 import { INITIAL_NOTIFICATIONS } from "@/components/agent-next-gen-interaction-dashboard";
 import { waitFor } from "@/contract-tests/event-recorder";
 import type { ProviderSet } from "@/providers";
-import { ProviderRoot } from "@/provider-context";
+import { ProviderRoot, useInteractions } from "@/provider-context";
 import { useContactActivation, type Activation } from "./useContactActivation";
 import { useContactCommands } from "./useContactCommands";
 import { useContactReopen } from "./useContactReopen";
 import { useNavCards } from "./useNavCards";
-import { alreadyOnCallMessage, useOutboundDial } from "./useOutboundDial";
+import { useOutboundDial } from "./useOutboundDial";
+import { alreadyOnCallMessage, onCallReasons } from "./already-open";
 import { buildOpenChannelTagger } from "./open-channel-tagger";
 import { callerOfInteraction, declinedCallMessage } from "./contact-identity";
 import type { Interaction as DomainInteraction } from "@/domain";
@@ -40,6 +41,7 @@ interface Api {
   dial: ReturnType<typeof useOutboundDial>;
   reopen: ReturnType<typeof useContactReopen>;
   commands: ReturnType<typeof useContactCommands>;
+  contacts: ReturnType<typeof useInteractions>;
 }
 
 describe("contact handling", () => {
@@ -85,7 +87,8 @@ describe("contact handling", () => {
     });
     const reopen = useContactReopen({ findOpenCard: nav.findOpenCard, activateWhenReady, skillIdForName: () => undefined });
     const commands = useContactCommands({ cards: nav.cards });
-    api = { cards: nav.cards, setCards: nav.setCards, dial, reopen, commands };
+    const contacts = useInteractions();
+    api = { cards: nav.cards, setCards: nav.setCards, dial, reopen, commands, contacts };
     return null;
   }
 
@@ -298,12 +301,13 @@ describe("contact handling", () => {
     expect(refused).toBe(3);
   });
 
-  it("one call per customer: Redial and Quick Dial are blocked only while that customer's call is ringing or live (not held); the '+' voice option while live or held", async () => {
+  it("one call per customer, one guard: Redial, Quick Dial, New Outbound and the '+' voice option are blocked only while that customer's call is ringing or live, never while it's held", async () => {
     const entry = { id: "h1", name: customer.name, caseId: "CASE-H1", customerId: customer.id, channelType: "voice", direction: "outbound", statusLabel: "Resolved" } as ContactHistoryEntry;
     const other = CREATE_NEW_CUSTOMERS.find((c) => c.id !== customer.id)!;
     const otherEntry = { ...entry, id: "h2", name: other.name, customerId: other.id };
     const plusVoiceBlocked = () =>
-      !!buildOpenChannelTagger(api.cards)({ id: customer.id, name: customer.name, channels: ["voice", "sms"] } as never).openChannelTypes?.includes("voice");
+      !!buildOpenChannelTagger(api.cards, api.contacts)({ id: customer.id, name: customer.name, channels: ["voice", "sms"] } as never).openChannelTypes?.includes("voice");
+    const plusVoiceReason = () => onCallReasons(api.contacts, { entityId: customer.id }).voice;
 
     // Digital only: nothing blocked.
     act(() => api.dial.startCall({ contact, channel: "sms", phone: "+15550001111", skillId: "general" }));
@@ -318,6 +322,8 @@ describe("contact handling", () => {
     expect(api.dial.redialBlocked(entry)).toBe(true);
     expect(api.dial.redialBlocked(otherEntry)).toBe(false);
     expect(plusVoiceBlocked()).toBe(true);
+    // The "+" reason names the live call, in the dial's own words.
+    expect(plusVoiceReason()).toBe(`Already on a call with ${customer.name}`);
     // A typed Quick Dial of the same number is refused, with no new call.
     const placed = activations.length;
     act(() => api.dial.quickDial(number, "general"));
@@ -333,21 +339,23 @@ describe("contact handling", () => {
     expect(alreadyOnCall).toBe(2);
     expect(alreadyOnCallMessage(callerOfInteraction(alreadyOnCallWith!, api.cards).name)).toBe(`Already on a call with ${customer.name}`);
 
-    // Held: the dial guard lets the call through (auto-hold: a held call doesn't block, P-HOME-1m); the "+"
-    // picker's Voice option still reads the customer as on a call (k8 6's `onCallReasons`).
+    // Held: nothing blocks — the dial, New Outbound and the "+" are one guard, and a held call isn't on it
+    // (auto-hold, P-HOME-1m).
     const voice = () => api.cards[0].threads.find((t) => t.type === "voice")!;
     act(() => {
       api.commands.setHold(voice(), true);
     });
     await until(() => !!voice().heldByAgent, "held");
     expect(api.dial.redialBlocked(entry)).toBe(false);
-    expect(plusVoiceBlocked()).toBe(true);
-    // Resumed: blocked again.
+    expect(plusVoiceBlocked()).toBe(false);
+    expect(plusVoiceReason()).toBeUndefined();
+    // Resumed: blocked again, everywhere.
     act(() => {
       api.commands.setHold(voice(), false);
     });
     await until(() => !voice().heldByAgent, "resumed");
     expect(api.dial.redialBlocked(entry)).toBe(true);
+    expect(plusVoiceBlocked()).toBe(true);
 
     // Wrap-up: free again.
     act(() => {
