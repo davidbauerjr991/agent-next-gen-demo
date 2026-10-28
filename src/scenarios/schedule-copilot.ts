@@ -79,6 +79,8 @@ const SCRIPTS: Readonly<Record<string, ScheduleCopilotScript>> = {
 
 const BY_KIND: Readonly<Partial<Record<AssignmentKind, ScheduleCopilotScript>>> = {
   callback: { suggestions: ["Why did they ask for a callback?", "Draft my opening line"], answers: {} },
+  // A supervisor's escalation (P-HOME-1m): a review surface, so its questions are about the conversation.
+  conversation: { suggestions: ["Summarize the conversation so far", "Why was this escalated?", "What should I tell the agent?"], answers: {} },
   task: { suggestions: ["What's blocking this?", "Draft the resolution note"], answers: {} },
   meeting: { suggestions: ["What should I raise?", "Summarize the agenda"], answers: {} },
   training: { suggestions: ["What does this module cover?"], answers: {} },

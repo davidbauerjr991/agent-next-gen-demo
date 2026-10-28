@@ -621,4 +621,27 @@ describe("persona", () => {
     expect(rowNamed("Callback · Priya Shah")).toBeDefined();
     expect(h.container.querySelector('[data-home-section="dueSoon"]')).not.toBeNull();
   });
+
+  it("the supervisor's escalation (Lauren Briggs): the avatar and Contact Details, no \"+\" (a review, not a working item); the conversation's Copilot chips", async () => {
+    await showHome();
+    const store = getSettingsStore();
+    await act(async () => {
+      store.updateMany({ workspace: { persona: "supervisor" }, home: { sections: withPersonaSections(store.getState().values.home.sections, "supervisor") } });
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    await h.click(rowNamed("Escalation · Lauren Briggs")!);
+    await h.click([...document.querySelectorAll<HTMLButtonElement>("[data-home-detail=item] button")].find((b) => b.textContent?.trim() === "Accept")!);
+    await h.advance(300);
+    expect(cell()?.getAttribute("data-kind-cell")).toBe("conversation");
+    const header = cell()!.querySelector<HTMLElement>('[data-slot="record-header"]')!;
+    expect(header.querySelector("h1")?.textContent).toBe("Lauren Briggs");
+    expect(header.querySelector("[data-kind-avatar]")?.textContent).toBe("LB");
+    expect(header.querySelector("[data-kind-contact-details]")).not.toBeNull();
+    expect(header.querySelector('[data-slot="header-add-channel"]')).toBeNull();
+    // The composer shows what fits (the refresh rotates the rest): the visible chips are the escalation's own.
+    const escalationChips = ["Summarize the conversation so far", "Why was this escalated?", "What should I tell the agent?"];
+    const chips = [...cell()!.querySelectorAll("[data-slot=copilot-chips] [role=button]")].map((c) => c.textContent?.trim());
+    expect(chips.length).toBeGreaterThan(0);
+    for (const chip of chips) expect(escalationChips).toContain(chip);
+  });
 });
