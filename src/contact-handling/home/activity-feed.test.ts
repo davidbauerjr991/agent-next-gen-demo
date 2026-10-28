@@ -53,12 +53,13 @@ describe("buildFeed", () => {
     const items = seedScheduleDay("supervisor", NOW);
     const feed = buildFeed(input({ scheduleItems: items, kinds: PERSONA_KINDS.supervisor }));
     expect(titles(feed.needsDecision)).toEqual(["Tom Lewis · Voice", "Escalation · Lauren Briggs · Voice"]);
-    expect(feed.now.concat(feed.today, feed.thisWeek).some((r) => r.status === "offered")).toBe(false);
+    expect(feed.today.concat(feed.thisWeek).some((r) => r.status === "offered")).toBe(false);
   });
 
-  it("groups scheduled rows into Now / Today / This week, with no Completed-today group", () => {
+  it("groups scheduled rows into Today / This week, with no Now or Completed-today group (P-HOME-1m)", () => {
     const feed = buildFeed(input());
-    expect(titles(feed.now)).toEqual([]);
+    expect(Object.keys(feed)).not.toContain("now");
+    expect(Object.keys(feed.counts)).not.toContain("now");
     expect(titles(feed.today)).toEqual([
       "Callback · Priya Shah",
       "Returns team stand-up",
@@ -72,9 +73,9 @@ describe("buildFeed", () => {
     expect(feed.today.concat(feed.thisWeek).every((r) => r.status === "scheduled")).toBe(true);
   });
 
-  it("puts an overdue scheduled row in Now", () => {
+  it("puts an overdue scheduled row first in Today", () => {
     const late: ScheduleItem = { ...seedScheduleDay("agent", NOW)[0]!, id: "late", title: "Late callback", dueAt: NOW - 5 * MIN };
-    expect(titles(buildFeed(input({ scheduleItems: [late] })).now)).toEqual(["Late callback"]);
+    expect(titles(buildFeed(input({ scheduleItems: [...seedScheduleDay("agent", NOW), late] })).today)[0]).toBe("Late callback");
   });
 
   it("an opened item isn't History (History keeps completed items only)", () => {
@@ -151,12 +152,12 @@ describe("buildFeed", () => {
 
     const history = buildFeed(input({ view: "history" }));
     expect([history.showAssignments, history.showHistory]).toEqual([false, true]);
-    expect(history.needsDecision.concat(history.now, history.today, history.thisWeek)).toEqual([]);
+    expect(history.needsDecision.concat(history.today, history.thisWeek)).toEqual([]);
   });
 
   it("counts the groups whatever the view shows", () => {
     const { counts } = buildFeed(input({ view: "history" }));
-    expect(counts).toEqual({ needsDecision: 1, now: 0, today: 5, thisWeek: 3, later: 1, assignments: 9, unread: 0, parked: 0, history: 1 });
+    expect(counts).toEqual({ needsDecision: 1, today: 5, thisWeek: 3, later: 1, assignments: 9, unread: 0, parked: 0, history: 1 });
   });
 
   it("unread (P-HOME-1k): the rows the predicate reads as new; the Assignments count's rows and each kind's, whatever the chips pick", () => {

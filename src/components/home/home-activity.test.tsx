@@ -432,7 +432,7 @@ describe("Activity feed on Home", () => {
     expect(offer.className).toContain("bg-lyra-state-hover");
   });
 
-  it("an item the schedule source adds after load is unread, counted (badge 1), and raises the arrival banner; View opens it", async () => {
+  it("an item the schedule source adds after load is unread in its time group, counted (badge 1), and raises the arrival banner; View opens its row's preview", async () => {
     turnOn();
     await showHome();
     const [template] = seedScheduleDay("agent", Date.now());
@@ -446,9 +446,27 @@ describe("Activity feed on Home", () => {
     expect(feed().querySelector("[data-feed-views] [data-feed-unread]")?.textContent).toBe("1 new");
     const banner = feed().querySelector<HTMLElement>("[data-feed-arrivals]")!;
     expect(banner.textContent).toContain("New assignment · Ana Lopez · Callback");
+    // Due in 45 minutes: Today's (there is no Now group).
+    expect(row.closest("[data-feed-group]")?.getAttribute("data-feed-group")).toBe("Today");
     await h.click([...banner.querySelectorAll<HTMLElement>("a, button")].find((b) => b.textContent?.trim() === "View")!);
     await h.advance(100);
-    expect(h.container.querySelector("[data-kind-cell]")?.getAttribute("data-kind-cell")).toBe("callback");
+    // The feed row's preview, not the item opened: it stays on Home, read.
+    expect(h.container.querySelector("[data-kind-cell]")).toBeNull();
+    expect(document.querySelector("[data-home-detail=item]")?.getAttribute("data-schedule-item")).toBe("added-callback");
+    expect(rowNamed("Callback · Ana Lopez")!.getAttribute("data-unread")).not.toBe("true");
+    expect(feed().querySelector("[data-feed-arrivals]")).toBeNull();
+  });
+
+  it("conversations are the rail's (P-HOME-1m): a routed one is in the rail, not the feed; no Now group renders", async () => {
+    turnOn();
+    await showHome();
+    await h.goAvailable();
+    const id = await h.startInbound("voice", "+15555550177", "Rae Kim");
+    await h.accept(id);
+    await h.advance(300);
+    expect(h.navCard("Rae Kim")).toBeTruthy();
+    expect(rowNamed("Rae Kim")).toBeUndefined();
+    expect([...feed().querySelectorAll("[data-feed-group]")].map((g) => g.getAttribute("data-feed-group"))).not.toContain("Now");
   });
 
   it("a persona switch re-seeds its day as read", async () => {

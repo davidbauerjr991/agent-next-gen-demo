@@ -9,8 +9,10 @@
 // (3) History is a view, not a group: Contact History's entries in its range
 //     (P-HOME-1h: the same entries, order and times as the card), with
 //     completed schedule items of other kinds merged in by completion time.
-//     The time groups are Now / Today / This week / Later (past the week; no
-//     range control since 1m); there is no Completed-today group.
+//     The time groups are Today (overdue included) / This week / Later (past
+//     the week; no range control, and no Now group, since 1m); there is no
+//     Completed-today group. Conversations are the rail's, never feed rows;
+//     only their offers are (Needs a decision).
 import { assignmentIdFor, scheduleCardKey, type AssignmentId, type AssignmentKind, type ChannelKind, type EpochMs } from "@/domain";
 import type { ScheduleItem } from "@/providers";
 import { DAY_MS, startOfDay } from "./time";
@@ -73,7 +75,7 @@ export interface FeedInput {
 
 export interface Feed {
   needsDecision: FeedRow[];
-  now: FeedRow[];
+  /** Due before tonight, overdue included (P-HOME-1m: there is no Now group). */
   today: FeedRow[];
   thisWeek: FeedRow[];
   /** Past the week (collapsed until the agent opens it). */
@@ -87,7 +89,6 @@ export interface Feed {
   showHistory: boolean;
   counts: {
     needsDecision: number;
-    now: number;
     today: number;
     thisWeek: number;
     later: number;
@@ -151,8 +152,8 @@ export function buildFeed(input: FeedInput): Feed {
   const endOfToday = startOfDay(now) + DAY_MS;
   const endOfWeek = endOfToday + 6 * DAY_MS;
   const due = (r: FeedRow) => r.at ?? 0;
-  const nowRows = scheduled.filter((r) => due(r) <= now);
-  const today = scheduled.filter((r) => due(r) > now && due(r) < endOfToday);
+  // No Now group (P-HOME-1m): Today is everything due before tonight, overdue included, nearest first.
+  const today = scheduled.filter((r) => due(r) < endOfToday);
   const thisWeek = scheduled.filter((r) => due(r) >= endOfToday && due(r) < endOfWeek);
   const later = scheduled.filter((r) => due(r) >= endOfWeek);
 
@@ -171,14 +172,13 @@ export function buildFeed(input: FeedInput): Feed {
   for (const r of personaItems.filter(inTimeGroups).map(asOpen)) {
     if (r.unread && r.status === "scheduled") unreadByKind[r.kind] = (unreadByKind[r.kind] ?? 0) + 1;
   }
-  const assignmentRows = [...nowRows, ...today, ...thisWeek, ...later];
+  const assignmentRows = [...today, ...thisWeek, ...later];
 
   const showHistory = view === "history";
   const showParked = view === "parked";
   const showAssignments = view === "assignments";
   return {
     needsDecision: showAssignments ? needsDecision : [],
-    now: showAssignments ? nowRows : [],
     today: showAssignments ? today : [],
     thisWeek: showAssignments ? thisWeek : [],
     later: showAssignments ? later : [],
@@ -189,11 +189,10 @@ export function buildFeed(input: FeedInput): Feed {
     showHistory,
     counts: {
       needsDecision: needsDecision.length,
-      now: nowRows.length,
       today: today.length,
       thisWeek: thisWeek.length,
       later: later.length,
-      assignments: nowRows.length + today.length + thisWeek.length + later.length,
+      assignments: assignmentRows.length,
       unread: assignmentRows.filter((r) => r.unread && r.status === "scheduled").length,
       parked: parked.length,
       history: history.length,

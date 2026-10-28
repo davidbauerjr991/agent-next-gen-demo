@@ -3,8 +3,10 @@
 // (delivered, auto-answered) by a provider event after the workspace loaded,
 // and wasn't there when it loaded; a ringing offer is Needs a decision, and
 // accepting it isn't an arrival, nor is a call the agent dials, a held call
-// resuming or a reopened contact. It leaves the banner when viewed (it
-// becomes the active card, so it isn't new anymore) or dismissed. Cards are
+// resuming or a reopened contact. A schedule item added after its day was
+// listed is one too. It leaves the banner when viewed (a contact's View opens
+// its rail card; an item's opens its feed row's preview, which reads it) or
+// dismissed. Cards are
 // keyed by journey (useNavCards). The workspace's toasts (useAssignmentToasts)
 // have no arrival event yet: they raise on messages and due callbacks.
 import { useCallback, useEffect, useMemo, useRef } from "react";
@@ -13,7 +15,6 @@ import { useInteractionProvider, useInteractions, useScheduleProvider, useSchedu
 import { useWorkspaceUiField } from "../workspace-ui-store";
 import { useWorkspace } from "../workspace/WorkspaceContext";
 import { CHANNEL_NAMES } from "./channel-names";
-import { useOpenScheduleItem } from "./useActivityFeed";
 import { kindLabel } from "@/components/home/home-kinds";
 import { t } from "@/i18n";
 
@@ -80,10 +81,13 @@ export interface AssignmentArrival {
 
 /** The banner's arrivals (still new: not yet the active card), newest first, with View and Dismiss. */
 export function useAssignmentArrivals(): { arrivals: AssignmentArrival[]; view: (id: string) => void; dismiss: () => void } {
-  const { interactions, isNewAssignment, switchActiveInteraction } = useWorkspace();
+  const { interactions, isNewAssignment, switchActiveInteraction, setSelectedQueueId, setInteriorPanelOpen, setSelectedContactHistoryEntry } =
+    useWorkspace();
   const snapshot = useScheduleSnapshot();
-  const openScheduleItem = useOpenScheduleItem();
   const [ids, setArrivals] = useWorkspaceUiField("homeArrivals");
+  const [, setView] = useWorkspaceUiField("activityView");
+  const [, setPreview] = useWorkspaceUiField("homePreview");
+  const [, setPreviewed] = useWorkspaceUiField("previewedAssignments");
   const arrivals = useMemo(
     () =>
       [...ids]
@@ -108,10 +112,17 @@ export function useAssignmentArrivals(): { arrivals: AssignmentArrival[]; view: 
     (id: string) => {
       setArrivals((prev) => prev.filter((x) => x !== id));
       const itemId = scheduleItemIdOf(id);
-      if (itemId) openScheduleItem(itemId);
-      else switchActiveInteraction(id);
+      if (!itemId) return switchActiveInteraction(id);
+      // A schedule item opens its feed row's preview (as the row's click does), in the Assignments view; previewing
+      // reads it.
+      setView("assignments");
+      setSelectedQueueId(null);
+      setInteriorPanelOpen(false);
+      setSelectedContactHistoryEntry(null);
+      setPreview({ type: "schedule", itemId });
+      setPreviewed((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
     },
-    [setArrivals, switchActiveInteraction, openScheduleItem],
+    [setArrivals, switchActiveInteraction, setView, setSelectedQueueId, setInteriorPanelOpen, setSelectedContactHistoryEntry, setPreview, setPreviewed],
   );
   const dismiss = useCallback(() => setArrivals([]), [setArrivals]);
   return { arrivals, view, dismiss };

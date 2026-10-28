@@ -179,7 +179,6 @@ export function ActivityFeed() {
           </div>
         </div>
       </div>
-      <FeedGroup title={t("Now")} rows={feed.now} now={now} api={api} />
       <FeedGroup title={t("Today")} rows={feed.today} now={now} api={api} />
       <FeedGroup title={t("This week")} rows={feed.thisWeek} now={now} api={api} />
       <FeedGroup title={t("Later")} rows={feed.later} now={now} api={api} collapsible />
