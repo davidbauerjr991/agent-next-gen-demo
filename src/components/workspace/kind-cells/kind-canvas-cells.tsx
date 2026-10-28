@@ -10,7 +10,10 @@ import { scheduleCardKey } from "@/domain";
 import { journeySummaryFor } from "@/contact-handling/journey-summary";
 import { useAssignmentCardOpen } from "@/contact-handling/reference-cards";
 import { feedTimeLabel } from "@/contact-handling/home/time";
-import { useActiveScheduleItem } from "@/contact-handling/home/useScheduleCards";
+import { useActiveScheduleItem, useScheduleItemCustomer } from "@/contact-handling/home/useScheduleCards";
+import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
+import { buildCustomerContextOverviewInfo } from "@/components/agent-next-gen-shared-utils";
+import { CustomerInfoCard } from "@/components/ai-cards/CustomerInfoCard";
 import type { CanvasCell } from "@/contact-handling/canvas-registry";
 import type { ScheduleItem } from "@/providers";
 import { JourneySummaryCard } from "@/components/ai-cards/JourneySummaryCard";
@@ -85,12 +88,35 @@ function KindRelatedCell() {
   );
 }
 
+/** The item's customer through the directory (P-HOME-1m): their record's identity block, or, unmatched, Link to
+ *  existing customer (the directory picker in the slide-over); View customer info opens the record there too. */
+function KindCustomerInfoCell() {
+  const item = useActiveScheduleItem();
+  const accordion = useOpen(item, "kind-customer");
+  const customer = useScheduleItemCustomer(item);
+  const { openDetailPanelContent } = useWorkspace();
+  if (!item || !customer) return null;
+  const entityId = customer.entityId;
+  const card = entityId ? buildCustomerContextOverviewInfo(entityId, customer.name, true, true).customerCard : undefined;
+  return (
+    <CustomerInfoCard
+      customerName={customer.name}
+      customerCard={card}
+      onViewCustomerInfo={entityId ? () => openDetailPanelContent({ kind: "customer-record", entityId }) : undefined}
+      onLinkCustomer={entityId ? undefined : () => openDetailPanelContent({ kind: "link-customer", itemId: item.id })}
+      {...accordion}
+    />
+  );
+}
+
+/** The real Journey Summary: the customer's, from their record when they have one. */
 function KindJourneyCell() {
   const item = useActiveScheduleItem();
   const accordion = useOpen(item, "kind-journey");
+  const customer = useScheduleItemCustomer(item);
   const [channels] = useSettings("channels");
-  if (!item?.customer) return null;
-  const journey = journeySummaryFor({ customerName: item.customer.name, customerId: item.customer.entityId, channels });
+  if (!customer) return null;
+  const journey = journeySummaryFor({ customerName: customer.name, customerId: customer.entityId, channels });
   return <JourneySummaryCard journey={journey} lookingUp={false} {...accordion} />;
 }
 
@@ -98,4 +124,5 @@ export const KIND_CANVAS_CELLS: readonly CanvasCell[] = [
   { id: "kind-summary", region: "reference", order: 10, component: KindSummaryCell, context: "kind" },
   { id: "kind-related", region: "reference", order: 20, component: KindRelatedCell, context: "kind" },
   { id: "kind-journey", region: "reference", order: 30, component: KindJourneyCell, context: "kind" },
+  { id: "kind-customer", region: "reference", order: 40, component: KindCustomerInfoCell, context: "kind" },
 ];

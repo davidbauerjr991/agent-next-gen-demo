@@ -282,6 +282,26 @@ describe("a slide-over takes the reference slot (inline and main)", () => {
     });
   }
 
+  it("Link to existing customer opens the directory picker in the slide-over; linking names the card from the record (P-HOME-1m)", async () => {
+    await open({ displayLocation: "inline", canvasLayout: "twoColumn" });
+    await CASES.dialed();
+    await h.click(linkCustomer()!);
+    await h.advance(100);
+    const picker = slideOver()!.querySelector<HTMLElement>("[data-slot=link-customer]")!;
+    expect(picker).not.toBeNull();
+    const input = picker.querySelector("input")!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Nathan");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(10);
+    });
+    const nathan = [...picker.querySelectorAll<HTMLElement>("p")].find((p) => p.textContent === "Nathan Cole")!;
+    await h.click([...nathan.closest("div.group")!.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === "Link To Record")!);
+    await h.advance(500);
+    expect(h.navCard("Nathan Cole")).toBeTruthy();
+    expect(linkCustomer()).toBeUndefined();
+  });
+
   it("each assignment keeps its own slide-over: the panel, full screen and width come back with it; another assignment has nothing open", async () => {
     await open({ displayLocation: "inline", canvasLayout: "twoColumn" });
     await h.play(MAYA_CHEN_SCRIPT.id);

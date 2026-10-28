@@ -67,7 +67,7 @@ export function useWsHeaderApps(prev: WsOutbound) {
     panelArtifacts, panelHeight, panelMounted, panelOpen, panelRef, panelVariant,
     panelWidth, pinnedKeys, reopenPanelArtifact, scenarioCases, scenarioKeyOf, scheduleContent, screenPopContent,
     selectedDetailPanelContent, sessionDetailsTabContent, setActivePanelKey, setCustomerInfoPreviewOpen,
-    setCustomerPanelActiveTab, setLeftNavPage, setLinkCustomerPanelOpen, setNarrowActiveRegion, setPanelFullScreen,
+    setCustomerPanelActiveTab, setLeftNavPage, setNarrowActiveRegion, setPanelFullScreen,
     setPanelIsResizing, setPanelOpen, setPanelWidth, setSelectedDetailPanelContent, setShowAllContacts,
     setShowSettings, setSidePanelOpen, showAllContacts, showSettings, switchActiveInteraction,
     togglePinnedKey, focusCustomerPanelTab, handleLinkCustomerFromPreview, isHistoryConversationView,
@@ -869,8 +869,10 @@ export function useWsHeaderApps(prev: WsOutbound) {
       customerName: activeInteraction.customerName,
       customerContextOverview: customerContextOverviewInfo,
       onViewCustomerInfo: activeInteractionIsRealCustomer ? focusCustomerPanelTab : undefined,
-      // The on-demand search/create-new overlay (`linkCustomerPanelOpen`); nothing to link once matched.
-      onLinkCustomer: activeInteractionIsRealCustomer ? undefined : inPreview ? handleLinkCustomerFromPreview : () => setLinkCustomerPanelOpen(true),
+      // Nothing to link once matched. The hover preview arms the docked panel's match overlay; the reference column
+      // opens the directory picker in its own slide-over (P-HOME-1m: the docked overlay only renders while the
+      // docked panel is open, which a canvas layout's reference column never opens).
+      onLinkCustomer: activeInteractionIsRealCustomer ? undefined : inPreview ? handleLinkCustomerFromPreview : () => openDetailPanelContent({ kind: "link-customer" }),
     };
   };
   const referenceCardProps = referenceCardPropsFor(false);

@@ -91,7 +91,7 @@ describe("the registry", () => {
         .sort((a, b) => a.order - b.order)
         .map((c) => c.id);
     expect(reference("conversation")).toEqual(["real-time-summary", "journey-summary", "customer-info"]);
-    expect(reference("kind")).toEqual(["kind-summary", "kind-related", "kind-journey"]);
+    expect(reference("kind")).toEqual(["kind-summary", "kind-related", "kind-journey", "kind-customer"]);
   });
 });
 

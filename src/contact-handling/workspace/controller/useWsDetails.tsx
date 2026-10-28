@@ -36,6 +36,7 @@ import { visibleNotifications } from "@/contact-handling/notification-gates";
 import { touchedThreadKey, useParkedSeedIds, useTouchedWhileShown } from "@/contact-handling/touched-threads";
 import { resolveActiveChannelDateTimeLabel, resolveInteractionLastCustomerResponseLabel } from "@/contact-handling/workspace/active-channel-labels";
 import { LUCAS_THOMAS_COPILOT_SUGGESTION_LINKS, TOM_LEWIS_CALL_COPILOT_LINKS, MAYA_CHEN_CALL_COPILOT_LINKS } from "@/components/workspace/workspace-constants";
+import { t } from "@/i18n";
 import type { WorkspaceLate } from "./workspace-late";
 import type { WsCards } from "./useWsCards";
 
@@ -690,6 +691,8 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
       case "tom-call": return `tom-call:${c.panel}`;
       case "lucas-order": return `lucas-order:${c.orderId}`;
       case "session": return "session";
+      case "customer-record": return `customer-record:${c.entityId}`;
+      case "link-customer": return "link-customer";
     }
   };
   const detailPanelArtifactLabel = (c: DetailPanelContent): string => {
@@ -704,13 +707,17 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
       case "tom-call": return TOM_LEWIS_CALL_PANEL_TITLES[c.panel].title;
       case "lucas-order": return `Order ${LUCAS_THOMAS_ORDER_DETAILS[c.orderId].item}`;
       case "session": return "Session Details";
+      case "customer-record": return customerDirectoryPool.find((r) => r.id === c.entityId)?.name ?? t("Contact Details");
+      case "link-customer": return t("Link to existing customer");
     }
   };
   const [panelArtifactsByInteraction, setPanelArtifactsByInteraction] = useWorkspaceUiField("artifactsByCard");
   useEffect(() => {
     if (!activeInteractionId || !selectedDetailPanelContent) return;
-    // Experience Memory lives in the docked side panel, so it is never listed as an artifact.
-    if (selectedDetailPanelContent.kind === "lucas-memory" || selectedDetailPanelContent.kind === "session") return;
+    // Experience Memory lives in the docked side panel, so it is never listed as an artifact; nor is the link
+    // picker, a step rather than something to reopen.
+    const { kind } = selectedDetailPanelContent;
+    if (kind === "lucas-memory" || kind === "session" || kind === "link-customer") return;
     const content = selectedDetailPanelContent;
     const id = detailPanelArtifactKey(content);
     setPanelArtifactsByInteraction((prev) => {

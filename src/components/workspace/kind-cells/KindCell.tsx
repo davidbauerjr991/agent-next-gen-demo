@@ -11,9 +11,11 @@
 // with its slide-over; the action area ends with the Copilot input, whose
 // answers are scoped to the item (src/scenarios/schedule-copilot.ts).
 import { createPortal } from "react-dom";
-import { ActionIconButton, PageHeader, Tag } from "@nicecxone/lyra-ui";
-import { ArrowLeft, Clock } from "lucide-react";
+import { ActionIconButton, Avatar, Button, PageHeader, Tag } from "@nicecxone/lyra-ui";
+import { ArrowLeft, Clock, IdCard } from "lucide-react";
+import { initialsFor } from "@/components/agent-next-gen-shared-utils";
 import { KindTag } from "@/components/home/home-kinds";
+import { useScheduleItemCustomer } from "@/contact-handling/home/useScheduleCards";
 import { useDetailSlideOverPanel } from "@/components/workspace/detail-slide-over-parts";
 import { ReferenceSlotFrame } from "@/components/workspace/ReferenceSlot";
 import { ReferenceOverlayToggle } from "@/components/workspace/SummariesToggle";
@@ -69,8 +71,35 @@ function KindSessionRow({ item }: { item: ScheduleItem }) {
   );
 }
 
+/** The customer's header pieces (P-HOME-1m), for any item with a customer: the "+" add-channel picker (a known
+ *  customer, on a working item — not a supervisor's escalation, a review surface like Lucas's) and Contact Details,
+ *  the record in the reference-slot slide-over (toggled). */
+function KindCustomerActions({ item }: { item: ScheduleItem }) {
+  const { getHeaderAction, openDetailPanelContent, selectedDetailPanelContent, setSelectedDetailPanelContent } = useWorkspace();
+  const customer = useScheduleItemCustomer(item);
+  if (!customer?.entityId) return null;
+  const entityId = customer.entityId;
+  const showing = selectedDetailPanelContent?.kind === "customer-record" && selectedDetailPanelContent.entityId === entityId;
+  return (
+    <>
+      {item.kind !== "conversation" && <span data-slot="header-add-channel" className="inline-flex">{getHeaderAction(entityId)}</span>}
+      <Button
+        variant="ghost"
+        size="sm"
+        aria-pressed={showing}
+        data-kind-contact-details=""
+        onClick={() => (showing ? setSelectedDetailPanelContent(null) : openDetailPanelContent({ kind: "customer-record", entityId }))}
+      >
+        <IdCard className="h-4 w-4" strokeWidth={1.5} />
+        {t("Contact Details")}
+      </Button>
+    </>
+  );
+}
+
 export function KindCell({ item }: { item: ScheduleItem }) {
   const { sessionRowHost, switchActiveInteraction, selectedDetailPanelContent } = useWorkspace();
+  const customer = useScheduleItemCustomer(item);
   const [, setKindCellShownFor] = useWorkspaceUiField("kindCellShownFor");
   const regions = useKindCanvasRegions();
   // Always the reference slot: a kind cell has no docked Contact Details for the slide-over to open in instead.
@@ -89,17 +118,30 @@ export function KindCell({ item }: { item: ScheduleItem }) {
     >
       <div data-slot="record-header" className="shrink-0">
         <PageHeader
-          title={item.customer?.name ?? item.title}
+          title={customer?.name ?? item.title}
           subtitle={subjectLine(item)}
           bordered={false}
           compact
           icon={
-            <ActionIconButton title={t("Back to Home")} onClick={backHome} data-kind-back="">
-              <ArrowLeft className="h-4 w-4" strokeWidth={1.5} />
-            </ActionIconButton>
+            <span className="flex items-center gap-2">
+              <ActionIconButton title={t("Back to Home")} onClick={backHome} data-kind-back="">
+                <ArrowLeft className="h-4 w-4" strokeWidth={1.5} />
+              </ActionIconButton>
+              {/* The customer's avatar, as a conversation's record header shows it (P-HOME-1m). */}
+              {customer && (
+                <span className="inline-flex" data-kind-avatar="">
+                  <Avatar initials={customer.entityId ? initialsFor(customer.name) : undefined} color={customer.entityId ? "primary" : "shell"} size="md" />
+                </span>
+              )}
+            </span>
           }
           iconDivider={false}
-          actions={<ReferenceOverlayToggle label={t("Summaries")} hidden={!!selectedDetailPanelContent} />}
+          actions={
+            <div className="flex items-center gap-1">
+              <KindCustomerActions item={item} />
+              <ReferenceOverlayToggle label={t("Summaries")} hidden={!!selectedDetailPanelContent} />
+            </div>
+          }
         />
         <HostSlot host={sessionRowHost} data-slot="record-session-row" />
       </div>

@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import type { ReferenceSlotPanel } from "@/components/workspace/ReferenceSlot";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { CopilotResultPanelBody } from "@/components/copilot-result-panel";
+import { CustomerRecordBody, LinkCustomerBody } from "./customer-slide-over";
+import { t } from "@/i18n";
 import { KnowledgeArticleDetailPanelBody, KnowledgeArticleLinkDetailBody } from "@/components/agent-next-gen-knowledge-article-card";
 import {
   LUCAS_THOMAS_ORDER_DETAILS,
@@ -44,12 +46,16 @@ export function useDetailSlideOverPanel({ wanted, assignmentKey }: { wanted: boo
 }
 
 export function useDetailSlideOverParts(): DetailSlideOverParts {
-  const { channelPreviewMeta, lastDetailPanelContent: content, sessionDetailsTabContent, setSelectedDetailPanelContent } =
+  const { channelPreviewMeta, findDirectoryCustomer, lastDetailPanelContent: content, sessionDetailsTabContent, setSelectedDetailPanelContent } =
     useWorkspace();
   const registered = content?.kind === "registry" ? slideOverEntry(content.caseKey, content.panel) : undefined;
   const headerTitle =
     content?.kind === "session"
       ? "Session Details"
+      : content?.kind === "customer-record"
+      ? (findDirectoryCustomer(content.entityId)?.name ?? t("Contact Details"))
+      : content?.kind === "link-customer"
+      ? t("Link to existing customer")
       : content?.kind === "registry"
       ? registered?.title(content)
       : content?.kind === "article"
@@ -116,6 +122,8 @@ export function useDetailSlideOverParts(): DetailSlideOverParts {
         <LucasThomasInstructionPanelBody decision={content.decision} text={content.text} time={content.time} />
       )}
       {content?.kind === "copilot-result" && <CopilotResultPanelBody text={content.text} time={content.time} answer={content.answer} />}
+      {content?.kind === "customer-record" && <CustomerRecordBody entityId={content.entityId} />}
+      {content?.kind === "link-customer" && <LinkCustomerBody itemId={content.itemId} />}
       {content?.kind === "lucas-order" && <LucasThomasOrderPanelBody orderId={content.orderId} />}
       {content?.kind === "lucas" && content.panel === "product" && <LucasThomasProductPanelBody />}
       {content?.kind === "lucas" && content.panel === "payments" && <LucasThomasPaymentsPanelBody />}

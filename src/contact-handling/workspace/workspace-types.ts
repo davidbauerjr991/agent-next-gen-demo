@@ -31,7 +31,11 @@ export type DetailPanelContent =
   // A scripted case's registered panel (slide-over-registry.ts, P-SHRINK): its key, and for a Copilot row its question.
   | { kind: "registry"; caseKey: string; panel: string; text?: string; time?: string; link?: string }
   // AI display "main": a panel thread's Session Details, over the thread in the panel (k6 10).
-  | { kind: "session" };
+  | { kind: "session" }
+  // P-HOME-1m: a customer's record (a kind cell's Contact Details), and the directory picker that links an unmatched
+  // customer to one — a schedule item's (`itemId`), else the active conversation's.
+  | { kind: "customer-record"; entityId: string }
+  | { kind: "link-customer"; itemId?: string };
 
 /** A side panel the agent opened on a card, listed in Contact Details' Artifacts card. */
 export interface PanelArtifact {

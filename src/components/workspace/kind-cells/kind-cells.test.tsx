@@ -140,6 +140,7 @@ describe("schedule items open as assignments", () => {
       "kind-summary",
       "kind-related",
       "kind-journey",
+      "kind-customer",
     ]);
     // Every card starts collapsed; the Real-Time Summary is the item's own detail.
     const summaryHeader = () => reference().querySelector<HTMLElement>('[data-canvas-cell="kind-summary"] [aria-expanded]')!;
@@ -322,6 +323,52 @@ describe("schedule items open as assignments", () => {
     expect(caption()).toBe("(2)");
     await h.click(homeButton());
     expect(h.container.textContent).toContain("My Assignment Queue: 2");
+  });
+
+  it.each([
+    ["Ticket #4821 · subscription renewal refund", "task"],
+    ["Callback · Priya Shah", "callback"],
+  ])("%s (%s) with a customer: the header's avatar, \"+\" and Contact Details (the record in the slide-over); Customer Info on file and the Journey Summary in the reference column", async (title) => {
+    await showHome();
+    await openItem(rowNamed(title)!);
+    const header = cell()!.querySelector<HTMLElement>('[data-slot="record-header"]')!;
+    expect(header.querySelector("h1")?.textContent).toBe("Priya Shah");
+    expect(header.querySelector("[data-kind-avatar]")?.textContent).toBe("PS");
+    expect(header.querySelector('[data-slot="header-add-channel"] button')).not.toBeNull();
+    await h.click(header.querySelector<HTMLElement>("[data-kind-contact-details]")!);
+    await h.advance(100);
+    const record = () => document.querySelector<HTMLElement>("[data-slot=customer-record]");
+    expect(record()?.getAttribute("data-entity-id")).toBe("priya-shah-history");
+    expect(record()?.closest('[data-slot="reference-slide-over"]')).not.toBeNull();
+    // Toggles closed.
+    await h.click(header.querySelector<HTMLElement>("[data-kind-contact-details]")!);
+    await h.advance(400);
+    expect(header.querySelector("[data-kind-contact-details]")?.getAttribute("aria-pressed")).toBe("false");
+    expect(record()).toBeNull();
+    const reference = cell()!.querySelector<HTMLElement>('[data-canvas-region="reference"]')!;
+    expect(reference.querySelector('[data-canvas-cell="kind-customer"]')?.textContent).toContain("On file");
+    expect(reference.querySelector('[data-canvas-cell="kind-journey"] [data-slot="journey-summary"]')).not.toBeNull();
+  });
+
+  it("an unmatched customer (Sofia Ramirez): no \"+\" or Contact Details; Link to existing customer opens the directory picker in the slide-over, and linking makes the record the item's customer", async () => {
+    await showHome();
+    await openItem(rowNamed("Callback · Sofia Ramirez")!);
+    const header = () => cell()!.querySelector<HTMLElement>('[data-slot="record-header"]')!;
+    expect(header().querySelector("[data-kind-contact-details]")).toBeNull();
+    expect(header().querySelector('[data-slot="header-add-channel"]')).toBeNull();
+    const info = () => cell()!.querySelector<HTMLElement>('[data-canvas-cell="kind-customer"]')!;
+    expect(info().textContent).toContain("Not linked");
+    await h.click([...info().querySelectorAll<HTMLElement>("button")].find((b) => b.textContent === "Link to existing customer")!);
+    await h.advance(100);
+    const picker = document.querySelector<HTMLElement>("[data-slot=link-customer]")!;
+    expect(picker.closest('[data-slot="reference-slide-over"]')).not.toBeNull();
+    await type(picker.querySelector("input")!, "Nathan");
+    const nathan = [...picker.querySelectorAll<HTMLElement>("p")].find((p) => p.textContent === "Nathan Cole")!;
+    await h.click([...nathan.closest("div.group")!.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === "Link To Record")!);
+    await h.advance(100);
+    expect(header().querySelector("h1")?.textContent).toBe("Nathan Cole");
+    expect(header().querySelector("[data-kind-contact-details]")).not.toBeNull();
+    expect(info().textContent).toContain("On file");
   });
 
   it("the rail card reopens the cell after going Home", async () => {
