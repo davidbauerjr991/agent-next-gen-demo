@@ -169,6 +169,17 @@ describe("sim schedule source", () => {
     await rejected;
   });
 
+  it("open takes a parked item straight to active, unparked (P-HOME-1m)", async () => {
+    await settle(source.listItems({ role: "agent" }));
+    const changes: ScheduleEvents["itemChanged"][] = [];
+    source.on("itemChanged", (e) => changes.push(e));
+    await settle(source.park("agent-cb-priya"));
+    await settle(source.open("agent-cb-priya"));
+    const opened = changes[changes.length - 1]!.item;
+    expect(opened.state).toBe("active");
+    expect(opened.parkedAt).toBeUndefined();
+  });
+
   it("remove deletes only what the agent created (itemRemoved); anything else is refused", async () => {
     const { items } = await settle(source.listItems({ role: "agent" }));
     expect(items.filter((i) => i.deletable).map((i) => i.id)).toEqual(["agent-cb-sofia", "agent-cb-nathan"]);

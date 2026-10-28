@@ -136,7 +136,8 @@ export function useActivateFeedTarget(): (target: FeedTarget) => void {
         else if (card) switchActiveInteraction(card.id);
       } else if (target.type === "schedule") {
         const state = snapshot?.items.find((i) => i.id === target.itemId)?.state;
-        if (state === "offered" || state === "scheduled") openScheduleItem(target.itemId);
+        // A parked item opens too, unparking on the way (the source's `open`, P-HOME-1m).
+        if (state === "offered" || state === "scheduled" || state === "parked") openScheduleItem(target.itemId);
         else if (state === "active") switchActiveInteraction(scheduleCardKey(target.itemId));
       }
     },

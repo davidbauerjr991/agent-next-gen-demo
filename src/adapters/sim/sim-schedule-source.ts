@@ -110,7 +110,8 @@ export function createSimScheduleProvider(options?: { latency?: LatencyRange; no
       guard("open");
       await delay();
       guard("open");
-      update(id, "open", ["offered", "scheduled"], { state: "active" });
+      // A parked item unparks as it opens (P-HOME-1m): no longer set aside.
+      update(id, "open", ["offered", "scheduled", "parked"], { state: "active", parkedAt: undefined });
     },
     async release(id) {
       guard("release");

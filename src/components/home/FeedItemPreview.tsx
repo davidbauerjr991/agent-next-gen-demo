@@ -124,8 +124,9 @@ function ScheduleItemPreview({ item }: { item: ScheduleItem }) {
           }
         />
       ) : (
-        item.state === "scheduled" && (
-          // The kind's action is the primary; Open, the secondary, moves it to the rail and makes it active, nothing else.
+        (item.state === "scheduled" || item.state === "parked") && (
+          // The kind's action is the primary; Open, the secondary, moves it to the rail and makes it active, nothing
+          // else. A parked item keeps both (P-HOME-1m): opening it unparks it on the way (Unpark alone is its icon).
           <div className="flex flex-wrap items-center gap-2">
             <KindAction item={item} run={run} />
             <Button variant="outline" onClick={() => run(() => activate(target))} data-preview-open="">

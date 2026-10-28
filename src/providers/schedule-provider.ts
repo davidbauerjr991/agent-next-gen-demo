@@ -95,7 +95,8 @@ export interface ScheduleProvider extends EventSource<ScheduleEvents>, ProviderL
   /** The day for `role`. Listing a different role than the current one
    *  replaces the day and emits `reset`. */
   listItems(query: { role: ScheduleRole }): Promise<ScheduleSnapshot>;
-  /** Opens an offered or scheduled item as an active assignment. */
+  /** Opens an offered, scheduled or parked item as an active assignment (a parked one unparks in the same step,
+   *  P-HOME-1m). */
   open(id: string): Promise<void>;
   /** Returns an active item to the feed unfinished (scheduled again, no outcome): it leaves the rail. */
   release(id: string): Promise<void>;

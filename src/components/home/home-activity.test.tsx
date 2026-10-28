@@ -579,6 +579,46 @@ describe("Activity feed on Home", () => {
     expect(feed().querySelector('[data-feed-empty="history"]')?.textContent).toContain("Nothing completed yet");
   });
 
+  it("a parked item keeps its actions in the preview (P-HOME-1m): Dial and Open beside Unpark, and Open unparks and opens it; the row's hover cluster stays Unpark (and Delete); Unpark alone returns it to Activity without opening", async () => {
+    turnOn();
+    await showHome();
+    await h.goAvailable();
+    const park = async (title: string) => {
+      await h.click(rowNamed(title)!.querySelector<HTMLElement>('[data-feed-action="park"]')!);
+      await h.advance(200);
+    };
+    await park("Callback · Priya Shah");
+    await park("Callback · Sofia Ramirez");
+    await h.click(view("Parked")!);
+    // The row's hover cluster: Unpark, and Delete (the agent made it); Open and Dial are the preview's.
+    const sofia = rowNamed("Callback · Sofia Ramirez")!;
+    expect([...sofia.querySelectorAll("[data-feed-action]")].map((a) => a.getAttribute("data-feed-action"))).toEqual(["unpark", "delete"]);
+    await h.click(view("Activity")!);
+    // An Activity row's cluster: Park (and Delete).
+    expect([...rowNamed("Callback · Nathan Cole")!.querySelectorAll("[data-feed-action]")].map((a) => a.getAttribute("data-feed-action"))).toEqual(["park", "delete"]);
+    await h.click(view("Parked")!);
+    // The preview: Dial (primary) and Open, with the Unpark icon.
+    await h.click(rowNamed("Callback · Priya Shah")!);
+    await h.advance(100);
+    const preview = document.querySelector<HTMLElement>("[data-home-detail=item]")!;
+    expect(preview.querySelector("[data-preview-primary]")?.textContent?.trim()).toBe("Dial");
+    expect(preview.querySelector('[data-feed-action="unpark"]')).not.toBeNull();
+    // Open: unparked and opened in one step — its cell, its rail card, out of Parked.
+    await h.click(preview.querySelector<HTMLElement>("[data-preview-open]")!);
+    await h.advance(300);
+    expect(h.container.querySelector("[data-kind-cell]")?.getAttribute("data-kind-cell")).toBe("callback");
+    expect(h.container.querySelector('aside [data-kind-nav-card="agent-cb-priya"]')).not.toBeNull();
+    // Unpark alone (Sofia): back in Activity, nothing opened.
+    await h.click(homeButton());
+    await h.click(view("Parked")!);
+    expect(rowNamed("Callback · Priya Shah")).toBeUndefined();
+    await h.click(rowNamed("Callback · Sofia Ramirez")!.querySelector<HTMLElement>('[data-feed-action="unpark"]')!);
+    await h.advance(200);
+    expect(h.container.querySelector("[data-kind-cell]")).toBeNull();
+    await h.click(view("Activity")!);
+    expect(rowNamed("Callback · Sofia Ramirez")?.getAttribute("data-feed-status")).toBe("scheduled");
+  });
+
   it("delete (P-HOME-1k): only on an item the agent created, after a confirm; a WFM or calendar item has no Delete anywhere", async () => {
     turnOn();
     await showHome();
