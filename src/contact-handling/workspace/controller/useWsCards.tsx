@@ -18,7 +18,7 @@ import { DEFAULT_SORT_DIRECTION } from "@/contact-handling/assignment-sort";
 import { usePageClockSource } from "@/components/agent-next-gen-page-clock";
 import { type ContactHistoryEntry, buildContactHistoryByRange } from "@/components/agent-next-gen-contact-history";
 import { saveCaseRecord } from "@/components/agent-next-gen-case-database";
-import { useAgentLegTransitions, useAgentState, useCapability, useInteractionProvider, useInteractions } from "@/provider-context";
+import { useAgentLegTransitions, useAgentState, useCapability, useInteractionProvider, useInteractions, useScheduleSnapshot } from "@/provider-context";
 import {
   directoryDisplayName,
   tabMainKey,
@@ -46,8 +46,15 @@ import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { usePortalHost } from "@/contact-handling/portal-hosts";
 import { findContactHistoryMatch, extractPriorContactInfo } from "@/contact-handling/workspace/active-channel-labels";
 import { TOM_LEWIS_CALL_OVERVIEW, MAYA_CHEN_CALL_OVERVIEW, LUCAS_THOMAS_OVERVIEW } from "@/components/workspace/workspace-constants";
+import { scheduleItemCustomer } from "@/contact-handling/contact-identity";
+import type { ContactSubject } from "@/contact-handling/workspace/workspace-types";
+import { scheduleItemIdOf } from "@/domain";
 import type { WorkspaceControllerProps, WorkspaceLate } from "./workspace-late";
 import { useSuggestedDispositions } from "@/contact-handling/useSuggestedDispositions";
+
+/** A schedule item's customer has no threads (Contact Details' subject, P-HOME-1m); one array, so the record's
+ *  fields memo holds. */
+const NO_THREADS: Thread[] = [];
 
 export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate) {
   const { initialInteraction } = props;
@@ -75,14 +82,13 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
    *  checked alongside it wherever a real-customer test or the match pool
    *  is built. Declared before the cards, which name linked contacts from it. */
   const [createdCustomerRecords, setCreatedCustomerRecords] = useState<CreateNewCustomerRecord[]>([]);
-  const navCardDisplayName = useMemo(
-    () =>
-      directoryDisplayName(
-        (entityId) =>
-          createdCustomerRecords.find((c) => c.id === entityId) ?? CREATE_NEW_CUSTOMERS.find((c) => c.id === entityId)
-      ),
-    [createdCustomerRecords]
+  /** The directory record for an entity id (agent-created first): the one lookup the cards' names, the header, the
+   *  "+" picker, Contact Details and the slide-overs share. P0.9's DirectoryProvider replaces this body. */
+  const findDirectoryCustomer = useCallback(
+    (entityId: string) => createdCustomerRecords.find((c) => c.id === entityId) ?? CREATE_NEW_CUSTOMERS.find((c) => c.id === entityId),
+    [createdCustomerRecords],
   );
+  const navCardDisplayName = useMemo(() => directoryDisplayName(findDirectoryCustomer), [findDirectoryCustomer]);
   // Left-nav cards (P0.5b.2): every card is a provider contact from the
   // interaction store (one card per journey, `card.id` = `journeyId`),
   // scripted cases included (P0.5c). `setInteractions` keeps the old
@@ -575,6 +581,21 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   const activeInteraction = kindCellShownFor === activeInteractionId ? null : interactions.find((i) => i.id === activeInteractionId) ?? null;
   /** The scripted case key of the active card (`LUCAS_THOMAS_ID`, …), if any. */
   const activeScenarioKey = scenarioKeyOf(activeInteraction?.id);
+  // Contact Details' subject (P-HOME-1m): the active conversation, or the active schedule item's customer when the
+  // directory has their record (a kind cell, its kind row picked over a joined call included). A schedule item has
+  // no thread: its Contact Details is its record's tabs alone (`hasThread`, the tab registry's `applies`).
+  const scheduleSnapshot = useScheduleSnapshot();
+  const [linkedItemCustomers] = useWorkspaceUiField("linkedItemCustomers");
+  const activeScheduleItemId = !activeInteraction && activeInteractionId ? scheduleItemIdOf(activeInteractionId) : undefined;
+  const activeScheduleItem = activeScheduleItemId ? scheduleSnapshot?.items.find((i) => i.id === activeScheduleItemId) : undefined;
+  const scheduleRecord = activeScheduleItem
+    ? scheduleItemCustomer(activeScheduleItem.customer, findDirectoryCustomer, linkedItemCustomers[activeScheduleItem.id])?.record
+    : undefined;
+  const contactSubject: ContactSubject | null = activeInteraction
+    ? { key: activeInteraction.id, customerName: activeInteraction.customerName, customerId: activeInteraction.customerId, threads: activeInteraction.threads, hasThread: true }
+    : scheduleRecord && activeInteractionId
+      ? { key: activeInteractionId, customerName: scheduleRecord.name, customerId: scheduleRecord.customerId, entityId: scheduleRecord.id, threads: NO_THREADS, hasThread: false }
+      : null;
 
   // Single, shared Customer Overview/Detail/Directory draft for whichever
   // interaction is currently active — owned HERE (not inside
@@ -596,24 +617,22 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   // entirely, which is exactly the ONE thing per explicit request that
   // should actually discard pending edits — not merely closing the panel or
   // hovering away from it.
+  // The record's fields and draft follow Contact Details' subject (a conversation's, or a schedule item's customer).
   const activeCustomerFields = useMemo(
-    () =>
-      activeInteraction
-        ? buildCustomerInfoFields(activeInteraction.customerName, activeInteraction.customerId, activeInteraction.threads)
-        : [],
-    [activeInteraction?.customerName, activeInteraction?.customerId, activeInteraction?.threads]
+    () => (contactSubject ? buildCustomerInfoFields(contactSubject.customerName, contactSubject.customerId, contactSubject.threads) : []),
+    [contactSubject?.customerName, contactSubject?.customerId, contactSubject?.threads]
   );
   const activeCustomerRecordDraft = useCustomerRecordDraft(
     activeCustomerFields,
-    activeInteraction?.customerName,
-    activeInteraction?.customerId
+    contactSubject?.customerName,
+    contactSubject?.customerId
   );
   // Same lift as `activeCustomerRecordDraft` above, for the identical
   // reason — see that state's own doc comment.
   const [activeCustomerOverviewEditing, setActiveCustomerOverviewEditing] = useState(false);
   useEffect(() => {
     setActiveCustomerOverviewEditing(false);
-  }, [activeInteraction?.customerId]);
+  }, [contactSubject?.customerId]);
   // Keyed on `activeInteraction?.id` (the left-nav slot key — this flips
   // the instant `handleLinkCustomerRecord`/`handleCreateNewCustomer`
   // succeed too, since both reassign it), not `customerId` like the effect
@@ -1058,7 +1077,7 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
     findLiveVoiceThread, marcusWebbReviewing, lucasThomasReviewing, botHolds, voiceBarCallOf, voiceBarCall,
     liveVoiceCallInteraction, liveVoiceCallThread, liveVoiceCallInteractionIsRealCustomer,
     isViewingLiveVoiceCallInteraction, activeChannelIsNewOutboundThread, activeInteractionIsAgentCall,
-    cardIdentityOf, activeInteractionIsRealCustomer, customerContextOverviewBase,
+    cardIdentityOf, activeInteractionIsRealCustomer, customerContextOverviewBase, findDirectoryCustomer, contactSubject,
   };
 }
 

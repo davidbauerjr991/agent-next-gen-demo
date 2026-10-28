@@ -27,6 +27,9 @@ export interface ContactDetailsTabContext {
    *  panel), so the Transcript tab would repeat it. False for a closed card or a past session's view, while the
    *  agent hid a call's transcript, and always under panel. */
   threadOnScreen?: boolean;
+  /** The subject has a thread (P-HOME-1m): false for a schedule item's customer (a kind cell's Contact Details),
+   *  whose tabs are its record's alone: no Session, Transcript or panel mode's AI Overview. Unset reads as true. */
+  hasThread?: boolean;
 }
 
 export interface ContactDetailsTab {

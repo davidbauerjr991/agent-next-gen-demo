@@ -11,12 +11,13 @@
 // with its slide-over; the action area ends with the Copilot input, whose
 // answers are scoped to the item (src/scenarios/schedule-copilot.ts).
 import { createPortal } from "react-dom";
-import { Avatar, Button, PageHeader, Tag } from "@nicecxone/lyra-ui";
-import { Clock, IdCard } from "lucide-react";
+import { Avatar, PageHeader, Tag } from "@nicecxone/lyra-ui";
+import { Clock } from "lucide-react";
 import { initialsFor } from "@/components/agent-next-gen-shared-utils";
 import { KindTag } from "@/components/home/home-kinds";
 import { useScheduleItemCustomer } from "@/contact-handling/home/useScheduleCards";
 import { useDetailSlideOverPanel } from "@/components/workspace/detail-slide-over-parts";
+import { ContactDetailsControl } from "@/components/workspace/ContactDetailsControl";
 import { ReferenceSlotFrame } from "@/components/workspace/ReferenceSlot";
 import { ReferenceOverlayToggle } from "@/components/workspace/SummariesToggle";
 import { scheduleCardKey } from "@/domain";
@@ -70,28 +71,17 @@ function KindSessionRow({ item }: { item: ScheduleItem }) {
   );
 }
 
-/** The customer's header pieces (P-HOME-1m), for any item with a customer: the "+" add-channel picker (a known
- *  customer, on a working item — not a supervisor's escalation, a review surface like Lucas's) and Contact Details,
- *  the record in the reference-slot slide-over (toggled). */
+/** The customer's header pieces (P-HOME-1m), for any item with a customer on file: the "+" add-channel picker (on a
+ *  working item — not a supervisor's escalation, a review surface like Lucas's) and Contact Details, the
+ *  conversation's own control (its hover preview and the docked panel, the item's customer its subject). */
 function KindCustomerActions({ item }: { item: ScheduleItem }) {
-  const { getHeaderAction, openDetailPanelContent, selectedDetailPanelContent, setSelectedDetailPanelContent } = useWorkspace();
+  const { getHeaderAction } = useWorkspace();
   const customer = useScheduleItemCustomer(item);
   if (!customer?.entityId) return null;
-  const entityId = customer.entityId;
-  const showing = selectedDetailPanelContent?.kind === "customer-record" && selectedDetailPanelContent.entityId === entityId;
   return (
     <>
-      {item.kind !== "conversation" && <span data-slot="header-add-channel" className="inline-flex">{getHeaderAction(entityId)}</span>}
-      <Button
-        variant="ghost"
-        size="sm"
-        aria-pressed={showing}
-        data-kind-contact-details=""
-        onClick={() => (showing ? setSelectedDetailPanelContent(null) : openDetailPanelContent({ kind: "customer-record", entityId }))}
-      >
-        <IdCard className="h-4 w-4" strokeWidth={1.5} />
-        {t("Contact Details")}
-      </Button>
+      {item.kind !== "conversation" && <span data-slot="header-add-channel" className="inline-flex">{getHeaderAction(customer.entityId)}</span>}
+      <ContactDetailsControl />
     </>
   );
 }

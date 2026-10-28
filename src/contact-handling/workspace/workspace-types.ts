@@ -8,6 +8,20 @@ import type {
   LucasThomasPanelKey,
   TomLewisCallPanelKey,
 } from "@/components/agent-next-gen-lucas-thomas-panels";
+import type { Thread } from "@/components/agent-next-gen-interaction-dashboard";
+
+/** Whose Contact Details the docked panel and its hover preview show (P-HOME-1m): the active conversation, or the
+ *  active schedule item's customer (a kind cell), whose record is the subject and which has no thread. */
+export interface ContactSubject {
+  /** The active card's key (a journey id, or `schedule:<itemId>`). */
+  key: string;
+  customerName?: string;
+  customerId: string;
+  /** The directory record's id, for a schedule item's customer. */
+  entityId?: string;
+  threads: Thread[];
+  hasThread: boolean;
+}
 
 // The Marcus Webb action-log detail panel and the "Do Something"
 // knowledge-article panel share ONE floating `InteriorPanel` overlay
@@ -34,7 +48,6 @@ export type DetailPanelContent =
   | { kind: "session" }
   // P-HOME-1m: a customer's record (a kind cell's Contact Details), and the directory picker that links an unmatched
   // customer to one — a schedule item's (`itemId`), else the active conversation's.
-  | { kind: "customer-record"; entityId: string }
   | { kind: "link-customer"; itemId?: string };
 
 /** A side panel the agent opened on a card, listed in Contact Details' Artifacts card. */

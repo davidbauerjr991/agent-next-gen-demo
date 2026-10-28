@@ -148,10 +148,6 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
     () => [...CREATE_NEW_CUSTOMERS, ...createdCustomerRecords],
     [createdCustomerRecords]
   );
-  /** The directory record for an entity id (agent-created first): the one lookup the header, the "+" picker,
-   *  the slide-over and its artifact label share. P0.9's DirectoryProvider replaces this body. */
-  const findDirectoryCustomer = (entityId: string) =>
-    createdCustomerRecords.find((c) => c.id === entityId) ?? CREATE_NEW_CUSTOMERS.find((c) => c.id === entityId);
   // The raw dialed/typed identifier this unknown channel was reached on —
   // `Thread.value` (e.g. `handleQuickDial`'s own dialed `phoneNumber`) when
   // set, falling back to its own display label, then to whatever this
@@ -695,7 +691,6 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
       case "tom-call": return `tom-call:${c.panel}`;
       case "lucas-order": return `lucas-order:${c.orderId}`;
       case "session": return "session";
-      case "customer-record": return `customer-record:${c.entityId}`;
       case "link-customer": return "link-customer";
     }
   };
@@ -711,7 +706,6 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
       case "tom-call": return TOM_LEWIS_CALL_PANEL_TITLES[c.panel].title;
       case "lucas-order": return `Order ${LUCAS_THOMAS_ORDER_DETAILS[c.orderId].item}`;
       case "session": return "Session Details";
-      case "customer-record": return findDirectoryCustomer(c.entityId)?.name ?? t("Contact Details");
       case "link-customer": return t("Link to existing customer");
     }
   };
@@ -848,7 +842,7 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
     ...prev,
     activePreContactSummary, customerContextOverviewInfo, showChannelTabRow, SHOW_RECORD_HEADER_SUBTITLE,
     SHOW_MARCUS_REVIEW_GUIDE_AND_TRANSFER, pageMountTimeRef, activeChannelLaunchedAt, activeChannelDateTime,
-    lastCustomerResponseLabel, customerDirectoryPool, findDirectoryCustomer, activeUnknownContactIdentifier, possibleCustomerMatches,
+    lastCustomerResponseLabel, customerDirectoryPool, activeUnknownContactIdentifier, possibleCustomerMatches,
     customerSearchResults, handleLinkCustomerRecord, handleStartCreateCustomer, handleBackToCustomerSearch,
     handleSaveNewCustomer, queueSim,
     hasBreachedSlaAssignment, activeChannelAwaitingSeverity, activeChannelHoldSeverity, showSettings, setShowSettings,

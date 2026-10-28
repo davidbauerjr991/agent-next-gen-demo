@@ -51,7 +51,7 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
     setAgentStatus, setCustomerPanelActiveTab, setDismissedContactHistory, setHistoryConversationTab, setInteractions,
     setNavOpen, setSelectedContactHistoryEntry, setSidePanelOpen, setStatusSinceTick,
     sidePanelStateByAssignmentId, switchActiveInteraction, windowWidth, customerPanelActiveTab, aiInPanel,
-    activeInteractionIsRealCustomer, activeChannelType, isHistoryConversationView, panelVoiceThread,
+    activeInteractionIsRealCustomer, activeChannelType, isHistoryConversationView, panelVoiceThread, contactSubject,
   } = prev;
   // A call's "Hide Transcript" (P-CANVAS; AI display inline, voice), per card.
   const [{ displayLocation }] = useSettings("ai");
@@ -62,6 +62,8 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
   const contactDetailsTabContext: ContactDetailsTabContext = {
     aiInPanel,
     realCustomer: activeInteractionIsRealCustomer,
+    // A kind cell's subject (a schedule item's customer) has no thread: its record's tabs alone.
+    hasThread: contactSubject?.hasThread ?? true,
     threadOnScreen: isThreadOnScreen({
       aiInPanel,
       live: !!activeInteraction && !activeInteraction.closed && !isHistoryConversationView,
@@ -304,10 +306,11 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
   // reason. No `focusTabOverride` either — that's `CustomerInformationSide
   // Panel`'s own prop, which this hook doesn't take; this drill-in always
   // opens on its default "Overview" tab.
+  // Contact Details' subject: the conversation's customer, or a kind cell's (P-HOME-1m).
   const customerInfoOverlayContent = useCustomerDetailsInteriorPanel({
-    customerName: activeInteraction?.customerName,
-    recordId: activeInteraction?.customerId ?? "",
-    channels: activeInteraction?.threads ?? [],
+    customerName: contactSubject?.customerName,
+    recordId: contactSubject?.customerId ?? "",
+    channels: contactSubject?.threads ?? [],
     tabs: AGENT_WORKSPACE_CUSTOMER_PANEL_TABS,
     recordDraft: activeCustomerRecordDraft,
     overviewEditing: activeCustomerOverviewEditing,

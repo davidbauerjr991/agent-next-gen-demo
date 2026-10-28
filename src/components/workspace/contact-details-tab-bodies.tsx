@@ -11,7 +11,9 @@ import { contactDetailsTab, contactDetailsTabs } from "@/contact-handling/contac
 import { t } from "@/i18n";
 import { useActiveTranscriptMenu } from "./useActiveTranscriptMenu";
 
-const panelOnly = ({ aiInPanel }: ContactDetailsTabContext) => aiInPanel;
+/** A tab that needs the subject's thread (P-HOME-1m: a schedule item's customer has none). */
+const withThread = ({ hasThread }: ContactDetailsTabContext) => hasThread !== false;
+const panelOnly = (ctx: ContactDetailsTabContext) => ctx.aiInPanel && withThread(ctx);
 const withRecord = ({ realCustomer }: ContactDetailsTabContext) => realCustomer;
 
 /** Panel mode's Overview: the Agentic reference cards (the canvas registry's reference cells, the reference
@@ -69,8 +71,8 @@ export const DEFAULT_CONTACT_DETAILS_TABS: readonly ContactDetailsTab[] = [
   { id: "Notes", label: "Notes", order: 20, applies: withRecord, Body: CustomerRecordBody },
   { id: "Detail", label: "Detail", order: 30, Body: CustomerRecordBody },
   // Only when the thread isn't already on screen: a closed card, a past session, a call whose transcript is hidden.
-  { id: "Transcript", label: "Transcript", order: 40, applies: ({ threadOnScreen }) => !threadOnScreen, Body: TranscriptBody },
-  { id: "Session Details", label: "Session", order: 50, Body: SessionBody },
+  { id: "Transcript", label: "Transcript", order: 40, applies: (ctx) => withThread(ctx) && !ctx.threadOnScreen, Body: TranscriptBody },
+  { id: "Session Details", label: "Session", order: 50, applies: withThread, Body: SessionBody },
 ];
 
 /** The tab row, from the registry. */

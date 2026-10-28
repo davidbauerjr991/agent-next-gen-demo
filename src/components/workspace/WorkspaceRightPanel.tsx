@@ -33,7 +33,7 @@ const MarcusMemoryBody = slideOverEntry(MARCUS_WEBB_ID, "memory")!.Body;
  *  slide-over's host in the panel (`rightPanelRef`). */
 export function WorkspaceRightPanel() {
   const {
-    activeCustomerOverviewEditing, activeCustomerRecordDraft, activeInteraction,
+    activeCustomerOverviewEditing, activeCustomerRecordDraft, activeInteraction, contactSubject,
     activeInteractionIsAgentCall, activeInteractionIsRealCustomer, addToast, channelPreviewMeta, channelPreviewThread,
     channelPreviewThreadKey, channelPreviewThreadStableKey, confirmDismiss, copilotComposerProps,
     copilotDockConcealed, copilotDockShown, copilotHost, copilotSlot, customerInfoOverlayContent,
@@ -53,7 +53,8 @@ export function WorkspaceRightPanel() {
   } = useWorkspace();
   return (
     <>
-              {!activeInteractionIsAgentCall && showPanelToggle && activeInteraction && (
+              {/* Contact Details' subject: a conversation, or a kind cell's customer (P-HOME-1m). */}
+              {!activeInteractionIsAgentCall && showPanelToggle && contactSubject && (
                 // `key`ed on the assignment's own id, same "force a full
                 // remount on every genuine switch" technique the content
                 // column further down already uses (see that div's own
@@ -127,7 +128,7 @@ export function WorkspaceRightPanel() {
                 // this whole subtree occupied before the wrapper was
                 // introduced.
                 <div
-                  key={`side-panel-${activeInteraction.id}`}
+                  key={`side-panel-${contactSubject.key}`}
                   // `h-full` — explicit, not left to this flex item's own
                   // default cross-axis `align-items: stretch` from its
                   // parent row (`flex flex-1 overflow-hidden min-h-0`,
@@ -168,10 +169,10 @@ export function WorkspaceRightPanel() {
                   }
                   onMouseEnter={onSidePanelHoverStart}
                   onMouseLeave={sidePanelResizing ? undefined : onSidePanelHoverEnd}
-                  customerName={activeInteraction.customerName}
-                  recordId={activeInteraction.customerId}
-                  channels={activeInteraction.threads}
-                  startedFresh={activeInteraction.startedFresh}
+                  customerName={contactSubject.customerName}
+                  recordId={contactSubject.customerId}
+                  channels={contactSubject.threads}
+                  startedFresh={activeInteraction?.startedFresh}
                   // Per explicit request: a brand-new outbound assignment
                   // NOT associated with a real customer record shows ONLY
                   // the Detail tab (no Overview/Copilot/Notes/etc.) — for
@@ -185,7 +186,7 @@ export function WorkspaceRightPanel() {
                   // full set).
                   tabs={activeInteractionIsRealCustomer ? AGENT_WORKSPACE_CUSTOMER_PANEL_TABS : (["Detail"] as const)}
                   onOpenHistoryConversation={(entry) =>
-                    setHistoryConversationTab({ interactionId: activeInteraction.id, entry, active: true })
+                    activeInteraction && setHistoryConversationTab({ interactionId: activeInteraction.id, entry, active: true })
                   }
                   // Full-screen substitutes the parent Container's own
                   // measured width (`sidePanelContainerWidth` — already
@@ -293,7 +294,7 @@ export function WorkspaceRightPanel() {
                       : customerPanelActiveTab === "Artifacts"
                       ? "Artifacts"
                       : customerPanelActiveTab === "Experience Memory"
-                      ? activeInteraction.customerName
+                      ? contactSubject.customerName
                       : customerPanelActiveTab === "Customer Info"
                       ? customerInfoOverlayContent.headerTitle
                       : "Contact Details"
@@ -329,7 +330,7 @@ export function WorkspaceRightPanel() {
                     !channelPreviewThread && customerPanelActiveTab === "Experience Memory"
                       ? "Experience Memory"
                       : !channelPreviewThread && customerPanelActiveTab === "Artifacts"
-                      ? activeInteraction.customerName
+                      ? contactSubject.customerName
                       : !channelPreviewThread && customerPanelActiveTab === "Customer Info"
                       ? customerInfoOverlayContent.headerSubhead
                       : undefined
@@ -348,7 +349,7 @@ export function WorkspaceRightPanel() {
                       : undefined
                   }
                   headerTabsOverride={
-                    channelPreviewThread
+                    channelPreviewThread && activeInteraction
                       ? panelPlacement && (
                         // AI display "main": the panel thread's session row under the channel name (k5 B).
                         <ChannelThreadSessionRow
@@ -403,7 +404,7 @@ export function WorkspaceRightPanel() {
                   // site), or once this specific thread has actually
                   // closed.
                   footerOverride={
-                    channelPreviewThread
+                    channelPreviewThread && activeInteraction
                       ? threadAcceptsReplies(activeInteraction, channelPreviewThread) &&
                         // An AI-led chat under review has no chat input until the agent takes over.
                         !botHolds(activeInteraction.id)
@@ -447,7 +448,7 @@ export function WorkspaceRightPanel() {
                       : undefined
                   }
                   bodyOverride={
-                    channelPreviewThread ? (
+                    channelPreviewThread && activeInteraction ? (
                       <ChannelThreadBody
                         interaction={activeInteraction}
                         thread={channelPreviewThread}
@@ -460,7 +461,7 @@ export function WorkspaceRightPanel() {
                           handleInteractionStatusChange(activeInteraction.id, channelPreviewThreadStableKey!, status)
                         }
                       />
-                    ) : customerPanelActiveTab === "Experience Memory" ? (
+                    ) : customerPanelActiveTab === "Experience Memory" && activeInteraction ? (
                       <div className="animate-in fade-in-0 duration-200">
                         {scenarioKeyOf(activeInteraction.id) === MAYA_CHEN_CALL_ID ? (
                           <MayaChenCallMemoryPanelBody />

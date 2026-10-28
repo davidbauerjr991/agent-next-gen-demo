@@ -162,6 +162,16 @@ describe("the Transcript tab's rule", () => {
     // On the Transcript tab when the thread comes back on screen: the first tab.
     expect(resolveContactDetailsView("Transcript", ctx(false, true))).toBe("Customer Information");
   });
+
+  it("no thread (P-HOME-1m: a kind cell's customer): the record's tabs alone — no Session, Transcript or panel mode's AI Overview, through `applies`", () => {
+    const ids = (c: Parameters<typeof contactDetailsTabs>[0]) => contactDetailsTabs(c).map((tab) => tab.id);
+    for (const aiInPanel of [false, true]) {
+      expect(ids({ aiInPanel, realCustomer: true, threadOnScreen: false, hasThread: false })).toEqual(["Customer Information", "Notes", "Detail"]);
+    }
+    // Unset reads as a thread: a conversation's tabs are unchanged.
+    expect(ids({ aiInPanel: false, realCustomer: true, threadOnScreen: false })).toContain("Session Details");
+    expect(ids({ aiInPanel: true, realCustomer: true })).toEqual(expect.arrayContaining(["Details", "Session Details"]));
+  });
 });
 
 describe("the tabs' bodies", () => {

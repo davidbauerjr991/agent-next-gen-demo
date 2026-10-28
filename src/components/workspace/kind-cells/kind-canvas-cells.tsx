@@ -89,12 +89,13 @@ function KindRelatedCell() {
 }
 
 /** The item's customer through the directory (P-HOME-1m): their record's identity block, or, unmatched, Link to
- *  existing customer (the directory picker in the slide-over); View customer info opens the record there too. */
+ *  existing customer (the directory picker in the slide-over); View customer info opens the docked panel's Customer
+ *  Info, as a conversation's does. */
 function KindCustomerInfoCell() {
   const item = useActiveScheduleItem();
   const accordion = useOpen(item, "kind-customer");
   const customer = useScheduleItemCustomer(item);
-  const { openDetailPanelContent } = useWorkspace();
+  const { focusCustomerPanelTab, openDetailPanelContent } = useWorkspace();
   if (!item || !customer) return null;
   const entityId = customer.entityId;
   const card = entityId ? buildCustomerContextOverviewInfo(entityId, customer.name, true, true).customerCard : undefined;
@@ -102,7 +103,7 @@ function KindCustomerInfoCell() {
     <CustomerInfoCard
       customerName={customer.name}
       customerCard={card}
-      onViewCustomerInfo={entityId ? () => openDetailPanelContent({ kind: "customer-record", entityId }) : undefined}
+      onViewCustomerInfo={entityId ? focusCustomerPanelTab : undefined}
       onLinkCustomer={entityId ? undefined : () => openDetailPanelContent({ kind: "link-customer", itemId: item.id })}
       {...accordion}
     />

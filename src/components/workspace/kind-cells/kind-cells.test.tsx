@@ -351,23 +351,38 @@ describe("schedule items open as assignments", () => {
   it.each([
     ["Ticket #4821 · subscription renewal refund", "task"],
     ["Callback · Priya Shah", "callback"],
-  ])("%s (%s) with a customer: the header's avatar, \"+\" and Contact Details (the record in the slide-over); Customer Info on file and the Journey Summary in the reference column", async (title) => {
+  ])("%s (%s) with a customer: the header's avatar, \"+\" and Contact Details (the conversation's control: hover preview, the docked panel, the record's tabs only); Customer Info on file and the Journey Summary in the reference column", async (title) => {
     await showHome();
     await openItem(rowNamed(title)!);
     const header = cell()!.querySelector<HTMLElement>('[data-slot="record-header"]')!;
     expect(header.querySelector("h1")?.textContent).toBe("Priya Shah");
     expect(header.querySelector("[data-kind-avatar]")?.textContent).toBe("PS");
     expect(header.querySelector('[data-slot="header-add-channel"] button')).not.toBeNull();
-    await h.click(header.querySelector<HTMLElement>("[data-kind-contact-details]")!);
-    await h.advance(100);
-    const record = () => document.querySelector<HTMLElement>("[data-slot=customer-record]");
-    expect(record()?.getAttribute("data-entity-id")).toBe("priya-shah-history");
-    expect(record()?.closest('[data-slot="reference-slide-over"]')).not.toBeNull();
-    // Toggles closed.
-    await h.click(header.querySelector<HTMLElement>("[data-kind-contact-details]")!);
+    const details = () => header.querySelector<HTMLElement>("[data-contact-details]")!;
+    const tabs = (scope: ParentNode) => [...scope.querySelectorAll("[data-slot=contact-details-tabs] [role=tab], [data-slot=contact-details-tabs] button")].map((tab) => tab.textContent?.trim());
+    // Hover: the same preview popover, with the panel's tab row.
+    await act(async () => {
+      details().dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(300);
+    });
+    const preview = document.body.querySelector<HTMLElement>("[data-slot=hover-preview]")!;
+    expect(preview).not.toBeNull();
+    expect(preview.textContent).toContain("Priya Shah");
+    // Click: the docked Contact Details panel, not a slide-over; the record's tabs, no Session or Transcript.
+    await h.click(details());
     await h.advance(400);
-    expect(header.querySelector("[data-kind-contact-details]")?.getAttribute("aria-pressed")).toBe("false");
-    expect(record()).toBeNull();
+    expect(details().getAttribute("aria-pressed")).toBe("true");
+    const panel = h.container.querySelector<HTMLElement>("[data-slot=right-panel]")!;
+    expect(panel).not.toBeNull();
+    expect(cell()!.querySelector('[data-slot="reference-slide-over"]')).toBeNull();
+    const panelTabs = tabs(panel);
+    expect(panelTabs).toEqual(expect.arrayContaining(["Overview", "Notes", "Detail"]));
+    expect(panelTabs).not.toContain("Session");
+    expect(panelTabs).not.toContain("Transcript");
+    // Toggles closed.
+    await h.click(details());
+    await h.advance(400);
+    expect(details().getAttribute("aria-pressed")).toBe("false");
     const reference = cell()!.querySelector<HTMLElement>('[data-canvas-region="reference"]')!;
     expect(reference.querySelector('[data-canvas-cell="kind-customer"]')?.textContent).toContain("On file");
     expect(reference.querySelector('[data-canvas-cell="kind-journey"] [data-slot="journey-summary"]')).not.toBeNull();
@@ -377,7 +392,7 @@ describe("schedule items open as assignments", () => {
     await showHome();
     await openItem(rowNamed("Callback · Sofia Ramirez")!);
     const header = () => cell()!.querySelector<HTMLElement>('[data-slot="record-header"]')!;
-    expect(header().querySelector("[data-kind-contact-details]")).toBeNull();
+    expect(header().querySelector("[data-contact-details]")).toBeNull();
     expect(header().querySelector('[data-slot="header-add-channel"]')).toBeNull();
     const info = () => cell()!.querySelector<HTMLElement>('[data-canvas-cell="kind-customer"]')!;
     expect(info().textContent).toContain("Not linked");
@@ -390,7 +405,7 @@ describe("schedule items open as assignments", () => {
     await h.click([...nathan.closest("div.group")!.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === "Link To Record")!);
     await h.advance(100);
     expect(header().querySelector("h1")?.textContent).toBe("Nathan Cole");
-    expect(header().querySelector("[data-kind-contact-details]")).not.toBeNull();
+    expect(header().querySelector("[data-contact-details]")).not.toBeNull();
     expect(info().textContent).toContain("On file");
   });
 
@@ -666,7 +681,7 @@ describe("persona", () => {
     const header = cell()!.querySelector<HTMLElement>('[data-slot="record-header"]')!;
     expect(header.querySelector("h1")?.textContent).toBe("Lauren Briggs");
     expect(header.querySelector("[data-kind-avatar]")?.textContent).toBe("LB");
-    expect(header.querySelector("[data-kind-contact-details]")).not.toBeNull();
+    expect(header.querySelector("[data-contact-details]")).not.toBeNull();
     expect(header.querySelector('[data-slot="header-add-channel"]')).toBeNull();
     // The composer shows what fits (the refresh rotates the rest): the visible chips are the escalation's own.
     const escalationChips = ["Summarize the conversation so far", "Why was this escalated?", "What should I tell the agent?"];

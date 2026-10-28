@@ -12,7 +12,7 @@ import {
   Popover,
   Tooltip,
 } from "@nicecxone/lyra-ui";
-import { Check, Headphones, History, IdCard, X } from "lucide-react";
+import { Check, Headphones, History, X } from "lucide-react";
 import {
   ChannelThreadBody,
   ChannelThreadComposer,
@@ -38,7 +38,7 @@ import { formatElapsedTime, getAwaitingSeverity, initialsFor } from "@/component
 import { cn } from "@/lib/utils";
 import { SHOW_CHANNEL_TOGGLE_GROUP } from "./workspace-constants";
 import { SummariesToggle } from "./SummariesToggle";
-import { ContactDetailsTabBody, ContactDetailsTabRow } from "./contact-details-tab-bodies";
+import { ContactDetailsControl } from "./ContactDetailsControl";
 
 /** The active interaction's record header (P-EXTRACT C8, from the page):
  *  the avatar, call badge, add-channel "+", one icon per channel with its
@@ -47,16 +47,15 @@ export function RecordHeader() {
   const {
     SHOW_RECORD_HEADER_SUBTITLE, activeChannelDateTime, activeChannelKey,
     activeChannelType, activeInteraction, activeInteractionIsAgentCall, activeInteractionIsRealCustomer,
-    addChannelActionFor, aiInPanel, caseStatusCapable, channelHoverPreviewKey, channelPreviewThreadKey,
-    contactDetailsShowing, copilotHost, copilotSlot, customerInfoPreviewOpen, contactDetailsView,
-    focusCustomerPanelTab, handleChannelSelect, handleDismissChannel, handleDismissInteraction,
+    addChannelActionFor, caseStatusCapable, channelHoverPreviewKey, channelPreviewThreadKey,
+    handleChannelSelect, handleDismissChannel, handleDismissInteraction,
     handleInteractionStatusChange, handleOutcomeCancel, handleOutcomeOpenChange, handleOutcomeSave,
     handleSendMessage, hasOpenChatThread, hideAiActions, historyConversationForActive, isHistoryConversationView,
-    lastCustomerResponseLabel, lucasThomasReviewing, omni, openChannelHoverPreview, openCustomerInfoPreview,
+    lastCustomerResponseLabel, lucasThomasReviewing, omni, openChannelHoverPreview,
     outcomeDraft, outcomeDraftKey, panelPlacement, recordHeaderRef, recordHeaderWidth,
     replyBlockedReason, scenarioKeyOf, scheduleCloseChannelHoverPreview,
-    scheduleCloseCustomerInfoPreview, selectPanel, setChannelHoverPreviewKey,
-    setHistoryConversationTab, setHoverDockMounted, setOutcomeDraft, showChannelTabRow, sidePanelToggleLabel,
+    selectPanel, setChannelHoverPreviewKey,
+    setHistoryConversationTab, setOutcomeDraft, showChannelTabRow,
     storeContacts, tabs, threadMenu, sessionRowHost, sessionRowInHeader,
   } = useWorkspace();
   if (!activeInteraction) return null;
@@ -697,105 +696,10 @@ export function RecordHeader() {
                             )}
                           </ChannelToggleGroup>
                         )}
-                        {/* Its hover preview shows only while Contact Details isn't the
-                            panel's content (`openCustomerInfoPreview`). The wrapping div's
-                            hover handlers open/close it, so the pointer can cross into the
-                            portaled popover without it flickering shut. */}
-                        {/* One toggle group with the channel icons for the
-                            right panel (browser check, 2026-10-16): always
-                            visible, in every AI display mode, selected while
-                            the panel shows Contact Details (clicking it then
-                            closes the panel). */}
-                        {activeInteraction && (
-                        <div onMouseEnter={openCustomerInfoPreview} onMouseLeave={scheduleCloseCustomerInfoPreview}>
-                            <Popover
-                              open={customerInfoPreviewOpen}
-                              placement="bottom"
-                              align="end"
-                              showArrow={false}
-                              bodyPadding={false}
-                              className={HOVER_PREVIEW_POPOVER_CLASS}
-                              onOpenAutoFocus={(e: Event) => e.preventDefault()}
-                              onCloseAutoFocus={(e: Event) => e.preventDefault()}
-                              onInteractOutside={(e: Event) => {
-                                if ((e.target as Element)?.closest?.("[data-radix-popper-content-wrapper], [data-floating-layer]")) {
-                                  e.preventDefault();
-                                }
-                              }}
-                              content={
-                                <HoverPreviewFrame
-                                  onMouseEnter={openCustomerInfoPreview}
-                                  onMouseLeave={scheduleCloseCustomerInfoPreview}
-                                  header={<PanelHeader
-                                    title="Contact Details"
-                                    // Per explicit follow-up request: same
-                                    // clickable-name treatment the docked
-                                    // panel's own header already has (see
-                                    // `CustomerInformationSidePanel`'s
-                                    // `onViewCustomerInfo` doc comment,
-                                    // agent-next-gen-customer-info-panel.tsx)
-                                    // — `focusCustomerPanelTab` already
-                                    // closes this hover preview itself
-                                    // (`setCustomerInfoPreviewOpen(false)`)
-                                    // as part of opening the docked panel
-                                    // into its "Customer Info" drill-in, so
-                                    // no extra close handling is needed
-                                    // here.
-                                    subhead={
-                                      activeInteractionIsRealCustomer && activeInteraction.customerName ? (
-                                        <Tooltip content="View Customer Info" placement="bottom">
-                                          <button
-                                            type="button"
-                                            onClick={focusCustomerPanelTab}
-                                            className="lyra-body-sm text-lyra-fg-link hover:underline focus-visible:outline-none"
-                                          >
-                                            {activeInteraction.customerName}
-                                          </button>
-                                        </Tooltip>
-                                      ) : (
-                                        activeInteraction.customerName
-                                      )
-                                    }
-                                    tabs={<ContactDetailsTabRow />}
-                                  />}
-                                >
-                                  <div className="min-h-0 flex-1 overflow-y-auto">
-                                    {/* The docked panel's own tab bodies, from the registry (P-CANVAS). */}
-                                    <ContactDetailsTabBody inPreview />
-                                  </div>
-                                  {/* AI display "panel": the Copilot composer docks here while the
-                                      preview is open, as in the docked panel's footer (one on screen). */}
-                                  {aiInPanel && contactDetailsView === "Details" && (
-                                    <div className="relative shrink-0 px-4 pb-3 pt-2">
-                                      <div data-slot="copilot-dock" className="w-full">
-                                        <HostSlot host={copilotHost} active={copilotSlot === "hover-footer"} onMountedChange={setHoverDockMounted} />
-                                      </div>
-                                    </div>
-                                  )}
-                                </HoverPreviewFrame>
-                              }
-                            >
-                              {/* `IdCard` + "Contact Details" (icon-only under 768px of the
-                                  record header); selected while the panel shows Contact Details. */}
-                              <Button
-                                variant="outline"
-                                size="md"
-                                className={cn(
-                                  "shrink-0 animate-in fade-in-0 duration-200",
-                                  recordHeaderWidth < 768 && "w-8 gap-0 px-0",
-                                  panelToggleClass({ active: contactDetailsShowing, previewOpen: customerInfoPreviewOpen })
-                                )}
-                                data-preview-open={(customerInfoPreviewOpen && !contactDetailsShowing) || undefined}
-                                aria-pressed={contactDetailsShowing}
-                                onClick={() => selectPanel({ kind: "details" })}
-                                aria-label={contactDetailsShowing ? "Close Contact Details" : sidePanelToggleLabel ?? "Open Contact Details"}
-                              >
-                                <IdCard className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
-                                {recordHeaderWidth >= 768 && <span>Contact Details</span>}
-                              </Button>
-                            </Popover>
-                          </div>
-                        )}
+                        {/* Contact Details (the shared control, a kind cell's too, P-HOME-1m): always visible, in
+                            every AI display mode, selected while the panel shows Contact Details (clicking it then
+                            closes the panel), with its hover preview. */}
+                        {activeInteraction && <ContactDetailsControl compact={recordHeaderWidth < 768} />}
                         {/* Outside the wrapper above: hovering it must not open the Contact Details preview. */}
                         <SummariesToggle />
                         </div>
