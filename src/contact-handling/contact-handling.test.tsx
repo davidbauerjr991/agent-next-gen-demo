@@ -13,7 +13,7 @@ import { createMemoryBus } from "@/adapters/sim/memory-transport";
 import { SIM_DEMO_SEED } from "@/adapters/sim/sim-fixtures";
 import type { SimTransport } from "@/adapters/sim/sim-transport";
 import { createSimulatedInteractionProvider, type SimulatedInteractionProvider } from "@/adapters/sim/simulated-interaction-provider";
-import type { ContactHistoryEntry } from "@/components/agent-next-gen-contact-history";
+import { buildDismissedContactHistoryEntry, type ContactHistoryEntry } from "@/components/agent-next-gen-contact-history";
 import { INITIAL_NOTIFICATIONS } from "@/components/agent-next-gen-interaction-dashboard";
 import { waitFor } from "@/contract-tests/event-recorder";
 import type { ProviderSet } from "@/providers";
@@ -473,6 +473,47 @@ describe("contact handling", () => {
     await act(() => api.reopen.openNotification(notification));
     await until(() => api.cards.length === 1, "reopened");
     expect(api.cards[0].id).not.toBe(activations[0].journeyId);
+  });
+
+  it("a dismissed known customer's History row carries their record: reopened, it joins the customer's open card (not a new one); its Redial is refused while they have a live call, naming it", async () => {
+    // A known customer's card, then the row its dismissal logs (the page's own builder).
+    act(() => api.dial.startCall({ contact, channel: "sms", phone: "+15550001111", skillId: "general" }));
+    await until(() => activations.length === 1, "first card");
+    const first = api.cards.find((c) => c.id === activations[0].journeyId)!;
+    const entry = buildDismissedContactHistoryEntry(first as Parameters<typeof buildDismissedContactHistoryEntry>[0], 0);
+    expect(entry.entityId).toBe(customer.id);
+    // Dismissed: its contact wraps up and the card goes.
+    const smsId = first.threads[0].providerInteractionId!;
+    await act(async () => {
+      await provider.end(smsId);
+      await provider.completeWrapUp(smsId, {});
+    });
+    await until(() => api.cards.length === 0, "dismissed");
+
+    // Another card for the same customer.
+    act(() => api.dial.startCall({ contact, channel: "email", phone: "x@example.com", skillId: "general" }));
+    await until(() => activations.length === 2, "second card");
+    const open = activations[1].journeyId;
+    expect(api.cards.map((c) => c.id)).toEqual([open]);
+
+    // Reopening the History row joins that card.
+    await act(() => api.reopen.reopenHistoryEntry(entry));
+    await until(() => activations.length === 3, "reopened");
+    expect(activations[2].journeyId).toBe(open);
+    expect(api.cards).toHaveLength(1);
+    expect(api.cards[0].threads.map((t) => t.type).sort()).toEqual(["email", "sms"]);
+
+    // A live call with the customer: the row's Redial is refused, naming that call.
+    act(() => api.dial.startCall({ contact, channel: "voice", phone: customer.phones[0].value, skillId: "general" }));
+    await until(() => !!api.cards[0]?.threads.find((t) => t.type === "voice")?.onCall, "on call");
+    expect(api.dial.redialBlocked(entry)).toBe(true);
+    expect(api.dial.redialBlockedReason(entry)).toBe(`Already on a call with ${customer.name}`);
+    const refusedBefore = alreadyOnCall;
+    act(() => api.dial.openRedialPad(entry, null));
+    expect(api.dial.dialpadRequest).toBeNull();
+    expect(alreadyOnCall).toBe(refusedBefore + 1);
+    expect(alreadyOnCallWith?.entityId).toBe(customer.id);
+    expect(alreadyOnCallMessage(callerOfInteraction(alreadyOnCallWith!, api.cards).name)).toBe(`Already on a call with ${customer.name}`);
   });
 
   it("folds a Contact History reopen into the open card's thread after it was closed", async () => {
