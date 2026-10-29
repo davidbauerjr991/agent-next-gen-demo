@@ -447,7 +447,8 @@ describe("7: the record-header call badge", () => {
   }
 });
 
-describe("8: the Session tab's channel matches the selected tab", () => {
+describe("8: Session Details' channel matches the selected tab (P-HOME-1n: its own slide-over, opened from the session row)", () => {
+  const details = () => h.container.querySelector("[data-slot=reference-slide-over] [data-slot=session-slide-over]");
   for (const ai of ["inline", "panel", "main"] as const) {
     it(`AI display ${ai}: voice, SMS and email on one card`, async () => {
       await setUp(ai);
@@ -462,14 +463,18 @@ describe("8: the Session tab's channel matches the selected tab", () => {
           // The panel thread's session row → View Details → the slide-over.
           if (panelShows() !== label.split(" ")[0].toLowerCase()) await h.click(headerIcon(label)!);
           const viewDetails = buttonText(panel().querySelector("[data-slot=panel-session-row]")!, /View Details/)!;
-          await h.click(viewDetails);
-          const details = panel().querySelector("[data-slot=session-slide-over]")!;
-          expect(details.textContent, label).toContain(`Channel${channel}`);
+          if (!details()) await h.click(viewDetails);
+          await h.advance(100);
+          expect(details()?.textContent, label).toContain(`Channel${channel}`);
         } else {
           if (headerIcon(label)!.getAttribute("aria-pressed") !== "true") await h.click(headerIcon(label)!);
-          if (panelShows() !== "details") await h.click(contactDetailsButton());
-          await h.click([...panel().querySelectorAll<HTMLElement>("[role=tab], button")].find((el) => el.textContent?.trim() === "Session")!);
-          expect(panel().textContent, label).toContain(`Channel${channel}`);
+          // The tab's session row (the record header's second line) → Session Details.
+          if (!details()) {
+            const row = h.container.querySelector("[data-slot=record-session-row]")!;
+            await h.click([...row.querySelectorAll<HTMLElement>("button")].find((b) => /Session Details|View Details/.test(b.textContent ?? ""))!);
+            await h.advance(100);
+          }
+          expect(details()?.textContent, label).toContain(`Channel${channel}`);
         }
       }
     });

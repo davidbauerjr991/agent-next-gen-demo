@@ -209,15 +209,14 @@ describe("header hover previews", () => {
     expect(emailRows).toHaveLength(2);
   });
 
-  it("AI display panel: the Contact Details preview carries the one Copilot composer; the docked panel gets it back", async () => {
+  it("AI display panel: the one Copilot composer stays in the docked AI Overview; the Contact Details preview is the record's tabs (P-HOME-1n)", async () => {
     await whatsAppAndEmail("panel");
-    // Panel mode opens Contact Details on activation; close it to preview.
-    if (contactDetailsButton().getAttribute("aria-pressed") === "true") await h.click(contactDetailsButton());
     await hover(contactDetailsButton());
     expect(previews()).toHaveLength(1);
     expect(composers()).toHaveLength(1);
-    expect(composers()[0].closest("[data-slot=hover-preview]")).not.toBeNull();
-    expect(composers()[0].closest("[data-main-thread]")).toBeNull();
+    expect(composers()[0].closest("[data-slot=right-panel]")).not.toBeNull();
+    expect(previews()[0].querySelector("[data-slot=contact-details-tabs]")).not.toBeNull();
+    // Opening Contact Details (the slide-over) closes the preview; the composer stays docked.
     await h.click(contactDetailsButton());
     expect(previews()).toHaveLength(0);
     expect(composers()).toHaveLength(1);
@@ -227,8 +226,8 @@ describe("header hover previews", () => {
 
 describe("AI cards", () => {
   it("the Real-Time Summary (AI display panel: Contact Details' Overview) is lyra's Agentic AI card and enters with the shared animation", async () => {
+    // Panel mode's docked panel is the AI Overview on activation (P-HOME-1n: no Contact Details toggle needed).
     await whatsAppAndEmail("panel");
-    if (h.container.querySelector("[data-slot=right-panel]")?.getAttribute("data-thread") !== "details") await h.click(contactDetailsButton());
     const title = [...h.container.querySelectorAll("[data-slot=right-panel] [data-slot=real-time-summary] *")].find(
       (el) => el.children.length === 0 && el.textContent?.trim() === "Real-Time Summary",
     )!;
@@ -242,7 +241,6 @@ describe("AI cards", () => {
     // Contact Details' Overview's (panel).
     it(`the AI overview (AI display ${ai}): no Autosummary; one Real-Time Summary, ${ai === "panel" ? "in the panel" : "in the reference column"}`, async () => {
       await whatsAppAndEmail(ai);
-      if (ai === "panel" && h.container.querySelector("[data-slot=right-panel]")?.getAttribute("data-thread") !== "details") await h.click(contactDetailsButton());
       expect(h.container.querySelector("[data-slot=autosummary]")).toBeNull();
       const cards = [...h.container.querySelectorAll("[data-slot=real-time-summary]")];
       expect(cards).toHaveLength(1);

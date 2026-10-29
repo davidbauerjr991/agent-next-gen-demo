@@ -1,16 +1,15 @@
 // Contact Details' header control (P-HOME-1m, out of RecordHeader): the
-// IdCard button that toggles the docked Contact Details panel, with its hover
-// preview (the panel's own tab row and bodies). The conversation's record
-// header and a kind cell's header both render it, for the controller's
-// Contact Details subject (`contactSubject`: the conversation, or the
-// schedule item's customer). The preview shows only while Contact Details
-// isn't the panel's content (`openCustomerInfoPreview`); the wrapping div's
-// hover handlers open and close it, so the pointer can cross into the
+// IdCard button that toggles Contact Details — since P-HOME-1n the reference
+// slide-over, not the docked panel — with its hover preview (the same tab row
+// and bodies). The conversation's record header and a kind cell's header both
+// render it, for the controller's Contact Details subject (`contactSubject`:
+// the conversation, or the schedule item's customer). The preview shows only
+// while Contact Details isn't open (`openCustomerInfoPreview`); the wrapping
+// div's hover handlers open and close it, so the pointer can cross into the
 // portaled popover without it flickering shut.
 import { Button, Link, PanelHeader, Popover, Tooltip } from "@nicecxone/lyra-ui";
 import { IdCard } from "lucide-react";
 import { HOVER_PREVIEW_POPOVER_CLASS, HoverPreviewFrame, panelToggleClass } from "@/contact-handling";
-import { HostSlot } from "@/contact-handling/portal-hosts";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
@@ -19,9 +18,9 @@ import { ContactDetailsTabBody, ContactDetailsTabRow } from "./contact-details-t
 /** `compact`: icon only (the record header under 768px). */
 export function ContactDetailsControl({ compact = false }: { compact?: boolean }) {
   const {
-    activeInteractionIsRealCustomer, aiInPanel, contactDetails, contactDetailsShowing, contactDetailsView, contactSubject, copilotHost, copilotSlot,
+    activeInteractionIsRealCustomer, contactDetails, contactDetailsShowing, contactSubject,
     customerInfoPreviewOpen, focusCustomerPanelTab, openCustomerInfoPreview, scheduleCloseCustomerInfoPreview, selectPanel,
-    setHoverDockMounted, sidePanelToggleLabel,
+    sidePanelToggleLabel,
   } = useWorkspace();
   if (!contactSubject || !contactDetails) return null;
   // The one view-model (`contactDetailsFor`): the slide-over's header reads the same name.
@@ -70,15 +69,6 @@ export function ContactDetailsControl({ compact = false }: { compact?: boolean }
               {/* The docked panel's own tab bodies, from the registry (P-CANVAS). */}
               <ContactDetailsTabBody inPreview />
             </div>
-            {/* AI display "panel": the Copilot composer docks here while the preview is open, as in the docked
-                panel's footer (one on screen). A kind cell keeps its own Copilot input: no thread, no dock. */}
-            {aiInPanel && contactSubject.hasThread && contactDetailsView === "Details" && (
-              <div className="relative shrink-0 px-4 pb-3 pt-2">
-                <div data-slot="copilot-dock" className="w-full">
-                  <HostSlot host={copilotHost} active={copilotSlot === "hover-footer"} onMountedChange={setHoverDockMounted} />
-                </div>
-              </div>
-            )}
           </HoverPreviewFrame>
         }
       >

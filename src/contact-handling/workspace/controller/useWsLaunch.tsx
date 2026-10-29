@@ -338,13 +338,9 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
   // they always agree on the same edit-in-progress state rather than each
   // tracking it independently. `sessionContact` is the same voice/non-voice
   // fallback ternary both render sites already used before this hook
-  // existed here. `onEditClick` makes sure the DOCKED panel is open
-  // whenever "Edit" is clicked — a no-op if it's already open, but if
-  // clicked from the hover-preview popover instead, this opens the docked
-  // panel and (since the preview's own `detailsPanelPreviewOpen` is gated
-  // on `!sidePanelOpen`) closes the preview in that same update, so the
-  // agent lands on the real panel already in edit mode rather than seeing
-  // an editable form appear inside the transient, mouse-driven popover.
+  // existed here. No `onEditClick` since P-HOME-1n: Session Details is its own
+  // slide-over (never in the hover preview), so "Edit" is already on the real
+  // surface.
   // The thread whose session it shows: the panel's thread under "main" (it follows a switch, k8 3), else the main tab's.
   const detailsThreadKey = activeInteraction ? `${activeInteraction.id}:${(panelPlacement && channelPreviewThreadKey) || activeChannelKey}` : "";
   const detailsFromPanelRow = !!(panelPlacement && channelPreviewThreadKey);
@@ -357,7 +353,6 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
   });
   const sessionDetailsTabContent = useSessionDetailsTabContent({
     sessionContact: (sessionDetailsPick?.key === detailsThreadKey ? sessionDetailsPick.session : detailsCurrentSession) ?? null,
-    onEditClick: () => setSidePanelOpen(true),
   });
 
   // App-local only (per "changes to components should only happen locally

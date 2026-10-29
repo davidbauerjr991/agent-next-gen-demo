@@ -173,7 +173,9 @@ describe("3: under \"main\", Session Details follows the panel's thread", () => 
     await h.click(h.navCard(priya.name));
     if (panelShows() !== "email") await h.click(headerIcon("Email")!);
     await h.click(buttonText(panel().querySelector("[data-slot=panel-session-row]")!, /View Details/)!);
-    const details = () => panel().querySelector("[data-slot=session-slide-over]");
+    await h.advance(100);
+    // P-HOME-1n: Session Details is the reference slide-over; the thread stays in the panel.
+    const details = () => h.container.querySelector("[data-slot=reference-slide-over] [data-slot=session-slide-over]");
     expect(details()?.textContent).toContain("ChannelEmail");
     await h.click(headerIcon("SMS")!);
     expect(panelShows()).toBe("sms");

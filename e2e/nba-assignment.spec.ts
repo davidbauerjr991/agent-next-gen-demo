@@ -88,11 +88,10 @@ test("Nathan, inline: Hide Transcript on → no utterances, the AI rows stay, Co
   await expect(nba(page)).toHaveAttribute("data-frame", "say", { timeout: 5_000 });
   await nba(page).getByRole("button", { name: "Said it" }).click();
   await expect.poll(async () => (await callerLines(page)).length, { timeout: 3_000 }).toBe(1);
-  // Contact Details beside it.
-  const panel = page.locator("[data-slot=right-panel]");
-  if ((await panel.getAttribute("data-thread")) !== "details" || (await panel.getAttribute("data-open")) !== "true") {
-    await page.locator("button[aria-label$='Contact Details']").filter({ hasNot: page.locator("[data-slot=right-panel] *") }).first().click();
-  }
+  // Contact Details beside it (the reference slide-over, P-HOME-1n).
+  const panel = page.locator("[data-slot=reference-slide-over]");
+  if ((await panel.locator("[data-slot=contact-details-tabs]").count()) === 0) await page.locator("button[data-contact-details]").first().click();
+  await expect(panel.locator("[data-slot=contact-details-tabs]")).toBeVisible();
   const transcriptTab = panel.locator("[data-slot=contact-details-tabs] [role=tab]", { hasText: /^Transcript$/ });
   await expect(transcriptTab).toHaveCount(0);
 

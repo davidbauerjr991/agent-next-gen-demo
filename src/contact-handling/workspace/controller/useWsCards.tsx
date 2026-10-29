@@ -484,10 +484,9 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   const stripAiInPanel = (messages: TranscriptMessage[]) =>
     aiInPanel ? messages.filter((m) => !isAiActionMessage(m)) : messages;
   // The docked Copilot composer portals into one stable host for the page's life (`portal-hosts.tsx`); the slot that
-  // holds it is the main column's dock ("main"), the panel footer, or the hover preview's footer (`copilotSlot`,
-  // below). Moving the host never remounts the composer, so its draft, tab and chips survive a layout switch.
+  // holds it is the main column's dock ("main") or the panel footer (`copilotSlot`). Moving the host never remounts
+  // the composer, so its draft, tab and chips survive a layout switch.
   const copilotHost = usePortalHost("contents");
-  const [hoverDockMounted, setHoverDockMounted] = useState(false);
   // Bumped by an agent action in the docked composer; the Overview body then
   // scrolls to the bottom whatever its position (`DetailsPanelAccordions`).
   const [aiFollowSignal, setAiFollowSignal] = useState(0);
@@ -1040,7 +1039,7 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
     handleToggleAllChannelsExpanded, assignmentsSettings, outboundSettings, enabledChannels, calling, pendingClose,
     setPendingClose, pendingCloseCopy, confirmDismiss, voiceSettings, panelPlacement, placement, aiInPanel, asyncPlacement,
     aiWorkspaceInMain, tabs, omnichannel, rightPanelEl, rightPanelSlotMounted, setRightPanelSlotMounted,
-    rightPanelRef, portalInto, stripAiInPanel, copilotHost, hoverDockMounted, setHoverDockMounted, aiFollowSignal,
+    rightPanelRef, portalInto, stripAiInPanel, copilotHost, aiFollowSignal,
     setAiFollowSignal, copilotFollows, voiceBarHost, sessionRowHost, voiceNavSlotMounted, setVoiceNavSlotMounted,
     newOutboundAtBottom, navItemsAtTop, noInteractionCollapse, channelsExpandedById, setChannelsExpandedById,
     activeInteractionId, setActiveInteractionId, isNewAssignment, answerSla, customerTable, activeInteraction,

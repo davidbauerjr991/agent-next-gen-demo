@@ -6,7 +6,7 @@ const copilot: DetailPanelContent = { kind: "copilot-result", text: "Show the or
 const session: DetailPanelContent = { kind: "session" };
 
 describe("slideOverPlacement", () => {
-  it("AI display panel: always the docked panel", () => {
+  it("AI display panel: the docked panel, but for the parts with a slot of their own", () => {
     expect(slideOverPlacement({ displayLocation: "panel", content: copilot })).toEqual({ mode: "panel" });
     expect(slideOverPlacement({ displayLocation: "panel", content: null })).toEqual({ mode: "panel" });
   });
@@ -17,8 +17,10 @@ describe("slideOverPlacement", () => {
     expect(slideOverPlacement({ displayLocation: "main", content: null })).toEqual({ mode: "referenceSlot" });
   });
 
-  it("Session Details stays in the panel", () => {
-    expect(slideOverPlacement({ displayLocation: "main", content: session })).toEqual({ mode: "panel" });
-    expect(slideOverPlacement({ displayLocation: "inline", content: session })).toEqual({ mode: "panel" });
+  it("Session Details and Contact Details: the reference slot under every AI display (P-HOME-1n, their parts' slot)", () => {
+    for (const displayLocation of ["inline", "panel", "main"] as const) {
+      expect(slideOverPlacement({ displayLocation, content: session })).toEqual({ mode: "referenceSlot" });
+      expect(slideOverPlacement({ displayLocation, content: { kind: "contactDetails" } })).toEqual({ mode: "referenceSlot" });
+    }
   });
 });

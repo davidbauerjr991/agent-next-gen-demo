@@ -39,7 +39,7 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
     activeChannelKey, activeInteraction, activeInteractionId, aiInPanel, channelPreviewThreadKey, customerPanelActiveTab,
     handleCopilotAsk, interactions, omni, openDetailPanelContent, panelPlacement,
     restoredCustomerPanelTabRef, scenarioCases, scenarioKeyOf, setActiveInteractionId, setCustomerPanelActiveTab,
-    setHistoryConversationTab, setLinkCustomerPanelOpen, setSelectedDetailPanelContent, setVoiceVideoFullScreen,
+    setHistoryConversationTab, setSelectedDetailPanelContent, setVoiceVideoFullScreen,
     setVoiceVideoWindowOpen, setWindowWidth, showSettings,
   } = prev;
   const replyBlockedReason = useReplyBlockedReason();
@@ -78,25 +78,17 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
   // so it never reads "Select 'View Details' on a session…" and never shows
   // another tab's session.
   const [sessionDetailsPick, setSessionDetailsPick] = useState<{ key: string; session: TranscriptSession } | null>(null);
-  /** A session row's Session Details. The main tab's (inline, panel) opens Contact Details' Session tab on
-   *  that thread's session, and closes the panel if it's already showing it. Under "main" the panel
-   *  thread's header row opens it as the interior slide-over over the thread, with its own close (k6 10:
-   *  the slide-over card links and Copilot results use, mounted in the panel; no mode-specific body).
-   *  It shows the panel's thread: switching thread switches its session (k8 3). */
+  /** A session row's Session Details (P-HOME-1n: the sessionDetails part, the reference slide-over under every AI
+   *  display; it left Contact Details' tabs). Clicking the same session again closes it. It shows the thread whose
+   *  row opened it: switching thread switches its session (k8 3). */
   const viewSessionDetails = (threadKey: string, session: TranscriptSession) => {
     if (!activeInteractionId) return;
-    setSelectedDetailPanelContent(null);
     const key = `${activeInteractionId}:${threadKey}`;
-    if (panelPlacement) {
-      setSessionDetailsPick({ key, session });
-      openDetailPanelContent({ kind: "session" });
-      return;
-    }
-    const showing = sidePanelOpen && customerPanelActiveTab === "Session Details" && sessionDetailsPick?.key === key && sessionDetailsPick.session.id === session.id;
-    if (showing) return setSidePanelOpen(false);
+    const showing =
+      prev.selectedDetailPanelContent?.kind === "session" && sessionDetailsPick?.key === key && sessionDetailsPick.session.id === session.id;
+    if (showing) return setSelectedDetailPanelContent(null);
     setSessionDetailsPick({ key, session });
-    setCustomerPanelActiveTab("Session Details");
-    setSidePanelOpen(true);
+    setSelectedDetailPanelContent({ kind: "session" });
   };
   useEffect(() => {
     if (activeInteractionId) {
@@ -482,6 +474,11 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
     setCustomerPanelActiveTab("Experience Memory");
     showContactDetails();
   };
+  /** The Artifacts list ("View All"): Contact Details' sub-page, in its slide-over (P-HOME-1n). */
+  const openArtifactsList = () => {
+    setCustomerPanelActiveTab("Artifacts");
+    showContactDetails();
+  };
   const focusCustomerPanelTab = () => {
     customerPanelFocusTabVersionRef.current += 1;
     setCustomerPanelFocusTab({ tab: "Overview", version: customerPanelFocusTabVersionRef.current });
@@ -770,12 +767,19 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
   // previews' actions (View customer info, Link to existing customer,
   // Experience Memory) and the nav rows all choose what the panel shows
   // here, so its header, selected toggle and body change together, in every
-  // AI display mode. One selected at a time: Contact Details releases the
-  // thread; picking a thread is `handleChannelSelect`.
-  const contactDetailsShowing = sidePanelOpen && !channelPreviewThreadKey;
+  // AI display mode. Since P-HOME-1n Contact Details (the slide-over) and a
+  // panel thread (under "main") are on screen together, each its own toggle;
+  // picking a thread is `handleChannelSelect`.
+  // P-HOME-1n: Contact Details is a layout part in the reference slide-over (`{ kind: "contactDetails" }`), not the
+  // docked panel; the docked panel keeps the thread (main) and panel mode's AI Overview.
+  const contactDetailsShowing = prev.selectedDetailPanelContent?.kind === "contactDetails";
+  // With Contact Details gone from it, the docked panel has nothing to show outside panel mode but a thread: it
+  // closes rather than sit empty.
+  useEffect(() => {
+    if (!aiInPanel && sidePanelOpen && !channelPreviewThreadKey) setSidePanelOpen(false);
+  }, [aiInPanel, sidePanelOpen, channelPreviewThreadKey]);
   function showContactDetails() {
-    setSidePanelOpen(true);
-    if (activeInteractionId) omni.close(activeInteractionId);
+    setSelectedDetailPanelContent({ kind: "contactDetails" });
     clearTimeout(customerInfoPreviewTimer.current);
     setCustomerInfoPreviewOpen(false);
   }
@@ -790,14 +794,17 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
       if (!panelPlacement && target.cardId === activeInteractionId && target.key === activeChannelKey) return;
       return late.handleChannelSelect(target.cardId, target.key);
     }
-    // Contact Details already showing: the toggle closes the panel.
+    // Contact Details already showing: the toggle closes the slide-over.
     if (contactDetailsShowing) {
-      setSidePanelOpen(false);
+      setSelectedDetailPanelContent(null);
       clearTimeout(customerInfoPreviewTimer.current);
       setCustomerInfoPreviewOpen(false);
       return;
     }
-    if (customerPanelActiveTab === "Customer Info") setCustomerPanelActiveTab("Details");
+    // The button opens on the tabs, not a sub-page left open before.
+    if (customerPanelActiveTab === "Customer Info" || customerPanelActiveTab === "Experience Memory" || customerPanelActiveTab === "Artifacts") {
+      setCustomerPanelActiveTab("Customer Information");
+    }
     showContactDetails();
   };
   // Per explicit request ("the link to existing customer button should
@@ -813,8 +820,10 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
   // then arms `linkCustomerPanelOpen` the same way the docked panel's own
   // button does, so the agent lands on the real, docked overlay.
   const handleLinkCustomerFromPreview = () => {
-    showContactDetails();
-    setLinkCustomerPanelOpen(true);
+    // The link picker is its own slide-over content (P-HOME-1m), where Contact Details now opens too.
+    clearTimeout(customerInfoPreviewTimer.current);
+    setCustomerInfoPreviewOpen(false);
+    setSelectedDetailPanelContent({ kind: "link-customer" });
   };
   // Opens the restored hover-preview (`customerInfoPreviewOpen`, see that
   // state's own doc comment) — mirrors `AgentNextGenPage.tsx`'s own
@@ -834,7 +843,8 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
     // CHANNEL's preview is open instead (`channelPreviewThreadKey` set),
     // Contact Details is not the visible content, so hovering it should
     // still offer its own peek.
-    if (sidePanelOpen && !channelPreviewThreadKey) return;
+    // P-HOME-1n: Contact Details shows in the reference slide-over, so that's what suppresses its peek.
+    if (contactDetailsShowing) return;
     clearTimeout(customerInfoPreviewTimer.current);
     setCustomerInfoPreviewOpen(true);
   };
@@ -926,7 +936,7 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
     customerInfoPreviewOpen, setCustomerInfoPreviewOpen, customerInfoPreviewTimer, channelHoverPreviewKey,
     setChannelHoverPreviewKey, threadMenu, channelHoverPreviewTimer, channelHoverOpenTimer, customerPanelFocusTab,
     setCustomerPanelFocusTab, customerPanelFocusTabVersionRef, marcusMemoryFocus, setMarcusMemoryFocus,
-    experienceMemoryFocus, setExperienceMemoryFocus, openExperienceMemoryInSidePanel, focusCustomerPanelTab,
+    experienceMemoryFocus, setExperienceMemoryFocus, openExperienceMemoryInSidePanel, openArtifactsList, focusCustomerPanelTab,
     sidePanelPinned, sidePanelResizing, setSidePanelResizing, sidePanelWidth, setSidePanelWidth, sidePanelFullScreen,
     setSidePanelFullScreen, sidePanelHoverTimer, isSidePanelContainerNarrow, effectiveSidePanelPinned,
     isSidePanelAtMaxWidthBreakpoint, isSidePanelAtMinimalThreshold, onSidePanelHoverStart, onSidePanelHoverEnd,

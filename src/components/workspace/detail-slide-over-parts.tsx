@@ -24,6 +24,7 @@ import {
   TomLewisCallPanelBody,
 } from "@/components/agent-next-gen-lucas-thomas-panels";
 import { slideOverEntry } from "@/contact-handling/slide-over-registry";
+import { useContactDetailsSlideOverParts } from "./contact-details-slide-over";
 
 /** The interior slide-over's header and body for the last selected content
  *  (`lastDetailPanelContent`, so it keeps showing through the close), shared
@@ -33,6 +34,8 @@ export interface DetailSlideOverParts {
   headerTitle?: string;
   headerSubhead?: string;
   onBack?: () => void;
+  /** A tab row under the title (Contact Details' tabs, P-HOME-1n). */
+  headerTabs?: ReactNode;
   footer?: ReactNode;
   body: ReactNode;
 }
@@ -47,6 +50,9 @@ export function useDetailSlideOverPanel({ wanted, assignmentKey }: { wanted: boo
 
 export function useDetailSlideOverParts(): DetailSlideOverParts {
   const { channelPreviewMeta, lastDetailPanelContent: content, sessionDetailsTabContent, setSelectedDetailPanelContent } = useWorkspace();
+  // Contact Details (with its Experience Memory and Artifacts sub-pages): the parts the docked panel used (P-HOME-1n).
+  const contactDetailsParts = useContactDetailsSlideOverParts();
+  if (content?.kind === "contactDetails") return contactDetailsParts;
   const registered = content?.kind === "registry" ? slideOverEntry(content.caseKey, content.panel) : undefined;
   const headerTitle =
     content?.kind === "session"

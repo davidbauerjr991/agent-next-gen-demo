@@ -368,13 +368,13 @@ describe("schedule items open as assignments", () => {
     const preview = document.body.querySelector<HTMLElement>("[data-slot=hover-preview]")!;
     expect(preview).not.toBeNull();
     expect(preview.textContent).toContain("Priya Shah");
-    // Click: the docked Contact Details panel, not a slide-over; the record's tabs, no Session or Transcript.
+    // Click: Contact Details in the kind cell's reference slide-over (P-HOME-1n, as a conversation's); the record's
+    // tabs, no Session or Transcript.
     await h.click(details());
     await h.advance(400);
     expect(details().getAttribute("aria-pressed")).toBe("true");
-    const panel = h.container.querySelector<HTMLElement>("[data-slot=right-panel]")!;
+    const panel = cell()!.querySelector<HTMLElement>('[data-slot="reference-slide-over"]')!;
     expect(panel).not.toBeNull();
-    expect(cell()!.querySelector('[data-slot="reference-slide-over"]')).toBeNull();
     const panelTabs = tabs(panel);
     expect(panelTabs).toEqual(expect.arrayContaining(["Overview", "Notes", "Detail"]));
     expect(panelTabs).not.toContain("Session");

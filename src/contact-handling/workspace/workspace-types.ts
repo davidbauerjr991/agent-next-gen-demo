@@ -44,8 +44,11 @@ export type DetailPanelContent =
   | { kind: "lucas-order"; orderId: LucasThomasOrderId; from?: "memory" | "purchases" }
   // A scripted case's registered panel (slide-over-registry.ts, P-SHRINK): its key, and for a Copilot row its question.
   | { kind: "registry"; caseKey: string; panel: string; text?: string; time?: string; link?: string }
-  // AI display "main": a panel thread's Session Details, over the thread in the panel (k6 10).
+  // A session row's Session Details (k6 10; P-HOME-1n: the reference slide-over under every AI display).
   | { kind: "session" }
+  // Contact Details (P-HOME-1n): its tabs and its Experience Memory / Artifacts / Customer Info sub-pages, chosen by
+  // the Contact Details tab state, in the reference slide-over.
+  | { kind: "contactDetails" }
   // P-HOME-1m: a customer's record (a kind cell's Contact Details), and the directory picker that links an unmatched
   // customer to one — a schedule item's (`itemId`), else the active conversation's.
   | { kind: "link-customer"; itemId?: string };

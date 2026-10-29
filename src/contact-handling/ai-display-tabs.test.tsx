@@ -39,6 +39,9 @@ const navRow = (label: string) => h.container.querySelector<HTMLElement>(`aside 
 const main = () => h.container.querySelector("[data-main-thread]")?.getAttribute("data-main-thread");
 const panel = () => h.container.querySelector("[data-slot=right-panel]");
 const panelShows = () => (panel()?.getAttribute("data-open") === "true" ? panel()!.getAttribute("data-thread") : null);
+/** Contact Details: the reference slide-over (P-HOME-1n). */
+const detailsSlideOver = () => h.container.querySelector<HTMLElement>("[data-slot=reference-slide-over]");
+const detailsShowing = () => !!detailsSlideOver()?.querySelector("[data-slot=contact-details-tabs]");
 const previews = () => [...document.body.querySelectorAll<HTMLElement>("[data-slot=hover-preview]")];
 const active = (el: HTMLElement) => PANEL_TOGGLE_ACTIVE.split(" ").every((c) => el.classList.contains(c));
 
@@ -109,16 +112,17 @@ describe("AI display inline and panel: tabs", () => {
       await h.click(headerIcon("WhatsApp")!);
       expect(main()).toBe("whatsapp");
       expect([active(headerIcon("Email")!), active(headerIcon("WhatsApp")!)]).toEqual([false, true]);
-      // The panel never shows a thread: Contact Details or closed.
+      // The panel never shows a thread: panel mode's AI Overview, or closed.
       expect(["details", null]).toContain(panelShows());
-      if (panelShows() !== "details") await h.click(contactDetailsButton());
-      expect(panelShows()).toBe("details");
+      // Contact Details is the reference slide-over (P-HOME-1n).
+      if (!detailsShowing()) await h.click(contactDetailsButton());
+      expect(detailsShowing()).toBe(true);
       expect(active(contactDetailsButton())).toBe(true);
       expect(active(headerIcon("WhatsApp")!)).toBe(true);
       // The nav row does the same as the tab.
       await h.click(navRow("Email"));
       expect(main()).toBe("email");
-      expect(panelShows()).toBe("details");
+      expect(detailsShowing()).toBe(true);
     });
   }
 
@@ -221,21 +225,23 @@ describe("AI display inline and panel: tabs", () => {
       const mainColumn = h.container.querySelector("[data-main-thread]")!;
       expect(mainColumn.querySelector("[data-slot=ai-workspace]")).toBeNull();
       expect(mainColumn.querySelector("[data-slot=content-stack]")).toBeTruthy();
-      if (panelShows() !== "details") await h.click(contactDetailsButton());
       // Inline: the composer in the main column (no Autosummary anywhere, P-CANVAS). Panel: the Agentic cards, the AI
-      // feed and the composer in Contact Details.
+      // feed and the composer in the docked panel's AI Overview (open on activation).
       expect(document.body.querySelector("[data-slot=autosummary]")).toBeNull();
       expect(!!mainColumn.querySelector("[data-slot=copilot-composer]")).toBe(ai === "inline");
-      expect(!!panel()!.querySelector("[data-slot=ai-feed]")).toBe(ai === "panel");
-      expect(!!panel()!.querySelector("[data-canvas-cell=real-time-summary]")).toBe(ai === "panel");
+      expect(!!panel()?.querySelector("[data-slot=ai-feed]")).toBe(ai === "panel");
+      expect(!!panel()?.querySelector("[data-canvas-cell=real-time-summary]")).toBe(ai === "panel");
       expect(document.body.querySelectorAll("[data-slot=copilot-composer]")).toHaveLength(1);
       // The call's live transcript is its tab: Contact Details' Transcript tab only under panel (inline shows the
       // live thread itself, P-CANVAS).
-      expect([...panel()!.querySelectorAll("[role=tab], button")].some((el) => el.textContent?.trim() === "Transcript")).toBe(ai === "panel");
+      if (!detailsShowing()) await h.click(contactDetailsButton());
+      expect([...detailsSlideOver()!.querySelectorAll("[role=tab]")].some((el) => el.textContent?.trim() === "Transcript")).toBe(ai === "panel");
+      await h.click(contactDetailsButton());
+      await h.advance(400);
       // The email tab: the same placement rules.
       await h.click(headerIcon("Email")!);
       expect(main()).toBe("email");
-      expect(!!panel()!.querySelector("[data-slot=ai-feed]")).toBe(ai === "panel");
+      expect(!!panel()?.querySelector("[data-slot=ai-feed]")).toBe(ai === "panel");
     });
   }
 });

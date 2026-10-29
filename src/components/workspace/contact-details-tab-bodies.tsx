@@ -13,12 +13,12 @@ import { useActiveTranscriptMenu } from "./useActiveTranscriptMenu";
 
 /** A tab that needs the subject's thread (P-HOME-1m: a schedule item's customer has none). */
 const withThread = ({ hasThread }: ContactDetailsTabContext) => hasThread !== false;
-const panelOnly = (ctx: ContactDetailsTabContext) => ctx.aiInPanel && withThread(ctx);
 const withRecord = ({ realCustomer }: ContactDetailsTabContext) => realCustomer;
 
 /** Panel mode's Overview: the Agentic reference cards (the canvas registry's reference cells, the reference
- *  column's own) above the AI feed. */
-function OverviewBody({ inPreview }: { inPreview: boolean }) {
+ *  column's own) above the AI feed. Since P-HOME-1n it's the docked panel's whole content under AI display "panel",
+ *  not a Contact Details tab (Contact Details opens in the reference slide-over). */
+export function OverviewBody({ inPreview }: { inPreview: boolean }) {
   const cards = useReferenceCells();
   return <>{useWorkspace().renderContactDetailsTab("Overview", inPreview, cards)}</>;
 }
@@ -60,19 +60,17 @@ function TranscriptBody() {
   );
 }
 
-function SessionBody({ inPreview }: { inPreview: boolean }) {
-  return <>{useWorkspace().renderContactDetailsTab("Session", inPreview)}</>;
-}
-
+// P-HOME-1n: Session left the tab set (Session Details is its own slide-over, under every AI display), and panel
+// mode's Overview became the docked panel's content (`OverviewBody`); a stored "Details" or "Session Details" tab
+// state resolves to the row's first tab (`resolveContactDetailsView`).
 export const DEFAULT_CONTACT_DETAILS_TABS: readonly ContactDetailsTab[] = [
-  { id: "Details", label: "Overview", order: 0, applies: panelOnly, Body: OverviewBody },
-  // Under inline and main the customer's record is the first tab, "Overview"; panel mode keeps its own Overview tab.
+  // The customer's record is the first tab, "Overview" ("Customer Information" under panel, where the docked panel
+  // is the AI's Overview).
   { id: "Customer Information", label: "Overview", panelLabel: "Customer Information", order: 10, applies: withRecord, Body: CustomerRecordBody },
   { id: "Notes", label: "Notes", order: 20, applies: withRecord, Body: CustomerRecordBody },
   { id: "Detail", label: "Detail", order: 30, Body: CustomerRecordBody },
   // Only when the thread isn't already on screen: a closed card, a past session, a call whose transcript is hidden.
   { id: "Transcript", label: "Transcript", order: 40, applies: (ctx) => withThread(ctx) && !ctx.threadOnScreen, Body: TranscriptBody },
-  { id: "Session Details", label: "Session", order: 50, applies: withThread, Body: SessionBody },
 ];
 
 /** The tab row, from the registry. */

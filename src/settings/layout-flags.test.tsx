@@ -262,12 +262,13 @@ describe("Header tabs (AI display inline) and the panel's thread (\"main\")", ()
   it("the tabs and Contact Details are one toggle group: the main tab pressed, Contact Details beside it", async () => {
     await voiceAndEmail();
     expect(pressed()).toEqual(["Email"]);
+    // Contact Details opens in the reference slide-over (P-HOME-1n), its button pressed beside the main tab.
     await h.click(contactDetailsButton()!);
-    expect(panelShows()).toBe("details");
+    expect(h.container.querySelector("[data-slot=reference-slide-over] [data-slot=contact-details-tabs]")).not.toBeNull();
     expect(pressed()).toEqual(["Email", "Contact Details"]);
-    // Clicking it again closes the panel; it stays visible.
+    // Clicking it again closes it; the button stays visible.
     await h.click(contactDetailsButton()!);
-    expect(panelShows()).toBeNull();
+    await h.advance(400);
     expect(pressed()).toEqual(["Email"]);
   });
 
@@ -434,17 +435,16 @@ describe("AI display \"main\": the AI-first layout (ai.displayLocation)", () => 
     await hover(chatIcon()!);
     expect(preview()).toBeUndefined();
     await unhover(chatIcon()!);
-    // Contact Details takes the panel; the chat icon is released and previews.
+    // Contact Details opens in the reference slide-over (P-HOME-1n): the chat stays in the panel beside it.
     await h.click(contactDetailsButton()!);
-    expect(panelShows()).toBe("details");
-    expect(chatIcon()!.getAttribute("aria-pressed")).toBe("false");
-    await hover(chatIcon()!);
-    expect(preview()).toBeDefined();
-    await unhover(chatIcon()!);
-    // The chat icon swaps the panel back.
-    await h.click(chatIcon()!);
+    expect(h.container.querySelector("[data-slot=reference-slide-over] [data-slot=contact-details-tabs]")).not.toBeNull();
     expect(panelShows()).toBe("chat");
     expect(chatIcon()!.getAttribute("aria-pressed")).toBe("true");
+    // Its button closes it again; the chat is still there.
+    await h.click(contactDetailsButton()!);
+    await h.advance(400);
+    expect(contactDetailsButton()!.getAttribute("aria-pressed")).toBe("false");
+    expect(panelShows()).toBe("chat");
   }
 
   it("a sim chat: the session row, the chat icon beside Contact Details, the swap, and the hover-preview rule", async () => {

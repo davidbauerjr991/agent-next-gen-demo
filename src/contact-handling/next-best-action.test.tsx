@@ -354,15 +354,13 @@ describe("Hide Transcript (a call under AI display inline)", () => {
     const el = [...document.body.querySelectorAll<HTMLElement>("label")].find((l) => l.textContent?.trim() === label);
     return el && (el.querySelector<HTMLElement>("[role=switch], button") ?? el.parentElement!.querySelector<HTMLElement>("[role=switch], button")!);
   };
+  // Contact Details is the reference slide-over (P-HOME-1n).
   const contactDetailsTabs = () =>
-    [...document.body.querySelectorAll("[data-slot=right-panel] [data-slot=contact-details-tabs] [role=tab]")].map((t) => t.textContent?.trim());
+    [...document.body.querySelectorAll("[data-slot=reference-slide-over] [data-slot=contact-details-tabs] [role=tab]")].map((t) => t.textContent?.trim());
   async function showContactDetails() {
-    const panel = document.body.querySelector<HTMLElement>("[data-slot=right-panel]")!;
-    if (panel.getAttribute("data-open") === "true" && panel.getAttribute("data-thread") === "details") return;
-    const button = [...document.body.querySelectorAll<HTMLElement>("button[aria-label]")].find(
-      (b) => /Contact Details$/.test(b.getAttribute("aria-label")!) && !b.closest("[data-slot=right-panel]"),
-    )!;
-    await h.click(button);
+    if (document.body.querySelector("[data-slot=reference-slide-over] [data-slot=contact-details-tabs]")) return;
+    await h.click(document.body.querySelector<HTMLElement>("button[data-contact-details]")!);
+    await h.advance(100);
   }
 
   it("on: the utterances leave the main column and only the AI rows stay; the Transcript tab appears; off restores both; kept per card", async () => {

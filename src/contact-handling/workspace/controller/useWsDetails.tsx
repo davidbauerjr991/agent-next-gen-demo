@@ -692,6 +692,7 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
       case "lucas-order": return `lucas-order:${c.orderId}`;
       case "session": return "session";
       case "link-customer": return "link-customer";
+      case "contactDetails": return "contactDetails";
     }
   };
   const detailPanelArtifactLabel = (c: DetailPanelContent): string => {
@@ -707,15 +708,16 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
       case "lucas-order": return `Order ${LUCAS_THOMAS_ORDER_DETAILS[c.orderId].item}`;
       case "session": return "Session Details";
       case "link-customer": return t("Link to existing customer");
+      case "contactDetails": return t("Contact Details");
     }
   };
   const [panelArtifactsByInteraction, setPanelArtifactsByInteraction] = useWorkspaceUiField("artifactsByCard");
   useEffect(() => {
     if (!activeInteractionId || !selectedDetailPanelContent) return;
-    // Experience Memory lives in the docked side panel, so it is never listed as an artifact; nor is the link
-    // picker, a step rather than something to reopen.
+    // Experience Memory is never listed as an artifact; nor are Contact Details and Session Details (parts with a
+    // control of their own, P-HOME-1n) or the link picker, a step rather than something to reopen.
     const { kind } = selectedDetailPanelContent;
-    if (kind === "lucas-memory" || kind === "session" || kind === "link-customer") return;
+    if (kind === "lucas-memory" || kind === "session" || kind === "link-customer" || kind === "contactDetails") return;
     const content = selectedDetailPanelContent;
     const id = detailPanelArtifactKey(content);
     setPanelArtifactsByInteraction((prev) => {

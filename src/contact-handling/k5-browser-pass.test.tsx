@@ -37,8 +37,6 @@ const contactDetailsButton = () =>
 const panel = () => h.container.querySelector("[data-slot=right-panel]")!;
 const panelShows = () => (panel()?.getAttribute("data-open") === "true" ? panel().getAttribute("data-thread") : null);
 const main = () => h.container.querySelector("[data-main-thread]")?.getAttribute("data-main-thread");
-const tabByText = (root: ParentNode, text: string) =>
-  [...root.querySelectorAll<HTMLElement>("[role=tab], button")].find((el) => el.textContent?.trim() === text);
 
 async function setUp(ai: AiDisplayLocation) {
   await act(async () => {
@@ -95,23 +93,30 @@ describe("A: a call under AI display \"main\" is a panel thread", () => {
 });
 
 describe("B: Session Details is per channel", () => {
-  it("inline: the Session tab shows the selected tab's channel, never the 'Select View Details' placeholder", async () => {
+  // P-HOME-1n: Session Details is its own slide-over (the reference slot), opened from the session row; no tab.
+  const sessionSlideOver = () => h.container.querySelector("[data-slot=reference-slide-over] [data-slot=session-slide-over]");
+  const sessionLink = () =>
+    [...h.container.querySelectorAll<HTMLElement>("[data-slot=record-session-row] button")].find((b) => /Session Details|View Details/.test(b.textContent ?? ""))!;
+
+  it("inline: the session row's Session Details opens the selected tab's channel in the slide-over, never the 'Select View Details' placeholder", async () => {
     await setUp("inline");
     const journey = await dial("whatsapp");
     await dial("email", journey);
     await h.click(h.navCard(priya.name));
-    await h.click(contactDetailsButton());
-    await h.click(tabByText(panel(), "Session")!);
-    const body = () => panel().textContent ?? "";
+    await h.click(sessionLink());
+    await h.advance(100);
+    const body = () => sessionSlideOver()?.textContent ?? "";
     expect(body()).not.toContain("on a session to see its details");
     expect(body()).toContain("Email");
     await h.click(headerIcon("WhatsApp")!);
     expect(main()).toBe("whatsapp");
+    await h.click(sessionLink());
+    await h.advance(100);
     expect(body()).not.toContain("on a session to see its details");
     expect(body()).toContain("WhatsApp");
   });
 
-  it("main: the panel thread's session row is in the panel header; its View Details opens the slide-over over the thread", async () => {
+  it("main: the panel thread's session row is in the panel header; its View Details opens Session Details in the reference slide-over, the thread staying in the panel", async () => {
     await setUp("main");
     const journey = await dial("whatsapp");
     await dial("email", journey);
@@ -126,9 +131,9 @@ describe("B: Session Details is per channel", () => {
     const sessionDetails = [...row()!.querySelectorAll<HTMLElement>("button")].find((b) => b.textContent?.includes("View Details"))!;
     expect(sessionDetails).toBeTruthy();
     await h.click(sessionDetails);
-    // k6 10: the session details open as the interior slide-over over the thread, in the panel.
-    const slideOver = () => panel().querySelector("[data-slot=session-slide-over]");
-    expect(slideOver()?.textContent).toContain("Contact ID");
+    await h.advance(100);
+    // P-HOME-1n: Session Details is the reference slide-over under every AI display; the thread stays in the panel.
+    expect(sessionSlideOver()?.textContent).toContain("Contact ID");
     expect(panelShows()).toBe("email");
     expect(panel().textContent).toContain("Coming soon");
   });
@@ -159,12 +164,10 @@ describe("C: Outcome and the status pill on every channel tab", () => {
 });
 
 describe("E: the Journey Summary enters with the other AI cards", () => {
-  it("its card carries the AI cards' enter animation (panel mode: on Contact Details' Overview, P-CANVAS)", async () => {
+  it("its card carries the AI cards' enter animation (panel mode: on the docked panel's AI Overview, P-HOME-1n)", async () => {
     await setUp("panel");
     await dial("email");
     await h.click(h.navCard(priya.name));
-    if (panelShows() !== "details") await h.click(contactDetailsButton());
-    await h.click(tabByText(panel(), "Overview")!);
     const card = panel().querySelector("[data-slot=journey-summary]");
     expect(card).not.toBeNull();
     const entering = card!.closest(`.${"animate-in"}`);
@@ -173,26 +176,25 @@ describe("E: the Journey Summary enters with the other AI cards", () => {
   });
 });
 
-describe("G: the Contact Details hover preview hands an action to the docked panel", () => {
-  it("AI display panel: an action in the preview closes it and opens the panel on Contact Details", async () => {
+describe("G: the Contact Details hover preview hands an action to Contact Details", () => {
+  it("AI display panel: an action in the preview closes it and opens Contact Details (the reference slide-over, P-HOME-1n)", async () => {
     await setUp("panel");
     await dial("email");
     await h.click(h.navCard(priya.name));
-    if (panelShows() === "details") await h.click(contactDetailsButton());
-    expect(panelShows()).toBeNull();
     await act(async () => {
       contactDetailsButton().dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
       await vi.advanceTimersByTimeAsync(400);
     });
     const preview = document.body.querySelector("[data-slot=hover-preview]")!;
     expect(preview).not.toBeNull();
-    // Any action in it (a card's link or button; not an expand toggle).
-    const action = [...preview.querySelectorAll<HTMLElement>("[data-slot=ai-feed] button, [data-slot=ai-feed] a, button.text-lyra-fg-link")].find(
-      (el) => !el.hasAttribute("aria-expanded"),
+    // Any action in it (a link or button; not an expand toggle or a tab).
+    const action = [...preview.querySelectorAll<HTMLElement>("button, a")].find(
+      (el) => !el.hasAttribute("aria-expanded") && el.getAttribute("role") !== "tab" && !el.closest("[data-slot=contact-details-tabs]"),
     )!;
     expect(action).toBeTruthy();
     await h.click(action);
-    expect(panelShows()).toBe("details");
+    await h.advance(100);
+    expect(h.container.querySelector("[data-slot=reference-slide-over]")).not.toBeNull();
     expect(document.body.querySelector("[data-slot=hover-preview]")).toBeNull();
   });
 });

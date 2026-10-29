@@ -40,19 +40,19 @@ const contactDetails = (page: Page) => page.getByRole("button", { name: /Contact
 const icon = (page: Page, label: string) => page.locator(`[aria-label='Open ${label} preview'], [aria-label='Close ${label} preview']`).first();
 const preview = (page: Page) => page.locator("[data-slot=hover-preview]");
 
-test("AI display main: the Contact Details hover action selects Contact Details: header, toggle and body together", async ({ page }) => {
+test("AI display main: an action in the Contact Details hover preview opens Contact Details in the reference slide-over, beside the chat (P-HOME-1n)", async ({ page }) => {
   await setUp(page, { ai: "main" });
   await priyaCard(page, false);
   await expect(page.locator("[data-slot=right-panel][data-open=true][data-thread=chat]")).toBeVisible();
   await contactDetails(page).hover();
   await expect(preview(page)).toBeVisible();
-  // An action in a tab's body: since P-CANVAS Overview's cards are on the canvas, so the Session tab's Edit.
-  await preview(page).getByRole("tab", { name: "Session" }).click();
-  const action = preview(page).getByRole("button", { name: "Edit" }).first();
-  await action.click();
-  await expect(page.locator("[data-slot=right-panel][data-open=true][data-thread=details]")).toBeVisible();
+  // The customer's name in the preview's header: the record's drill-in.
+  await preview(page).locator("button.text-lyra-fg-link").first().click();
+  await expect(page.locator("[data-slot=reference-slide-over]")).toBeVisible();
   await expect(contactDetails(page)).toHaveAttribute("aria-pressed", "true");
-  await expect(icon(page, "Chat")).toHaveAttribute("aria-pressed", "false");
+  // The chat stays in the panel.
+  await expect(page.locator("[data-slot=right-panel][data-open=true][data-thread=chat]")).toBeVisible();
+  await expect(icon(page, "Chat")).toHaveAttribute("aria-pressed", "true");
   await expect(preview(page)).toHaveCount(0);
 });
 

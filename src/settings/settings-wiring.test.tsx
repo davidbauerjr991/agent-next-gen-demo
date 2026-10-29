@@ -482,30 +482,25 @@ describe("AI display panel: docked Copilot composer", () => {
     expect(scrollTop).toBe(scrollHeight);
   });
 
-  it("shows only on the Details overview: not on Session Details, Customer Info or Experience Memory", async () => {
+  it("stays with the docked AI Overview while Customer Info and Experience Memory open in the reference slide-over (P-HOME-1n)", async () => {
     await lucasInPanelMode();
     expect(composer()).not.toBeNull();
-
-    // The tabs read "Overview" / "Session".
-    await clickText("Session");
-    expect(composer()).toBeNull();
-    await clickText("Overview");
-    expect(composer()).not.toBeNull();
+    const slideOver = () => document.body.querySelector<HTMLElement>("[data-slot=reference-slide-over]");
 
     // Customer Info is an Overview card (P-CANVAS): open it (its header also reads its status), then follow its link.
     await h.click(document.body.querySelector("[data-slot=right-panel] [data-slot=customer-info-card] [aria-expanded]")!);
     await clickText("View customer info");
-    expect(composer()).toBeNull();
-    await clickText("Back to Details");
+    expect(slideOver()).not.toBeNull();
     expect(composer()).not.toBeNull();
 
-    // The Journey Summary (with its "View Experience Memory" link) is an
-    // Overview card (P-CANVAS): open it, then follow the link.
+    // The Journey Summary's "View Experience Memory" opens Experience Memory in the same slide-over, its back arrow
+    // to Contact Details.
     await h.click(document.body.querySelector("[data-slot=right-panel] [data-slot=journey-summary] [aria-expanded]")!);
     await clickText("View Experience Memory");
-    expect(composer()).toBeNull();
-    await clickText("Back to Contact Details");
+    expect(slideOver()?.querySelector("[data-slot=experience-memory]")).not.toBeNull();
     expect(composer()).not.toBeNull();
+    await h.click(slideOver()!.querySelector<HTMLElement>('[aria-label="Back"], [aria-label^="Back"]')!);
+    expect(slideOver()?.querySelector("[data-slot=contact-details-tabs]")).not.toBeNull();
   });
 });
 
@@ -540,13 +535,8 @@ describe("Contact Details Overview stack, events, composer fade", () => {
   const EVENTS = ["Chat started", "Launch price held for 24 h", "Payment link sent", "Approval requested"];
   const APPROVAL_PROMPT = "How would you like to proceed?";
 
-  const clickTab = async (label: string) => {
-    const tab = [...document.body.querySelectorAll("button, [role=tab]")].find((el) => el.textContent?.trim() === label);
-    if (!tab) throw new Error(`no tab ${label}`);
-    await h.click(tab);
-  };
 
-  it("(5, 10) panel mode: Overview = the Agentic reference cards (Real-Time Summary, Journey Summary, Customer Info) + the AI feed; Session has none of them; the feed's AICards radius md", async () => {
+  it("(5, 10) panel mode: Overview = the Agentic reference cards (Real-Time Summary, Journey Summary, Customer Info) + the AI feed; no Session tab (P-HOME-1n); the feed's AICards radius md", async () => {
     await lucas("panel");
     // The reference column's own cells, in its order, then the feed.
     const order = [...body().querySelectorAll("[data-slot=real-time-summary], [data-slot=journey-summary], [data-slot=customer-info-card], [data-slot=ai-feed]")].map(
@@ -557,15 +547,11 @@ describe("Contact Details Overview stack, events, composer fade", () => {
     expect(aiCard("Approval request", body()), "Approval request AICard on Overview").not.toBeNull();
     // The Journey Summary carries the Artifacts; no separate Artifacts card.
     expect(aiCard("Artifacts", body())).toBeNull();
-
-    await clickTab("Session");
-    const rightPanel = document.body.querySelector("[data-slot=right-panel]")!;
-    for (const slot of ["real-time-summary", "journey-summary", "customer-info-card"]) {
-      expect(rightPanel.querySelector(`[data-slot=${slot}]`), `${slot} not on Session`).toBeNull();
-    }
+    // Session Details is its own slide-over now: no Session tab anywhere.
+    expect([...document.body.querySelectorAll("[role=tab]")].some((el) => el.textContent?.trim() === "Session")).toBe(false);
   });
 
-  it("(10) inline mode (P-CANVAS): no panel Overview tab; Customer Info and Journey Summary are in the reference column; Session doesn't get them", async () => {
+  it("(10) inline mode (P-CANVAS): no panel Overview tab; Customer Info and Journey Summary are in the reference column; no Session tab", async () => {
     await lucas("inline");
     // The reference cards are canvas cells now (two columns by default: the reference column).
     const reference = h.container.querySelector<HTMLElement>("[data-canvas-region=reference]")!;
@@ -576,9 +562,8 @@ describe("Contact Details Overview stack, events, composer fade", () => {
       const tabs = [...row.querySelectorAll("[role=tab]")].map((t) => t.textContent?.trim());
       expect(tabs.filter((label) => label === "Overview").length).toBeLessThanOrEqual(1);
       expect(tabs).not.toContain("Customer Information");
+      expect(tabs).not.toContain("Session");
     }
-    await clickTab("Session");
-    expect(document.body.querySelector("[data-slot=right-panel] [data-slot=journey-summary]")).toBeNull();
   });
 
   it("(5) the stack is spaced only by its gap: no card or wrapper carries its own margin or top padding", async () => {
@@ -590,15 +575,12 @@ describe("Contact Details Overview stack, events, composer fade", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("(5) panel mode: Overview names both summaries, the Real-Time Summary and the Journey Summary, once each; Session neither", async () => {
+  it("(5) panel mode: Overview names both summaries, the Real-Time Summary and the Journey Summary, once each", async () => {
     await lucas("panel");
     const rightPanel = () => document.body.querySelector<HTMLElement>("[data-slot=right-panel]")!;
     for (const title of ["Real-Time Summary", "Journey Summary"]) {
       expect(leaves(title).filter((el) => rightPanel().contains(el)), title).toHaveLength(1);
     }
-    await clickTab("Session");
-    expect(rightPanel().textContent).not.toContain("Journey Summary");
-    expect(rightPanel().textContent).not.toContain("Real-Time Summary");
   });
 
   it("(6) panel mode: the event rows stay in the transcript; the approval card moves to the panel", async () => {
@@ -646,13 +628,22 @@ describe("(14) voice transcript placement", () => {
     await h.click(h.navCard("Marcus Webb"));
     await h.advance(1_000);
   }
-  /** The docked side panel (Contact Details). */
-  const panel = () => document.body.querySelector("[data-slot=right-panel]")!;
+  /** Contact Details: the reference slide-over (P-HOME-1n). */
+  const panel = () => document.body.querySelector("[data-slot=reference-slide-over]");
+  const openContactDetails = async () => {
+    if (!panel()?.querySelector("[data-slot=contact-details-tabs]")) await h.click(document.body.querySelector<HTMLElement>("button[data-contact-details]")!);
+    await h.advance(100);
+  };
   const transcriptTab = () =>
-    [...panel().querySelectorAll("button, [role=tab]")].find((el) => el.textContent?.trim() === "Transcript");
+    [...(panel()?.querySelectorAll("button, [role=tab]") ?? [])].find((el) => el.textContent?.trim() === "Transcript");
   const lineInMain = () =>
     [...document.body.querySelectorAll("*")].some(
-      (el) => el.children.length === 0 && el.textContent?.includes(LINE) && !panel().contains(el) && !el.closest("aside"),
+      (el) =>
+        el.children.length === 0 &&
+        el.textContent?.includes(LINE) &&
+        !panel()?.contains(el) &&
+        !el.closest("[data-slot=right-panel]") &&
+        !el.closest("aside"),
     );
 
   // (k5): a call's tab follows AI display like every other thread: its
@@ -666,13 +657,15 @@ describe("(14) voice transcript placement", () => {
       expect(document.body.querySelector("[data-main-thread=voice] [data-slot=ai-workspace]")).toBeNull();
       expect(lineInMain()).toBe(true);
       if (display === "inline") {
+        await openContactDetails();
         expect(transcriptTab()).toBeUndefined();
         const label = [...document.body.querySelectorAll<HTMLElement>("label")].find((l) => l.textContent?.trim() === "Hide Transcript")!;
         await h.click(label.querySelector<HTMLElement>("[role=switch], button") ?? label.parentElement!.querySelector<HTMLElement>("[role=switch], button")!);
         expect(lineInMain()).toBe(false);
       }
+      await openContactDetails();
       await h.click(transcriptTab() as HTMLElement);
-      const tab = panel().querySelector("[data-slot=contact-details-transcript]")!;
+      const tab = panel()!.querySelector("[data-slot=contact-details-transcript]")!;
       expect(tab.textContent).toContain(LINE);
       expect(tab.querySelector("textarea")).toBeNull();
     });

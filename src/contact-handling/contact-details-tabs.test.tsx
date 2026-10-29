@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
-// P-CANVAS: Contact Details' tabs come from a registry. Inline and main:
-// Customer Information (labelled Overview), Notes, Detail, Session, and
-// Transcript only when the thread isn't already on screen (an unknown
-// contact: Detail, Session). Panel keeps its Overview first: the Agentic
-// reference cards, the AI feed and the Copilot dock. Transcript is the thread
-// read-only.
+// P-CANVAS: Contact Details' tabs come from a registry: Customer Information (labelled Overview), Notes, Detail, and
+// Transcript only when the thread isn't already on screen (an unknown contact: Detail). P-HOME-1n: Contact Details
+// opens in the reference slide-over under every AI display; Session left the tabs (its own slide-over), and panel
+// mode's Overview — the Agentic reference cards, the AI feed and the Copilot dock — is the docked panel's content.
+// Transcript is the thread read-only.
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
@@ -29,13 +28,14 @@ afterEach(async () => {
   await h.tearDown();
 });
 
-const panel = () => h.container.querySelector<HTMLElement>("[data-slot=right-panel]")!;
-const tabRow = () => [...panel().querySelectorAll("[data-slot=contact-details-tabs] [role=tab]")].map((t) => t.textContent?.trim());
-const tab = (label: string) => [...panel().querySelectorAll<HTMLElement>("[role=tab]")].find((t) => t.textContent?.trim() === label)!;
+/** Contact Details' slide-over (the reference slot). */
+const slideOver = () => h.container.querySelector<HTMLElement>("[data-slot=reference-slide-over]");
+/** The docked right panel. */
+const docked = () => h.container.querySelector<HTMLElement>("[data-slot=right-panel]")!;
+const tabRow = () => [...(slideOver()?.querySelectorAll("[data-slot=contact-details-tabs] [role=tab]") ?? [])].map((t) => t.textContent?.trim());
+const tab = (label: string) => [...slideOver()!.querySelectorAll<HTMLElement>("[role=tab]")].find((t) => t.textContent?.trim() === label)!;
 const contactDetailsButton = () =>
-  [...h.container.querySelectorAll<HTMLElement>("button[aria-label]")].find(
-    (b) => /Contact Details$/.test(b.getAttribute("aria-label")!) && !b.closest("[data-slot=right-panel]"),
-  )!;
+  [...h.container.querySelectorAll<HTMLElement>("button[data-contact-details]")].find((b) => !b.closest("[data-slot=right-panel]"))!;
 
 async function open(displayLocation: AiDisplayLocation) {
   await act(async () => {
@@ -48,12 +48,11 @@ async function open(displayLocation: AiDisplayLocation) {
   await h.advance(500);
 }
 
-/** Contact Details on screen (under "main" the panel may hold a thread). */
+/** Contact Details on screen: the slide-over. */
 async function showContactDetails() {
-  if (panel().getAttribute("data-open") !== "true" || panel().getAttribute("data-thread") !== "details") {
-    await h.click(contactDetailsButton());
-  }
-  expect(panel().getAttribute("data-thread")).toBe("details");
+  if (!slideOver()?.querySelector("[data-slot=contact-details-tabs]")) await h.click(contactDetailsButton());
+  await h.advance(100);
+  expect(slideOver()?.querySelector("[data-slot=contact-details-tabs]")).not.toBeNull();
 }
 
 async function noah() {
@@ -78,63 +77,51 @@ async function priyaChat() {
   await h.advance(300);
 }
 
-describe("the tab set", () => {
+describe("the tab set (in the reference slide-over)", () => {
   for (const displayLocation of ["inline", "main"] as const) {
-    it(`AI display ${displayLocation}: Overview (the customer's record), Notes, Detail, Session — no Transcript while the live thread is on screen`, async () => {
+    it(`AI display ${displayLocation}: Overview (the customer's record), Notes, Detail — no Session, no Transcript while the live thread is on screen`, async () => {
       await open(displayLocation);
       await noah();
       await showContactDetails();
-      expect(tabRow()).toEqual(["Overview", "Notes", "Detail", "Session"]);
+      expect(tabRow()).toEqual(["Overview", "Notes", "Detail"]);
       // It opens on the first tab, labelled Overview: the record's own body (Customer Information's).
       expect(tab("Overview").getAttribute("aria-selected")).toBe("true");
       // The Agentic reference cards are the reference column's, not Contact Details'.
-      expect(panel().querySelector("[data-canvas-cell]")).toBeNull();
+      expect(slideOver()!.querySelector("[data-canvas-cell]")).toBeNull();
     });
 
-    it(`AI display ${displayLocation}: an unknown live contact has Detail, Session`, async () => {
+    it(`AI display ${displayLocation}: an unknown live contact has Detail`, async () => {
       await open(displayLocation);
       await dialedUnknown();
       await showContactDetails();
-      expect(tabRow()).toEqual(["Detail", "Session"]);
+      expect(tabRow()).toEqual(["Detail"]);
     });
   }
 
-  it("AI display panel: Overview first — the Agentic reference cards, then the AI feed and the Copilot dock; Transcript stays", async () => {
+  it("AI display panel: the docked panel is the AI Overview — the Agentic reference cards, the AI feed and the Copilot dock — with no tab row; Contact Details' tabs are in the slide-over, Transcript among them", async () => {
     await open("panel");
     await noah();
-    await showContactDetails();
-    expect(tabRow()).toEqual(["Overview", "Customer Information", "Notes", "Detail", "Transcript", "Session"]);
-    expect(tab("Overview").getAttribute("aria-selected")).toBe("true");
     // The same cells (one implementation each) the reference column mounts, in its order; no Autosummary.
-    expect([...panel().querySelectorAll("[data-canvas-cell]")].map((c) => c.getAttribute("data-canvas-cell"))).toEqual([
+    expect([...docked().querySelectorAll("[data-canvas-cell]")].map((c) => c.getAttribute("data-canvas-cell"))).toEqual([
       "real-time-summary",
       "journey-summary",
       "customer-info",
     ]);
-    expect(panel().querySelector("[data-slot=real-time-summary]")).not.toBeNull();
-    expect(panel().querySelector("[data-slot=journey-summary]")).not.toBeNull();
-    expect(panel().querySelector("[data-slot=customer-info-card]")).not.toBeNull();
     expect(h.container.querySelector("[data-slot=autosummary]")).toBeNull();
-    expect(panel().querySelector("[data-slot=ai-feed]")).not.toBeNull();
-    expect(panel().querySelector("[data-slot=copilot-dock]")).not.toBeNull();
+    expect(docked().querySelector("[data-slot=ai-feed]")).not.toBeNull();
+    expect(docked().querySelector("[data-slot=copilot-dock]")).not.toBeNull();
+    expect(docked().querySelector("[data-slot=contact-details-tabs]")).toBeNull();
+    await showContactDetails();
+    expect(tabRow()).toEqual(["Customer Information", "Notes", "Detail", "Transcript"]);
   });
 
   it("AI display panel: an unknown contact's Overview has the summary cards and Customer Info's Link to existing customer", async () => {
     await open("panel");
     await dialedUnknown();
+    expect(docked().querySelector("[data-canvas-cell=real-time-summary]")).not.toBeNull();
+    expect(docked().querySelector("[data-canvas-cell=customer-info]")?.textContent).toContain("Link to existing customer");
     await showContactDetails();
-    expect(tabRow()).toEqual(["Overview", "Detail", "Transcript", "Session"]);
-    expect(panel().querySelector("[data-canvas-cell=real-time-summary]")).not.toBeNull();
-    expect(panel().querySelector("[data-canvas-cell=customer-info]")?.textContent).toContain("Link to existing customer");
-  });
-
-  it("AI display panel: the Session tab is the session alone (the Journey Summary and Artifacts are Overview's cards)", async () => {
-    await open("panel");
-    await noah();
-    await showContactDetails();
-    await h.click(tab("Session"));
-    expect(panel().querySelector("[data-slot=journey-summary]")).toBeNull();
-    expect(panel().textContent).not.toContain("Artifacts");
+    expect(tabRow()).toEqual(["Detail", "Transcript"]);
   });
 });
 
@@ -156,21 +143,21 @@ describe("the Transcript tab's rule", () => {
     expect(hasTranscript(ctx(false, true))).toBe(false);
     expect(hasTranscript(ctx(false, false))).toBe(true);
     expect(hasTranscript(ctx(true, false))).toBe(true);
-    // The default tab stays Overview.
+    // A stored "Details" (panel mode's old Overview tab) lands on the first tab in every mode.
     expect(resolveContactDetailsView("Details", ctx(false, true))).toBe("Customer Information");
-    expect(resolveContactDetailsView("Details", ctx(true, false))).toBe("Details");
+    expect(resolveContactDetailsView("Details", ctx(true, false))).toBe("Customer Information");
     // On the Transcript tab when the thread comes back on screen: the first tab.
     expect(resolveContactDetailsView("Transcript", ctx(false, true))).toBe("Customer Information");
   });
 
-  it("no thread (P-HOME-1m: a kind cell's customer): the record's tabs alone — no Session, Transcript or panel mode's AI Overview, through `applies`", () => {
+  it("no thread (P-HOME-1m: a kind cell's customer): the record's tabs alone, through `applies`; Session and Overview are no tabs anywhere", () => {
     const ids = (c: Parameters<typeof contactDetailsTabs>[0]) => contactDetailsTabs(c).map((tab) => tab.id);
     for (const aiInPanel of [false, true]) {
       expect(ids({ aiInPanel, realCustomer: true, threadOnScreen: false, hasThread: false })).toEqual(["Customer Information", "Notes", "Detail"]);
     }
-    // Unset reads as a thread: a conversation's tabs are unchanged.
-    expect(ids({ aiInPanel: false, realCustomer: true, threadOnScreen: false })).toContain("Session Details");
-    expect(ids({ aiInPanel: true, realCustomer: true })).toEqual(expect.arrayContaining(["Details", "Session Details"]));
+    expect(ids({ aiInPanel: false, realCustomer: true, threadOnScreen: false })).toEqual(["Customer Information", "Notes", "Detail", "Transcript"]);
+    expect(ids({ aiInPanel: true, realCustomer: true })).not.toEqual(expect.arrayContaining(["Details"]));
+    expect(ids({ aiInPanel: true, realCustomer: true })).not.toEqual(expect.arrayContaining(["Session Details"]));
   });
 });
 
@@ -181,10 +168,10 @@ describe("the tabs' bodies", () => {
     await priyaChat();
     await showContactDetails();
     await h.click(tab("Transcript"));
-    const transcript = panel().querySelector("[data-slot=contact-details-transcript]")!;
+    const transcript = slideOver()!.querySelector("[data-slot=contact-details-transcript]")!;
     expect(transcript).not.toBeNull();
     expect(transcript.querySelector("textarea")).toBeNull();
-    expect(panel().querySelector("[data-slot=copilot-composer]")).toBeNull();
+    expect(slideOver()!.querySelector("[data-slot=copilot-composer]")).toBeNull();
   });
 
   it("Notes: says there are none (no notes source yet)", async () => {
@@ -192,7 +179,38 @@ describe("the tabs' bodies", () => {
     await noah();
     await showContactDetails();
     await h.click(tab("Notes"));
-    expect(panel().querySelector("[data-slot=customer-notes-empty]")).not.toBeNull();
+    expect(slideOver()!.querySelector("[data-slot=customer-notes-empty]")).not.toBeNull();
+  });
+});
+
+describe("one view-model for the hover preview and the slide-over (P-HOME-1n: contactDetailsFor)", () => {
+  it("the preview and the slide-over show the same name and the same record fields", async () => {
+    await open("inline");
+    await noah();
+    await act(async () => {
+      contactDetailsButton().dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    const preview = document.body.querySelector<HTMLElement>("[data-slot=hover-preview]")!;
+    expect(preview).not.toBeNull();
+    const norm = (s: string | null | undefined) => (s ?? "").replace(/\s+/g, " ").trim();
+    const previewRecord = norm(preview.textContent);
+    expect(previewRecord).toContain("Phone #");
+    await act(async () => {
+      contactDetailsButton().dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    await showContactDetails();
+    const record = norm(slideOver()!.querySelector("[data-slot=contact-details-slide-over]")?.textContent);
+    // Every field label and value the record shows in the slide-over is in the preview too, and the name matches.
+    for (const label of ["Phone #", "Contact #", "Email"]) {
+      const value = new RegExp(`${label.replace("#", "\\#")}\\s*([^ ]+)`).exec(record)?.[1];
+      expect(value, label).toBeTruthy();
+      expect(previewRecord, label).toContain(`${label}`);
+      expect(previewRecord, label).toContain(value!);
+    }
+    expect(previewRecord).toContain("Noah Patel");
+    expect(norm(slideOver()!.textContent)).toContain("Noah Patel");
   });
 });
 
@@ -205,9 +223,10 @@ describe("resolveContactDetailsView", () => {
   it("an unknown contact falls back to its first tab; sub-pages pass through", () => {
     expect(resolveContactDetailsView("Customer Information", { aiInPanel: false, realCustomer: false })).toBe("Detail");
     expect(resolveContactDetailsView("Artifacts", real)).toBe("Artifacts");
+    expect(resolveContactDetailsView("Session Details", real)).toBe("Customer Information");
   });
-  it("panel mode keeps Overview and its drill-in", () => {
-    expect(resolveContactDetailsView("Details", { aiInPanel: true, realCustomer: true })).toBe("Details");
+  it("panel mode keeps its customer drill-in; its old Overview tab lands on Customer Information", () => {
+    expect(resolveContactDetailsView("Details", { aiInPanel: true, realCustomer: true })).toBe("Customer Information");
     expect(resolveContactDetailsView("Customer Info", { aiInPanel: true, realCustomer: true })).toBe("Customer Info");
   });
 });

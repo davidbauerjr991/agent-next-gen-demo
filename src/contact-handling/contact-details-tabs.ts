@@ -1,10 +1,13 @@
 // Contact Details' tab set as a registry (P-CANVAS; PLAN "The main column as
 // a work surface"), so P1.7's Contact Details configuration can make it
-// admin-configurable without re-plumbing. Under AI display inline and main:
-// Customer Information (labelled Overview), Notes, Detail, Transcript (only
-// when the thread isn't already on screen), Session. AI display "panel" keeps
-// its own Overview first: the Agentic reference cards, that mode's AI feed and
-// its Copilot composer.
+// admin-configurable without re-plumbing: Customer Information (labelled
+// Overview), Notes, Detail, Transcript (only when the thread isn't already on
+// screen). P-HOME-1n: Contact Details opens in the reference slide-over under
+// every AI display; Session left the set (Session Details is its own
+// slide-over), and panel mode's Overview (the Agentic reference cards, the AI
+// feed and its Copilot composer) is the docked panel's content, not a tab.
+// "Details" and "Session Details" stay tab-state values that resolve to the
+// row's first tab.
 import type { ComponentType } from "react";
 import { DEFAULT_CONTACT_DETAILS_TABS } from "@/components/workspace/contact-details-tab-bodies";
 

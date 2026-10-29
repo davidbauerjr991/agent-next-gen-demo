@@ -67,7 +67,9 @@ test("4: Sarah Brown with two SMS threads: one SMS icon reading 2; its menu list
   await expect.poll(() => page.locator("[data-main-thread]").first().innerText()).not.toBe(before);
 });
 
-test("6: panel mode, an interstitial in the Contact Details hover preview opens the docked panel on Contact Details and its slide-over, in one click", async ({ page }) => {
+// P-HOME-1n retired this test's first half: the Contact Details hover preview is the record's tabs now (panel mode's
+// AI feed is the docked panel's, not a preview tab), so the interstitial is clicked where it lives.
+test("6: panel mode, an interstitial in the docked AI Overview reopens its slide-over in the docked panel, in one click", async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 1000 });
   await lucasInPanelMode(page);
   // An interstitial: ask Copilot through a chip (the chip row shows once the agent has the chat); close the slide-over it opens.
@@ -77,19 +79,9 @@ test("6: panel mode, an interstitial in the Contact Details hover preview opens 
   await expect(closeSlideOver).toBeVisible({ timeout: 5_000 });
   await closeSlideOver.click();
   await expect(closeSlideOver).toBeHidden();
-  // Close the docked panel.
   const panel = page.locator("[data-slot=right-panel]");
-  const contactDetails = page.locator("button[aria-label$='Contact Details']").filter({ hasNot: page.locator("[data-slot=right-panel] *") }).first();
-  if ((await panel.getAttribute("data-open")) === "true") await contactDetails.click();
-  await expect(panel).not.toHaveAttribute("data-open", "true");
-  // The hover preview, then its interstitial.
-  await contactDetails.hover();
-  const preview = page.locator("[data-slot=hover-preview]");
-  await expect(preview).toBeVisible();
-  await preview.locator("[data-slot=ai-feed] button", { hasText: "Show purchase history" }).first().click();
-  await expect(preview).toBeHidden();
   await expect(panel).toHaveAttribute("data-open", "true");
-  await expect(panel).toHaveAttribute("data-thread", "details");
+  await panel.locator("[data-slot=ai-feed] button", { hasText: "Show purchase history" }).first().click();
   await expect(closeSlideOver).toBeVisible();
   // The slide-over is in the docked panel (once it has slid in).
   const dock = (await panel.boundingBox())!;

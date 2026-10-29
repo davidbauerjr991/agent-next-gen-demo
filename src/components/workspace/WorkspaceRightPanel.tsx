@@ -1,6 +1,5 @@
 import { PanelFooter } from "@nicecxone/lyra-ui";
-import { ContactDetailsTabBody, ContactDetailsTabRow } from "./contact-details-tab-bodies";
-import { ArrowLeft } from "lucide-react";
+import { OverviewBody } from "./contact-details-tab-bodies";
 import {
   ChannelThreadBody,
   ChannelThreadComposer,
@@ -10,43 +9,31 @@ import {
   threadAcceptsReplies,
 } from "@/contact-handling";
 import { HostSlot } from "@/contact-handling/portal-hosts";
-import { LUCAS_THOMAS_ID, MARCUS_WEBB_ID, MAYA_CHEN_CALL_ID, TOM_LEWIS_CALL_ID } from "@/contact-handling/scenario-cases";
+import { LUCAS_THOMAS_ID } from "@/contact-handling/scenario-cases";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
-import {
-  AGENT_WORKSPACE_CUSTOMER_PANEL_TABS,
-  ArtifactsListBody,
-  CustomerInformationSidePanel,
-} from "@/components/customer-info";
+import { AGENT_WORKSPACE_CUSTOMER_PANEL_TABS, CustomerInformationSidePanel } from "@/components/customer-info";
 import { ComposerFade } from "@/components/transcript/InteractionTranscript";
-import {
-  LucasThomasMemoryPanelBody,
-  MayaChenCallMemoryPanelBody,
-  TomLewisCallMemoryPanelBody,
-} from "@/components/agent-next-gen-lucas-thomas-panels";
-import { slideOverEntry } from "@/contact-handling/slide-over-registry";
+import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 
-const MarcusMemoryBody = slideOverEntry(MARCUS_WEBB_ID, "memory")!.Body;
-
-/** The right panel (P-EXTRACT C8, from the page): Contact Details, or the
- *  thread open in it, in `CustomerInformationSidePanel`. Its wrapper is the
- *  slide-over's host in the panel (`rightPanelRef`). */
+/** The right panel (P-EXTRACT C8, from the page): the thread open in it (AI display "main"), or panel mode's AI
+ *  Overview, in `CustomerInformationSidePanel` (P-HOME-1n: Contact Details moved to the reference slide-over). Its
+ *  wrapper is the slide-over's host in the panel (`rightPanelRef`). */
 export function WorkspaceRightPanel() {
   const {
     activeCustomerOverviewEditing, activeCustomerRecordDraft, activeInteraction, contactSubject,
-    activeInteractionIsAgentCall, activeInteractionIsRealCustomer, addToast, channelPreviewMeta, channelPreviewThread,
+    activeInteractionIsAgentCall, activeInteractionIsRealCustomer, addToast, aiInPanel, channelPreviewMeta, channelPreviewThread,
     channelPreviewThreadKey, channelPreviewThreadStableKey, confirmDismiss, copilotComposerProps,
-    copilotDockConcealed, copilotDockShown, copilotHost, copilotSlot, customerInfoOverlayContent,
-    // What the panel shows: the tab state resolved for this card and AI display (P-CANVAS).
-    customerMatchQuery, customerMatchStep, contactDetailsView: customerPanelActiveTab, customerPanelFocusTab, customerSearchResults,
-    effectiveSidePanelPinned, experienceMemoryFocus, focusCustomerPanelTab, handleBackToCustomerSearch,
+    copilotDockConcealed, copilotDockShown, copilotHost, copilotSlot,
+    customerMatchQuery, customerMatchStep, customerPanelFocusTab, customerSearchResults,
+    effectiveSidePanelPinned, focusCustomerPanelTab, handleBackToCustomerSearch,
     handleInteractionStatusChange, handleLinkCustomerRecord, handleOutcomeSaveAndDismissChannel,
     handleSaveNewCustomer, handleSendEmailDraft, handleSendMessage, handleSidePanelClose, handleStartCall, handleStartCreateCustomer,
-    botHolds, hideAiActions, isSidePanelAtMinimalThreshold, linkCustomerPanelOpen, marcusMemoryFocus,
-    onSidePanelHoverEnd, onSidePanelHoverStart, openDetailPanelContent, outcomeDrafts, panelArtifacts,
-    panelPlacement, possibleCustomerMatches, reopenPanelArtifact,
-    rightPanelRef, scenarioKeyOf, sessionDetailsTabContent, setActiveCustomerOverviewEditing,
-    setCustomerMatchQuery, setCustomerPanelActiveTab, setHistoryConversationTab, setLinkCustomerPanelOpen,
+    botHolds, hideAiActions, isSidePanelAtMinimalThreshold, linkCustomerPanelOpen,
+    onSidePanelHoverEnd, onSidePanelHoverStart, outcomeDrafts,
+    panelPlacement, possibleCustomerMatches,
+    rightPanelRef, scenarioKeyOf, setActiveCustomerOverviewEditing,
+    setCustomerMatchQuery, setHistoryConversationTab, setLinkCustomerPanelOpen,
     setSidePanelFullScreen, setSidePanelResizing, setSidePanelWidth, showPanelToggle, sidePanelContainerWidth,
     sidePanelFullScreen, sidePanelOpen, sidePanelResizing, sidePanelWidth, threadOutcomeProps,
     viewSessionDetails,
@@ -288,17 +275,9 @@ export function WorkspaceRightPanel() {
                   // instead of Contact Details, exactly like switching
                   // interactions/tabs already replaces this same panel's
                   // content in place (no second panel).
-                  headerTitleOverride={
-                    channelPreviewThread
-                      ? channelPreviewMeta?.label
-                      : customerPanelActiveTab === "Artifacts"
-                      ? "Artifacts"
-                      : customerPanelActiveTab === "Experience Memory"
-                      ? contactSubject.customerName
-                      : customerPanelActiveTab === "Customer Info"
-                      ? customerInfoOverlayContent.headerTitle
-                      : "Contact Details"
-                  }
+                  // P-HOME-1n: without a thread, the docked panel is panel mode's AI Overview (Contact Details, its
+                  // Experience Memory, Artifacts and Customer Info drill-in are in the reference slide-over).
+                  headerTitleOverride={channelPreviewThread ? channelPreviewMeta?.label : t("Overview")}
                   // Per explicit request ("move the customer information
                   // content back to the side panel... have a back arrow
                   // next to the Customer's name"): while
@@ -311,43 +290,8 @@ export function WorkspaceRightPanel() {
                   // Guarded on `!channelPreviewThread` explicitly since
                   // neither prop has a pre-existing ternary of its own to
                   // slot into (unlike `headerTitleOverride` above).
-                  headerIconOverride={
-                    !channelPreviewThread &&
-                    (customerPanelActiveTab === "Artifacts" || customerPanelActiveTab === "Experience Memory") ? (
-                      <button
-                        type="button"
-                        onClick={() => setCustomerPanelActiveTab("Details")}
-                        aria-label="Back to Contact Details"
-                        className="flex h-6 w-6 items-center justify-center rounded-lyra-sm text-lyra-fg-secondary hover:bg-lyra-state-hover transition-colors"
-                      >
-                        <ArrowLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-                      </button>
-                    ) : !channelPreviewThread && customerPanelActiveTab === "Customer Info"
-                      ? customerInfoOverlayContent.headerIcon
-                      : undefined
-                  }
-                  headerSubheadOverride={
-                    !channelPreviewThread && customerPanelActiveTab === "Experience Memory"
-                      ? "Experience Memory"
-                      : !channelPreviewThread && customerPanelActiveTab === "Artifacts"
-                      ? contactSubject.customerName
-                      : !channelPreviewThread && customerPanelActiveTab === "Customer Info"
-                      ? customerInfoOverlayContent.headerSubhead
-                      : undefined
-                  }
-                  // Per the same explicit request: the customer's name
-                  // (this panel's own normal subhead, via `onViewCustomerInfo`
-                  // just below) is now a clickable "View Customer Info"
-                  // link into that same drill-in, instead of a separate
-                  // button — see `CustomerInformationSidePanel`'s own
-                  // `onViewCustomerInfo` doc comment.
-                  onViewCustomerInfo={
-                    !channelPreviewThread &&
-                    customerPanelActiveTab !== "Customer Info" &&
-                    activeInteractionIsRealCustomer
-                      ? focusCustomerPanelTab
-                      : undefined
-                  }
+                  // The customer's name (the panel's subhead) opens the Customer Info drill-in, now in the slide-over.
+                  onViewCustomerInfo={!channelPreviewThread && activeInteractionIsRealCustomer ? focusCustomerPanelTab : undefined}
                   headerTabsOverride={
                     channelPreviewThread && activeInteraction
                       ? panelPlacement && (
@@ -368,27 +312,7 @@ export function WorkspaceRightPanel() {
                           }
                         />
                       )
-                      : customerPanelActiveTab === "Artifacts" || customerPanelActiveTab === "Experience Memory"
-                      ? <></>
-                      : customerPanelActiveTab === "Customer Info"
-                      ? (
-                        // Per explicit request: fade in the drill-in's own
-                        // content (not the panel itself) each time it's
-                        // entered — this branch swap already causes a real
-                        // unmount/remount (a different JSX tree than the
-                        // normal tab row), so a plain `animate-in` wrapper
-                        // replays once per entry with no `key` needed, and
-                        // doesn't re-trigger while just browsing the
-                        // drill-in's own internal Overview/Detail/Notes
-                        // tabs (unrelated state).
-                        <div className="animate-in fade-in-0 duration-200">
-                          {customerInfoOverlayContent.headerTabs}
-                        </div>
-                      )
-                      : (
-                        // The tab set from the registry (contact-details-tabs.ts, P-CANVAS).
-                        <ContactDetailsTabRow />
-                      )
+                      : <></>
                   }
                   // A channel preview's own composer lives here, in
                   // `footerOverride` — same "fixed footer outside the
@@ -417,13 +341,6 @@ export function WorkspaceRightPanel() {
                           />
                         )
                         : undefined
-                      : customerPanelActiveTab === "Customer Info" ||
-                        customerPanelActiveTab === "Customer Information" ||
-                        customerPanelActiveTab === "Notes" ||
-                        customerPanelActiveTab === "Detail"
-                      ? customerInfoOverlayContent.footer
-                      : customerPanelActiveTab === "Session Details"
-                      ? sessionDetailsTabContent.footer
                       : copilotDockShown
                       ? (
                         // "AI in panel": the docked Copilot composer's slot
@@ -461,37 +378,10 @@ export function WorkspaceRightPanel() {
                           handleInteractionStatusChange(activeInteraction.id, channelPreviewThreadStableKey!, status)
                         }
                       />
-                    ) : customerPanelActiveTab === "Experience Memory" && activeInteraction ? (
-                      <div className="animate-in fade-in-0 duration-200">
-                        {scenarioKeyOf(activeInteraction.id) === MAYA_CHEN_CALL_ID ? (
-                          <MayaChenCallMemoryPanelBody />
-                        ) : scenarioKeyOf(activeInteraction.id) === TOM_LEWIS_CALL_ID ? (
-                          <TomLewisCallMemoryPanelBody />
-                        ) : scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID ? (
-                          <MarcusMemoryBody request={{ panel: "memory", focus: marcusMemoryFocus }} />
-                        ) : (
-                        <LucasThomasMemoryPanelBody
-                          focus={experienceMemoryFocus}
-                          onOpenOrder={(orderId) =>
-                            openDetailPanelContent({ kind: "lucas-order", orderId, from: "memory" })
-                          }
-                        />
-                        )}
-                      </div>
-                    ) : customerPanelActiveTab === "Artifacts" ? (
-                      <div className="animate-in fade-in-0 duration-200">
-                        <ArtifactsListBody artifacts={panelArtifacts} onOpenArtifact={reopenPanelArtifact} />
-                      </div>
-                    ) : customerPanelActiveTab === "Customer Info" ? (
-                      // Same fade-in reasoning as `headerTabsOverride`'s
-                      // own identical wrapper just above.
-                      <div className="animate-in fade-in-0 duration-200">
-                        {customerInfoOverlayContent.body}
-                      </div>
-                    ) : (
-                      // A tab from the registry (contact-details-tabs.ts, P-CANVAS).
-                      <ContactDetailsTabBody />
-                    )
+                    ) : aiInPanel ? (
+                      // Panel mode's AI Overview: the reference cards above the AI feed.
+                      <OverviewBody inPreview={false} />
+                    ) : null
                   }
                 />
                 </div>

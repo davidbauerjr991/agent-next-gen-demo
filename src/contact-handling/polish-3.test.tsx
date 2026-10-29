@@ -242,9 +242,12 @@ describe("transcript menu", () => {
     await h.accept(id);
     await h.click(h.navCard(priya.name));
     await h.advance(300);
-    if (panel().getAttribute("data-open") !== "true" || panel().getAttribute("data-thread") !== "details") await h.click(contactDetailsButton());
-    await h.click([...panel().querySelectorAll<HTMLElement>("[role=tab]")].find((t) => t.textContent?.trim() === "Transcript")!);
-    const header = panel().querySelector<HTMLElement>("[data-slot=transcript-tab-header]")!;
+    // Contact Details is the reference slide-over (P-HOME-1n).
+    await h.click(contactDetailsButton());
+    await h.advance(100);
+    const details = h.container.querySelector<HTMLElement>("[data-slot=reference-slide-over]")!;
+    await h.click([...details.querySelectorAll<HTMLElement>("[role=tab]")].find((t) => t.textContent?.trim() === "Transcript")!);
+    const header = details.querySelector<HTMLElement>("[data-slot=transcript-tab-header]")!;
     expect(header).not.toBeNull();
     await open(header.querySelector<HTMLElement>('[aria-label="Transcript options"]')!);
     expect(menuText()).toContain("Download transcript");

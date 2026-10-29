@@ -34,6 +34,8 @@ const contactDetailsButton = () =>
     (b) => /Contact Details$/.test(b.getAttribute("aria-label")!) && !b.closest("[data-slot=right-panel]"),
   );
 const pressed = (el: HTMLElement | null | undefined) => el?.getAttribute("aria-pressed") === "true";
+/** Contact Details on screen (P-HOME-1n): the reference slide-over, its button pressed. */
+const detailsShowing = () => !!h.container.querySelector("[data-slot=reference-slide-over]") && pressed(contactDetailsButton());
 
 async function hover(el: HTMLElement) {
   await act(async () => {
@@ -72,26 +74,26 @@ async function viewCustomerInfoFromHover() {
 
 describe("one selection path for the right panel", () => {
   for (const mode of ["main", "panel"] as const) {
-    it(`a Customers-table WhatsApp card (AI display ${mode}): the hover's View customer info selects Contact Details`, async () => {
+    it(`a Customers-table WhatsApp card (AI display ${mode}): the hover's View customer info opens Contact Details in the slide-over`, async () => {
       await customersTableWhatsApp(mode);
       if (mode === "main") expect(panelShows()).toBe("whatsapp");
-      // AI display "panel" opens Contact Details on activation, and the hover
-      // preview only shows while Contact Details isn't the panel's content.
-      if (panelShows() === "details") await h.click(contactDetailsButton()!);
       await viewCustomerInfoFromHover();
-      // Body, header and toggle together: Contact Details, the WhatsApp icon released.
-      expect(panelShows()).toBe("details");
-      expect(pressed(contactDetailsButton())).toBe(true);
-      expect(pressed(headerIcon("WhatsApp"))).toBe(false);
-      // Panel mode: WhatsApp is the card's lone thread, in the main column with no tab (k3); "main": no in-main mark.
-      if (mode === "panel") expect(headerIcon("WhatsApp")).toBeNull();
-      else expect(headerIcon("WhatsApp")!.getAttribute("data-in-main")).toBeNull();
-      // The thread icon takes the panel back (main), and Contact Details is one toggle among them.
+      // P-HOME-1n: Contact Details is the reference slide-over, its toggle pressed; the docked panel keeps what it
+      // had — the WhatsApp thread under "main" (both on screen), panel mode's AI Overview under "panel".
+      expect(detailsShowing()).toBe(true);
       if (mode === "main") {
-        await h.click(headerIcon("WhatsApp")!);
         expect(panelShows()).toBe("whatsapp");
-        expect(pressed(contactDetailsButton())).toBe(false);
+        expect(pressed(headerIcon("WhatsApp"))).toBe(true);
+        expect(headerIcon("WhatsApp")!.getAttribute("data-in-main")).toBeNull();
+      } else {
+        // Panel mode: WhatsApp is the card's lone thread, in the main column with no tab (k3).
+        expect(headerIcon("WhatsApp")).toBeNull();
+        expect(panelShows()).toBe("details");
       }
+      // The toggle closes it again.
+      await h.click(contactDetailsButton()!);
+      await h.advance(400);
+      expect(pressed(contactDetailsButton())).toBe(false);
     });
   }
 
@@ -168,9 +170,9 @@ describe("header highlight rule", () => {
     const classes = (el: HTMLElement) => new Set(el.classList);
     const minus = (a: Set<string>, b: Set<string>) => [...a].filter((c) => !b.has(c)).sort();
 
-    // Contact Details in the panel, the email in main: both active; WhatsApp default.
-    if (panelShows() !== "details") await h.click(contactDetailsButton()!);
-    expect(panelShows()).toBe("details");
+    // Contact Details open (the reference slide-over, P-HOME-1n), the email in main: both active; WhatsApp default.
+    if (!detailsShowing()) await h.click(contactDetailsButton()!);
+    expect(detailsShowing()).toBe(true);
     const [email, whatsApp, details] = [headerIcon("Email")!, headerIcon("WhatsApp")!, contactDetailsButton()!];
     expect([active(email), active(details), anyActive(whatsApp)]).toEqual([true, true, false]);
     // Omnichannel off, so the icons are tabs (P-AIFIRST (k)): the main tab is the pressed one.
@@ -182,7 +184,7 @@ describe("header highlight rule", () => {
     // The WhatsApp tab swaps the main column: it's the one active tab; Contact Details stays.
     await h.click(whatsApp);
     expect(h.container.querySelector("[data-main-thread]")?.getAttribute("data-main-thread")).toBe("whatsapp");
-    expect(panelShows()).toBe("details");
+    expect(detailsShowing()).toBe(true);
     const [email2, whatsApp2] = [headerIcon("Email")!, headerIcon("WhatsApp")!];
     expect([active(whatsApp2), anyActive(email2), active(contactDetailsButton()!)]).toEqual([true, false, true]);
     for (const el of [whatsApp2, email2]) expect(el.getAttribute("data-preview-open")).toBeNull();
@@ -191,9 +193,10 @@ describe("header highlight rule", () => {
     await h.click(whatsApp2);
     expect(h.container.querySelector("[data-main-thread]")?.getAttribute("data-main-thread")).toBe("whatsapp");
 
-    // Contact Details off: the panel closes.
+    // Contact Details off: the slide-over closes.
     await h.click(contactDetailsButton()!);
-    expect(panelShows()).toBeNull();
+    await h.advance(400);
+    expect(pressed(contactDetailsButton())).toBe(false);
     const detailsOff = classes(contactDetailsButton()!);
 
     // Becoming active adds and removes the same classes on an icon and on Contact Details,

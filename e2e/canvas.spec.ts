@@ -228,29 +228,31 @@ test("main with the card's thread open in the docked panel: the column is the ov
   await expect(summaries(page)).toHaveAttribute("aria-pressed", "true");
 });
 
+// P-HOME-1n: Contact Details opens in the reference slide-over under every AI display; Session left the tabs (its
+// own slide-over) and panel mode's Overview is the docked panel's content.
+const openContactDetails = async (page: Page) => {
+  const slideOver = page.locator("[data-slot=reference-slide-over]");
+  if ((await slideOver.locator("[data-slot=contact-details-tabs]").count()) === 0) await page.locator("button[data-contact-details]").first().click();
+  await expect(slideOver.locator("[data-slot=contact-details-tabs]")).toBeVisible();
+  return slideOver;
+};
+
 for (const [displayLocation, tabs] of [
   // Inline and main: no Transcript tab while the live thread is on screen (P-CANVAS); panel keeps it.
-  ["inline", ["Overview", "Notes", "Detail", "Session"]],
-  ["main", ["Overview", "Notes", "Detail", "Session"]],
-  ["panel", ["Overview", "Customer Information", "Notes", "Detail", "Transcript", "Session"]],
+  ["inline", ["Overview", "Notes", "Detail"]],
+  ["main", ["Overview", "Notes", "Detail"]],
+  ["panel", ["Customer Information", "Notes", "Detail", "Transcript"]],
 ] as const) {
-  test(`${displayLocation}: Contact Details' tab set`, async ({ page }) => {
+  test(`${displayLocation}: Contact Details' tab set, in the reference slide-over`, async ({ page }) => {
     await setUp(page, { displayLocation, canvasLayout: "twoColumn" }, 2200);
-    const panel = page.locator("[data-slot=right-panel]");
-    if ((await panel.getAttribute("data-thread")) !== "details" || (await panel.getAttribute("data-open")) !== "true") {
-      await page.getByRole("button", { name: /Contact Details$/ }).first().click();
-    }
-    await expect(panel).toHaveAttribute("data-thread", "details");
+    const panel = await openContactDetails(page);
     await expect(panel.locator("[data-slot=contact-details-tabs] [role=tab]")).toHaveText([...tabs]);
   });
 }
 
 test("panel, a digital leg: the Transcript tab's header has the transcript menu; nothing in the main thread", async ({ page }) => {
   await setUp(page, { displayLocation: "panel", canvasLayout: "twoColumn" }, 2200);
-  const panel = page.locator("[data-slot=right-panel]");
-  if ((await panel.getAttribute("data-thread")) !== "details" || (await panel.getAttribute("data-open")) !== "true") {
-    await page.getByRole("button", { name: /Contact Details$/ }).first().click();
-  }
+  const panel = await openContactDetails(page);
   await panel.locator("[data-slot=contact-details-tabs] [role=tab]", { hasText: "Transcript" }).dispatchEvent("click");
   const header = panel.locator("[data-slot=contact-details-transcript] [data-slot=transcript-tab-header]");
   await header.getByRole("button", { name: "Transcript options" }).click();

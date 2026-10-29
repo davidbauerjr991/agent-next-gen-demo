@@ -58,12 +58,12 @@ export function useWsHeaderApps(prev: WsOutbound) {
     SHARED_PANEL_MAX_WIDTH, activeChannelKey, activeInteraction, activeInteractionId, activeInteractionIsRealCustomer,
     activePanelKey, addToast, aiFollowSignal, aiInPanel, aiWorkspaceMain, blankPanelContent,
     bodyContainerWidth, calling, channelPreviewThread, copilotFollows, copilotHost, customerContextOverviewInfo,
-    customerInfoPreviewOpen, customerInfoPreviewTimer, contactDetailsView, customerTable, fullScreenRendered,
+    customerInfoPreviewTimer, customerTable, fullScreenRendered,
     fullScreenVisible, handleCopilotAsk, handleDialpadSubmit, handleFullScreenToDragMode, handleLucasApprovalDecision,
     handleLucasCallRequest, handleOpenInteractionRow, handlePanelVariantChange, handleStartCall, headerSettings,
-    hoverDockMounted, interactions, isColdCallId, isNavNarrow, leftNavPage,
+    interactions, isColdCallId, isNavNarrow, leftNavPage, slideOverInPanel,
     lucasActiveLinkKey, lucasThomasReviewing, navOpen, notifContent, notifications, setMarcusMemoryFocus,
-    openDetailPanelContent, openExperienceMemoryInSidePanel, outboundConfig, outboundDial, outboundSettings,
+    openArtifactsList, openDetailPanelContent, openExperienceMemoryInSidePanel, outboundConfig, outboundDial, outboundSettings,
     panelArtifacts, panelHeight, panelMounted, panelOpen, panelRef, panelVariant,
     panelWidth, pinnedKeys, reopenPanelArtifact, scenarioCases, scenarioKeyOf, scheduleContent, screenPopContent,
     selectedDetailPanelContent, sessionDetailsTabContent, setActivePanelKey, setCustomerInfoPreviewOpen,
@@ -861,7 +861,7 @@ export function useWsHeaderApps(prev: WsOutbound) {
         if (inPreview) closePreview();
         reopenPanelArtifact(id);
       },
-      onViewAllArtifacts: () => setCustomerPanelActiveTab("Artifacts"),
+      onViewAllArtifacts: openArtifactsList,
       onViewExperienceMemory:
         scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID || scenarioKeyOf(activeInteraction.id) === MARCUS_WEBB_ID || isColdCallId(activeInteraction.id)
           ? () => openExperienceMemoryInSidePanel()
@@ -897,24 +897,19 @@ export function useWsHeaderApps(prev: WsOutbound) {
   const aiFeedCount = activeInteraction
     ? Object.values(activeInteraction.liveMessages ?? {}).flat().filter(isAiActionMessage).length
     : 0;
-  // "AI in panel": the docked Copilot composer shows only on the Details
-  // overview (the AI feed): not on Session Details, Customer Info,
-  // Experience Memory or Artifacts, not over a channel preview, and not
-  // while a card link's sub-page is open.
-  const copilotDockShown = aiInPanel && contactDetailsView === "Details" && !channelPreviewThread;
+  // "AI in panel": the docked Copilot composer shows with the docked panel's
+  // AI Overview (since P-HOME-1n its only content but a thread), not over a
+  // channel preview.
+  const copilotDockShown = aiInPanel && !channelPreviewThread;
   // While a card link's slide-over is open over the Overview, the composer is
   // hidden but keeps its place (`invisible` + `inert`): unmounting it would
   // grow the body and move its scroll position behind the slide-over.
-  const copilotDockConcealed = !!selectedDetailPanelContent;
-  // One Copilot composer on screen: the main column ("main"), the docked
-  // panel's footer, or the Contact Details hover preview's footer while it's
-  // open (panel mode; the preview only opens while the panel isn't showing
-  // Contact Details).
-  const copilotSlot: "main" | "panel-footer" | "hover-footer" | null = aiWorkspaceMain
-    ? "main"
-    : aiInPanel
-      ? customerInfoPreviewOpen && hoverDockMounted ? "hover-footer" : copilotDockShown ? "panel-footer" : null
-      : null;
+  // Only a slide-over in the panel covers it (P-HOME-1n: Contact Details and Session Details open in the main column).
+  const copilotDockConcealed = !!selectedDetailPanelContent && slideOverInPanel;
+  // One Copilot composer on screen: the main column ("main") or the docked
+  // panel's footer (P-HOME-1n: the hover preview no longer docks it — the
+  // preview is the record's tabs).
+  const copilotSlot: "main" | "panel-footer" | null = aiWorkspaceMain ? "main" : copilotDockShown ? "panel-footer" : null;
   copilotFollows.current = copilotSlot === "main" || copilotSlot === "panel-footer";
   // The composer always portals into the same host while docked; no slot holding it hides it without unmounting it.
   const copilotDock = aiWorkspaceMain || aiInPanel ? { mount: copilotHost } : undefined;

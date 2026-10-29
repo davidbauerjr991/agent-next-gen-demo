@@ -604,8 +604,10 @@ export function InteractionBody() {
                         </>
                         )}
                       </div>
-                      {/* P-CANVAS: the reference slot — the reference column (two-column canvas only) or a slide-over. */}
-                      {canvas.enabled && <ReferenceSlot reference={canvas.reference} />}
+                      {/* P-CANVAS: the reference slot — the reference column (two-column canvas only) or a slide-over.
+                          Under AI display "panel" there's no column, but Contact Details and Session Details still
+                          open here (P-HOME-1n). */}
+                      {(canvas.enabled || aiInPanel) && <ReferenceSlot reference={canvas.reference} />}
                       {/* The separate voice/non-voice "Session Details"
                           `InteriorPanel` overlay that used to render here
                           (portaled beside `CustomerInformationSidePanel`)
