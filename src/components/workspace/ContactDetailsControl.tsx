@@ -19,12 +19,13 @@ import { ContactDetailsTabBody, ContactDetailsTabRow } from "./contact-details-t
 /** `compact`: icon only (the record header under 768px). */
 export function ContactDetailsControl({ compact = false }: { compact?: boolean }) {
   const {
-    activeInteractionIsRealCustomer, aiInPanel, contactDetailsShowing, contactDetailsView, contactSubject, copilotHost, copilotSlot,
+    activeInteractionIsRealCustomer, aiInPanel, contactDetails, contactDetailsShowing, contactDetailsView, contactSubject, copilotHost, copilotSlot,
     customerInfoPreviewOpen, focusCustomerPanelTab, openCustomerInfoPreview, scheduleCloseCustomerInfoPreview, selectPanel,
     setHoverDockMounted, sidePanelToggleLabel,
   } = useWorkspace();
-  if (!contactSubject) return null;
-  const name = contactSubject.customerName;
+  if (!contactSubject || !contactDetails) return null;
+  // The one view-model (`contactDetailsFor`): the slide-over's header reads the same name.
+  const name = contactDetails.name;
   return (
     <div onMouseEnter={openCustomerInfoPreview} onMouseLeave={scheduleCloseCustomerInfoPreview}>
       <Popover

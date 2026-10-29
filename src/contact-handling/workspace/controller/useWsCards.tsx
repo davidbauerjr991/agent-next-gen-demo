@@ -39,7 +39,8 @@ import {
   type OutcomeDraft,
 } from "@/contact-handling";
 import { useCustomerTableState } from "@/components/customer-table-state";
-import { type CustomerHistorySessionEntry, buildCustomerInfoFields, useCustomerRecordDraft } from "@/components/customer-info";
+import { type CustomerHistorySessionEntry, useCustomerRecordDraft } from "@/components/customer-info";
+import { contactDetailsFor } from "@/contact-handling/contact-details-model";
 import { MARCUS_WEBB_ID, LUCAS_THOMAS_ID, TOM_LEWIS_CALL_ID, MAYA_CHEN_CALL_ID, mergeRows, useScenarioCases } from "@/contact-handling/scenario-cases";
 import { CONTACT_CHANNELS, useSettings } from "@/settings";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
@@ -595,16 +596,12 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   // entirely, which is exactly the ONE thing per explicit request that
   // should actually discard pending edits — not merely closing the panel or
   // hovering away from it.
-  // The record's fields and draft follow Contact Details' subject (a conversation's, or a schedule item's customer).
-  const activeCustomerFields = useMemo(
-    () => (contactSubject ? buildCustomerInfoFields(contactSubject.customerName, contactSubject.customerId, contactSubject.threads) : []),
-    [contactSubject?.customerName, contactSubject?.customerId, contactSubject?.threads]
-  );
-  const activeCustomerRecordDraft = useCustomerRecordDraft(
-    activeCustomerFields,
-    contactSubject?.customerName,
-    contactSubject?.customerId
-  );
+  // The record's fields and draft follow Contact Details' subject, through the one view-model the hover preview and
+  // the slide-over read (P-HOME-1n). The subject is rebuilt each render: its inputs are the deps.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const contactDetails = useMemo(() => contactDetailsFor(contactSubject), [contactSubject?.key, contactSubject?.customerName, contactSubject?.customerId, contactSubject?.threads, contactSubject?.hasThread]);
+  const activeCustomerFields = useMemo(() => contactDetails?.fields ?? [], [contactDetails]);
+  const activeCustomerRecordDraft = useCustomerRecordDraft(activeCustomerFields, contactSubject?.customerName, contactSubject?.customerId);
   // Same lift as `activeCustomerRecordDraft` above, for the identical
   // reason — see that state's own doc comment.
   const [activeCustomerOverviewEditing, setActiveCustomerOverviewEditing] = useState(false);
@@ -1047,7 +1044,7 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
     setAiFollowSignal, copilotFollows, voiceBarHost, sessionRowHost, voiceNavSlotMounted, setVoiceNavSlotMounted,
     newOutboundAtBottom, navItemsAtTop, noInteractionCollapse, channelsExpandedById, setChannelsExpandedById,
     activeInteractionId, setActiveInteractionId, isNewAssignment, answerSla, customerTable, activeInteraction,
-    activeScenarioKey, activeCustomerFields, activeCustomerRecordDraft, activeCustomerOverviewEditing,
+    activeScenarioKey, contactDetails, activeCustomerFields, activeCustomerRecordDraft, activeCustomerOverviewEditing,
     setActiveCustomerOverviewEditing, linkCustomerPanelOpen, setLinkCustomerPanelOpen, historyConversationTab,
     setHistoryConversationTab, historyConversationForActive, isHistoryConversationView, requestedMainKey, mainPins,
     mainKey, activeChannel, omni, activeChannelType, aiWorkspaceMain, activeWrapUpThread, panelVoiceThread,
