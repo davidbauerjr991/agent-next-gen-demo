@@ -12,7 +12,7 @@ Default split: **Plan: Opus · Implement: Sonnet.** Steps marked **Implement: Op
 
 Execution order below differs from PLAN.md's numbering where it reduces risk. Step labels reference PLAN.md's numbering.
 
-**Execution order** (PLAN.md "Effort and order", 2026-10-18): … P-EXTRACT → P-POLISH → P-CANVAS → P-PROFILES → P-SHRINK → P-HOME-1 → P-HOME-2 → P0.5d.3 → P-TRANSFER → P-TIMERS → P0.6 → Phase 2 §0–5 → P-TRANSLATE → Phase 3 → *milestone* → P0.9 → P-HOME-3 → P-STREAM → P-CARDS → P-ADMIN → P-LYRA-RTL → P-I18N → P-ADMIN-2 → P-EMPLOYEES → P-COMPLIANCE → P-REPORTING → P-QM → Phase 1 → Phase 2 §6–7 → Phase 4 → the remaining verticals → Phase 5 + P-CONFIG-ASSIST → Phase 6 → Phase 7 → P-CAMPAIGNS → P-BILLING → P-MAPPINGS → P-ADAPTER → P-IMPORT → P-STUDIO → P-EMBED.
+**Execution order** (PLAN.md "Effort and order", 2026-10-18): … P-EXTRACT → P-POLISH → P-CANVAS → P-PROFILES → P-SHRINK → P-HOME-1 → P-HOME-1n → P-LAYOUT → P-HOME-ASK → P-TRANSFER → P-TIMERS → P0.6 → Phase 2 §0–5 → P-TRANSLATE → Phase 3 → *milestone* → P-HOME-2 → P0.9 → P-HOME-3 → P-STREAM → P-ADMIN → P-LYRA-RTL → P-I18N → P-ADMIN-2 → P-EMPLOYEES → P-COMPLIANCE → P-REPORTING → P-QM → Phase 1 → Phase 2 §6–7 → Phase 4 → the remaining verticals → Phase 5 + P-CONFIG-ASSIST → Phase 6 → Phase 7 → P-CAMPAIGNS → P-BILLING → P-MAPPINGS → P-ADAPTER → P-IMPORT → P-STUDIO → P-EMBED.
 
 ---
 
@@ -50,7 +50,7 @@ Wrap up this step: run the type-check and the test suite, update PROGRESS.md (do
 
 **One page (decided 2026-10-15; final since P0.5d.2):** Advanced is the agent workspace and Desk is deleted. Its layout varies by settings only; "Phase 1" and "Phase 2" are built-in workspace profiles. Prompts below that say "both pages" mean Advanced.
 
-**Execution order (revised 2026-10-19, demo-first):** finish 5d.1 → P0.7 and P0.5c → P-SETTINGS → P0.5d.2 → P-AIFIRST → P-EXTRACT → P-POLISH → P-CANVAS → P-PROFILES → P-SHRINK → P-HOME-1 → P-HOME-2 → P0.5d.3 → P-TRANSFER → P-TIMERS → P0.6 → Phase 2 §0–5 → P-TRANSLATE → Phase 3 (*first demo milestone: a simulated chat and spoken call driven from the console*) → P0.9.1–9.3 → P-HOME-3 → P-STREAM → P-CARDS → P-ADMIN → P-EMPLOYEES → Phase 1 (incl. P1.4a, P1.4b) → Phase 2 §6–7 (P2.7) → Phase 4 (incl. P4.4a, P4.11) → remaining verticals (P1.2a, P1.2b) → Phase 5 (incl. P5.6, P5.7) and P-CONFIG-ASSIST → Phase 6 → Phase 7 → P-REPORTING → P-BILLING → P-MAPPINGS → P-ADAPTER sequence → P-IMPORT → P-EMBED (last).
+**Execution order (revised 2026-10-19, demo-first):** finish 5d.1 → P0.7 and P0.5c → P-SETTINGS → P0.5d.2 → P-AIFIRST → P-EXTRACT → P-POLISH → P-CANVAS → P-PROFILES → P-SHRINK → P-HOME-1 → P-HOME-1n → P-LAYOUT → P-HOME-ASK → P-TRANSFER → P-TIMERS → P0.6 → Phase 2 §0–5 → P-TRANSLATE → Phase 3 (*first demo milestone: a simulated chat and spoken call driven from the console*) → P-HOME-2 → P0.9.1–9.3 → P-HOME-3 → P-STREAM → P-ADMIN → P-EMPLOYEES → Phase 1 (incl. P1.4a, P1.4b) → Phase 2 §6–7 (P2.7) → Phase 4 (incl. P4.4a, P4.11) → remaining verticals (P1.2a, P1.2b) → Phase 5 (incl. P5.6, P5.7) and P-CONFIG-ASSIST → Phase 6 → Phase 7 → P-REPORTING → P-BILLING → P-MAPPINGS → P-ADAPTER sequence → P-IMPORT → P-EMBED (last).
 
 ---
 
@@ -184,12 +184,12 @@ Commit 0 (docs): add P-SHRINK to PLAN (step text, Order of attack after P-PROFIL
 ```
 Plan review (2026-10-23): Do = Approve with the note also on alternatives (Reject carries the reason); remedies use `note.input` and fixed `alt[].vars`; the switched-off photo/flag flows port as data nothing starts; a `guide` step's NBA is the agent's turn, surfaces during review and is withdrawn on takeover; every Marcus AI row renders inline in the transcript at its time position, nothing pinned above it.
 
-### P-CARDS — Settings → Cards   (Plan: Opus · Implement: Sonnet) — after P-STREAM, before P-ADMIN (moved 2026-10-24)
+### P-CARDS — Settings → Cards   (Plan: Opus · Implement: Sonnet) — merged into P-LAYOUT (2026-10-29); no longer in the order
 ```
 Read CLAUDE.md, PLAN.md (Settings 'Cards as a setting and a Settings tab') and PROGRESS.md. In plan mode, propose: a Settings → Cards section reading/writing `canvas.cells`; the list with on/off, region, drag order (lyra's controlled drag), per-card controls; a live preview mounting CanvasRegions with the seeded Maya case and the current overrides; Reset to profile default; a 'Set up with AI' button wired to a ConfigAssistProvider stub (no-op with a toast until P-CONFIG-ASSIST). vitest: overrides change registry order/region/visibility; the preview reflects edits. Playwright: toggle a card off → absent in the workspace; drag reorder → new order in the reference column. The page file doesn't grow. Don't write code yet.
 ```
 
-### P0.5d.3 — Layout slots, contact-handling flags, rows 11 and 21   ✋ (Plan: Opus · Implement: Opus) — after P-EXTRACT
+### P0.5d.3 — Layout slots, contact-handling flags, rows 11 and 21   ✋ (Plan: Opus · Implement: Opus) — merged into P-LAYOUT (2026-10-29); no longer in the order
 ```
 Read CLAUDE.md, PLAN.md and PROGRESS.md. We're on Phase 0, step 5d.3, the rest of the original 5d.2 (split off 2026-10-16). In plan mode, propose:
 - Layout slots first: check what P-SETTINGS' voice-controls location (bottom / top of the left nav) already does, then a <LayoutSlot anchor="voice-bar" | "incoming-tile" | "right-panel" | …> the voice bar, the incoming tile and the right panel mount through, so Phase 7's configurable layout moves them without page edits. Report what's left before proposing.
@@ -205,12 +205,22 @@ For every visual change in either profile, give a before/after and wait for my a
 Read CLAUDE.md, PLAN.md (Domain 'Assignment kinds are a registry', Settings 'Home is the Activity feed', 'Toasts for other assignments') and PROGRESS.md; open docs/activity-home-wireframe.html. In plan mode, propose: (3) the Activity feed as the `activity` section key in `home.sections`, grouped Now/Today/This week, plus the feed rules — Offered pinned in Needs a decision; feed-or-rail exclusivity (opening a scheduled row moves it to the rail); multi-select chips All · Assignments · History; no Completed-today group; and `home.layout` in the schema and Settings → Home — oneColumn renders it as a container row in today's Home-dashboard section loop, twoColumn renders the welcome header, feed left and the other enabled sections stacked right; the Reminders and supervisor/sales cards as new section keys; the AI-first built-in profile gets twoColumn; Queues, Performance and Productivity are not touched; (3b) `workspace.persona` and the per-persona seeds and section sets; every kind seeded through the stub schedule source; `assignmentId` derived from the card key in one function (P0.9's re-key replaces it); meeting, training and task rows open a minimal per-kind cell with a placeholder outcome form; (5) Contact History removed from Home; (5b) the toast layer, `notifications.toasts`, and the seeded Lucas-during-Maya moment; Playwright: the feed groups and counts, oneColumn vs twoColumn section placement, persona switch re-seeding the feed and swapping the cards, toast → View / Dismiss / enabled: false. The page file doesn't grow. Don't write code yet.
 ```
 
-### P-HOME-2 — Connect your apps   (Plan: Opus · Implement: Opus) — after P-HOME-1, before P0.5d.3
+### P-HOME-2 — Connect your apps   (Plan: Opus · Implement: Opus) — after the Phase 3 milestone, before P0.9 (moved 2026-10-29)
+
+Note (2026-10-29): its connections become queries and sources under P-HOME-ASK, and its prompt will be rewritten then; the prompt below is the original.
 ```
 Read CLAUDE.md, PLAN.md (Settings 'Personal connections and inbox items on Home', 'Home is the Activity feed') and PROGRESS.md; open docs/activity-home-wireframe.html and use it as the spec. In plan mode, propose: (1) PersonalConnectionProvider and the sim sources (calendar, mail, Teams, Slack, Salesforce, Jira, Zendesk, ServiceNow) with seeded days and a trickle; (2) the Connect-your-apps step after login and on profile change (expectsConnections on profiles), Settings → Connections → Your apps (personal scope) and the admin-scope allowlist; (3) inbox rows in the feed, source chips (multi-select with Assignments and History), '+ Apps'; (4) an inbox item in the main column — the page shell, per-source action area, reference column, Make a task / Done / Home, no rail card, no outcome; (5) Make a task and 'later', the source reference card, the record subject on the nav card, customer resolution; (6) Copilot cross-links to assignments as scripted suggestions; (7) team-message toasts with View; (8) Playwright per the PLAN step. The page file doesn't grow. Don't write code yet.
 ```
 
-### P-TRANSFER — Consult / Transfer in the call controls   (Plan: Opus · Implement: Opus) — after P0.5d.3, before the lyra timers change
+### P-LAYOUT — Parts and slots   (Plan: Opus · Implement: Opus) — after P-HOME-1n, before P-HOME-ASK
+
+Prompt to follow.
+
+### P-HOME-ASK — Home as ask, glance and lists on demand   (Plan: Opus · Implement: Opus) — after P-LAYOUT, before P-TRANSFER
+
+Prompt to follow.
+
+### P-TRANSFER — Consult / Transfer in the call controls   (Plan: Opus · Implement: Opus) — after P-HOME-ASK, before P-TIMERS
 
 Prompt to follow.
 

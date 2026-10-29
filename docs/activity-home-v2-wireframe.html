@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home v2 wireframe — ask, glance, lists on demand</title>
+<style>
+  :root { --ink:#1a1d23; --muted:#5c6470; --line:#d9dde3; --bg:#f4f6f9; --blue:#2f6fdb; --blue-bg:#eaf1fd; --purple:#6b4fd8; --purple-bg:#efeafb; --amber-bg:#fff3e0; --amber:#9a5b00; --green-bg:#e4f3e8; --green:#1e6b33; --red:#c43a3a; --teal-bg:#dff3f1; --teal:#0f6b63; --pink-bg:#fde8ef; --pink:#9b2c4f; --card:350px; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif; color:var(--ink); background:var(--bg); font-size:13px; line-height:1.4; }
+  .top { height:48px; display:flex; align-items:center; padding:0 16px; gap:12px; background:#fff; border-bottom:1px solid var(--line); }
+  .top .brand { font-weight:700; }
+  .top .ctl { display:flex; gap:4px; align-items:center; font-size:12px; color:var(--muted); margin-left:14px; }
+  .top .ctl button { border:1px solid var(--line); background:#fff; border-radius:14px; padding:3px 10px; cursor:pointer; font-size:12px; }
+  .top .ctl button.on { background:var(--blue); color:#fff; border-color:var(--blue); }
+  .top .presence { margin-left:auto; border:1px solid var(--line); border-radius:14px; padding:3px 10px; font-size:12px; color:var(--green); }
+  .app { display:grid; grid-template-columns:260px 1fr; height:calc(100vh - 48px); }
+  .nav { background:#fff; border-right:1px solid var(--line); display:flex; flex-direction:column; min-height:0; }
+  .nav .outbound { margin:10px; background:var(--blue); color:#fff; border-radius:8px; padding:9px; text-align:center; font-weight:600; }
+  .nav .hdr { padding:6px 12px; font-weight:700; }
+  .nav .hdr .count { color:var(--muted); font-weight:400; }
+  .cards { flex:1; overflow:auto; padding:0 10px 10px; }
+  .card { border:1px solid var(--line); border-radius:8px; padding:8px; margin-bottom:8px; cursor:pointer; background:#fff; }
+  .card.active { border-color:var(--blue); background:var(--blue-bg); }
+  .card .t { font-weight:600; }
+  .card .row { display:flex; align-items:center; gap:6px; margin-top:5px; font-size:11.5px; }
+  .chip { display:inline-block; border-radius:10px; padding:1px 7px; font-size:11px; font-weight:600; }
+  .k-conversation { background:var(--teal-bg); color:var(--teal); } .k-callback { background:var(--purple-bg); color:var(--purple); } .k-meeting { background:var(--blue-bg); color:var(--blue); } .k-training { background:var(--amber-bg); color:var(--amber); } .k-task { background:var(--pink-bg); color:var(--pink); } .k-mail { background:#fff3e0; color:var(--amber); } .k-teams { background:#efeafb; color:#4a2f9a; } .k-sys { background:#eceef2; color:var(--muted); }
+  .nav .foot { border-top:1px solid var(--line); padding:8px 12px; display:flex; flex-direction:column; gap:6px; }
+  .nav .foot div { padding:4px 6px; border-radius:6px; cursor:pointer; }
+  .nav .foot div.on { background:var(--blue-bg); color:var(--blue); font-weight:600; }
+  .main { padding:12px; min-width:0; overflow:hidden; display:flex; flex-direction:column; }
+  .page { background:#fff; border:1px solid var(--line); border-radius:10px; flex:1; min-height:0; display:flex; flex-direction:column; }
+  .ph { padding:12px 16px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:10px; }
+  .ph h2 { margin:0; font-size:18px; }
+  .ph .sub { color:var(--muted); font-size:12px; }
+  .ph .right { margin-left:auto; display:flex; gap:6px; align-items:center; }
+  .ph .right .q { background:#fff8e1; color:#8a6d00; border-radius:8px; padding:5px 10px; font-weight:600; }
+  .body { display:flex; flex:1; min-height:0; }
+  .home { flex:1; min-width:0; overflow:auto; padding:16px 20px; }
+  .col { width:var(--card); border-left:1px solid var(--line); padding:12px; display:flex; flex-direction:column; gap:10px; overflow:auto; }
+  .rc { border:1px solid var(--line); border-radius:8px; padding:8px; }
+  .rc h5 { margin:0; font-size:12px; display:flex; justify-content:space-between; }
+  .q { display:flex; justify-content:space-between; font-size:12px; padding:3px 0; border-bottom:1px dashed var(--line); }
+  .q:last-child { border-bottom:0; } .q .n { font-weight:700; } .q .w { color:var(--muted); font-size:11px; } .q .hot { color:var(--red); font-weight:700; }
+  .stat { display:grid; grid-template-columns:1fr auto; gap:4px 10px; font-size:12px; } .stat .v { font-weight:700; text-align:right; } .stat .t { color:var(--muted); font-size:11px; }
+
+  /* ── sequential entrance: every [data-seq] child animates in, staggered, each time Home mounts ── */
+  .seq > * { opacity:0; transform:translateY(8px); animation:rise .36s cubic-bezier(.2,.7,.2,1) forwards; }
+  .seq > *:nth-child(1){animation-delay:.00s} .seq > *:nth-child(2){animation-delay:.06s} .seq > *:nth-child(3){animation-delay:.12s} .seq > *:nth-child(4){animation-delay:.18s} .seq > *:nth-child(5){animation-delay:.24s} .seq > *:nth-child(6){animation-delay:.30s} .seq > *:nth-child(7){animation-delay:.36s} .seq > *:nth-child(8){animation-delay:.42s}
+  @keyframes rise { to { opacity:1; transform:none; } }
+
+  /* glance strip */
+  .glance { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px; }
+  .g { border:1px solid var(--line); border-radius:10px; padding:10px 12px; cursor:pointer; background:#fff; }
+  .g:hover { border-color:var(--blue); }
+  .g .n { font-size:22px; font-weight:700; line-height:1; }
+  .g .l { color:var(--muted); font-size:12px; margin-top:4px; }
+  .g .next { font-size:12px; margin-top:8px; padding-top:8px; border-top:1px dashed var(--line); }
+  .g.hot { border-color:#f3c6c6; background:#fff8f8; } .g.hot .n { color:var(--red); }
+
+  /* decision group */
+  .decide { border:1px solid #f3c6c6; background:#fff8f8; border-radius:10px; padding:8px 10px 2px; margin-bottom:14px; }
+  .decide h4 { margin:0 0 6px; font-size:12px; color:var(--red); text-transform:uppercase; letter-spacing:.04em; }
+
+  /* ask area */
+  .ask { margin:6px 0 14px; }
+  .ask .hello { font-size:20px; font-weight:700; margin-bottom:10px; }
+  .ask .hello span { color:var(--muted); font-weight:400; font-size:14px; margin-left:8px; }
+  .input { border:1px solid var(--line); border-radius:999px; padding:11px 16px; display:flex; align-items:center; gap:10px; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+  .input input { border:0; outline:0; flex:1; font-size:14px; font-family:inherit; }
+  .input .mic { color:var(--muted); }
+  .chips { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+  .chips span { border:1px solid #d9d0f5; background:var(--purple-bg); color:var(--purple); border-radius:14px; padding:4px 10px; font-size:12px; cursor:pointer; }
+  .chips span.sys { border-color:var(--line); background:#fff; color:var(--muted); }
+
+  /* inline answer card */
+  .answer { border:1px solid #d9d0f5; background:#fbfaff; border-radius:10px; padding:10px 12px; margin-bottom:14px; }
+  .answer h4 { margin:0 0 6px; font-size:13px; display:flex; align-items:center; gap:8px; }
+  .answer h4 .cnt { background:var(--purple-bg); color:var(--purple); border-radius:10px; padding:0 7px; font-size:11px; }
+  .answer .qtext { color:var(--muted); font-size:12px; margin-bottom:8px; }
+  .answer .acts { display:flex; gap:6px; margin-top:8px; }
+  .answer .acts span { border:1px solid var(--line); border-radius:6px; padding:3px 9px; font-size:11.5px; background:#fff; cursor:pointer; }
+  .answer .acts span.p { background:var(--blue); color:#fff; border-color:var(--blue); }
+
+  /* rows (shared by answer card and panel) */
+  .item { display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; padding:8px 10px; border:1px solid var(--line); border-radius:8px; margin-bottom:6px; cursor:pointer; background:#fff; }
+  .item:hover { border-color:var(--blue); }
+  .item .title { font-weight:600; } .item .sub { color:var(--muted); font-size:11.5px; margin-top:2px; }
+  .item .st { font-size:11.5px; color:var(--muted); text-align:right; }
+  .item.unread { background:#eef4ff; }
+  .item.live { border-left:3px solid var(--green); }
+
+  /* side panel (the list on demand) */
+  .panel { width:420px; border-left:1px solid var(--line); background:#fff; display:flex; flex-direction:column; min-height:0; }
+  .panel .pt { padding:12px 14px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:8px; }
+  .panel .pt h3 { margin:0; font-size:15px; flex:1; }
+  .panel .pt .x { cursor:pointer; color:var(--muted); font-size:16px; }
+  .panel .tools { padding:8px 14px; display:flex; gap:6px; border-bottom:1px solid var(--line); }
+  .panel .tools .s { flex:1; border:1px solid var(--line); border-radius:8px; padding:5px 10px; color:var(--muted); background:#fff; }
+  .panel .tools .f { border:1px solid var(--line); border-radius:8px; padding:5px 10px; background:#fff; }
+  .panel .list { flex:1; overflow:auto; padding:10px 14px; }
+  .panel .grp { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.04em; margin:8px 0 6px; }
+  .note { margin:0 0 12px; padding:8px 10px; background:#fff; border:1px solid var(--line); border-radius:8px; color:var(--muted); font-size:12px; }
+  .note b { color:var(--blue); }
+  .empty { color:var(--muted); padding:30px; text-align:center; }
+
+  /* assignment page (to demo navigate-away-and-back) */
+  .assign { flex:1; padding:16px 20px; }
+  .box { border:1px solid var(--line); border-radius:8px; padding:10px; margin-bottom:10px; }
+</style>
+</head>
+<body>
+<div class="top">
+  <span class="brand">Agent Workspace</span>
+  <span style="color:var(--muted);font-size:12px">— Home v2: ask, glance, lists on demand (wireframe)</span>
+  <div class="ctl">home.layout: <button data-layout="oneColumn">One column</button><button data-layout="twoColumn" class="on">Two columns</button></div>
+  <div class="ctl">Your apps: <button data-src="mail" class="on">✉️ Mail</button><button data-src="teams">💠 Teams</button></div>
+  <span class="presence">● Available · 00:04</span>
+</div>
+<div class="app">
+  <div class="nav">
+    <div class="outbound">+ New Outbound</div>
+    <div class="hdr">Assignments <span class="count" id="railCount">(1)</span></div>
+    <div class="cards" id="cards"></div>
+    <div class="foot"><div id="homeBtn" class="on">🏠 Home</div><div>⚙ Settings</div></div>
+  </div>
+  <div class="main"><div class="page" id="page"></div></div>
+</div>
+
+<script>
+// ── Data: the same seeded day the feed used. Nothing here is new data; only where it shows changes. ──
+const KINDS = { conversation:{label:"Conversation",icon:"💬"}, callback:{label:"Callback",icon:"📞"}, meeting:{label:"Meeting",icon:"📅"}, training:{label:"Training",icon:"🎓"}, task:{label:"Task",icon:"🎫"}, mail:{label:"Mail",icon:"✉️"}, teams:{label:"Teams",icon:"💠"} };
+const ITEMS = [
+  { id:"a1", kind:"conversation", title:"Maya Chen · Voice · Returns", sub:"Active call · cracked water tank refund", when:-4, state:"active", customer:"Maya Chen" },
+  { id:"a2", kind:"conversation", title:"Lucas Thomas · Chat · AI Review", sub:"Checkout AI Agent requested approval", when:-1, state:"offered", customer:"Lucas Thomas" },
+  { id:"a3", kind:"callback", title:"Callback · Priya Shah", sub:"Requested yesterday · refund hasn't posted", when:30, state:"scheduled", customer:"Priya Shah", unread:true },
+  { id:"a4", kind:"meeting", title:"Returns team stand-up", sub:"Teams · 15 min · 6 attendees", when:90, state:"scheduled" },
+  { id:"a5", kind:"training", title:"RET-1.3 refund policy update", sub:"Module · 20 min · due Friday", when:180, state:"scheduled" },
+  { id:"a6", kind:"task", title:"Ticket #4821 · subscription renewal refund", sub:"Follow up with Billing on the credit", when:240, state:"scheduled", customer:"Priya Shah" },
+  { id:"a7", kind:"callback", title:"Callback · Sofia Ramirez", sub:"Confirm the replacement shipped", when:420, state:"scheduled", customer:"Sofia Ramirez" },
+  { id:"a8", kind:"callback", title:"Callback · Nathan Cole", sub:"Confirm access after the reset", when:1500, state:"scheduled", customer:"Nathan Cole" },
+  { id:"a9", kind:"meeting", title:"1:1 with Dana (supervisor)", sub:"30 min", when:2900, state:"scheduled" },
+  { id:"a10", kind:"training", title:"WhatsApp templates · intro", sub:"Module · 25 min", when:4300, state:"scheduled" },
+  { id:"p1", kind:"callback", title:"Callback · Omar Farooq", sub:"Plan upgrade questions", when:600, state:"parked", customer:"Omar Farooq" },
+  { id:"d1", kind:"conversation", title:"Nathan Cole · Voice · General Support", sub:"Resolved · Account access — reset", when:-29, state:"done", customer:"Nathan Cole" },
+  { id:"d2", kind:"conversation", title:"Omar Farooq · Email · Sales", sub:"Resolved · Plan upgrade confirmation", when:-120, state:"done", customer:"Omar Farooq" },
+];
+const INBOX = {
+  mail: [ { id:"m1", kind:"mail", title:"Dana Whitfield · Thursday's schedule swap", sub:"\"Can you cover 1–3pm Thursday?\"", when:-45, unread:true }, { id:"m2", kind:"mail", title:"HR · Open enrollment closes Friday", sub:"\"Reminder: benefits elections are due…\"", when:-130 } ],
+  teams: [ { id:"t1", kind:"teams", title:"Dana Whitfield", sub:"\"Got a sec after your call?\"", when:-6, unread:true } ],
+};
+let connected = ["mail"], layout = "twoColumn", current = null, opened = ["a1"], panel = null, mountKey = 0;
+
+const fmt = m => { const t=10*60+30+m; const h=Math.floor(t/60), mm=String(t%60).padStart(2,"0"); const d=Math.floor(t/1440); const hh=((h%24)+11)%12+1, ap=(h%24)<12?"AM":"PM"; return (d>0?["Tomorrow","Wed","Thu","Fri"][d-1]+" ":"")+hh+":"+mm+" "+ap; };
+const chip = k => `<span class="chip k-${k}">${KINDS[k].icon} ${KINDS[k].label}</span>`;
+const inRail = i => opened.includes(i.id) || i.state==="active";
+const scheduled = () => ITEMS.filter(i=>i.state==="scheduled");
+const offered = () => ITEMS.filter(i=>i.state==="offered");
+const inboxAll = () => connected.flatMap(s=>INBOX[s]);
+
+// ── Queries: every chip (and typed question) is a query → a list. The answer card shows count + top 3; Show all opens the panel. ──
+const QUERIES = {
+  "today":     { label:"Due today",          rows:()=>scheduled().filter(i=>i.when>0&&i.when<=600) },
+  "callbacks": { label:"Upcoming callbacks", rows:()=>scheduled().filter(i=>i.kind==="callback") },
+  "decide":    { label:"Needs a decision",   rows:()=>offered() },
+  "mailbox":   { label:"My mailbox",         rows:()=>inboxAll().filter(i=>i.kind==="mail"), needs:"mail" },
+  "teams":     { label:"Team messages",      rows:()=>inboxAll().filter(i=>i.kind==="teams"), needs:"teams" },
+  "week":      { label:"This week",          rows:()=>scheduled().filter(i=>i.when>600) },
+  "training":  { label:"Training due",       rows:()=>scheduled().filter(i=>i.kind==="training") },
+  "parked":    { label:"Parked",             rows:()=>ITEMS.filter(i=>i.state==="parked"), sys:true },
+  "history":   { label:"Completed today",    rows:()=>ITEMS.filter(i=>i.state==="done"), sys:true },
+};
+// free-text → query (scripted in the sim, like every other Copilot answer)
+const MATCH = [ [/callback/i,"callbacks"], [/mail|inbox|email/i,"mailbox"], [/team|slack|message/i,"teams"], [/today|lunch|next/i,"today"], [/week/i,"week"], [/train/i,"training"], [/park/i,"parked"], [/done|complete|history/i,"history"], [/decid|offer|approv/i,"decide"] ];
+let answer = null; // { q, text }
+
+const row = i => `<div class="item ${i.unread?'unread':''} ${i.state==='active'||i.state==='offered'?'live':''}" data-id="${i.id}">
+    <div><div class="title">${KINDS[i.kind].icon} ${i.title}</div><div class="sub">${i.sub}</div></div>
+    <div class="st">${chip(i.kind)}<br>${i.state==="offered"?'<span style="color:var(--red)">accept · 0:18</span>':i.state==="active"?"in progress":i.state==="done"?"completed":i.state==="parked"?"parked":(inRail(i)?"👁 open":fmt(i.when))}</div></div>`;
+
+function renderNav(){
+  const list = ITEMS.filter(i=>inRail(i) && i.state!=="done");
+  document.getElementById("railCount").textContent = "("+list.length+")";
+  document.getElementById("cards").innerHTML = list.map(i=>`<div class="card ${current===i.id?'active':''}" data-id="${i.id}"><div class="t">${i.customer||i.title}</div><div class="row">${chip(i.kind)}${i.state==="active"?'<span class="chip k-sys">● live</span>':''}</div></div>`).join("");
+  document.querySelectorAll(".card").forEach(c=>c.onclick=()=>open(c.dataset.id));
+  document.getElementById("homeBtn").classList.toggle("on", current===null);
+}
+
+function renderHome(){
+  mountKey++; // every (re)mount re-runs the staggered entrance
+  const today = scheduled().filter(i=>i.when>0&&i.when<=600), dec = offered(), unreadN = scheduled().filter(i=>i.unread).length + inboxAll().filter(i=>i.unread).length;
+  const next = scheduled().sort((a,b)=>a.when-b.when)[0];
+  const cards = `
+      <div class="rc"><h5>Queues <span class="chip k-sys">live</span></h5>
+        <div class="q"><span>Returns</span><span><span class="n">7</span> waiting · <span class="w hot">longest 4:12</span></span></div>
+        <div class="q"><span>General Support</span><span><span class="n">2</span> waiting · <span class="w">0:48</span></span></div>
+        <div class="q"><span>Chat</span><span><span class="n">4</span> waiting · <span class="w">1:30</span></span></div></div>
+      <div class="rc"><h5>My performance <span class="chip k-sys">today</span></h5>
+        <div class="stat"><span>Handled</span><span class="v">11</span><span class="t">of ~34 expected</span><span class="t"></span><span>AHT</span><span class="v">6:12</span><span class="t">target 7:00</span><span class="t"></span><span>CSAT</span><span class="v">4.7</span><span class="t">last 7 days</span><span class="t"></span></div></div>`;
+  const chips = Object.entries(QUERIES).filter(([k,q])=>!q.needs||connected.includes(q.needs)).map(([k,q])=>`<span class="${q.sys?'sys':''}" data-q="${k}">${q.sys?'':'✦ '}${q.label}${q.rows().length?` · ${q.rows().length}`:''}</span>`).join("")
+    + (connected.length<2?`<span class="sys" data-q="__connect">＋ Connect apps</span>`:"");
+  const ans = answer ? (()=>{ const q=QUERIES[answer.q], rows=q.rows(); return `
+      <div class="answer" data-seq>
+        <h4>✦ ${q.label} <span class="cnt">${rows.length}</span></h4>
+        <div class="qtext">${answer.text}</div>
+        ${rows.length ? rows.slice(0,3).map(row).join("") : '<div class="empty" style="padding:10px">Nothing here right now</div>'}
+        <div class="acts">${rows.length>3?`<span class="p" data-showall="${answer.q}">Show all ${rows.length}</span>`:(rows.length?`<span class="p" data-showall="${answer.q}">Open as a list</span>`:'')}<span data-dismiss>Dismiss</span></div>
+      </div>`; })() : "";
+  const home = `
+    <div class="seq" key="${mountKey}">
+      <div class="note"><b>Home v2.</b> Three things, in order: a glance strip (what's next, counts), anything needing a decision, then the ask box — every chip is a <i>query</i> that answers inline (count + top three) and opens the full list in the side panel. The feed is gone; it's reachable as queries. Everything below animates in sequentially each time you come back to Home.</div>
+      <div class="glance">
+        <div class="g" data-q="today"><div class="n">${today.length}</div><div class="l">due today</div><div class="next">Next: ${next?KINDS[next.kind].icon+" "+next.title.split(" · ")[0]+" · "+fmt(next.when):"—"}</div></div>
+        <div class="g ${dec.length?'hot':''}" data-q="decide"><div class="n">${dec.length}</div><div class="l">need a decision</div><div class="next">${dec.length?dec[0].title.split(" · ")[0]+" · accept 0:18":"Nothing waiting on you"}</div></div>
+        <div class="g" data-q="${connected.includes('mail')?'mailbox':'week'}"><div class="n">${unreadN}</div><div class="l">new since you looked</div><div class="next">${connected.includes('mail')?"Mail, Teams and new assignments":"New assignments"}</div></div>
+      </div>
+      ${dec.length?`<div class="decide"><h4>Needs a decision · ${dec.length}</h4>${dec.map(row).join("")}</div>`:""}
+      <div class="ask">
+        <div class="hello">Good morning, John <span>What do you want to see?</span></div>
+        <div class="input"><span>＋</span><input id="askInput" placeholder="Ask about your day — “show me my upcoming callbacks”, “what's in my mailbox?”, “what's due before lunch?”"><span class="mic">🎤</span></div>
+        <div class="chips">${chips}</div>
+      </div>
+      ${ans}
+    </div>`;
+  const side = panel ? renderPanel() : (layout==="twoColumn" ? `<div class="col">${cards}</div>` : "");
+  document.getElementById("page").innerHTML = `
+    <div class="ph"><div><h2>Home</h2><div class="sub">User Name: johnsmith329202</div></div><div class="right"><span class="q">My Assignment Queue: ${ITEMS.filter(i=>inRail(i)&&i.state!=="done").length} ›</span></div></div>
+    <div class="body"><div class="home">${home}${layout==="oneColumn"?`<div style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px">${cards}</div>`:""}</div>${side}</div>`;
+  wire();
+}
+
+function renderPanel(){
+  const q = QUERIES[panel], rows = q.rows();
+  const groups = panel==="mailbox"||panel==="teams"||panel==="history"||panel==="parked" ? [["", rows]] :
+    [["Today", rows.filter(i=>i.when<=600)], ["This week", rows.filter(i=>i.when>600&&i.when<=7*1440)], ["Later", rows.filter(i=>i.when>7*1440)]];
+  return `<div class="panel">
+    <div class="pt"><h3>✦ ${q.label} <span class="chip k-sys">${rows.length}</span></h3><span class="x" data-closepanel>✕</span></div>
+    <div class="tools"><div class="s">🔍 Search ${q.label.toLowerCase()}</div><div class="f">Filter ▾</div><div class="f">☰ / ▦</div></div>
+    <div class="list seq">${rows.length ? groups.filter(([h,r])=>r.length).map(([h,r])=>(h?`<div class="grp">${h}</div>`:"")+r.map(row).join("")).join("") : '<div class="empty">Nothing here right now</div>'}</div>
+  </div>`;
+}
+
+function ask(qKey, text){ answer = { q:qKey, text }; panel = null; renderHome(); }
+function wire(){
+  document.querySelectorAll("[data-q]").forEach(e=>e.onclick=()=>{ const k=e.dataset.q; if(k==="__connect"){ connected.push("teams"); document.querySelector('.ctl [data-src=teams]').classList.add("on"); renderHome(); return; } ask(k, `You asked: “${QUERIES[k].label.toLowerCase()}”`); });
+  document.querySelectorAll("[data-showall]").forEach(e=>e.onclick=()=>{ panel=e.dataset.showall; renderHome(); });
+  document.querySelectorAll("[data-dismiss]").forEach(e=>e.onclick=()=>{ answer=null; renderHome(); });
+  document.querySelectorAll("[data-closepanel]").forEach(e=>e.onclick=()=>{ panel=null; renderHome(); });
+  document.querySelectorAll(".item[data-id]").forEach(e=>e.onclick=()=>open(e.dataset.id));
+  const inp = document.getElementById("askInput"); if(inp){ inp.onkeydown = ev => { if(ev.key==="Enter"){ const t=inp.value.trim(); const m=MATCH.find(([re])=>re.test(t)); if(m) ask(m[1], `You asked: “${t}”`); else { answer={q:"today",text:`You asked: “${t}” — Copilot couldn't map that to a list, so here's what's due today.`}; renderHome(); } } }; }
+}
+function open(id){ const it=ITEMS.find(x=>x.id===id); if(!it){ return; } current=id; if(!opened.includes(id)) opened.push(id); it.unread=false; if(it.state==="scheduled"||it.state==="offered"){ it.state="active"; } render(); }
+function renderAssignment(i){
+  document.getElementById("page").innerHTML = `
+    <div class="ph"><div><h2>${i.customer||i.title}</h2><div class="sub">${KINDS[i.kind].label} · ${i.sub}</div></div><div class="right"><span style="border:1px solid var(--line);border-radius:6px;padding:3px 8px">Outcome ✓</span><span id="backHome" style="cursor:pointer;color:var(--blue)">🏠 Home</span></div></div>
+    <div class="body"><div class="assign seq"><div class="box"><b>${KINDS[i.kind].label}</b> cell — same as today. Click 🏠 Home (or the nav) to go back and watch Home animate in again.</div></div></div>`;
+  document.getElementById("backHome").onclick=()=>{ current=null; render(); };
+}
+function render(){ renderNav(); const it=ITEMS.find(x=>x.id===current); if(it) renderAssignment(it); else renderHome(); }
+document.getElementById("homeBtn").onclick=()=>{ current=null; render(); };
+document.querySelectorAll(".ctl [data-layout]").forEach(b=>b.onclick=()=>{ layout=b.dataset.layout; document.querySelectorAll(".ctl [data-layout]").forEach(x=>x.classList.toggle("on",x===b)); render(); });
+document.querySelectorAll(".ctl [data-src]").forEach(b=>b.onclick=()=>{ const s=b.dataset.src; connected.includes(s)?connected=connected.filter(x=>x!==s):connected.push(s); b.classList.toggle("on",connected.includes(s)); if(answer&&QUERIES[answer.q].needs&&!connected.includes(QUERIES[answer.q].needs)) answer=null; if(panel&&QUERIES[panel].needs&&!connected.includes(QUERIES[panel].needs)) panel=null; render(); });
+render();
+</script>
+</body>
+</html>
