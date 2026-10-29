@@ -233,8 +233,9 @@ test("main with the card's thread open in the docked panel: the column is the ov
 const openContactDetails = async (page: Page) => {
   const slideOver = page.locator("[data-slot=reference-slide-over]");
   if ((await slideOver.locator("[data-slot=contact-details-tabs]").count()) === 0) await page.locator("button[data-contact-details]").first().click();
-  // lyra's TabList renders a collapsed copy of its row for narrow widths: the visible one counts.
-  await expect(slideOver.locator("[data-slot=contact-details-tabs]:visible").first()).toBeVisible();
+  // lyra's TabList collapses to "active + N More" when its tabs don't fit the slide-over's card width (panel mode's
+  // four), its full row (the one carrying data-slot) then 0×0: wait for the slide-over, read the set from the full row.
+  await expect(slideOver).toContainText("Contact Details");
   return slideOver;
 };
 
@@ -247,7 +248,7 @@ for (const [displayLocation, tabs] of [
   test(`${displayLocation}: Contact Details' tab set, in the reference slide-over`, async ({ page }) => {
     await setUp(page, { displayLocation, canvasLayout: "twoColumn" }, 2200);
     const panel = await openContactDetails(page);
-    await expect(panel.locator("[data-slot=contact-details-tabs] [role=tab]:visible")).toHaveText([...tabs]);
+    expect(await panel.locator("[data-slot=contact-details-tabs] [role=tab]").allTextContents()).toEqual([...tabs]);
   });
 }
 
