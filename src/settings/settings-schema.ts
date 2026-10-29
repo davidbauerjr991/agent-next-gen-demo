@@ -430,15 +430,36 @@ export interface AssignmentsSettings {
 export const ASSIGNMENTS_PLACEMENTS = ["leftNav", "interiorPanel", "none"] as const;
 export type AssignmentsPlacement = (typeof ASSIGNMENTS_PLACEMENTS)[number];
 export const ASSIGNMENTS_PLACEMENT_FIELD = oneOf(ASSIGNMENTS_PLACEMENTS, {
-  label: "Show as interior panel",
-  description:
-    "Shows the assignment cards in a panel inside the workspace, beside the conversation and the reference cards, instead of in the left nav. When there isn't room for all three, the panel opens from the Assignments item in the left nav.",
+  label: "Assignments placement",
+  description: "Where your assignment cards show: the left nav, a panel beside your work, or the top of Home.",
 });
+/** Each placement's option in Settings (P-HOME-1n's radio), declared with the field. */
+export const ASSIGNMENTS_PLACEMENT_OPTIONS: Record<AssignmentsPlacement, FieldMeta> = {
+  leftNav: { label: "Left nav", description: "The cards in the left nav, beside Home and Settings." },
+  interiorPanel: {
+    label: "Interior panel",
+    description:
+      "A fixed panel between the left nav and your work, with the Assignments header and cards. Resizable; it becomes an overlay only when it doesn't fit.",
+  },
+  none: {
+    label: "None",
+    description: "Assignments show at the top of Home; My Assignment Queue in the header switches between them. New assignments always toast.",
+  },
+};
 
 /** "startDate" reads "Create Date" (the key predates the label). */
 export const ASSIGNMENT_SORT_MODES = ["lastUpdated", "startDate", "channel", "custom"] as const;
 export type AssignmentSortMode = (typeof ASSIGNMENT_SORT_MODES)[number];
 export const ASSIGNMENT_SORT_DIRECTIONS = ["desc", "asc"] as const;
+export type AssignmentSortDirectionSetting = (typeof ASSIGNMENT_SORT_DIRECTIONS)[number];
+export const ASSIGNMENT_SORT_MODE_FIELD = oneOf(ASSIGNMENT_SORT_MODES, {
+  label: "Sort by",
+  description: "The order of the assignment cards. The list's own sort menu sets the same value; dragging a card switches it to Custom.",
+});
+export const ASSIGNMENT_SORT_DIRECTION_FIELD = oneOf(ASSIGNMENT_SORT_DIRECTIONS, {
+  label: "Direction",
+  description: "Descending or ascending, for every sort but Custom (which keeps your dragged order).",
+});
 export interface AssignmentSortSettings {
   mode: AssignmentSortMode;
   direction: (typeof ASSIGNMENT_SORT_DIRECTIONS)[number];
@@ -488,7 +509,7 @@ const assignments = defineSection<AssignmentsSettings>({
     confirmClose: bool(),
     showStatusChip: bool(),
     legs: ASSIGNMENT_LEGS_FIELD,
-    sort: group<AssignmentSortSettings>({ mode: oneOf(ASSIGNMENT_SORT_MODES), direction: oneOf(ASSIGNMENT_SORT_DIRECTIONS) }),
+    sort: group<AssignmentSortSettings>({ mode: ASSIGNMENT_SORT_MODE_FIELD, direction: ASSIGNMENT_SORT_DIRECTION_FIELD }),
     channelChips: ASSIGNMENT_CHANNEL_CHIPS_FIELD,
     placement: ASSIGNMENTS_PLACEMENT_FIELD,
   },

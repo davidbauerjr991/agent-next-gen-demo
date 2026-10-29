@@ -75,8 +75,8 @@ export function WorkspaceLeftNav() {
           // writeup): rendered via `stickyCaption` now, the same sticky-top
           // box as `items` (Home), so it stays pinned with Home instead of
           // scrolling away with the cards under it.
-          // P-PROFILES 0c: under "Show as interior panel" the caption and
-          // the cards are the panel's, and the rail gains Assignments.
+          // The caption and cards show only in the left-nav slot (Assignments
+          // placement → Left nav; P-HOME-1n).
           stickyCaption={panel.inLeftNav ? <AssignmentsCaption expanded={navOpen} mount="leftNav" /> : undefined}
           // Home + Settings — per explicit request ("move the home button
           // above the settings like in phase 1 left nav (match to phase

@@ -84,7 +84,7 @@ describe("assignment sort modes", () => {
   });
 });
 
-describe("Show as interior panel (0c)", () => {
+describe("Assignments placement → Interior panel (0c; fixed since P-HOME-1n)", () => {
   const panel = () => h.container.querySelector<HTMLElement>("[data-slot=assignments-panel]");
   /** The rail's Assignments item: the expanded rail is a TreeMenu (a text
    *  label, then the badge's count); collapsed, an icon button named "Assignments, N". */

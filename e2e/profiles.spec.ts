@@ -13,7 +13,8 @@ async function openSettings(page: Page) {
   await expect(page.getByRole("combobox", { name: "Profile" })).toBeVisible();
 }
 
-const assignmentsSection = (page: Page) => page.locator("fieldset").filter({ has: page.locator("legend", { hasText: /^Assignments/ }) });
+// The Assignments group (P-HOME-1n: Settings is grouped; its own legend is the group's first child).
+const assignmentsSection = (page: Page) => page.locator('[data-settings-group="assignments"]');
 
 test("Save as, Export and Import: the file round-trips the profile, and its locks grey the section", async ({ page, context }) => {
   await openSettings(page);
@@ -49,7 +50,7 @@ test("Save as, Export and Import: the file round-trips the profile, and its lock
   await expect(fresh.getByRole("combobox", { name: "Profile" })).toHaveText("Billing team");
   // Assignments is locked: greyed, labeled, its controls disabled.
   const locked = assignmentsSection(fresh);
-  await expect(locked.locator("legend")).toContainText("Set by your team profile");
+  await expect(locked.locator(":scope > legend")).toContainText("Set by your team profile");
   await expect(locked.getByRole("switch").first()).toBeDisabled();
   // Unlocked sections stay editable.
   const header = fresh.locator("fieldset").filter({ has: fresh.locator("legend", { hasText: /^Header/ }) });
