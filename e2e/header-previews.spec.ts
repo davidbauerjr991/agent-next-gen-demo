@@ -46,8 +46,8 @@ test("AI display main: an action in the Contact Details hover preview opens Cont
   await expect(page.locator("[data-slot=right-panel][data-open=true][data-thread=chat]")).toBeVisible();
   await contactDetails(page).hover();
   await expect(preview(page)).toBeVisible();
-  // The customer's name in the preview's header: the record's drill-in.
-  await preview(page).locator("button.text-lyra-fg-link").first().click();
+  // The hover preview is intact; the button opens Contact Details in the slide-over.
+  await contactDetails(page).click();
   await expect(page.locator("[data-slot=reference-slide-over]")).toBeVisible();
   await expect(contactDetails(page)).toHaveAttribute("aria-pressed", "true");
   // The chat stays in the panel.
@@ -69,10 +69,10 @@ test("AI display panel: one Copilot composer, in the panel, whether it floats (n
 });
 
 test("the quick-reply menu in a chat preview floats above it, fully visible, beyond the popover's bounds; the preview stays open", async ({ page }) => {
-  // AI display main: Priya's chat is in the panel; select Contact Details, then preview the chat.
+  // AI display main: Priya's chat is in the panel; close it (its icon toggles it), then preview the chat.
   await setUp(page, { ai: "main" });
   await priyaCard(page, false);
-  await contactDetails(page).click();
+  await icon(page, "Chat").click();
   await page.mouse.move(5, 5);
   await icon(page, "Chat").hover();
   await expect(preview(page)).toBeVisible();
@@ -126,8 +126,10 @@ test("a long chat preview grows to the max height and scrolls inside, the compos
   // Take over, so his chat has a composer (none while the AI holds it).
   await page.locator("[data-main-thread=ai]").getByRole("button", { name: /Takeover/ }).first().click();
   await page.waitForTimeout(3_000);
-  await contactDetails(page).click();
-  await expect(page.locator("[data-slot=right-panel][data-thread=details]")).toBeVisible();
+  // Close the panel's chat (its icon toggles it; P-HOME-1n: Contact Details no longer takes the panel), so the chat
+  // icon previews it.
+  await icon(page, "Chat").click();
+  await expect(page.locator("[data-slot=right-panel][data-thread=chat]")).toHaveCount(0);
   await page.mouse.move(5, 5);
   await icon(page, "Chat").hover();
   await expect(preview(page)).toBeVisible();

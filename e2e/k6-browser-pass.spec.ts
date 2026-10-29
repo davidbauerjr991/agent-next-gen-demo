@@ -93,7 +93,7 @@ test("6: panel mode, an interstitial in the docked AI Overview reopens its slide
     .toBe(true);
 });
 
-test("10: AI display main, View Details opens the session details as the slide-over over the panel's thread, with its own close", async ({ page }) => {
+test("10: AI display main, View Details opens the session details in the reference slide-over (P-HOME-1n), the thread staying in the panel, with its own close", async ({ page }) => {
   await setUp(page, "main");
   await dialAll(page, "priya-shah-history", "Priya Shah", [
     ["whatsapp", "(415) 555-0142"],
@@ -103,15 +103,15 @@ test("10: AI display main, View Details opens the session details as the slide-o
   if ((await panel.getAttribute("data-thread")) !== "email" || (await panel.getAttribute("data-open")) !== "true") await icon(page, "Email").click();
   await expect(panel).toHaveAttribute("data-thread", "email");
   await panel.locator("[data-slot=panel-session-row]").getByRole("button", { name: /View Details/ }).click();
-  const details = panel.locator("[data-slot=session-slide-over]");
+  const details = page.locator("[data-slot=reference-slide-over] [data-slot=session-slide-over]");
   await expect(details).toBeVisible();
   await expect(details).toContainText("Contact ID");
-  // Over the thread, inside the panel (once both have settled: the launch opens the panel too, k8 4); the thread stays underneath.
+  // In the main column's reference slot, left of the panel; the thread stays in the panel.
   await expect
     .poll(async () => {
       const slide = (await details.boundingBox())!;
       const dock = (await panel.boundingBox())!;
-      return slide.x >= dock.x - 1 && slide.x + slide.width <= dock.x + dock.width + 1;
+      return slide.x + slide.width <= dock.x + 1;
     })
     .toBe(true);
   await expect(panel).toHaveAttribute("data-thread", "email");

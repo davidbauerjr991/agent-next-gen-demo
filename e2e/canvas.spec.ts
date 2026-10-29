@@ -233,7 +233,8 @@ test("main with the card's thread open in the docked panel: the column is the ov
 const openContactDetails = async (page: Page) => {
   const slideOver = page.locator("[data-slot=reference-slide-over]");
   if ((await slideOver.locator("[data-slot=contact-details-tabs]").count()) === 0) await page.locator("button[data-contact-details]").first().click();
-  await expect(slideOver.locator("[data-slot=contact-details-tabs]")).toBeVisible();
+  // lyra's TabList renders a collapsed copy of its row for narrow widths: the visible one counts.
+  await expect(slideOver.locator("[data-slot=contact-details-tabs]:visible").first()).toBeVisible();
   return slideOver;
 };
 
@@ -246,7 +247,7 @@ for (const [displayLocation, tabs] of [
   test(`${displayLocation}: Contact Details' tab set, in the reference slide-over`, async ({ page }) => {
     await setUp(page, { displayLocation, canvasLayout: "twoColumn" }, 2200);
     const panel = await openContactDetails(page);
-    await expect(panel.locator("[data-slot=contact-details-tabs] [role=tab]")).toHaveText([...tabs]);
+    await expect(panel.locator("[data-slot=contact-details-tabs] [role=tab]:visible")).toHaveText([...tabs]);
   });
 }
 
@@ -300,6 +301,9 @@ const composerSel = "[data-canvas-region=action] [data-slot=copilot-composer]";
 for (const displayLocation of ["inline", "main"] as const) {
   test(`${displayLocation}: a slide-over slides in over the reference cards below the header, and dragging it pushes the action area`, async ({ page }) => {
     await mayaLive(page, displayLocation, displayLocation === "main" ? 2200 : 1600);
+    // P-HOME-1n: the Real-Time Summary enters once her first summary turn is in; wait for it, so the cards marked
+    // below are the column's settled set.
+    await expect(page.locator("[data-canvas-region=reference] [data-canvas-cell=real-time-summary]")).toBeAttached({ timeout: 10_000 });
     const column = (await rect(page, "[data-canvas-region=reference]"))!;
     const rowBefore = await row(page);
     const actionBefore = (await rect(page, "[data-canvas-region=action]"))!;
