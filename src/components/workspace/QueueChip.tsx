@@ -111,7 +111,7 @@ export function QueueChip({ mount }: { mount: QueueChipMount }) {
       onOpenChange={setOpen}
       placement="bottom"
       bodyPadding={false}
-      onCloseAutoFocus={(e) => e.preventDefault()}
+      // Focus goes back to the chip on close (Radix's default; the chip has no tooltip here to re-pop).
       content={<Menu items={items} bare />}
     >
       {trigger()}
