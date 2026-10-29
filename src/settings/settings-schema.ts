@@ -303,7 +303,7 @@ const home = defineSection<HomeSettings>({
 export const TOAST_EVENTS = ["message", "approval", "callbackDue", "awaitingReply", "workItem", "transfer", "incoming"] as const;
 export type ToastEvent = (typeof TOAST_EVENTS)[number];
 /** The events something raises today: Settings shows a switch for these only. */
-export const TOAST_EVENTS_RAISED: readonly ToastEvent[] = ["message", "approval", "callbackDue", "workItem"];
+export const TOAST_EVENTS_RAISED: readonly ToastEvent[] = ["message", "approval", "callbackDue", "workItem", "incoming"];
 export const TOAST_POSITIONS = ["bottomEnd", "topEnd"] as const;
 export type ToastPosition = (typeof TOAST_POSITIONS)[number];
 
@@ -832,8 +832,10 @@ export interface SettingConstraint {
   id: string;
   when: { path: SettingPath; in: readonly unknown[] };
   forces: { path: SettingPath; value: unknown };
-  /** English source; shown through `t()`. */
+  /** English source; shown through `t()` (the tooltip on the disabled control). */
   reason: string;
+  /** The forced state in words beneath the control (English source, through `t()`); absent: the tooltip alone. */
+  note?: string;
 }
 
 const NOT_IN_LEFT_NAV = "Required while assignments aren't in the left nav";
@@ -841,7 +843,13 @@ const NOT_IN_LEFT_NAV = "Required while assignments aren't in the left nav";
 export const SETTING_CONSTRAINTS: readonly SettingConstraint[] = [
   // Placement "none" has no list on screen while an assignment is open: a new arrival has to toast.
   { id: "placement-none-toasts", when: { path: "assignments.placement", in: ["none"] }, forces: { path: "notifications.toasts.enabled", value: true }, reason: NOT_IN_LEFT_NAV },
-  { id: "placement-none-incoming", when: { path: "assignments.placement", in: ["none"] }, forces: { path: "notifications.toasts.events.incoming", value: true }, reason: NOT_IN_LEFT_NAV },
+  {
+    id: "placement-none-incoming",
+    when: { path: "assignments.placement", in: ["none"] },
+    forces: { path: "notifications.toasts.events.incoming", value: true },
+    reason: NOT_IN_LEFT_NAV,
+    note: "On — required while assignments aren't in the left nav",
+  },
 ];
 export type SectionSchemas = { [K in SectionKey]: SectionDef<SettingsState[K]> };
 

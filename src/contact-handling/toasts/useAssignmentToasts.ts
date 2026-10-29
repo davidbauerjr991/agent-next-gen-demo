@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef } from "react";
 import type { AgentNotification } from "@nicecxone/lyra-ui";
 import { assignmentIdFor, scheduleCardKey, type ChannelKind } from "@/domain";
 import { useInteractionProvider, useScheduleProvider, useScheduleSnapshot } from "@/provider-context";
-import { useSettings, type ToastEvent } from "@/settings";
+import { useConstraint, useSettings, type ToastEvent } from "@/settings";
+import { isRoutedContact, isScheduleArrival, newArrivals } from "./arrivals";
+import { useSlotFor } from "@/layout/useSlot";
 import { t } from "@/i18n";
 import type { useWsHeaderApps } from "../workspace/controller/useWsHeaderApps";
 import { useWorkspaceUiStore } from "../workspace-ui-store";
@@ -40,16 +42,21 @@ export function useAssignmentToasts(ws: WorkspaceBase) {
   const schedule = useScheduleProvider();
   const store = useWorkspaceUiStore();
   const [{ toasts: settings }] = useSettings("notifications");
+  // While a constraint forces the incoming toast on (placement "none": no list on screen), it's the only sign of a
+  // new assignment, so "Quiet during a call" doesn't hold it back.
+  const incomingForced = !!useConstraint("notifications.toasts.events.incoming");
   // The handlers below read the latest of these, not the values they were registered with.
-  const latest = useRef({ ws, settings });
-  latest.current = { ws, settings };
+  // Where an offer's tile is: the rail (left nav or interior panel), or the top of Home.
+  const offersAtHome = useSlotFor("assignments") === "home-top";
+  const latest = useRef({ ws, settings, incomingForced, offersAtHome });
+  latest.current = { ws, settings, incomingForced, offersAtHome };
   // Toast ids, per workspace mount (a toast's id is also its drawer row's).
   const counter = useRef(0);
 
   const raise = useCallback(
     (toast: Omit<AssignmentToast, "id" | "urgent">) => {
-      const { ws: w, settings: s } = latest.current;
-      if (!toastAllowed(toast.event, s, !!w.liveVoiceCallInteraction)) return;
+      const { ws: w, settings: s, incomingForced: forced } = latest.current;
+      if (!toastAllowed(toast.event, s, !!w.liveVoiceCallInteraction, forced && toast.event === "incoming")) return;
       counter.current += 1;
       const id = `${TOAST_NOTIFICATION_PREFIX}${counter.current}`;
       const full: AssignmentToast = { ...toast, id, urgent: URGENT_TOAST_EVENTS.includes(toast.event) };
@@ -91,8 +98,48 @@ export function useAssignmentToasts(ws: WorkspaceBase) {
     [provider, raise],
   );
 
+  // A new assignment (P-HOME-1n, `incoming`): a card that arrives holding a routed contact — offered, auto-accepted
+  // or delivered — whatever card is active (`newArrivals`). Cards on screen at mount are seen already.
+  const routed = useRef(new Set<string>());
+  const seenCards = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    const note = (interaction: Parameters<typeof isRoutedContact>[0] & { id: string }) => {
+      if (isRoutedContact(interaction)) routed.current.add(interaction.id);
+    };
+    const offIncoming = provider.on("incoming", ({ interaction }) => note(interaction));
+    const offState = provider.on("stateChanged", (payload) => {
+      if (payload.kind === "interaction") note(payload.interaction);
+    });
+    return () => {
+      offIncoming();
+      offState();
+    };
+  }, [provider]);
+  useEffect(() => {
+    if (!seenCards.current) {
+      seenCards.current = new Set(ws.interactions.map((c) => c.id));
+      return;
+    }
+    for (const card of newArrivals(seenCards.current, ws.interactions, routed.current)) {
+      const thread = card.threads[0];
+      raise({
+        event: "incoming",
+        assignmentId: assignmentIdFor(card.id),
+        kind: "conversation",
+        cardId: card.id,
+        ...(thread ? { threadKey: thread.id, channel: thread.type as ChannelKind } : {}),
+        // An offer's View goes to its tile (the left nav, or the top of Home), not into the card.
+        offer: !!card.offered,
+        name: card.presentedName ?? card.customerName ?? card.customerId,
+        line: card.offered ? t("Offered to you") : t("Assigned to you"),
+      });
+    }
+    for (const card of ws.interactions) seenCards.current.add(card.id);
+  }, [ws.interactions, raise]);
+
   // A new work item (P-HOME-1m): a schedule item that appears after its day was listed (a source's `add`; P0.9's work
-  // items later). Its toast names the kind, the title and when it's due.
+  // items later). Its toast names the kind, the title and when it's due. With the incoming toast on (P-HOME-1n) it's
+  // that toast instead — offered items too — so an item never toasts twice.
   const snapshot = useScheduleSnapshot();
   const listed = useRef<Set<string> | null>(null);
   if (!listed.current && snapshot) listed.current = new Set(snapshot.items.map((i) => i.id));
@@ -102,19 +149,23 @@ export function useAssignmentToasts(ws: WorkspaceBase) {
       listed.current = new Set(day.items.map((i) => i.id));
     });
     const offChanged = schedule.on("itemChanged", ({ item }) => {
-      if (!listed.current || listed.current.has(item.id)) return;
+      if (!listed.current) return;
+      const arrived = isScheduleArrival(listed.current, item);
       listed.current.add(item.id);
-      // Scheduled only: an offered item is Needs a decision, and offers never toast.
-      if (item.state !== "scheduled") return;
+      if (!arrived) return;
+      const { settings: s } = latest.current;
+      const incoming = s.enabled && s.events.incoming;
+      // Without the incoming toast: scheduled only (an offered item is Needs a decision, and offers don't toast).
+      if (!incoming && item.state !== "scheduled") return;
       raise({
-        event: "workItem",
+        event: incoming ? "incoming" : "workItem",
         assignmentId: assignmentIdFor(scheduleCardKey(item.id)),
         kind: item.kind,
         cardId: scheduleCardKey(item.id),
         scheduleItemId: item.id,
         preview: true,
         name: item.title,
-        line: t("Due {time}", { time: feedTimeLabel(item.dueAt, Date.now()) }),
+        line: item.state === "offered" ? t("Offered to you") : t("Due {time}", { time: feedTimeLabel(item.dueAt, Date.now()) }),
       });
     });
     return () => {
@@ -165,6 +216,18 @@ export function useAssignmentToasts(ws: WorkspaceBase) {
         w.setInteriorPanelOpen(false);
         w.setSelectedContactHistoryEntry(null);
         store.update((state) => withFeedItemPreview(state, itemId, toast.kind));
+        return;
+      }
+      if (toast.offer) {
+        // An offer's Accept / Decline are on its tile: the rail's (open the nav; the agent's work stays), or the top
+        // of Home's (go Home).
+        if (latest.current.offersAtHome) {
+          w.setShowSettings(false);
+          w.setLeftNavPage(null);
+          w.switchActiveInteraction(null);
+        } else {
+          w.setNavOpen(true);
+        }
         return;
       }
       if (toast.scheduleItemId) {
