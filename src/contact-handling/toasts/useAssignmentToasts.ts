@@ -20,6 +20,7 @@ const NOTIFICATION_TITLES: Record<ToastEvent, string> = {
   awaitingReply: "Waiting for your reply",
   workItem: "New work item",
   transfer: "Transfer arriving",
+  incoming: "New assignment",
 };
 
 /** Focuses the composer once the opened thread has rendered it. */

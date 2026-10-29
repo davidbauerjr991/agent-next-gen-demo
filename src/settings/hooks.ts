@@ -15,7 +15,8 @@ import {
 import defaultAppIcon from "@/assets/app-icon.svg";
 import { applyBrandColors } from "./brand-colors";
 import { withAgentSettings } from "./scope";
-import { DEFAULT_APP_NAME, type SectionKey, type SettingsState } from "./settings-schema";
+import { activeConstraint } from "./constraints";
+import { DEFAULT_APP_NAME, type SectionKey, type SettingConstraint, type SettingPath, type SettingsState } from "./settings-schema";
 import { getSettingsStore, type SectionPatch, type SettingsStoreState, type UpdateOptions } from "./settings-store";
 
 function useSettingsSelector<T>(select: (state: SettingsStoreState) => T): T {
@@ -52,6 +53,12 @@ export function useSetting<K extends SectionKey, F extends keyof SettingsState[K
     [section, field],
   );
   return [value, set];
+}
+
+/** The constraint currently forcing a setting (`SETTING_CONSTRAINTS`), if any: Settings shows that setting disabled
+ *  at `forces.value` with `reason`. */
+export function useConstraint(path: SettingPath): SettingConstraint | null {
+  return useSettingsSelector(useCallback((state: SettingsStoreState) => activeConstraint(state.values, path), [path]));
 }
 
 /** Whether a section has a stored value (the launch screen's "Save

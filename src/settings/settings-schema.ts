@@ -296,9 +296,11 @@ const home = defineSection<HomeSettings>({
  *  are declared ahead of what raises them (the awaiting-reply toast,
  *  P-TRANSFER) and hidden in Settings until then (`TOAST_EVENTS_RAISED`);
  *  `workItem` is raised since P-HOME-1m by a schedule item added after its day
- *  loaded (P0.9's work items will raise it too). Offers never toast: they keep
- *  the incoming tile. */
-export const TOAST_EVENTS = ["message", "approval", "callbackDue", "awaitingReply", "workItem", "transfer"] as const;
+ *  loaded (P0.9's work items will raise it too). Offers keep the incoming tile
+ *  and don't toast, except under `incoming` (P-HOME-1n: a new assignment
+ *  arriving, offers included; off by default, forced on while assignments
+ *  aren't in the left nav — `SETTING_CONSTRAINTS`). */
+export const TOAST_EVENTS = ["message", "approval", "callbackDue", "awaitingReply", "workItem", "transfer", "incoming"] as const;
 export type ToastEvent = (typeof TOAST_EVENTS)[number];
 /** The events something raises today: Settings shows a switch for these only. */
 export const TOAST_EVENTS_RAISED: readonly ToastEvent[] = ["message", "approval", "callbackDue", "workItem"];
@@ -312,6 +314,7 @@ export const TOAST_EVENT_FIELDS: Record<ToastEvent, FieldMeta> = {
   awaitingReply: { label: "Waiting for your reply", description: "A conversation crosses the awaiting-reply threshold." },
   workItem: { label: "New work item", description: "A callback, meeting, training or task lands on your schedule while you're elsewhere." },
   transfer: { label: "Transfer or consult arriving", description: "A colleague transfers or consults you on an assignment." },
+  incoming: { label: "New assignment", description: "An assignment arrives: routed, auto-accepted, offered, or added to your schedule." },
 };
 
 export const TOAST_DURATION_FIELD = int({
@@ -349,7 +352,7 @@ const notifications = defineSection<NotificationsSettings>({
   defaults: {
     toasts: {
       enabled: true,
-      events: Object.fromEntries(TOAST_EVENTS.map((e) => [e, true])) as Record<ToastEvent, boolean>,
+      events: Object.fromEntries(TOAST_EVENTS.map((e) => [e, e !== "incoming"])) as Record<ToastEvent, boolean>,
       duration: 8,
       quietOnVoice: false,
       position: "bottomEnd",
@@ -419,12 +422,12 @@ export interface AssignmentsSettings {
   /** The channel chip on each card's rows: "auto" shows it in the left nav
    *  and hides it in the interior panel. */
   channelChips: AssignmentChannelChips;
-  /** Where the assignment cards show: the left nav, or lyra's left interior
-   *  panel inside the content card (P-PROFILES 0c). */
+  /** Where the assignment cards show: the left nav, lyra's left interior
+   *  panel (P-PROFILES 0c), or the top of Home ("none", P-HOME-1n). */
   placement: AssignmentsPlacement;
 }
 
-export const ASSIGNMENTS_PLACEMENTS = ["leftNav", "interiorPanel"] as const;
+export const ASSIGNMENTS_PLACEMENTS = ["leftNav", "interiorPanel", "none"] as const;
 export type AssignmentsPlacement = (typeof ASSIGNMENTS_PLACEMENTS)[number];
 export const ASSIGNMENTS_PLACEMENT_FIELD = oneOf(ASSIGNMENTS_PLACEMENTS, {
   label: "Show as interior panel",
@@ -817,6 +820,29 @@ export const SECTIONS = {
 
 export type SectionKey = keyof typeof SECTIONS;
 export type SettingsState = { [K in SectionKey]: (typeof SECTIONS)[K]["defaults"] };
+
+/** A dot path into the settings values: section, then fields (`"notifications.toasts.enabled"`). */
+export type SettingPath = `${SectionKey}.${string}`;
+
+/** One setting's value forcing another's (P-HOME-1n; P-LAYOUT's parts declare theirs in this shape). Read from the
+ *  source it "forces"; read from the target it "requires". The store enforces it on write and on read
+ *  (`applyConstraints`); Settings shows the target disabled with `reason`, never hidden. A forced value is written
+ *  through a profile lock: it isn't the agent's choice (PLAN.md Decisions, 2026-10-29). */
+export interface SettingConstraint {
+  id: string;
+  when: { path: SettingPath; in: readonly unknown[] };
+  forces: { path: SettingPath; value: unknown };
+  /** English source; shown through `t()`. */
+  reason: string;
+}
+
+const NOT_IN_LEFT_NAV = "Required while assignments aren't in the left nav";
+
+export const SETTING_CONSTRAINTS: readonly SettingConstraint[] = [
+  // Placement "none" has no list on screen while an assignment is open: a new arrival has to toast.
+  { id: "placement-none-toasts", when: { path: "assignments.placement", in: ["none"] }, forces: { path: "notifications.toasts.enabled", value: true }, reason: NOT_IN_LEFT_NAV },
+  { id: "placement-none-incoming", when: { path: "assignments.placement", in: ["none"] }, forces: { path: "notifications.toasts.events.incoming", value: true }, reason: NOT_IN_LEFT_NAV },
+];
 export type SectionSchemas = { [K in SectionKey]: SectionDef<SettingsState[K]> };
 
 export function defaultSettings(sections: SectionSchemas = SECTIONS): SettingsState {

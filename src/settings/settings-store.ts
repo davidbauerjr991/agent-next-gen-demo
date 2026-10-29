@@ -3,6 +3,7 @@
 // too. Same shape as the interaction store (a closure with getState /
 // subscribe and a same-reference early exit); only hooks are exported from
 // `index.ts`.
+import { applyConstraints } from "./constraints";
 import { getProfileLibrary, resetProfileLibraryForTests } from "./saved-profiles";
 import { profileFieldKeys } from "./scope";
 import { SECTIONS, defaultSettings, type SectionKey, type SectionSchemas, type SettingsState } from "./settings-schema";
@@ -90,7 +91,8 @@ export function createSettingsStore(
       values[key] = read.value;
       stored[key] = read.stored;
     }
-    return { values: values as SettingsState, stored };
+    // A stored invalid combination heals on load (in memory; the next write stores it).
+    return { values: applyConstraints(values as SettingsState).values, stored };
   }
 
   let state = readAll();
@@ -129,25 +131,31 @@ export function createSettingsStore(
       if (Object.keys(resolved).length === 0 && isLocked(section)) return;
       const next = merged(section, resolved);
       if (!next && (!persist || state.stored[section])) return;
-      const value = next ?? state.values[section];
-      if (persist) write(section, value);
+      // Constraints run before anything is written, so a forced value is never stored unforced; a section a
+      // constraint changes is written with this one, through a lock (`SettingConstraint`).
+      const { values, touched } = applyConstraints(next ? { ...state.values, [section]: next } : state.values);
+      const written = [...new Set<SectionKey>([section, ...touched])];
+      if (persist) for (const key of written) write(key, values[key]);
       commit({
-        values: next ? { ...state.values, [section]: value } : state.values,
-        stored: persist ? { ...state.stored, [section]: true } : state.stored,
+        values,
+        stored: persist ? { ...state.stored, ...Object.fromEntries(written.map((k) => [k, true])) } : state.stored,
       });
     },
 
     updateMany(patches) {
-      let values = state.values;
-      let stored = state.stored;
+      let candidate = state.values;
+      const changed: SectionKey[] = [];
       for (const section of Object.keys(patches) as SectionKey[]) {
         const next = merged(section, unlocked(section, patches[section] as Partial<SettingsState[typeof section]>));
         if (!next) continue;
-        write(section, next);
-        values = { ...values, [section]: next };
-        stored = { ...stored, [section]: true };
+        candidate = { ...candidate, [section]: next };
+        changed.push(section);
       }
-      if (values !== state.values) commit({ values, stored });
+      if (candidate === state.values) return;
+      const { values, touched } = applyConstraints(candidate);
+      const written = [...new Set<SectionKey>([...changed, ...touched])];
+      for (const key of written) write(key, values[key]);
+      commit({ values, stored: { ...state.stored, ...Object.fromEntries(written.map((k) => [k, true])) } });
     },
 
     resetAll() {
@@ -166,7 +174,7 @@ export function createSettingsStore(
       const key = storageKey.slice(SETTINGS_KEY_PREFIX.length) as SectionKey;
       if (!keys.includes(key)) return;
       const read = readSection(key);
-      commit({ values: { ...state.values, [key]: read.value }, stored: { ...state.stored, [key]: read.stored } });
+      commit({ values: applyConstraints({ ...state.values, [key]: read.value }).values, stored: { ...state.stored, [key]: read.stored } });
     },
   };
 }
