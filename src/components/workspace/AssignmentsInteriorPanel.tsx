@@ -6,19 +6,14 @@
 // open slide-over) and the agent has it pinned; otherwise it's lyra's overlay,
 // opened from the left nav's Assignments rail item.
 import * as React from "react";
-import { EmptyState, InteriorPanel, LYRA_CARD_MAX_WIDTH, PanelPinButton } from "@nicecxone/lyra-ui";
-import { Inbox } from "lucide-react";
+import { InteriorPanel, LYRA_CARD_MAX_WIDTH, PanelPinButton } from "@nicecxone/lyra-ui";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { useSlotHas } from "@/layout/useSlot";
-import { ClockTick } from "@/components/agent-next-gen-clock-tick";
 import { assignmentsPanelDocks, availableForAssignmentsPanel } from "@/contact-handling/assignments-panel-placement";
-import { useAssignmentCards, useChannelChipsShown } from "@/contact-handling/useAssignmentCards";
-import { KindNavCard } from "./KindNavCard";
 import { useAssignmentsPanel } from "@/contact-handling/useAssignmentsPanel";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
-import { AssignmentsCaption, DraggableAssignment } from "./AssignmentCardList";
-import { NavCardItem } from "./NavCardItem";
+import { AssignmentsStack } from "./AssignmentCardList";
 
 /** The content card's row. Under "Show as interior panel" it's `relative`
  *  (the panel's overlay positions against it) and holds the panel first. */
@@ -34,8 +29,6 @@ export function AssignmentsPanelRow({ children }: { children: React.ReactNode })
 
 function AssignmentsInteriorPanel() {
   const panel = useAssignmentsPanel();
-  const { entries, itemProps } = useAssignmentCards(true);
-  const chipsShown = useChannelChipsShown("interiorPanel");
   const anchorRef = React.useRef<HTMLDivElement>(null);
   const contentRowWidth = useParentWidth(anchorRef);
   const [panelWidth, setPanelWidth] = React.useState(LYRA_CARD_MAX_WIDTH);
@@ -85,30 +78,7 @@ function AssignmentsInteriorPanel() {
         data-slot="assignments-panel"
         data-docked={panel.docked || undefined}
       >
-        <div className="flex flex-col gap-2 px-3 pb-3">
-          <AssignmentsCaption expanded mount="interiorPanel" />
-          {entries.length === 0 ? (
-            <EmptyState
-              icon={<Inbox className="h-8 w-8" strokeWidth={1.5} />}
-              message={t("Your assignment queue is empty")}
-              description={t("New assignments will appear here.")}
-              className="h-auto w-full py-6"
-              tone="secondary"
-            />
-          ) : (
-            entries.map((entry) => (
-              <DraggableAssignment key={entry.key} props={itemProps(entry.key)}>
-                {entry.type === "schedule" ? (
-                  <KindNavCard item={entry.item} expanded />
-                ) : (
-                  <ClockTick>
-                    {(clockTick) => <NavCardItem interaction={entry.interaction} slotExpanded clockTick={clockTick} hideChip={!chipsShown} />}
-                  </ClockTick>
-                )}
-              </DraggableAssignment>
-            ))
-          )}
-        </div>
+        <AssignmentsStack mount="interiorPanel" className="px-3 pb-3" />
       </InteriorPanel>
     </>
   );

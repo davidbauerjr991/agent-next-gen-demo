@@ -1,15 +1,12 @@
-import { EmptyState, LeftNav, NavRail } from "@nicecxone/lyra-ui";
+import { LeftNav, NavRail } from "@nicecxone/lyra-ui";
 import { Inbox } from "lucide-react";
 import { HostSlot } from "@/contact-handling/portal-hosts";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
-import { ClockTick } from "@/components/agent-next-gen-clock-tick";
 import { t } from "@/i18n";
 import { useAssignmentCards, useChannelChipsShown } from "@/contact-handling/useAssignmentCards";
-import { KindNavCard } from "./KindNavCard";
 import { useAssignmentsPanel } from "@/contact-handling/useAssignmentsPanel";
-import { AssignmentsCaption, DraggableAssignment } from "./AssignmentCardList";
+import { AssignmentEntryCard, AssignmentsCaption, AssignmentsEmptyState } from "./AssignmentCardList";
 import { LeftNavFooterColumn, LeftNavFooterSpacer, LeftNavSlot } from "./left-nav-parts";
-import { NavCardItem } from "./NavCardItem";
 
 /** The workspace's left nav (P-EXTRACT C8, from the page): the rail, the
  *  Assignments caption and one `NavCardItem` per card. The card `.map` stays
@@ -182,19 +179,7 @@ export function WorkspaceLeftNav() {
                   collapsing, so nothing is ever visible to reflow. */}
               {!panel.inPanel && interactions.length === 0 && entries.length === 0 && navOpen && (
                 <div className="flex flex-1 min-h-0 items-center justify-center animate-in fade-in-0 duration-150 delay-200 fill-mode-backwards">
-                  <EmptyState
-                    icon={<Inbox className="h-8 w-8" strokeWidth={1.5} />}
-                    message="Your assignment queue is empty"
-                    description="New assignments will appear here."
-                    className="h-auto w-full py-6"
-                    // Per explicit follow-up, with a screenshot comparing
-                    // this to Contact History's own "Nothing to Display"
-                    // placeholder: `EmptyState`'s default `tone`
-                    // (`text-lyra-fg-disabled`) read too dim/low-contrast
-                    // next to it. `tone="secondary"` matches that
-                    // placeholder's own `text-lyra-fg-secondary` exactly.
-                    tone="secondary"
-                  />
+                  <AssignmentsEmptyState />
                 </div>
               )}
               {/* No cards until the agent actually starts one above — each
@@ -222,17 +207,7 @@ export function WorkspaceLeftNav() {
                 // nothing, so the card falls back to `navOpen`.
                 <LeftNavSlot key={entry.key}>
                   {(slotExpanded) => (
-                    <DraggableAssignment props={itemProps(entry.key)}>
-                      {entry.type === "schedule" ? (
-                        <KindNavCard item={entry.item} expanded={slotExpanded ?? navOpen} />
-                      ) : (
-                        <ClockTick>
-                          {(clockTick) => (
-                            <NavCardItem interaction={entry.interaction} slotExpanded={slotExpanded} clockTick={clockTick} hideChip={!chipsShown} />
-                          )}
-                        </ClockTick>
-                      )}
-                    </DraggableAssignment>
+                    <AssignmentEntryCard entry={entry} dragProps={itemProps(entry.key)} slotExpanded={slotExpanded} navOpen={navOpen} hideChip={!chipsShown} />
                   )}
                 </LeftNavSlot>
               ))}
