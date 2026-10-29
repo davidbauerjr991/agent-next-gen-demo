@@ -6,6 +6,7 @@ export {
   useSetting,
   useSectionStored,
   useConstraint,
+  useSettingsDerived,
   useWorkspaceProfile,
   useProfileLibrary,
   useSectionLocked,

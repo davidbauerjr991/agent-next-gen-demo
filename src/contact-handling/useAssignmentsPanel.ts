@@ -3,7 +3,7 @@
 // pinned it (per-browser working state) and it fits (`assignmentsPanelDocks`,
 // measured by the panel); otherwise it's an overlay the rail item opens.
 import { useCallback } from "react";
-import { useSettings } from "@/settings";
+import { useSlotHas } from "@/layout/useSlot";
 import { setAssignmentsWorkingState, useAssignmentsWorkingState } from "./assignments-working-state";
 import { useWorkspaceUiField } from "./workspace-ui-store";
 import { useWorkspace } from "./workspace/WorkspaceContext";
@@ -28,12 +28,11 @@ export interface AssignmentsPanelState {
 }
 
 export function useAssignmentsPanel(): AssignmentsPanelState {
-  const [{ placement }] = useSettings("assignments");
+  const inPanel = useSlotHas("interior-panel", "assignments");
   const { panelPinned } = useAssignmentsWorkingState();
   const [docks] = useWorkspaceUiField("assignmentsPanelDocks");
   const [overlayOpen, setOverlayOpen] = useWorkspaceUiField("assignmentsPanelOverlayOpen");
   const { interactions, isNewAssignment } = useWorkspace();
-  const inPanel = placement === "interiorPanel";
   const docked = inPanel && panelPinned && docks;
   const open = docked || (inPanel && overlayOpen);
 

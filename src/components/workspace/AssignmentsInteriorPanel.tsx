@@ -10,7 +10,7 @@ import { EmptyState, InteriorPanel, LYRA_CARD_MAX_WIDTH, PanelPinButton } from "
 import { Inbox } from "lucide-react";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { useSettings } from "@/settings";
+import { useSlotHas } from "@/layout/useSlot";
 import { ClockTick } from "@/components/agent-next-gen-clock-tick";
 import { assignmentsPanelDocks, availableForAssignmentsPanel } from "@/contact-handling/assignments-panel-placement";
 import { useAssignmentCards, useChannelChipsShown } from "@/contact-handling/useAssignmentCards";
@@ -23,8 +23,7 @@ import { NavCardItem } from "./NavCardItem";
 /** The content card's row. Under "Show as interior panel" it's `relative`
  *  (the panel's overlay positions against it) and holds the panel first. */
 export function AssignmentsPanelRow({ children }: { children: React.ReactNode }) {
-  const [{ placement }] = useSettings("assignments");
-  const inPanel = placement === "interiorPanel";
+  const inPanel = useSlotHas("interior-panel", "assignments");
   return (
     <div className={cn("flex flex-1 overflow-hidden min-h-0", inPanel && "relative")}>
       {inPanel && <AssignmentsInteriorPanel />}

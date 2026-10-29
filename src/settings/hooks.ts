@@ -55,6 +55,12 @@ export function useSetting<K extends SectionKey, F extends keyof SettingsState[K
   return [value, set];
 }
 
+/** A value derived across sections (a layout part's slot). `derive` must be stable and return a primitive or a
+ *  stable reference; the component re-renders only when it changes. */
+export function useSettingsDerived<T>(derive: (values: SettingsState) => T): T {
+  return useSettingsSelector(useCallback((state: SettingsStoreState) => derive(state.values), [derive]));
+}
+
 /** The constraint currently forcing a setting (`SETTING_CONSTRAINTS`), if any: Settings shows that setting disabled
  *  at `forces.value` with `reason`. */
 export function useConstraint(path: SettingPath): SettingConstraint | null {
