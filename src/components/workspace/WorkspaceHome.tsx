@@ -1,4 +1,6 @@
-import { Button, InteriorPanel, Tooltip } from "@nicecxone/lyra-ui";
+import { Button, InteriorPanel, LYRA_CARD_MAX_WIDTH, Tooltip } from "@nicecxone/lyra-ui";
+import { useSlotHas } from "@/layout/useSlot";
+import { AssignmentsStack } from "./AssignmentCardList";
 import { ChevronRight, CircleAlert } from "lucide-react";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useActiveScheduleItem, useRailAssignmentCount } from "@/contact-handling/home/useScheduleCards";
@@ -37,6 +39,7 @@ export function WorkspaceHome() {
     showPageHeader, tabApps, updateHeaderSettings,
   } = useWorkspace();
   const [home] = useSettings("home");
+  const assignmentsAtTop = useSlotHas("home-top", "assignments");
   const [, setHomePreview] = useWorkspaceUiField("homePreview");
   // The rail's count: conversation cards and kind cards alike.
   const railCount = useRailAssignmentCount();
@@ -76,6 +79,15 @@ export function WorkspaceHome() {
                   tabs={homeTabs}
                   apps={tabApps}
                   onReorder={(order) => updateHeaderSettings((prev) => tabOrderPatch(prev, order))}
+                />
+              )}
+              {/* The home-top slot (P-HOME-1n, placement "none"): the assignments part — the rail's caption and
+                  cards, every open assignment — above the dashboard. A card opens in the main column. */}
+              {assignmentsAtTop && activeDeskTab === "dashboard" && (
+                <AssignmentsStack
+                  mount="homeTop"
+                  className="shrink-0 max-h-[45%] overflow-y-auto px-4 pt-3 pb-2"
+                  style={{ maxWidth: LYRA_CARD_MAX_WIDTH + 32 }}
                 />
               )}
               {/* Body row: main content + interior panel */}

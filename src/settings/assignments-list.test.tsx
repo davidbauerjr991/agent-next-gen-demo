@@ -108,26 +108,24 @@ describe("Show as interior panel (0c)", () => {
     await h.advance(1000);
   }
 
-  it("the cards move from the left nav into a docked left panel; the rail gains Assignments", async () => {
+  it("the cards move from the left nav into a docked left panel between the nav and the content card", async () => {
     await inPanel();
     expect(panel()).not.toBeNull();
     expect(panel()!.getAttribute("data-docked")).toBe("true");
     expect(panel()!.querySelectorAll("[data-slot=assignment-card]")).toHaveLength(1);
     expect(h.container.querySelectorAll("aside [data-slot=assignment-card]")).toHaveLength(0);
-    expect(railItem()).not.toBeNull();
+    // P-HOME-1n: outside the content card, not inside it.
+    expect(panel()!.closest("[data-slot=content-card]")).toBeNull();
     // "auto" hides the channel chip in the panel.
     expect(panelChips()).toHaveLength(0);
   });
 
-  it("the rail item's badge counts cards that need the agent; it toggles the panel", async () => {
+  it("docked, it's fixed: no rail item, no pin, no close; it stays resizable (P-HOME-1n)", async () => {
     await inPanel();
-    // A new assignment: the expanded rail shows the count after the label.
-    expect(railItem()!.textContent?.trim()).toBe("Assignments1");
-    await h.click(railItem()!);
-    // Closing a docked panel unpins it.
-    expect(panel()!.hasAttribute("data-docked")).toBe(false);
-    await h.click(railItem()!);
-    expect(panel()!.getAttribute("data-docked")).toBe("true");
+    expect(railItem()).toBeNull();
+    const buttons = [...panel()!.querySelectorAll("button")].map((b) => b.getAttribute("aria-label") ?? "");
+    expect(buttons.some((l) => /pin|close/i.test(l))).toBe(false);
+    expect(panel()!.querySelector("[role=separator], [aria-valuemin]")).not.toBeNull();
   });
 
   it("off again: the cards are back in the left nav and the rail item goes", async () => {

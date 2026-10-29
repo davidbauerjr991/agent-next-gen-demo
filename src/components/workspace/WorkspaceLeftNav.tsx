@@ -20,10 +20,10 @@ export function WorkspaceLeftNav() {
   // P-PROFILES 0b: the cards' order (Custom drags only while the nav is open).
   const { entries, itemProps } = useAssignmentCards(navOpen && !isNavNarrow);
   const chipsShown = useChannelChipsShown("leftNav");
-  // P-PROFILES 0c: with the cards in the interior panel, the rail's first
-  // item opens it, badged with the cards that need the agent.
+  // P-PROFILES 0c / P-HOME-1n: the cards show here only in the left-nav slot. When the interior panel doesn't fit
+  // (an overlay), the rail's first item opens it, badged with the cards that need the agent.
   const panel = useAssignmentsPanel();
-  const navRailItems = panel.inPanel
+  const navRailItems = panel.overlaid
     ? [
         {
           icon: <Inbox className="h-5 w-5" strokeWidth={1.5} />,
@@ -77,7 +77,7 @@ export function WorkspaceLeftNav() {
           // scrolling away with the cards under it.
           // P-PROFILES 0c: under "Show as interior panel" the caption and
           // the cards are the panel's, and the rail gains Assignments.
-          stickyCaption={panel.inPanel ? undefined : <AssignmentsCaption expanded={navOpen} mount="leftNav" />}
+          stickyCaption={panel.inLeftNav ? <AssignmentsCaption expanded={navOpen} mount="leftNav" /> : undefined}
           // Home + Settings — per explicit request ("move the home button
           // above the settings like in phase 1 left nav (match to phase
           // 1)"), both render together in `footer`, Home first, genuinely
@@ -177,7 +177,7 @@ export function WorkspaceLeftNav() {
                   Close needs no equivalent — this block unmounts instantly
                   when `navOpen` goes false, before the aside starts
                   collapsing, so nothing is ever visible to reflow. */}
-              {!panel.inPanel && interactions.length === 0 && entries.length === 0 && navOpen && (
+              {panel.inLeftNav && interactions.length === 0 && entries.length === 0 && navOpen && (
                 <div className="flex flex-1 min-h-0 items-center justify-center animate-in fade-in-0 duration-150 delay-200 fill-mode-backwards">
                   <AssignmentsEmptyState />
                 </div>
@@ -198,7 +198,7 @@ export function WorkspaceLeftNav() {
                   wrapper is the drag target (P-PROFILES: Sort → Custom). */}
               {/* Every card, conversations and opened schedule items' kind cards alike, in one sorted list with one
                   drag wiring (P-HOME-1m: Custom order covers both). */}
-              {!panel.inPanel && entries.map((entry) => (
+              {panel.inLeftNav && entries.map((entry) => (
                 // `LeftNavSlot` is the top-level element LeftNav's overlay
                 // mode clones its hover `expanded` onto (`injectExpanded`
                 // reaches only top-level children); it hands that value

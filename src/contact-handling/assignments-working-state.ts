@@ -1,5 +1,5 @@
 // Per-browser working state for the assignments list (P-PROFILES): the
-// Custom drag order and the interior panel's pin. Not settings: never in a
+// Custom drag order (the interior panel's pin went with P-HOME-1n: the panel is fixed). Not settings: never in a
 // profile, untouched by Reset, kept in this browser only. Every storage access
 // is wrapped (private browsing, blocked storage), falling back to defaults.
 import { useSyncExternalStore } from "react";
@@ -9,11 +9,9 @@ const KEY = "agent-next-gen:working:assignments";
 export interface AssignmentsWorkingState {
   /** Card ids in the agent's dragged order (Sort → Custom). */
   order: string[];
-  /** The interior panel's pin (Settings → "Show as interior panel"). */
-  panelPinned: boolean;
 }
 
-const DEFAULTS: AssignmentsWorkingState = { order: [], panelPinned: true };
+const DEFAULTS: AssignmentsWorkingState = { order: [] };
 
 function parse(raw: string | null): AssignmentsWorkingState {
   if (!raw) return DEFAULTS;
@@ -21,7 +19,6 @@ function parse(raw: string | null): AssignmentsWorkingState {
     const parsed = JSON.parse(raw) as Partial<AssignmentsWorkingState>;
     return {
       order: Array.isArray(parsed.order) ? parsed.order.filter((id): id is string => typeof id === "string") : DEFAULTS.order,
-      panelPinned: typeof parsed.panelPinned === "boolean" ? parsed.panelPinned : DEFAULTS.panelPinned,
     };
   } catch {
     return DEFAULTS;

@@ -69,8 +69,9 @@ export function AgentWorkspaceAdvancedPage({
           ref measured by `bodyContainerRef` (see its own doc comment) — this
           row's own width drives `isNavNarrow`'s container query. */}
       <div ref={bodyContainerRef} className="flex flex-1 min-h-0 overflow-hidden">
-
         <WorkspaceLeftNav />
+        {/* The interior-panel slot (P-HOME-1n): the assignments panel between the left nav and the content. */}
+        <AssignmentsPanelRow>
 
         {/* Content area — flex-1 shrinks to give space to docked panels,
             down to `INTERACTION_MAIN_CONTENT_MIN_WIDTH` (350px) — below
@@ -103,10 +104,9 @@ export function AgentWorkspaceAdvancedPage({
               one level in. */}
           <Container className="flex flex-col flex-1 overflow-hidden relative" data-slot="content-card">
 
-            {/* Row: (the assignments interior panel, P-PROFILES) + the content column + the docked right panel.
-                Not flattened into Container: `isCombinedPanelMode`'s tab row
-                stays outside the panels' reach. */}
-            <AssignmentsPanelRow>
+            {/* Row: the content column + the docked right panel. Not flattened into Container:
+                `isCombinedPanelMode`'s tab row stays outside the panels' reach. */}
+            <div className="flex flex-1 overflow-hidden min-h-0">
               <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
 
                 {/* Below 768px with a docked panel open: a second region
@@ -379,7 +379,7 @@ export function AgentWorkspaceAdvancedPage({
                   "unknown contact" fallback. */}
               <WorkspaceRightPanel />
 
-            </AssignmentsPanelRow>
+            </div>
 
             {/* The "View customer info" floating overlay that used to
                 render here is gone — per explicit request ("move the
@@ -537,8 +537,8 @@ export function AgentWorkspaceAdvancedPage({
               entirely instead of trying to stretch its "float" variant to
               cover the container. */}
           {sharedPanelFullScreenOverlay}
-
         </div>
+        </AssignmentsPanelRow>
 
         {/* Shared single-container panel — docked (sibling of containerRef
             so flex layout keeps it in-bounds). Was five near-identical

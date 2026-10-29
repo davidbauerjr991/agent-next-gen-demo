@@ -1,14 +1,15 @@
-// The assignments interior panel's auto-unpin rule (P-PROFILES 0c). Under
-// "Show as interior panel" the assignments list is lyra's left InteriorPanel
-// inside the content card, beside the action area and the reference column:
-// three columns at wide widths. It docks only while all three fit; otherwise
-// it's an overlay the rail's Assignments item opens.
+// The assignments interior panel's dock rule (P-PROFILES 0c; P-HOME-1n). In the
+// interior-panel slot the assignments list is lyra's left InteriorPanel between
+// the left nav and the content card, beside the action area and the reference
+// column: three columns at wide widths. It docks only while all three fit;
+// otherwise it's an overlay the rail's Assignments item opens.
 import { ACTION_AREA_MIN_WIDTH } from "./canvas-registry";
 
 export interface AssignmentsPanelFit {
   /** The width the panel and the main column share: the main column's row
    *  (action area + reference slot) plus the panel itself while it's docked;
-   *  or, with no canvas, the content card's row. */
+   *  or, with no canvas, the panel-and-content row (the content card's chrome
+   *  included: a few px generous). */
   available: number;
   /** The panel's width (lyra's card width unless dragged wider). */
   panelWidth: number;
@@ -24,7 +25,7 @@ export function assignmentsPanelDocks({ available, panelWidth, referenceSlotWidt
 
 /** The width available to the panel, from what's measured: with the canvas
  *  mounted, its row (which already excludes a docked panel, so the panel's
- *  own width is added back); without it, the content card's row. A zero
+ *  own width is added back); without it, the panel-and-content row. A zero
  *  measurement (not laid out; jsdom) reads as wide enough. */
 export function availableForAssignmentsPanel({
   regionsRowWidth,

@@ -90,6 +90,44 @@ describe("kind cards in the rail's Custom order", () => {
   });
 });
 
+describe("placement none: the top of Home holds the rail's cards (P-HOME-1n)", () => {
+  const stackCards = () => [...h.container.querySelectorAll<HTMLElement>("[data-slot=assignments-stack][data-mount=homeTop] [data-slot=assignment-card]")];
+  const stackKeys = () => stackCards().map((el) => el.getAttribute("data-reorder-key"));
+
+  async function openFromActivity(title: string) {
+    await h.click(homeButton());
+    await h.advance(100);
+    await h.click(rowNamed(title)!);
+    await h.click(document.querySelector<HTMLElement>("[data-home-detail=item] [data-preview-open]")!);
+    await h.advance(100);
+  }
+
+  it("every open assignment — conversations, a training, a task, a callback — in one stack, none in the left nav; a card opens in the main column", async () => {
+    await chatsAndTraining();
+    await openFromActivity("Ticket #4821");
+    await openFromActivity("Callback · Priya Shah");
+    const railKeys = cardKeys();
+    expect(railKeys).toEqual(expect.arrayContaining([TRAINING, "schedule:agent-tk-4821", "schedule:agent-cb-priya"]));
+
+    await act(async () => {
+      store().update("assignments", { placement: "none" });
+    });
+    await h.click(homeButton());
+    await h.advance(100);
+    // The same cards in the same order, the caption with them; the left nav holds none and no Assignments item.
+    expect(stackKeys()).toEqual(railKeys);
+    expect(cardEls()).toHaveLength(0);
+    expect(h.container.querySelector("[data-slot=assignments-stack] [aria-label='Collapse all'], [data-slot=assignments-stack] [aria-label='Expand all']")).not.toBeNull();
+    expect([...h.container.querySelectorAll("aside button")].some((b) => /^Assignments/.test(b.getAttribute("aria-label") ?? b.textContent ?? ""))).toBe(false);
+
+    // A conversation card opens in the main column (Home goes).
+    await h.click(stackCards().find((el) => el.textContent?.includes("Ana Ruiz"))!.querySelector<HTMLElement>("[data-slot=interaction-nav-item], [role=button], button")!);
+    await h.advance(300);
+    expect(h.container.querySelector("[data-slot=record-header]")?.textContent).toContain("Ana Ruiz");
+    expect(stackCards()).toHaveLength(0);
+  });
+});
+
 describe("kind cards in Collapse all and the accordion rule", () => {
   it("Collapse all with a kind card and conversation cards open leaves only the active one open, whichever kind it is; it holds across the nav collapse", async () => {
     await chatsAndTraining();

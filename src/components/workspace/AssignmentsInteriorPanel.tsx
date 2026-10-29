@@ -1,12 +1,10 @@
-// Settings → Assignments "Show as interior panel" (P-PROFILES 0c): the
-// assignment cards in lyra's left `InteriorPanel`, the first child of the
-// content card's row, beside the main column (action area + reference column):
-// three columns at wide widths. It docks while the three fit
-// (`assignmentsPanelDocks`, counting the reference slot, which widens with an
-// open slide-over) and the agent has it pinned; otherwise it's lyra's overlay,
-// opened from the left nav's Assignments rail item.
+// The interior-panel slot (P-PROFILES 0c; P-HOME-1n): the assignments part in lyra's left `InteriorPanel`, between
+// the left nav and the content, beside the main column (action area + reference column): three columns at wide
+// widths. A fixed panel showing only the Assignments header and cards, resizable within lyra's own min/max, with no
+// pin and no close: it docks while the three fit (`assignmentsPanelDocks`, counting the reference slot, which widens
+// with an open slide-over); only when they don't is it lyra's overlay, opened from the left nav's Assignments item.
 import * as React from "react";
-import { InteriorPanel, LYRA_CARD_MAX_WIDTH, PanelPinButton } from "@nicecxone/lyra-ui";
+import { InteriorPanel, LYRA_CARD_MAX_WIDTH } from "@nicecxone/lyra-ui";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { useSlotHas } from "@/layout/useSlot";
@@ -15,12 +13,12 @@ import { useAssignmentsPanel } from "@/contact-handling/useAssignmentsPanel";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { AssignmentsStack } from "./AssignmentCardList";
 
-/** The content card's row. Under "Show as interior panel" it's `relative`
- *  (the panel's overlay positions against it) and holds the panel first. */
+/** The body row's content side: the interior-panel slot, then the content column. With the panel it's `relative`
+ *  (the overlay positions against it); its width is the panel's and the content's, what the fit rule measures. */
 export function AssignmentsPanelRow({ children }: { children: React.ReactNode }) {
   const inPanel = useSlotHas("interior-panel", "assignments");
   return (
-    <div className={cn("flex flex-1 overflow-hidden min-h-0", inPanel && "relative")}>
+    <div className={cn("flex flex-1 min-w-0 overflow-hidden min-h-0", inPanel && "relative")}>
       {inPanel && <AssignmentsInteriorPanel />}
       {children}
     </div>
@@ -35,6 +33,7 @@ function AssignmentsInteriorPanel() {
   const [regionsRowWidth] = useWorkspaceUiField("regionsRowWidth");
   const [referenceSlotWidth] = useWorkspaceUiField("referenceSlotWidth");
   const [, setDocks] = useWorkspaceUiField("assignmentsPanelDocks");
+  const [, setOverlayOpen] = useWorkspaceUiField("assignmentsPanelOverlayOpen");
 
   const docks = assignmentsPanelDocks({
     available: availableForAssignmentsPanel({
@@ -49,27 +48,22 @@ function AssignmentsInteriorPanel() {
   });
   React.useEffect(() => {
     setDocks(docks);
-  }, [docks, setDocks]);
+    // Docking ends the overlay, so a later "doesn't fit" starts closed rather than reopening it.
+    if (docks) setOverlayOpen(false);
+  }, [docks, setDocks, setOverlayOpen]);
 
   return (
     <>
-      {/* Measures the content card's row (a hidden child, so the row is its parent). */}
+      {/* Measures the panel-and-content row (a hidden child, so the row is its parent). */}
       <div ref={anchorRef} hidden aria-hidden="true" />
       <InteriorPanel
         side="left"
         open={panel.open}
-        onClose={panel.close}
+        // Only the overlay closes; the docked panel goes only by switching placement.
+        onClose={panel.overlaid ? panel.close : undefined}
         headerTitle={t("Assignments")}
-        headerActions={
-          <PanelPinButton
-            pinned={panel.docked}
-            onToggle={() => panel.setPinned(!panel.docked)}
-            pinnedLabel={t("Unpin Assignments")}
-            unpinnedLabel={t("Pin Assignments")}
-          />
-        }
+        // lyra's own min/max (InteriorPanel's 350–425; the cards are laid out at the card width).
         width={LYRA_CARD_MAX_WIDTH}
-        minWidth={LYRA_CARD_MAX_WIDTH}
         onWidthChange={setPanelWidth}
         resizable
         // Docked or overlay is this panel's own rule, not lyra's breakpoint.
