@@ -18,7 +18,7 @@ import { DEFAULT_SORT_DIRECTION } from "@/contact-handling/assignment-sort";
 import { usePageClockSource } from "@/components/agent-next-gen-page-clock";
 import { type ContactHistoryEntry, buildContactHistory } from "@/components/agent-next-gen-contact-history";
 import { saveCaseRecord } from "@/components/agent-next-gen-case-database";
-import { useAgentLegTransitions, useAgentState, useCapability, useInteractionProvider, useInteractions, useScheduleSnapshot } from "@/provider-context";
+import { useAgentLegTransitions, useAgentState, useCapability, useInteractionProvider, useInteractions } from "@/provider-context";
 import {
   directoryDisplayName,
   tabMainKey,
@@ -46,16 +46,9 @@ import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { usePortalHost } from "@/contact-handling/portal-hosts";
 import { findContactHistoryMatch, extractPriorContactInfo } from "@/contact-handling/workspace/active-channel-labels";
 import { TOM_LEWIS_CALL_OVERVIEW, MAYA_CHEN_CALL_OVERVIEW, LUCAS_THOMAS_OVERVIEW } from "@/components/workspace/workspace-constants";
-import { scheduleItemCustomer } from "@/contact-handling/contact-identity";
-import type { ContactSubject } from "@/contact-handling/workspace/workspace-types";
-import { scheduleCardKey, scheduleItemIdOf } from "@/domain";
-import { useScheduleCards } from "@/contact-handling/home/useScheduleCards";
 import type { WorkspaceControllerProps, WorkspaceLate } from "./workspace-late";
 import { useSuggestedDispositions } from "@/contact-handling/useSuggestedDispositions";
-
-/** A schedule item's customer has no threads (Contact Details' subject, P-HOME-1m); one array, so the record's
- *  fields memo holds. */
-const NO_THREADS: Thread[] = [];
+import { useActiveCardSubject, useRailScheduleCards } from "./useWsScheduleCards";
 
 export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate) {
   const { initialInteraction } = props;
@@ -419,14 +412,7 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   // object (interaction-nav-item.tsx) at each card's own call site below.
   const [channelsAllExpanded, setChannelsAllExpanded] = useWorkspaceUiField("navChannelsAllExpanded");
   const [channelsExpandedOverrideVersion, setChannelsExpandedOverrideVersion] = useWorkspaceUiField("navChannelsOverrideVersion");
-  const scheduleSnapshot = useScheduleSnapshot();
-  // Every rail card's key: the conversation cards and the open schedule items' kind cards (P-HOME-1m: both sit in
-  // the same collapse state; a kind card with a joined call is its leg, whose id is the same key).
-  const railScheduleCards = useScheduleCards();
-  const railCardKeys = useMemo(
-    () => [...new Set([...interactions.map((i) => i.id), ...railScheduleCards.map((i) => scheduleCardKey(i.id))])],
-    [interactions, railScheduleCards],
-  );
+  const { scheduleSnapshot, railCardKeys } = useRailScheduleCards(interactions);
   const handleToggleAllChannelsExpanded = () => {
     const next = !channelsAllExpanded;
     setChannelsAllExpanded(next);
@@ -585,25 +571,9 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   // the PageHeader "record header" mode below) — starting/quick-dialing/
   // redialing a new assignment always sets this, so the screen switches
   // over automatically the moment one is added.
-  // P-HOME-1f: a schedule card's kind row, selected over its joined call, shows the kind's cell instead.
-  const [kindCellShownFor] = useWorkspaceUiField("kindCellShownFor");
-  const activeInteraction = kindCellShownFor === activeInteractionId ? null : interactions.find((i) => i.id === activeInteractionId) ?? null;
+  const { activeInteraction, contactSubject } = useActiveCardSubject({ activeInteractionId, interactions, scheduleSnapshot, findDirectoryCustomer });
   /** The scripted case key of the active card (`LUCAS_THOMAS_ID`, …), if any. */
   const activeScenarioKey = scenarioKeyOf(activeInteraction?.id);
-  // Contact Details' subject (P-HOME-1m): the active conversation, or the active schedule item's customer when the
-  // directory has their record (a kind cell, its kind row picked over a joined call included). A schedule item has
-  // no thread: its Contact Details is its record's tabs alone (`hasThread`, the tab registry's `applies`).
-  const [linkedItemCustomers] = useWorkspaceUiField("linkedItemCustomers");
-  const activeScheduleItemId = !activeInteraction && activeInteractionId ? scheduleItemIdOf(activeInteractionId) : undefined;
-  const activeScheduleItem = activeScheduleItemId ? scheduleSnapshot?.items.find((i) => i.id === activeScheduleItemId) : undefined;
-  const scheduleRecord = activeScheduleItem
-    ? scheduleItemCustomer(activeScheduleItem.customer, findDirectoryCustomer, linkedItemCustomers[activeScheduleItem.id])?.record
-    : undefined;
-  const contactSubject: ContactSubject | null = activeInteraction
-    ? { key: activeInteraction.id, customerName: activeInteraction.customerName, customerId: activeInteraction.customerId, threads: activeInteraction.threads, hasThread: true }
-    : scheduleRecord && activeInteractionId
-      ? { key: activeInteractionId, customerName: scheduleRecord.name, customerId: scheduleRecord.customerId, entityId: scheduleRecord.id, threads: NO_THREADS, hasThread: false }
-      : null;
 
   // Single, shared Customer Overview/Detail/Directory draft for whichever
   // interaction is currently active — owned HERE (not inside
