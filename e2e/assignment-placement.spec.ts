@@ -33,8 +33,8 @@ test("placement none: the open assignments at the top of Home; the app header's 
   expect(count).toBeGreaterThan(0);
   // None in the left nav.
   await expect(page.locator("aside [data-slot=assignment-card]")).toHaveCount(0);
-  // A card opens in the main column (its own row, not a hover-cluster button).
-  await stackCards(page).first().locator("[aria-label][aria-label*='channel'], [data-slot=interaction-nav-item]").first().click({ force: true });
+  // A card opens in the main column (the card's own labelled element, its first; the hover cluster comes later).
+  await stackCards(page).first().locator("[aria-label]").first().click({ force: true });
   await expect(page.locator("[data-slot=record-header]")).toBeVisible();
   // The chip is in the app header on an assignment too; its menu lists Home and every open assignment.
   await queueChip(page).click();
@@ -55,7 +55,8 @@ test("interior panel: between the left nav and the content card, resizable, no p
   const content = (await page.locator("[data-slot=content-card]").boundingBox())!;
   expect(Math.round(box.x)).toBeGreaterThanOrEqual(Math.round(nav.x + nav.width) - 1);
   expect(Math.round(box.x + box.width)).toBeLessThanOrEqual(Math.round(content.x) + 1);
-  await expect(panel.getByRole("button", { name: /pin|close|collapse/i })).toHaveCount(0);
+  // No pin, close or collapse of the panel itself (the cards' own "Collapse channels" chevrons are theirs).
+  await expect(panel.getByRole("button", { name: /pin|close|collapse (panel|assignments)/i })).toHaveCount(0);
   // Its resize handle widens it, within lyra's 350–425.
   const handle = panel.locator('[role="separator"]').first();
   await handle.focus();
