@@ -807,18 +807,8 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
     }
     showContactDetails();
   };
-  // Per explicit request ("the link to existing customer button should
-  // also appear in the popover of the contact details - you should use
-  // the same content for both the popover and the panel") — the hover
-  // popover's own "Link to existing customer" button (same
-  // `DetailsPanelAccordions`/`onLinkCustomer` the docked panel already
-  // uses, per that prop's own doc comment) can't open the on-demand
-  // search/create overlay INSIDE itself the way the docked panel does —
-  // it's a transient hover preview, not the real panel — so this instead
-  // does what `handleSidePanelIconToggle` does to force the real panel
-  // open (minus its toggle branch: always open here, never close) and
-  // then arms `linkCustomerPanelOpen` the same way the docked panel's own
-  // button does, so the agent lands on the real, docked overlay.
+  // The hover preview's "Link to existing customer" (P-HOME-1n): the preview can't hold the search/create flow, so
+  // it closes and the link picker opens as the slide-over's own content.
   const handleLinkCustomerFromPreview = () => {
     // The link picker is its own slide-over content (P-HOME-1m), where Contact Details now opens too.
     clearTimeout(customerInfoPreviewTimer.current);

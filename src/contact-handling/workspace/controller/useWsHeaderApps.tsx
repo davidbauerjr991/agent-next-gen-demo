@@ -66,7 +66,7 @@ export function useWsHeaderApps(prev: WsOutbound) {
     openArtifactsList, openDetailPanelContent, openExperienceMemoryInSidePanel, outboundConfig, outboundDial, outboundSettings,
     panelArtifacts, panelHeight, panelMounted, panelOpen, panelRef, panelVariant,
     panelWidth, pinnedKeys, reopenPanelArtifact, scenarioCases, scenarioKeyOf, scheduleContent, screenPopContent,
-    selectedDetailPanelContent, sessionDetailsTabContent, setActivePanelKey, setCustomerInfoPreviewOpen,
+    selectedDetailPanelContent, setActivePanelKey, setCustomerInfoPreviewOpen,
     setCustomerPanelActiveTab, setLeftNavPage, setNarrowActiveRegion, setPanelFullScreen,
     setPanelIsResizing, setPanelOpen, setPanelWidth, setSelectedDetailPanelContent, setShowAllContacts,
     setShowSettings, setSidePanelOpen, showAllContacts, showSettings, switchActiveInteraction,
@@ -876,13 +876,11 @@ export function useWsHeaderApps(prev: WsOutbound) {
     };
   };
   const referenceCardProps = referenceCardPropsFor(false);
-  // Contact Details' Overview (panel mode) and Session tab, one render each: the docked panel and its hover preview
-  // mount the same thing (the preview only also closes itself when it hands off to the panel, k5 G). Overview is the
-  // reference cards (`cards`: the canvas registry's reference cells, the same as the reference column's) above the AI
-  // feed.
-  const renderContactDetailsTab = (tab: "Overview" | "Session", inPreview = false, cards?: ReactNode) => {
+  // Panel mode's Overview, the docked panel's content (P-HOME-1n: Session left the tabs; its slide-over renders
+  // `sessionDetailsTabContent` itself): the reference cards (`cards`: the canvas registry's reference cells, the same
+  // as the reference column's) above the AI feed.
+  const renderContactDetailsTab = (_tab: "Overview", inPreview = false, cards?: ReactNode) => {
     if (!activeInteraction) return null;
-    if (tab === "Session") return sessionDetailsTabContent.body;
     return (
       <DetailsPanelAccordions
         cards={cards}

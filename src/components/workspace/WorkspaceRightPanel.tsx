@@ -25,15 +25,15 @@ export function WorkspaceRightPanel() {
     activeInteractionIsAgentCall, activeInteractionIsRealCustomer, addToast, aiInPanel, channelPreviewMeta, channelPreviewThread,
     channelPreviewThreadKey, channelPreviewThreadStableKey, confirmDismiss, copilotComposerProps,
     copilotDockConcealed, copilotDockShown, copilotHost, copilotSlot,
-    customerMatchQuery, customerMatchStep, customerPanelFocusTab, customerSearchResults,
-    effectiveSidePanelPinned, focusCustomerPanelTab, handleBackToCustomerSearch,
-    handleInteractionStatusChange, handleLinkCustomerRecord, handleOutcomeSaveAndDismissChannel,
-    handleSaveNewCustomer, handleSendEmailDraft, handleSendMessage, handleSidePanelClose, handleStartCall, handleStartCreateCustomer,
-    botHolds, hideAiActions, isSidePanelAtMinimalThreshold, linkCustomerPanelOpen,
+    customerPanelFocusTab,
+    effectiveSidePanelPinned, focusCustomerPanelTab,
+    handleInteractionStatusChange, handleOutcomeSaveAndDismissChannel,
+    handleSendEmailDraft, handleSendMessage, handleSidePanelClose, handleStartCall,
+    botHolds, hideAiActions, isSidePanelAtMinimalThreshold,
     onSidePanelHoverEnd, onSidePanelHoverStart, outcomeDrafts,
-    panelPlacement, possibleCustomerMatches,
+    panelPlacement,
     rightPanelRef, scenarioKeyOf, setActiveCustomerOverviewEditing,
-    setCustomerMatchQuery, setHistoryConversationTab, setLinkCustomerPanelOpen,
+    setHistoryConversationTab,
     setSidePanelFullScreen, setSidePanelResizing, setSidePanelWidth, showPanelToggle, sidePanelContainerWidth,
     sidePanelFullScreen, sidePanelOpen, sidePanelResizing, sidePanelWidth, threadOutcomeProps,
     viewSessionDetails,
@@ -199,51 +199,8 @@ export function WorkspaceRightPanel() {
                     handleStartCall({ contact, channel, phone, skillId })
                   }
                   focusTabOverride={customerPanelFocusTab}
-                  // Per explicit request ("contact details panel for
-                  // unmatched customers should match the hover popover.
-                  // add a button above auto summary that says link to
-                  // existing customer and then when that is clicked slide
-                  // in a panel with the search customer / create new
-                  // customer panel content") — the customer-matching UI
-                  // (search/possible-matches/create-new) no longer shows
-                  // automatically just because the interaction is
-                  // unmatched (`!activeInteractionIsRealCustomer` alone);
-                  // it now also requires `linkCustomerPanelOpen`, set by
-                  // the new "Link to existing customer" button
-                  // (`onLinkCustomer` on `bodyOverride`'s own
-                  // `DetailsPanelAccordions` below) — an unmatched
-                  // customer's docked panel therefore shows the SAME
-                  // `bodyOverride` content the hover popover always shows
-                  // by default now, matching it, with this flow reachable
-                  // as an on-demand overlay instead of the default view.
-                  // See `matchState`'s own doc comment (agent-next-gen-
-                  // customer-info-panel.tsx) for what each piece does.
-                  // `undefined` for a real-customer interaction, same as
-                  // every OTHER consumer of this component always passes.
-                  matchState={
-                    !activeInteractionIsRealCustomer && linkCustomerPanelOpen
-                      ? {
-                          step: customerMatchStep,
-                          query: customerMatchQuery,
-                          onQueryChange: setCustomerMatchQuery,
-                          possibleMatches: possibleCustomerMatches,
-                          searchResults: customerSearchResults,
-                          onLinkRecord: handleLinkCustomerRecord,
-                          onStartCreate: handleStartCreateCustomer,
-                          onBackToSearch: handleBackToCustomerSearch,
-                          onSaveNewCustomer: handleSaveNewCustomer,
-                        }
-                      : undefined
-                  }
-                  // Back arrow for the match flow's "search" step (the
-                  // "create" step already gets one via `matchState.onBackToSearch`
-                  // regardless) — closes this on-demand overlay back to the
-                  // normal `bodyOverride` content, same button-driven
-                  // open/close pair `skipGroupPicker`'s own opt-in pattern
-                  // (create-new.tsx, lyra-ui) already established this
-                  // session for a similarly scoped, single-consumer tweak
-                  // to a shared component.
-                  matchStateOnBack={() => setLinkCustomerPanelOpen(false)}
+                  // (No `matchState`: linking an unmatched customer is the reference slide-over's `link-customer`
+                  // content, P-HOME-1m/1n; the docked panel holds no Contact Details since P-HOME-1n.)
                   // Per explicit request ("swap the actual content
                   // rendered inside each panel", then later "put the
                   // transcript and session tabs into the new customer

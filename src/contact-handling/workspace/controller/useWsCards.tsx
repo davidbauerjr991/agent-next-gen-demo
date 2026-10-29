@@ -620,24 +620,6 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
     setCustomerMatchStep("search");
     setCustomerMatchQuery("");
   }, [activeInteraction?.id]);
-  /** Per explicit request ("contact details panel for unmatched customers
-   *  should match the hover popover. add a button above auto summary that
-   *  says link to existing customer and then when that is clicked slide in
-   *  a panel with the search customer / create new customer panel
-   *  content") — the docked Customer Information panel now shows the same
-   *  `DetailsPanelAccordions` content the hover popover always shows
-   *  (`bodyOverride`, unconditionally) instead of jumping straight to the
-   *  `matchState` search/create flow for an unmatched customer; this flag
-   *  is what that flow now gates on instead (see the docked panel's own
-   *  `matchState`/`onLinkCustomer` render-site doc comments further down).
-   *  Reset alongside `customerMatchStep`/`customerMatchQuery` above, same
-   *  "genuinely different card, or this same card's own flow just
-   *  resolved" reasoning as that effect's own doc comment. */
-  const [linkCustomerPanelOpen, setLinkCustomerPanelOpen] = useState(false);
-  useEffect(() => {
-    setLinkCustomerPanelOpen(false);
-  }, [activeInteraction?.id]);
-
   /* A past session's conversation opened as a TAB in the interaction space
      (record header), via the Customer Information panel's Overview "Open
      Conversation" deep link. One at a time; opening another replaces it.
@@ -1044,7 +1026,7 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
     newOutboundAtBottom, navItemsAtTop, noInteractionCollapse, channelsExpandedById, setChannelsExpandedById,
     activeInteractionId, setActiveInteractionId, isNewAssignment, answerSla, customerTable, activeInteraction,
     activeScenarioKey, contactDetails, activeCustomerFields, activeCustomerRecordDraft, activeCustomerOverviewEditing,
-    setActiveCustomerOverviewEditing, linkCustomerPanelOpen, setLinkCustomerPanelOpen, historyConversationTab,
+    setActiveCustomerOverviewEditing, historyConversationTab,
     setHistoryConversationTab, historyConversationForActive, isHistoryConversationView, requestedMainKey, mainPins,
     mainKey, activeChannel, omni, activeChannelType, aiWorkspaceMain, activeWrapUpThread, panelVoiceThread,
     hasOpenChatThread, activeChannelKey, activeChannelOutcomeKey, activeChannelStatus, isColdCallId,
