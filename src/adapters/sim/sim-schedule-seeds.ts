@@ -94,7 +94,7 @@ const AGENT_DAY: readonly SeedItem[] = [
     customer: { name: "Nathan Cole", entityId: NATHAN },
     inMin: 1500,
     state: "scheduled",
-    detail: { kind: "callback", phone: "(415) 555-0119", reason: "Confirm access after the password reset" },
+    detail: { kind: "callback", phone: "(704) 555-0142", reason: "Confirm access after the password reset" },
   },
   {
     id: "agent-mt-dana",
@@ -224,7 +224,7 @@ const SALES_DAY: readonly SeedItem[] = [
     customer: { name: "Omar Farooq", entityId: OMAR },
     inMin: 45,
     state: "scheduled",
-    detail: { kind: "callback", phone: "(206) 555-0170", reason: "Quote sent Tuesday; decision due" },
+    detail: { kind: "callback", phone: "(212) 555-0193", reason: "Quote sent Tuesday; decision due" },
   },
   {
     id: "sales-mt-demo",
@@ -260,7 +260,7 @@ const SALES_DAY: readonly SeedItem[] = [
     customer: { name: "Lauren Briggs", entityId: LAUREN },
     inMin: 1560,
     state: "scheduled",
-    detail: { kind: "callback", phone: "(503) 555-0152", reason: "Renewal call; cadence step 3" },
+    detail: { kind: "callback", phone: "(312) 555-0164", reason: "Renewal call; cadence step 3" },
   },
 ];
 

@@ -27,7 +27,7 @@ export const MARCUS_WEBB_SCRIPT = {
   title: "Marcus Webb: refund above the bot's limit",
   summary: "A bot-handled voice call held for human review: a $200 refund the virtual agent can't approve.",
   // The page gives his call no number; this one is a placeholder.
-  entity: { key: "marcus-webb-scenario", name: "Marcus Webb", caseId: "MW-DEMO-0001", directoryId: "marcus-webb-scenario", phone: "(415) 555-0118" },
+  entity: { key: "marcus-webb-scenario", name: "Marcus Webb", caseId: "MW-DEMO-0001", directoryId: "marcus-webb-scenario", phone: "(503) 555-0142" },
   channel: "voice",
   skill: { name: "Returns", id: "returns" },
   participants: { bot: BOT },
