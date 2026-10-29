@@ -15,6 +15,7 @@ import { BrandMark } from "@/components/BrandMark";
 import { ClockTick } from "@/components/agent-next-gen-clock-tick";
 import { formatWaitTime } from "@/components/agent-next-gen-shared-utils";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
+import { QueueChip } from "./QueueChip";
 
 /** The workspace's app header (P-EXTRACT C8, from the page): the brand and
  *  app-name menu, the header app icons and "View All Apps", and the agent's
@@ -56,6 +57,8 @@ export function WorkspaceAppHeader() {
         }
         actions={
           <>
+            {/* P-HOME-1n: with the assignments at the top of Home, the queue chip is here on every page. */}
+            <QueueChip mount="appHeader" />
             {/* Search / Customers / Accounts / Tickets / WEM / Screen Pop /
                 Agent Chat / Schedule / Notifications / Ask AI — all ten
                 now go through lyra-ui's `ActionIconButton` (`size="xl"`,

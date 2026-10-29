@@ -1,9 +1,9 @@
-import { Button, InteriorPanel, LYRA_CARD_MAX_WIDTH, Tooltip } from "@nicecxone/lyra-ui";
+import { InteriorPanel, LYRA_CARD_MAX_WIDTH } from "@nicecxone/lyra-ui";
 import { useSlotHas } from "@/layout/useSlot";
 import { AssignmentsStack } from "./AssignmentCardList";
-import { ChevronRight, CircleAlert } from "lucide-react";
+import { QueueChip } from "./QueueChip";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
-import { useActiveScheduleItem, useRailAssignmentCount } from "@/contact-handling/home/useScheduleCards";
+import { useActiveScheduleItem } from "@/contact-handling/home/useScheduleCards";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { homeIsTwoColumn } from "@/contact-handling/home/home-layout";
 import { KindCell } from "./kind-cells/KindCell";
@@ -15,7 +15,6 @@ import { useHomeDetailPanel } from "@/components/home/home-detail-panel";
 import { CUSTOMER_PANEL_TABS } from "@/components/customer-info";
 import { ContactHistoryCard } from "@/components/agent-next-gen-contact-history";
 import { tabOrderPatch, useSettings } from "@/settings";
-import { cn } from "@/lib/utils";
 
 /** Home's docked detail panel in one column (two columns mount the same
  *  parts over the right column, HomeTwoColumn). */
@@ -33,46 +32,23 @@ function HomeDockedDetailPanel() {
 export function WorkspaceHome() {
   const {
     activeDeskTab, addToast, contactHistory, contentByPanelKey, customerTable,
-    handleStartCall, hasBreachedSlaAssignment, homeTabs,
+    handleStartCall, homeTabs,
     interactions, selectedContactHistoryEntry, selectedQueueId,
-    setInteriorPanelOpen, setNavOpen, setSelectedContactHistoryEntry, setSelectedQueueId, showInteriorPanel,
+    setInteriorPanelOpen, setSelectedContactHistoryEntry, setSelectedQueueId, showInteriorPanel,
     showPageHeader, tabApps, updateHeaderSettings,
   } = useWorkspace();
   const [home] = useSettings("home");
   const assignmentsAtTop = useSlotHas("home-top", "assignments");
   const [, setHomePreview] = useWorkspaceUiField("homePreview");
-  // The rail's count: conversation cards and kind cards alike.
-  const railCount = useRailAssignmentCount();
   // P-HOME-1: an opened schedule item (meeting, training, task, …) isn't a conversation card, so the page lands
   // here; its minimal per-kind cell takes the main column until P-HOME-3's kinds registry.
   const activeScheduleItem = useActiveScheduleItem();
   if (activeScheduleItem) return <KindCell key={activeScheduleItem.id} item={activeScheduleItem} />;
-  // The page header's right side: the My Assignment Queue chip (toggles the rail).
-  const queueChip = (
-    <Tooltip content="Toggle Assignment Panel" placement="bottom" asLabel>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setNavOpen((v) => !v)}
-        className={cn(
-          "h-6 shrink-0 gap-0.5 rounded-lyra-md px-2 lyra-body-md-emphasis",
-          hasBreachedSlaAssignment
-            ? "bg-lyra-status-critical-subtle text-lyra-status-critical-strong hover:bg-lyra-status-critical-subtle hover:opacity-80"
-            : railCount > 0
-            ? "bg-lyra-status-warning-subtle text-lyra-status-warning-strong hover:bg-lyra-status-warning-subtle hover:opacity-80"
-            : "bg-lyra-status-success-subtle text-lyra-status-success-strong hover:bg-lyra-status-success-subtle hover:opacity-80"
-        )}
-      >
-        My Assignment Queue: {railCount > 0 ? railCount : "Empty"}
-        {hasBreachedSlaAssignment && <CircleAlert className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />}
-        <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-      </Button>
-    </Tooltip>
-  );
   return (
                 <div key="dashboard" className="flex flex-1 flex-col min-w-0 overflow-hidden animate-in fade-in-0 duration-200">
-              {/* The page header first, then the Home tabs, then the tab's body (P-HOME-1m; one column and two). */}
-              {showPageHeader && <HomePageHeader actions={queueChip} />}
+              {/* The page header first, then the Home tabs, then the tab's body (P-HOME-1m; one column and two). The
+                  queue chip is here unless the assignments are at the top of Home (then it's in the app header). */}
+              {showPageHeader && <HomePageHeader actions={<QueueChip mount="home" />} />}
               {/* Home tabs: shown while any app is placed as "tab" (Settings → Header). */}
               {showPageHeader && tabApps.length > 0 && (
                 <HomeTabStrip
@@ -87,6 +63,7 @@ export function WorkspaceHome() {
                 <AssignmentsStack
                   mount="homeTop"
                   className="shrink-0 max-h-[45%] overflow-y-auto px-4 pt-3 pb-2"
+                  // The card width plus the stack's own px-4 on each side.
                   style={{ maxWidth: LYRA_CARD_MAX_WIDTH + 32 }}
                 />
               )}
