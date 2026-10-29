@@ -12,7 +12,7 @@ Default split: **Plan: Opus · Implement: Sonnet.** Steps marked **Implement: Op
 
 Execution order below differs from PLAN.md's numbering where it reduces risk. Step labels reference PLAN.md's numbering.
 
-**Execution order** (PLAN.md "Effort and order", 2026-10-18): … P-EXTRACT → P-POLISH → P-CANVAS → P-PROFILES → P-SHRINK → P-HOME-1 → P-HOME-1n → P-LAYOUT → P-HOME-ASK → P-TRANSFER → P-TIMERS → P0.6 → Phase 2 §0–5 → P-TRANSLATE → Phase 3 → *milestone* → P-HOME-2 → P0.9 → P-HOME-3 → P-STREAM → P-ADMIN → P-LYRA-RTL → P-I18N → P-ADMIN-2 → P-EMPLOYEES → P-COMPLIANCE → P-REPORTING → P-QM → Phase 1 → Phase 2 §6–7 → Phase 4 → the remaining verticals → Phase 5 + P-CONFIG-ASSIST → Phase 6 → Phase 7 → P-CAMPAIGNS → P-BILLING → P-MAPPINGS → P-ADAPTER → P-IMPORT → P-STUDIO → P-EMBED.
+**Execution order** (PLAN.md "Effort and order", 2026-10-18): … P-EXTRACT → P-POLISH → P-CANVAS → P-PROFILES → P-SHRINK → P-HOME-1 → P-HOME-1n → P-LAYOUT → P-CONFIG-LAYERS → P-HOME-ASK → P-TRANSFER → P-TIMERS → P0.6 → Phase 2 §0–5 → P-TRANSLATE → Phase 3 → *milestone* → P-HOME-2 → P0.9 → P-HOME-3 → P-STREAM → P-ADMIN → P-LYRA-RTL → P-I18N → P-ADMIN-2 → P-EMPLOYEES → P-COMPLIANCE → P-REPORTING → P-QM → Phase 1 → Phase 2 §6–7 → Phase 4 → the remaining verticals → Phase 5 + P-CONFIG-ASSIST → Phase 6 → Phase 7 → P-CAMPAIGNS → P-BILLING → P-MAPPINGS → P-ADAPTER → P-IMPORT → P-STUDIO → P-EMBED.
 
 ---
 
@@ -50,7 +50,7 @@ Wrap up this step: run the type-check and the test suite, update PROGRESS.md (do
 
 **One page (decided 2026-10-15; final since P0.5d.2):** Advanced is the agent workspace and Desk is deleted. Its layout varies by settings only; "Phase 1" and "Phase 2" are built-in workspace profiles. Prompts below that say "both pages" mean Advanced.
 
-**Execution order (revised 2026-10-19, demo-first):** finish 5d.1 → P0.7 and P0.5c → P-SETTINGS → P0.5d.2 → P-AIFIRST → P-EXTRACT → P-POLISH → P-CANVAS → P-PROFILES → P-SHRINK → P-HOME-1 → P-HOME-1n → P-LAYOUT → P-HOME-ASK → P-TRANSFER → P-TIMERS → P0.6 → Phase 2 §0–5 → P-TRANSLATE → Phase 3 (*first demo milestone: a simulated chat and spoken call driven from the console*) → P-HOME-2 → P0.9.1–9.3 → P-HOME-3 → P-STREAM → P-ADMIN → P-EMPLOYEES → Phase 1 (incl. P1.4a, P1.4b) → Phase 2 §6–7 (P2.7) → Phase 4 (incl. P4.4a, P4.11) → remaining verticals (P1.2a, P1.2b) → Phase 5 (incl. P5.6, P5.7) and P-CONFIG-ASSIST → Phase 6 → Phase 7 → P-REPORTING → P-BILLING → P-MAPPINGS → P-ADAPTER sequence → P-IMPORT → P-EMBED (last).
+**Execution order (revised 2026-10-19, demo-first):** finish 5d.1 → P0.7 and P0.5c → P-SETTINGS → P0.5d.2 → P-AIFIRST → P-EXTRACT → P-POLISH → P-CANVAS → P-PROFILES → P-SHRINK → P-HOME-1 → P-HOME-1n → P-LAYOUT → P-CONFIG-LAYERS → P-HOME-ASK → P-TRANSFER → P-TIMERS → P0.6 → Phase 2 §0–5 → P-TRANSLATE → Phase 3 (*first demo milestone: a simulated chat and spoken call driven from the console*) → P-HOME-2 → P0.9.1–9.3 → P-HOME-3 → P-STREAM → P-ADMIN → P-EMPLOYEES → Phase 1 (incl. P1.4a, P1.4b) → Phase 2 §6–7 (P2.7) → Phase 4 (incl. P4.4a, P4.11) → remaining verticals (P1.2a, P1.2b) → Phase 5 (incl. P5.6, P5.7) and P-CONFIG-ASSIST → Phase 6 → Phase 7 → P-REPORTING → P-BILLING → P-MAPPINGS → P-ADAPTER sequence → P-IMPORT → P-EMBED (last).
 
 ---
 
@@ -216,7 +216,11 @@ Read CLAUDE.md, PLAN.md (Settings 'Personal connections and inbox items on Home'
 
 Prompt to follow.
 
-### P-HOME-ASK — Home as ask, glance and lists on demand   (Plan: Opus · Implement: Opus) — after P-LAYOUT, before P-TRANSFER
+### P-CONFIG-LAYERS — Layered settings resolution   (Plan: Opus · Implement: Opus) — after P-LAYOUT, before P-HOME-ASK
+
+Prompt to follow.
+
+### P-HOME-ASK — Home as ask, glance and lists on demand   (Plan: Opus · Implement: Opus) — after P-CONFIG-LAYERS, before P-TRANSFER
 
 Prompt to follow.
 
