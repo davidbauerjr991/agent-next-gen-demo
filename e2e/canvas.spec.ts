@@ -248,7 +248,7 @@ for (const [displayLocation, tabs] of [
   test(`${displayLocation}: Contact Details' tab set, in the reference slide-over`, async ({ page }) => {
     await setUp(page, { displayLocation, canvasLayout: "twoColumn" }, 2200);
     const panel = await openContactDetails(page);
-    expect(await panel.locator("[data-slot=contact-details-tabs] [role=tab]").allTextContents()).toEqual([...tabs]);
+    await expect.poll(() => panel.locator("[data-slot=contact-details-tabs] [role=tab]").allTextContents()).toEqual([...tabs]);
   });
 }
 

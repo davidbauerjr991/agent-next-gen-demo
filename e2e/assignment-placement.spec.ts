@@ -33,8 +33,8 @@ test("placement none: the open assignments at the top of Home; the app header's 
   expect(count).toBeGreaterThan(0);
   // None in the left nav.
   await expect(page.locator("aside [data-slot=assignment-card]")).toHaveCount(0);
-  // A card opens in the main column.
-  await stackCards(page).first().locator("[aria-label]").first().click({ force: true });
+  // A card opens in the main column (its own row, not a hover-cluster button).
+  await stackCards(page).first().locator("[aria-label][aria-label*='channel'], [data-slot=interaction-nav-item]").first().click({ force: true });
   await expect(page.locator("[data-slot=record-header]")).toBeVisible();
   // The chip is in the app header on an assignment too; its menu lists Home and every open assignment.
   await queueChip(page).click();
@@ -55,7 +55,7 @@ test("interior panel: between the left nav and the content card, resizable, no p
   const content = (await page.locator("[data-slot=content-card]").boundingBox())!;
   expect(Math.round(box.x)).toBeGreaterThanOrEqual(Math.round(nav.x + nav.width) - 1);
   expect(Math.round(box.x + box.width)).toBeLessThanOrEqual(Math.round(content.x) + 1);
-  await expect(panel.getByRole("button", { name: /pin|close/i })).toHaveCount(0);
+  await expect(panel.getByRole("button", { name: /pin|close|collapse/i })).toHaveCount(0);
   // Its resize handle widens it, within lyra's 350–425.
   const handle = panel.locator('[role="separator"]').first();
   await handle.focus();
@@ -81,8 +81,10 @@ test("placement none: a new assignment raises the incoming toast with View; Sett
 test("Settings: the nine groups in order, each a lyra heading", async ({ page }) => {
   await setUp(page, {});
   await page.locator("aside").getByText("Settings", { exact: true }).first().click();
-  const titles = await page.locator("[data-settings-group] > legend").evaluateAll((els) => els.map((el) => el.firstChild?.textContent?.trim()));
+  const legends = page.locator("[data-settings-group] > legend");
+  const titles = await legends.evaluateAll((els) => els.map((el) => el.firstChild?.textContent?.trim()));
   expect(titles).toEqual(["Workspace", "Assignments", "Home", "Notifications", "Appearance", "Channels", "Voice", "Phone", "Connections"]);
+  for (const legend of await legends.all()) await expect(legend).toHaveClass(/lyra-heading-sm/);
 });
 
 test("lyra's gradient tokens: a semantic tone to the surface, in light and in dark", async ({ page }) => {
@@ -122,4 +124,20 @@ test("Contact Details and Session Details open in the reference slide-over; the 
   // Session Details from the session row: the same slide-over slot.
   await page.locator("[data-slot=record-session-row]").getByRole("button", { name: /Session Details|View Details/ }).first().click();
   await expect(slideOver.locator("[data-slot=session-slide-over]")).toBeVisible();
+});
+
+test("Experience Memory opens in the reference slide-over, its back arrow to Contact Details", async ({ page }) => {
+  // Lucas Thomas (dev hotkey A) has an Experience Memory; his Journey Summary links to it.
+  await setUp(page, { placement: "leftNav" }, 1800);
+  await page.keyboard.press("a");
+  await page.locator("aside [aria-label^='Lucas Thomas']").first().click({ force: true });
+  const journey = page.locator("[data-canvas-region=reference] [data-slot=journey-summary]");
+  await expect(journey).toBeVisible({ timeout: 15_000 });
+  await journey.locator("[aria-expanded]").first().click();
+  await journey.getByText("View Experience Memory").click();
+  const slideOver = page.locator("[data-slot=reference-slide-over]");
+  await expect(slideOver.locator("[data-slot=experience-memory]")).toBeVisible();
+  await expect(page.locator("[data-slot=right-panel][data-open=true]")).toHaveCount(0);
+  await slideOver.getByRole("button", { name: /^Back/ }).first().click();
+  await expect(slideOver).toContainText("Contact Details");
 });

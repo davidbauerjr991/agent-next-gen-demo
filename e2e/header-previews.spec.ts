@@ -40,7 +40,7 @@ const contactDetails = (page: Page) => page.getByRole("button", { name: /Contact
 const icon = (page: Page, label: string) => page.locator(`[aria-label='Open ${label} preview'], [aria-label='Close ${label} preview']`).first();
 const preview = (page: Page) => page.locator("[data-slot=hover-preview]");
 
-test("AI display main: an action in the Contact Details hover preview opens Contact Details in the reference slide-over, beside the chat (P-HOME-1n)", async ({ page }) => {
+test("AI display main: the Contact Details hover preview opens; the control opens Contact Details in the reference slide-over, beside the chat (P-HOME-1n)", async ({ page }) => {
   await setUp(page, { ai: "main" });
   await priyaCard(page, false);
   await expect(page.locator("[data-slot=right-panel][data-open=true][data-thread=chat]")).toBeVisible();
@@ -73,6 +73,7 @@ test("the quick-reply menu in a chat preview floats above it, fully visible, bey
   await setUp(page, { ai: "main" });
   await priyaCard(page, false);
   await icon(page, "Chat").click();
+  await expect(page.locator("[data-slot=right-panel][data-thread=chat]")).toHaveCount(0);
   await page.mouse.move(5, 5);
   await icon(page, "Chat").hover();
   await expect(preview(page)).toBeVisible();

@@ -49,11 +49,10 @@ for (const width of [1024, 800]) {
     await page.getByRole("button", { name: "Go Available" }).click();
     await page.keyboard.press("a");
     await page.getByText("Lucas Thomas").first().click();
-    const panel = page.locator("[data-slot=right-panel]");
-    if ((await panel.getAttribute("data-open")) !== "true") {
-      await page.locator("button[aria-label$='Contact Details']").first().click();
-    }
-    await expect(panel).toHaveAttribute("data-open", "true");
+    // Contact Details open: the reference slide-over (P-HOME-1n), which takes width from the action area.
+    const slideOver = page.locator("[data-slot=reference-slide-over]");
+    if ((await slideOver.count()) === 0) await page.locator("button[data-contact-details]").first().click();
+    await expect(slideOver).toContainText("Contact Details");
     const composer = page.locator("[data-slot=copilot-composer][data-placement=inline]");
     const takeover = composer.locator("[data-slot=copilot-takeover]");
     await expect(takeover).toBeVisible({ timeout: 30_000 });

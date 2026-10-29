@@ -10,6 +10,7 @@ async function setUp(page: Page) {
     if (sessionStorage.getItem("seeded")) return;
     sessionStorage.setItem("seeded", "1");
     localStorage.setItem("agent-next-gen:settings:ai", JSON.stringify({ v: 1, value: { displayLocation: "inline", canvasLayout: "twoColumn" } }));
+    localStorage.setItem("agent-next-gen:settings:channels", JSON.stringify({ v: 1, value: { voice: true, chat: true } }));
   });
   await page.goto("?provider=sim&latency=off#/agent-advanced");
   await page.getByRole("button", { name: "Go Available" }).click();
@@ -17,6 +18,19 @@ async function setUp(page: Page) {
 
 const cells = (page: Page) =>
   page.locator("[data-canvas-region=reference] [data-canvas-cell]").evaluateAll((els) => els.map((el) => el.getAttribute("data-canvas-cell")));
+
+test("an unknown contact arriving: Customer Info alone, its Link to existing customer", async ({ page }) => {
+  await setUp(page);
+  // The sim's customer side in dev (`window.__simCustomer`, until the P0.6 console): an inbound chat from an unknown
+  // address (chat auto-accepts by default).
+  await page.evaluate(() =>
+    window.__simCustomer!.startInbound({ channel: "chat", address: "nobody@example.com", displayName: "nobody@example.com" }),
+  );
+  const card = page.locator("aside [aria-label^='nobody@example.com']").first();
+  await card.click({ force: true });
+  await expect.poll(() => cells(page)).toEqual(["customer-info"]);
+  await expect(page.locator("[data-canvas-cell=customer-info]")).toContainText("Link to existing customer");
+});
 
 test("Maya at arrival: Journey Summary and Customer Info; the Real-Time Summary enters after her first summary turn", async ({ page }) => {
   await setUp(page);

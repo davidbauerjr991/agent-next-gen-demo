@@ -96,18 +96,21 @@ test("digital assignments load as cards: the demo's seeded email and SMS offers 
   }
 });
 
-test("the record header: the panel thread's session row in the panel header, and the chat icon and Contact Details swap the panel", async ({ page }) => {
+test("the record header: the panel thread's session row in the panel header; Contact Details opens in the reference slide-over beside the chat (P-HOME-1n)", async ({ page }) => {
   await chatAndEmailCard(page);
   // k5 B: the session row is the panel thread's, under the channel name in the panel's header.
   await expect(page.locator("[data-slot=right-panel] [data-slot=panel-session-row]").getByText("View Details")).toBeVisible();
   const chatIcon = page.locator("[aria-label='Open Chat preview'], [aria-label='Close Chat preview']").first();
-  const contactDetails = page.getByRole("button", { name: /Contact Details$/ }).first();
+  const contactDetails = page.locator("button[data-contact-details]").first();
+  await expect(panel(page, "chat")).toBeVisible();
   await contactDetails.click();
-  await expect(panel(page, "details")).toBeVisible();
-  await expect(chatIcon).toHaveAttribute("aria-pressed", "false");
-  await chatIcon.click();
+  await expect(page.locator("[data-slot=reference-slide-over]")).toContainText("Contact Details");
+  await expect(contactDetails).toHaveAttribute("aria-pressed", "true");
+  // The chat stays in the panel; its icon stays pressed.
   await expect(panel(page, "chat")).toBeVisible();
   await expect(chatIcon).toHaveAttribute("aria-pressed", "true");
+  // The control closes it again.
   await contactDetails.click();
-  await expect(panel(page, "details")).toBeVisible();
+  await expect(contactDetails).toHaveAttribute("aria-pressed", "false");
+  await expect(panel(page, "chat")).toBeVisible();
 });
