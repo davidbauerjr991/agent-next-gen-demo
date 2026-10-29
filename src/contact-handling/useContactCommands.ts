@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { threadKey as threadKeyOf, type NavCard } from "@/adapters/legacy/nav-card-view-model";
 import type { EntityId, Interaction, InteractionId, InteractionOutcome } from "@/domain";
 import { useInteractionProvider, useInteractions } from "@/provider-context";
+import { LIVE } from "./already-open";
 
 // Commands on an open card's contacts, shared by both pages (P0.5b.2). A
 // change goes to the provider and comes back as an event. Every card is a
@@ -14,7 +15,6 @@ function warn(what: string) {
   };
 }
 
-const LIVE_STATES = new Set<Interaction["state"]>(["connecting", "active", "held"]);
 
 export function useContactCommands(options: { cards: readonly NavCard[] }) {
   const provider = useInteractionProvider();
@@ -92,7 +92,7 @@ export function useContactCommands(options: { cards: readonly NavCard[] }) {
         await provider.decline(contact.id);
         return;
       }
-      if (LIVE_STATES.has(contact.state)) await provider.end(contact.id);
+      if (LIVE.has(contact.state)) await provider.end(contact.id);
       await provider.completeWrapUp(contact.id, outcome);
     },
     [provider],

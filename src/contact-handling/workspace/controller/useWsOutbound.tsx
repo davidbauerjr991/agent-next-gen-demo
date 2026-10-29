@@ -17,7 +17,6 @@ import {
   type DraggableVariant,
   type EmbeddablePanelContent,
 } from "@nicecxone/lyra-ui";
-import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
 import { CURRENT_AGENT_FIRST_NAME, CURRENT_AGENT_LAST_NAME, SHOW_ADD_CHANNEL_HEADER_BUTTON, initialsFor, synthesizeChannelAddress } from "@/components/agent-next-gen-shared-utils";
 import { type TranscriptMessage, TRANSCRIPT_SESSION_STATUS_OPTIONS, OUTCOME_TAG_OPTIONS, OUTCOME_DISPOSITION_OPTIONS } from "@/components/transcript/InteractionTranscript";
 import {
@@ -399,7 +398,7 @@ export function useWsOutbound(prev: WsLaunch, late: WorkspaceLate) {
     const tagChannels = buildOpenChannelTagger(interactions, storeContacts);
     // A channel open on every one of the customer's addresses is disabled here too (k6 2; no tooltip in lyra's CreateNew).
     const tagOpenChannels = (contact: CreateNewOutboundContact) =>
-      markAlreadyOpen(withEnabledChannels(tagChannels(contact), channelSettings), alreadyOpenReasons(CREATE_NEW_CUSTOMERS.find((c) => c.id === contact.id), liveAddressesFor(storeContacts, contact.id)), OUTBOUND_CONFIG.phoneOptions);
+      markAlreadyOpen(withEnabledChannels(tagChannels(contact), channelSettings), alreadyOpenReasons(findDirectoryCustomer(contact.id), liveAddressesFor(storeContacts, contact.id)), OUTBOUND_CONFIG.phoneOptions);
     // Skills come from the provider (`listOutboundSkills`, P0.5b.2); the
     // static list only fills in until they load.
     const providerSkills = allOutboundSkills();
@@ -445,7 +444,7 @@ export function useWsOutbound(prev: WsLaunch, late: WorkspaceLate) {
         };
       }),
     };
-  }, [interactions, storeContacts, selectedOutboundTeamId, allOutboundSkills, channelSettings, calling.adHoc, presenceChannelReasons]);
+  }, [interactions, storeContacts, findDirectoryCustomer, selectedOutboundTeamId, allOutboundSkills, channelSettings, calling.adHoc, presenceChannelReasons]);
 
   // `CONTACT_HISTORY_OUTBOUND_CONTACTS` (the 5 hand-authored rows) PLUS a
   // live-rebuilt contact for every row in `dismissedContactHistory` (see

@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
 import { useInteractions } from "@/provider-context";
 
-const LIVE = new Set(["connecting", "active"]);
+/** A call the agent is talking on: connecting or active, not held (`already-open.ts`'s `LIVE` includes held). */
+const TALKING = new Set(["connecting", "active"]);
 
 /** When a live call ends while another call is on hold, selection moves to
  *  the held call's card (P-AIFIRST (k8) 9). Selection only: the held call
@@ -16,7 +17,7 @@ export function useFollowHeldCall(onSelect: (journeyId: string) => void) {
     const before = states.current;
     states.current = new Map(contacts.map((c) => [c.id, c.state]));
     const ended = contacts.find(
-      (c) => c.channel === "voice" && LIVE.has(before.get(c.id) ?? "") && (c.state === "wrap-up" || c.state === "ended"),
+      (c) => c.channel === "voice" && TALKING.has(before.get(c.id) ?? "") && (c.state === "wrap-up" || c.state === "ended"),
     );
     if (!ended) return;
     const held = contacts.find((c) => c.channel === "voice" && c.state === "held" && c.id !== ended.id);

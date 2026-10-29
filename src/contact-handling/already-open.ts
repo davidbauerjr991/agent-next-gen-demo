@@ -17,6 +17,9 @@ export interface CustomerAddresses {
 /** A thread that holds its address: live, not ringing, not over. */
 export const LIVE = new Set(["connecting", "active", "held"]);
 
+/** A voice contact the agent is on in any way: ringing (either way), live or held (the "refuse" second-call policy). */
+export const ON_CALL_STATES = new Set(["offered", ...LIVE]);
+
 const sameAddress = (a: string, b: string) => {
   const pa = normalizePhone(a);
   const pb = normalizePhone(b);

@@ -9,7 +9,7 @@ import { useAgentState, useInteractionProvider, useInteractions, useProviders } 
 import { OUTBOUND_CONFIG } from "@/components/agent-next-gen-outbound-data";
 import type { ContactHistoryEntry } from "@/components/agent-next-gen-contact-history";
 import { callerOfInteraction, knownOrSynthesizedAddress, normalizePhone, historyEntityId } from "./contact-identity";
-import { alreadyOnCallMessage, findCallWith } from "./already-open";
+import { alreadyOnCallMessage, findCallWith, LIVE, ON_CALL_STATES } from "./already-open";
 import { useAgentAvailable, UNAVAILABLE_CALL_TOOLTIP } from "./presence-gates";
 import type { ActivationMode } from "./useContactActivation";
 
@@ -91,9 +91,6 @@ export interface ScheduleDial {
   beforePlace?: () => Promise<unknown>;
 }
 
-/** A voice contact the agent is on: ringing (either way), live, or held. */
-const ON_CALL_STATES = new Set(["offered", "connecting", "active", "held"]);
-
 
 export function useOutboundDial({
   findOpenCard,
@@ -168,7 +165,7 @@ export function useOutboundDial({
           : undefined;
       // A thread that's live on this address isn't restarted: it would supersede the live contact (the page
       // flashed and nothing happened). The pickers disable it ("Already open"); this catches the rest (k6 2).
-      if (liveSameThread && ["connecting", "active", "held"].includes(liveSameThread.state)) {
+      if (liveSameThread && LIVE.has(liveSameThread.state)) {
         if (import.meta.env.DEV) console.warn(`[outbound] ${channel} is already open on ${target.address}`);
         return null;
       }

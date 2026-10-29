@@ -1,6 +1,6 @@
 {
   "src/components/agent-next-gen-voice-call-controls.tsx": { "owner": "P-POLISH", "lines": 1648 },
-  "src/components/agent-next-gen-interaction-dashboard.tsx": { "owner": "replace-not-reuse", "lines": 1812 },
-  "src/components/agent-next-gen-contact-history.tsx": { "owner": "replace-not-reuse", "lines": 1711 },
+  "src/components/agent-next-gen-interaction-dashboard.tsx": { "owner": "replace-not-reuse", "lines": 1786 },
+  "src/components/agent-next-gen-contact-history.tsx": { "owner": "replace-not-reuse", "lines": 1594 },
   "src/components/agent-next-gen-customers-table.tsx": { "owner": "replace-not-reuse", "lines": 1397 }
 }
