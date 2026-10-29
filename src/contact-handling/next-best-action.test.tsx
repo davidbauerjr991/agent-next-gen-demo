@@ -23,6 +23,7 @@ import { profileValues } from "@/settings/profiles";
 import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
 import type { AiSettings } from "@/settings/settings-schema";
 import { canvasCellDefinition, resetCanvasRegistry } from "./canvas-registry";
+import { showEmptyReferenceCards } from "@/test-utils/reference-cards";
 import { simVoiceCustomerLines } from "@/adapters/sim/sim-auto-replies";
 import { NBA_CHIP } from "./next-best-action";
 
@@ -33,6 +34,9 @@ beforeEach(() => {
   localStorage.clear();
   resetSettingsStoreForTests();
   resetCanvasRegistry();
+  // The reference column's tests are about opening and the AI's focus, not when an empty card hides
+  // (canvas-hascontent.test.tsx).
+  showEmptyReferenceCards();
   h.setUp();
 });
 afterEach(async () => {

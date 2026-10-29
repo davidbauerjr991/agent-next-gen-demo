@@ -14,6 +14,8 @@ import { profileValues } from "@/settings/profiles";
 import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
 import type { AiDisplayLocation } from "@/settings/settings-schema";
 import { contactDetailsTabs, isThreadOnScreen, resolveContactDetailsView } from "./contact-details-tabs";
+import { resetCanvasRegistry } from "./canvas-registry";
+import { showEmptyReferenceCards } from "@/test-utils/reference-cards";
 
 const h = createWorkspaceHarness({ seed: SIM_DEMO_SEED });
 const priya = CREATE_NEW_CUSTOMERS.find((c) => c.id === "priya-shah-history")!;
@@ -22,9 +24,12 @@ const UNKNOWN = "(161) 474-9179";
 beforeEach(() => {
   localStorage.clear();
   resetSettingsStoreForTests();
+  // Panel mode's Overview lists every reference cell; when an empty card hides is canvas-hascontent.test.tsx's.
+  showEmptyReferenceCards();
   h.setUp();
 });
 afterEach(async () => {
+  resetCanvasRegistry();
   await h.tearDown();
 });
 

@@ -129,23 +129,28 @@ export function useActiveContactSummary() {
   return useContactAssistCards(activeChannel?.providerInteractionId).summary;
 }
 
-/** The active card's journey (its script's, else its Contact History; null:
- *  No history) and whether its lookup is still "running": the first
- *  `JOURNEY_LOOKUP_MS` after the workspace first showed this contact. Timed
- *  from that moment (kept per contact in the workspace UI store), never from
- *  the contact's own timestamps, so every contact resolves. */
-export function useActiveJourney() {
-  const { activeChannel, activeInteraction, scenarioCases, scenarioKeyOf } = useWorkspace();
-  const store = useWorkspaceUiStore();
-  const [lookups] = useWorkspaceUiField("journeyLookupStartedAt");
-  const lookupKey = activeChannel?.providerInteractionId ?? activeInteraction?.id;
+/** The active card's journey summary (its script's, else its Contact History; null: No history), without the
+ *  lookup's timing: the one read the Journey Summary card and the reference cards' `hasContent` share (P-HOME-1n). */
+export function useActiveJourneySummary() {
+  const { activeInteraction, scenarioCases, scenarioKeyOf } = useWorkspace();
   const key = activeInteraction ? scenarioKeyOf(activeInteraction.id) : undefined;
   const script = key ? scenarioCases.byKey[key]?.script : undefined;
   const [channels] = useSettings("channels");
-  const journey = useMemo(
+  return useMemo(
     () => journeySummaryFor({ script, customerName: activeInteraction?.customerName, customerId: activeInteraction?.customerId, channels }),
     [script, activeInteraction?.customerName, activeInteraction?.customerId, channels],
   );
+}
+
+/** The active card's journey (`useActiveJourneySummary`) and whether its lookup is still "running": the first
+ *  `JOURNEY_LOOKUP_MS` after the workspace first showed this contact. Timed from that moment (kept per contact in
+ *  the workspace UI store), never from the contact's own timestamps, so every contact resolves. */
+export function useActiveJourney() {
+  const { activeChannel, activeInteraction } = useWorkspace();
+  const store = useWorkspaceUiStore();
+  const [lookups] = useWorkspaceUiField("journeyLookupStartedAt");
+  const lookupKey = activeChannel?.providerInteractionId ?? activeInteraction?.id;
+  const journey = useActiveJourneySummary();
   const startedAt = lookupKey ? lookups[lookupKey] : undefined;
   useEffect(() => {
     if (!lookupKey || store.getState().journeyLookupStartedAt[lookupKey] !== undefined) return;

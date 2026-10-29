@@ -16,6 +16,8 @@ import { LUCAS_THOMAS_SCRIPT, MARCUS_WEBB_SCRIPT } from "@/scenarios";
 import type { EntityId, JourneyId } from "@/domain";
 import { getSettingsStore, resetSettingsStoreForTests } from "./settings-store";
 import type { AiDisplayLocation } from "./settings-schema";
+import { resetCanvasRegistry } from "@/contact-handling/canvas-registry";
+import { showEmptyReferenceCards } from "@/test-utils/reference-cards";
 
 const h = createWorkspaceHarness();
 const priya = CREATE_NEW_CUSTOMERS.find((c) => c.id === "priya-shah-history")!;
@@ -23,9 +25,12 @@ const priya = CREATE_NEW_CUSTOMERS.find((c) => c.id === "priya-shah-history")!;
 beforeEach(() => {
   localStorage.clear();
   resetSettingsStoreForTests();
+  // The AI cards' placement, not when an empty card hides (canvas-hascontent.test.tsx).
+  showEmptyReferenceCards();
   h.setUp();
 });
 afterEach(async () => {
+  resetCanvasRegistry();
   await h.tearDown();
 });
 

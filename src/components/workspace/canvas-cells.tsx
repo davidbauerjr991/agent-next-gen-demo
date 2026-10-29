@@ -24,8 +24,9 @@ const copy = (text: string) => void navigator.clipboard?.writeText(text).catch((
  *  highlight of its own). The reference cards enter like the other AI cards. */
 function FocusRing({ highlighted, children }: { highlighted: boolean; children: ReactNode }) {
   return (
-    // The enter animation on its own box: its duration would merge with the ring's transition.
-    <div className={AI_CARD_ENTER}>
+    // The enter animation on its own box: its duration would merge with the ring's transition. Staggered by the
+    // region's `--canvas-enter-delay` (P-HOME-1n), held at its start until then.
+    <div className={cn(AI_CARD_ENTER, "fill-mode-backwards [animation-delay:var(--canvas-enter-delay,0ms)]")}>
       <div
         className={cn("rounded-lyra-md border transition-colors duration-500", highlighted ? "border-lyra-border-active" : "border-transparent")}
         data-highlighted={highlighted || undefined}
@@ -99,8 +100,11 @@ function VoiceWrapUpCell() {
 
 export const DEFAULT_CANVAS_CELLS: readonly CanvasCell[] = [
   // Reference: what the agent consults. The agent opens any number; the AI opens one at a time (reference-cards.ts).
-  { id: "real-time-summary", region: "reference", order: 10, component: RealTimeSummaryCell },
-  { id: "journey-summary", region: "reference", order: 20, component: JourneySummaryCell },
+  // P-HOME-1n: a card shows once it has something — the Real-Time Summary with a summary (or a Copilot ask to
+  // list), the Journey Summary with at least one earlier interaction; Customer Info always (its "Link to existing
+  // customer" is an action).
+  { id: "real-time-summary", region: "reference", order: 10, component: RealTimeSummaryCell, hasContent: (_, c) => c.summary || c.asks > 0 },
+  { id: "journey-summary", region: "reference", order: 20, component: JourneySummaryCell, hasContent: (_, c) => c.journeyRows > 0 },
   {
     id: "customer-info",
     region: "reference",

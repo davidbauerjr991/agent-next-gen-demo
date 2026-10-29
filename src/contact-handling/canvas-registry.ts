@@ -29,6 +29,20 @@ export interface CanvasCell {
   /** Which main column the cell is for: a conversation's (default) or a
    *  non-conversation assignment's kind cell (P-HOME-1f). */
   context?: CanvasContext;
+  /** Whether the card has something to show or an action to offer now (P-HOME-1n; default yes): an empty card
+   *  doesn't render, and enters (the AI cards' enter, staggered) once it has content. */
+  hasContent?: (ws: Workspace, content: CanvasContent) => boolean;
+}
+
+/** What the reference cards could show, read once where the regions are built (P-HOME-1n): a cell's `hasContent`
+ *  decides from it, so the rule is data. */
+export interface CanvasContent {
+  /** The Real-Time Summary has a summary. */
+  summary: boolean;
+  /** The contact's Copilot asks (the summary lists them). */
+  asks: number;
+  /** The journey's earlier interactions. */
+  journeyRows: number;
 }
 
 export type CanvasContext = "conversation" | "kind";
@@ -81,13 +95,24 @@ function withOverride(cell: CanvasCell, overrides: CanvasCellOverrides): CanvasC
   return { ...cell, region: o.region ?? cell.region, order: o.order ?? cell.order };
 }
 
-/** One region's cells, in order, that apply to this card, with `overrides` applied; a conversation's unless `context` says otherwise. */
-export function canvasCells(region: CanvasRegion, ws: Workspace, overrides: CanvasCellOverrides = {}, context: CanvasContext = "conversation"): CanvasCell[] {
+/** One region's cells, in order, that apply to this card, with `overrides` applied; a conversation's unless `context`
+ *  says otherwise. With `content`, cells with nothing to show yet are left out (`hasContent`). */
+export function canvasCells(
+  region: CanvasRegion,
+  ws: Workspace,
+  overrides: CanvasCellOverrides = {},
+  context: CanvasContext = "conversation",
+  content?: CanvasContent,
+): CanvasCell[] {
   return [...cells.values()]
     .map((cell) => withOverride(cell, overrides))
     .filter(
       (cell): cell is CanvasCell =>
-        !!cell && cell.region === region && (cell.context ?? "conversation") === context && (cell.applies?.(ws) ?? true),
+        !!cell &&
+        cell.region === region &&
+        (cell.context ?? "conversation") === context &&
+        (cell.applies?.(ws) ?? true) &&
+        (!content || (cell.hasContent?.(ws, content) ?? true)),
     )
     .sort((a, b) => a.order - b.order);
 }
