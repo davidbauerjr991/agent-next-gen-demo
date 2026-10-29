@@ -9,7 +9,6 @@ import type { DraggableVariant } from "@nicecxone/lyra-ui";
 import type { TranscriptSession } from "@/components/transcript/InteractionTranscript";
 import type { ContactHistoryEntry } from "@/components/agent-next-gen-contact-history";
 import { useReplyBlockedReason, copilotSuggestionsFor, useChannelThreadMenu, type CopilotComposerProps } from "@/contact-handling";
-import type { CustomerPanelTabLabel } from "@/components/customer-info";
 import { LUCAS_THOMAS_ID } from "@/contact-handling/scenario-cases";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { copilotChipsFor, useRequestNextBestAction } from "@/contact-handling/next-best-action";
@@ -110,7 +109,7 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
         setCustomerPanelActiveTab(restoredCustomerPanelTabRef.current);
         restoredCustomerPanelTabRef.current = null;
       } else {
-        setCustomerPanelActiveTab("Details");
+        setCustomerPanelActiveTab("Customer Information");
       }
       setSessionDetailsPick(null);
       // Backstop reset for the restored hover-preview (`customerInfoPreview
@@ -440,33 +439,7 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
   useEffect(() => {
     setChannelHoverPreviewKey(null);
   }, [activeInteractionId, sidePanelOpen, channelPreviewThreadKey]);
-  // Drives `CustomerInformationSidePanel`'s own `focusTabOverride` prop —
-  // see that prop's doc comment (agent-next-gen-customer-info-panel.tsx).
-  // Fed by the Contact Overview's own "View customer info" link
-  // (`focusCustomerPanelTab` below) via `InteractionTranscript`'s
-  // `onViewCustomerInfo`.
-  const [customerPanelFocusTab, setCustomerPanelFocusTab] = useState<
-    { tab: CustomerPanelTabLabel; version: number } | undefined
-  >(undefined);
-  const customerPanelFocusTabVersionRef = useRef(0);
-  // Per a later explicit request ("move the customer information content
-  // back to the side panel"): "View customer info" (from the main
-  // transcript's Contact Overview, the docked panel/hover preview's own
-  // embedded accordion, or Marcus Webb's clickable name link) now opens/
-  // focuses the DOCKED `CustomerInformationSidePanel` itself, switching it
-  // into the "Customer Info" drill-in view (`customerPanelActiveTab`),
-  // rather than the separate floating `InteriorPanel` overlay this used to
-  // open (removed — see git history/this state's own former doc comment).
-  // Still bumps `customerPanelFocusTabVersionRef`/`customerPanelFocusTab`
-  // for `focusTabOverride` (see that prop's own doc comment, agent-next-
-  // gen-customer-info-panel.tsx) — harmless, since `bodyOverride`/
-  // `headerTabsOverride` already bypass the docked panel's internal tab
-  // system entirely; kept rather than removed for the same minimal-
-  // footprint reasoning documented elsewhere in this file. No longer
-  // takes a `tab` argument — every call site always wants "Overview" (the
-  // only tab `useCustomerDetailsInteriorPanel`'s own `activeTab` resets to
-  // per new `recordId`), so there's nothing left to vary.
-  // Which Experience Memory event the docked "Experience Memory" view opens expanded (set by the approval card's checklist links).
+  // Which Experience Memory event the Experience Memory sub-page opens expanded (set by the approval card's checklist links).
   const [marcusMemoryFocus, setMarcusMemoryFocus] = useState<string>("refund-escalated");
   const [experienceMemoryFocus, setExperienceMemoryFocus] = useState<LucasThomasMemoryFocus>("card-declined");
   const openExperienceMemoryInSidePanel = (focus: LucasThomasMemoryFocus = "card-declined") => {
@@ -479,12 +452,10 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
     setCustomerPanelActiveTab("Artifacts");
     showContactDetails();
   };
+  /** "View customer info" (the Contact Overview's link, the Customer Info card, the preview's name): Contact
+   *  Details' customer drill-in, in its slide-over. */
   const focusCustomerPanelTab = () => {
-    customerPanelFocusTabVersionRef.current += 1;
-    setCustomerPanelFocusTab({ tab: "Overview", version: customerPanelFocusTabVersionRef.current });
     setCustomerPanelActiveTab("Customer Info");
-    // Through the panel's one selection path (`showContactDetails`): the
-    // thread is released, the hover preview closes.
     showContactDetails();
   };
   // No setter — always pinned. `onPinToggle` is deliberately left unset on
@@ -526,7 +497,8 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
   // site that read it, back when that earliest reversal landed). Every
   // "new interaction" launch path below now hardcodes
   // `setSidePanelOpen(false)` again instead — a brand-new assignment's
-  // Customer Information/"Session Details" panel always starts CLOSED,
+  // docked panel (the thread under "main", the AI Overview under "panel"; Contact Details is the slide-over since
+  // P-HOME-1n) always starts CLOSED,
   // full stop, regardless of what the agent did on any other assignment
   // (this is a plain hardcoded value again, not a revival of the old
   // `lastSidePanelOpenChoice` "remember last choice" mechanism). Switching
@@ -635,15 +607,9 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
   const handleSidePanelClose = () => {
     setSidePanelOpen(false);
     setSidePanelFullScreen(false);
-    // The slide-out's thread lives in this same panel, so closing the panel
-    // clears it too: the next open lands on Contact Details.
+    // The slide-out's thread lives in this same panel, so closing the panel clears it too. (Contact Details' tab is
+    // the slide-over's since P-HOME-1n: closing the docked panel leaves it alone.)
     if (activeInteractionId) omni.close(activeInteractionId);
-    // Per later explicit request ("put the transcript and session tabs
-    // into the new customer information side panel"): a closed-then-
-    // reopened panel always lands back on "Details" (the accordions),
-    // same as a freshly switched-to interaction — see
-    // `customerPanelActiveTab`'s own doc comment.
-    setCustomerPanelActiveTab("Details");
   };
 
   /* Per-assignment memory for the Customer Information panel's full-screen
@@ -754,7 +720,7 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
   // Agent takes over the AI-led Lucas chat (the composer's "Take over chat" button). The engine withdraws an unfinished
   // wrap-up card, starts the SLA clock and plays the bot's warm handoff (typing, the transfer message, Lucas's reply).
   const handleLucasTakeover = () => scenarioCases.takeOver(LUCAS_THOMAS_ID);
-  // Toggles the Customer Information/"Session Details" panel — this
+  // Toggles the docked panel (P-HOME-1n: the thread or panel mode's AI Overview; Contact Details is the slide-over) — this
   // button's location has moved a few times across this file's history
   // (record header `actions` → `TranscriptSessionSeparator`'s own session
   // row → back to the record header `actions` again, per the latest
@@ -924,8 +890,8 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
     appsMenuOpen, setAppsMenuOpen, interiorPanelOpen, setInteriorPanelOpen, selectedQueueId, setSelectedQueueId,
     selectedContactHistoryEntry, setSelectedContactHistoryEntry, sidePanelOpen, setSidePanelOpen,
     customerInfoPreviewOpen, setCustomerInfoPreviewOpen, customerInfoPreviewTimer, channelHoverPreviewKey,
-    setChannelHoverPreviewKey, threadMenu, channelHoverPreviewTimer, channelHoverOpenTimer, customerPanelFocusTab,
-    setCustomerPanelFocusTab, customerPanelFocusTabVersionRef, marcusMemoryFocus, setMarcusMemoryFocus,
+    setChannelHoverPreviewKey, threadMenu, channelHoverPreviewTimer, channelHoverOpenTimer,
+    marcusMemoryFocus, setMarcusMemoryFocus,
     experienceMemoryFocus, setExperienceMemoryFocus, openExperienceMemoryInSidePanel, openArtifactsList, focusCustomerPanelTab,
     sidePanelPinned, sidePanelResizing, setSidePanelResizing, sidePanelWidth, setSidePanelWidth, sidePanelFullScreen,
     setSidePanelFullScreen, sidePanelHoverTimer, isSidePanelContainerNarrow, effectiveSidePanelPinned,

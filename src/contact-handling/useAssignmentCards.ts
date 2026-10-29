@@ -17,11 +17,11 @@ import type { ScheduleItem } from "@/providers";
 
 export type AssignmentsMount = "leftNav" | "interiorPanel" | "homeTop";
 
-/** Whether a mount shows the channel chip: "auto" shows it in the left nav
- *  and hides it in the interior panel and at the top of Home. */
+/** Whether a mount shows the channel chip: "auto" shows it where there's room (the left nav, the top of Home) and
+ *  hides it where there isn't (the interior panel). */
 export function useChannelChipsShown(mount: AssignmentsMount): boolean {
   const [{ channelChips }] = useSettings("assignments");
-  return channelChips === "show" || (channelChips === "auto" && mount === "leftNav");
+  return channelChips === "show" || (channelChips === "auto" && mount !== "interiorPanel");
 }
 
 /** One card in the rail: a conversation card, or an open schedule item's kind card (keyed by its card key,

@@ -67,7 +67,7 @@ export function useWsHeaderApps(prev: WsOutbound) {
     panelArtifacts, panelHeight, panelMounted, panelOpen, panelRef, panelVariant,
     panelWidth, pinnedKeys, reopenPanelArtifact, scenarioCases, scenarioKeyOf, scheduleContent, screenPopContent,
     selectedDetailPanelContent, setActivePanelKey, setCustomerInfoPreviewOpen,
-    setCustomerPanelActiveTab, setLeftNavPage, setNarrowActiveRegion, setPanelFullScreen,
+    setLeftNavPage, setNarrowActiveRegion, setPanelFullScreen,
     setPanelIsResizing, setPanelOpen, setPanelWidth, setSelectedDetailPanelContent, setShowAllContacts,
     setShowSettings, setSidePanelOpen, showAllContacts, showSettings, switchActiveInteraction,
     togglePinnedKey, focusCustomerPanelTab, handleLinkCustomerFromPreview, isHistoryConversationView,
@@ -914,12 +914,10 @@ export function useWsHeaderApps(prev: WsOutbound) {
   // The main transcript's current session row is the record header's second line (AI display inline and panel;
   // under "main" it's the panel thread's, in the panel header, k5 B). A past session's view has no transcript.
   const sessionRowInHeader = !!activeInteraction && !aiWorkspaceMain && !isHistoryConversationView;
-  // "AI in panel": the Contact Details panel opens on Details whenever an
-  // interaction becomes active. Declared after the interaction-switch panel
-  // save/restore effects so it wins (v3).
+  // "AI in panel": the docked panel (the AI Overview) opens whenever an interaction becomes active. Declared after
+  // the interaction-switch panel save/restore effects so it wins (v3).
   useEffect(() => {
     if (aiInPanel && activeInteractionId) {
-      setCustomerPanelActiveTab("Details");
       setSidePanelOpen(true);
     }
   }, [aiInPanel, activeInteractionId]);

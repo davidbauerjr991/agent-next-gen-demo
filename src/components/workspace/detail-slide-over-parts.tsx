@@ -43,9 +43,11 @@ export interface DetailSlideOverParts {
 /** The reference slot's slide-over over `assignmentKey`'s reference column (P-HOME-1g): the interaction's
  *  (`ReferenceSlot`) and a kind cell's. Closing clears the selection. */
 export function useDetailSlideOverPanel({ wanted, assignmentKey }: { wanted: boolean; assignmentKey?: string }): ReferenceSlotPanel {
-  const { setSelectedDetailPanelContent } = useWorkspace();
+  const { lastDetailPanelContent, setSelectedDetailPanelContent } = useWorkspace();
   const { body, ...header } = useDetailSlideOverParts();
-  return { wanted, onClose: () => setSelectedDetailPanelContent(null), header, body, slot: "reference-slide-over", assignmentKey };
+  // Contact Details opened from its hover preview (gone by close): focus returns to its button (P-HOME-1n).
+  const returnFocusSelector = lastDetailPanelContent?.kind === "contactDetails" ? "button[data-contact-details]" : undefined;
+  return { wanted, onClose: () => setSelectedDetailPanelContent(null), header, body, slot: "reference-slide-over", assignmentKey, returnFocusSelector };
 }
 
 export function useDetailSlideOverParts(): DetailSlideOverParts {

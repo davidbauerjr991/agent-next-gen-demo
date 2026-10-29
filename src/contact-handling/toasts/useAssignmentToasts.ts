@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { AgentNotification } from "@nicecxone/lyra-ui";
 import { assignmentIdFor, scheduleCardKey, type ChannelKind } from "@/domain";
-import { useInteractionProvider, useScheduleProvider, useScheduleSnapshot } from "@/provider-context";
+import { useAgentState, useInteractionProvider, useScheduleProvider, useScheduleSnapshot } from "@/provider-context";
 import { useConstraint, useSettings, type ToastEvent } from "@/settings";
-import { isRoutedContact, isScheduleArrival, newArrivals } from "./arrivals";
+import { inArrivalGrace, isRoutedContact, isScheduleArrival, newArrivals } from "./arrivals";
 import { useSlotFor } from "@/layout/useSlot";
 import { t } from "@/i18n";
 import type { useWsHeaderApps } from "../workspace/controller/useWsHeaderApps";
@@ -115,9 +115,14 @@ export function useAssignmentToasts(ws: WorkspaceBase) {
       offState();
     };
   }, [provider]);
+  // The grace after the agent first goes Available on this mount (`inArrivalGrace`): the day's starting cards join
+  // the baseline instead of toasting. Only the first transition opens it, so a later status change doesn't.
+  const agent = useAgentState();
+  const firstAvailableAt = useRef<number | undefined>(undefined);
+  if (firstAvailableAt.current === undefined && agent && agent.presence.category !== "unavailable") firstAvailableAt.current = Date.now();
   useEffect(() => {
-    if (!seenCards.current) {
-      seenCards.current = new Set(ws.interactions.map((c) => c.id));
+    if (!seenCards.current || inArrivalGrace(firstAvailableAt.current, Date.now())) {
+      seenCards.current = new Set([...(seenCards.current ?? []), ...ws.interactions.map((c) => c.id)]);
       return;
     }
     for (const card of newArrivals(seenCards.current, ws.interactions, routed.current)) {

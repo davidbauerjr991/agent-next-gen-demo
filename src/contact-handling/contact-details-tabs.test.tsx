@@ -148,9 +148,6 @@ describe("the Transcript tab's rule", () => {
     expect(hasTranscript(ctx(false, true))).toBe(false);
     expect(hasTranscript(ctx(false, false))).toBe(true);
     expect(hasTranscript(ctx(true, false))).toBe(true);
-    // A stored "Details" (panel mode's old Overview tab) lands on the first tab in every mode.
-    expect(resolveContactDetailsView("Details", ctx(false, true))).toBe("Customer Information");
-    expect(resolveContactDetailsView("Details", ctx(true, false))).toBe("Customer Information");
     // On the Transcript tab when the thread comes back on screen: the first tab.
     expect(resolveContactDetailsView("Transcript", ctx(false, true))).toBe("Customer Information");
   });
@@ -188,6 +185,35 @@ describe("the tabs' bodies", () => {
   });
 });
 
+describe("the slide-over's keyboard basics (P-HOME-1n): focus back to its opener on close; Escape closes it", () => {
+  it("opened from the Contact Details button: its close returns focus to the button; Escape inside it closes it and does the same", async () => {
+    await open("inline");
+    await noah();
+    const button = contactDetailsButton();
+    button.focus();
+    await h.click(button);
+    await h.advance(100);
+    expect(slideOver()).not.toBeNull();
+    // The close button, from inside the panel.
+    const close = slideOver()!.querySelector<HTMLElement>('button[aria-label^="Close"]')!;
+    close.focus();
+    await h.click(close);
+    await h.advance(400);
+    expect(document.activeElement).toBe(contactDetailsButton());
+    // Escape from a tab inside it.
+    await h.click(contactDetailsButton());
+    await h.advance(100);
+    const firstTab = slideOver()!.querySelector<HTMLElement>("[role=tab]")!;
+    firstTab.focus();
+    await act(async () => {
+      firstTab.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    expect(slideOver()?.querySelector("[data-slot=contact-details-tabs]") ?? null).toBeNull();
+    expect(document.activeElement).toBe(contactDetailsButton());
+  });
+});
+
 describe("one view-model for the hover preview and the slide-over (P-HOME-1n: contactDetailsFor)", () => {
   it("the preview and the slide-over show the same name and the same record fields", async () => {
     await open("inline");
@@ -221,17 +247,14 @@ describe("one view-model for the hover preview and the slide-over (P-HOME-1n: co
 
 describe("resolveContactDetailsView", () => {
   const real = { aiInPanel: false, realCustomer: true };
-  it("outside panel mode, Overview and the customer drill-in land on Customer Information", () => {
-    expect(resolveContactDetailsView("Details", real)).toBe("Customer Information");
+  it("outside panel mode, the customer drill-in lands on Customer Information", () => {
     expect(resolveContactDetailsView("Customer Info", real)).toBe("Customer Information");
   });
   it("an unknown contact falls back to its first tab; sub-pages pass through", () => {
     expect(resolveContactDetailsView("Customer Information", { aiInPanel: false, realCustomer: false })).toBe("Detail");
     expect(resolveContactDetailsView("Artifacts", real)).toBe("Artifacts");
-    expect(resolveContactDetailsView("Session Details", real)).toBe("Customer Information");
   });
-  it("panel mode keeps its customer drill-in; its old Overview tab lands on Customer Information", () => {
-    expect(resolveContactDetailsView("Details", { aiInPanel: true, realCustomer: true })).toBe("Customer Information");
+  it("panel mode keeps its customer drill-in", () => {
     expect(resolveContactDetailsView("Customer Info", { aiInPanel: true, realCustomer: true })).toBe("Customer Info");
   });
 });

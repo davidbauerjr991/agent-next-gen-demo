@@ -25,7 +25,6 @@ export function WorkspaceRightPanel() {
     activeInteractionIsAgentCall, activeInteractionIsRealCustomer, addToast, aiInPanel, channelPreviewMeta, channelPreviewThread,
     channelPreviewThreadKey, channelPreviewThreadStableKey, confirmDismiss, copilotComposerProps,
     copilotDockConcealed, copilotDockShown, copilotHost, copilotSlot,
-    customerPanelFocusTab,
     effectiveSidePanelPinned, focusCustomerPanelTab,
     handleInteractionStatusChange, handleOutcomeSaveAndDismissChannel,
     handleSendEmailDraft, handleSendMessage, handleSidePanelClose, handleStartCall,
@@ -198,7 +197,6 @@ export function WorkspaceRightPanel() {
                   onStartInteraction={(contact, channel, phone, skillId) =>
                     handleStartCall({ contact, channel, phone, skillId })
                   }
-                  focusTabOverride={customerPanelFocusTab}
                   // (No `matchState`: linking an unmatched customer is the reference slide-over's `link-customer`
                   // content, P-HOME-1m/1n; the docked panel holds no Contact Details since P-HOME-1n.)
                   // Per explicit request ("swap the actual content

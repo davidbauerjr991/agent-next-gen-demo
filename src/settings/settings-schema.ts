@@ -229,7 +229,7 @@ const HOME_SECTIONS_ON_BY_DEFAULT: readonly HomeSectionKey[] = ["queue", "contac
 export const HOME_LAYOUTS = ["oneColumn", "twoColumn"] as const;
 export type HomeLayout = (typeof HOME_LAYOUTS)[number];
 export const HOME_LAYOUT_FIELD = oneOf(HOME_LAYOUTS, {
-  label: "Layout",
+  label: "Home layout",
   description: "One column keeps the sections as rows with the Activity feed among them; two columns puts the feed on the left and the other sections on the right.",
 });
 
@@ -468,7 +468,8 @@ export const ASSIGNMENT_CHANNEL_CHIPS = ["auto", "show", "hide"] as const;
 export type AssignmentChannelChips = (typeof ASSIGNMENT_CHANNEL_CHIPS)[number];
 export const ASSIGNMENT_CHANNEL_CHIPS_FIELD = oneOf(ASSIGNMENT_CHANNEL_CHIPS, {
   label: "Channel chips",
-  description: "The channel name on each card's rows. Automatic shows it in the left nav and hides it in the interior panel.",
+  description:
+    "The channel name on each card's rows. Automatic shows it where there's room (the left nav, the top of Home) and hides it in the interior panel.",
 });
 
 /** "tabs": one thread per channel (today). "stream" (P-STREAM): every leg in

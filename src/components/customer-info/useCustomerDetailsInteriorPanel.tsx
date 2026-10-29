@@ -9,7 +9,6 @@ import {
   type ToastItem,
 } from "@nicecxone/lyra-ui";
 import { type CreateNewCustomerRecord } from "@nicecxone/lyra-ui/customers-data";
-import { ArrowLeft } from "lucide-react";
 import { type Thread } from "@/components/agent-next-gen-interaction-dashboard";
 import {
   CUSTOMER_PANEL_TABS,
@@ -76,7 +75,6 @@ export function useCustomerDetailsInteriorPanel({
   onAddToast,
   onStartInteraction,
   onOpenHistoryConversation,
-  onBack,
   matchState,
   copilotExtra,
   activeTab: activeTabProp,
@@ -91,9 +89,6 @@ export function useCustomerDetailsInteriorPanel({
   onAddToast?: (toast: Omit<ToastItem, "id">) => void;
   onStartInteraction: (contact: CreateNewOutboundContact, channel: ChannelType, phone: string, skillId: string) => void;
   onOpenHistoryConversation?: (entry: CustomerHistorySessionEntry) => void;
-  /** Fired by the returned `headerIcon` (the back arrow) — the caller is
-   *  expected to swap this view back off (e.g. `setCustomerDetailsOpen(false)`). */
-  onBack: () => void;
   /** Per explicit follow-up request ("customer information, details and
    *  customer summary are all opening in separate panels, they should all
    *  open in one side panel..."): the SAME unknown-contact customer-
@@ -143,17 +138,8 @@ export function useCustomerDetailsInteriorPanel({
     ? buildCustomerMatchSubhead(matchState.query, matchState.possibleMatches, matchState.searchResults)
     : { subhead: "", visibleList: [] };
 
+  // (No `headerIcon`: the Contact Details slide-over that shows this has its own back arrow, P-HOME-1n.)
   return {
-    headerIcon: (
-      <button
-        type="button"
-        onClick={matchState?.step === "create" ? matchState.onBackToSearch : onBack}
-        aria-label={matchState?.step === "create" ? "Back to search" : "Back to Details"}
-        className="flex h-6 w-6 items-center justify-center rounded-lyra-sm text-lyra-fg-secondary hover:bg-lyra-state-hover transition-colors"
-      >
-        <ArrowLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-      </button>
-    ),
     // While `matchState` is set (see that prop's own doc comment), the
     // title/subhead/tabs below all branch on it exactly the way
     // `CustomerInformationSidePanel` already does for its own identical

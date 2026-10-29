@@ -107,7 +107,6 @@ export function CustomerInformationSidePanel({
   matchStateOnBack,
   copilotExtra,
   onStartInteraction,
-  focusTabOverride,
   bodyOverride,
   footerOverride,
   headerTitleOverride,
@@ -244,20 +243,6 @@ export function CustomerInformationSidePanel({
    *  the established wiring pattern this mirrors. */
   onStartInteraction: (contact: CreateNewOutboundContact, channel: ChannelType, phone: string, skillId: string) => void;
   /**
-   * External one-shot "jump to this tab" command — for the Contact
-   * Overview's own "View customer info"/"View interaction history" links
-   * (`ContactOverview`'s `onViewCustomerInfo`/`onViewInteractionHistory`,
-   * wired at each page file's call site), which need to command this
-   * panel's internally-owned `activeTab` from outside without making it a
-   * fully controlled prop (this component's own tab-button clicks still
-   * just call `setActiveTab` directly, same as always). Same nonce/version
-   * pattern as `InteractionNavItem`'s own `channelsExpandedOverride` (see
-   * that prop's doc comment, interaction-nav-item.tsx) — `version` is a
-   * nonce to re-apply `tab` even if it's identical to the last time (e.g.
-   * clicking "View customer info" twice in a row with nothing else
-   * changing `activeTab` in between). */
-  focusTabOverride?: { tab: CustomerPanelTabLabel; version: number };
-  /**
    * When set, replaces this panel's normal tabbed body
    * (`CustomerInformationPanelBody`) with this element instead, AND hides
    * `headerTabs` entirely (there's nothing for a tab row to switch
@@ -391,20 +376,6 @@ export function CustomerInformationSidePanel({
   // home, so the underlying data still has a real consumer even with the
   // Copilot tab itself gone.
   const [activeTab, setActiveTab] = useState(() => CUSTOMER_PANEL_TABS.indexOf("Overview"));
-  // Applies `focusTabOverride` (see its own doc comment above) the moment
-  // its `version` changes — same "adjust state during render, not inside a
-  // `useEffect`" pattern `InteractionNavItem`'s own
-  // `channelsExpandedOverride` uses (interaction-nav-item.tsx), so a
-  // Contact Overview link click jumps this panel's tab in the SAME render
-  // the new version arrives in rather than one render late.
-  const lastAppliedFocusTabVersionRef = useRef(focusTabOverride?.version);
-  if (focusTabOverride && focusTabOverride.version !== lastAppliedFocusTabVersionRef.current) {
-    lastAppliedFocusTabVersionRef.current = focusTabOverride.version;
-    const targetIndex = CUSTOMER_PANEL_TABS.indexOf(focusTabOverride.tab);
-    if (targetIndex !== -1 && activeTab !== targetIndex) {
-      setActiveTab(targetIndex);
-    }
-  }
   // `tabs` (this consumer's configured support list) minus "Copilot"
   // unconditionally now — see this block's own top comment.
   const visibleTabs = tabs.filter((t) => t !== "Copilot");

@@ -6,14 +6,11 @@
 // every AI display; Session left the set (Session Details is its own
 // slide-over), and panel mode's Overview (the Agentic reference cards, the AI
 // feed and its Copilot composer) is the docked panel's content, not a tab.
-// "Details" and "Session Details" stay tab-state values that resolve to the
-// row's first tab.
 import type { ComponentType } from "react";
 import { DEFAULT_CONTACT_DETAILS_TABS } from "@/components/workspace/contact-details-tab-bodies";
 
-/** The tab ids are the panel's tab state values ("Details" is Overview,
- *  "Session Details" is Session: the names the rest of the workspace sets). */
-export type ContactDetailsTabId = "Details" | "Customer Information" | "Notes" | "Detail" | "Transcript" | "Session Details";
+/** The tab ids are Contact Details' tab state values. */
+export type ContactDetailsTabId = "Customer Information" | "Notes" | "Detail" | "Transcript";
 
 /** The panel's sub-pages, reached from a card or link rather than the tab row
  *  ("Customer Info" is panel mode's customer drill-in). */

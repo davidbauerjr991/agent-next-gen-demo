@@ -617,27 +617,12 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
   // Session Details"): this panel used to ONLY show the Customer Profile/
   // Contact Snapshot/Files accordions (`bodyOverride`, see that panel's own
   // render site's doc comment); Transcript (voice only) and Session
-  // Details moved INTO it from what used to be a totally separate
-  // "Session Details" `InteriorPanel` overlay (removed — see this state's
-  // own render site for what replaced it). One shared tab state now,
-  // regardless of channel type, since there's only ONE panel left to have
-  // a tab at all — `headerTabsOverride` (that panel's own render site)
-  // simply offers fewer tabs (no "Transcript") for a non-voice interaction
-  // rather than needing a second, parallel piece of state. Reset to
-  // "Details" whenever the panel closes or the active interaction changes,
-  // same as the two separate pieces of state this replaced used to reset.
-  // "Customer Info" — a 4th value, per explicit request ("move the
-  // customer information content back to the side panel"): not a normal
-  // tab the agent picks from the header's own tab row (that row is
-  // entirely replaced by a back arrow + the drill-in's own content while
-  // this is active — see the `CustomerInformationSidePanel` render site's
-  // own overrides further down) — only reached via `focusCustomerPanelTab`
-  // (its own doc comment) and left via that same back arrow, which lands
-  // back on "Details".
-  // A Contact Details tab (`ContactDetailsTabId`) or sub-page; what the panel
-  // shows is this resolved for the card and mode (`contactDetailsView`, P-CANVAS).
-  const [customerPanelActiveTab, setCustomerPanelActiveTab] = useState<ContactDetailsView>("Details");
-  // The tab to land on after the next interaction switch (the switch effect resets the tab to "Details" otherwise).
+  // Contact Details' one tab state (P-HOME-1n: the slide-over's): a tab (`ContactDetailsTabId`) or a sub-page
+  // ("Customer Info", panel mode's drill-in, reached by `focusCustomerPanelTab`; "Experience Memory"; "Artifacts").
+  // What it shows is this resolved for the card and mode (`contactDetailsView`, P-CANVAS); reset to its first tab
+  // on an interaction switch.
+  const [customerPanelActiveTab, setCustomerPanelActiveTab] = useState<ContactDetailsView>("Customer Information");
+  // The tab to land on after the next interaction switch (the switch effect resets it to the first tab otherwise).
   const restoredCustomerPanelTabRef = useRef<typeof customerPanelActiveTab | null>(null);
   // The Marcus Webb action-log detail panel and the "Do Something"
   // knowledge-article panel used to be two SEPARATE floating

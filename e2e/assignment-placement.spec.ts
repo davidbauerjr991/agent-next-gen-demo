@@ -68,7 +68,10 @@ test("interior panel: between the left nav and the content card, resizable, no p
 
 test("placement none: a new assignment raises the incoming toast with View; Settings shows the switch forced on with its reason", async ({ page }) => {
   await setUp(page, { placement: "none" });
-  // Lucas Thomas (dev hotkey A): a scripted contact the sim routes in.
+  // The day's starting cards never toast (the grace after Go Available, ARRIVAL_GRACE_MS); then Lucas Thomas
+  // (dev hotkey A), a scripted contact the sim routes in, does.
+  await page.waitForTimeout(2_500);
+  await expect(page.locator("[data-assignment-toast=incoming]")).toHaveCount(0);
   await page.keyboard.press("a");
   const toast = page.locator("[data-assignment-toast=incoming]").first();
   await expect(toast).toBeVisible({ timeout: 10_000 });
@@ -122,6 +125,13 @@ test("Contact Details and Session Details open in the reference slide-over; the 
   const slideOver = page.locator("[data-slot=reference-slide-over]");
   await expect(slideOver.locator("[data-slot=contact-details-tabs]")).toBeVisible();
   await expect(slideOver.locator("[data-slot=contact-details-tabs] [role=tab]", { hasText: /^Session$/ })).toHaveCount(0);
+  // Escape from inside it closes it and gives focus back to its opener.
+  await slideOver.locator("[role=tab]").first().focus();
+  await page.keyboard.press("Escape");
+  await expect(slideOver.locator("[data-slot=contact-details-tabs]")).toHaveCount(0);
+  await expect(button).toBeFocused();
+  await button.click();
+  await expect(slideOver.locator("[data-slot=contact-details-tabs]")).toBeVisible();
   // Session Details from the session row: the same slide-over slot.
   await page.locator("[data-slot=record-session-row]").getByRole("button", { name: /Session Details|View Details/ }).first().click();
   await expect(slideOver.locator("[data-slot=session-slide-over]")).toBeVisible();

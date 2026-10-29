@@ -73,6 +73,19 @@ export interface ReferenceSlotPanel {
   /** P-HOME-1g: the assignment (its card key) whose slide-over this is: its full screen and dragged width are kept
    *  per assignment in the workspace UI store (`referenceByAssignment`), in memory only, and come back with it. */
   assignmentKey?: string;
+  /** Where focus goes on close when the element that opened it is gone or wasn't focusable (a hover preview's
+   *  action): the match nearest this slot's row, e.g. its assignment's Contact Details button. */
+  returnFocusSelector?: string;
+}
+
+/** The first `selector` match in the closest ancestor of `from` that has one: the one in this slot's own region. */
+function nearest(from: Element | null, selector: string | undefined): HTMLElement | null {
+  if (!selector) return null;
+  for (let el = from?.parentElement; el; el = el.parentElement) {
+    const match = el.querySelector<HTMLElement>(selector);
+    if (match) return match;
+  }
+  return null;
 }
 
 /** The reference slot's layout, shared by the interaction (ReferenceSlot) and
@@ -97,12 +110,30 @@ export function ReferenceSlotFrame({
   // then unmounted after its transition. Nothing else re-mounts.
   const [mounted, setMounted] = useState(wanted);
   const [open, setOpen] = useState(false);
+  // Focus comes back to whatever opened it (P-HOME-1n; lyra's InteriorPanel has no focus return of its own): the
+  // element focused when it opened, else the `returnFocusSelector` match nearest this row. Only after it was open,
+  // and only when focus is in the panel or on the page itself.
+  const panelRef = useRef<HTMLDivElement>(null);
+  const opener = useRef<HTMLElement | null>(null);
+  const wasWanted = useRef(false);
+  const returnFocusSelector = useRef(panel.returnFocusSelector);
+  returnFocusSelector.current = panel.returnFocusSelector;
   useEffect(() => {
     if (wanted) {
+      const active = document.activeElement;
+      opener.current = active instanceof HTMLElement && active !== document.body ? active : null;
+      wasWanted.current = true;
       setMounted(true);
       return afterNextFrame(() => setOpen(true));
     }
     setOpen(false);
+    const focusInPanelOrPage = !document.activeElement || document.activeElement === document.body || !!panelRef.current?.contains(document.activeElement);
+    if (wasWanted.current && focusInPanelOrPage) {
+      const target = opener.current?.isConnected ? opener.current : nearest(anchorRef.current, returnFocusSelector.current);
+      target?.focus();
+    }
+    wasWanted.current = false;
+    opener.current = null;
     const timer = window.setTimeout(() => setMounted(false), SLIDE_OVER_CLOSE_MS);
     return () => window.clearTimeout(timer);
   }, [wanted]);
@@ -141,6 +172,13 @@ export function ReferenceSlotFrame({
         // A direct child of the row: the panel measures its parent and positions against it.
         <InteriorPanel
           key={assignmentKey}
+          ref={panelRef}
+          // Escape inside it closes it (lyra's InteriorPanel has no Escape of its own; its root takes the handler).
+          onKeyDown={(e: React.KeyboardEvent) => {
+            if (e.key !== "Escape" || e.defaultPrevented) return;
+            e.stopPropagation();
+            panel.onClose();
+          }}
           side="right"
           open={open}
           onClose={panel.onClose}

@@ -43,7 +43,8 @@ describe("Settings grouping (P-HOME-1n)", () => {
     await h.render(<SettingsView />);
     const workspace = groups()[0];
     const layout = [...workspace.querySelectorAll("fieldset")].find((f) => f.querySelector("legend")?.textContent === "Layout")!;
-    // Home layout (its declared label is "Layout": One column / Two columns), AI display, the canvas layout.
+    // Home layout (One column / Two columns), AI display, the canvas layout.
+    expect(layout.textContent).toContain("Home layout");
     expect(layout.textContent).toContain("One column");
     expect(layout.textContent).toContain("AI display");
     const placement = layout.querySelector("[data-setting='assignments.placement']")!;

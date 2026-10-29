@@ -48,7 +48,7 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
     enabledChannels, findDirectoryCustomer, findOpenCard, fireDismissToast, interactions, isNavNarrow, launchLucasCall, lucasCallConfirmRef,
     mainPins, navOpen, omni, omnichannel, outcomeDrafts, panelOpen, panelPlacement, placement,
     scenarioKeyOf, seedOverlay, sessionDetailsPick, setActiveCustomerOverviewEditing, setAgentLegDisconnectedToastOpen,
-    setAgentStatus, setCustomerPanelActiveTab, setDismissedContactHistory, setHistoryConversationTab, setInteractions,
+    setAgentStatus, setDismissedContactHistory, setHistoryConversationTab, setInteractions,
     setNavOpen, setSelectedContactHistoryEntry, setSidePanelOpen, setStatusSinceTick,
     sidePanelStateByAssignmentId, switchActiveInteraction, windowWidth, customerPanelActiveTab, aiInPanel,
     activeInteractionIsRealCustomer, activeChannelType, isHistoryConversationView, panelVoiceThread, contactSubject,
@@ -303,9 +303,7 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
   // this drill-in, so there's nothing for it to branch on here. `tabs` is
   // likewise the plain full set, not the real-customer-conditional
   // ternary the docked panel's own `tabs` prop needs, for the same
-  // reason. No `focusTabOverride` either — that's `CustomerInformationSide
-  // Panel`'s own prop, which this hook doesn't take; this drill-in always
-  // opens on its default "Overview" tab.
+  // reason. This drill-in always opens on its default "Overview" tab.
   // Contact Details' subject: the conversation's customer, or a kind cell's (P-HOME-1m).
   const customerInfoOverlayContent = useCustomerDetailsInteriorPanel({
     customerName: contactSubject?.customerName,
@@ -321,13 +319,8 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
     onOpenHistoryConversation: (entry) =>
       activeInteraction &&
       setHistoryConversationTab({ interactionId: activeInteraction.id, entry, active: true }),
-    // Per explicit request ("move the customer information content back
-    // to the side panel... have a back arrow next to the Customer's name
-    // that takes the agent back to the Contact Details"): this drill-in's
-    // back arrow (`headerIcon` above) now returns to the docked panel's
-    // own normal "Details"/Overview tab instead of closing a separate
-    // overlay.
-    onBack: () => setCustomerPanelActiveTab("Details"),
+    // (No `onBack`: the drill-in renders in the Contact Details slide-over, whose own back arrow returns to its
+    // first tab, P-HOME-1n.)
     // Contact Details' Customer Information / Notes / Detail tabs drive which body it renders.
     activeTab: CUSTOMER_RECORD_TAB[contactDetailsView as keyof typeof CUSTOMER_RECORD_TAB],
   });

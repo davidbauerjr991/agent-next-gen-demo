@@ -10,7 +10,7 @@ import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedP
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
 import { SECTIONS } from "@/settings/settings-schema";
 import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
-import { isRoutedContact, newArrivals } from "./arrivals";
+import { ARRIVAL_GRACE_MS, inArrivalGrace, isRoutedContact, newArrivals } from "./arrivals";
 import { toastAllowed } from "./assignment-toasts";
 
 const defaults = SECTIONS.notifications.defaults.toasts;
@@ -24,6 +24,10 @@ describe("arrivals", () => {
     expect(isRoutedContact({ origin: "routed" })).toBe(true);
     expect(isRoutedContact({ origin: "agent-initiated" })).toBe(false);
     expect(isRoutedContact({ origin: "reopened" })).toBe(false);
+    // The grace: before Available everything is the baseline; then for ARRIVAL_GRACE_MS after the first Available.
+    expect(inArrivalGrace(undefined, 10_000)).toBe(true);
+    expect(inArrivalGrace(1_000, 1_000 + ARRIVAL_GRACE_MS - 1)).toBe(true);
+    expect(inArrivalGrace(1_000, 1_000 + ARRIVAL_GRACE_MS)).toBe(false);
   });
 
   it("forced, the incoming toast shows during a call even with Quiet during a call on", () => {
@@ -60,10 +64,25 @@ describe("the incoming toast in the workspace", () => {
     expect(incoming()).toHaveLength(0);
   });
 
+  it("on, within the grace after Go Available: the day's starting cards join the baseline and don't toast", async () => {
+    await setIncoming(true);
+    await h.show(AgentWorkspaceAdvancedPage);
+    await h.goAvailable();
+    await h.startInbound("chat", "early@example.com", "Early Bird");
+    await h.advance(500);
+    expect(incoming()).toHaveLength(0);
+    // After the grace, a new one does.
+    await h.advance(ARRIVAL_GRACE_MS);
+    await h.startInbound("chat", "ana@example.com", "Ana Silva");
+    await h.advance(500);
+    expect(incoming().map((el) => el.textContent?.includes("Ana Silva"))).toEqual([true]);
+  });
+
   it("on: an auto-accepted chat and an offered call each raise one, with View; the offer's says it's offered", async () => {
     await setIncoming(true);
     await h.show(AgentWorkspaceAdvancedPage);
     await h.goAvailable();
+    await h.advance(ARRIVAL_GRACE_MS);
     await h.startInbound("chat", "ana@example.com", "Ana Silva");
     await h.advance(500);
     expect(incoming()).toHaveLength(1);
@@ -88,6 +107,7 @@ describe("the incoming toast in the workspace", () => {
     });
     await h.show(AgentWorkspaceAdvancedPage);
     await h.goAvailable();
+    await h.advance(ARRIVAL_GRACE_MS);
     await h.startInbound("chat", "ana@example.com", "Ana Silva");
     await h.advance(500);
     expect(incoming()).toHaveLength(1);

@@ -120,6 +120,22 @@ describe("Assignments placement → Interior panel (0c; fixed since P-HOME-1n)",
     expect(panelChips()).toHaveLength(0);
   });
 
+  it("\"auto\" chips: hidden in the interior panel, shown at the top of Home (there's room there; P-HOME-1n)", async () => {
+    await act(async () => {
+      store().update("channels", { chat: true });
+      store().update("assignments", { placement: "none" });
+    });
+    await h.show(AgentWorkspaceAdvancedPage);
+    await h.goAvailable();
+    await h.accept(await h.startInbound("chat", "ana@example.com", "Ana Ruiz"));
+    await h.advance(1000);
+    await h.click([...h.container.querySelectorAll<HTMLElement>("aside button, aside [role=button]")].find((el) => el.textContent?.trim() === "Home")!);
+    const stackChips = [...h.container.querySelectorAll("[data-slot=assignments-stack][data-mount=homeTop] [data-slot=assignment-card] span")].filter(
+      (el) => el.textContent === "Chat" && !el.classList.contains("sr-only"),
+    );
+    expect(stackChips.length).toBeGreaterThan(0);
+  });
+
   it("docked, it's fixed: no rail item, no pin, no close; it stays resizable (P-HOME-1n)", async () => {
     await inPanel();
     expect(railItem()).toBeNull();

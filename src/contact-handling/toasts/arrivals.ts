@@ -4,6 +4,15 @@
 // history, or that were already there (seeded, restored) never are.
 import type { Interaction as ProviderInteraction } from "@/domain";
 
+/** The routing burst after the agent first goes Available (the sim routes the day's starting cards then): cards that
+ *  arrive within it are the day's start, not arrivals, so they never toast; anything after does. */
+export const ARRIVAL_GRACE_MS = 2_000;
+
+/** Whether `now` is still inside the grace after the agent first went Available (`firstAvailableAt`; undefined: not
+ *  Available yet, so everything is the baseline). */
+export const inArrivalGrace = (firstAvailableAt: number | undefined, now: number): boolean =>
+  firstAvailableAt === undefined || now - firstAvailableAt < ARRIVAL_GRACE_MS;
+
 /** The provider contact's `origin` is the only signal: `routed` arrives; `agent-initiated` and `reopened` don't. */
 export const isRoutedContact = (interaction: Pick<ProviderInteraction, "origin">): boolean => interaction.origin === "routed";
 
