@@ -8,7 +8,7 @@ import type { Interaction } from "@/domain";
  *  there is one, else a per-case pseudo entity, so a redial and a reopen of
  *  the same case find the same open card (it used to be the card id). */
 export function historyEntityId(entry: ContactHistoryEntry): string {
-  return entry.customerId ?? `history:${entry.caseId}`;
+  return entry.entityId ?? entry.customerId ?? `history:${entry.caseId}`;
 }
 
 /** A Contact History row's address on a channel: the one on record, or a

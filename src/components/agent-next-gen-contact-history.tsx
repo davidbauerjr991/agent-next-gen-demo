@@ -199,17 +199,13 @@ export interface ContactHistoryEntry {
    *  simply doesn't show these rows then. */
   dispositionLabel?: string;
   tags?: string[];
-  /** The real `CREATE_NEW_CUSTOMERS` record id backing this row, when this
-   *  entry was built from that fixture (see `buildContactHistoryFromCustomers`
-   *  below) — undefined for the hand-authored `CONTACT_HISTORY` rows above,
-   *  which have no real customer record behind their invented names/case
-   *  IDs. `handleRedial` uses this (when present) as the redialed
-   *  interaction's own id instead of a synthetic `redial:` one, so the
-   *  resulting card's id resolves in `useAddChannelButton`'s contact
-   *  lookup the exact same way a card started from the Outbound picker
-   *  does — see `handleRedial`'s own doc comment for why a synthetic id
-   *  silently broke that card's "+" (Add Channel) button. */
+  /** The real `CREATE_NEW_CUSTOMERS` record id backing this row (every seeded row has one). `handleRedial` uses it
+   *  as the redialed interaction's own id instead of a synthetic `redial:` one, so the card's id resolves in
+   *  `useAddChannelButton`'s contact lookup as a card from the Outbound picker does (a synthetic id broke its "+"). */
   customerId?: string;
+  /** The directory record this contact resolves to (domain `entityId`): every seeded row and a dismissed row whose
+   *  card had one; none for an unknown caller, whose row keeps its raw number (P-HOME-1m retro). */
+  entityId?: string;
   /** Every OUTBOUND-startable channel this customer can be reached on —
    *  same field/purpose as `CreateNewOutboundContact.channels`, and, for
    *  the 5 hand-authored rows above with no real `customerId`, the ONLY
@@ -637,7 +633,7 @@ export const CONTACT_HISTORY: ContactHistoryEntry[] = [
     // for the full "why" and for the previously-real bug this fixes
     // (redialing/reopening this same case via different entry points used
     // to compute different fallback ids and open a second, wrong card).
-    customerId: "nathan-cole-history",
+    customerId: "nathan-cole-history", entityId: "nathan-cole-history",
     channels: ["voice", "sms", "email"],
     phone: "(704) 555-0142", email: "nathan.cole@example.com",
     messages: [
@@ -656,7 +652,7 @@ export const CONTACT_HISTORY: ContactHistoryEntry[] = [
     // See "ch1"'s identical `customerId` comment just above for the full
     // "why" — same fix, same real backing record (PRIYA_SHAH_CUSTOMER_RECORD,
     // create-new-customers-data.ts).
-    customerId: "priya-shah-history",
+    customerId: "priya-shah-history", entityId: "priya-shah-history",
     channels: ["email", "sms"],
     phone: "(415) 555-0178", email: "priya.shah@example.com",
     messages: [
@@ -675,7 +671,7 @@ export const CONTACT_HISTORY: ContactHistoryEntry[] = [
     // See "ch1"'s identical `customerId` comment above for the full "why" —
     // same fix, same real backing record (OMAR_FAROOQ_CUSTOMER_RECORD,
     // create-new-customers-data.ts).
-    customerId: "omar-farooq-history",
+    customerId: "omar-farooq-history", entityId: "omar-farooq-history",
     channels: ["email", "whatsapp"],
     phone: "(212) 555-0193", email: "omar.farooq@example.com",
     emailBody:
@@ -689,7 +685,7 @@ export const CONTACT_HISTORY: ContactHistoryEntry[] = [
     // See "ch1"'s identical `customerId` comment above for the full "why" —
     // same fix, same real backing record (LAUREN_BRIGGS_CUSTOMER_RECORD,
     // create-new-customers-data.ts).
-    customerId: "lauren-briggs-history",
+    customerId: "lauren-briggs-history", entityId: "lauren-briggs-history",
     channels: ["voice", "email"],
     phone: "(312) 555-0164", email: "lauren.briggs@example.com",
     messages: [
@@ -708,7 +704,7 @@ export const CONTACT_HISTORY: ContactHistoryEntry[] = [
     // See "ch1"'s identical `customerId` comment above for the full "why" —
     // same fix, same real backing record (MEI_TANAKA_CUSTOMER_RECORD,
     // create-new-customers-data.ts).
-    customerId: "mei-tanaka-history",
+    customerId: "mei-tanaka-history", entityId: "mei-tanaka-history",
     channels: ["sms", "whatsapp", "email"],
     phone: "(206) 555-0157", email: "mei.tanaka@example.com",
     messages: [
@@ -816,7 +812,7 @@ export function buildContactHistoryFromCustomers(
       // The real `CREATE_NEW_CUSTOMERS` id (e.g. "customer-9") — see
       // `ContactHistoryEntry.customerId`'s own doc comment for why
       // `handleRedial` needs this.
-      customerId: customer.id,
+      customerId: customer.id, entityId: customer.id,
       // `email`/`phone` — see `ContactHistoryEntry`'s own doc comments for
       // these two (`phone` covers WhatsApp too).
       email: customer.emailAddress,
@@ -935,6 +931,7 @@ export function buildDismissedContactHistoryEntry(
     timeAgo: "Just now",
     duration: formatElapsedTime(clockTick - earliestStart),
     customerId: /^customer-\d+$/.test(interaction.id) ? interaction.id : undefined,
+    ...(interaction.entityId ? { entityId: interaction.entityId } : {}), // none for an unknown caller (raw number)
     // `ContactHistoryEntry.channels`'s own doc comment: for a row with no
     // real `customerId` (any interaction that isn't itself
     // `CREATE_NEW_CUSTOMERS`-backed — e.g. a redialed/quick-dialed number,
@@ -1047,7 +1044,7 @@ export const CONTACT_HISTORY_STRESS_BATCH: ContactHistoryEntry[] = Array.from(
       channelType,
       channelLabel: CONTACT_HISTORY_CHANNEL_LABEL[channelType],
       redial: channelType === "voice",
-      customerId: customer.id,
+      customerId: customer.id, entityId: customer.id,
       email: customer.emailAddress,
       phone: customer.firstPhone,
       statusLabel: status.statusLabel,

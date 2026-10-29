@@ -1,6 +1,8 @@
+// @vitest-environment jsdom
+// (jsdom: Contact History's module loads lyra's barrel, which the node environment can't resolve; see Known gaps.)
 // Seeds don't share addresses (CLAUDE.md, the 1h–1m retro): every seeded
-// schedule item of every persona, every scenario contact and every demo seed
-// contact is checked together. No two customers share a phone number or an
+// schedule item of every persona, every scenario contact, every demo seed
+// contact and every seeded Contact History row is checked together. No two customers share a phone number or an
 // email; a seed that names a directory record uses only that record's
 // addresses; and an address with no record of its own is on no directory
 // record (Priya's callback once carried Maya Chen's scenario number, so a dial
@@ -12,6 +14,7 @@ import { SCENARIOS } from "../../scenarios";
 import { SIM_DEMO_DIRECTORY } from "./sim-demo-directory";
 import { SIM_DEMO_SEED } from "./sim-fixtures";
 import { seedScheduleDay } from "./sim-schedule-seeds";
+import { buildContactHistory } from "../../components/agent-next-gen-contact-history";
 
 const ROLES: readonly ScheduleRole[] = ["agent", "supervisor", "sales"];
 
@@ -64,6 +67,17 @@ function seededContacts(): SeededContact[] {
       emails: seed.address && isEmail ? [seed.address] : [],
     });
   }
+  // Contact History's seeded rows (nothing dismissed yet): a row with a record is that record; an unknown caller's
+  // row (no entityId) is its own case and keeps its raw number.
+  for (const entry of buildContactHistory([])) {
+    contacts.push({
+      source: `contact history ${entry.id}`,
+      owner: entry.entityId ?? `history:${entry.caseId}`,
+      recordId: entry.entityId,
+      phones: present([entry.phone]),
+      emails: present([entry.email]),
+    });
+  }
   return contacts;
 }
 
@@ -79,6 +93,11 @@ describe("seeded addresses", () => {
     for (const role of ROLES) expect(contacts.some((c) => c.source.startsWith(`${role} seed`))).toBe(true);
     expect(contacts.filter((c) => c.source.startsWith("scenario")).length).toBe(SCENARIOS.length);
     expect(contacts.filter((c) => c.source.startsWith("demo seed")).length).toBe(SIM_DEMO_SEED.length);
+    expect(contacts.filter((c) => c.source.startsWith("contact history")).length).toBe(buildContactHistory([]).length);
+  });
+
+  it("every seeded Contact History row resolves to its directory record (entityId)", () => {
+    expect(buildContactHistory([]).filter((entry) => !entry.entityId || !directory.has(entry.entityId)).map((entry) => entry.id)).toEqual([]);
   });
 
   it("no two customers share a phone number or an email", () => {
