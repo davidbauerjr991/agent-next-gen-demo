@@ -93,8 +93,9 @@ export function ProfileSettings() {
     <>
       <div className="flex flex-wrap items-end gap-2">
         <div className="w-full max-w-xs">
+          {/* Named by its sub-group's title, which says the same (P-POLISH 6). */}
           <Select
-            label={t("Profile")}
+            aria-label={t("Workspace profile")}
             options={options}
             value={profile}
             onValueChange={(value) => {

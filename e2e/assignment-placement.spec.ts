@@ -88,7 +88,7 @@ test("Settings: the nine groups in order, each a lyra heading", async ({ page })
   const legends = page.locator("[data-settings-group] > legend");
   const titles = await legends.evaluateAll((els) => els.map((el) => el.firstChild?.textContent?.trim()));
   expect(titles).toEqual(["Workspace", "Assignments", "Home", "Notifications", "Appearance", "Channels", "Voice", "Phone", "Connections"]);
-  for (const legend of await legends.all()) await expect(legend).toHaveClass(/lyra-heading-sm/);
+  for (const legend of await legends.all()) await expect(legend).toHaveClass(/lyra-heading-md/);
 });
 
 test("lyra's gradient tokens: a semantic tone to the surface, in light and in dark", async ({ page }) => {

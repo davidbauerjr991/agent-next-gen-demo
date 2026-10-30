@@ -35,8 +35,28 @@ describe("Settings grouping (P-HOME-1n)", () => {
       "Phone",
       "Connections",
     ]);
-    expect(groups().every((g) => g.querySelector("legend")!.classList.contains("lyra-heading-sm"))).toBe(true);
+    // P-POLISH 6: one step above the sub-groups' lyra-body-md-emphasis.
+    expect(groups().every((g) => g.querySelector("legend")!.classList.contains("lyra-heading-md"))).toBe(true);
+    expect(groups().every((g) => [...g.querySelectorAll(":scope > fieldset > legend")].every((l) => l.classList.contains("lyra-body-md-emphasis")))).toBe(true);
     expect(h.container.querySelectorAll("[data-testid=settings-view] [role=separator], [data-testid=settings-view] [data-orientation=horizontal]").length).toBeGreaterThanOrEqual(8);
+  });
+
+  it("a sub-group of one control named as itself shows its title once and names the control (P-POLISH 6)", async () => {
+    await h.render(<SettingsView />);
+    const workspace = groups()[0];
+    const text = workspace.textContent ?? "";
+    expect(text.match(/Persona/g)).toHaveLength(1);
+    // Named by the title alone (no tag text), described by the help text that moved to the legend's help icon.
+    const persona = workspace.querySelector<HTMLElement>("[role=radiogroup]")!;
+    const name = document.getElementById(persona.getAttribute("aria-labelledby")!)!;
+    expect(name.closest("legend")).not.toBeNull();
+    expect(name.querySelector("[data-variant], .lyra-tag")).toBeNull();
+    expect(document.getElementById(persona.getAttribute("aria-describedby")!)?.textContent).toContain("The role the workspace is set up for");
+    expect(workspace.querySelector('[aria-label="More info about Persona"]')).not.toBeNull();
+    // The profile picker has no label of its own: it's named "Workspace profile", as its sub-group.
+    const profile = workspace.querySelector<HTMLElement>('[role=combobox][aria-label="Workspace profile"]')!;
+    expect(profile).not.toBeNull();
+    expect(profile.getAttribute("aria-labelledby")).toBeNull();
   });
 
   it("Workspace → Layout holds Home layout, the placement radio (three options), AI display and the canvas layout", async () => {

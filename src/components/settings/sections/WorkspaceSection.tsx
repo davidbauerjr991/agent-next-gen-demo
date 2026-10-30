@@ -71,16 +71,17 @@ export function WorkspaceSection({ first }: { first?: boolean }) {
   const setPersona = useSetPersona();
   const [assignments, updateAssignments] = useSettings("assignments");
   const [ai, updateAi] = useSettings("ai");
+  const personaLabelId = React.useId();
   return (
     <SettingsGroup id="workspace" title={t("Workspace")} first={first}>
       <Section title={t("Workspace profile")}>
         <ProfileSettings />
       </Section>
 
-      <Section title={t("Persona")} lockKey="workspace">
+      <Section title={t(PERSONA_FIELD.meta!.label)} lockKey="workspace" labelId={personaLabelId} labelHelpText={t(PERSONA_FIELD.meta!.description)}>
         <RadioGroup
-          label={t(PERSONA_FIELD.meta!.label)}
-          labelHelpText={t(PERSONA_FIELD.meta!.description)}
+          aria-labelledby={personaLabelId}
+          aria-describedby={`${personaLabelId}-help`}
           value={workspace.persona}
           onValueChange={(value) => setPersona(value as Persona)}
         >
