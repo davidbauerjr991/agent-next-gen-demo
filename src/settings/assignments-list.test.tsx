@@ -84,7 +84,7 @@ describe("assignment sort modes", () => {
   });
 });
 
-describe("Assignments placement → Interior panel (0c; fixed since P-HOME-1n)", () => {
+describe("Assignments placement → Interior panel (0c; lyra SidePanel left since P-LAYOUT)", () => {
   const panel = () => h.container.querySelector<HTMLElement>("[data-slot=assignments-panel]");
   /** The rail's Assignments item: the expanded rail is a TreeMenu (a text
    *  label, then the badge's count); collapsed, an icon button named "Assignments, N". */
@@ -108,14 +108,18 @@ describe("Assignments placement → Interior panel (0c; fixed since P-HOME-1n)",
     await h.advance(1000);
   }
 
-  it("the cards move from the left nav into a docked left panel between the nav and the content card", async () => {
+  it("the cards move from the left nav into a docked left SidePanel, the content card's first child (P-LAYOUT fix (a))", async () => {
     await inPanel();
     expect(panel()).not.toBeNull();
     expect(panel()!.getAttribute("data-docked")).toBe("true");
     expect(panel()!.querySelectorAll("[data-slot=assignment-card]")).toHaveLength(1);
     expect(h.container.querySelectorAll("aside [data-slot=assignment-card]")).toHaveLength(0);
-    // P-HOME-1n: outside the content card, not inside it.
-    expect(panel()!.closest("[data-slot=content-card]")).toBeNull();
+    // Inside the content card, before the content column (supersedes P-HOME-1n's panel outside it, 0819bfa).
+    const card = panel()!.closest("[data-slot=content-card]");
+    expect(card).not.toBeNull();
+    const header = card!.querySelector("[data-slot=record-header], [data-home-layout]");
+    expect(header).not.toBeNull();
+    expect(panel()!.compareDocumentPosition(header!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     // "auto" hides the channel chip in the panel.
     expect(panelChips()).toHaveLength(0);
   });
@@ -136,12 +140,62 @@ describe("Assignments placement → Interior panel (0c; fixed since P-HOME-1n)",
     expect(stackChips.length).toBeGreaterThan(0);
   });
 
-  it("docked, it's fixed: no rail item, no pin, no close; it stays resizable (P-HOME-1n)", async () => {
+  it("docked: no rail item; its pin unpins it to an overlay, its close hides it and the toggle brings it back; resizable (P-LAYOUT fix (a))", async () => {
     await inPanel();
     expect(railItem()).toBeNull();
-    const buttons = [...panel()!.querySelectorAll("button")].map((b) => b.getAttribute("aria-label") ?? "");
-    expect(buttons.some((l) => /pin|close/i.test(l))).toBe(false);
-    expect(panel()!.querySelector("[role=separator], [aria-valuemin]")).not.toBeNull();
+    const button = (label: RegExp) => [...h.container.querySelectorAll<HTMLButtonElement>("button")].find((b) => label.test(b.getAttribute("aria-label") ?? ""));
+    const toggle = () => h.container.querySelector("[data-slot=assignments-panel-toggle] button");
+    // Resizable, no narrower than the card width (SidePanel's own 200 would crush the cards).
+    expect(panel()!.querySelector("[role=separator]")!.getAttribute("aria-valuemin")).toBe("350");
+    expect(toggle()).toBeNull();
+    // Unpinned: SidePanel's overlay, so the rail item and the toggle show; pinned again, it pushes once more.
+    await h.click(button(/^Unpin panel$/)!);
+    expect(panel()!.getAttribute("data-docked")).toBeNull();
+    expect(railItem()).not.toBeNull();
+    await h.click(button(/^Pin panel$/)!);
+    expect(panel()!.getAttribute("data-docked")).toBe("true");
+    // Closed: the toggle at the content card's top start reopens it, docked.
+    await h.click(button(/^Close panel$/)!);
+    expect(panel()!.getAttribute("data-docked")).toBeNull();
+    expect(toggle()!.getAttribute("aria-expanded")).toBe("false");
+    await h.click(toggle() as HTMLElement);
+    expect(panel()!.getAttribute("data-docked")).toBe("true");
+  });
+
+  it("its width comes from the working state, clamped to 350–425; a resize is saved there", async () => {
+    localStorage.setItem("agent-next-gen:working:assignments", JSON.stringify({ panelWidth: 900 }));
+    await inPanel();
+    const separator = () => panel()!.querySelector<HTMLElement>("[role=separator]")!;
+    expect(separator().getAttribute("aria-valuenow")).toBe("425");
+    await act(async () => {
+      separator().dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+    });
+    const resized = Number(separator().getAttribute("aria-valuenow"));
+    expect(resized).toBeLessThan(425);
+    await h.advance(500);
+    expect(JSON.parse(localStorage.getItem("agent-next-gen:working:assignments")!).panelWidth).toBe(resized);
+  });
+
+  it("where it doesn't fit, pinned is an overlay that starts closed; unpinning and pinning again keep a shown panel shown", async () => {
+    // Every element measures 600px wide: less than the panel and the action area's minimum, so it doesn't fit.
+    const rect = vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({ width: 600, height: 800, x: 0, y: 0, top: 0, left: 0, right: 600, bottom: 800, toJSON: () => ({}) } as DOMRect);
+    try {
+      await inPanel();
+      const button = (label: RegExp) => [...h.container.querySelectorAll<HTMLButtonElement>("button")].find((b) => label.test(b.getAttribute("aria-label") ?? ""));
+      const toggle = () => h.container.querySelector<HTMLElement>("[data-slot=assignments-panel-toggle] button");
+      expect(panel()!.getAttribute("data-docked")).toBeNull();
+      // Closed: the toggle shows. Opened, it's the overlay (the toggle's button goes while it's shown).
+      expect(toggle()).not.toBeNull();
+      await h.click(toggle()!);
+      expect(toggle()).toBeNull();
+      await h.click(button(/^Unpin panel$/)!);
+      expect(toggle()).toBeNull();
+      await h.click(button(/^Pin panel$/)!);
+      expect(toggle()).toBeNull();
+      expect(panel()!.getAttribute("data-docked")).toBeNull();
+    } finally {
+      rect.mockRestore();
+    }
   });
 
   it("off again: the cards are back in the left nav and the rail item goes", async () => {

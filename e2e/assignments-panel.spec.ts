@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 // P-PROFILES 0b / 0c: the assignments list. Assignments placement → Interior panel puts
-// the cards in lyra's left InteriorPanel between the left nav and the content card: three columns
+// the cards in lyra's left SidePanel, first in the content card (P-LAYOUT fix (a)): three columns
 // (panel, action area, reference column) while they fit, an overlay opened
 // from the rail's Assignments item when they don't. Custom sort is a drag,
 // kept per browser. Widths and native drag, so Chrome.

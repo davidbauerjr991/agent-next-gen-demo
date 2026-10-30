@@ -46,17 +46,17 @@ test("placement none: the open assignments at the top of Home; the app header's 
   await expect(stackCards(page).first()).toBeVisible();
 });
 
-test("interior panel: between the left nav and the content card, resizable, no pin or close", async ({ page }) => {
+test("interior panel: lyra's left SidePanel inside the content card, at its start, resizable within 350–425 (P-LAYOUT fix (a))", async ({ page }) => {
   await setUp(page, { placement: "interiorPanel" }, 2400);
   const panel = page.locator("[data-slot=assignments-panel]");
   await expect(panel).toHaveAttribute("data-docked", "true");
   const box = (await panel.boundingBox())!;
-  const nav = (await page.locator("aside").first().boundingBox())!;
   const content = (await page.locator("[data-slot=content-card]").boundingBox())!;
-  expect(Math.round(box.x)).toBeGreaterThanOrEqual(Math.round(nav.x + nav.width) - 1);
-  expect(Math.round(box.x + box.width)).toBeLessThanOrEqual(Math.round(content.x) + 1);
-  // No pin, close or collapse of the panel itself (the cards' own "Collapse channels" chevrons are theirs).
-  await expect(panel.getByRole("button", { name: /pin|close|collapse (panel|assignments)/i })).toHaveCount(0);
+  // Inside the content card, flush with its start (supersedes P-HOME-1n's panel outside it).
+  expect(Math.round(box.x)).toBeGreaterThanOrEqual(Math.round(content.x) - 1);
+  expect(Math.round(box.x + box.width)).toBeLessThanOrEqual(Math.round(content.x + content.width) + 1);
+  await expect(panel.getByRole("button", { name: "Unpin panel" })).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Close panel" })).toBeVisible();
   // Its resize handle widens it, within lyra's 350–425.
   const handle = panel.locator('[role="separator"]').first();
   await handle.focus();

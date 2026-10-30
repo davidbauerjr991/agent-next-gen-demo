@@ -128,7 +128,7 @@ export const PART_FORMS: Record<PartId, Forms> = {
   assignments: {
     "left-nav:caption": LeftNavAssignmentsCaption,
     "left-nav": LeftNavAssignments,
-    "interior-panel": { host: "AssignmentsPanelRow (the page's body row)" },
+    "interior-panel": { host: "AssignmentsInteriorPanel (lyra's left SidePanel, first in the content card's row)" },
     "home-top": HomeTopAssignments,
   },
   incomingTile: { "left-nav": CARD_OFFER, "interior-panel": CARD_OFFER, "home-top": CARD_OFFER },

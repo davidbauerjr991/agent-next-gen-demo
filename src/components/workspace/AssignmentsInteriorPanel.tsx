@@ -1,39 +1,55 @@
-// The interior-panel slot (P-PROFILES 0c; P-HOME-1n): the assignments part in lyra's left `InteriorPanel`, between
-// the left nav and the content, beside the main column (action area + reference column): three columns at wide
-// widths. A fixed panel showing only the Assignments header and cards, resizable within lyra's own min/max, with no
-// pin and no close: it docks while the three fit (`assignmentsPanelDocks`, counting the reference slot, which widens
-// with an open slide-over); only when they don't is it lyra's overlay, opened from the left nav's Assignments item.
+// The interior-panel slot (P-PROFILES 0c; P-HOME-1n; P-LAYOUT fix (a), Dave 2026-10-30): the assignments part in
+// lyra's left `SidePanel` inside the content card, its first flex child, before the record header, body, Home and
+// Settings — the "Side Panel — Left" story's shape. Pinned, it pushes the content while it, the action area and the
+// reference slot fit (`assignmentsPanelDocks`, counting the reference slot, which widens with an open slide-over);
+// where they don't, or unpinned, it's SidePanel's own overlay. Its header has the pin and the close; closed (or as an
+// overlay), the "Show assignments" toggle sits at the content card's top start. Open, pinned (both on by default,
+// `useAssignmentsPanel`) and its dragged width are per-browser working state.
 import * as React from "react";
-import { InteriorPanel, LYRA_CARD_MAX_WIDTH } from "@nicecxone/lyra-ui";
+import { ActionIconButton, LYRA_CARD_MAX_WIDTH, SidePanel } from "@nicecxone/lyra-ui";
+import { PanelLeftOpen } from "lucide-react";
 import { t } from "@/i18n";
-import { cn } from "@/lib/utils";
 import { useSlotHas } from "@/layout/useSlot";
 import { assignmentsPanelDocks, availableForAssignmentsPanel } from "@/contact-handling/assignments-panel-placement";
 import { useAssignmentsPanel } from "@/contact-handling/useAssignmentsPanel";
+import { setAssignmentsWorkingState, useAssignmentsWorkingState } from "@/contact-handling/assignments-working-state";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { AssignmentsStack } from "./AssignmentCardList";
 
-/** The body row's content side: the interior-panel slot, then the content column. With the panel it's `relative`
- *  (the overlay positions against it); its width is the panel's and the content's, what the fit rule measures. */
-export function AssignmentsPanelRow({ children }: { children: React.ReactNode }) {
-  const inPanel = useSlotHas("interior-panel", "assignments");
-  return (
-    <div className={cn("flex flex-1 min-w-0 overflow-hidden min-h-0", inPanel && "relative")}>
-      {inPanel && <AssignmentsInteriorPanel />}
-      {children}
-    </div>
-  );
+/** The assignments part in the interior-panel slot: the panel, and its toggle while it isn't pushing the content. */
+export function AssignmentsInteriorPanel() {
+  return useSlotHas("interior-panel", "assignments") ? <AssignmentsSidePanel /> : null;
 }
 
-function AssignmentsInteriorPanel() {
+function AssignmentsSidePanel() {
   const panel = useAssignmentsPanel();
   const anchorRef = React.useRef<HTMLDivElement>(null);
   const contentRowWidth = useParentWidth(anchorRef);
-  const [panelWidth, setPanelWidth] = React.useState(LYRA_CARD_MAX_WIDTH);
+  // The dragged width, kept per browser (the working state; clamped to the panel's bounds on read). Live while
+  // dragging, saved once the drag settles.
+  const { panelWidth: savedWidth } = useAssignmentsWorkingState();
+  const [panelWidth, setPanelWidth] = React.useState(() => clampPanelWidth(savedWidth));
+  const pendingWidth = React.useRef<number | null>(null);
+  React.useEffect(() => {
+    if (panelWidth === clampPanelWidth(savedWidth)) return;
+    pendingWidth.current = panelWidth;
+    const id = window.setTimeout(() => {
+      pendingWidth.current = null;
+      setAssignmentsWorkingState({ panelWidth });
+    }, SAVE_WIDTH_AFTER_MS);
+    return () => window.clearTimeout(id);
+  }, [panelWidth, savedWidth]);
+  // Unmounted before a drag settled (e.g. a placement switch): its width is still saved.
+  React.useEffect(
+    () => () => {
+      if (pendingWidth.current !== null) setAssignmentsWorkingState({ panelWidth: pendingWidth.current });
+    },
+    [],
+  );
   const [regionsRowWidth] = useWorkspaceUiField("regionsRowWidth");
   const [referenceSlotWidth] = useWorkspaceUiField("referenceSlotWidth");
   const [, setDocks] = useWorkspaceUiField("assignmentsPanelDocks");
-  const [, setOverlayOpen] = useWorkspaceUiField("assignmentsPanelOverlayOpen");
+  const [, setFitOverlayOpen] = useWorkspaceUiField("assignmentsPanelOverlayOpen");
 
   const docks = assignmentsPanelDocks({
     available: availableForAssignmentsPanel({
@@ -48,34 +64,59 @@ function AssignmentsInteriorPanel() {
   });
   React.useEffect(() => {
     setDocks(docks);
-    // Docking ends the overlay, so a later "doesn't fit" starts closed rather than reopening it.
-    if (docks) setOverlayOpen(false);
-  }, [docks, setDocks, setOverlayOpen]);
+    // Fitting again ends the fit overlay, so a later "doesn't fit" starts closed rather than reopening it.
+    if (docks) setFitOverlayOpen(false);
+  }, [docks, setDocks, setFitOverlayOpen]);
 
+  const toggleLabel = t("Show assignments");
   return (
     <>
       {/* Measures the panel-and-content row (a hidden child, so the row is its parent). */}
       <div ref={anchorRef} hidden aria-hidden="true" />
-      <InteriorPanel
+      {/* Not pushing: the toggle's strip at the card's top start. Its button only while the panel is hidden (open, the
+          panel's own close hides it, and an open overlay would cover the button). */}
+      {!panel.docked && (
+        <div className="w-10 shrink-0 ps-2 pt-3" data-slot="assignments-panel-toggle">
+          {!panel.open && (
+            <ActionIconButton title={toggleLabel} aria-label={toggleLabel} aria-expanded={false} onClick={panel.toggle}>
+              <PanelLeftOpen className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+            </ActionIconButton>
+          )}
+        </div>
+      )}
+      <SidePanel
         side="left"
         open={panel.open}
-        // Only the overlay closes; the docked panel goes only by switching placement.
-        onClose={panel.overlaid ? panel.close : undefined}
+        pinned={panel.pinned}
+        onPinToggle={panel.togglePin}
+        showCloseButton
+        onClose={panel.close}
         headerTitle={t("Assignments")}
-        // lyra's own min/max (InteriorPanel's 350–425; the cards are laid out at the card width).
-        width={LYRA_CARD_MAX_WIDTH}
+        // The cards are laid out at the card width: SidePanel's 200px minimum would crush them. Its own 425 max.
+        minWidth={LYRA_CARD_MAX_WIDTH}
+        maxWidth={PANEL_MAX_WIDTH}
+        width={panelWidth}
         onWidthChange={setPanelWidth}
         resizable
-        // Docked or overlay is this panel's own rule, not lyra's breakpoint.
-        absoluteBreakpoint={panel.docked ? 0 : Number.POSITIVE_INFINITY}
-        storageKey="workspace.assignmentsPanel"
+        // Pinned, it pushes only while the three fit; otherwise SidePanel's overlay.
+        absoluteBreakpoint={docks ? 0 : Number.POSITIVE_INFINITY}
         data-slot="assignments-panel"
         data-docked={panel.docked || undefined}
       >
         <AssignmentsStack mount="interiorPanel" className="px-3 pb-3" />
-      </InteriorPanel>
+      </SidePanel>
     </>
   );
+}
+
+/** SidePanel's own default maximum, passed explicitly so the saved width clamps to the same bound. */
+const PANEL_MAX_WIDTH = 425;
+/** A drag fires a width per frame: the saved width waits for it to settle. */
+const SAVE_WIDTH_AFTER_MS = 250;
+
+/** A saved width within the panel's bounds; the card width when there's none. */
+function clampPanelWidth(width: number | null): number {
+  return Math.min(PANEL_MAX_WIDTH, Math.max(LYRA_CARD_MAX_WIDTH, width ?? LYRA_CARD_MAX_WIDTH));
 }
 
 /** The width of `ref`'s parent, tracked; 0 until laid out (jsdom). */

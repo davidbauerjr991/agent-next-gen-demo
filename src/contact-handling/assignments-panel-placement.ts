@@ -1,8 +1,7 @@
-// The assignments interior panel's dock rule (P-PROFILES 0c; P-HOME-1n). In the
-// interior-panel slot the assignments list is lyra's left InteriorPanel between
-// the left nav and the content card, beside the action area and the reference
-// column: three columns at wide widths. It docks only while all three fit;
-// otherwise it's an overlay the rail's Assignments item opens.
+// The assignments interior panel's dock rule (P-PROFILES 0c; P-HOME-1n; P-LAYOUT fix (a)). In the
+// interior-panel slot the assignments list is lyra's left SidePanel, first in the content card, beside
+// the action area and the reference column: three columns at wide widths. Pinned, it pushes only while
+// all three fit; otherwise it's SidePanel's overlay, opened from its toggle or the rail's Assignments item.
 import { ACTION_AREA_MIN_WIDTH } from "./canvas-registry";
 
 export interface AssignmentsPanelFit {

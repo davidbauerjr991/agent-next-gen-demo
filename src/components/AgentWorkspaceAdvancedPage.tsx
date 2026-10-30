@@ -25,7 +25,7 @@ import { RecordHeader } from "@/components/workspace/RecordHeader";
 import { InteractionBody } from "@/components/workspace/InteractionBody";
 import { WorkspaceHome } from "@/components/workspace/WorkspaceHome";
 import { WorkspaceRightPanel } from "@/components/workspace/WorkspaceRightPanel";
-import { AssignmentsPanelRow } from "@/components/workspace/AssignmentsInteriorPanel";
+import { AssignmentsInteriorPanel } from "@/components/workspace/AssignmentsInteriorPanel";
 import { DetailSlideOver } from "@/components/workspace/DetailSlideOver";
 import { WorkspaceVoiceBar } from "@/components/workspace/WorkspaceVoiceBar";
 import { WorkspaceModals } from "@/components/workspace/WorkspaceModals";
@@ -70,8 +70,6 @@ export function AgentWorkspaceAdvancedPage({
           row's own width drives `isNavNarrow`'s container query. */}
       <div ref={bodyContainerRef} className="flex flex-1 min-h-0 overflow-hidden">
         <WorkspaceLeftNav />
-        {/* The interior-panel slot (P-HOME-1n): the assignments panel between the left nav and the content. */}
-        <AssignmentsPanelRow>
 
         {/* Content area — flex-1 shrinks to give space to docked panels,
             down to `INTERACTION_MAIN_CONTENT_MIN_WIDTH` (350px) — below
@@ -107,7 +105,9 @@ export function AgentWorkspaceAdvancedPage({
             {/* Row: the content column + the docked right panel. Not flattened into Container:
                 `isCombinedPanelMode`'s tab row stays outside the panels' reach. */}
             <div className="flex flex-1 overflow-hidden min-h-0">
-              <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
+              {/* The interior-panel slot (P-LAYOUT fix (a)): the assignments' left SidePanel, inside the content card. */}
+              <AssignmentsInteriorPanel />
+              <div id="main-content" className="flex flex-1 flex-col min-w-0 overflow-hidden">
 
                 {/* Below 768px with a docked panel open: a second region
                     (`PANEL_KEY_METADATA[activePanelKey].label`, e.g. "Notifications") sits
@@ -538,7 +538,6 @@ export function AgentWorkspaceAdvancedPage({
               cover the container. */}
           {sharedPanelFullScreenOverlay}
         </div>
-        </AssignmentsPanelRow>
 
         {/* Shared single-container panel — docked (sibling of containerRef
             so flex layout keeps it in-bounds). Was five near-identical

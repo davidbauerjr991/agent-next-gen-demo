@@ -27,6 +27,12 @@ import { showEmptyReferenceCards } from "@/test-utils/reference-cards";
 import { simVoiceCustomerLines } from "@/adapters/sim/sim-auto-replies";
 import { NBA_CHIP } from "./next-best-action";
 
+// The harness's 30s isn't enough here. These cases play whole scripted cases on the full page: 6–8s each alone
+// (the Lucas takeover chat is 8.3s), and over 30s while the full suite runs every file in parallel. A case that
+// times out keeps running past its teardown and breaks every later case in the file, which is why each full run
+// showed one timeout and a run of failures after it. 90s leaves room for that load.
+vi.setConfig({ testTimeout: 90_000 });
+
 const h = createWorkspaceHarness({ seed: SIM_DEMO_SEED });
 const priya = CREATE_NEW_CUSTOMERS.find((c) => c.id === "priya-shah-history")!;
 
