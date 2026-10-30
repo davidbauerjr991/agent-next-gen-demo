@@ -1,6 +1,6 @@
 // Small presentational pieces of the agent workspace (P-EXTRACT C8a, from
 // AgentWorkspaceAdvancedPage.tsx): the Screen Pop mock login card, the
-// left-nav slot wrappers, and one nav card.
+// left-nav footer wrappers, and one nav card.
 import React from "react";
 import { InteractionNavItem, type ChannelType, type InteractionNavItemProps } from "@nicecxone/lyra-ui";
 import { CollapsedChannelBadge } from "@/components/CollapsedChannelBadge";
@@ -89,14 +89,8 @@ export function MockLoginCard({
 // (`injectExpanded`, lyra left-nav.tsx); anything nested deeper keeps its own
 // `expanded={navOpen}` and stays collapsed. These two keep the slots in the
 // shape lyra's "Agent Next Gen Left Nav" story uses, so the cards, the rail
-// and the launcher all follow hover together.
-
-/** A top-level `header` child that hands LeftNav's injected `expanded` to a
- *  render function (e.g. through `ClockTick` to the card). `undefined` when
- *  nothing was injected (inline mode): the caller falls back to `navOpen`. */
-export function LeftNavSlot({ expanded, children }: { expanded?: boolean; children: (expanded: boolean | undefined) => React.ReactNode }) {
-  return <>{children(expanded)}</>;
-}
+// and the launcher all follow hover together. (`header`'s cards get theirs
+// through the left-nav `<Slot>`, P-LAYOUT.)
 
 /** A top-level `footer` child with the rail's spacing above it (Settings →
  *  "New Outbound at the bottom"); passes LeftNav's injected `expanded` on to

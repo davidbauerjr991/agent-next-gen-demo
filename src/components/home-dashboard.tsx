@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { ActivityFeed } from "@/components/home/ActivityFeed";
 import { DueSoonCard, MetricCard } from "@/components/home/persona-cards";
 import { HomeTwoColumn } from "@/components/home/HomeTwoColumn";
-import { homeIsTwoColumn, homeSideSections } from "@/contact-handling/home/home-layout";
+import { homeIsTwoColumn, homeSectionsInOrder, homeSideSections } from "@/contact-handling/home/home-layout";
 import { usePartOption } from "@/layout/useSlot";
 import { QueueListCard } from "@/components/home/QueueListCard";
 import { t } from "@/i18n";
@@ -117,8 +117,8 @@ export function HomeDashboard({ selectedQueueId, onSelectQueue, contactHistory }
     }
   };
 
-  // Enabled sections in the stored order. The page header is above the Home tabs (P-HOME-1m: HomePageHeader).
-  const visible = home.sections.filter((s) => s.enabled).map((s) => s.key);
+  // Enabled sections in the map's order. The page header is above the Home tabs (P-HOME-1m: HomePageHeader).
+  const visible = homeSectionsInOrder(home, parts);
 
   // Two columns (the wireframe): the feed as the main column, every other enabled section stacked on the right in
   // its order (HomeTwoColumn). The queue is one compact card there.

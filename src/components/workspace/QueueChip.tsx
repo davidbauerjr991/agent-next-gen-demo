@@ -12,7 +12,6 @@ import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useRailAssignmentCount } from "@/contact-handling/home/useScheduleCards";
 import { useAssignmentCards, type AssignmentEntry } from "@/contact-handling/useAssignmentCards";
-import { useSlotHas } from "@/layout/useSlot";
 import { CONTACT_HISTORY_CHANNEL_LABEL } from "@/components/agent-next-gen-contact-history";
 import { KindIcon, kindLabel } from "@/components/home/home-kinds";
 
@@ -37,12 +36,12 @@ export function QueueChip({ mount }: { mount: QueueChipMount }) {
   const {
     activeInteractionId, hasBreachedSlaAssignment, setLeftNavPage, setNavOpen, setPanelFullScreen, setShowSettings, switchActiveInteraction,
   } = useWorkspace();
-  const atHomeTop = useSlotHas("home-top", "assignments");
+  // P-LAYOUT: where it mounts is its part's slot (`<Slot>`); in the app header (it follows the assignments to the
+  // top of Home there) it's the switcher.
+  const isSwitcher = mount === "appHeader";
   const count = useRailAssignmentCount();
   const { entries } = useAssignmentCards(false);
   const [open, setOpen] = useState(false);
-  // Under "none" the chip lives in the app header only; elsewhere on Home's page header only.
-  if ((mount === "appHeader") !== atHomeTop) return null;
 
   const pill = (
     <Tag
@@ -51,7 +50,7 @@ export function QueueChip({ mount }: { mount: QueueChipMount }) {
       shape="pill"
       icon={hasBreachedSlaAssignment ? <CircleAlert strokeWidth={1.5} aria-hidden="true" /> : undefined}
       trailingIcon={
-        atHomeTop ? (
+        isSwitcher ? (
           <ChevronDown className={cn("transition-transform", open && "rotate-180")} strokeWidth={1.5} />
         ) : (
           <ChevronRight strokeWidth={1.5} />
@@ -64,8 +63,8 @@ export function QueueChip({ mount }: { mount: QueueChipMount }) {
       variant="ghost"
       size="sm"
       onClick={onClick}
-      aria-haspopup={atHomeTop ? "menu" : undefined}
-      aria-expanded={atHomeTop ? open : undefined}
+      aria-haspopup={isSwitcher ? "menu" : undefined}
+      aria-expanded={isSwitcher ? open : undefined}
       data-slot="queue-chip"
       className="h-auto shrink-0 rounded-full p-0"
     >
@@ -73,7 +72,7 @@ export function QueueChip({ mount }: { mount: QueueChipMount }) {
     </Button>
   );
 
-  if (!atHomeTop) {
+  if (!isSwitcher) {
     return (
       <Tooltip content={t("Toggle Assignment Panel")} placement="bottom" asLabel>
         {trigger(() => setNavOpen((v) => !v))}

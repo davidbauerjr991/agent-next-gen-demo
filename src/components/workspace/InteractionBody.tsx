@@ -12,6 +12,7 @@ import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useCanvasRegions } from "@/contact-handling/useCanvasRegions";
 import { copilotChipsFor, withNextBestActionChip } from "@/contact-handling/next-best-action";
 import { ReferenceSlot } from "./ReferenceSlot";
+import { Slot } from "@/layout/Slot";
 import { HistoryConversationView } from "@/components/customer-info";
 import { InteractionComposer, InteractionTranscript } from "@/components/transcript/InteractionTranscript";
 import type { TomLewisCallPanelKey } from "@/components/agent-next-gen-lucas-thomas-panels";
@@ -31,7 +32,7 @@ export function InteractionBody() {
   const {
     activeChannel, activeChannelAwaitingSeverity, activeChannelHoldSeverity, activeChannelIsNewOutboundThread,
     activeChannelKey, activeChannelStatus, activeChannelType, activeInteraction, activeInteractionIsRealCustomer,
-    activeWrapUpThread, aiFeedCount, aiFollowSignal, aiInPanel, aiWorkspaceMain, assignmentsSettings, calling,
+    activeWrapUpThread, aiFeedCount, aiFollowSignal, aiInPanel, assignmentsSettings, calling,
     confirmDismiss, contactStateById, copilotComposerProps, copilotDock, copilotHost, copilotSlot,
     customerTyping, focusCustomerPanelTab, handleCopilotAsk, handleDismissChannel,
     handleDismissInteraction, handleInteractionStatusChange, handleLucasApprovalDecision, handleLucasCallRequest,
@@ -154,10 +155,15 @@ export function InteractionBody() {
                             </InlineNotification>
                           </div>
                         )}
-                        {/* AI display "main": the session row is the panel thread's, in the panel's header (k5 B), and the
-                            main column has no transcript. Contact Details' Session tab derives the thread's current session
-                            (`currentSessionOf`) instead of a hidden copy of this transcript reporting it (P-EXTRACT, Bug 1). */}
-                        {!aiWorkspaceMain && (
+                        {/* The main slot's parts in order (P-LAYOUT, `layout.parts`): the conversation (the transcript;
+                            the AI feed's rows inline in it), or without it the AI feed (the AI workspace column). The
+                            reference cells there are the canvas's top cells, and Ask Copilot is the composer's host.
+                            The conversation in the docked panel (AI display "main"): the session row is the panel
+                            thread's, in the panel's header (k5 B), and Contact Details' Session tab derives the thread's
+                            current session (`currentSessionOf`) instead of a hidden copy of this transcript reporting
+                            it (P-EXTRACT, Bug 1). */}
+                        <Slot id="main">
+                        {(part, parts) => part === "conversation" ? (
                         <InteractionTranscript
                           hideAiActions={hideAiActions}
                           hideTranscript={transcriptHidden}
@@ -496,8 +502,7 @@ export function InteractionBody() {
                           // passed here at all; see that `actions` block's
                           // own doc comment for the full history/reasoning.
                         />
-                        )}
-                        {aiWorkspaceMain && (
+                        ) : part === "aiFeed" && !parts.includes("conversation") ? (
                           <AiWorkspaceColumn
                             // `null`, not undefined, when the canvas has no top cells: undefined would fall back to panel mode's overview.
                             feed={renderAiPanelFeed(canvas.top ?? null)}
@@ -506,7 +511,8 @@ export function InteractionBody() {
                             trailing={canvas.bottom}
                             dock={<HostSlot host={copilotHost} active={copilotSlot === "main"} />}
                           />
-                        )}
+                        ) : null}
+                        </Slot>
                         {/* Full-screen video — see AgentNextGenPage.tsx's
                             identical render site for the full rationale. */}
                         {voiceVideoWindowOpen && voiceVideoFullScreen && activeChannelType === "voice" && (
@@ -604,10 +610,10 @@ export function InteractionBody() {
                         </>
                         )}
                       </div>
-                      {/* P-CANVAS: the reference slot — the reference column (two-column canvas only) or a slide-over.
-                          Under AI display "panel" there's no column, but Contact Details and Session Details still
-                          open here (P-HOME-1n). */}
-                      {(canvas.enabled || aiInPanel) && <ReferenceSlot reference={canvas.reference} />}
+                      {/* P-CANVAS: the reference slot — the reference column (its cells' parts there) or a slide-over.
+                          With the AI feed docked there's no column, but Contact Details and Session Details still open
+                          here (P-HOME-1n). */}
+                      <ReferenceSlot reference={canvas.reference} />
                       {/* The separate voice/non-voice "Session Details"
                           `InteriorPanel` overlay that used to render here
                           (portaled beside `CustomerInformationSidePanel`)

@@ -1,7 +1,5 @@
-import { InteriorPanel, LYRA_CARD_MAX_WIDTH } from "@nicecxone/lyra-ui";
-import { useSlotHas } from "@/layout/useSlot";
-import { AssignmentsStack } from "./AssignmentCardList";
-import { QueueChip } from "./QueueChip";
+import { InteriorPanel } from "@nicecxone/lyra-ui";
+import { Slot } from "@/layout/Slot";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useActiveScheduleItem } from "@/contact-handling/home/useScheduleCards";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
@@ -39,7 +37,6 @@ export function WorkspaceHome() {
   } = useWorkspace();
   const [home] = useSettings("home");
   const [{ parts }] = useSettings("layout");
-  const assignmentsAtTop = useSlotHas("home-top", "assignments");
   const [, setHomePreview] = useWorkspaceUiField("homePreview");
   // P-HOME-1: an opened schedule item (meeting, training, task, …) isn't a conversation card, so the page lands
   // here; its minimal per-kind cell takes the main column until P-HOME-3's kinds registry.
@@ -48,8 +45,8 @@ export function WorkspaceHome() {
   return (
                 <div key="dashboard" className="flex flex-1 flex-col min-w-0 overflow-hidden animate-in fade-in-0 duration-200">
               {/* The page header first, then the Home tabs, then the tab's body (P-HOME-1m; one column and two). The
-                  queue chip is here unless the assignments are at the top of Home (then it's in the app header). */}
-              {showPageHeader && <HomePageHeader actions={<QueueChip mount="home" />} />}
+                  page header's actions are the home-top slot's (the queue chip, unless it's in the app header). */}
+              {showPageHeader && <HomePageHeader actions={<Slot id="home-top" region="page-header" />} />}
               {/* Home tabs: shown while any app is placed as "tab" (Settings → Header). */}
               {showPageHeader && tabApps.length > 0 && (
                 <HomeTabStrip
@@ -58,16 +55,9 @@ export function WorkspaceHome() {
                   onReorder={(order) => updateHeaderSettings((prev) => tabOrderPatch(prev, order))}
                 />
               )}
-              {/* The home-top slot (P-HOME-1n, placement "none"): the assignments part — the rail's caption and
-                  cards, every open assignment — above the dashboard. A card opens in the main column. */}
-              {assignmentsAtTop && activeDeskTab === "dashboard" && (
-                <AssignmentsStack
-                  mount="homeTop"
-                  className="shrink-0 max-h-[45%] overflow-y-auto px-4 pt-3 pb-2"
-                  // The card width plus the stack's own px-4 on each side.
-                  style={{ maxWidth: LYRA_CARD_MAX_WIDTH + 32 }}
-                />
-              )}
+              {/* The home-top slot (P-HOME-1n, placement "none"): the assignments part above the dashboard. Header
+                  apps placed there are the tab strip's own tabs. */}
+              <Slot id="home-top" />
               {/* Body row: main content + interior panel */}
               <div className="relative flex flex-1 overflow-hidden">
               {/* The Customers tab (table + row panel) and the customer tabs

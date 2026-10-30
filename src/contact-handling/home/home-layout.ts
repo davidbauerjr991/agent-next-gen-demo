@@ -4,6 +4,15 @@ import type { HomeSectionKey, HomeSettings } from "@/settings";
 /** A Home section's part in `layout.parts` (the feed is `activityFeed`). */
 const partOf = (key: HomeSectionKey) => (key === "activity" ? "activityFeed" : key);
 
+/** One-column Home's rows: every enabled section, wherever `layout.parts` puts it, in the map's order (P-LAYOUT;
+ *  the `home.sections` order the map's orders come from). */
+export function homeSectionsInOrder(home: HomeSettings, parts: LayoutParts): HomeSectionKey[] {
+  return home.sections
+    .filter((s) => s.enabled)
+    .map((s) => s.key)
+    .sort((a, b) => parts[partOf(a)].order - parts[partOf(b)].order);
+}
+
 /** Two-column Home's right column: every enabled section `layout.parts` puts in the trailing column (P-LAYOUT), in
  *  the map's order. The `home.layout` "twoColumn" preset puts everything there but the feed, Due soon (a one-column
  *  card: the feed beside it already lists what's next) and Contact History (the feed's History view there,

@@ -58,7 +58,7 @@ export const SLOTS: Record<SlotId, SlotDef> = {
   "left-nav": {
     id: "left-nav",
     container: "LeftNav",
-    description: "lyra LeftNav: its header, sticky caption and LeftNavSlot rows",
+    description: "lyra LeftNav: its header and sticky caption (the left-nav `<Slot>`s) and the rail",
     capacity: "many",
     pages: BOTH,
   },

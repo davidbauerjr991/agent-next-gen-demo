@@ -25,7 +25,7 @@ import { InteractionNavCard } from "./left-nav-parts";
 /** One assignment card in the left nav (P-EXTRACT C8, from the page): the
  *  body of the card's `ClockTick` callback, so a tick re-renders this card
  *  and not the page. `slotExpanded` is the overlay hover's `expanded`, from
- *  `LeftNavSlot`. */
+ *  the left-nav `<Slot>` (P-LAYOUT). */
 export function NavCardItem({
   interaction,
   slotExpanded,
