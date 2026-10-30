@@ -23,18 +23,25 @@ async function setUp(page: Page, assignments: Record<string, unknown>, width = 1
   await page.getByRole("button", { name: "Go Available" }).click();
 }
 
-const stackCards = (page: Page) => page.locator("[data-slot=assignments-stack][data-mount=homeTop] [data-slot=assignment-card]");
+const inlineRows = (page: Page) => page.locator("[data-slot=assignment-inline-row]");
 const queueChip = (page: Page) => page.locator("header [data-slot=queue-chip]");
 
-test("placement none: the open assignments at the top of Home; the app header's My Assignment Queue menu switches between them and Home", async ({ page }) => {
+test("placement none: a row per open assignment at the top of Home; View opens one; the app header's My Assignment Queue menu switches between them and Home", async ({ page }) => {
   await setUp(page, { placement: "none" });
-  await expect(stackCards(page).first()).toBeVisible();
-  const count = await stackCards(page).count();
+  await expect(inlineRows(page).first()).toBeVisible();
+  const count = await inlineRows(page).count();
   expect(count).toBeGreaterThan(0);
   // None in the left nav.
   await expect(page.locator("aside [data-slot=assignment-card]")).toHaveCount(0);
-  // A card opens in the main column (the card's own labelled element, its first; the hover cluster comes later).
-  await stackCards(page).first().locator("[aria-label]").first().click({ force: true });
+  // Stacked above the dashboard, each with its avatar or kind icon, as lyra InlineNotifications in a list.
+  await expect(page.getByRole("list", { name: "Assignments" }).getByRole("listitem")).toHaveCount(count);
+  await expect(inlineRows(page).first().locator("[data-slot=inline-notification-icon]")).toBeVisible();
+  const rowsBottom = await inlineRows(page).last().evaluate((el) => el.getBoundingClientRect().bottom);
+  const dashboardTop = await page.locator("[data-home-layout]").first().evaluate((el) => el.getBoundingClientRect().top);
+  expect(rowsBottom).toBeLessThanOrEqual(dashboardTop + 1);
+  // View opens one in the main column.
+  const viewable = inlineRows(page).filter({ has: page.getByRole("button", { name: "View" }) }).first();
+  await viewable.getByRole("button", { name: "View" }).click();
   await expect(page.locator("[data-slot=record-header]")).toBeVisible();
   // The chip is in the app header on an assignment too; its menu lists Home and every open assignment.
   await queueChip(page).click();
@@ -43,7 +50,7 @@ test("placement none: the open assignments at the top of Home; the app header's 
   await expect(menu.getByRole("menuitem")).toHaveCount(count + 1);
   await menu.getByRole("menuitem", { name: /Home/ }).click();
   await expect(page.locator("[data-slot=record-header]")).toHaveCount(0);
-  await expect(stackCards(page).first()).toBeVisible();
+  await expect(inlineRows(page).first()).toBeVisible();
 });
 
 test("interior panel: lyra's left SidePanel inside the content card, at its start, resizable within 350–425 (P-LAYOUT fix (a))", async ({ page }) => {

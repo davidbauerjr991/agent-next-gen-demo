@@ -114,7 +114,7 @@ All client-side. The provider layer keeps a real backend (Twilio, CXone ACD) a s
   | pinned and open state | per-browser working state, default pinned |
   | the rail's Assignments item | reused: it stays the overlay trigger while the panel is overlaid |
 
-  (b) **Placement "none" renders the assignments part inline**: one compact row per open assignment at the top of Home, on lyra `InlineNotification` with lyra's new `icon` prop. Rows are stacked, newest first, and not the rail's card column. Kind cards and tasks are included; the test covers a kind card and a task. The My Assignment Queue chip stays the full switcher. It mirrors `AssignmentEntryCard`:
+  (b) **Placement "none" renders the assignments part inline**: one compact row per open assignment at the top of Home, on lyra `InlineNotification` with lyra's new `icon` prop. Rows are stacked, newest first, and not the rail's card column. Kind cards and tasks are included; the test covers a kind card and a task. The My Assignment Queue chip stays the full switcher. Built in P-LAYOUT commit 8 (`AssignmentInlineRows.tsx`). It mirrors `AssignmentEntryCard`:
 
   | Affordance | Inline row |
   |---|---|
@@ -124,7 +124,8 @@ All client-side. The provider layer keeps a real backend (Twilio, CXone ACD) a s
   | channel chip | reused via `useChannelChipsShown` |
   | rail membership and count | reused via `useAssignmentCards` / `useRailAssignmentCount` |
   | default status | reused |
-  | Accept / Decline on an offer | reused via `IncomingOfferActions`, in place of View |
+  | Accept / Decline on an offer | reused via `IncomingOfferActions`, in place of View (conversations: a scheduled offer stays a feed row, accepted from its preview, as on the rail) |
+  | status | the row's message line, under the name and chip |
   | Outcome popover, hover cluster and dismiss, Custom order, Collapse all, "+", Contact Details control | omitted: View opens the card, which has them |
   | selection | omitted: once opened, the row leaves Home, since Home isn't shown |
 

@@ -53,6 +53,9 @@ export function KindIcon({ kind }: { kind: AssignmentKind }) {
   return <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />;
 }
 
+/** A kind's glyph, for a component that takes the icon itself (`Avatar`'s `icon`). */
+export const kindIconFor = (kind: AssignmentKind): LucideIcon => KIND_ICONS[kind];
+
 /** A kind's name (English source; render through `t()`). */
 export const kindLabel = (kind: AssignmentKind): string => KIND_LABELS[kind];
 

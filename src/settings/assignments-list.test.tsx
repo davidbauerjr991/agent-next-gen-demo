@@ -134,10 +134,11 @@ describe("Assignments placement → Interior panel (0c; lyra SidePanel left sinc
     await h.accept(await h.startInbound("chat", "ana@example.com", "Ana Ruiz"));
     await h.advance(1000);
     await h.click([...h.container.querySelectorAll<HTMLElement>("aside button, aside [role=button]")].find((el) => el.textContent?.trim() === "Home")!);
-    const stackChips = [...h.container.querySelectorAll("[data-slot=assignments-stack][data-mount=homeTop] [data-slot=assignment-card] span")].filter(
+    // The inline row's chip (P-LAYOUT fix (b)).
+    const rowChips = [...h.container.querySelectorAll("[data-slot=assignment-inline-row] span")].filter(
       (el) => el.textContent === "Chat" && !el.classList.contains("sr-only"),
     );
-    expect(stackChips.length).toBeGreaterThan(0);
+    expect(rowChips.length).toBeGreaterThan(0);
   });
 
   it("docked: no rail item; its pin unpins it to an overlay, its close hides it and the toggle brings it back; resizable (P-LAYOUT fix (a))", async () => {

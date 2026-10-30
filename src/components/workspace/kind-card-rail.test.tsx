@@ -90,9 +90,9 @@ describe("kind cards in the rail's Custom order", () => {
   });
 });
 
-describe("placement none: the top of Home holds the rail's cards (P-HOME-1n)", () => {
-  const stackCards = () => [...h.container.querySelectorAll<HTMLElement>("[data-slot=assignments-stack][data-mount=homeTop] [data-slot=assignment-card]")];
-  const stackKeys = () => stackCards().map((el) => el.getAttribute("data-reorder-key"));
+describe("placement none: the top of Home holds a row per open assignment (P-LAYOUT fix (b))", () => {
+  const rows = () => [...h.container.querySelectorAll<HTMLElement>("[data-slot=assignment-inline-row]")];
+  const rowKeys = () => rows().map((el) => el.getAttribute("data-assignment-key")!);
 
   async function openFromActivity(title: string) {
     await h.click(homeButton());
@@ -102,7 +102,7 @@ describe("placement none: the top of Home holds the rail's cards (P-HOME-1n)", (
     await h.advance(100);
   }
 
-  it("every open assignment — conversations, a training, a task, a callback — in one stack, none in the left nav; a card opens in the main column", async () => {
+  it("every open assignment — conversations, a training, a task, a callback — a row each, newest first, none in the left nav; View opens one in the main column", async () => {
     await chatsAndTraining();
     await openFromActivity("Ticket #4821");
     await openFromActivity("Callback · Priya Shah");
@@ -114,17 +114,55 @@ describe("placement none: the top of Home holds the rail's cards (P-HOME-1n)", (
     });
     await h.click(homeButton());
     await h.advance(100);
-    // The same cards in the same order, the caption with them; the left nav holds none and no Assignments item.
-    expect(stackKeys()).toEqual(railKeys);
+    // The same cards, a row each in a list; the left nav holds none and no Assignments item.
+    expect([...rowKeys()].sort()).toEqual([...railKeys].sort());
+    expect(h.container.querySelector("[data-slot=assignment-inline-rows] [role=list]")!.querySelectorAll("[role=listitem]")).toHaveLength(railKeys.length);
     expect(cardEls()).toHaveLength(0);
-    expect(h.container.querySelector("[data-slot=assignments-stack] [aria-label='Collapse all'], [data-slot=assignments-stack] [aria-label='Expand all']")).not.toBeNull();
     expect([...h.container.querySelectorAll("aside button")].some((b) => /^Assignments/.test(b.getAttribute("aria-label") ?? b.textContent ?? ""))).toBe(false);
+    // Newest first: Ben arrived after Ana; the kind cards follow the conversations.
+    const keys = rowKeys();
+    const at = (name: string) => rows().findIndex((el) => el.textContent?.includes(name));
+    expect(at("Ben Ito")).toBeLessThan(at("Ana Ruiz"));
+    const firstKind = keys.findIndex((k) => k.startsWith("schedule:"));
+    expect(keys.slice(firstKind).every((k) => k.startsWith("schedule:"))).toBe(true);
+    // A kind card's row carries the kind's chip and the kind's icon (no initials: the training has no customer).
+    const training = rows().find((el) => el.getAttribute("data-assignment-key") === TRAINING)!;
+    expect(training.textContent).toContain("Training");
+    expect(training.querySelector("[data-slot=inline-notification-icon] svg")).not.toBeNull();
 
-    // A conversation card opens in the main column (Home goes).
-    await h.click(stackCards().find((el) => el.textContent?.includes("Ana Ruiz"))!.querySelector<HTMLElement>("[data-slot=interaction-nav-item], [role=button], button")!);
+    // A kind row's View opens its kind cell in the main column; back on Home the rows are there again.
+    await h.click([...training.querySelectorAll<HTMLElement>("button")].find((b) => b.textContent === "View")!);
+    await h.advance(300);
+    expect(h.container.querySelector("[data-kind-cell]")).not.toBeNull();
+    expect(rows()).toHaveLength(0);
+    await h.click(homeButton());
+    await h.advance(300);
+    expect(rows().length).toBe(railKeys.length);
+
+    // View opens a conversation in the main column (Home goes).
+    const ana = rows().find((el) => el.textContent?.includes("Ana Ruiz"))!;
+    await h.click([...ana.querySelectorAll<HTMLElement>("button")].find((b) => b.textContent === "View")!);
     await h.advance(300);
     expect(h.container.querySelector("[data-slot=record-header]")?.textContent).toContain("Ana Ruiz");
-    expect(stackCards()).toHaveLength(0);
+    expect(rows()).toHaveLength(0);
+  });
+
+  it("an offered conversation's row shows Accept / Decline in View's place", async () => {
+    await act(async () => {
+      store().update("channels", { chat: true });
+      const { autoAccept } = store().getState().values.assignments;
+      store().update("assignments", { placement: "none", autoAccept: { ...autoAccept, chat: false } });
+    });
+    await h.show(AgentWorkspaceAdvancedPage);
+    await h.goAvailable();
+    await h.startInbound("chat", "cy@example.com", "Cy Park");
+    await h.advance(1000);
+    const cy = rows().find((el) => el.textContent?.includes("Cy Park"))!;
+    expect(cy.textContent).toContain("Offered");
+    const labels = [...cy.querySelectorAll("button")].map((b) => b.textContent?.trim());
+    expect(labels).toContain("Accept");
+    expect(labels).toContain("Decline");
+    expect(labels).not.toContain("View");
   });
 });
 

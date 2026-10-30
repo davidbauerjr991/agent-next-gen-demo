@@ -84,12 +84,12 @@ describe("My Assignment Queue chip (P-HOME-1n)", () => {
     await h.advance(300);
     expect(h.container.querySelector("[data-slot=record-header]")?.textContent).toContain("Ana Ruiz");
 
-    // Home goes back: the stack at the top of Home, the chip still in the app header.
+    // Home goes back: the rows at the top of Home, the chip still in the app header.
     await h.click(chips()[0]);
     await h.click(menuRows().find((r) => r.textContent?.includes("Home"))!);
     await h.advance(300);
     expect(h.container.querySelector("[data-slot=record-header]")).toBeNull();
-    expect(h.container.querySelector("[data-slot=assignments-stack][data-mount=homeTop]")).not.toBeNull();
+    expect(h.container.querySelector("[data-slot=assignment-inline-rows]")).not.toBeNull();
     expect(chips()).toHaveLength(1);
     expect(inAppHeader(chips()[0])).toBe(true);
   });

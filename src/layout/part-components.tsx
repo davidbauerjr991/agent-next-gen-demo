@@ -7,8 +7,8 @@ import type { ComponentType } from "react";
 import { HostSlot } from "@/contact-handling/portal-hosts";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useAssignmentCards, useChannelChipsShown } from "@/contact-handling/useAssignmentCards";
-import { LYRA_CARD_MAX_WIDTH } from "@nicecxone/lyra-ui";
-import { AssignmentEntryCard, AssignmentsCaption, AssignmentsEmptyState, AssignmentsStack } from "@/components/workspace/AssignmentCardList";
+import { AssignmentEntryCard, AssignmentsCaption, AssignmentsEmptyState } from "@/components/workspace/AssignmentCardList";
+import { AssignmentInlineRows } from "@/components/workspace/AssignmentInlineRows";
 import { QueueChip } from "@/components/workspace/QueueChip";
 import { HEADER_APP_PARTS, HOME_SECTION_PARTS, PARTS, REFERENCE_CELL_PARTS, type PartId } from "./parts";
 import type { SlotId } from "./slots";
@@ -67,21 +67,6 @@ function LeftNavAssignments({ expanded }: PartProps) {
   );
 }
 
-/** The top of Home (placement "none"): the caption and every open assignment above the dashboard, on its tab only.
- *  A card opens in the main column. */
-function HomeTopAssignments() {
-  const { activeDeskTab } = useWorkspace();
-  if (activeDeskTab !== "dashboard") return null;
-  return (
-    <AssignmentsStack
-      mount="homeTop"
-      className="shrink-0 max-h-[45%] overflow-y-auto px-4 pt-3 pb-2"
-      // The card width plus the stack's own px-4 on each side.
-      style={{ maxWidth: LYRA_CARD_MAX_WIDTH + 32 }}
-    />
-  );
-}
-
 // ── The voice bar, the queue chip ───────────────────────────────────────────────────────────────────────────
 
 /** Voice controls "Top of left nav": the voice bar portals in here (v3's `LeftNavVoiceSlot`), only while the nav
@@ -129,7 +114,8 @@ export const PART_FORMS: Record<PartId, Forms> = {
     "left-nav:caption": LeftNavAssignmentsCaption,
     "left-nav": LeftNavAssignments,
     "interior-panel": { host: "AssignmentsInteriorPanel (lyra's left SidePanel, first in the content card's row)" },
-    "home-top": HomeTopAssignments,
+    // Placement "none" (P-LAYOUT fix (b)): inline rows, newest first, View opens one in the main column.
+    "home-top": AssignmentInlineRows,
   },
   incomingTile: { "left-nav": CARD_OFFER, "interior-panel": CARD_OFFER, "home-top": CARD_OFFER },
   queueChip: { "home-top:page-header": HomeQueueChip, header: AppHeaderQueueChip },

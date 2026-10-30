@@ -1,6 +1,6 @@
 // The assignments list (P-PROFILES; one component for every slot since P-HOME-1n): one card's drag target (the
 // wrapper lyra's `useListReorder` moves), the card itself, the "Assignments (N)" caption with its sort, the empty
-// state, and the stack the interior panel and the top of Home mount. The left nav maps `AssignmentEntryCard`
+// state, and the stack the interior panel mounts. The left nav maps `AssignmentEntryCard`
 // inline instead (LeftNav clones `expanded` onto its header's top-level children only). The order and drag wiring
 // are `useAssignmentCards` (src/contact-handling/).
 import * as React from "react";
@@ -100,20 +100,19 @@ export function AssignmentsEmptyState() {
   );
 }
 
-/** The caption, the empty state and every card: the assignments part in the interior panel and at the top of Home. */
+/** The caption, the empty state and every card: the assignments part in the interior panel (the top of Home has its
+ *  inline rows, `AssignmentInlineRows`, since P-LAYOUT). */
 export function AssignmentsStack({
   mount,
   className,
-  style,
 }: {
-  mount: Exclude<AssignmentsMount, "leftNav">;
+  mount: Extract<AssignmentsMount, "interiorPanel">;
   className?: string;
-  style?: React.CSSProperties;
 }) {
   const { entries, itemProps } = useAssignmentCards(true);
   const chipsShown = useChannelChipsShown(mount);
   return (
-    <div className={cn("flex flex-col gap-2", className)} style={style} data-slot="assignments-stack" data-mount={mount}>
+    <div className={cn("flex flex-col gap-2", className)} data-slot="assignments-stack" data-mount={mount}>
       <AssignmentsCaption expanded mount={mount} />
       {entries.length === 0 ? (
         <AssignmentsEmptyState />
