@@ -35,9 +35,14 @@ describe("Settings grouping (P-HOME-1n)", () => {
       "Phone",
       "Connections",
     ]);
-    // P-POLISH 6: one step above the sub-groups' lyra-body-md-emphasis.
+    // P-POLISH 6: group lyra-heading-md > sub-group lyra-heading-sm, each sub-group but the first with its own top margin.
     expect(groups().every((g) => g.querySelector("legend")!.classList.contains("lyra-heading-md"))).toBe(true);
-    expect(groups().every((g) => [...g.querySelectorAll(":scope > fieldset > legend")].every((l) => l.classList.contains("lyra-body-md-emphasis")))).toBe(true);
+    expect(groups().every((g) => [...g.querySelectorAll(":scope > fieldset > legend")].every((l) => l.classList.contains("lyra-heading-sm")))).toBe(true);
+    // Every sub-group, wrapped ones too (Social), carries the margin; the group drops it only right under its heading.
+    const subGroups = [...h.container.querySelectorAll<HTMLElement>("[data-settings-subgroup]")];
+    expect(subGroups.find((f) => f.querySelector(":scope > legend")?.textContent?.startsWith("Social"))).toBeDefined();
+    expect(subGroups.every((f) => f.classList.contains("mt-6"))).toBe(true);
+    expect(groups().every((g) => g.classList.contains("[&>legend+fieldset]:mt-0"))).toBe(true);
     expect(h.container.querySelectorAll("[data-testid=settings-view] [role=separator], [data-testid=settings-view] [data-orientation=horizontal]").length).toBeGreaterThanOrEqual(8);
   });
 
