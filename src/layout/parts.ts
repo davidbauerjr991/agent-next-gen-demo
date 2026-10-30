@@ -2,10 +2,9 @@
 // goes by default, its options and constraints, and the legacy setting it reads through until that setting retires
 // (PLAN Decisions 2026-10-30). Data only — the components are mapped in `part-components.tsx` — so the matrix script
 // and node tests can read it. A part is a thin registration around an existing component; nothing here restructures
-// one. Until the `layout` section lands (P-LAYOUT 3), only `assignments` resolves from today's setting (`slotFrom`);
-// every other part reports its default, and nothing reads those yet. Components ask `slotFor` / `useSlotFor`, never
-// the setting's value.
-import type { AssignmentsPlacement, SettingConstraint, SettingsState } from "@/settings";
+// one. A part's slot, order and options come from `layout.parts` (the `layout` section, `layout-section.ts`);
+// components ask `slotFor` / `useSlotFor` / `useSlotParts`, never a legacy placement setting.
+import type { SettingConstraint, SettingsState } from "@/settings";
 import type { SlotId } from "./slots";
 
 /** Home's sections as parts: `HOME_SECTIONS` less the feed, which is `activityFeed` (a test holds the two lists
@@ -73,15 +72,7 @@ export interface PartDef {
   constraints?: readonly SettingConstraint["id"][];
   /** The legacy setting(s) its slot, order or options read through, for the docs and the retirement checklist. */
   source?: string;
-  /** The slot today's settings put it in; absent → `defaultSlot`. Replaced by the `layout` section. */
-  slotFrom?: (settings: SettingsState) => SlotId;
 }
-
-const ASSIGNMENTS_SLOT: Record<AssignmentsPlacement, SlotId> = {
-  leftNav: "left-nav",
-  interiorPanel: "interior-panel",
-  none: "home-top",
-};
 
 type Def = Omit<PartDef, "id">;
 
@@ -124,7 +115,6 @@ const DEFS: Record<PartId, Def> = {
     defaultSlot: "left-nav",
     constraints: ["placement-none-toasts", "placement-none-incoming"],
     source: "assignments.placement",
-    slotFrom: (s) => ASSIGNMENTS_SLOT[s.assignments.placement],
   },
   incomingTile: {
     component: "IncomingOfferActions",
@@ -221,12 +211,13 @@ const DEFS: Record<PartId, Def> = {
 
 export const PARTS = Object.fromEntries(PART_IDS.map((id) => [id, { id, ...DEFS[id] }])) as Record<PartId, PartDef>;
 
+/** The slot `layout.parts` puts a part in. */
 export function slotFor(part: PartId, settings: SettingsState): SlotId {
-  const def = PARTS[part];
-  return def.slotFrom?.(settings) ?? def.defaultSlot;
+  return settings.layout.parts[part].slot;
 }
 
-/** The parts the settings put in a slot, in registry order. */
+/** The parts `layout.parts` puts in a slot, in order: by order key, ties in registry order (`PART_IDS`). */
 export function partsIn(slot: SlotId, settings: SettingsState): PartId[] {
-  return PART_IDS.filter((part) => slotFor(part, settings) === slot);
+  const parts = settings.layout.parts;
+  return PART_IDS.filter((part) => parts[part].slot === slot).sort((a, b) => parts[a].order - parts[b].order || PART_IDS.indexOf(a) - PART_IDS.indexOf(b));
 }

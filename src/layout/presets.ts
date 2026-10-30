@@ -132,7 +132,7 @@ const cellOrder = (s: SettingsState, part: ReferenceCellPart) => s.canvas.cells[
 
 /** A reference cell's place: in the reference column, in the main column before the conversation (stacked), or
  *  after it (the action region). */
-function cellPlace(parts: LayoutParts, part: ReferenceCellPart): "reference" | "before" | "after" {
+export function cellPlace(parts: LayoutParts, part: ReferenceCellPart): "reference" | "before" | "after" {
   const entry = parts[part];
   if (entry.slot === "reference") return "reference";
   // The action area's anchor: the conversation, or the AI feed where the conversation is docked (AI display main).

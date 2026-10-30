@@ -322,10 +322,13 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
   // the same persisted values. Defaults are unchanged: Notifications, Agent
   // Chat, Schedule and Search pinned.
   const [headerSettings, updateHeaderSettings] = useSettings("header");
-  const pinnedKeys: Record<PanelKey, boolean> = pinnedKeysFromHeader(headerSettings);
-  const togglePinnedKey = (key: PanelKey) => updateHeaderSettings((prev) => headerPatchForPin(prev, key, !pinnedKeysFromHeader(prev)[key]));
-  // Home tabs: Dashboard plus the apps placed as "tab" (none on Phase 1, so no tab bar).
-  const tabApps = homeTabApps(headerSettings);
+  // P-LAYOUT: where each app shows is its part's slot (`layout.parts`); the header section says which are on.
+  const [{ parts: layoutParts }] = useSettings("layout");
+  const pinnedKeys: Record<PanelKey, boolean> = pinnedKeysFromHeader(headerSettings, layoutParts);
+  const togglePinnedKey = (key: PanelKey) =>
+    updateHeaderSettings((prev) => headerPatchForPin(prev, key, !pinnedKeysFromHeader(prev, layoutParts)[key]));
+  // Home tabs: Dashboard plus the apps at the top of Home (none on Phase 1, so no tab bar).
+  const tabApps = homeTabApps(headerSettings, layoutParts);
   const homeTabs = useHomeTabs(tabApps);
   // The Customers left-nav page's own customer tabs.
   const customersPageTabs = useHomeTabs(CUSTOMERS_ONLY);

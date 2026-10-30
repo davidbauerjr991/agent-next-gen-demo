@@ -1,5 +1,4 @@
 import { useCallback } from "react";
-import type { AiDisplayLocation } from "@/settings";
 import { useWorkspaceUiField } from "./workspace-ui-store";
 
 // A call's "Hide Transcript" (P-CANVAS): under AI display inline, a voice
@@ -8,9 +7,9 @@ import { useWorkspaceUiField } from "./workspace-ui-store";
 // Per card, in the workspace UI store, so it's kept across card switches;
 // Contact Details offers its Transcript tab while it's on.
 
-/** Where the toggle shows: a call under AI display inline (not chat or email, not under main or panel). */
-export const transcriptToggleApplies = (displayLocation: AiDisplayLocation, channelType: string | undefined) =>
-  displayLocation === "inline" && channelType === "voice";
+/** Where the toggle shows: a call under AI display inline (not chat or email, not under main or panel). `aiInline`:
+ *  the conversation and the AI feed both in the main column (`layout.parts`, P-LAYOUT). */
+export const transcriptToggleApplies = (aiInline: boolean, channelType: string | undefined) => aiInline && channelType === "voice";
 
 /** Whether the agent hid this card's transcript, and the setter. Only the toggle's own contacts read it as hidden. */
 export function useTranscriptHidden(cardId: string | undefined, applies: boolean): [boolean, (hide: boolean) => void] {

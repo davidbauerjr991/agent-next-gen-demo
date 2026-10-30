@@ -1,6 +1,7 @@
 import { LeftNav, NavRail } from "@nicecxone/lyra-ui";
 import { Inbox } from "lucide-react";
 import { HostSlot } from "@/contact-handling/portal-hosts";
+import { useSlotFor } from "@/layout/useSlot";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { t } from "@/i18n";
 import { useAssignmentCards, useChannelChipsShown } from "@/contact-handling/useAssignmentCards";
@@ -15,7 +16,7 @@ import { LeftNavFooterColumn, LeftNavFooterSpacer, LeftNavSlot } from "./left-na
 export function WorkspaceLeftNav() {
   const {
     interactions, isNavNarrow, navItemsAtTop, navOpen, navRailItems: workspaceRailItems, newOutboundAtBottom,
-    newOutboundLauncher, setNavOpen, setVoiceNavSlotMounted, voiceBarHost, voiceSettings,
+    newOutboundLauncher, setNavOpen, setVoiceNavSlotMounted, voiceBarHost,
   } = useWorkspace();
   // P-PROFILES 0b: the cards' order (Custom drags only while the nav is open).
   const { entries, itemProps } = useAssignmentCards(navOpen && !isNavNarrow);
@@ -23,6 +24,8 @@ export function WorkspaceLeftNav() {
   // P-PROFILES 0c / P-HOME-1n: the cards show here only in the left-nav slot. When the interior panel doesn't fit
   // (an overlay), the rail's first item opens it, badged with the cards that need the agent.
   const panel = useAssignmentsPanel();
+  // P-LAYOUT: the voice bar part in the left-nav slot (voice controls "top").
+  const voiceInLeftNav = useSlotFor("voiceBar") === "left-nav";
   const navRailItems = panel.overlaid
     ? [
         {
@@ -139,7 +142,7 @@ export function WorkspaceLeftNav() {
                   voice bar portals in here (v3's `LeftNavVoiceSlot`). Only
                   while the nav is open; collapsed, the bar falls back to
                   the bottom. */}
-              {navOpen && voiceSettings.controlsLocation === "top" && (
+              {navOpen && voiceInLeftNav && (
                 <HostSlot host={voiceBarHost} data-slot="left-nav-voice" onMountedChange={setVoiceNavSlotMounted} />
               )}
               {/* Per explicit request ("add a message and icon into the left

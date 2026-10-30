@@ -461,7 +461,6 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
     setPendingCloseCopy(copy);
     setPendingClose(() => dismiss);
   };
-  const [voiceSettings] = useSettings("voice");
   // Settings → AI display "panel" moves the AI content out of the transcript
   // into the docked Contact Details panel (`renderAiPanelFeed`). AI display
   // "main" (AI-first) makes it the main column instead (`AiWorkspaceColumn`),
@@ -1019,7 +1018,7 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
     contactHistory, assignmentSort, setAssignmentSort, assignmentSortDirection, setAssignmentSortDirection,
     channelsAllExpanded, setChannelsAllExpanded, channelsExpandedOverrideVersion, setChannelsExpandedOverrideVersion,
     handleToggleAllChannelsExpanded, assignmentsSettings, outboundSettings, enabledChannels, calling, pendingClose,
-    setPendingClose, pendingCloseCopy, confirmDismiss, voiceSettings, panelPlacement, placement, aiInPanel, asyncPlacement,
+    setPendingClose, pendingCloseCopy, confirmDismiss, panelPlacement, placement, aiInPanel, asyncPlacement,
     aiWorkspaceInMain, tabs, omnichannel, rightPanelEl, rightPanelSlotMounted, setRightPanelSlotMounted,
     rightPanelRef, portalInto, stripAiInPanel, copilotHost, aiFollowSignal,
     setAiFollowSignal, copilotFollows, voiceBarHost, sessionRowHost, voiceNavSlotMounted, setVoiceNavSlotMounted,

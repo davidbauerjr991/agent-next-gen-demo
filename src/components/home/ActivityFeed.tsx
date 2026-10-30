@@ -13,6 +13,7 @@ import { useSettings, type HomeActivityView } from "@/settings";
 import { CONTACT_HISTORY_RANGE_OPTIONS } from "@/components/agent-next-gen-contact-history";
 import type { FeedRow, FeedView } from "@/contact-handling/home/activity-feed";
 import { homeIsTwoColumn, homeSideSections } from "@/contact-handling/home/home-layout";
+import { usePartOption } from "@/layout/useSlot";
 import { useActivityFeed, type ActivityFeed as ActivityFeedApi } from "@/contact-handling/home/useActivityFeed";
 import { useScheduleSnapshot } from "@/provider-context";
 import { cn } from "@/lib/utils";
@@ -162,7 +163,10 @@ export function ActivityFeed() {
   const api = useActivityFeed();
   const { feed, view } = api;
   const [home, updateHome] = useSettings("home");
-  const asTable = home.activityView === "table";
+  const [{ parts }] = useSettings("layout");
+  // P-LAYOUT: the feed part's `view` option; the toggle writes `home.activityView`, its preset, which moves it.
+  const activityView = usePartOption("activityFeed", "view") as HomeActivityView;
+  const asTable = activityView === "table";
   const now = Date.now();
   const nothingComing = feed.showAssignments && feed.counts.needsDecision + feed.counts.assignments === 0;
 
@@ -198,18 +202,18 @@ export function ActivityFeed() {
           </div>
           {/* List or table, for all three views (P-HOME-1m): one setting, `home.activityView`. */}
           {/* The right column's Cards toggle sits just after it (two columns, while the column doesn't fit). */}
-          <div className="flex items-center gap-2" data-feed-display={home.activityView}>
+          <div className="flex items-center gap-2" data-feed-display={activityView}>
             <ToggleGroup
               type="single"
               ariaLabel={t("Show the feed as")}
-              value={home.activityView}
+              value={activityView}
               onValueChange={(value) => updateHome({ activityView: value as HomeActivityView })}
               items={[
                 { value: "list", ariaLabel: t("List"), label: <List className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" /> },
                 { value: "table", ariaLabel: t("Table"), label: <Table2 className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" /> },
               ]}
             />
-            {homeIsTwoColumn(home) && homeSideSections(home).length > 0 && <HomeCardsToggle />}
+            {homeIsTwoColumn(home, parts) && homeSideSections(home, parts).length > 0 && <HomeCardsToggle />}
           </div>
         </div>
         {/* One filter row for every view (P-HOME-1m): the view's search first, then the kinds (lyra's FilterChip

@@ -9,6 +9,7 @@ import { ActivityFeed } from "@/components/home/ActivityFeed";
 import { DueSoonCard, MetricCard } from "@/components/home/persona-cards";
 import { HomeTwoColumn } from "@/components/home/HomeTwoColumn";
 import { homeIsTwoColumn, homeSideSections } from "@/contact-handling/home/home-layout";
+import { usePartOption } from "@/layout/useSlot";
 import { QueueListCard } from "@/components/home/QueueListCard";
 import { t } from "@/i18n";
 import {
@@ -56,7 +57,10 @@ export function HomeDashboard({ selectedQueueId, onSelectQueue, contactHistory }
     const contactChannels = queue ? QUEUE_CONTACT_CHANNELS[queue] : undefined;
     return (home.queue.channels[queue] ?? true) && (!contactChannels || contactChannels.some((c) => channelOn(channels, c)));
   });
-  const twoColumn = home.layout === "twoColumn";
+  // P-LAYOUT: where Home's parts sit (`layout.parts`): the feed and the sections, one column or two.
+  const [{ parts }] = useSettings("layout");
+  const twoColumn = homeIsTwoColumn(home, parts);
+  const asTable = usePartOption("activityFeed", "view") === "table";
 
   // One section's content, or null when it has nothing to show (no queue tiles on: no empty row).
   const nodeFor = (key: HomeSectionKey): React.ReactNode => {
@@ -101,7 +105,7 @@ export function HomeDashboard({ selectedQueueId, onSelectQueue, contactHistory }
           <DashboardCard variant="neutral-subtle" headerTitle={t("Activity")}>
             {/* Table mode needs a height to fill (P-HOME-1m): one column's card is a row in the page's scroll, so its
                 body gets one — the viewport's, less the header above it. */}
-            <div className={cn("px-4 pb-4", home.activityView === "table" && "flex h-[70vh] min-h-[420px] flex-col")} data-feed-area="">
+            <div className={cn("px-4 pb-4", asTable && "flex h-[70vh] min-h-[420px] flex-col")} data-feed-area="">
               <ActivityFeed />
             </div>
           </DashboardCard>
@@ -118,8 +122,8 @@ export function HomeDashboard({ selectedQueueId, onSelectQueue, contactHistory }
 
   // Two columns (the wireframe): the feed as the main column, every other enabled section stacked on the right in
   // its order (HomeTwoColumn). The queue is one compact card there.
-  if (homeIsTwoColumn(home)) {
-    const side = homeSideSections(home).flatMap((key) => {
+  if (twoColumn) {
+    const side = homeSideSections(home, parts).flatMap((key) => {
       const node =
         key === "queue"
           ? queueBases.length > 0 && <QueueListCard bases={queueBases} selectedId={selectedQueueId} onSelect={onSelectQueue} />

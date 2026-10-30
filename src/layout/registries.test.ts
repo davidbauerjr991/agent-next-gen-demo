@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { ASSIGNMENTS_PLACEMENTS, EXTRA_HEADER_APPS, HOME_ACTIVITY_VIEWS, HOME_SECTIONS, SETTING_CONSTRAINTS } from "@/settings";
 import { defaultSettings } from "@/settings/settings-schema";
+import { withDerivedLayout } from "@/settings/settle";
 import { HEADER_APP_PARTS, HOME_SECTION_PARTS, PARTS, PART_IDS, partsIn, slotFor } from "./parts";
 import { PAGES, SLOTS, SLOT_CONTAINERS, SLOT_IDS } from "./slots";
 
@@ -47,10 +48,21 @@ describe("parts registry (P-LAYOUT)", () => {
 
   it.each(ASSIGNMENTS_PLACEMENTS)("under placement %s, each part resolves to one allowed slot and the slots partition the parts", (placement) => {
     const base = defaultSettings();
-    const settings = { ...base, assignments: { ...base.assignments, placement } };
+    const settings = withDerivedLayout({ ...base, assignments: { ...base.assignments, placement } });
     const placed = SLOT_IDS.flatMap((slot) => partsIn(slot, settings));
     expect(placed.sort()).toEqual([...PART_IDS].sort());
     for (const id of PART_IDS) expect(PARTS[id].allowedSlots, id).toContain(slotFor(id, settings));
+  });
+
+  it("parts with equal order keys in a slot sort in registry order, whatever order the map lists them in (P-LAYOUT)", () => {
+    const base = defaultSettings();
+    const parts = { ...base.layout.parts };
+    // Three header apps on one key; the map object lists them reversed.
+    for (const app of ["schedule", "wem", "customers"] as const) parts[app] = { ...parts[app], slot: "header", order: 7 };
+    const reversed = Object.fromEntries(Object.entries(parts).reverse()) as typeof parts;
+    const ordered = partsIn("header", { ...base, layout: { parts: reversed } }).filter((p) => ["schedule", "wem", "customers"].includes(p));
+    expect(ordered).toEqual(["customers", "wem", "schedule"]);
+    expect(PART_IDS.indexOf("customers")).toBeLessThan(PART_IDS.indexOf("wem"));
   });
 
   it("every part has a label, a component and, for an option, a default among its values", () => {

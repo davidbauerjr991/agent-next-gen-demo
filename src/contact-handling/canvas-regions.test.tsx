@@ -132,6 +132,19 @@ describe("stacked canvas and panel mode", () => {
     });
   }
 
+  it("a custom map splits the reference cells: Customer Info above the action area, the summaries in the column (P-LAYOUT)", async () => {
+    await open({ displayLocation: "inline", canvasLayout: "twoColumn" });
+    await act(async () => {
+      const store = getSettingsStore();
+      const parts = store.getState().values.layout.parts;
+      store.update("layout", { parts: { ...parts, customerInfo: { ...parts.customerInfo, slot: "main", order: 0 } } });
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    await CASES.noah();
+    expect(cellsIn(region("reference"))).toEqual(["real-time-summary", "journey-summary"]);
+    expect(cellsIn(region("action"))).toEqual(["customer-info"]);
+  });
+
   it("AI display panel: no canvas, whatever the layout setting; the reference cells are Contact Details' Overview", async () => {
     await open({ displayLocation: "panel", canvasLayout: "twoColumn" });
     await CASES.noah();

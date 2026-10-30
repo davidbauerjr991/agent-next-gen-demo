@@ -740,9 +740,9 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
   const [lastDetailPanelContent, setLastDetailPanelContent] = useState<DetailPanelContent | null>(null);
   // The interior slide-over's mount (slide-over-placement.ts): the docked panel, or the reference slot beside the
   // action area. Derived from this render's selection (the last one while closing), so a placement never lags its content.
-  const [{ displayLocation }] = useSettings("ai");
+  const [{ parts: layoutParts }] = useSettings("layout");
   const slideOverMode = slideOverPlacement({
-    displayLocation,
+    parts: layoutParts,
     content: selectedDetailPanelContent ?? lastDetailPanelContent,
   }).mode;
   const slideOverInPanel = slideOverMode === "panel";

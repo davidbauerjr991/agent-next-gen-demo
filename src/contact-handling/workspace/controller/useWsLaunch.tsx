@@ -33,6 +33,7 @@ import { usePresenceSync } from "@/contact-handling/usePresenceSync";
 import { useThreadCurrentSession } from "@/contact-handling/useThreadCurrentSession";
 import { isThreadOnScreen, resolveContactDetailsView, type ContactDetailsTabContext } from "@/contact-handling/contact-details-tabs";
 import { transcriptToggleApplies, useTranscriptHidden } from "@/contact-handling/transcript-visibility";
+import { useSlotFor } from "@/layout/useSlot";
 import { useSettings } from "@/settings";
 import type { WorkspaceLate } from "./workspace-late";
 import type { WsPanels } from "./useWsPanels";
@@ -54,8 +55,10 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
     activeInteractionIsRealCustomer, activeChannelType, isHistoryConversationView, panelVoiceThread, contactSubject,
   } = prev;
   // A call's "Hide Transcript" (P-CANVAS; AI display inline, voice), per card.
-  const [{ displayLocation }] = useSettings("ai");
-  const transcriptToggleShown = transcriptToggleApplies(displayLocation, activeChannelType);
+  const conversationSlot = useSlotFor("conversation");
+  const aiFeedSlot = useSlotFor("aiFeed");
+  const aiInline = conversationSlot === "main" && aiFeedSlot === "main";
+  const transcriptToggleShown = transcriptToggleApplies(aiInline, activeChannelType);
   const [transcriptHidden, setTranscriptHidden] = useTranscriptHidden(activeInteraction?.id, transcriptToggleShown);
   // What Contact Details shows: the tab state resolved for this card and AI display (P-CANVAS). The Transcript tab
   // only when the thread isn't already on screen (`isThreadOnScreen`).

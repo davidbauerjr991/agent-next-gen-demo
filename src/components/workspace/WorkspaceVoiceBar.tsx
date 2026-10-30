@@ -1,5 +1,6 @@
 import { VoiceBar, voiceBarCalls } from "@/contact-handling";
 import { HostSlot } from "@/contact-handling/portal-hosts";
+import { useSlotFor } from "@/layout/useSlot";
 import { MARCUS_WEBB_ID } from "@/contact-handling/scenario-cases";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { initialsFor } from "@/components/agent-next-gen-shared-utils";
@@ -13,8 +14,10 @@ export function WorkspaceVoiceBar() {
     liveVoiceCallControls, liveVoiceCallInteraction, liveVoiceCallInteractionIsRealCustomer, liveVoiceCallThread,
     marcusWebbReviewing, scenarioKeyOf,
     setVoiceVideoFullScreen, setVoiceVideoWindowOpen, switchActiveInteraction, voiceBarCall,
-    voiceBarCallOf, voiceBarHost, voiceNavSlotMounted, voiceSettings, voiceVideoWindowOpen,
+    voiceBarCallOf, voiceBarHost, voiceNavSlotMounted, voiceVideoWindowOpen,
   } = useWorkspace();
+  // P-LAYOUT: the voice bar part's slot; the left nav's host holds it while it's mounted (the nav open).
+  const inLeftNav = useSlotFor("voiceBar") === "left-nav" && voiceNavSlotMounted;
   const transcriptMenu = useActiveTranscriptMenu(liveVoiceCallInteraction ?? undefined, liveVoiceCallThread ?? undefined);
   return (
     <>
@@ -34,7 +37,7 @@ export function WorkspaceVoiceBar() {
               // Settings → Voice controls location; the slot at the top of
               // the left nav exists only while the nav is open. The bar
               // portals into one host either way, so moving never remounts it.
-              placement={voiceSettings.controlsLocation === "top" && voiceNavSlotMounted ? "top" : "bottom"}
+              placement={inLeftNav ? "top" : "bottom"}
               host={voiceBarHost}
               onHangUp={() => {
                 setVoiceVideoWindowOpen(false);
@@ -91,7 +94,7 @@ export function WorkspaceVoiceBar() {
             />
           ) : null}
           {/* The voice bar's bottom slot (`voiceBarHost`), unless the left nav's holds it. */}
-          <HostSlot host={voiceBarHost} active={!(voiceSettings.controlsLocation === "top" && voiceNavSlotMounted)} data-slot="voice-bar-bottom" />
+          <HostSlot host={voiceBarHost} active={!inLeftNav} data-slot="voice-bar-bottom" />
     </>
   );
 }

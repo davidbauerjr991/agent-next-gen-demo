@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { ASSIGNMENTS_PLACEMENTS, SETTING_CONSTRAINTS, type SettingsState } from "@/settings";
 import { defaultSettings } from "@/settings/settings-schema";
+import { withDerivedLayout } from "@/settings/settle";
 import { PARTS, PART_IDS, partsIn, slotFor } from "./parts";
 import { SLOTS } from "./slots";
 
+// The placement's map, as the store reads it (P-LAYOUT: a part's slot is `layout.parts`).
 const withPlacement = (placement: (typeof ASSIGNMENTS_PLACEMENTS)[number]): SettingsState => {
   const s = defaultSettings();
-  return { ...s, assignments: { ...s.assignments, placement } };
+  return withDerivedLayout({ ...s, assignments: { ...s.assignments, placement } });
 };
 
 describe("layout parts (P-HOME-1n)", () => {
@@ -14,8 +16,8 @@ describe("layout parts (P-HOME-1n)", () => {
     expect(slotFor("assignments", withPlacement("leftNav"))).toBe("left-nav");
     expect(slotFor("assignments", withPlacement("interiorPanel"))).toBe("interior-panel");
     expect(slotFor("assignments", withPlacement("none"))).toBe("home-top");
-    // The queue chip shares the top of Home (its page header) and reports that default until P-LAYOUT 3's follow
-    // rule moves it to the header under none; these check membership of `assignments` only.
+    // The queue chip shares the top of Home (its page header), and moves to the header under none (its follow rule);
+    // these check membership of `assignments` only.
     expect(partsIn("home-top", withPlacement("none"))).toContain("assignments");
     expect(partsIn("home-top", withPlacement("leftNav"))).not.toContain("assignments");
   });

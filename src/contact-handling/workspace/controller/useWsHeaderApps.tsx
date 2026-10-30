@@ -46,7 +46,7 @@ import { useSearchPanelContent } from "@/components/agent-next-gen-search-panel"
 import { AGENT_WORKSPACE_CUSTOMER_PANEL_TABS, DetailsPanelAccordions } from "@/components/customer-info";
 import { ADDRESS_BOOKS, NewOutboundLauncher } from "@/contact-handling";
 import { LUCAS_THOMAS_ID, MARCUS_WEBB_ID } from "@/contact-handling/scenario-cases";
-import { leftNavKeysFromHeader, type ExtraHeaderApp } from "@/settings";
+import { leftNavKeysFromHeader, useSettings, type ExtraHeaderApp } from "@/settings";
 import { slideOverContent } from "@/contact-handling/slide-over-registry";
 import type { LucasThomasMemoryFocus, LucasThomasPanelKey } from "@/components/agent-next-gen-lucas-thomas-panels";
 import type { PanelKey } from "@/contact-handling/workspace/workspace-types";
@@ -749,7 +749,8 @@ export function useWsHeaderApps(prev: WsOutbound) {
   // opens as a page in the main column; Agent chat, a drawer, opens in the
   // shared panel its header icon would.
   const scheduleSnapshot = useScheduleSnapshot();
-  const leftNavKeys = leftNavKeysFromHeader(headerSettings);
+  const [{ parts: layoutParts }] = useSettings("layout");
+  const leftNavKeys = leftNavKeysFromHeader(headerSettings, layoutParts);
   const leftNavPageShown = leftNavPage && !activeInteraction && !showSettings && leftNavKeys.includes(leftNavPage) ? leftNavPage : null;
   const leftNavAppItems = leftNavKeys.map((key) => {
     const { label, icon: KeyIcon } = PANEL_KEY_METADATA[key];

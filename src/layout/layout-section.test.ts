@@ -13,7 +13,7 @@ import { disabledBy } from "@/settings/constraints";
 import { SECTIONS, defaultSettings } from "@/settings/settings-schema";
 import { settle, withDerivedLayout } from "@/settings/settle";
 import type { SettingsStorage } from "@/settings/settings-storage";
-import { layoutFromLegacy, legacyFromLayout, partsInSlot, readStoredParts, validateLayout, type LayoutParts } from "./layout-section";
+import { layoutFromLegacy, legacyFromLayout, partsInSlot, patchParts, readStoredParts, validateLayout, type LayoutParts } from "./layout-section";
 import { LEGACY_FIELDS, PRESET_FIELDS } from "./presets";
 import { HEADER_APP_PARTS, PARTS, PART_IDS } from "./parts";
 
@@ -137,6 +137,46 @@ describe("the migration: legacy placement fields → layout.parts (P-LAYOUT)", (
     swapped[keys.indexOf("performance")] = "productivity";
     swapped[keys.indexOf("productivity")] = "performance";
     expect(projected).toEqual(swapped);
+  });
+
+  it("every value of every preset field: its preset reproduces it (legacy → map → legacy), from every other value", () => {
+    for (const field of PRESET_FIELDS) {
+      for (const from of field.values) {
+        for (const to of field.values) {
+          const start = withDerivedLayout(field.set(defaultSettings(), from));
+          const moved = validateLayout(patchParts(start.layout.parts, field.preset(to, start)));
+          expect(field.reproduced(moved, start), `${field.id}: ${String(from)} → ${String(to)}`).toEqual(to);
+        }
+      }
+    }
+  });
+
+  it("a map no preset matches leaves the field untouched — and the fields with no such map say so", () => {
+    // Canvas layout: one reference cell in the column, one above the action area.
+    const base = withDerivedLayout(defaultSettings());
+    const mixed: LayoutParts = { ...base.layout.parts, customerInfo: { ...base.layout.parts.customerInfo, slot: "main", order: 0 } };
+    const canvas = PRESET_FIELDS.find((f) => f.id === "ai.canvasLayout")!;
+    expect(canvas.reproduced(mixed, base)).toBeUndefined();
+    expect(canvas.project(mixed, base)).toBe(base);
+    // Home layout: one section beside the feed.
+    const home = PRESET_FIELDS.find((f) => f.id === "home.layout")!;
+    const one: LayoutParts = { ...base.layout.parts, performance: { ...base.layout.parts.performance, slot: "main-trailing" } };
+    expect(home.reproduced(one, base)).toBeUndefined();
+    expect(home.project(one, base)).toBe(base);
+    // Every other preset field is total: each slot its parts allow (the conversation and the AI feed never both
+    // docked, a constraint) reproduces one of its values, so no map leaves it unmatched.
+    const total = PRESET_FIELDS.filter((f) => f.id !== "ai.canvasLayout" && f.id !== "home.layout");
+    for (const field of total) {
+      const sample = field.preset(field.values[0], base);
+      for (const id of Object.keys(sample) as (keyof LayoutParts)[]) {
+        if (sample[id]?.slot === undefined) continue;
+        for (const slot of PARTS[id].allowedSlots) {
+          const parts = { ...base.layout.parts, [id]: { ...base.layout.parts[id], slot } };
+          if (parts.conversation.slot === "docked-panel" && parts.aiFeed.slot === "docked-panel") continue;
+          expect(field.reproduced(parts, base), `${field.id}: ${id} in ${slot}`).toBeDefined();
+        }
+      }
+    }
   });
 
   it("the preset rows are the fields with values; every field's id is unique", () => {

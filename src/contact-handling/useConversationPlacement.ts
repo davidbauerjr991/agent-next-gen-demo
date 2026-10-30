@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useSettings } from "@/settings";
+import { useSlotFor } from "@/layout/useSlot";
 import type { AsyncPlacement, ConversationPlacement } from "./omnichannel";
 
 /** The layout flags Settings → AI display resolves (P-AIFIRST), in one place.
@@ -17,10 +17,12 @@ import type { AsyncPlacement, ConversationPlacement } from "./omnichannel";
  *    transcript, with AI rows inline (inline) or AI in Contact Details
  *    (panel).
  *  - `aiInPanel`: AI display "panel", the AI feed in Contact Details.
- *  - `aiInMain`: AI display "main". */
+ *  - `aiInMain`: AI display "main".
+ *  Since P-LAYOUT these read the parts' slots (`layout.parts`): "main" is the conversation in the docked panel,
+ *  "panel" the AI feed there. */
 export function useConversationPlacement() {
-  const [ai] = useSettings("ai");
-  const panelPlacement = ai.displayLocation === "main";
+  const panelPlacement = useSlotFor("conversation") === "docked-panel";
+  const aiFeedDocked = useSlotFor("aiFeed") === "docked-panel";
   const placement: ConversationPlacement = panelPlacement ? "panel" : "main";
   const asyncPlacement: AsyncPlacement = panelPlacement ? "panel" : "tabs";
   const aiWorkspaceInMain = useCallback((_channel?: string | undefined) => panelPlacement, [panelPlacement]);
@@ -29,7 +31,7 @@ export function useConversationPlacement() {
     placement,
     asyncPlacement,
     aiWorkspaceInMain,
-    aiInPanel: ai.displayLocation === "panel",
+    aiInPanel: aiFeedDocked,
     aiInMain: panelPlacement,
   };
 }

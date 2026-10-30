@@ -38,6 +38,7 @@ export function WorkspaceHome() {
     showPageHeader, tabApps, updateHeaderSettings,
   } = useWorkspace();
   const [home] = useSettings("home");
+  const [{ parts }] = useSettings("layout");
   const assignmentsAtTop = useSlotHas("home-top", "assignments");
   const [, setHomePreview] = useWorkspaceUiField("homePreview");
   // P-HOME-1: an opened schedule item (meeting, training, task, …) isn't a conversation card, so the page lands
@@ -131,7 +132,7 @@ export function WorkspaceHome() {
                       />
                   }
                 />
-                {showInteriorPanel && !homeIsTwoColumn(home) && <HomeDockedDetailPanel />}
+                {showInteriorPanel && !homeIsTwoColumn(home, parts) && <HomeDockedDetailPanel />}
                 </>
               ))}
               </div>

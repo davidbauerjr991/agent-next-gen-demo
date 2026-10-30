@@ -56,6 +56,7 @@ function moveItem<T>(items: T[], index: number, delta: -1 | 1): T[] {
 
 export function HomeSection() {
   const [home, updateHome] = useSettings("home");
+  const [{ parts }] = useSettings("layout");
   return (
     <SettingsGroup id="home" title={t("Home")} lockKey="home">
       <Section title={t("Welcome header")}>
@@ -74,7 +75,7 @@ export function HomeSection() {
         {home.sections.map((section, index) => (
           <React.Fragment key={section.key}>
             <div className="flex max-w-sm items-center justify-between gap-2" data-home-section-row={section.key}>
-              {section.key === "contactHistory" && homeIsTwoColumn(home) ? (
+              {section.key === "contactHistory" && homeIsTwoColumn(home, parts) ? (
                 // P-HOME-1e: two-column Home's feed has a History view that is Contact History.
                 <span className="flex flex-col" data-home-section-in-feed="">
                   <span className="lyra-body-md text-lyra-fg-default">{HOME_SECTION_LABELS[section.key]}</span>

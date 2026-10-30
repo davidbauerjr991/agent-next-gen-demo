@@ -16,8 +16,9 @@ import { t } from "@/i18n";
  *  dashboard; two columns: the welcome header. (The right column's Cards toggle is in the feed's switcher row.) */
 export function HomePageHeader({ actions }: { actions: React.ReactNode }) {
   const [home] = useSettings("home");
+  const [{ parts }] = useSettings("layout");
   if (!home.showHeader) return null;
-  if (homeIsTwoColumn(home)) {
+  if (homeIsTwoColumn(home, parts)) {
     return (
       <div className="shrink-0" data-home-header="">
         <HomeGreetingHeader welcome actions={actions} />

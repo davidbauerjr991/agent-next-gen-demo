@@ -12,7 +12,7 @@ import { ReferenceOverlayToggle } from "@/components/workspace/SummariesToggle";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useHomeDetailPanel } from "./home-detail-panel";
 import { cn } from "@/lib/utils";
-import { useSettings } from "@/settings";
+import { usePartOption } from "@/layout/useSlot";
 import { t } from "@/i18n";
 
 /** The right column's overlay toggle, a ghost icon button in the feed's switcher row (P-HOME-1m: moved out of the
@@ -25,7 +25,7 @@ export function HomeCardsToggle() {
 export function HomeTwoColumn({ feed, side }: { feed: React.ReactNode; side: React.ReactNode[] }) {
   const { showInteriorPanel } = useWorkspace();
   const panel = useHomeDetailPanel();
-  const [home] = useSettings("home");
+  const asTable = usePartOption("activityFeed", "view") === "table";
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden animate-in fade-in-0 duration-200" data-home-layout="twoColumn">
       {/* `relative`: the overlay and the detail panel position against this row (ReferenceSlotFrame). */}
@@ -33,7 +33,7 @@ export function HomeTwoColumn({ feed, side }: { feed: React.ReactNode; side: Rea
         {/* `pt-4`: the docked right column's own inset (ReferenceColumn), so both columns start at the same y. */}
         {/* Table mode (`home.activityView`): the table fills this area and scrolls inside itself, so the area doesn't. */}
         <div
-          className={cn("min-w-0 flex-1 px-6 pb-6 pt-4", home.activityView === "table" ? "flex flex-col overflow-hidden" : "overflow-y-auto")}
+          className={cn("min-w-0 flex-1 px-6 pb-6 pt-4", asTable ? "flex flex-col overflow-hidden" : "overflow-y-auto")}
           data-home-section="activity"
           data-home-scroll="feed"
         >
