@@ -14,12 +14,19 @@ describe("layout parts (P-HOME-1n)", () => {
     expect(slotFor("assignments", withPlacement("leftNav"))).toBe("left-nav");
     expect(slotFor("assignments", withPlacement("interiorPanel"))).toBe("interior-panel");
     expect(slotFor("assignments", withPlacement("none"))).toBe("home-top");
-    expect(partsIn("home-top", withPlacement("none"))).toEqual(["assignments"]);
-    expect(partsIn("home-top", withPlacement("leftNav"))).toEqual([]);
+    // The queue chip shares the top of Home (its page header) and reports that default until P-LAYOUT 3's follow
+    // rule moves it to the header under none; these check membership of `assignments` only.
+    expect(partsIn("home-top", withPlacement("none"))).toContain("assignments");
+    expect(partsIn("home-top", withPlacement("leftNav"))).not.toContain("assignments");
   });
 
   it("Contact Details, Experience Memory and Session Details mount in the reference slide-over", () => {
-    expect(partsIn("reference", defaultSettings())).toEqual(["contactDetails", "experienceMemory", "sessionDetails"]);
+    // The reference cells share the slot (P-LAYOUT): the column beside the slide-over.
+    expect(partsIn("reference", defaultSettings()).filter((p) => !["customerInfo", "realTimeSummary", "journeySummary"].includes(p))).toEqual([
+      "contactDetails",
+      "experienceMemory",
+      "sessionDetails",
+    ]);
   });
 
   it("every part resolves to a registered slot it allows, under every placement", () => {
