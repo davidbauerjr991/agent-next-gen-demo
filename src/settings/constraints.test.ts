@@ -90,7 +90,10 @@ describe("setting constraints (P-HOME-1n)", () => {
     const has = (path: string) => path.split(".").reduce<unknown>((node, key) => (node as Record<string, unknown>)?.[key], defaults) !== undefined;
     for (const rule of SETTING_CONSTRAINTS) {
       expect(has(rule.when.path), rule.id).toBe(true);
-      expect(has(rule.forces.path), rule.id).toBe(true);
+      // A rule forces a value or disables a setting (P-LAYOUT); either target exists.
+      expect(!!rule.forces !== !!rule.disables, `${rule.id}: forces xor disables`).toBe(true);
+      if (rule.forces) expect(has(rule.forces.path), rule.id).toBe(true);
+      if (rule.disables) expect(has(rule.disables.path), rule.id).toBe(true);
     }
   });
 });

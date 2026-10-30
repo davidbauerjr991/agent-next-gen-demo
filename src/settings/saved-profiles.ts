@@ -9,6 +9,7 @@
 import { t } from "@/i18n";
 import { PROFILE_IDS, PROFILE_LABELS, profileValues, type ProfileId } from "./profiles";
 import { agentSettings, sectionInProfiles, type AgentSettings } from "./scope";
+import { settle } from "./settle";
 import { SECTIONS, defaultSettings, type SectionKey, type SectionSchemas, type SettingsState } from "./settings-schema";
 import { safeStorage, type SettingsStorage } from "./settings-storage";
 
@@ -79,11 +80,14 @@ export function readProfileSections(
   const source = isRecord(raw) ? raw : {};
   const full = defaultSettings(sections) as Record<SectionKey, unknown>;
   const warnings: ProfileReadWarning[] = [];
+  let storedLayout = false;
   for (const key of profileSectionKeys(sections)) {
     const def = sections[key];
     const entry = source[key];
     if (!isRecord(entry) || !("value" in entry)) {
-      warnings.push({ section: key, reason: "missing" });
+      // A profile saved before P-LAYOUT has no layout map: it's derived from the profile's own placement fields
+      // below, not defaulted, so it isn't a warning.
+      if (key !== "layout") warnings.push({ section: key, reason: "missing" });
       continue;
     }
     if (entry.v !== def.version) {
@@ -91,8 +95,12 @@ export function readProfileSections(
       continue;
     }
     full[key] = def.read(entry.value, def.defaults as never);
+    if (key === "layout") storedLayout = true;
   }
-  return { values: agentSettings(full as SettingsState, sections), warnings };
+  // The map (possibly partial) over the one the profile's legacy fields describe, as the store reads it.
+  const state = full as SettingsState;
+  const values = settle(null, state, storedLayout ? state.layout.parts : undefined).values;
+  return { values: agentSettings(values, sections), warnings };
 }
 
 /** The lock keys that name a section a profile carries; anything else dropped. */

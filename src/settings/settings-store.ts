@@ -3,8 +3,8 @@
 // too. Same shape as the interaction store (a closure with getState /
 // subscribe and a same-reference early exit); only hooks are exported from
 // `index.ts`.
-import { applyConstraints } from "./constraints";
 import { getProfileLibrary, resetProfileLibraryForTests } from "./saved-profiles";
+import { settle } from "./settle";
 import { profileFieldKeys } from "./scope";
 import { SECTIONS, defaultSettings, type SectionKey, type SectionSchemas, type SettingsState } from "./settings-schema";
 import { SETTINGS_KEY_PREFIX, safeStorage, type SettingsStorage } from "./settings-storage";
@@ -70,6 +70,16 @@ export function createSettingsStore(
     return kept as Partial<SettingsState[K]>;
   }
 
+  /** P-LAYOUT: a write whose layout reconciliation would change a locked section (a placement field moving the
+   *  locked map, or a map write projecting onto a locked placement field) is dropped whole, with a dev warning. A
+   *  constraint's forced value isn't checked here: it isn't the agent's choice. */
+  function blockedByLock(derived: readonly SectionKey[]): boolean {
+    const locked = derived.filter(isLocked);
+    if (locked.length === 0) return false;
+    if (import.meta.env?.DEV) console.warn(`[settings] the layout change would reach a section the applied profile locks (${locked.join(", ")}); ignored`);
+    return true;
+  }
+
   function readSection<K extends SectionKey>(key: K): { value: SettingsState[K]; stored: boolean } {
     const def = sections[key];
     const raw = storage.get(sectionStorageKey(key));
@@ -91,8 +101,10 @@ export function createSettingsStore(
       values[key] = read.value;
       stored[key] = read.stored;
     }
-    // A stored invalid combination heals on load (in memory; the next write stores it).
-    return { values: applyConstraints(values as SettingsState).values, stored };
+    // A stored invalid combination heals on load (in memory; the next write stores it). An unstored (or partial)
+    // layout map reads through to the legacy placement fields: the first-read migration, written on the next change.
+    const all = values as SettingsState;
+    return { values: settle(null, all, stored.layout ? all.layout.parts : undefined).values, stored };
   }
 
   let state = readAll();
@@ -132,8 +144,10 @@ export function createSettingsStore(
       const next = merged(section, resolved);
       if (!next && (!persist || state.stored[section])) return;
       // Constraints run before anything is written, so a forced value is never stored unforced; a section a
-      // constraint changes is written with this one, through a lock (`SettingConstraint`).
-      const { values, touched } = applyConstraints(next ? { ...state.values, [section]: next } : state.values);
+      // constraint changes is written with this one, through a lock (`SettingConstraint`). So does the layout
+      // reconciliation: a legacy placement write moves its parts, a map write projects onto the legacy fields.
+      const { values, touched, derived } = settle(state.values, next ? { ...state.values, [section]: next } : state.values);
+      if (blockedByLock(derived)) return;
       const written = [...new Set<SectionKey>([section, ...touched])];
       if (persist) for (const key of written) write(key, values[key]);
       commit({
@@ -152,7 +166,8 @@ export function createSettingsStore(
         changed.push(section);
       }
       if (candidate === state.values) return;
-      const { values, touched } = applyConstraints(candidate);
+      const { values, touched, derived } = settle(state.values, candidate);
+      if (blockedByLock(derived)) return;
       const written = [...new Set<SectionKey>([...changed, ...touched])];
       for (const key of written) write(key, values[key]);
       commit({ values, stored: { ...state.stored, ...Object.fromEntries(written.map((k) => [k, true])) } });
@@ -174,7 +189,7 @@ export function createSettingsStore(
       const key = storageKey.slice(SETTINGS_KEY_PREFIX.length) as SectionKey;
       if (!keys.includes(key)) return;
       const read = readSection(key);
-      commit({ values: applyConstraints({ ...state.values, [key]: read.value }).values, stored: { ...state.stored, [key]: read.stored } });
+      commit({ values: settle(state.values, { ...state.values, [key]: read.value }).values, stored: { ...state.stored, [key]: read.stored } });
     },
   };
 }

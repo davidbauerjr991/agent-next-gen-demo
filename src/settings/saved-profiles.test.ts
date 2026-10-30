@@ -165,6 +165,9 @@ describe("saved profiles: share as JSON", () => {
     file.sections.outbound.v = 0; // an older section: its defaults
     delete file.sections.home; // a missing section: its defaults
     file.sections.bogus = { v: 1, value: {} }; // unknown: dropped
+    // A file from before P-LAYOUT has no layout map: it's derived from the file's own placement fields, so the
+    // displayLocation edit carries through (with a map, the map wins: the next test).
+    delete file.sections.layout;
     const result = importProfile(JSON.stringify(file));
     if (!result.ok) throw new Error("expected ok");
     const defaults = agentSettings(defaultSettings());
@@ -180,6 +183,19 @@ describe("saved profiles: share as JSON", () => {
         { section: "home", reason: "missing" },
       ]),
     );
+    expect(result.warnings).not.toContainEqual({ section: "layout", reason: "missing" });
+    expect(result.profile.values.layout.parts).toMatchObject({ conversation: { slot: "docked-panel" }, aiFeed: { slot: "main" } });
+  });
+
+  it("a file with a layout map: the map wins over a hand-edited placement field, which is projected from it (P-LAYOUT)", () => {
+    const values = agentSettings(customValues());
+    const file = JSON.parse(exportProfile({ name: "Edited", values, locks: [] }));
+    expect(file.sections.layout.value.parts.aiFeed.slot).toBe("main");
+    file.sections.ai.value.displayLocation = "panel"; // contradicts the map (AI feed in main, conversation in main)
+    const result = importProfile(JSON.stringify(file));
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.profile.values.ai.displayLocation).toBe(values.ai.displayLocation);
+    expect(result.profile.values.layout.parts!.aiFeed.slot).toBe("main");
   });
 
   it("a file with no name imports as \"Imported profile\"", () => {

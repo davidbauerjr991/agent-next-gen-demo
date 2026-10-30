@@ -1,6 +1,6 @@
-// Schema-level constraints (P-HOME-1n): one setting's value forcing another's. The store runs `applyConstraints`
-// on every write and read, so an invalid combination is never stored or shown; Settings reads `activeConstraint`
-// to render the target disabled with its reason.
+// Schema-level constraints (P-HOME-1n): one setting's value forcing another's, or making it unused (P-LAYOUT). The
+// store runs `applyConstraints` on every write and read, so an invalid combination is never stored or shown;
+// Settings reads `activeConstraint` / `disabledBy` to render the target disabled with its reason.
 import { SETTING_CONSTRAINTS, type SectionKey, type SettingConstraint, type SettingPath, type SettingsState } from "./settings-schema";
 
 const segments = (path: SettingPath) => path.split(".");
@@ -27,9 +27,10 @@ export function applyConstraints(
   let next = values;
   const touched = new Set<SectionKey>();
   for (const rule of rules) {
-    if (!holds(next, rule) || readPath(next, rule.forces.path) === rule.forces.value) continue;
-    next = writePath(next, segments(rule.forces.path), rule.forces.value) as SettingsState;
-    touched.add(segments(rule.forces.path)[0] as SectionKey);
+    const forces = rule.forces;
+    if (!forces || !holds(next, rule) || readPath(next, forces.path) === forces.value) continue;
+    next = writePath(next, segments(forces.path), forces.value) as SettingsState;
+    touched.add(segments(forces.path)[0] as SectionKey);
   }
   return { values: next, touched: [...touched] };
 }
@@ -41,5 +42,14 @@ export function activeConstraint(
   path: SettingPath,
   rules: readonly SettingConstraint[] = SETTING_CONSTRAINTS,
 ): SettingConstraint | null {
-  return rules.find((r) => r.forces.path === path && holds(values, r)) ?? null;
+  return rules.find((r) => r.forces?.path === path && holds(values, r)) ?? null;
+}
+
+/** The rule that makes `path` unused right now (its `reason`), if any (P-LAYOUT's `disables` rules). */
+export function disabledBy(
+  values: SettingsState,
+  path: SettingPath,
+  rules: readonly SettingConstraint[] = SETTING_CONSTRAINTS,
+): SettingConstraint | null {
+  return rules.find((r) => r.disables?.path === path && holds(values, r)) ?? null;
 }

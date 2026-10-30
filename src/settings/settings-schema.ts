@@ -2,6 +2,7 @@
 // its own version, so a later step adds a section (5d.2 flags, P4.4a card
 // placement, P4.11 knowledge base) with one more `defineSection` and no
 // migration of the others. Profile and database data never live here (P1.4).
+import { layoutFromLegacy, readStoredParts, type LayoutParts, type LayoutSettings } from "@/layout/layout-section";
 
 /** Reads one stored value: returns it if it still has the expected type, or
  *  the fallback (a changed setting type falls back to its default). */
@@ -824,6 +825,27 @@ const connections = defineSection<ConnectionsSettings>({
   },
 });
 
+/** P-LAYOUT: every part's slot, order and options (`src/layout/`). Read part by part (a stored map may be partial:
+ *  what it doesn't name reads through to the legacy placement fields, `settleLayout`). Its defaults are the map the
+ *  other sections' defaults describe. Agent scope: profiles snapshot it. */
+// Annotated, and the defaults' source cast without naming `SettingsState`: `SettingsState` is derived from
+// `typeof SECTIONS`, so naming it here would make the type circular.
+const layout: SectionDef<LayoutSettings> = defineSection<LayoutSettings>({
+  key: "layout",
+  version: 1,
+  defaults: {
+    parts: layoutFromLegacy({
+      header: header.defaults,
+      home: home.defaults,
+      assignments: assignments.defaults,
+      voice: voice.defaults,
+      ai: ai.defaults,
+      canvas: canvas.defaults,
+    } as never),
+  },
+  fields: { parts: ((raw: unknown) => readStoredParts(raw)) as unknown as Field<LayoutParts> },
+});
+
 export const SECTIONS = {
   header,
   home,
@@ -835,6 +857,7 @@ export const SECTIONS = {
   voice,
   ai,
   canvas,
+  layout,
   phone,
   appearance,
   connections,
@@ -846,14 +869,16 @@ export type SettingsState = { [K in SectionKey]: (typeof SECTIONS)[K]["defaults"
 /** A dot path into the settings values: section, then fields (`"notifications.toasts.enabled"`). */
 export type SettingPath = `${SectionKey}.${string}`;
 
-/** One setting's value forcing another's (P-HOME-1n; P-LAYOUT's parts declare theirs in this shape). Read from the
- *  source it "forces"; read from the target it "requires". The store enforces it on write and on read
+/** One setting's value forcing another's, or making another unused (P-HOME-1n; P-LAYOUT's parts declare theirs in
+ *  this shape). A rule `forces` a value or `disables` a setting. The store enforces `forces` on write and on read
  *  (`applyConstraints`); Settings shows the target disabled with `reason`, never hidden. A forced value is written
- *  through a profile lock: it isn't the agent's choice (PLAN.md Decisions, 2026-10-29). */
+ *  through a profile lock: it isn't the agent's choice (PLAN.md Decisions, 2026-10-29). A `disables` rule changes no
+ *  value: the setting has no effect while it holds (`disabledBy`). */
 export interface SettingConstraint {
   id: string;
   when: { path: SettingPath; in: readonly unknown[] };
-  forces: { path: SettingPath; value: unknown };
+  forces?: { path: SettingPath; value: unknown };
+  disables?: { path: SettingPath };
   /** English source; shown through `t()` (the tooltip on the disabled control). */
   reason: string;
   /** The forced state in words beneath the control (English source, through `t()`); absent: the tooltip alone. */
@@ -861,17 +886,42 @@ export interface SettingConstraint {
 }
 
 const NOT_IN_LEFT_NAV = "Required while assignments aren't in the left nav";
+const AI_IN_PANEL = "layout.parts.aiFeed.slot";
+const ASSIGNMENTS_SLOT = "layout.parts.assignments.slot";
+
+/** A part following another's slot: one rule per slot. */
+const follows = (id: string, part: string, leader: string, slots: readonly string[], reason: string): SettingConstraint[] =>
+  slots.map((slot) => ({
+    id: `${id}-${slot}`,
+    when: { path: `layout.parts.${leader}.slot`, in: [slot] },
+    forces: { path: `layout.parts.${part}.slot`, value: slot },
+    reason,
+  }));
 
 export const SETTING_CONSTRAINTS: readonly SettingConstraint[] = [
   // Placement "none" has no list on screen while an assignment is open: a new arrival has to toast.
-  { id: "placement-none-toasts", when: { path: "assignments.placement", in: ["none"] }, forces: { path: "notifications.toasts.enabled", value: true }, reason: NOT_IN_LEFT_NAV },
+  { id: "placement-none-toasts", when: { path: ASSIGNMENTS_SLOT, in: ["home-top"] }, forces: { path: "notifications.toasts.enabled", value: true }, reason: NOT_IN_LEFT_NAV },
   {
     id: "placement-none-incoming",
-    when: { path: "assignments.placement", in: ["none"] },
+    when: { path: ASSIGNMENTS_SLOT, in: ["home-top"] },
     forces: { path: "notifications.toasts.events.incoming", value: true },
     reason: NOT_IN_LEFT_NAV,
     note: "On — required while assignments aren't in the left nav",
   },
+  // P-LAYOUT: the incoming offer is part of the assignments list; the queue chip moves to the header when the list
+  // is at the top of Home.
+  ...follows("incoming-follows-assignments", "incomingTile", "assignments", ["left-nav", "interior-panel", "home-top"], "Follows Assignments"),
+  { id: "queue-chip-header", when: { path: ASSIGNMENTS_SLOT, in: ["home-top"] }, forces: { path: "layout.parts.queueChip.slot", value: "header" }, reason: "In the header while assignments are at the top of Home" },
+  { id: "queue-chip-home", when: { path: ASSIGNMENTS_SLOT, in: ["left-nav", "interior-panel"] }, forces: { path: "layout.parts.queueChip.slot", value: "home-top" }, reason: "On Home while assignments are in a panel" },
+  // The conversation and the AI feed can't both be docked: one of them is the action area. Before the Copilot rule,
+  // so the input follows the feed's final slot.
+  { id: "conversation-docked", when: { path: "layout.parts.conversation.slot", in: ["docked-panel"] }, forces: { path: AI_IN_PANEL, value: "main" }, reason: "The AI feed is the main column while the conversation is in the panel" },
+  { id: "ai-feed-docked", when: { path: AI_IN_PANEL, in: ["docked-panel"] }, forces: { path: "layout.parts.conversation.slot", value: "main" }, reason: "The conversation is the main column while the AI feed is in the panel" },
+  ...follows("copilot-follows-ai-feed", "copilotInput", "aiFeed", ["main", "docked-panel"], "Follows the AI feed"),
+  // Settings that have no effect while the AI is in the Contact Details panel, or under the Custom sort.
+  { id: "ai-panel-canvas", when: { path: AI_IN_PANEL, in: ["docked-panel"] }, disables: { path: "ai.canvasLayout" }, reason: "Not used when AI display is In the Contact Details panel" },
+  { id: "ai-panel-legs", when: { path: AI_IN_PANEL, in: ["docked-panel"] }, disables: { path: "assignments.legs" }, reason: "Contact Details panel uses tabs" },
+  { id: "custom-sort-direction", when: { path: "assignments.sort.mode", in: ["custom"] }, disables: { path: "assignments.sort.direction" }, reason: "Custom uses your dragged order" },
 ];
 export type SectionSchemas = { [K in SectionKey]: SectionDef<SettingsState[K]> };
 

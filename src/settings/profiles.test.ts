@@ -139,14 +139,23 @@ describe("workspace profiles", () => {
   });
 
   it("AI-first is Phase 2 with AI display \"main\", the two-column canvas and the two-column Home with the Activity feed, and derives", () => {
-    expect(PROFILES.aifirst).toEqual({
+    // Every section but the layout map, which each profile derives from its own placement fields (P-LAYOUT).
+    expect({ ...PROFILES.aifirst, layout: null }).toEqual({
       ...PROFILES.phase2,
+      layout: null,
       home: {
         ...PROFILES.phase2.home,
         layout: "twoColumn",
         sections: PROFILES.phase2.home.sections.map((s) => (s.key === "activity" ? { ...s, enabled: true } : s)),
       },
       ai: { ...PROFILES.phase2.ai, displayLocation: "main", canvasLayout: "twoColumn" },
+    });
+    expect(PROFILES.aifirst.layout.parts).toMatchObject({
+      conversation: { slot: "docked-panel" },
+      aiFeed: { slot: "main" },
+      activityFeed: { slot: "main" },
+      performance: { slot: "main-trailing" },
+      customerInfo: { slot: "reference" },
     });
     const store = freshStore();
     store.updateMany(profileValues("aifirst"));

@@ -6,6 +6,7 @@
 // (stored as the library's `applied` base) read as modified, else "custom".
 // Saved profiles and per-section locks (P-PROFILES) are ./saved-profiles.ts.
 import { agentSettings, deepEqual, type AgentSettings } from "./scope";
+import { withDerivedLayout } from "./settle";
 import {
   LAUNCHER_TABS,
   defaultSettings,
@@ -72,7 +73,12 @@ function aiFirst(): SettingsState {
   };
 }
 
-export const PROFILES: Record<ProfileId, SettingsState> = { phase1: phase1(), phase2: phase2(), aifirst: aiFirst() };
+/** Each built-in carries its layout map (P-LAYOUT), derived from its own placement fields so the two agree. */
+export const PROFILES: Record<ProfileId, SettingsState> = {
+  phase1: withDerivedLayout(phase1()),
+  phase2: withDerivedLayout(phase2()),
+  aifirst: withDerivedLayout(aiFirst()),
+};
 
 export const PROFILE_IDS = Object.keys(PROFILES) as ProfileId[];
 

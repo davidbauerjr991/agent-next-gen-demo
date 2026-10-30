@@ -131,6 +131,7 @@ const DEFS: Record<PartId, Def> = {
     label: "Incoming offer",
     allowedSlots: ["left-nav", "interior-panel", "home-top"],
     defaultSlot: "left-nav",
+    constraints: ["incoming-follows-assignments-left-nav", "incoming-follows-assignments-interior-panel", "incoming-follows-assignments-home-top"],
     source: "follows assignments",
   },
   queueChip: {
@@ -138,6 +139,7 @@ const DEFS: Record<PartId, Def> = {
     label: "My Assignment Queue",
     allowedSlots: ["home-top", "header"],
     defaultSlot: "home-top",
+    constraints: ["queue-chip-header", "queue-chip-home"],
     source: "follows assignments (header under none)",
   },
   voiceBar: {
@@ -152,6 +154,7 @@ const DEFS: Record<PartId, Def> = {
     label: "Conversation",
     allowedSlots: ["main", "docked-panel"],
     defaultSlot: "main",
+    constraints: ["conversation-docked", "ai-feed-docked"],
     source: "ai.displayLocation",
   },
   aiFeed: {
@@ -159,6 +162,7 @@ const DEFS: Record<PartId, Def> = {
     label: "AI feed",
     allowedSlots: ["main", "docked-panel"],
     defaultSlot: "main",
+    constraints: ["conversation-docked", "ai-feed-docked", "ai-panel-canvas", "ai-panel-legs"],
     source: "ai.displayLocation",
   },
   copilotInput: {
@@ -166,6 +170,7 @@ const DEFS: Record<PartId, Def> = {
     label: "Ask Copilot",
     allowedSlots: ["main", "docked-panel"],
     defaultSlot: "main",
+    constraints: ["copilot-follows-ai-feed-main", "copilot-follows-ai-feed-docked-panel"],
     source: "follows aiFeed",
   },
   customerInfo: { ...REFERENCE_CELL, label: "Customer Info" },

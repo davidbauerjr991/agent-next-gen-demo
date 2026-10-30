@@ -13,6 +13,7 @@ export const SECTION_TITLES: Record<SectionKey, string> = {
   voice: "Voice",
   ai: "AI",
   canvas: "Cards",
+  layout: "Layout",
   phone: "Phone setup",
   appearance: "Appearance",
   connections: "Connections",

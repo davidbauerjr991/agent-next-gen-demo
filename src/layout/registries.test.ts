@@ -67,6 +67,15 @@ describe("parts registry (P-LAYOUT)", () => {
     for (const id of PART_IDS) for (const rule of PARTS[id].constraints ?? []) expect(ids.has(rule), `${id}: ${rule}`).toBe(true);
   });
 
+  it("every rule on the map is listed on its part: the part it moves, else the part its condition reads", () => {
+    const partOf = (path?: string) => (path?.startsWith("layout.parts.") ? (path.split(".")[2] as (typeof PART_IDS)[number]) : undefined);
+    for (const rule of SETTING_CONSTRAINTS) {
+      const owner = partOf(rule.forces?.path ?? rule.disables?.path) ?? partOf(rule.when.path);
+      if (!owner) continue;
+      expect(PARTS[owner].constraints ?? [], `${rule.id} on ${owner}`).toContain(rule.id);
+    }
+  });
+
   it("the Home section parts are HOME_SECTIONS less the feed (activityFeed)", () => {
     expect([...HOME_SECTION_PARTS].sort()).toEqual(HOME_SECTIONS.filter((s) => s !== "activity").sort());
     expect(PART_IDS).toContain("activityFeed");
