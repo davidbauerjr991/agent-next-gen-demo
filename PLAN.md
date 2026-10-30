@@ -39,7 +39,108 @@ All client-side. The provider layer keeps a real backend (Twilio, CXone ACD) a s
 
 **P-HOME-2 — Connect your apps (after the milestone; moved 2026-10-29 — its connections become queries and sources under P-HOME-ASK).** `PersonalConnectionProvider` and its sim sources (calendar, mail, Teams, Slack, Salesforce, Jira, Zendesk, ServiceNow) with seeded days and a trickle; the "Connect your apps" step after login and on profile change (`expectsConnections` on profiles; skippable); Settings → Connections → "Your apps" (personal scope) and the admin-scope allowlist; inbox-item rows in the Activity feed with multi-select source chips; inbox items opening in the main column without a rail card; "Make a task" and "later"; Copilot cross-links; team-message toasts. Playwright: the step after login lists the expected sources; connect Calendar and Mail → their chips and rows appear; a trickled mail appears at the top of Now; a Teams message toasts and View opens it in the main column without a rail card; Make a task → a task in the rail with the source reference card; "later" → a scheduled row; disconnect removes the chip and rows; a Zendesk row never appears in the customer's Contact History. About 2 days.
 
-**P-LAYOUT — parts and slots (merges P0.5d.3's LayoutSlot and P-CARDS).** A parts registry (each workspace surface — assignments list, incoming tile, voice bar, activity feed, Home sections, AI feed, reference cells, Contact Details, Copilot input, notifications, header apps — declares its component, allowed slots, default slot, options schema and requires/excludes constraints with reasons) and a slots registry (left-nav, interior-panel, home-top, main, main-trailing, reference, docked-panel, overlay, dock-bottom, header; each with its container behavior, lyra SidePanel min/max, capacity and pages). One setting `layout.parts: Record<partId, {slot, order, options}>`, agent scope, snapshotted; today's placement enums (home.layout, assignments.placement, ai.displayLocation, canvas.layout, activityView) become presets that write the map and are retired as stored values after one step. Validation on write from the registries' constraints. Pages render slot containers; no component branches on a layout enum. Settings → Layout: presets, then the P-CARDS tab generalized to every slot (drag parts between slots, per-part options, live preview, Reset to profile). docs/layout-matrix.md is generated from the registries and the built-in profiles by npm run docs. Composition only: the extracted parts are not restructured. About 3 days; Plan: Opus · Implement: Opus.
+**P-LAYOUT — parts and slots (merges P0.5d.3's LayoutSlot and P-CARDS).** A parts registry (each workspace surface — assignments list, incoming tile, voice bar, activity feed, Home sections, AI feed, reference cells, Contact Details, Copilot input, notifications, header apps — declares its component, allowed slots, default slot, options schema and requires/excludes constraints with reasons) and a slots registry (left-nav, interior-panel, home-top, main, main-trailing, reference, docked-panel, overlay, dock-bottom, header; each with its container behavior, lyra SidePanel min/max, capacity and pages). One setting `layout.parts: Record<partId, {slot, order, options}>`, agent scope, snapshotted; today's placement enums become presets that write the map. Which fields those are, and when they retire, is set by the "As planned" text below and Decisions 2026-10-30: the six enums plus the header app placements, read-through, retired in the next step that touches each. Validation on write from the registries' constraints. Pages render slot containers; no component branches on a layout enum. Settings → Layout: presets, then the P-CARDS tab generalized to every slot (drag parts between slots, per-part options, live preview, Reset to profile). docs/layout-matrix.md is generated from the registries and the built-in profiles by npm run docs. Composition only: the extracted parts are not restructured. About 3 days; Plan: Opus · Implement: Opus.
+
+  *As planned (2026-10-30, plan review with Dave).*
+
+  **Slots** (`src/layout/slots.ts`, data only). Each holds container, lyra min/max, capacity, pages:
+  - `left-nav`: LeftNav header / sticky caption / `LeftNavSlot`; many.
+  - `interior-panel`: lyra `SidePanel side="left"` inside the content container. Pinned pushes the content, unpinned overlays, with a toggle button. Min `LYRA_CARD_MAX_WIDTH`, max SidePanel's 425; 1.
+  - `home-top`: a stack in Home's flow; many; Home only.
+  - `main`: the main column; many.
+  - `main-trailing`: Home's Cards column; many; Home only.
+  - `reference`: the slide-over frame (`ReferenceSlotFrame`: the reference column plus the detail slide-over); interaction only.
+  - `docked-panel`: SidePanel right; 1 shown.
+  - `overlay`: the fallback when a slot doesn't fit; no part defaults there.
+  - `dock-bottom`: the bottom voice host; 1.
+  - `header`: the app header row; many.
+
+  **Parts** (`src/layout/parts.ts`; component wrappers in `part-components.tsx`). Allowed slots → default, then the read-through source:
+
+  | Part | Allowed slots → default | Read-through source |
+  |---|---|---|
+  | `assignments` | left-nav, interior-panel, home-top → left-nav | `assignments.placement` |
+  | `incomingTile` | left-nav, interior-panel, home-top → left-nav | follows assignments |
+  | `queueChip` | home-top, header → home-top | header when assignments is at home-top |
+  | `voiceBar` | dock-bottom, left-nav → dock-bottom | `voice.controlsLocation` |
+  | `conversation` (added: needed to express AI display) | main, docked-panel → main | `ai.displayLocation` |
+  | `aiFeed` | main, docked-panel → main | `ai.displayLocation` |
+  | `copilotInput` | main, docked-panel → main | follows aiFeed |
+  | `customerInfo`, `realTimeSummary`, `journeySummary` | reference, main → reference | `ai.canvasLayout` + `canvas.cells` region |
+  | `contactDetails`, `experienceMemory`, `sessionDetails` | reference, docked-panel → reference | — |
+  | `activityFeed` | main, main-trailing → main; option `view` | `home.layout`, `home.activityView` |
+  | Each Home section (`queue`, `teamQueues`, `performance`, `productivity`, `dueSoon`, `followUps`, `needsYou`, `pipeline`, `campaignToday`, `teamToday`, `contactHistory`) | main, main-trailing → main (dueSoon and contactHistory main only) | `home.layout` and `home.sections` order |
+  | `notifications` | header → header | `header.pins` (unchanged) |
+  | Header apps (`customers`, `accounts`, `tickets`, `wem`, `schedule`, `screenpop`, `agentChat`) | header, left-nav, home-top as a tab (agentChat: no tab) → header | `header.apps.<app>.placement`, `header.agentChat.placement` |
+
+  On/off stays outside the map: `home.sections[].enabled`, `header.apps.<app>.enabled`, `canvas.cells[].enabled`.
+
+  **Constraints.** `SettingConstraint` gains an optional `disables: { path }`. The two placement-none rules move to `layout.parts.assignments.slot`. The follow rules are forces:
+  - incomingTile follows assignments;
+  - queueChip goes to header when assignments is at home-top;
+  - copilotInput follows aiFeed;
+  - conversation and aiFeed are never both in docked-panel (either one docked forces the other into main).
+
+  The hand-written disables become rules: AI in the panel disables canvas layout and legs; Custom sort disables direction; a two-column Home excludes dueSoon and contactHistory.
+
+  **The `layout` section** (v1, agent scope, snapshotted), `{ parts: Record<PartId, { slot, order, options }> }`.
+  - It's complete in memory: missing entries are derived from the legacy fields on read (the migration; nothing is written until a change).
+  - It's validated on write from the registries, and constraints apply to the resolved values.
+  - Presets (`src/layout/presets.ts`) write the map and the legacy field together. A map write projects back onto a legacy field when a preset value reproduces it.
+  - Preset mapping:
+    - placement leftNav / interiorPanel / none → `assignments` at left-nav / interior-panel / home-top.
+    - AI display inline → `conversation` and `aiFeed` in main.
+    - AI display panel → `aiFeed` and `copilotInput` in docked-panel.
+    - AI display main → `conversation` in docked-panel.
+    - canvas twoColumn / stacked → the reference cells in reference / main before the conversation (a `canvas.cells` region `action` → main after it).
+    - Home layout oneColumn / twoColumn → the Home parts all in main / the feed in main and the side sections in main-trailing.
+    - activity view → the feed's `view` option.
+    - voice controls bottom / top → `voiceBar` at dock-bottom / left-nav.
+    - header app header / leftnav / tab → header / left-nav / home-top.
+  - The built-in profiles carry explicit maps. A saved profile without one derives it.
+
+  **Composition files** (`<Slot id>`, no layout branching): WorkspaceHome, InteractionBody, WorkspaceLeftNav, useWsPanels, ReferenceColumn, home-dashboard, WorkspaceAppHeader. The resolver hooks and a few direct readers switch to the map with unchanged return shapes; the full list is in the plan's file list.
+
+  **The two container fixes** (Dave's pass; both supersede P-HOME-1n, "reverses `0819bfa`"):
+
+  (a) **The interior panel is lyra SidePanel `side="left"` inside the content container**, as in the "Side Panel — Left" story. It mirrors the left nav's card list:
+
+  | Affordance | Interior panel (SidePanel left) |
+  |---|---|
+  | header form and border, cards, caption (count, sort, Collapse all), row selection and order, "+" leg-join, Contact Details control, truncation tooltips | reused via `AssignmentsStack` / `AssignmentEntryCard` |
+  | pin | reused via SidePanel `onPinToggle` |
+  | open / close | the toggle button (`ActionIconButton`) at the content container's start |
+  | full screen | omitted: an assignment list |
+  | pinned and open state | per-browser working state, default pinned |
+  | the rail's Assignments item | reused: it stays the overlay trigger while the panel is overlaid |
+
+  (b) **Placement "none" renders the assignments part inline**: one compact row per open assignment at the top of Home, on lyra `InlineNotification` with lyra's new `icon` prop. Rows are stacked, newest first, and not the rail's card column. Kind cards and tasks are included; the test covers a kind card and a task. The My Assignment Queue chip stays the full switcher. It mirrors `AssignmentEntryCard`:
+
+  | Affordance | Inline row |
+  |---|---|
+  | header form and border | reused via `InlineNotification` + `Avatar` (or the kind icon) + `Tag` |
+  | name truncation tooltip | reused via lyra `Tooltip` |
+  | per-kind strings | reused via t() |
+  | channel chip | reused via `useChannelChipsShown` |
+  | rail membership and count | reused via `useAssignmentCards` / `useRailAssignmentCount` |
+  | default status | reused |
+  | Accept / Decline on an offer | reused via `IncomingOfferActions`, in place of View |
+  | Outcome popover, hover cluster and dismiss, Custom order, Collapse all, "+", Contact Details control | omitted: View opens the card, which has them |
+  | selection | omitted: once opened, the row leaves Home, since Home isn't shown |
+
+  **Settings → Layout** (a new group after Workspace; Workspace's Layout sub-group moves into it, labels unchanged):
+  - presets: a ToggleGroup per variable, with "Custom" when the map matches no value;
+  - Advanced: parts listed per slot, drag between allowed slots via lyra `useListReorder`'s new cross-list `group`, per-part options; the old Cards scope is its reference-cells section;
+  - a live preview: the page's slots as a schematic, with the real reference cells on Maya's case;
+  - Reset to profile default.
+
+  **The generated matrix:** `docs/layout-matrix.md` comes from `renderLayoutMatrix()` (`src/layout/matrix.ts`), written by `scripts/layout-matrix.mjs` (`npm run docs`). A test fails when it's stale. Its header carries the legacy-field retirement checklist: field, projection function, section version to bump.
+
+  **lyra** (one additive batch each, each commit asked first):
+  - L1 — `InlineNotification` `icon`. Blocked by `inline-notification.tsx`'s fixed `iconMap`.
+  - L2 — `useListReorder` cross-list. Blocked by `use-list-reorder.ts:113`, where a drop from another list returns early.
+
+  **The gate:** composition snapshots (every built-in profile × Home, an inline conversation, a panel-mode conversation, a kind cell) are taken before any change. A later change to them beyond fixes (a) and (b) is shown to Dave before it's committed.
 
 **P-CONFIG-LAYERS — layered settings resolution.** The layer model and resolver in the settings store (ordered partial profiles with locks, lock propagation, personal below all), the seeded org tree in the sim, "Set by: <level>" and the Resolved view in Settings, profile export/import carrying the level; schema constraints apply to the resolved value. Assignment UI deferred to P-ADMIN / P-EMPLOYEES. About 2 days; Plan: Opus · Implement: Opus.
 
@@ -765,3 +866,8 @@ Order of attack (revised 2026-10-19, demo-first; 2026-10-18 additions: P-LYRA-RT
 - 2026-10-29 — P-HOME-1n — **The interior panel's width bounds are lyra InteriorPanel's own (350–425).** The step text first said SidePanel's 200–425; lyra exports no width constants, and a 200 minimum would crush cards laid out at the card width, so the panel passes no min/max and takes InteriorPanel's defaults.
 - 2026-10-29 — P-HOME-1n — **Session leaves the Contact Details tabs everywhere.** Session Details opens as its own slide-over (the reference slot) under every AI display; Contact Details' tab set is Customer Information, Notes, Detail, Transcript (and panel mode's Overview inside the docked AI content).
 - 2026-10-29 — Settings resolve through six layers (Enterprise → Contact Center → Skill → Team → Agent → Personal) of partial profiles with propagating locks; one resolver for settings, layout and permissions.
+- 2026-10-30 — P-LAYOUT plan review (Dave):
+  - **The legacy placement fields are read-through this step and retire in the next step that touches each one.** That covers the six enums, `header.apps.*.placement`, `header.agentChat.placement`, `home.sections` order and `canvas.cells` region. The map wins, and a missing map entry reads through to the legacy field. Retiring a field bumps its section's version and deletes its projection; the generated matrix's header lists each one.
+  - **Header app placements join `layout.parts` now.**
+  - **The interior panel is lyra SidePanel `side="left"` inside the content container, with pin and toggle.** This reverses `0819bfa` and supersedes the 2026-10-29 Decision on InteriorPanel's 350–425: min `LYRA_CARD_MAX_WIDTH`, max SidePanel's own. It also supersedes P-HOME-1n's removal of the pin.
+  - **Placement none renders the assignments part as inline rows.** This reverses `0819bfa`/`4591f41`'s card column at the top of Home.
