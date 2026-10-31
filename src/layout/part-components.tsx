@@ -5,6 +5,7 @@
 // part's every allowed slot to a form here.
 import type { ComponentType } from "react";
 import { HostSlot } from "@/contact-handling/portal-hosts";
+import { usePanelToggles } from "@/contact-handling/panel-toggles";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useAssignmentCards, useChannelChipsShown } from "@/contact-handling/useAssignmentCards";
 import { AssignmentEntryCard, AssignmentsCaption, AssignmentsEmptyState } from "@/components/workspace/AssignmentCardList";
@@ -69,11 +70,19 @@ function LeftNavAssignments({ expanded }: PartProps) {
 
 // ── The voice bar, the queue chip ───────────────────────────────────────────────────────────────────────────
 
-/** Voice controls "Top of left nav": the voice bar portals in here (v3's `LeftNavVoiceSlot`), only while the nav
+/** Voice controls "Top of assignments" with the assignments in the left nav: the voice bar portals in here (v3's `LeftNavVoiceSlot`), only while the nav
  *  is open; collapsed, it falls back to the bottom (`WorkspaceVoiceBar`). */
 function LeftNavVoiceHost() {
   const { navOpen, setVoiceNavSlotMounted, voiceBarHost } = useWorkspace();
   return navOpen ? <HostSlot host={voiceBarHost} data-slot="left-nav-voice" onMountedChange={setVoiceNavSlotMounted} /> : null;
+}
+
+/** Voice controls at the top of the assignments list in the interior panel (P-LAYOUT-F1 A3): the bar portals in here
+ *  while the panel is open; closed, it falls back to the bottom, as the left nav's host does when the nav collapses. */
+function PanelVoiceHost() {
+  const { setVoiceNavSlotMounted, voiceBarHost } = useWorkspace();
+  const open = !!usePanelToggles()?.assignments?.open;
+  return open ? <HostSlot host={voiceBarHost} data-slot="interior-panel-voice" onMountedChange={setVoiceNavSlotMounted} /> : null;
 }
 
 const HomeQueueChip = () => <QueueChip mount="home" />;
@@ -122,6 +131,7 @@ export const PART_FORMS: Record<PartId, Forms> = {
   voiceBar: {
     "dock-bottom": { host: "WorkspaceVoiceBar's bottom host (voice-bar-bottom)" },
     "left-nav:top": LeftNavVoiceHost,
+    "interior-panel:top": PanelVoiceHost,
   },
   conversation: {
     main: { host: "InteractionBody (the transcript and composer)" },

@@ -238,7 +238,9 @@ describe("the store keeps the map and the legacy fields in step (P-LAYOUT)", () 
     storage.set("agent-next-gen:settings:voice", JSON.stringify({ v: 1, value: { ...SECTIONS.voice.defaults, controlsLocation: "top" } }));
     storage.set("agent-next-gen:settings:layout", JSON.stringify({ v: 1, value: { parts: { assignments: { slot: "interior-panel" } } } }));
     const values = createSettingsStore(storage).getState().values;
-    expect(values.layout.parts.voiceBar.slot).toBe("left-nav");
+    // "top" reads through, and it's the top of the assignments list, wherever the map puts it (P-LAYOUT-F1 A3).
+    expect(values.layout.parts.voiceBar.slot).toBe("interior-panel");
+    expect(values.voice.controlsLocation).toBe("top");
     expect(values.layout.parts.assignments.slot).toBe("interior-panel");
     expect(values.assignments.placement).toBe("interiorPanel");
   });

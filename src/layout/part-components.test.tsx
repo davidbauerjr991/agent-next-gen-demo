@@ -66,6 +66,14 @@ describe("the map moves every part, hosted ones included (P-LAYOUT)", () => {
       }
       for (const slot of allowedSlots) {
         expect(hasForm(id, slot), `${id} has a form at ${slot}`).toBe(true);
+        // The voice bar follows the assignments only while it's at the top of their list (P-LAYOUT-F1 A3): written
+        // alone into the interior panel it goes to the top of the list where it is (the left nav); with the
+        // assignments, it stays.
+        if (id === "voiceBar" && slot === "interior-panel") {
+          expect(slotFor(id, written({ voiceBar: slot }).after), "voiceBar alone → interior-panel").toBe("left-nav");
+          expect(slotFor(id, written({ voiceBar: slot, assignments: slot }).after), "voiceBar with assignments → interior-panel").toBe(slot);
+          continue;
+        }
         const follows = FOLLOWS[id];
         if (follows) {
           const alone = written({ [id]: slot });

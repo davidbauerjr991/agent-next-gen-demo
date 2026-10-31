@@ -11,6 +11,7 @@
 import * as React from "react";
 import { LEFT_NAV_EXPANDED_WIDTH, LYRA_CARD_MAX_WIDTH, SidePanel } from "@nicecxone/lyra-ui";
 import { t } from "@/i18n";
+import { Slot } from "@/layout/Slot";
 import { useSlotHas } from "@/layout/useSlot";
 import { assignmentsPanelDocks, availableForAssignmentsPanel } from "@/contact-handling/assignments-panel-placement";
 import { useRailAssignmentCount } from "@/contact-handling/home/useScheduleCards";
@@ -112,6 +113,8 @@ function AssignmentsSidePanel() {
         data-slot="assignments-panel"
         data-docked={docked || undefined}
       >
+        {/* Voice controls at the top of the assignments list (P-LAYOUT-F1 A3). */}
+        <Slot id="interior-panel" region="top" />
         <AssignmentsStack mount="interiorPanel" className="px-3 pb-3" />
       </SidePanel>
     </>

@@ -76,13 +76,23 @@ const placement = slotField({
   set: (s, placement) => ({ ...s, assignments: { ...s.assignments, placement } }),
 });
 
-const voiceControls = slotField({
+type VoiceControlsLocation = SettingsState["voice"]["controlsLocation"];
+/** Voice controls "top" is the top of the assignments list wherever it is (P-LAYOUT-F1 A3): the interior panel's, else
+ *  the left nav's (the `voice-top-follows-assignments-*` rules keep it there when the list moves). */
+const assignmentsListTop = (values: SettingsState): SlotId =>
+  (values.layout?.parts?.assignments?.slot ?? (values.assignments.placement === "interiorPanel" ? "interior-panel" : "left-nav")) ===
+  "interior-panel"
+    ? "interior-panel"
+    : "left-nav";
+
+const voiceControls = field<VoiceControlsLocation>({
   id: "voice.controlsLocation",
   section: "voice",
-  part: "voiceBar",
-  slots: { bottom: "dock-bottom", top: "left-nav" },
+  values: ["bottom", "top"],
   get: (s) => s.voice.controlsLocation,
   set: (s, controlsLocation) => ({ ...s, voice: { ...s.voice, controlsLocation } }),
+  preset: (value, values) => ({ voiceBar: { slot: value === "bottom" ? "dock-bottom" : assignmentsListTop(values) } }),
+  reproduced: (parts) => (parts.voiceBar.slot === "dock-bottom" ? "bottom" : "top"),
 });
 
 // ── AI display ──────────────────────────────────────────────────────────────────────────────────────────────

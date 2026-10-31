@@ -94,7 +94,7 @@ Parts, by slot (`layout.parts`; Settings → Layout → Advanced reaches every o
 - `screenpop` in `left-nav`, `home-top`
 - `sessionDetails` in `docked-panel`
 - `tickets` in `left-nav`
-- `voiceBar` in `left-nav`
+- `voiceBar` in `left-nav`, `interior-panel`
 - `wem` in `left-nav`, `home-top`
 
 ## Parts and slots
@@ -134,7 +134,7 @@ Every part, the slots it allows and where each built-in profile puts it (`layout
 | `teamQueues` | Team queues | home | `main` | main, main-trailing | main | main | main-trailing | home.layout (slot), home.sections (order) |
 | `teamToday` | Team today | home | `main` | main, main-trailing | main | main | main-trailing | home.layout (slot), home.sections (order) |
 | `tickets` | Tickets | home, interaction | `header` | header, left-nav, home-top | header | home-top | home-top | header.apps.<app>.placement |
-| `voiceBar` | Voice controls | home, interaction | `dock-bottom` | dock-bottom, left-nav | dock-bottom | dock-bottom | dock-bottom | voice.controlsLocation |
+| `voiceBar` | Voice controls | home, interaction | `dock-bottom` | dock-bottom, left-nav, interior-panel | dock-bottom | dock-bottom | dock-bottom | voice.controlsLocation (top follows assignments) |
 | `wem` | WEM | home, interaction | `header` | header, left-nav, home-top | header | header | header | header.apps.<app>.placement |
 
 ## Slots
@@ -147,7 +147,7 @@ Widths are tokens the container resolves: `card` (lyra's `LYRA_CARD_MAX_WIDTH`),
 | `docked-panel` | Docked panel | SidePanel-right | container – container | 1 | home, interaction |  |
 | `header` | App header | AppHeader |  | many | home, interaction |  |
 | `home-top` | Top of Home | stack |  | many | home |  |
-| `interior-panel` | Interior panel | SidePanel-left | card – container | 1 | home, interaction | overlay |
+| `interior-panel` | Interior panel | SidePanel-left | nav – container | 1 | home, interaction | overlay |
 | `left-nav` | Left nav | LeftNav |  | many | home, interaction |  |
 | `main` | Main column | column | action-area – — | many | home, interaction |  |
 | `main-trailing` | Cards column | column | card – card | many | home | overlay |
@@ -171,6 +171,8 @@ Widths are tokens the container resolves: `card` (lyra's `LYRA_CARD_MAX_WIDTH`),
 | `placement-none-toasts` | `layout.parts.assignments.slot` in `home-top` | `notifications.toasts.enabled` = `true` | Required while assignments aren't in the left nav |
 | `queue-chip-header` | `layout.parts.assignments.slot` in `home-top` | `layout.parts.queueChip.slot` = `header` | In the header while assignments are at the top of Home |
 | `queue-chip-home` | `layout.parts.assignments.slot` in `left-nav`, `interior-panel` | `layout.parts.queueChip.slot` = `home-top` | On Home while assignments are in a panel |
+| `voice-top-follows-assignments-interior-panel` | `layout.parts.assignments.slot` in `interior-panel` and `layout.parts.voiceBar.slot` in `left-nav`, `interior-panel` | `layout.parts.voiceBar.slot` = `interior-panel` | At the top of the assignments list |
+| `voice-top-follows-assignments-left-nav` | `layout.parts.assignments.slot` in `left-nav` and `layout.parts.voiceBar.slot` in `left-nav`, `interior-panel` | `layout.parts.voiceBar.slot` = `left-nav` | At the top of the assignments list |
 
 ## Combinations that disable a control
 

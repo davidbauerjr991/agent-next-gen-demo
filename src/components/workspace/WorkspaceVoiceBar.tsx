@@ -16,8 +16,10 @@ export function WorkspaceVoiceBar() {
     setVoiceVideoFullScreen, setVoiceVideoWindowOpen, switchActiveInteraction, voiceBarCall,
     voiceBarCallOf, voiceBarHost, voiceNavSlotMounted, voiceVideoWindowOpen,
   } = useWorkspace();
-  // P-LAYOUT: the voice bar part's slot; the left nav's host holds it while it's mounted (the nav open).
-  const inLeftNav = useSlotFor("voiceBar") === "left-nav" && voiceNavSlotMounted;
+  // P-LAYOUT: the voice bar part's slot; the top of the assignments list (the left nav's host while the nav is open,
+  // the interior panel's while the panel is, P-LAYOUT-F1 A3) holds it while that host is mounted.
+  const voiceSlot = useSlotFor("voiceBar");
+  const inLeftNav = (voiceSlot === "left-nav" || voiceSlot === "interior-panel") && voiceNavSlotMounted;
   const transcriptMenu = useActiveTranscriptMenu(liveVoiceCallInteraction ?? undefined, liveVoiceCallThread ?? undefined);
   return (
     <>

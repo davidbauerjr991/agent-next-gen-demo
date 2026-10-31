@@ -141,8 +141,8 @@ test("Settings → Layout: dragging the voice controls into the Left nav list mo
   await expect(page.locator("[data-slot=voice-bar]")).toHaveCount(1);
   // The preview and the legacy setting (Settings → Voice) follow.
   await expect(layout.locator('[data-layout-preview] [data-preview-slot="left-nav"] [data-preview-part="voiceBar"]')).toHaveCount(1);
-  await expect(page.getByRole("combobox", { name: "Voice controls location" })).toContainText("Top of left nav");
-  await expect(layout.locator('[data-layout-preset="voice.controlsLocation"]').getByRole("radio", { name: "Top of left nav" })).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByRole("combobox", { name: "Voice controls location" })).toContainText("Top of assignments");
+  await expect(layout.locator('[data-layout-preset="voice.controlsLocation"]').getByRole("radio", { name: "Top of assignments" })).toHaveAttribute("aria-checked", "true");
 });
 
 test("Settings → Layout: a drag onto a list that refuses the part shows why under that list, until a move lands", async ({ page }) => {

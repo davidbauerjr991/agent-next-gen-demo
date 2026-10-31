@@ -271,7 +271,7 @@ describe("Assignments: left nav", () => {
 });
 
 describe("Voice: controls location", () => {
-  it("Top of left nav moves the bar into the nav, stacked; a collapsed nav falls back to the bottom", async () => {
+  it("Top of assignments, with the assignments in the left nav, moves the bar into the nav, stacked; a collapsed nav falls back to the bottom", async () => {
     await h.show(AgentWorkspaceAdvancedPage);
     await h.accept(await h.startInbound("voice", "(312) 555-0164", "Lauren Briggs"));
     await h.click(h.navCard("Lauren Briggs"));
@@ -293,6 +293,27 @@ describe("Voice: controls location", () => {
     await h.click(h.container.querySelector('[aria-label="Collapse sidebar"]')!);
     expect(bar().closest("aside")).toBeNull();
     expect(bar().getAttribute("data-placement")).toBe("bottom");
+  });
+
+  it("Top of assignments follows the list into the interior panel and back (P-LAYOUT-F1 A3); a closed panel falls back to the bottom", async () => {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await h.accept(await h.startInbound("voice", "(312) 555-0164", "Lauren Briggs"));
+    await h.click(h.navCard("Lauren Briggs"));
+    const bar = () => h.container.querySelector("[data-slot=voice-bar]")!;
+    const panel = () => h.container.querySelector("[data-slot=assignments-panel]");
+    await setSettings("voice", { controlsLocation: "top" });
+    await setSettings("assignments", { placement: "interiorPanel" });
+    expect(store().getState().values.layout.parts.voiceBar.slot).toBe("interior-panel");
+    expect(store().getState().values.voice.controlsLocation).toBe("top");
+    expect(panel()!.contains(bar())).toBe(true);
+    expect(bar().getAttribute("data-placement")).toBe("top");
+    // The panel closed: the bar falls back to the bottom.
+    await h.click(panel()!.querySelector('button[aria-label="Close panel"]')!);
+    expect(bar().getAttribute("data-placement")).toBe("bottom");
+    // Back in the left nav: so is the bar, still "top".
+    await setSettings("assignments", { placement: "leftNav" });
+    expect(store().getState().values.layout.parts.voiceBar.slot).toBe("left-nav");
+    expect(bar().closest("aside")).not.toBeNull();
   });
 });
 

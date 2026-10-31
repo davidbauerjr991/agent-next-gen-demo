@@ -877,6 +877,9 @@ export type SettingPath = `${SectionKey}.${string}`;
 export interface SettingConstraint {
   id: string;
   when: { path: SettingPath; in: readonly unknown[] };
+  /** A second condition that must hold too (P-LAYOUT-F1: the voice bar follows the assignments only while it's at the
+   *  top of a list, not at the bottom). */
+  also?: { path: SettingPath; in: readonly unknown[] };
   forces?: { path: SettingPath; value: unknown };
   disables?: { path: SettingPath };
   /** English source; shown through `t()` (the tooltip on the disabled control). */
@@ -911,6 +914,14 @@ export const SETTING_CONSTRAINTS: readonly SettingConstraint[] = [
   // P-LAYOUT: the incoming offer is part of the assignments list; the queue chip moves to the header when the list
   // is at the top of Home.
   ...follows("incoming-follows-assignments", "incomingTile", "assignments", ["left-nav", "interior-panel", "home-top"], "Follows Assignments"),
+  // P-LAYOUT-F1 A3: voice controls at the top are at the top of the assignments list, wherever the list is.
+  ...(["left-nav", "interior-panel"] as const).map((slot) => ({
+    id: `voice-top-follows-assignments-${slot}`,
+    when: { path: ASSIGNMENTS_SLOT as SettingPath, in: [slot] },
+    also: { path: "layout.parts.voiceBar.slot" as SettingPath, in: ["left-nav", "interior-panel"] },
+    forces: { path: "layout.parts.voiceBar.slot" as SettingPath, value: slot },
+    reason: "At the top of the assignments list",
+  })),
   { id: "queue-chip-header", when: { path: ASSIGNMENTS_SLOT, in: ["home-top"] }, forces: { path: "layout.parts.queueChip.slot", value: "header" }, reason: "In the header while assignments are at the top of Home" },
   { id: "queue-chip-home", when: { path: ASSIGNMENTS_SLOT, in: ["left-nav", "interior-panel"] }, forces: { path: "layout.parts.queueChip.slot", value: "home-top" }, reason: "On Home while assignments are in a panel" },
   // The conversation and the AI feed can't both be docked: one of them is the action area. Before the Copilot rule,

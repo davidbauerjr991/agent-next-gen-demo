@@ -52,7 +52,7 @@ for (const mode of MODES) {
     await expect(bottomBar(page)).toBeVisible();
     await expect(anyBar(page)).toHaveCount(1);
     await select.click();
-    await page.getByRole("option", { name: "Top of left nav" }).click();
+    await page.getByRole("option", { name: "Top of assignments" }).click();
     await expect(navBar(page)).toBeVisible();
     await expect(anyBar(page)).toHaveCount(1);
   });

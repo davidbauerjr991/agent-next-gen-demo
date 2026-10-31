@@ -145,9 +145,11 @@ const DEFS: Record<PartId, Def> = {
   voiceBar: {
     component: "VoiceBar (voiceBarHost)",
     label: "Voice controls",
-    allowedSlots: ["dock-bottom", "left-nav"],
+    // The bottom, or the top of the assignments list: the left nav's or the interior panel's (P-LAYOUT-F1 A3).
+    allowedSlots: ["dock-bottom", "left-nav", "interior-panel"],
     defaultSlot: "dock-bottom",
-    source: "voice.controlsLocation",
+    constraints: ["voice-top-follows-assignments-left-nav", "voice-top-follows-assignments-interior-panel"],
+    source: "voice.controlsLocation (top follows assignments)",
   },
   conversation: {
     component: "InteractionTranscript + InteractionComposer / ChannelThreadBody",

@@ -75,7 +75,7 @@ const PRESET_ROWS: readonly PresetRow[] = [
     label: "Voice controls location",
     options: [
       { value: "bottom", label: "Bottom" },
-      { value: "top", label: "Top of left nav" },
+      { value: "top", label: "Top of assignments" },
     ],
   },
   {

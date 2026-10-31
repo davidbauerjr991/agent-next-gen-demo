@@ -20,8 +20,8 @@ describe("slots registry (P-LAYOUT)", () => {
     }
   });
 
-  it("the interior panel is lyra SidePanel left, at least a card wide (Dave, 2026-10-30)", () => {
-    expect(SLOTS["interior-panel"]).toMatchObject({ container: "SidePanel-left", minWidth: "card", capacity: 1 });
+  it("the interior panel is lyra SidePanel left, at least the left nav's expanded width (Dave, 2026-10-30; P-LAYOUT-F1 A2)", () => {
+    expect(SLOTS["interior-panel"]).toMatchObject({ container: "SidePanel-left", minWidth: "nav", capacity: 1 });
   });
 });
 

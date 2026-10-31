@@ -147,7 +147,9 @@ function slots(): string {
   ].join("\n");
 }
 
-const when = (rule: SettingConstraint) => `${code(rule.when.path)} in ${rule.when.in.map(code).join(", ")}`;
+const when = (rule: SettingConstraint) =>
+  `${code(rule.when.path)} in ${rule.when.in.map(code).join(", ")}` +
+  (rule.also ? ` and ${code(rule.also.path)} in ${rule.also.in.map(code).join(", ")}` : "");
 
 function constraints(): string {
   const rules = byId(SETTING_CONSTRAINTS);

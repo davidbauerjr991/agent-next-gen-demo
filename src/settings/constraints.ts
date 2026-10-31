@@ -16,7 +16,8 @@ function writePath(node: unknown, [head, ...rest]: string[], value: unknown): Re
   return { ...obj, [head]: rest.length === 0 ? value : writePath(obj[head], rest, value) };
 }
 
-const holds = (values: SettingsState, rule: SettingConstraint) => rule.when.in.includes(readPath(values, rule.when.path));
+const holds = (values: SettingsState, rule: SettingConstraint) =>
+  rule.when.in.includes(readPath(values, rule.when.path)) && (!rule.also || rule.also.in.includes(readPath(values, rule.also.path)));
 
 /** `values` with every holding rule's target set to its forced value, and the sections that changed. Returns the
  *  same `values` object when nothing changed. */

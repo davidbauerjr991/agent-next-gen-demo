@@ -25,7 +25,10 @@ export function partsOnPage(parts: LayoutParts, slot: SlotId, page: Page): PartI
 export function canPlace(values: SettingsState, part: PartId, slot: SlotId): true | string {
   const def = PARTS[part];
   if (!def.allowedSlots.includes(slot)) return t("{part} can't go in the {slot}", { part: t(def.label), slot: t(SLOTS[slot].label) });
-  const rule = activeConstraint(values, `layout.parts.${part}.slot` as SettingPath);
+  // Checked with the move made: a rule can hold only because of where the part is now (the voice bar follows the
+  // assignments only while it's at the top of their list, P-LAYOUT-F1 A3), and moving it is what ends that.
+  const moved = { ...values, layout: { ...values.layout, parts: patchParts(values.layout.parts, { [part]: { slot } }) } };
+  const rule = activeConstraint(moved, `layout.parts.${part}.slot` as SettingPath);
   if (rule && rule.forces!.value !== slot) return t(rule.reason);
   return true;
 }

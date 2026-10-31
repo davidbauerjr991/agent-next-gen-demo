@@ -73,4 +73,11 @@ describe("layout edits (P-LAYOUT)", () => {
     expect(canPlace(v, "queueChip", "header")).toBe("On Home while assignments are in a panel");
     expect(canPlace(v, "queueChip", "home-top")).toBe(true);
   });
+
+  it("canPlace: the voice bar at the top of the assignments list can go back to the bottom, but not to the top of a list the assignments aren't in (P-LAYOUT-F1 A3)", () => {
+    const base = values();
+    const v = { ...base, layout: { ...base.layout, parts: patchParts(base.layout.parts, { voiceBar: { slot: "left-nav" } }) } };
+    expect(canPlace(v, "voiceBar", "dock-bottom")).toBe(true);
+    expect(canPlace(v, "voiceBar", "interior-panel")).toBe("At the top of the assignments list");
+  });
 });

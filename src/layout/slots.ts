@@ -34,9 +34,10 @@ export const SLOT_CONTAINERS = [
 ] as const;
 export type SlotContainer = (typeof SLOT_CONTAINERS)[number];
 
-/** A width bound: lyra's card width (`LYRA_CARD_MAX_WIDTH`), the container's own default, the action area's minimum
- *  (`ACTION_AREA_MIN_WIDTH`), or the reference slot's clamp (the body row less the action area's minimum). */
-export type SlotWidth = "card" | "container" | "action-area" | "row-less-action";
+/** A width bound: lyra's card width (`LYRA_CARD_MAX_WIDTH`), the left nav's expanded width (`LEFT_NAV_EXPANDED_WIDTH`),
+ *  the container's own default, the action area's minimum (`ACTION_AREA_MIN_WIDTH`), or the reference slot's clamp
+ *  (the body row less the action area's minimum). */
+export type SlotWidth = "card" | "nav" | "container" | "action-area" | "row-less-action";
 
 export interface SlotDef {
   id: SlotId;
@@ -69,8 +70,9 @@ export const SLOTS: Record<SlotId, SlotDef> = {
     id: "interior-panel",
     container: "SidePanel-left",
     label: "Interior panel",
-    description: "lyra SidePanel side=\"left\" inside the content container: pinned pushes the content, unpinned overlays; a toggle button",
-    minWidth: "card",
+    description:
+      "lyra SidePanel side=\"left\" inside the content container: pinned pushes the content, unpinned overlays; toggled from the page header (lyra PageHeader panelToggle)",
+    minWidth: "nav",
     maxWidth: "container",
     capacity: 1,
     pages: BOTH,
