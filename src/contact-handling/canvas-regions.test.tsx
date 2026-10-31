@@ -19,6 +19,7 @@ import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/setting
 import { SECTIONS, type AiSettings } from "@/settings/settings-schema";
 import { registerCanvasCell, resetCanvasRegistry, canvasCellDefinition } from "./canvas-registry";
 import { getWorkspaceUiStore } from "./workspace-ui-store";
+import { resetReferenceCardsWorkingStateForTests } from "./reference-cards-working-state";
 import { showEmptyReferenceCards } from "@/test-utils/reference-cards";
 
 const h = createWorkspaceHarness({ seed: SIM_DEMO_SEED });
@@ -27,6 +28,7 @@ const UNKNOWN = "(161) 474-9179";
 
 beforeEach(() => {
   localStorage.clear();
+  resetReferenceCardsWorkingStateForTests();
   resetSettingsStoreForTests();
   resetCanvasRegistry();
   // These tests are about the regions, not when an empty card hides (canvas-hascontent.test.tsx).

@@ -173,6 +173,14 @@ export function createWorkspaceHarness(
     async tearDown() {
       await act(async () => root.unmount());
       container.remove();
+      // jsdom runs requestAnimationFrame on one interval, started only when its pending count goes from 0 to 1. A
+      // frame still pending here would keep that count up after the fake interval is dropped, and no later test in
+      // the file would get a frame: drain them on the fake clock first.
+      if (vi.isFakeTimers()) {
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(50);
+        });
+      }
       vi.useRealTimers();
     },
     render,
