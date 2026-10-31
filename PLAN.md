@@ -889,7 +889,11 @@ Order of attack (revised 2026-10-19, demo-first; 2026-10-18 additions: P-LYRA-RT
     - **Reorder groups:** one per page, not one `layout` group.
     - **Preview:** the real reference cards' own components fed Maya Chen's script, not the controller-bound canvas cells.
     - **Locks:** a move that would reach a section another profile lock holds is refused with the reason, never written and dropped. Under the `layout` lock, Advanced shows open and read-only. Home's section switches stay the agent's, and only their order locks.
+    - **Commit 13 (Dave, 2026-10-31):**
+      - A refused move shows its reason under that list as well as announcing it. On a pointer drag it shows only for the list the drag ended over.
+      - The preview's columns come from Home's own `homeIsTwoColumn`, which also needs the feed in main. Dave's brief said "a part in main-trailing and the feed on"; it also said "same condition home-dashboard uses", and that is the one followed.
+      - Under placement none, an offered card leaves Needs a decision, so it appears once.
   - **The generated matrix:** the retirement checklist's projection column is "Parts it moves". "Values no profile exercises" also lists part slots only the map can express. `vite-node` is declared as a devDependency, and the staleness test reads the doc through Vite's `?raw` glob.
   - **Composition gate:** 16 snapshot cases, not 12 (a chat as well as a call where the profile has chat).
   - **Tests:** `composition.test` and `next-best-action.test` take 90s per test, since under the full suite's parallel load a case could pass 30s and cascade.
-  - **lyra sync:** `.lyra-ui-sync` moved from `00fffc1` to `583646d`. That range also holds Dave's own lyra commits `71fc34c` (Container corners, border styles, dotted variants, which the preview's `neutral-dotted` uses), `3a925c5` and `5cea766`, made in his session alongside this step, already in lyra when L1 and L2 were committed on top of them; not authorized by or for this step.
+  - **lyra sync:** `.lyra-ui-sync` moved from `00fffc1` to `583646d`. That range also holds Dave's own lyra commits `71fc34c` (Container corners, border styles, dotted variants, which the preview's `neutral-dotted` uses), `3a925c5` and `5cea766`, made in his session alongside this step, already in lyra when L1 and L2 were committed on top of them; not authorized by or for this step. Dave confirmed all three as his on 2026-10-31.
