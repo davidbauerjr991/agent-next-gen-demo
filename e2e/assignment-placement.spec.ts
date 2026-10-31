@@ -53,7 +53,7 @@ test("placement none: a row per open assignment at the top of Home; View opens o
   await expect(inlineRows(page).first()).toBeVisible();
 });
 
-test("interior panel: lyra's left SidePanel inside the content card, at its start, resizable within 350–425 (P-LAYOUT fix (a))", async ({ page }) => {
+test("interior panel: lyra's left SidePanel inside the content card, at its start, resizable within 256–425 (P-LAYOUT fix (a); its minimum the nav's expanded width, P-LAYOUT-F1 A2)", async ({ page }) => {
   await setUp(page, { placement: "interiorPanel" }, 2400);
   const panel = page.locator("[data-slot=assignments-panel]");
   await expect(panel).toHaveAttribute("data-docked", "true");
@@ -64,7 +64,7 @@ test("interior panel: lyra's left SidePanel inside the content card, at its star
   expect(Math.round(box.x + box.width)).toBeLessThanOrEqual(Math.round(content.x + content.width) + 1);
   await expect(panel.getByRole("button", { name: "Unpin panel" })).toBeVisible();
   await expect(panel.getByRole("button", { name: "Close panel" })).toBeVisible();
-  // Its resize handle widens it, within lyra's 350–425.
+  // Its resize handle widens it, up to SidePanel's 425.
   const handle = panel.locator('[role="separator"]').first();
   await handle.focus();
   for (let i = 0; i < 10; i++) await page.keyboard.press("ArrowRight");

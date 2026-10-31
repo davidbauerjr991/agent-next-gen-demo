@@ -23,6 +23,9 @@ export const WorkspacePageHeader = React.forwardRef<HTMLDivElement, WorkspacePag
 ) {
   const toggles = usePanelToggles();
   const left = toggles?.assignments ?? null;
+  // A2: the left toggle's badge is every active assignment, the panel's own "Assignments (n)" (none at zero), and
+  // the count is in its name, since the badge isn't.
+  const assignmentCount = toggles?.assignmentCount ?? 0;
   const target =
     toggles && rightPanel
       ? rightPanelTarget({ referenceColumn, referenceColumnFits: toggles.referenceColumnFits, dockedPanel: toggles.dockedPanel })
@@ -34,7 +37,11 @@ export const WorkspacePageHeader = React.forwardRef<HTMLDivElement, WorkspacePag
       ref={ref}
       {...props}
       panelToggle={panelToggle}
-      {...(left && { ...withoutPinnedPreview(left), panelToggleLabel: t("Assignments") })}
+      {...(left && {
+        ...withoutPinnedPreview(left),
+        panelToggleBadge: assignmentCount,
+        panelToggleLabel: assignmentCount > 0 ? t("Assignments ({count})", { count: assignmentCount }) : t("Assignments"),
+      })}
       {...(right && {
         ...withoutPinnedPreview(right),
         innerPanelToggleLabel: target === "reference" ? t("Summaries") : t("Details panel"),

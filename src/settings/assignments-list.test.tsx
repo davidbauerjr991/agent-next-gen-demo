@@ -151,17 +151,18 @@ describe("Assignments placement → Interior panel (0c; lyra SidePanel left sinc
     // One "Assignments": SidePanel's title with the count beside it; the stack has no caption of its own.
     expect(panel()!.textContent).toContain("Assignments(1)");
     expect(panel()!.querySelector("[data-slot=assignments-stack]")!.textContent).not.toContain("Assignments");
-    // Resizable, no narrower than the card width (SidePanel's own 200 would crush the cards).
-    expect(panel()!.querySelector("[role=separator]")!.getAttribute("aria-valuemin")).toBe("350");
-    // The page header's toggle (the app's own strip is gone).
+    // Resizable, no narrower than the left nav's expanded width, which the cards are sized for (A2).
+    expect(panel()!.querySelector("[role=separator]")!.getAttribute("aria-valuemin")).toBe("256");
+    // The page header's toggle (the app's own strip is gone), its name carrying the count (A2).
     expect(h.container.querySelector("[data-slot=assignments-panel-toggle]")).toBeNull();
-    expect(headerToggle()!.getAttribute("aria-label")).toBe("Assignments");
+    expect(headerToggle()!.getAttribute("aria-label")).toBe("Assignments (1)");
     expect(headerToggle()!.getAttribute("aria-expanded")).toBe("true");
     // Unpinned: SidePanel's overlay (and closed, as lyra's AdminShell unpins); pinned again, it pushes once more.
     await h.click(button(/^Unpin panel$/)!);
     expect(panel()!.getAttribute("data-docked")).toBeNull();
     expect(headerToggle()!.getAttribute("aria-expanded")).toBe("false");
-    expect(railItem()).not.toBeNull();
+    // No rail item, overlaid or not: the page header's toggle is the only trigger (A2, reverses 587e95e).
+    expect(railItem()).toBeNull();
     await h.click(headerToggle()!);
     await h.click(button(/^Pin panel$/)!);
     expect(panel()!.getAttribute("data-docked")).toBe("true");
@@ -175,7 +176,64 @@ describe("Assignments placement → Interior panel (0c; lyra SidePanel left sinc
     expect(panel()!.getAttribute("data-docked")).toBe("true");
   });
 
-  it("its width comes from the working state, clamped to 350–425; a resize is saved there", async () => {
+  /** The left nav is expanded: its chevron offers to collapse it. */
+  const navExpanded = () => !!h.container.querySelector('aside button[aria-label="Collapse sidebar"]');
+
+  it("A2: loaded under the interior panel, the nav is a rail; the toggle's badge is every active assignment, none at zero", async () => {
+    await act(async () => {
+      store().update("channels", { chat: true });
+      store().update("assignments", { placement: "interiorPanel" });
+    });
+    await h.show(AgentWorkspaceAdvancedPage);
+    await h.goAvailable();
+    expect(navExpanded()).toBe(false);
+    expect(headerToggle()!.getAttribute("aria-label")).toBe("Assignments");
+    expect(headerToggle()!.querySelector("[class*=rounded-full]")).toBeNull();
+    for (const [address, name] of [["ana@example.com", "Ana Ruiz"], ["bo@example.com", "Bo Lane"]] as const) {
+      await h.accept(await h.startInbound("chat", address, name));
+      await h.advance(1000);
+    }
+    // Both are active, not new ones only: the same number as the panel's "Assignments (n)".
+    expect(headerToggle()!.getAttribute("aria-label")).toBe("Assignments (2)");
+    expect(headerToggle()!.textContent).toContain("2");
+    expect(panel()!.textContent).toContain("Assignments(2)");
+  });
+
+  it("A2: switching the placement to the interior panel collapses the nav to a rail and opens the panel pinned; the nav can be expanded again", async () => {
+    localStorage.setItem("agent-next-gen:working:assignments", JSON.stringify({ panelOpen: false, panelPinned: false }));
+    await act(async () => {
+      store().update("channels", { chat: true });
+    });
+    await h.show(AgentWorkspaceAdvancedPage);
+    await h.goAvailable();
+    expect(navExpanded()).toBe(true);
+    await act(async () => {
+      store().update("assignments", { placement: "interiorPanel" });
+    });
+    await h.advance(100);
+    expect(navExpanded()).toBe(false);
+    expect(panel()!.getAttribute("data-docked")).toBe("true");
+    // A default, not a lock.
+    await h.click(h.container.querySelector<HTMLElement>('aside button[aria-label="Expand sidebar"]')!);
+    expect(navExpanded()).toBe(true);
+  });
+
+  it("A2: a ringing call opens a closed assignments panel, where its incoming tile is; the nav stays as it was", async () => {
+    await inPanel();
+    const button = (label: RegExp) => [...h.container.querySelectorAll<HTMLButtonElement>("button")].find((b) => label.test(b.getAttribute("aria-label") ?? ""));
+    await h.click(button(/^Close panel$/)!);
+    expect(headerToggle()!.getAttribute("aria-expanded")).toBe("false");
+    expect(navExpanded()).toBe(false);
+    await h.startInbound("voice", "+15550101234", "Cal Ring");
+    await h.advance(1000);
+    expect(headerToggle()!.getAttribute("aria-expanded")).toBe("true");
+    expect(navExpanded()).toBe(false);
+    // The incoming tile is in the panel (it follows the assignments part), not the nav.
+    expect(panel()!.textContent).toContain("Cal Ring");
+    expect(h.container.querySelector("aside")!.textContent).not.toContain("Cal Ring");
+  });
+
+  it("its width comes from the working state, clamped to 256–425 (the nav's expanded width to SidePanel's max); a resize is saved there", async () => {
     localStorage.setItem("agent-next-gen:working:assignments", JSON.stringify({ panelWidth: 900 }));
     await inPanel();
     const separator = () => panel()!.querySelector<HTMLElement>("[role=separator]")!;
@@ -214,7 +272,7 @@ describe("Assignments placement → Interior panel (0c; lyra SidePanel left sinc
     }
   });
 
-  it("off again: the cards are back in the left nav and the rail item goes", async () => {
+  it("off again: the cards are back in the left nav, with no rail item", async () => {
     await inPanel();
     await act(async () => {
       store().update("assignments", { placement: "leftNav" });

@@ -47,7 +47,7 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
     customerMatchQuery, enabledChannels, handleOutcomeCancel, handleOutcomeDispositionChange, handleOutcomeOpenChange, handleOutcomeSave,
     handleOutcomeSaveAndDismiss, handleOutcomeSaveAndRedial, handleOutcomeTagsChange, interactions, isColdCallId, omni,
     omnichannel, outcomeDraft, outcomeDraftKey, pendingAgentLegToastRef, scenarioCases, scenarioKeyOf,
-    setCreatedCustomerRecords, setCustomerMatchStep, setInteractions, setNavOpen, setOutcomeDraft, showAgentLegToast,
+    setCreatedCustomerRecords, setCustomerMatchStep, setInteractions, revealAssignmentsList, setOutcomeDraft, showAgentLegToast,
     storeContacts, threadLaunchTimestamps,
   } = prev;
   // An inbound call's pre-contact summary (P0.5d.1) replaces the Autosummary
@@ -515,7 +515,8 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
     scenarioCases.respond(LUCAS_THOMAS_ID, { value, ...(note ? { note } : {}) });
   };
   // A scripted call answered automatically (Maya) opens like an accepted
-  // offer: the nav opens and the side panel closes, as her hotkey used to.
+  // offer: the assignments list shows (the nav opens, or the interior panel; P-LAYOUT-F1 A2) and the side panel
+  // closes, as her hotkey used to.
   // A scripted chat the bot ended (Lucas wrapped up without a takeover)
   // leaves the nav the way Unassign & Dismiss does, Contact History row
   // included. Each happens once per contact.
@@ -526,7 +527,7 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
       const { contact, cardId } = scenario;
       if (contact.autoAnswered && contact.state === "active" && !scenarioReactions.current.has(`open:${contact.id}`)) {
         scenarioReactions.current.add(`open:${contact.id}`);
-        setNavOpen(true);
+        revealAssignmentsList();
         late.switchActiveInteraction(cardId);
         late.setSidePanelOpen(false);
       }

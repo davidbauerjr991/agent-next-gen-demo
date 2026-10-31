@@ -5,6 +5,8 @@ import { useAgentState, useInteractionProvider, useScheduleProvider, useSchedule
 import { useConstraint, useSettings, type ToastEvent } from "@/settings";
 import { inArrivalGrace, isRoutedContact, isScheduleArrival, newArrivals } from "./arrivals";
 import { useAssignmentsAtHomeTop } from "../useAssignmentsPanel";
+import { revealAssignments } from "../reveal-assignments";
+import { useSlotFor } from "@/layout/useSlot";
 import { t } from "@/i18n";
 import type { useWsHeaderApps } from "../workspace/controller/useWsHeaderApps";
 import { useWorkspaceUiStore } from "../workspace-ui-store";
@@ -48,8 +50,9 @@ export function useAssignmentToasts(ws: WorkspaceBase) {
   // The handlers below read the latest of these, not the values they were registered with.
   // Where an offer's tile is: the rail (left nav or interior panel), or the top of Home.
   const offersAtHome = useAssignmentsAtHomeTop();
-  const latest = useRef({ ws, settings, incomingForced, offersAtHome });
-  latest.current = { ws, settings, incomingForced, offersAtHome };
+  const assignmentsSlot = useSlotFor("assignments");
+  const latest = useRef({ ws, settings, incomingForced, offersAtHome, assignmentsSlot });
+  latest.current = { ws, settings, incomingForced, offersAtHome, assignmentsSlot };
   // Toast ids, per workspace mount (a toast's id is also its drawer row's).
   const counter = useRef(0);
 
@@ -224,14 +227,14 @@ export function useAssignmentToasts(ws: WorkspaceBase) {
         return;
       }
       if (toast.offer) {
-        // An offer's Accept / Decline are on its tile: the rail's (open the nav; the agent's work stays), or the top
-        // of Home's (go Home).
+        // An offer's Accept / Decline are on its tile: the assignments list's (shown where it is: the nav expands, the
+        // interior panel opens; the agent's work stays), or the top of Home's (go Home).
         if (latest.current.offersAtHome) {
           w.setShowSettings(false);
           w.setLeftNavPage(null);
           w.switchActiveInteraction(null);
         } else {
-          w.setNavOpen(true);
+          revealAssignments(latest.current.assignmentsSlot, w.setNavOpen);
         }
         return;
       }

@@ -57,15 +57,16 @@ test("A1: pinned and closed, hovering the toggle shows nothing (a preview would 
   await setUp(page, { placement: "interiorPanel" });
   await panel(page).getByRole("button", { name: "Close panel" }).click();
   await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
-  // The panel's width transition settles before the content's place is taken.
-  await expect.poll(async () => (await homeBox(page)).x).toBeLessThan(300);
+  // The panel's own width reaches 0 (its close transition is over) before the content's place is taken.
+  const panelShown = () =>
+    page.locator("[data-slot=assignments-panel], [data-slot=assignments-panel] [role=region]").evaluateAll((els) => Math.max(0, ...els.map((el) => el.getBoundingClientRect().width)));
+  await expect.poll(panelShown).toBeLessThan(1);
   const closed = await homeBox(page);
   await toggle(page).hover();
   await page.waitForTimeout(400);
   // No preview: nothing of the panel shows, the toggle is still the element under the pointer, and the content
   // hasn't moved.
-  const shown = await page.locator("[data-slot=assignments-panel] [role=region]").evaluateAll((els) => els.map((el) => el.getBoundingClientRect().width));
-  expect(Math.max(0, ...shown)).toBeLessThan(1);
+  expect(await panelShown()).toBeLessThan(1);
   const t = (await toggle(page).boundingBox())!;
   expect(await page.evaluate(({ x, y }) => !!document.elementFromPoint(x, y)?.closest("[aria-controls=assignments-panel]"), { x: t.x + t.width / 2, y: t.y + t.height / 2 })).toBe(true);
   expect(Math.round((await homeBox(page)).x)).toBe(Math.round(closed.x));
@@ -73,7 +74,7 @@ test("A1: pinned and closed, hovering the toggle shows nothing (a preview would 
   await expect(panel(page)).toHaveAttribute("data-docked", "true");
 });
 
-test("fix (a): a dragged width is kept across a reload, within 350–425", async ({ page }) => {
+test("fix (a): a dragged width is kept across a reload, within 256–425", async ({ page }) => {
   await setUp(page, { placement: "interiorPanel" });
   await expect(panel(page)).toHaveAttribute("data-docked", "true");
   const before = (await panel(page).boundingBox())!;
@@ -115,6 +116,9 @@ test("fix (a): the close hides the panel, the content takes its room, and the pa
   await page.reload();
   await page.getByRole("button", { name: "Go Available" }).click();
   await expect(toggle(page)).toBeVisible();
+  // Still closed (lyra L1b: StrictMode's second mount pass no longer reopens it).
+  await page.waitForTimeout(500);
+  await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
   await toggle(page).click();
   await expect(panel(page)).toHaveAttribute("data-docked", "true");
 });

@@ -67,7 +67,7 @@ export function useWsOutbound(prev: WsLaunch, late: WorkspaceLate) {
     handleStatusChange, interactions, liveVoiceCallThread, notifications, outboundDial, outcomeDraftKey, outcomeDrafts,
     panelAnimTimer, panelFloatLeft, panelFloatTop, panelFullScreen, panelOpen, panelRef, panelWidth, screenPopApp,
     selectedOutboundTeamId, setCustomerTyping, setDismissedContactHistory, setFullScreenRendered, setFullScreenVisible,
-    setInteractions, setNavOpen, setNotifications, setOutcomeDraftKey, setPanelFullScreen, setPanelHeight,
+    setInteractions, revealAssignmentsList, setNotifications, setOutcomeDraftKey, setPanelFullScreen, setPanelHeight,
     setPanelMounted, setPanelState, setPanelVariant, setPanelWidth, setResolvedTodayCount, setScreenPopApp,
     setSelectedOutboundTeamId, setShowWelcomeModal, setThreadLaunchTimestamps, storeContacts, switchActiveInteraction,
   } = prev;
@@ -758,9 +758,9 @@ export function useWsOutbound(prev: WsLaunch, late: WorkspaceLate) {
     // is switched to, a dismissed one is reopened (useContactReopen). The
     // card opens with Customer Information closed (handleContactActivated).
     void contactReopen.openNotification(notification).then((isNewCard) => {
-      // A new inbound arrival expands the left nav if it's collapsed (row
-      // 21; agent-initiated launches deliberately don't).
-      if (isNewCard) setNavOpen(true);
+      // A new inbound arrival shows the assignments list (row 21; agent-initiated launches deliberately don't): the
+      // nav expands, or under the interior panel the panel opens and the nav stays (P-LAYOUT-F1 A2).
+      if (isNewCard) revealAssignmentsList();
     });
     setNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n)));
   };

@@ -49,6 +49,8 @@ import { findContactHistoryMatch, extractPriorContactInfo } from "@/contact-hand
 import { TOM_LEWIS_CALL_OVERVIEW, MAYA_CHEN_CALL_OVERVIEW, LUCAS_THOMAS_OVERVIEW } from "@/components/workspace/workspace-constants";
 import type { WorkspaceControllerProps, WorkspaceLate } from "./workspace-late";
 import { useSuggestedDispositions } from "@/contact-handling/useSuggestedDispositions";
+import { navStartsOpen, revealAssignments, useInteriorPanelDefaults } from "@/contact-handling/reveal-assignments";
+import { useSlotFor } from "@/layout/useSlot";
 import { useActiveCardSubject, useRailScheduleCards } from "./useWsScheduleCards";
 
 export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate) {
@@ -59,8 +61,13 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   // `initialInteraction` either way — the rail's initial state is the same
   // regardless of whether the agent is seeded mid-call. `handleResize`'s
   // narrow-viewport auto-collapse (a few lines down) still applies after
-  // that first paint.
-  const [navOpen, setNavOpen] = useState(true);
+  // that first paint. P-LAYOUT-F1 A2: a rail under the interior panel, and the panel's defaults when the placement
+  // becomes the interior panel (`useInteriorPanelDefaults`).
+  const assignmentsSlot = useSlotFor("assignments");
+  const [navOpen, setNavOpen] = useState(() => navStartsOpen(assignmentsSlot));
+  useInteriorPanelDefaults(assignmentsSlot, setNavOpen);
+  /** Show an arrival's assignments list wherever it is (the nav, or the interior panel without touching the nav). */
+  const revealAssignmentsList = useCallback(() => revealAssignments(assignmentsSlot, setNavOpen), [assignmentsSlot]);
   // No interactions exist until the agent launches one from the CreateNew
   // menu (Start Interaction / quick dial) — see handleStartCall/handleQuick
   // Dial below. Click any resulting InteractionNavItem card to make it the
@@ -1004,7 +1011,7 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
 
   return {
     ...props,
-    navOpen, setNavOpen, clock, createdCustomerRecords, setCreatedCustomerRecords,
+    navOpen, setNavOpen, revealAssignmentsList, clock, createdCustomerRecords, setCreatedCustomerRecords,
     navCardDisplayName, navCards, setInteractions, findOpenCard, seedOverlay, storeContacts, contactStateById,
     scenarioCases, scenarioKeyOf, scenarioCardId, scenarioThreadOf, interactions, setResolvedTodayCount,
     dismissedContactHistory, setDismissedContactHistory, toasts, addToast, dismissToast, dismissAllToasts,

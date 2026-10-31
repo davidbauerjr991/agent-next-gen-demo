@@ -440,7 +440,7 @@ export const ASSIGNMENTS_PLACEMENT_OPTIONS: Record<AssignmentsPlacement, FieldMe
   interiorPanel: {
     label: "Interior panel",
     description:
-      "A panel at the start of your work, with the Assignments header and cards. Pinned, it moves your work aside (or opens over it where they don't fit); unpinned, it opens over your work. Close it and the button at the top brings it back. Resizable.",
+      "A panel at the start of your work, with the Assignments header and cards; the left nav starts as a rail. Pinned, it moves your work aside (or opens over it where they don't fit); unpinned, it opens over your work on hover. Close it and the Assignments button in the page header brings it back; its badge counts your assignments. Resizable.",
   },
   none: {
     label: "None",

@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 // P-PROFILES 0b / 0c: the assignments list. Assignments placement → Interior panel puts
 // the cards in lyra's left SidePanel, first in the content card (P-LAYOUT fix (a)): three columns
 // (panel, action area, reference column) while they fit, an overlay opened
-// from the rail's Assignments item when they don't. Custom sort is a drag,
+// from the page header's toggle when they don't (P-LAYOUT-F1). Custom sort is a drag,
 // kept per browser. Widths and native drag, so Chrome.
 
 type Ai = { displayLocation: "inline" | "main"; canvasLayout: "twoColumn" };
@@ -69,16 +69,19 @@ test("AI-first at a wide window: panel, action area and reference column side by
   await expect(page.locator("aside [data-slot=assignment-card]")).toHaveCount(0);
 });
 
-test("where the three don't fit, the panel is an overlay from the rail's Assignments item and the main column keeps its width", async ({ page }) => {
+test("where the three don't fit, the panel is an overlay from the page header's toggle (no rail item) and the main column keeps its width", async ({ page }) => {
   await setUp(page, { displayLocation: "inline", canvasLayout: "twoColumn" }, 1300);
   // On Home there's no reference column, so the panel and the main column fit side by side.
   await expect(page.locator(panelSel)).toHaveAttribute("data-docked", "true");
-  // A card brings the reference column: the three don't fit, so the panel unpins to an overlay (closed).
+  // A card brings the reference column: the three don't fit, so the panel renders unpinned, an overlay (closed).
   await openNoah(page, panelSel);
   await expect(page.locator(panelSel)).not.toHaveAttribute("data-docked", "true");
-  const rail = page.locator("aside").getByRole("button", { name: /^Assignments/ });
-  await expect(rail).toBeVisible();
-  await rail.click();
+  // The rail has no Assignments item (P-LAYOUT-F1 A2): the record header's toggle opens it, a hover flyout.
+  await expect(page.locator("aside").getByRole("button", { name: /^Assignments/ })).toHaveCount(0);
+  const toggle = page.locator("[aria-controls=assignments-panel]");
+  await toggle.hover();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await page.locator(panelSel).hover();
   await page.waitForTimeout(400);
   const token = await tokenWidth(page);
   const panel = (await rect(page, panelSel))!;

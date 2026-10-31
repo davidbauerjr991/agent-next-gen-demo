@@ -1,9 +1,6 @@
 import { LeftNav, NavRail } from "@nicecxone/lyra-ui";
-import { Inbox } from "lucide-react";
 import { Slot, useSlotFilled } from "@/layout/Slot";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
-import { t } from "@/i18n";
-import { useAssignmentsPanel } from "@/contact-handling/useAssignmentsPanel";
 import { LeftNavFooterColumn, LeftNavFooterSpacer } from "./left-nav-parts";
 
 /** The workspace's left nav (P-EXTRACT C8, from the page): the rail and the left-nav slot's parts (P-LAYOUT: the
@@ -12,23 +9,11 @@ export function WorkspaceLeftNav() {
   const {
     isNavNarrow, navItemsAtTop, navOpen, navRailItems: workspaceRailItems, newOutboundAtBottom, newOutboundLauncher, setNavOpen,
   } = useWorkspace();
-  // P-PROFILES 0c / P-HOME-1n: when the interior panel doesn't fit (an overlay), the rail's first item opens it,
-  // badged with the cards that need the agent.
-  const panel = useAssignmentsPanel();
-  // The sticky caption box renders only while a part fills it (the assignments in the left nav).
+  // The sticky caption box renders only while a part fills it (the assignments in the left nav). Under the interior
+  // panel the rail has no Assignments item: the page header's toggle is the only one (P-LAYOUT-F1 A2, reverses
+  // 587e95e's overlay trigger).
   const captionFilled = useSlotFilled("left-nav", "caption");
-  const navRailItems = panel.overlaid
-    ? [
-        {
-          icon: <Inbox className="h-5 w-5" strokeWidth={1.5} />,
-          label: t("Assignments"),
-          active: panel.open,
-          badge: panel.attentionCount,
-          onClick: panel.toggle,
-        },
-        ...workspaceRailItems,
-      ]
-    : workspaceRailItems;
+  const navRailItems = workspaceRailItems;
   return (
         <LeftNav
           // Home and Settings — per explicit request ("move the home button

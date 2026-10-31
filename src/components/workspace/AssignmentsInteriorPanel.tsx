@@ -9,7 +9,7 @@
 // controls, the pin and the close. Open, pinned (both on by default) and its dragged width are per-browser working
 // state.
 import * as React from "react";
-import { LYRA_CARD_MAX_WIDTH, SidePanel } from "@nicecxone/lyra-ui";
+import { LEFT_NAV_EXPANDED_WIDTH, LYRA_CARD_MAX_WIDTH, SidePanel } from "@nicecxone/lyra-ui";
 import { t } from "@/i18n";
 import { useSlotHas } from "@/layout/useSlot";
 import { assignmentsPanelDocks, availableForAssignmentsPanel } from "@/contact-handling/assignments-panel-placement";
@@ -101,8 +101,9 @@ function AssignmentsSidePanel() {
         headerTitle={t("Assignments")}
         headerTitleBadge={<span className="lyra-body-md text-lyra-fg-secondary">{t("({count})", { count })}</span>}
         headerActions={<AssignmentsHeaderActions />}
-        // The cards are laid out at the card width: SidePanel's 200px minimum would crush them. Its own 425 max.
-        minWidth={LYRA_CARD_MAX_WIDTH}
+        // No narrower than the left nav's expanded width, which the cards are sized for (lyra's
+        // `LEFT_NAV_EXPANDED_WIDTH`, P-LAYOUT-F1 A2); SidePanel's own 200 would crush them. Its own 425 max.
+        minWidth={LEFT_NAV_EXPANDED_WIDTH}
         maxWidth={PANEL_MAX_WIDTH}
         width={panelWidth}
         onWidthChange={setPanelWidth}
@@ -122,9 +123,10 @@ const PANEL_MAX_WIDTH = 425;
 /** A drag fires a width per frame: the saved width waits for it to settle. */
 const SAVE_WIDTH_AFTER_MS = 250;
 
-/** A saved width within the panel's bounds; the card width when there's none. */
+/** A saved width within the panel's bounds (the nav's expanded width to SidePanel's max); the card width when there's
+ *  none. */
 function clampPanelWidth(width: number | null): number {
-  return Math.min(PANEL_MAX_WIDTH, Math.max(LYRA_CARD_MAX_WIDTH, width ?? LYRA_CARD_MAX_WIDTH));
+  return Math.min(PANEL_MAX_WIDTH, Math.max(LEFT_NAV_EXPANDED_WIDTH, width ?? LYRA_CARD_MAX_WIDTH));
 }
 
 /** The width of `ref`'s parent, tracked; 0 until laid out (jsdom). */

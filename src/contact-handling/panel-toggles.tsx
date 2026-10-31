@@ -13,6 +13,8 @@ import * as React from "react";
 import { useSidePanelToggle, type UseSidePanelToggleReturn } from "@nicecxone/lyra-ui";
 import { useSlotFor } from "@/layout/useSlot";
 import { setAssignmentsWorkingState, useAssignmentsWorkingState } from "./assignments-working-state";
+import { useRevealOnIncomingCall } from "./reveal-assignments";
+import { useRailAssignmentCount } from "./home/useScheduleCards";
 import { useWorkspaceUiField } from "./workspace-ui-store";
 import { useWorkspace } from "./workspace/WorkspaceContext";
 
@@ -59,6 +61,8 @@ interface PanelToggles {
   dockedPanel: boolean;
   /** Whether the reference column doesn't fit beside the main column (it's the overlay). */
   referenceColumnFits: boolean;
+  /** Every active assignment, the panel's "Assignments (n)": the left toggle's badge (A2). */
+  assignmentCount: number;
 }
 
 const PanelTogglesContext = React.createContext<PanelToggles | null>(null);
@@ -71,7 +75,8 @@ export function usePanelToggles(): PanelToggles | null {
 export const ASSIGNMENTS_PANEL_ID = "assignments-panel";
 
 export function PanelTogglesProvider({ children }: { children: React.ReactNode }) {
-  const inPanel = useSlotFor("assignments") === "interior-panel";
+  const assignmentsSlot = useSlotFor("assignments");
+  const inPanel = assignmentsSlot === "interior-panel";
   const [fits] = useWorkspaceUiField("assignmentsPanelDocks");
   const { panelOpen, panelPinned } = useAssignmentsWorkingState();
   const assignments = useSidePanelToggle({
@@ -94,7 +99,7 @@ export function PanelTogglesProvider({ children }: { children: React.ReactNode }
   });
 
   const {
-    activeInteractionIsAgentCall, aiInPanel, channelPreviewThreadKey, contactSubject, effectiveSidePanelPinned, handleSidePanelClose,
+    activeInteractionIsAgentCall, aiInPanel, channelPreviewThreadKey, interactions, contactSubject, effectiveSidePanelPinned, handleSidePanelClose,
     setSidePanelOpen, showPanelToggle, sidePanelOpen,
   } = useWorkspace();
   const docked = useSidePanelToggle({
@@ -106,6 +111,9 @@ export function PanelTogglesProvider({ children }: { children: React.ReactNode }
   });
 
   const dockedPanel = aiInPanel && hasDockedPanel({ showPanelToggle, contactSubject, activeInteractionIsAgentCall });
-  const value: PanelToggles = { assignments: inPanel ? assignments : null, reference, docked, dockedPanel, referenceColumnFits };
+  // A2: a ringing call opens the assignments panel, where its incoming tile is; the nav stays as it was.
+  useRevealOnIncomingCall(assignmentsSlot, interactions);
+  const assignmentCount = useRailAssignmentCount();
+  const value: PanelToggles = { assignments: inPanel ? assignments : null, reference, docked, dockedPanel, referenceColumnFits, assignmentCount };
   return <PanelTogglesContext.Provider value={value}>{children}</PanelTogglesContext.Provider>;
 }
