@@ -70,7 +70,9 @@ test("AI-first at a wide window: panel, action area and reference column side by
 });
 
 test("where the three don't fit, the panel is an overlay from the page header's toggle (no rail item) and the main column keeps its width", async ({ page }) => {
-  await setUp(page, { displayLocation: "inline", canvasLayout: "twoColumn" }, 1300);
+  // 1100px: the nav is a rail under the interior panel (P-LAYOUT-F1 A2), so the three need a narrower window than
+  // 1300 (the width this used with the nav expanded) not to fit.
+  await setUp(page, { displayLocation: "inline", canvasLayout: "twoColumn" }, 1100);
   // On Home there's no reference column, so the panel and the main column fit side by side.
   await expect(page.locator(panelSel)).toHaveAttribute("data-docked", "true");
   // A card brings the reference column: the three don't fit, so the panel renders unpinned, an overlay (closed).
