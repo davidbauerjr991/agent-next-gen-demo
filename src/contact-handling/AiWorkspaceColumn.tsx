@@ -4,9 +4,10 @@ import { ComposerFade } from "@/components/transcript/InteractionTranscript";
 
 export interface AiWorkspaceColumnProps {
   /** The AI feed (the page's `renderAiPanelFeed`, its top being the canvas's
-   *  action cells before the conversation: Marcus's card, and under
-   *  "stacked" the reference cards), then AI cards, approvals,
-   *  interstitials. */
+   *  action cells before the conversation: Marcus's card), then AI cards,
+   *  approvals, interstitials. (Under "stacked" the reference cards are pinned
+   *  above it, outside its scroll: InteractionBody's canvas-pinned band,
+   *  P-LAYOUT-F1 D.) */
   feed: ReactNode;
   feedCount: number;
   /** Bumped by an agent action in the composer: scroll to the newest. */
@@ -22,8 +23,9 @@ export interface AiWorkspaceColumnProps {
  *  P-AIFIRST): what AI display "panel" shows in the docked Contact Details
  *  panel — the AI feed and its Copilot composer — moved to the main column.
  *  Every conversation thread opens in the panel instead. It is the canvas's
- *  action area under "main" (P-CANVAS); the reference cards are in the feed's
- *  top ("stacked") or the reference column beside it ("twoColumn"). */
+ *  action area under "main" (P-CANVAS); the reference cards are pinned above
+ *  it ("stacked", P-LAYOUT-F1 D) or in the reference column beside it
+ *  ("twoColumn"). */
 export function AiWorkspaceColumn({
   feed,
   feedCount,

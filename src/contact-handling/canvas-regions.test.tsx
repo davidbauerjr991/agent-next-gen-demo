@@ -132,6 +132,24 @@ describe("stacked canvas and panel mode", () => {
     });
   }
 
+  it("stacked: the reference cells are pinned above the conversation's scroll, start collapsed, and keep the agent's open / collapsed choice per browser across assignments (P-LAYOUT-F1 D)", async () => {
+    await open({ displayLocation: "inline", canvasLayout: "stacked" });
+    // A plain inbound chat: no guidance bringing a card forward.
+    await CASES.simChat();
+    const pinned = () => h.container.querySelector<HTMLElement>("[data-slot=canvas-pinned]")!;
+    expect(cellsIn(pinned())).toEqual(REFERENCE);
+    // Outside the transcript's scroll: the pinned band is their nearest scroller.
+    for (const cell of pinned().querySelectorAll("[data-canvas-cell]")) expect(cell.closest(".overflow-y-auto")).toBe(pinned());
+    const toggleOf = (cell: string) => h.container.querySelector<HTMLElement>(`[data-canvas-cell=${cell}] [aria-expanded]`)!;
+    expect(REFERENCE.map((cell) => toggleOf(cell!).getAttribute("aria-expanded"))).toEqual(["false", "false", "false"]);
+    await h.click(toggleOf("customer-info"));
+    expect(toggleOf("customer-info").getAttribute("aria-expanded")).toBe("true");
+    expect(JSON.parse(localStorage.getItem("agent-next-gen:working:reference-cards")!)).toEqual({ customer: true });
+    // Another assignment: Customer Info is still open there (per browser, not per assignment).
+    await CASES.noah();
+    expect(toggleOf("customer-info").getAttribute("aria-expanded")).toBe("true");
+  });
+
   it("a custom map splits the reference cells: Customer Info above the action area, the summaries in the column (P-LAYOUT)", async () => {
     await open({ displayLocation: "inline", canvasLayout: "twoColumn" });
     await act(async () => {

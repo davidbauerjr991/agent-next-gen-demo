@@ -60,7 +60,9 @@ export function InteractionBody() {
                       >
                         <ThreadCrossFade transitionKey={panelPlacement ? undefined : activeChannelKey} groupKey={activeInteraction.id} />                        {/* P-CANVAS: the pinned action cells (the Next Best Action), above the conversation's scroll. */}
                         {canvas.pinned && (
-                          <div className="mx-auto flex w-full max-w-[768px] shrink-0 flex-col gap-3 px-6 pt-4" data-slot="canvas-pinned">
+                          // Under "stacked" the reference cards sit here too (P-LAYOUT-F1 D), so it scrolls on its own
+                          // past half the column, leaving the transcript room.
+                          <div className="mx-auto flex max-h-[50%] w-full max-w-[768px] shrink-0 flex-col gap-3 overflow-y-auto px-6 pt-4" data-slot="canvas-pinned">
                             {canvas.pinned}
                           </div>
                         )}
@@ -269,8 +271,9 @@ export function InteractionBody() {
                           // no equivalent slot for it, and fully mirroring
                           // Phase 1 (as explicitly requested) means this
                           // content no longer renders here.
-                          // The AI overview: under inline the canvas's top cells (P-CANVAS: Marcus's card, and under
-                          // "stacked" the reference cards). AI display "panel" moves it to the panel.
+                          // The AI overview: under inline the canvas's top cells (P-CANVAS: Marcus's card; under
+                          // "stacked" the reference cards are pinned above, P-LAYOUT-F1 D). AI display "panel" moves
+                          // it to the panel.
                           overview={canvas.enabled ? canvas.top : undefined}
                           // "View customer info" — per explicit request
                           // ("match the customer info side panel content

@@ -76,6 +76,30 @@ for (const displayLocation of ["inline", "main"] as const) {
   });
 }
 
+test("inline, stacked: the reference cards are pinned above the transcript — they stay put while it scrolls; opened, the band takes at most half the column and the transcript keeps the rest (P-LAYOUT-F1 D)", async ({ page }) => {
+  await setUp(page, { displayLocation: "inline", canvasLayout: "stacked" }, 1400);
+  await page.setViewportSize({ width: 1400, height: 700 });
+  const band = page.locator("[data-slot=canvas-pinned]");
+  await expect(band.locator("[data-canvas-cell=customer-info]")).toBeVisible();
+  const top = (await band.boundingBox())!.y;
+  // Scroll the transcript (the action area's scroller below the band): the band doesn't move.
+  await page.evaluate(() => {
+    const scroller = [...document.querySelectorAll<HTMLElement>("[data-canvas-region=action] .overflow-y-auto")].find(
+      (el) => !el.closest("[data-slot=canvas-pinned]") && el.scrollHeight > el.clientHeight,
+    );
+    if (scroller) scroller.scrollTop = scroller.scrollHeight;
+  });
+  await page.waitForTimeout(200);
+  expect(Math.round((await band.boundingBox())!.y)).toBe(Math.round(top));
+  // Every card opened: the band stops at half the action area's height, and the transcript keeps the rest.
+  for (const toggle of await band.locator("[aria-expanded=false]").all()) await toggle.click();
+  await page.waitForTimeout(400);
+  const column = (await action(page).boundingBox())!;
+  const pinned = (await band.boundingBox())!;
+  expect(pinned.height).toBeLessThanOrEqual(column.height / 2 + 1);
+  await expect(page.locator("[data-canvas-region=action] [data-slot=composer], [data-canvas-region=action] [data-slot=copilot-composer]").first()).toBeVisible();
+});
+
 /** The record header's box and its session row's (its second line), and the elements under the header that draw a bottom border. */
 const headerGeometry = (page: Page) =>
   page.evaluate(() => {

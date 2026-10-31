@@ -15,6 +15,9 @@ import {
   type WorkspaceUiStore,
 } from "./workspace-ui-store";
 import { useWorkspace } from "./workspace/WorkspaceContext";
+import { cellPlace } from "@/layout/presets";
+import type { ReferenceCellPart } from "@/layout/parts";
+import { setReferenceCardWorkingOpen, useReferenceCardsWorkingState } from "./reference-cards-working-state";
 
 /** How long a contact's Journey Summary reads "Looking up" after it arrives. */
 const JOURNEY_LOOKUP_MS = 800;
@@ -61,6 +64,12 @@ export function useReferenceAccordion(id: ReferenceCardFocus) {
   const { activeInteraction, activeChannel } = useWorkspace();
   const store = useWorkspaceUiStore();
   const state = useAssignmentCards(activeInteraction?.id);
+  // P-LAYOUT-F1 D: pinned at the top of the main column (the stacked canvas), the agent's open / collapsed choice is
+  // kept per browser, for every assignment; the AI still brings a card forward on its own assignment.
+  const [{ parts }] = useSettings("layout");
+  const pinnedOnTop = cellPlace(parts, FOCUS_PART[id]) === "before";
+  const working = useReferenceCardsWorkingState();
+  const handOpen = pinnedOnTop && working[id] !== undefined ? working[id] : state.open[id] === "user";
   const { nba } = useContactAssistCards(activeChannel?.providerInteractionId);
   const cardId = activeInteraction?.id;
   const highlightAt = state.highlight?.card === id ? state.highlight.at : undefined;
@@ -76,13 +85,21 @@ export function useReferenceAccordion(id: ReferenceCardFocus) {
     return () => window.clearTimeout(timer);
   }, [remaining]);
   return {
-    open: !!state.open[id],
+    open: state.open[id] === "ai" || handOpen,
     onOpenChange: (open: boolean) => {
       if (cardId) setReferenceCardOpen(store, cardId, id, open, nba?.stepId);
+      if (pinnedOnTop) setReferenceCardWorkingOpen(id, open);
     },
     highlighted: remaining > 0,
   };
 }
+
+/** Each reference card's layout part (P-LAYOUT), for where it sits. */
+const FOCUS_PART: Record<ReferenceCardFocus, ReferenceCellPart> = {
+  summary: "realTimeSummary",
+  journey: "journeySummary",
+  customer: "customerInfo",
+};
 
 /** `cardKey`'s assignment's reference cards (none open before anything was opened). */
 function useAssignmentCards(cardKey: string | undefined): ReferenceFocusState {

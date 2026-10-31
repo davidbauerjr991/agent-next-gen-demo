@@ -29,11 +29,12 @@ export interface CanvasRegions {
    *  action area in `layout.parts`). */
   twoColumn: boolean;
   /** Mounted at the top of the action area, above the conversation and
-   *  outside its scroll: the pinned action cells (the Next Best Action). */
+   *  outside its scroll: under "stacked", the reference cells (P-LAYOUT-F1 D:
+   *  pinned while the transcript scrolls), then the pinned action cells (the
+   *  Next Best Action). */
   pinned: ReactNode;
   /** Mounted at the top of the conversation (the transcript's / AI feed's
-   *  overview slot): the action cells before the anchor, preceded under
-   *  "stacked" by the reference cells. */
+   *  overview slot): the action cells before the anchor. */
   top: ReactNode;
   /** Mounted after the conversation (its trailing slot). */
   bottom: ReactNode;
@@ -71,8 +72,10 @@ export function useCanvasRegions(): CanvasRegions {
   return {
     enabled,
     twoColumn,
-    pinned: mount(action.filter((cell) => cell.order < anchor && cell.pinned)),
-    top: mount([...reference.filter((cell) => !inColumn(cell)), ...before]),
+    // P-LAYOUT-F1 D: the reference cells above the conversation are pinned, outside its scroll, so they stay while
+    // the transcript scrolls.
+    pinned: mount([...reference.filter((cell) => !inColumn(cell)), ...action.filter((cell) => cell.order < anchor && cell.pinned)]),
+    top: mount(before),
     bottom: mount(action.filter((cell) => cell.order > anchor)),
     reference: twoColumn ? mount(column) : undefined,
   };
