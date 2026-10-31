@@ -1,11 +1,12 @@
 // Settings → Layout → Advanced (P-LAYOUT): a page's slots, each a list of the parts in it, in order. A part drags
 // within its slot and to any other slot it allows (lyra `useListReorder`'s cross-list `group`); a slot it doesn't
-// allow, or one a rule keeps it out of (a part that follows another), refuses the drop and announces why. The
+// allow, or one a rule keeps it out of (a part that follows another), refuses the drop, announces why and shows it
+// under the list until the next move lands. The
 // keyboard moves through the same lists (Ctrl+Shift+arrows), and each part's Slot picker moves it in one step (the
 // single-pointer alternative to dragging). The reference cells' on/off is here too (the old Cards scope).
 import * as React from "react";
 import { GripVertical } from "lucide-react";
-import { Select, Switch, useListReorder, type ListReorderItemProps } from "@nicecxone/lyra-ui";
+import { InlineNotification, Select, Switch, useListReorder, type ListReorderItemProps } from "@nicecxone/lyra-ui";
 import { t } from "@/i18n";
 import { canPlace, lockedBy, movePatch, partsOnPage, reorderPatch, slotsOnPage } from "@/layout/layout-edit";
 import { patchParts } from "@/layout/layout-section";
@@ -25,13 +26,20 @@ import { LockScope } from "../settings-parts";
 
 const allValues = (values: SettingsState) => values;
 
-/** Says why a move was refused: shown under the instructions and announced (a polite live region). */
-type Notify = (message: string) => void;
+/** How the lists say what happened. `notify`: a write a lock refused (shown under the instructions, announced by
+ *  its live region). `refuse`: a drop or keyboard move a list refused (`canAccept`'s reason, which the reorder hook
+ *  announces; shown under that list). `moved`: a write landed, clearing both; a lock's refusal clears a list's. */
+interface Feedback {
+  notify: (message: string) => void;
+  refusal: { slot: SlotId; reason: string } | null;
+  refuse: (refusal: { slot: SlotId; reason: string } | null) => void;
+  moved: () => void;
+}
 
 /** Writes a patch onto the current map (the store validates it and projects the legacy fields) — unless a profile
  *  lock on a section the write reaches would drop it (the voice bar under a Voice lock, Home's order under a Home
  *  lock): then it says so instead, never a write that silently snaps back. */
-function useWriteParts(notify: Notify) {
+function useWriteParts({ notify, moved }: Feedback) {
   const [{ parts }, updateLayout] = useSettings("layout");
   const values = useSettingsDerived(allValues);
   const locks = useProfileLibrary().applied?.locks ?? [];
@@ -39,11 +47,52 @@ function useWriteParts(notify: Notify) {
     const reason = lockedBy(values, patch, locks);
     if (reason) return notify(t("{part} can't move: {reason}", { part: t(PARTS[part].label), reason }));
     updateLayout({ parts: patchParts(parts, patch) });
+    moved();
   };
 }
 
 export function LayoutAdvanced({ page }: { page: Page }) {
   const [notice, setNotice] = React.useState("");
+  const [refusal, setRefusal] = React.useState<Feedback["refusal"]>(null);
+  // A pointer drag asks every list it passes over (`canAccept` on dragenter and dragover): a refusal waits for the
+  // drag's end and shows only if it was let go over that list, never for one it crossed on the way.
+  const drag = React.useRef<{ over: string | null; refused: Feedback["refusal"] } | null>(null);
+  React.useEffect(() => {
+    const start = () => (drag.current = { over: null, refused: null });
+    const over = (e: DragEvent) => {
+      if (drag.current) drag.current.over = (e.target as Element | null)?.closest?.("[data-layout-slot]")?.getAttribute("data-layout-slot") ?? null;
+    };
+    const end = () => {
+      const ended = drag.current;
+      drag.current = null;
+      if (ended?.refused && ended.refused.slot === ended.over) setRefusal(ended.refused);
+    };
+    document.addEventListener("dragstart", start);
+    document.addEventListener("dragover", over);
+    document.addEventListener("dragend", end);
+    return () => {
+      document.removeEventListener("dragstart", start);
+      document.removeEventListener("dragover", over);
+      document.removeEventListener("dragend", end);
+    };
+  }, []);
+  const feedback: Feedback = {
+    // A lock's refusal replaces a list's: one message at a time.
+    notify: (message) => {
+      setNotice(message);
+      setRefusal(null);
+    },
+    refusal,
+    refuse: (next) => {
+      if (drag.current && next) drag.current.refused = next;
+      // The same reason again keeps the state (no re-render).
+      else setRefusal((prev) => (prev?.slot === next?.slot && prev?.reason === next?.reason ? prev : next));
+    },
+    moved: () => {
+      setNotice("");
+      setRefusal(null);
+    },
+  };
   const instructionsId = React.useId();
   return (
     <div className="flex min-w-[320px] flex-1 flex-col gap-4" data-layout-advanced={page}>
@@ -55,19 +104,19 @@ export function LayoutAdvanced({ page }: { page: Page }) {
         {notice}
       </p>
       {slotsOnPage(page).map((slot) => (
-        <SlotList key={slot} slot={slot} page={page} notify={setNotice} instructionsId={instructionsId} />
+        <SlotList key={slot} slot={slot} page={page} feedback={feedback} instructionsId={instructionsId} />
       ))}
       {page === "interaction" && <ReferenceCellsOnOff />}
     </div>
   );
 }
 
-function SlotList({ slot, page, notify, instructionsId }: { slot: SlotId; page: Page; notify: Notify; instructionsId: string }) {
+function SlotList({ slot, page, feedback, instructionsId }: { slot: SlotId; page: Page; feedback: Feedback; instructionsId: string }) {
   const [{ parts }] = useSettings("layout");
   const values = useSettingsDerived(allValues);
   const locked = useSectionLocked("layout");
   const locks = useProfileLibrary().applied?.locks ?? [];
-  const write = useWriteParts(notify);
+  const write = useWriteParts(feedback);
   const order = partsOnPage(parts, slot, page);
   const headingId = React.useId();
   const { itemProps, listProps } = useListReorder({
@@ -88,9 +137,12 @@ function SlotList({ slot, page, notify, instructionsId }: { slot: SlotId; page: 
     // Refused before the drop: a slot it doesn't allow, a rule, or a lock on a section the move would reach.
     canAccept: (key) => {
       const placed = canPlace(values, key as PartId, slot);
-      return placed === true ? (lockedBy(values, movePatch(parts, key as PartId, slot, order.length, page), locks) ?? true) : placed;
+      const ok = placed === true ? (lockedBy(values, movePatch(parts, key as PartId, slot, order.length, page), locks) ?? true) : placed;
+      if (ok !== true) feedback.refuse({ slot, reason: ok });
+      return ok;
     },
   });
+  const refused = feedback.refusal?.slot === slot ? feedback.refusal.reason : null;
   return (
     <div className="flex flex-col gap-1" data-layout-slot={slot}>
       <span id={headingId} className="lyra-label text-lyra-fg-default">
@@ -103,9 +155,15 @@ function SlotList({ slot, page, notify, instructionsId }: { slot: SlotId; page: 
       >
         {order.length === 0 && <li className="px-2 py-1.5 lyra-body-sm text-lyra-fg-secondary">{t("Empty")}</li>}
         {order.map((part) => (
-          <PartRow key={part} part={part} slot={slot} page={page} dragProps={itemProps(part)} notify={notify} instructionsId={instructionsId} />
+          <PartRow key={part} part={part} slot={slot} page={page} dragProps={itemProps(part)} feedback={feedback} instructionsId={instructionsId} />
         ))}
       </ul>
+      {/* The reason the reorder hook announced, shown too. `note`, not the warning's own `alert`: one announcement. */}
+      {refused && (
+        <InlineNotification variant="warning" role="note" onDismiss={() => feedback.refuse(null)} data-layout-refusal={slot}>
+          {refused}
+        </InlineNotification>
+      )}
     </div>
   );
 }
@@ -115,19 +173,19 @@ function PartRow({
   slot,
   page,
   dragProps,
-  notify,
+  feedback,
   instructionsId,
 }: {
   part: PartId;
   slot: SlotId;
   page: Page;
   dragProps: ListReorderItemProps;
-  notify: Notify;
+  feedback: Feedback;
   instructionsId: string;
 }) {
   const def = PARTS[part];
   const [{ parts }] = useSettings("layout");
-  const write = useWriteParts(notify);
+  const write = useWriteParts(feedback);
   // A part that follows another (the incoming tile, the queue chip, Ask Copilot) is placed by its rule.
   const rule = useConstraint(`layout.parts.${part}.slot` as SettingPath);
   const reasonId = React.useId();

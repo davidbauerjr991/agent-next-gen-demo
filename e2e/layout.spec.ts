@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 // P-LAYOUT: the slot containers in a real browser — what pushes, what overlays, where a toggle sits. Widths and
 // overlap, so Chrome.
@@ -101,8 +101,45 @@ test("Settings → Layout: dragging the voice controls into the Left nav list mo
   const bottomBar = page.locator("[data-slot=voice-bar-bottom] [data-slot=voice-bar]");
   await expect(bottomBar).toBeVisible({ timeout: 10_000 });
 
+  const layout = await openLayoutAdvanced(page);
+  const voiceRow = layout.locator('[data-layout-part="voiceBar"]');
+  await dragRow(page, voiceRow, layout.locator('[data-layout-slot="left-nav"] ul'));
+
+  await expect(layout.locator('[data-layout-slot="left-nav"] [data-layout-part="voiceBar"]')).toBeVisible();
+  await expect(navBar).toBeVisible();
+  await expect(page.locator("[data-slot=voice-bar]")).toHaveCount(1);
+  // The preview and the legacy setting (Settings → Voice) follow.
+  await expect(layout.locator('[data-layout-preview] [data-preview-slot="left-nav"] [data-preview-part="voiceBar"]')).toHaveCount(1);
+  await expect(page.getByRole("combobox", { name: "Voice controls location" })).toContainText("Top of left nav");
+  await expect(layout.locator('[data-layout-preset="voice.controlsLocation"]').getByRole("radio", { name: "Top of left nav" })).toHaveAttribute("aria-checked", "true");
+});
+
+test("Settings → Layout: a drag onto a list that refuses the part shows why under that list, until a move lands", async ({ page }) => {
+  await setUp(page, {});
+  const layout = await openLayoutAdvanced(page);
+  const voiceRow = layout.locator('[data-layout-part="voiceBar"]');
+  await dragRow(page, voiceRow, layout.locator('[data-layout-slot="interior-panel"] ul'));
+  const refusal = layout.locator('[data-layout-refusal="interior-panel"]');
+  await expect(refusal).toBeVisible();
+  await expect(refusal).toContainText("Voice controls can't go in the Interior panel");
+  // Only the list it was let go over: the ones it crossed on the way say nothing.
+  await expect(layout.locator("[data-layout-refusal]")).toHaveCount(1);
+  await expect(layout.locator('[data-layout-slot="dock-bottom"] [data-layout-part="voiceBar"]')).toBeVisible();
+  // A move that lands clears it.
+  await dragRow(page, voiceRow, layout.locator('[data-layout-slot="left-nav"] ul'));
+  await expect(layout.locator('[data-layout-slot="left-nav"] [data-layout-part="voiceBar"]')).toBeVisible();
+  await expect(layout.locator("[data-layout-refusal]")).toHaveCount(0);
+  // Down again past the refusing lists in between: it lands, and nothing is shown (no notification pushed the
+  // target away mid-drag).
+  await dragRow(page, voiceRow, layout.locator('[data-layout-slot="dock-bottom"] ul'));
+  await expect(layout.locator('[data-layout-slot="dock-bottom"] [data-layout-part="voiceBar"]')).toBeVisible();
+  await expect(layout.locator("[data-layout-refusal]")).toHaveCount(0);
+});
+
+/** Settings → Layout → Advanced open and settled, the viewport tall enough for the Left nav, Interior panel and
+ *  Bottom dock lists together. */
+async function openLayoutAdvanced(page: Page) {
   await page.locator("aside").getByText("Settings", { exact: true }).first().click();
-  // Tall enough for the Left nav list and the Bottom dock list together.
   await page.setViewportSize({ width: 2400, height: 2000 });
   const layout = page.locator("[data-settings-group=layout]");
   await layout.getByRole("button", { name: /Advanced/ }).click();
@@ -113,11 +150,16 @@ test("Settings → Layout: dragging the voice controls into the Left nav list mo
   await expect
     .poll(() => voiceRow.evaluate((el) => el.closest<HTMLElement>(".overflow-hidden[data-state=open]")?.getAnimations().length ?? -1))
     .toBe(0);
-  // A real pointer drag, both lists on screen: a drag that has to scroll the page part-way never reaches the list.
-  const target = layout.locator('[data-layout-slot="left-nav"] ul');
-  // The target list at the top of the view, so the Bottom dock list below it is on screen too.
-  await target.evaluate((el) => el.scrollIntoView({ block: "start" }));
-  const from = (await voiceRow.locator("svg").first().boundingBox())!;
+  return layout;
+}
+
+/** A real pointer drag of `row` by its grip onto `target`, both on screen: a drag that has to scroll the page part-way
+ *  never reaches the list. Whichever of the two is higher goes to the top of the view, so the other stays on screen. */
+async function dragRow(page: Page, row: Locator, target: Locator) {
+  const rowY = (await row.boundingBox())!.y;
+  const targetY = (await target.boundingBox())!.y;
+  await (targetY < rowY ? target : row).evaluate((el) => el.scrollIntoView({ block: "start" }));
+  const from = (await row.locator("svg").first().boundingBox())!;
   const to = (await target.boundingBox())!;
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
   await page.mouse.down();
@@ -126,12 +168,4 @@ test("Settings → Layout: dragging the voice controls into the Left nav list mo
     await page.mouse.move(from.x + ((to.x + 40 - from.x) * i) / steps, from.y + ((to.y + to.height - 8 - from.y) * i) / steps);
   }
   await page.mouse.up();
-
-  await expect(layout.locator('[data-layout-slot="left-nav"] [data-layout-part="voiceBar"]')).toBeVisible();
-  await expect(navBar).toBeVisible();
-  await expect(page.locator("[data-slot=voice-bar]")).toHaveCount(1);
-  // The preview and the legacy setting (Settings → Voice) follow.
-  await expect(layout.locator('[data-layout-preview] [data-preview-slot="left-nav"] [data-preview-part="voiceBar"]')).toHaveCount(1);
-  await expect(page.getByRole("combobox", { name: "Voice controls location" })).toContainText("Top of left nav");
-  await expect(layout.locator('[data-layout-preset="voice.controlsLocation"]').getByRole("radio", { name: "Top of left nav" })).toHaveAttribute("aria-checked", "true");
-});
+}

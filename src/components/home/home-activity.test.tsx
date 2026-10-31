@@ -414,6 +414,21 @@ describe("Activity feed on Home", () => {
     expect(group("Needs a decision")).toBeNull();
   });
 
+  it("placement none: a ringing offer is its inline row above Home (Accept / Decline there), not also in Needs a decision", async () => {
+    turnOn();
+    await act(async () => {
+      getSettingsStore().update("assignments", { placement: "none" });
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    await showHome();
+    await h.goAvailable();
+    await h.startInbound("voice", "+15555550123", "Tom Lewis");
+    const row = h.container.querySelector<HTMLElement>("[data-slot=assignment-inline-rows]");
+    expect(row?.textContent).toContain("Tom Lewis");
+    expect(h.buttonByText("Accept", row!)).toBeTruthy();
+    expect(group("Needs a decision")).toBeNull();
+  });
+
   it("an offered schedule item (the supervisor's escalation) previews with Accept and Decline; Decline takes it off the feed", async () => {
     turnOn();
     await act(async () => {

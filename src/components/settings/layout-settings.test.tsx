@@ -97,7 +97,9 @@ describe("Settings → Layout → Advanced (P-LAYOUT)", () => {
     expect(values().layout.parts.activityFeed.slot).toBe("main-trailing");
     expect(slotOf("activityFeed")).toBe("main-trailing");
     expect(document.activeElement).toBe(part("activityFeed"));
-    expect(previewSlotOf("activityFeed")).toBe("main-trailing");
+    // Home is one column without the feed in main (`homeIsTwoColumn`): the preview draws it in main, as Home does.
+    expect(previewSlotOf("activityFeed")).toBe("main");
+    expect(h.container.querySelector('[data-layout-preview] [data-preview-slot="main-trailing"]')).toBeNull();
     expect(liveRegion()).toContain("Activity, moved to Cards column");
     // Switched off, a section leaves the preview (not the lists: it keeps its slot).
     await act(async () => {
@@ -107,7 +109,22 @@ describe("Settings → Layout → Advanced (P-LAYOUT)", () => {
     expect(slotOf("activityFeed")).toBe("main-trailing");
   });
 
-  it("a slot the part doesn't allow refuses the move and says why", async () => {
+  it("the preview is two columns only when Home is: a section in the Cards column and the feed on in main", async () => {
+    await h.render(<SettingsView />);
+    await openAdvanced("Home");
+    await act(async () => {
+      getSettingsStore().update("layout", { parts: patchParts(values().layout.parts, { queue: { slot: "main-trailing" } }) });
+    });
+    // The feed off (the default Home): one column, the queue in main.
+    expect(previewSlotOf("queue")).toBe("main");
+    expect(h.container.querySelector('[data-layout-preview] [data-preview-slot="main-trailing"]')).toBeNull();
+    await act(async () => {
+      getSettingsStore().update("home", (prev) => ({ sections: prev.sections.map((s) => (s.key === "activity" ? { ...s, enabled: true } : s)) }));
+    });
+    expect(previewSlotOf("queue")).toBe("main-trailing");
+  });
+
+  it("a slot the part doesn't allow refuses the move and says why, announced and shown under that list until a move lands", async () => {
     await h.render(<SettingsView />);
     await openAdvanced("Home");
     const before = values().layout.parts;
@@ -115,6 +132,13 @@ describe("Settings → Layout → Advanced (P-LAYOUT)", () => {
     expect(values().layout.parts).toBe(before);
     expect(slotOf("contactHistory")).toBe("main");
     expect(liveRegion()).toBe("Contact history can't go in the Cards column");
+    const shown = () => h.container.querySelector<HTMLElement>("[data-layout-refusal]");
+    expect(shown()?.getAttribute("data-layout-refusal")).toBe("main-trailing");
+    expect(shown()?.textContent).toContain("Contact history can't go in the Cards column");
+    // One announcement: the hook's; the notification isn't a second live region.
+    expect(shown()?.getAttribute("role")).toBe("note");
+    await press("queue", "ArrowDown");
+    expect(shown()).toBeNull();
   });
 
   it("a part that follows another is placed by its rule: its Slot menu is disabled and its row says why", async () => {

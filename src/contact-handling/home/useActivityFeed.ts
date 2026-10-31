@@ -5,6 +5,7 @@ import { contactHistoryEntryMatches, type ContactHistoryEntry } from "@/componen
 import { contactHistoryInRange, contactHistoryWindow } from "../contact-history-range";
 import { assignmentIdFor, scheduleCardKey, type AssignmentKind, type ChannelKind } from "@/domain";
 import { useScheduleProvider, useScheduleSnapshot } from "@/provider-context";
+import { useSlotFor } from "@/layout/useSlot";
 import { useSettings } from "@/settings";
 import { useWorkspace } from "../workspace/WorkspaceContext";
 import { useWorkspaceUiField } from "../workspace-ui-store";
@@ -180,13 +181,16 @@ export function useActivityFeed(): ActivityFeed {
   const kinds = PERSONA_KINDS[persona];
   // A call joined to an open schedule item's card is that item's leg: the item's own row stands for the card.
   const legCardKeys = useScheduleLegCardKeys();
+  // Placement none: an offered card is already its inline row above Home (Accept / Decline there), so Needs a
+  // decision leaves it out and it shows once. The rows read the card list, which skips a schedule item's leg card.
+  const offersInRows = useSlotFor("assignments") === "home-top";
 
   const feed = useMemo(() => {
     void minute;
     const now = Date.now();
     const byId = new Map(historyEntries.map((e) => [e.id, e]));
     return buildFeed({
-      offers: interactions.filter((c) => c.offered).map((c) => cardRow(c, "offered")),
+      offers: interactions.filter((c) => c.offered && !(offersInRows && !legCardKeys.has(c.id))).map((c) => cardRow(c, "offered")),
       railCards: interactions.filter((c) => !c.offered && !legCardKeys.has(c.id)).map((c) => cardRow(c, "inRail")),
       completedHistory: historyEntries.map((e) => historyRow(e, now)),
       historyWindow: contactHistoryWindow(historyRange, now, historyCustom),
@@ -210,7 +214,7 @@ export function useActivityFeed(): ActivityFeed {
         return !!key && isNewAssignment(key);
       },
     });
-  }, [interactions, legCardKeys, historyEntries, historyRange, historyCustom, historyQuery, query, parkedQuery, snapshot, kinds, kindFilter, view, minute, isNewAssignment]);
+  }, [interactions, legCardKeys, offersInRows, historyEntries, historyRange, historyCustom, historyQuery, query, parkedQuery, snapshot, kinds, kindFilter, view, minute, isNewAssignment]);
 
   const open = useCallback(
     (row: FeedRow) => {
