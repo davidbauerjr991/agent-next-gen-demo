@@ -57,6 +57,8 @@ test("A1: pinned and closed, hovering the toggle shows nothing (a preview would 
   await setUp(page, { placement: "interiorPanel" });
   await panel(page).getByRole("button", { name: "Close panel" }).click();
   await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
+  // The panel's width transition settles before the content's place is taken.
+  await expect.poll(async () => (await homeBox(page)).x).toBeLessThan(300);
   const closed = await homeBox(page);
   await toggle(page).hover();
   await page.waitForTimeout(400);
