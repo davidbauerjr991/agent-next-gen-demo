@@ -53,6 +53,42 @@ test("inline: the slide-over covers the content card from its top to its bottom 
   expect(slideOver.top).toBeLessThan(header!.y);
 });
 
+test("stacked: the slide-over pushes the action area instead of covering it, so the composer isn't clipped (P-LAYOUT-F1 D)", async ({ page }) => {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("seeded")) return;
+    sessionStorage.setItem("seeded", "1");
+    localStorage.setItem("agent-next-gen:settings:ai", JSON.stringify({ v: 1, value: { displayLocation: "inline", canvasLayout: "stacked" } }));
+  });
+  await lucasInline(page);
+  const before = (await page.locator("[data-canvas-region=action]").boundingBox())!;
+  // Docked, it's a sibling of the action area in the main column's row (no longer a child of the content card).
+  await openPurchaseHistory(page, "[data-slot=content-card]");
+  const slideOver = (await page.locator("[data-slot=reference-slide-over]").boundingBox())!;
+  const panel = { left: slideOver.x };
+  const action = (await page.locator("[data-canvas-region=action]").boundingBox())!;
+  // Pushed: the action area got narrower and ends where the slide-over starts; nothing of it is under the panel.
+  expect(action.width).toBeLessThan(before.width - 100);
+  expect(Math.round(action.x + action.width)).toBeLessThanOrEqual(Math.round(panel.left) + 1);
+  const composer = (await page.locator("[data-slot=copilot-composer]").first().boundingBox())!;
+  expect(Math.round(composer.x + composer.width)).toBeLessThanOrEqual(Math.round(panel.left) + 1);
+});
+
+test("stacked, where the slide-over and the action area's minimum don't fit: it overlays, and the action area keeps its width (P-LAYOUT-F1 D)", async ({ page }) => {
+  await page.setViewportSize({ width: 1000, height: 1000 });
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("seeded")) return;
+    sessionStorage.setItem("seeded", "1");
+    localStorage.setItem("agent-next-gen:settings:ai", JSON.stringify({ v: 1, value: { displayLocation: "inline", canvasLayout: "stacked" } }));
+  });
+  await lucasInline(page);
+  const before = (await page.locator("[data-canvas-region=action]").boundingBox())!;
+  await openPurchaseHistory(page, "[data-slot=content-card]");
+  const slideOver = page.locator("[data-slot=reference-slide-over]");
+  await expect(slideOver).toHaveCSS("position", "absolute");
+  const action = (await page.locator("[data-canvas-region=action]").boundingBox())!;
+  expect(Math.round(action.width)).toBe(Math.round(before.width));
+});
+
 test("panel: the slide-over stays within the Contact Details panel", async ({ page }) => {
   await lucasInPanelMode(page);
   const boxes = await openPurchaseHistory(page, "[data-slot=right-panel]");

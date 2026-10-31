@@ -17,9 +17,17 @@ export interface AssignmentsPanelFit {
   referenceSlotWidth: number;
 }
 
+/** A panel pushes the action area (docks beside it) while it fits: `available` holds the panel, the action area's
+ *  minimum and whatever else is `reserved` beside them; otherwise it overlays. The one fit rule for the side panels
+ *  in the content card: the assignments panel and, with no reference column, the reference slide-over (P-LAYOUT-F1
+ *  D), so the composer is never clipped while there's room. */
+export function fitsBeside({ available, panelWidth, reserved = 0 }: { available: number; panelWidth: number; reserved?: number }): boolean {
+  return available >= panelWidth + ACTION_AREA_MIN_WIDTH + reserved;
+}
+
 /** The panel docks iff it, the action area's minimum and the reference slot fit. */
 export function assignmentsPanelDocks({ available, panelWidth, referenceSlotWidth }: AssignmentsPanelFit): boolean {
-  return available >= panelWidth + ACTION_AREA_MIN_WIDTH + referenceSlotWidth;
+  return fitsBeside({ available, panelWidth, reserved: referenceSlotWidth });
 }
 
 /** The width available to the panel, from what's measured: with the canvas

@@ -292,6 +292,27 @@ describe("a slide-over takes the reference slot (inline and main)", () => {
       (b) => b.textContent?.startsWith(text) && b.textContent.includes("John Smith"),
     )!;
 
+  for (const [width, docks] of [
+    [1400, true],
+    [700, false],
+  ] as const) {
+    it(`stacked, a ${width}px row: the slide-over ${docks ? "docks beside the action area and the assignments panel's rule counts its width" : "overlays and counts for nothing"} (P-LAYOUT-F1 D)`, async () => {
+      const rect = vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({ width, height: 800, x: 0, y: 0, top: 0, left: 0, right: width, bottom: 800, toJSON: () => ({}) } as DOMRect);
+      try {
+        await open({ displayLocation: "inline", canvasLayout: "stacked" });
+        await CASES.noah();
+        expect(region("reference")).toBeNull();
+        await h.click(composer().querySelector<HTMLElement>("[data-slot=copilot-chips] [role=button]")!);
+        await h.advance(2_500);
+        expect(slideOver()).not.toBeNull();
+        expect(slideOver()!.className.includes("absolute")).toBe(!docks);
+        expect(getWorkspaceUiStore(h.provider).getState().referenceSlotWidth).toBe(docks ? LYRA_CARD_MAX_WIDTH : 0);
+      } finally {
+        rect.mockRestore();
+      }
+    });
+  }
+
   for (const displayLocation of ["inline", "main"] as const) {
     it(`AI display ${displayLocation}: it overlays the reference cards, which stay mounted (the same nodes) before, during and after`, async () => {
       await open({ displayLocation, canvasLayout: "twoColumn" });
