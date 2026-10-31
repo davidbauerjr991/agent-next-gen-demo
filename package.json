@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "knip": "knip",
+    "docs": "vite-node scripts/layout-matrix.mjs",
     "preview": "vite preview",
     "deploy": "vite build && gh-pages -d dist"
   },
@@ -52,6 +53,7 @@
     "typescript": "~5.6.2",
     "typescript-eslint": "^8.18.2",
     "vite": "^6.0.5",
+    "vite-node": "^3.2.4",
     "vitest": "^3.2.7"
   }
 }
