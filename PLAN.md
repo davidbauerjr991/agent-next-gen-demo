@@ -140,7 +140,7 @@ All client-side. The provider layer keeps a real backend (Twilio, CXone ACD) a s
   **lyra** (one additive batch each, each commit asked first):
   - L1 — `InlineNotification` `icon`. Blocked by `inline-notification.tsx`'s fixed `iconMap`.
   - L2 — `useListReorder` cross-list. Blocked by `use-list-reorder.ts:113`, where a drop from another list returns early.
-  - L2b (between commits 8 and 9; pre-approved 2026-10-30) — L2's open hook bugs, fixed in lyra rather than worked around in the app: a keyboard move into a disabled list is refused; a grouped list is a keyboard target without `listProps()`; focus after a keyboard move lands when `onMove` commits late. `.lyra-ui-sync` moves to L2b's hash. lyra has no test runner, so these paths have no checked-in test there.
+  - L2b (between commits 8 and 9; pre-approved 2026-10-30) — L2's open hook bugs, fixed in lyra rather than worked around in the app: a keyboard move into a disabled list is refused; a grouped list is a keyboard target without `listProps()`; focus after a keyboard move lands when `onMove` commits late. `.lyra-ui-sync` moves to L2b's hash. Built as lyra `583646d` (the moved item's focus applies only while focus is still on it, so a late commit never steals it). lyra has no test runner, so these paths have no checked-in test there.
 
   **The gate:** composition snapshots (every built-in profile × Home, an inline conversation, a panel-mode conversation, a kind cell) are taken before any change. A later change to them beyond fixes (a) and (b) is shown to Dave before it's committed.
 
