@@ -142,7 +142,7 @@ All client-side. The provider layer keeps a real backend (Twilio, CXone ACD) a s
   - L2 — `useListReorder` cross-list. Blocked by `use-list-reorder.ts:113`, where a drop from another list returns early.
   - L2b (between commits 8 and 9; pre-approved 2026-10-30) — L2's open hook bugs, fixed in lyra rather than worked around in the app: a keyboard move into a disabled list is refused; a grouped list is a keyboard target without `listProps()`; focus after a keyboard move lands when `onMove` commits late. `.lyra-ui-sync` moves to L2b's hash. Built as lyra `583646d` (the moved item's focus applies only while focus is still on it, so a late commit never steals it). lyra has no test runner, so these paths have no checked-in test there.
 
-  **The gate:** composition snapshots (every built-in profile × Home, an inline conversation, a panel-mode conversation, a kind cell) are taken before any change. A later change to them beyond fixes (a) and (b) is shown to Dave before it's committed.
+  **The gate:** composition snapshots are taken before any change: 16 cases (`src/layout/composition.test.tsx`). Every built-in profile × Home, a call under the profile's AI display, a call under panel and a kind cell; Phase 2 and AI-first add a chat under each (Phase 1 has no chat channel). A later change to them beyond fixes (a) and (b) is shown to Dave before it's committed. None was: they stayed unchanged through commits 2–11.
 
 **P-CONFIG-LAYERS — layered settings resolution.** The layer model and resolver in the settings store (ordered partial profiles with locks, lock propagation, personal below all), the seeded org tree in the sim, "Set by: <level>" and the Resolved view in Settings, profile export/import carrying the level; schema constraints apply to the resolved value. Assignment UI deferred to P-ADMIN / P-EMPLOYEES. About 2 days; Plan: Opus · Implement: Opus.
 
@@ -873,3 +873,23 @@ Order of attack (revised 2026-10-19, demo-first; 2026-10-18 additions: P-LYRA-RT
   - **Header app placements join `layout.parts` now.**
   - **The interior panel is lyra SidePanel `side="left"` inside the content container, with pin and toggle.** This reverses `0819bfa` and supersedes the 2026-10-29 Decision on InteriorPanel's 350–425: min `LYRA_CARD_MAX_WIDTH`, max SidePanel's own. It also supersedes P-HOME-1n's removal of the pin.
   - **Placement none renders the assignments part as inline rows.** This reverses `0819bfa`/`4591f41`'s card column at the top of Home.
+- 2026-10-30 — P-LAYOUT as built (commits `d3c9646`…`c829fc0`; lyra `cad52d4`, `55b3b7a`, `583646d`). Where it departs from the plan:
+  - **Slots and hosted parts.** `<Slot id region>`, with sub-places inside one container (LeftNav's caption and top, Home's page header), not `<Slot id page>`. A part form gets `{ slot, expanded }`; its options come from `usePartOption`.
+  - **Parts their container already builds from the map are hosted forms** (`{ host }` in `part-components.tsx`) rather than `<Slot>` children: the header apps, Home's sections, the reference cells (`useCanvasRegions`, which also takes a cell's region from the map, not `canvas-registry`), and the detail parts.
+  - **The map is the source for every reader.** A reference cell the map puts after the conversation renders after it, in map order (reviewer fix, `c829fc0`); a hand-stored legacy `region: "action"` with a lower canvas order no longer renders above it.
+  - **Fix (a), the interior panel:**
+    - Its open, pinned and width state is the existing per-browser working-state key (`agent-next-gen:working:assignments`), not a new one.
+    - It keeps SidePanel's own close button as well as the toggle.
+    - The old InteriorPanel width cookie migrates once into the working state.
+    - The page file is one line shorter (615 → 614).
+  - **Fix (b), the inline rows:** kind cards sort after the conversations, which are newest first (a schedule item has no arrival on the same clock). The status sits on the row's message line.
+  - **Settings → Layout:**
+    - **Presets:** Home layout, placement, AI display, canvas layout, voice controls location and Activity view; the header apps' displays stay under Header & apps.
+    - **Slot menu:** each part row has one, the single-pointer and non-adjacent-keyboard route, since a cross-list keyboard move only reaches the next list.
+    - **Reorder groups:** one per page, not one `layout` group.
+    - **Preview:** the real reference cards' own components fed Maya Chen's script, not the controller-bound canvas cells.
+    - **Locks:** a move that would reach a section another profile lock holds is refused with the reason, never written and dropped. Under the `layout` lock, Advanced shows open and read-only. Home's section switches stay the agent's, and only their order locks.
+  - **The generated matrix:** the retirement checklist's projection column is "Parts it moves". "Values no profile exercises" also lists part slots only the map can express. `vite-node` is declared as a devDependency, and the staleness test reads the doc through Vite's `?raw` glob.
+  - **Composition gate:** 16 snapshot cases, not 12 (a chat as well as a call where the profile has chat).
+  - **Tests:** `composition.test` and `next-best-action.test` take 90s per test, since under the full suite's parallel load a case could pass 30s and cascade.
+  - **lyra sync:** `.lyra-ui-sync` moved from `00fffc1` to `583646d`. That range also holds Dave's own lyra commits `71fc34c` (Container corners, border styles, dotted variants, which the preview's `neutral-dotted` uses), `3a925c5` and `5cea766`, made in his session alongside this step, already in lyra when L1 and L2 were committed on top of them; not authorized by or for this step.

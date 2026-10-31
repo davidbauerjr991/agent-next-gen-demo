@@ -214,7 +214,7 @@ Read CLAUDE.md, PLAN.md (Settings 'Personal connections and inbox items on Home'
 
 ### P-LAYOUT — Parts and slots   (Plan: Opus · Implement: Opus) — after P-HOME-1n, before P-HOME-ASK
 
-Prompt to follow.
+Built from PLAN.md Cross-cutting "P-LAYOUT" ("As planned (2026-10-30, plan review with Dave)") and Decisions 2026-10-30; done 2026-10-30.
 
 ### P-CONFIG-LAYERS — Layered settings resolution   (Plan: Opus · Implement: Opus) — after P-LAYOUT, before P-HOME-ASK
 
