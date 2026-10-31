@@ -18,6 +18,7 @@ import {
 import { LockScope, Section, SettingsGroup, SwitchRow } from "../settings-parts";
 
 const HOME_SECTION_LABELS: Record<HomeSectionKey, string> = {
+  activeAssignments: "Active assignments",
   queue: "Queue",
   contactHistory: "Contact history",
   performance: "Performance",

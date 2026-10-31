@@ -21,6 +21,7 @@ import {
 import { ClockTick, QueueSubItems } from "@/components/agent-next-gen-clock-tick";
 import { useSettings, type HomeQueueChannel, type HomeSectionKey } from "@/settings";
 import { channelOn } from "@/contact-handling/channel-gates";
+import { AssignmentInlineRows } from "@/components/workspace/AssignmentInlineRows";
 
 /** Which Settings → Home queue flag shows each `LATEST_CONTACTS_STATIC` tile. */
 const QUEUE_CHANNEL_BY_ID: Record<string, HomeQueueChannel> = {
@@ -112,6 +113,16 @@ export function HomeDashboard({ selectedQueueId, onSelectQueue, contactHistory }
         );
       case "dueSoon":
         return <DueSoonCard />;
+      case "activeAssignments":
+        // P-LAYOUT-F1 B: the open assignments as inline rows (View, or Accept / Decline on an offer), in a card like
+        // the feed's.
+        return (
+          <DashboardCard variant="neutral-subtle" headerTitle={t("Active assignments")}>
+            <div className="px-4 pb-4">
+              <AssignmentInlineRows section />
+            </div>
+          </DashboardCard>
+        );
       default:
         return <MetricCard section={key} />;
     }

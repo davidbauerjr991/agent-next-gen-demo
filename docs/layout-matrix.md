@@ -24,8 +24,8 @@ Each field below is read through `layout.parts` until the next step that touches
 | `header.apps.tickets.placement` | `header` v2 → v3 | `tickets` | `header`, `leftnav`, `tab` |
 | `header.apps.wem.placement` | `header` v2 → v3 | `wem` | `header`, `leftnav`, `tab` |
 | `home.activityView` | `home` v2 → v3 | `activityFeed` | `list`, `table` |
-| `home.layout` | `home` v2 → v3 | `activityFeed`, `campaignToday`, `contactHistory`, `dueSoon`, `followUps`, `needsYou`, `performance`, `pipeline`, `productivity`, `queue`, `teamQueues`, `teamToday` | `oneColumn`, `twoColumn` |
-| `home.sections (order)` | `home` v2 → v3 | `activityFeed`, `campaignToday`, `contactHistory`, `dueSoon`, `followUps`, `needsYou`, `performance`, `pipeline`, `productivity`, `queue`, `teamQueues`, `teamToday` | read through only |
+| `home.layout` | `home` v2 → v3 | `activeAssignments`, `activityFeed`, `campaignToday`, `contactHistory`, `dueSoon`, `followUps`, `needsYou`, `performance`, `pipeline`, `productivity`, `queue`, `teamQueues`, `teamToday` | `oneColumn`, `twoColumn` |
+| `home.sections (order)` | `home` v2 → v3 | `activeAssignments`, `activityFeed`, `campaignToday`, `contactHistory`, `dueSoon`, `followUps`, `needsYou`, `performance`, `pipeline`, `productivity`, `queue`, `teamQueues`, `teamToday` | read through only |
 | `voice.controlsLocation` | `voice` v1 → v2 | `voiceBar` | `bottom`, `top` |
 
 ## Variables
@@ -55,7 +55,7 @@ Read through only (no preset row; the map's order or a cell's region writes them
 | `canvas.cells.customer-info.region` | reference | = default | = default | = default |
 | `canvas.cells.journey-summary.region` | reference | = default | = default | = default |
 | `canvas.cells.real-time-summary.region` | reference | = default | = default | = default |
-| `home.sections (order)` | queue, contactHistory, performance, productivity, activity, dueSoon, teamQueues, teamToday, needsYou, pipeline, campaignToday, followUps | = default | = default | = default |
+| `home.sections (order)` | activeAssignments, queue, contactHistory, performance, productivity, activity, dueSoon, teamQueues, teamToday, needsYou, pipeline, campaignToday, followUps | = default | = default | = default |
 
 ## Values no built-in profile exercises
 
@@ -104,6 +104,7 @@ Every part, the slots it allows and where each built-in profile puts it (`layout
 | Part | Label | Pages | Default | Allowed | Phase 1 | Phase 2 | AI-first | Reads through |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `accounts` | Accounts | home, interaction | `header` | header, left-nav, home-top | header | home-top | home-top | header.apps.<app>.placement |
+| `activeAssignments` | Active assignments | home | `main` | main, main-trailing | main | main | main-trailing | home.layout (slot), home.sections (order) |
 | `activityFeed` | Activity | home | `main` | main, main-trailing | main | main | main | home.layout, home.activityView |
 | `agentChat` | Agent Chat | home, interaction | `header` | header, left-nav | header | header | header | header.agentChat.placement |
 | `aiFeed` | AI feed | interaction | `main` | main, docked-panel | main | main | main | ai.displayLocation |

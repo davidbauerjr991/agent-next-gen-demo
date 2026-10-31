@@ -124,7 +124,7 @@ export const PART_FORMS: Record<PartId, Forms> = {
     "left-nav": LeftNavAssignments,
     "interior-panel": { host: "AssignmentsInteriorPanel (lyra's left SidePanel, first in the content card's row)" },
     // Placement "none" (P-LAYOUT fix (b)): inline rows, newest first, View opens one in the main column.
-    "home-top": AssignmentInlineRows,
+    "home-top": () => <AssignmentInlineRows />,
   },
   incomingTile: { "left-nav": CARD_OFFER, "interior-panel": CARD_OFFER, "home-top": CARD_OFFER },
   queueChip: { "home-top:page-header": HomeQueueChip, header: AppHeaderQueueChip },

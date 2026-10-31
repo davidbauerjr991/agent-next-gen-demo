@@ -198,8 +198,10 @@ export const keyedList =
 /** Dashboard sections, in v3's default order (Settings → Home), then the
  *  Activity feed and the role cards (P-HOME-1): Due soon for agents, Team
  *  queues / Team today / Needs you for supervisors, Pipeline / Campaign
- *  today / Follow-ups for sales. `workspace.persona` turns a role's set on. */
+ *  today / Follow-ups for sales. `workspace.persona` turns a role's set on. Active assignments (P-LAYOUT-F1 B, where
+ *  placement "none" went) leads the default order, off by default: an opt-in. */
 export const HOME_SECTIONS = [
+  "activeAssignments",
   "queue",
   "contactHistory",
   "performance",

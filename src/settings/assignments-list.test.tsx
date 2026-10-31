@@ -84,6 +84,37 @@ describe("assignment sort modes", () => {
   });
 });
 
+describe("Home's Active assignments section (P-LAYOUT-F1 B)", () => {
+  const section = () => h.container.querySelector('[data-home-section="activeAssignments"]');
+
+  it("is off by default under every built-in profile, first in the default order", async () => {
+    const { PROFILES, PROFILE_IDS } = await import("./profiles");
+    for (const id of PROFILE_IDS) {
+      expect(PROFILES[id].home.sections.find((s) => s.key === "activeAssignments")?.enabled, id).toBe(false);
+    }
+    expect(store().getState().values.home.sections[0].key).toBe("activeAssignments");
+  });
+
+  it("turned on: the open assignments as rows, newest first, View opening one; the empty state with none", async () => {
+    await act(async () => {
+      store().update("channels", { chat: true });
+      store().update("home", (h) => ({ sections: h.sections.map((s) => (s.key === "activeAssignments" ? { ...s, enabled: true } : s)) }));
+    });
+    await h.show(AgentWorkspaceAdvancedPage);
+    await h.goAvailable();
+    expect(section()!.textContent).toContain("Active assignments");
+    expect(section()!.textContent).toContain("No active assignments");
+    for (const [address, name] of [["ana@example.com", "Ana Ruiz"], ["ben@example.com", "Ben Ito"]] as const) {
+      await h.accept(await h.startInbound("chat", address, name));
+      await h.advance(1000);
+    }
+    const rows = () => [...section()!.querySelectorAll("[role=list] > *")];
+    expect(rows().map((r) => (r.textContent?.includes("Ben Ito") ? "Ben" : "Ana"))).toEqual(["Ben", "Ana"]);
+    await h.click([...rows()[1].querySelectorAll<HTMLElement>("button")].find((b) => b.textContent?.trim() === "View")!);
+    expect(h.container.querySelector("[data-slot=record-header]")?.textContent).toContain("Ana Ruiz");
+  });
+});
+
 describe("after a close (P-LAYOUT-F1 A4)", () => {
   const recordName = () => h.container.querySelector("[data-slot=record-header]")?.textContent ?? "";
   const dismiss = async (id: string, name: string) => {

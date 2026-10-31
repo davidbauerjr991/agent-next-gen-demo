@@ -5,7 +5,8 @@
 // rail card (`AssignmentEntryCard`); what it reuses and omits is the mirror table in PLAN "P-LAYOUT" (b). The app
 // header's My Assignment Queue chip stays the full switcher.
 import type { ReactNode } from "react";
-import { Avatar, Button, InlineNotification, Tag, Tooltip } from "@nicecxone/lyra-ui";
+import { Avatar, Button, EmptyState, InlineNotification, Tag, Tooltip } from "@nicecxone/lyra-ui";
+import { Inbox } from "lucide-react";
 import { t } from "@/i18n";
 import { useAssignmentCards, useChannelChipsShown, type AssignmentEntry } from "@/contact-handling/useAssignmentCards";
 import { IncomingOfferActions } from "@/contact-handling/IncomingOfferActions";
@@ -25,9 +26,30 @@ function newestFirst(entries: readonly AssignmentEntry[]): AssignmentEntry[] {
   return [...conversations, ...entries.filter((e) => e.type === "schedule")];
 }
 
-export function AssignmentInlineRows() {
+export function AssignmentInlineRows({ section = false }: { section?: boolean } = {}) {
   const { activeDeskTab } = useWorkspace();
   const { entries } = useAssignmentCards(false);
+  // As Home's "Active assignments" section (P-LAYOUT-F1 B): the rows in the section's card, the feed's empty state
+  // when nothing is open.
+  if (section) {
+    if (entries.length === 0) {
+      return (
+        <EmptyState
+          icon={<Inbox className="h-8 w-8" strokeWidth={1.5} />}
+          message={t("No active assignments")}
+          className="h-auto w-full py-6"
+          tone="secondary"
+        />
+      );
+    }
+    return (
+      <div role="list" aria-label={t("Active assignments")} className="flex flex-col gap-2" data-slot="assignment-inline-rows">
+        {newestFirst(entries).map((entry) => (
+          <AssignmentInlineRow key={entry.key} entry={entry} />
+        ))}
+      </div>
+    );
+  }
   // Only on Home's own tab, and only while something is open (no empty row: the queue chip says "Empty").
   if (activeDeskTab !== "dashboard" || entries.length === 0) return null;
   return (

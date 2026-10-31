@@ -10,6 +10,7 @@ import { PAGES, type Page, type SlotId } from "./slots";
 /** Home's sections as parts: `HOME_SECTIONS` less the feed, which is `activityFeed` (a test holds the two lists
  *  together; listed here so the registry imports no settings values). */
 export const HOME_SECTION_PARTS = [
+  "activeAssignments",
   "queue",
   "contactHistory",
   "performance",
@@ -195,6 +196,8 @@ const DEFS: Record<PartId, Def> = {
     source: "home.layout, home.activityView",
     pages: HOME,
   },
+  // P-LAYOUT-F1 B: where placement "none" went — the open assignments as inline rows, a section like any other.
+  activeAssignments: { ...HOME_SECTION, component: "AssignmentInlineRows", label: "Active assignments" },
   queue: { ...HOME_SECTION, component: "DashboardQueue / QueueListCard", label: "Queue" },
   // Due soon and Contact History are one-column cards: beside the feed, the feed already lists what's next and its
   // History view is Contact History (P-HOME-1e).
