@@ -119,7 +119,7 @@ export function HomeDashboard({ selectedQueueId, onSelectQueue, contactHistory }
         return (
           <DashboardCard variant="neutral-subtle" headerTitle={t("Active assignments")}>
             <div className="px-4 pb-4">
-              <AssignmentInlineRows section />
+              <AssignmentInlineRows />
             </div>
           </DashboardCard>
         );

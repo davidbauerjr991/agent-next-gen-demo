@@ -301,8 +301,8 @@ const home = defineSection<HomeSettings>({
  *  `workItem` is raised since P-HOME-1m by a schedule item added after its day
  *  loaded (P0.9's work items will raise it too). Offers keep the incoming tile
  *  and don't toast, except under `incoming` (P-HOME-1n: a new assignment
- *  arriving, offers included; off by default, forced on while assignments
- *  aren't in the left nav — `SETTING_CONSTRAINTS`). */
+ *  arriving, offers included; off by default, the agent's choice — placement
+ *  "none" forced it on until P-LAYOUT-F1 B retired that placement). */
 export const TOAST_EVENTS = ["message", "approval", "callbackDue", "awaitingReply", "workItem", "transfer", "incoming"] as const;
 export type ToastEvent = (typeof TOAST_EVENTS)[number];
 /** The events something raises today: Settings shows a switch for these only. */
@@ -425,16 +425,17 @@ export interface AssignmentsSettings {
   /** The channel chip on each card's rows: "auto" shows it in the left nav
    *  and hides it in the interior panel. */
   channelChips: AssignmentChannelChips;
-  /** Where the assignment cards show: the left nav, lyra's left interior
-   *  panel (P-PROFILES 0c), or the top of Home ("none", P-HOME-1n). */
+  /** Where the assignment cards show: the left nav, or lyra's left interior panel (P-PROFILES 0c). P-LAYOUT-F1 B
+   *  retired "none" (the top of Home): a stored one reads as the left nav with Home's Active assignments section on
+   *  (`migrations.ts`). */
   placement: AssignmentsPlacement;
 }
 
-export const ASSIGNMENTS_PLACEMENTS = ["leftNav", "interiorPanel", "none"] as const;
+export const ASSIGNMENTS_PLACEMENTS = ["leftNav", "interiorPanel"] as const;
 export type AssignmentsPlacement = (typeof ASSIGNMENTS_PLACEMENTS)[number];
 export const ASSIGNMENTS_PLACEMENT_FIELD = oneOf(ASSIGNMENTS_PLACEMENTS, {
   label: "Assignments placement",
-  description: "Where your assignment cards show: the left nav, a panel beside your work, or the top of Home.",
+  description: "Where your assignment cards show: the left nav, or a panel beside your work. Home's Active assignments section lists them too.",
 });
 /** Each placement's option in Settings (P-HOME-1n's radio), declared with the field. */
 export const ASSIGNMENTS_PLACEMENT_OPTIONS: Record<AssignmentsPlacement, FieldMeta> = {
@@ -443,10 +444,6 @@ export const ASSIGNMENTS_PLACEMENT_OPTIONS: Record<AssignmentsPlacement, FieldMe
     label: "Interior panel",
     description:
       "A panel at the start of your work, with the Assignments header and cards; the left nav starts as a rail. Pinned, it moves your work aside (or opens over it where they don't fit); unpinned, it opens over your work on hover. Close it and the Assignments button in the page header brings it back; its badge counts your assignments. Resizable.",
-  },
-  none: {
-    label: "None",
-    description: "Assignments show at the top of Home; My Assignment Queue in the header switches between them. New assignments always toast.",
   },
 };
 
@@ -472,7 +469,7 @@ export type AssignmentChannelChips = (typeof ASSIGNMENT_CHANNEL_CHIPS)[number];
 export const ASSIGNMENT_CHANNEL_CHIPS_FIELD = oneOf(ASSIGNMENT_CHANNEL_CHIPS, {
   label: "Channel chips",
   description:
-    "The channel name on each card's rows. Automatic shows it where there's room (the left nav, the top of Home) and hides it in the interior panel.",
+    "The channel name on each card's rows. Automatic shows it where there's room (the left nav, Home's Active assignments) and hides it in the interior panel.",
 });
 
 /** "tabs": one thread per channel (today). "stream" (P-STREAM): every leg in
@@ -890,7 +887,6 @@ export interface SettingConstraint {
   note?: string;
 }
 
-const NOT_IN_LEFT_NAV = "Required while assignments aren't in the left nav";
 const AI_IN_PANEL = "layout.parts.aiFeed.slot";
 const ASSIGNMENTS_SLOT = "layout.parts.assignments.slot";
 
@@ -904,18 +900,9 @@ const follows = (id: string, part: string, leader: string, slots: readonly strin
   }));
 
 export const SETTING_CONSTRAINTS: readonly SettingConstraint[] = [
-  // Placement "none" has no list on screen while an assignment is open: a new arrival has to toast.
-  { id: "placement-none-toasts", when: { path: ASSIGNMENTS_SLOT, in: ["home-top"] }, forces: { path: "notifications.toasts.enabled", value: true }, reason: NOT_IN_LEFT_NAV },
-  {
-    id: "placement-none-incoming",
-    when: { path: ASSIGNMENTS_SLOT, in: ["home-top"] },
-    forces: { path: "notifications.toasts.events.incoming", value: true },
-    reason: NOT_IN_LEFT_NAV,
-    note: "On — required while assignments aren't in the left nav",
-  },
-  // P-LAYOUT: the incoming offer is part of the assignments list; the queue chip moves to the header when the list
-  // is at the top of Home.
-  ...follows("incoming-follows-assignments", "incomingTile", "assignments", ["left-nav", "interior-panel", "home-top"], "Follows Assignments"),
+  // P-LAYOUT: the incoming offer is part of the assignments list. (P-LAYOUT-F1 B retired placement "none", its forced
+  // toasts and the queue chip's move to the header.)
+  ...follows("incoming-follows-assignments", "incomingTile", "assignments", ["left-nav", "interior-panel"], "Follows Assignments"),
   // P-LAYOUT-F1 A3: voice controls at the top are at the top of the assignments list, wherever the list is.
   ...(["left-nav", "interior-panel"] as const).map((slot) => ({
     id: `voice-top-follows-assignments-${slot}`,
@@ -924,8 +911,6 @@ export const SETTING_CONSTRAINTS: readonly SettingConstraint[] = [
     forces: { path: "layout.parts.voiceBar.slot" as SettingPath, value: slot },
     reason: "At the top of the assignments list",
   })),
-  { id: "queue-chip-header", when: { path: ASSIGNMENTS_SLOT, in: ["home-top"] }, forces: { path: "layout.parts.queueChip.slot", value: "header" }, reason: "In the header while assignments are at the top of Home" },
-  { id: "queue-chip-home", when: { path: ASSIGNMENTS_SLOT, in: ["left-nav", "interior-panel"] }, forces: { path: "layout.parts.queueChip.slot", value: "home-top" }, reason: "On Home while assignments are in a panel" },
   // The conversation and the AI feed can't both be docked: one of them is the action area. Before the Copilot rule,
   // so the input follows the feed's final slot.
   { id: "conversation-docked", when: { path: "layout.parts.conversation.slot", in: ["docked-panel"] }, forces: { path: AI_IN_PANEL, value: "main" }, reason: "The AI feed is the main column while the conversation is in the panel" },

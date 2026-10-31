@@ -2,9 +2,8 @@ import { useCallback, useEffect, useRef } from "react";
 import type { AgentNotification } from "@nicecxone/lyra-ui";
 import { assignmentIdFor, scheduleCardKey, type ChannelKind } from "@/domain";
 import { useAgentState, useInteractionProvider, useScheduleProvider, useScheduleSnapshot } from "@/provider-context";
-import { useConstraint, useSettings, type ToastEvent } from "@/settings";
+import { useSettings, type ToastEvent } from "@/settings";
 import { inArrivalGrace, isRoutedContact, isScheduleArrival, newArrivals } from "./arrivals";
-import { useAssignmentsAtHomeTop } from "../useAssignmentsPanel";
 import { revealAssignments } from "../reveal-assignments";
 import { useSlotFor } from "@/layout/useSlot";
 import { t } from "@/i18n";
@@ -44,22 +43,18 @@ export function useAssignmentToasts(ws: WorkspaceBase) {
   const schedule = useScheduleProvider();
   const store = useWorkspaceUiStore();
   const [{ toasts: settings }] = useSettings("notifications");
-  // While a constraint forces the incoming toast on (placement "none": no list on screen), it's the only sign of a
-  // new assignment, so "Quiet during a call" doesn't hold it back.
-  const incomingForced = !!useConstraint("notifications.toasts.events.incoming");
-  // The handlers below read the latest of these, not the values they were registered with.
-  // Where an offer's tile is: the rail (left nav or interior panel), or the top of Home.
-  const offersAtHome = useAssignmentsAtHomeTop();
+  // The handlers below read the latest of these, not the values they were registered with. The assignments' slot:
+  // where an offer's tile is (the left nav or the interior panel).
   const assignmentsSlot = useSlotFor("assignments");
-  const latest = useRef({ ws, settings, incomingForced, offersAtHome, assignmentsSlot });
-  latest.current = { ws, settings, incomingForced, offersAtHome, assignmentsSlot };
+  const latest = useRef({ ws, settings, assignmentsSlot });
+  latest.current = { ws, settings, assignmentsSlot };
   // Toast ids, per workspace mount (a toast's id is also its drawer row's).
   const counter = useRef(0);
 
   const raise = useCallback(
     (toast: Omit<AssignmentToast, "id" | "urgent">) => {
-      const { ws: w, settings: s, incomingForced: forced } = latest.current;
-      if (!toastAllowed(toast.event, s, !!w.liveVoiceCallInteraction, forced && toast.event === "incoming")) return;
+      const { ws: w, settings: s } = latest.current;
+      if (!toastAllowed(toast.event, s, !!w.liveVoiceCallInteraction)) return;
       counter.current += 1;
       const id = `${TOAST_NOTIFICATION_PREFIX}${counter.current}`;
       const full: AssignmentToast = { ...toast, id, urgent: URGENT_TOAST_EVENTS.includes(toast.event) };
@@ -136,7 +131,7 @@ export function useAssignmentToasts(ws: WorkspaceBase) {
         kind: "conversation",
         cardId: card.id,
         ...(thread ? { threadKey: thread.id, channel: thread.type as ChannelKind } : {}),
-        // An offer's View goes to its tile (the left nav, or the top of Home), not into the card.
+        // An offer's View goes to its tile (in the left nav or the interior panel), not into the card.
         offer: !!card.offered,
         name: card.presentedName ?? card.customerName ?? card.customerId,
         line: card.offered ? t("Offered to you") : t("Assigned to you"),
@@ -227,15 +222,9 @@ export function useAssignmentToasts(ws: WorkspaceBase) {
         return;
       }
       if (toast.offer) {
-        // An offer's Accept / Decline are on its tile: the assignments list's (shown where it is: the nav expands, the
-        // interior panel opens; the agent's work stays), or the top of Home's (go Home).
-        if (latest.current.offersAtHome) {
-          w.setShowSettings(false);
-          w.setLeftNavPage(null);
-          w.switchActiveInteraction(null);
-        } else {
-          revealAssignments(latest.current.assignmentsSlot, w.setNavOpen);
-        }
+        // An offer's Accept / Decline are on its tile in the assignments list, shown where it is: the nav expands, the
+        // interior panel opens; the agent's work stays.
+        revealAssignments(latest.current.assignmentsSlot, w.setNavOpen);
         return;
       }
       if (toast.scheduleItemId) {

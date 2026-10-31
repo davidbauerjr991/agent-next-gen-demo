@@ -414,10 +414,12 @@ describe("Activity feed on Home", () => {
     expect(group("Needs a decision")).toBeNull();
   });
 
-  it("placement none: a ringing offer is its inline row above Home (Accept / Decline there), not also in Needs a decision", async () => {
+  it("with Active assignments on, a ringing offer is its row there (Accept / Decline) and in Needs a decision too (P-LAYOUT-F1 B retired the offer-once rule)", async () => {
     turnOn();
     await act(async () => {
-      getSettingsStore().update("assignments", { placement: "none" });
+      getSettingsStore().update("home", (home) => ({
+        sections: home.sections.map((s) => (s.key === "activeAssignments" ? { ...s, enabled: true } : s)),
+      }));
       await vi.advanceTimersByTimeAsync(50);
     });
     await showHome();
@@ -426,7 +428,7 @@ describe("Activity feed on Home", () => {
     const row = h.container.querySelector<HTMLElement>("[data-slot=assignment-inline-rows]");
     expect(row?.textContent).toContain("Tom Lewis");
     expect(h.buttonByText("Accept", row!)).toBeTruthy();
-    expect(group("Needs a decision")).toBeNull();
+    expect(group("Needs a decision")?.textContent).toContain("Tom Lewis");
   });
 
   it("an offered schedule item (the supervisor's escalation) previews with Accept and Decline; Decline takes it off the feed", async () => {

@@ -69,8 +69,8 @@ describe("layout edits (P-LAYOUT)", () => {
     const v = values();
     expect(canPlace(v, "voiceBar", "left-nav")).toBe(true);
     expect(canPlace(v, "contactHistory", "main-trailing")).toBe("Contact history can't go in the Cards column");
-    // The queue chip follows the assignments: on Home while they're in the left nav.
-    expect(canPlace(v, "queueChip", "header")).toBe("On Home while assignments are in a panel");
+    // The queue chip is Home's page header's only (its app-header form went with placement none, P-LAYOUT-F1 B).
+    expect(canPlace(v, "queueChip", "header")).toBe("My Assignment Queue can't go in the App header");
     expect(canPlace(v, "queueChip", "home-top")).toBe(true);
   });
 

@@ -206,11 +206,11 @@ All of these live in a new UI-side folder (e.g. `src/contact-handling/`). They c
   - `ChannelRow`'s Unassign & Dismiss button (`channel-row.tsx`, ~979) doesn't stop propagation, as its sibling buttons do, so its click also activates the nav card (P-LAYOUT-F1 5, commit-check). The app skips that bubbled activation (`NavCardItem`'s `dismissing` mark); the lyra fix needs an authorized batch.
 - **Kind cards and P-LAYOUT-F1 (2026-10-31, Dave's brief G):** kind cards (callbacks, meetings, app items) in the assignments panel, the Active assignments section and the after-close transition: behaviour not designed yet. Today `nextAfterClose` never picks a kind card, and closing a kind card itself (`KindCloseButton`, `KindOutcomeButton`) still goes straight Home rather than through it — a second "what opens after a close" path, left as is until that design.
 - **P-LAYOUT open items (2026-10-30, commit 9's commit-check).** (1) The Activity feed's own List/Table toggle (`ActivityFeed.tsx`) writes `home.activityView`, which the store drops under a `layout` lock with no message; the toggle doesn't disable (pre-existing since commit 3). (2) A reorder in Settings → Layout that moves one part past another can change the other's legacy value (a reference cell's region when the conversation moves past it); the lock check covers the moved part's write as the store sees it, so such a move under a `canvas` lock is refused with the reason, but the row doesn't show it's locked before the try. (3) Advanced rows are focusable `li`s holding Selects: Ctrl+Shift+arrows pressed inside a row's Select also move the row (lyra's handler doesn't check the target). From the step's reviewers (2026-10-30), left open:
-  - **Inline rows under placement none:**
-    - The incoming toast for it sits over Home's content.
+  - **Inline rows (placement none's; Home's Active assignments section since P-LAYOUT-F1 B):**
+    - ~~The incoming toast for it sits over Home's content.~~ Placement none and its forced toast are gone (P-LAYOUT-F1 B); the toast is the agent's own setting again.
     - The rows' initials avatars read paler than the rail's.
     - An offered chat couldn't be produced in the sim (the scripted chats arrive assigned), so Accept / Decline on a row was walked with a voice offer only.
-    - The rows aren't a live region; the incoming toast announces arrivals. If toasts are ever off under none, the list needs `role=status`.
+    - The rows aren't a live region. The rail (always on screen now: the nav or the interior panel) and the incoming toast, when on, carry arrivals.
 
     agent-walkthrough and a11y-review.
   - **Interior panel:**

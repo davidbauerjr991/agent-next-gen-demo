@@ -12,14 +12,11 @@ const withPlacement = (placement: (typeof ASSIGNMENTS_PLACEMENTS)[number]): Sett
 };
 
 describe("layout parts (P-HOME-1n)", () => {
-  it("assignments.placement resolves to a slot: left nav, interior panel, top of Home", () => {
+  it("assignments.placement resolves to a slot: left nav or interior panel (the top of Home retired, P-LAYOUT-F1 B)", () => {
     expect(slotFor("assignments", withPlacement("leftNav"))).toBe("left-nav");
     expect(slotFor("assignments", withPlacement("interiorPanel"))).toBe("interior-panel");
-    expect(slotFor("assignments", withPlacement("none"))).toBe("home-top");
-    // The queue chip shares the top of Home (its page header), and moves to the header under none (its follow rule);
-    // these check membership of `assignments` only.
-    expect(partsIn("home-top", withPlacement("none"))).toContain("assignments");
     expect(partsIn("home-top", withPlacement("leftNav"))).not.toContain("assignments");
+    expect(partsIn("home-top", withPlacement("interiorPanel"))).not.toContain("assignments");
   });
 
   it("Contact Details, Experience Memory and Session Details mount in the reference slide-over", () => {

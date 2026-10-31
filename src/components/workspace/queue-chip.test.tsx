@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-// "My Assignment Queue: n" (P-HOME-1n): a Tag pill whose variant is the queue's severity; on Home's page header in
-// the left-nav and interior-panel slots; with the assignments at the top of Home, in the app header on every page,
-// opening a menu of Home and every open assignment that switches between them.
+// "My Assignment Queue: n" (P-HOME-1n): a Tag pill whose variant is the queue's severity, on Home's page header. It
+// shows or hides the assignments list where it is (the nav, or the interior panel). Its app-header switcher, for
+// placement "none", went with that placement (P-LAYOUT-F1 B).
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { withPersonaSections } from "@/settings/persona";
@@ -60,37 +60,19 @@ describe("My Assignment Queue chip (P-HOME-1n)", () => {
     expect(chips()[0].getAttribute("aria-haspopup")).toBeNull();
   });
 
-  it("placement none: the chip is in the app header on Home and on an assignment; its menu lists Home and every card, a kind card too, and switches", async () => {
+  it("in the interior panel placement: the chip on Home's header shows and hides the panel, not the nav", async () => {
     await act(async () => {
-      getSettingsStore().update("assignments", { placement: "none" });
+      getSettingsStore().update("assignments", { placement: "interiorPanel" });
     });
     await twoChats();
-    // A training opened from Activity: a kind card in the one card list.
-    await h.click(homeButton());
-    await h.advance(100);
-    await h.click(feedRow("RET-1.3 refund policy update")!);
-    await h.click(document.querySelector<HTMLElement>("[data-home-detail=item] [data-preview-open]")!);
-    await h.advance(100);
-    // On an assignment (the training): the app header's chip, no other.
+    const toggle = () => h.container.querySelector<HTMLElement>("[aria-controls=assignments-panel]")!;
     expect(chips()).toHaveLength(1);
-    expect(inAppHeader(chips()[0])).toBe(true);
+    expect(inAppHeader(chips()[0])).toBe(false);
+    expect(toggle().getAttribute("aria-expanded")).toBe("true");
     await h.click(chips()[0]);
-    const labels = menuRows().map((r) => r.textContent ?? "");
-    expect(labels[0]).toContain("Home");
-    expect(labels.filter((l) => /Ana Ruiz|Ben Ito/.test(l))).toHaveLength(2);
-    expect(labels.some((l) => l.includes("Training"))).toBe(true);
-
-    await h.click(menuRows().find((r) => r.textContent?.includes("Ana Ruiz"))!);
-    await h.advance(300);
-    expect(h.container.querySelector("[data-slot=record-header]")?.textContent).toContain("Ana Ruiz");
-
-    // Home goes back: the rows at the top of Home, the chip still in the app header.
+    expect(toggle().getAttribute("aria-expanded")).toBe("false");
+    expect(h.container.querySelector('aside button[aria-label="Collapse sidebar"]')).toBeNull();
     await h.click(chips()[0]);
-    await h.click(menuRows().find((r) => r.textContent?.includes("Home"))!);
-    await h.advance(300);
-    expect(h.container.querySelector("[data-slot=record-header]")).toBeNull();
-    expect(h.container.querySelector("[data-slot=assignment-inline-rows]")).not.toBeNull();
-    expect(chips()).toHaveLength(1);
-    expect(inAppHeader(chips()[0])).toBe(true);
+    expect(toggle().getAttribute("aria-expanded")).toBe("true");
   });
 });

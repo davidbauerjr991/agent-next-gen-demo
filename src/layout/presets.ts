@@ -71,7 +71,7 @@ const placement = slotField({
   id: "assignments.placement",
   section: "assignments",
   part: "assignments",
-  slots: { leftNav: "left-nav", interiorPanel: "interior-panel", none: "home-top" },
+  slots: { leftNav: "left-nav", interiorPanel: "interior-panel" },
   get: (s) => s.assignments.placement,
   set: (s, placement) => ({ ...s, assignments: { ...s.assignments, placement } }),
 });

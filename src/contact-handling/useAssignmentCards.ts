@@ -15,9 +15,10 @@ import { useScheduleCards, useScheduleLegCardKeys } from "./home/useScheduleCard
 import { scheduleCardKey } from "@/domain";
 import type { ScheduleItem } from "@/providers";
 
-export type AssignmentsMount = "leftNav" | "interiorPanel" | "homeTop";
+/** Where the cards render: the left nav, the interior panel, or Home's Active assignments section (P-LAYOUT-F1 B). */
+export type AssignmentsMount = "leftNav" | "interiorPanel" | "homeSection";
 
-/** Whether a mount shows the channel chip: "auto" shows it where there's room (the left nav, the top of Home) and
+/** Whether a mount shows the channel chip: "auto" shows it where there's room (the left nav, Home's section) and
  *  hides it where there isn't (the interior panel). */
 export function useChannelChipsShown(mount: AssignmentsMount): boolean {
   const [{ channelChips }] = useSettings("assignments");

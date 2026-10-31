@@ -57,8 +57,8 @@ export function WorkspaceAppHeader() {
         }
         actions={
           <>
-            {/* The header slot's parts (P-LAYOUT): the queue chip when it's here (it follows the assignments to the
-                top of Home, P-HOME-1n), on every page. The apps and Notifications are the icon row's own, below. */}
+            {/* The header slot's parts (P-LAYOUT). (The queue chip was here under placement "none", retired in
+                P-LAYOUT-F1 B.) The apps and Notifications are the icon row's own, below. */}
             <Slot id="header" />
             {/* Search / Customers / Accounts / Tickets / WEM / Screen Pop /
                 Agent Chat / Schedule / Notifications / Ask AI — all ten

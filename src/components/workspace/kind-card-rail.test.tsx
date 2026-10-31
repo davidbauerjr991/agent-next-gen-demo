@@ -90,7 +90,7 @@ describe("kind cards in the rail's Custom order", () => {
   });
 });
 
-describe("placement none: the top of Home holds a row per open assignment (P-LAYOUT fix (b))", () => {
+describe("Home's Active assignments section: a row per open assignment (P-LAYOUT fix (b); a section since P-LAYOUT-F1 B)", () => {
   const rows = () => [...h.container.querySelectorAll<HTMLElement>("[data-slot=assignment-inline-row]")];
   const rowKeys = () => rows().map((el) => el.getAttribute("data-assignment-key")!);
 
@@ -102,7 +102,7 @@ describe("placement none: the top of Home holds a row per open assignment (P-LAY
     await h.advance(100);
   }
 
-  it("every open assignment — conversations, a training, a task, a callback — a row each, newest first, none in the left nav; View opens one in the main column", async () => {
+  it("Home's Active assignments: every open assignment — conversations, a training, a task, a callback — a row each, newest first, the rail's own cards; View opens one in the main column", async () => {
     await chatsAndTraining();
     await openFromActivity("Ticket #4821");
     await openFromActivity("Callback · Priya Shah");
@@ -110,15 +110,15 @@ describe("placement none: the top of Home holds a row per open assignment (P-LAY
     expect(railKeys).toEqual(expect.arrayContaining([TRAINING, "schedule:agent-tk-4821", "schedule:agent-cb-priya"]));
 
     await act(async () => {
-      store().update("assignments", { placement: "none" });
+      store().update("home", (home) => ({ sections: home.sections.map((s) => (s.key === "activeAssignments" ? { ...s, enabled: true } : s)) }));
     });
     await h.click(homeButton());
     await h.advance(100);
-    // The same cards, a row each in a list; the left nav holds none and no Assignments item.
+    // The same cards, a row each in the section's list (P-LAYOUT-F1 B: placement none's rows became this section);
+    // the left nav keeps its cards.
     expect([...rowKeys()].sort()).toEqual([...railKeys].sort());
-    expect(h.container.querySelector("[data-slot=assignment-inline-rows] [role=list]")!.querySelectorAll("[role=listitem]")).toHaveLength(railKeys.length);
-    expect(cardEls()).toHaveLength(0);
-    expect([...h.container.querySelectorAll("aside button")].some((b) => /^Assignments/.test(b.getAttribute("aria-label") ?? b.textContent ?? ""))).toBe(false);
+    expect(h.container.querySelector("[data-slot=assignment-inline-rows]")!.querySelectorAll("[role=listitem]")).toHaveLength(railKeys.length);
+    expect(cardEls()).toHaveLength(railKeys.length);
     // Newest first: Ben arrived after Ana; the kind cards follow the conversations.
     const keys = rowKeys();
     const at = (name: string) => rows().findIndex((el) => el.textContent?.includes(name));
@@ -151,7 +151,8 @@ describe("placement none: the top of Home holds a row per open assignment (P-LAY
     await act(async () => {
       store().update("channels", { chat: true });
       const { autoAccept } = store().getState().values.assignments;
-      store().update("assignments", { placement: "none", autoAccept: { ...autoAccept, chat: false } });
+      store().update("assignments", { autoAccept: { ...autoAccept, chat: false } });
+      store().update("home", (home) => ({ sections: home.sections.map((s) => (s.key === "activeAssignments" ? { ...s, enabled: true } : s)) }));
     });
     await h.show(AgentWorkspaceAdvancedPage);
     await h.goAvailable();

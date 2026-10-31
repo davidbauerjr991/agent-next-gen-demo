@@ -10,6 +10,7 @@ import { t } from "@/i18n";
 import { PROFILE_IDS, PROFILE_LABELS, profileValues, type ProfileId } from "./profiles";
 import { agentSettings, sectionInProfiles, type AgentSettings } from "./scope";
 import { settle } from "./settle";
+import { storedPlacementNone, withActiveAssignmentsSection } from "./migrations";
 import { SECTIONS, defaultSettings, type SectionKey, type SectionSchemas, type SettingsState } from "./settings-schema";
 import { safeStorage, type SettingsStorage } from "./settings-storage";
 
@@ -99,7 +100,10 @@ export function readProfileSections(
   }
   // The map (possibly partial) over the one the profile's legacy fields describe, as the store reads it.
   const state = full as SettingsState;
-  const values = settle(null, state, storedLayout ? state.layout.parts : undefined).values;
+  const settled = settle(null, state, storedLayout ? state.layout.parts : undefined).values;
+  // P-LAYOUT-F1 B: a profile saved with placement "none" applies as the left nav with Active assignments on.
+  const rawOf = (key: SectionKey) => (isRecord(source[key]) ? (source[key] as { value?: unknown }).value : undefined);
+  const values = storedPlacementNone(rawOf("assignments"), rawOf("layout")) ? withActiveAssignmentsSection(settled) : settled;
   return { values: agentSettings(values, sections), warnings };
 }
 

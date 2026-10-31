@@ -7,7 +7,7 @@ import type { SlotId } from "@/layout/slots";
 import { setAssignmentsWorkingState } from "./assignments-working-state";
 
 /** Show the assignments list: the interior panel opens (as an overlay where it doesn't fit, or unpinned); in the
- *  left nav, the nav expands. Elsewhere (the top of Home) there's nothing to reveal. */
+ *  left nav, the nav expands. */
 export function revealAssignments(slot: SlotId, setNavOpen: (open: boolean) => void): void {
   if (slot === "interior-panel") setAssignmentsWorkingState({ panelOpen: true });
   else if (slot === "left-nav") setNavOpen(true);

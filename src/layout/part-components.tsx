@@ -9,7 +9,6 @@ import { usePanelToggles } from "@/contact-handling/panel-toggles";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useAssignmentCards, useChannelChipsShown } from "@/contact-handling/useAssignmentCards";
 import { AssignmentEntryCard, AssignmentsCaption, AssignmentsEmptyState } from "@/components/workspace/AssignmentCardList";
-import { AssignmentInlineRows } from "@/components/workspace/AssignmentInlineRows";
 import { QueueChip } from "@/components/workspace/QueueChip";
 import { HEADER_APP_PARTS, HOME_SECTION_PARTS, PARTS, REFERENCE_CELL_PARTS, type PartId } from "./parts";
 import type { SlotId } from "./slots";
@@ -85,8 +84,7 @@ function PanelVoiceHost() {
   return open ? <HostSlot host={voiceBarHost} data-slot="interior-panel-voice" onMountedChange={setVoiceNavSlotMounted} /> : null;
 }
 
-const HomeQueueChip = () => <QueueChip mount="home" />;
-const AppHeaderQueueChip = () => <QueueChip mount="appHeader" />;
+const HomeQueueChip = () => <QueueChip />;
 
 // ── Every part ──────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -123,11 +121,9 @@ export const PART_FORMS: Record<PartId, Forms> = {
     "left-nav:caption": LeftNavAssignmentsCaption,
     "left-nav": LeftNavAssignments,
     "interior-panel": { host: "AssignmentsInteriorPanel (lyra's left SidePanel, first in the content card's row)" },
-    // Placement "none" (P-LAYOUT fix (b)): inline rows, newest first, View opens one in the main column.
-    "home-top": () => <AssignmentInlineRows />,
   },
-  incomingTile: { "left-nav": CARD_OFFER, "interior-panel": CARD_OFFER, "home-top": CARD_OFFER },
-  queueChip: { "home-top:page-header": HomeQueueChip, header: AppHeaderQueueChip },
+  incomingTile: { "left-nav": CARD_OFFER, "interior-panel": CARD_OFFER },
+  queueChip: { "home-top:page-header": HomeQueueChip },
   voiceBar: {
     "dock-bottom": { host: "WorkspaceVoiceBar's bottom host (voice-bar-bottom)" },
     "left-nav:top": LeftNavVoiceHost,

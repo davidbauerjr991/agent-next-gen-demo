@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // The incoming toast (P-HOME-1n): a new assignment arriving — routed and auto-accepted, offered, or delivered —
-// raises a toast with View; off by default, forced on (with its reason in Settings) while the assignments are at the
-// top of Home, where "Quiet during a call" doesn't hold it back either. Cards the agent starts never toast.
+// raises a toast with View; off by default (placement "none" forced it on until P-LAYOUT-F1 B retired that
+// placement). Cards the agent starts never toast.
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { seedScheduleDay } from "@/adapters/sim/sim-schedule-seeds";
@@ -30,10 +30,10 @@ describe("arrivals", () => {
     expect(inArrivalGrace(1_000, 1_000 + ARRIVAL_GRACE_MS)).toBe(false);
   });
 
-  it("forced, the incoming toast shows during a call even with Quiet during a call on", () => {
+  it("Quiet during a call holds the incoming toast back (nothing forces it since P-LAYOUT-F1 B)", () => {
     const quiet = { ...defaults, quietOnVoice: true, events: { ...defaults.events, incoming: true } };
     expect(toastAllowed("incoming", quiet, true)).toBe(false);
-    expect(toastAllowed("incoming", quiet, true, true)).toBe(true);
+    expect(toastAllowed("incoming", quiet, false)).toBe(true);
   });
 });
 
@@ -100,26 +100,20 @@ describe("the incoming toast in the workspace", () => {
     expect(incoming().filter((el) => el.textContent?.includes("Ben Ortiz"))).toHaveLength(1);
   });
 
-  it("placement none forces it on with toasts off, and Settings shows the switch disabled with the reason", async () => {
+  it("with toasts off, no incoming toast; Settings' switches are the agent's (nothing forces them since P-LAYOUT-F1 B)", async () => {
     await act(async () => {
       getSettingsStore().update("notifications", { toasts: { ...defaults, enabled: false } });
-      getSettingsStore().update("assignments", { placement: "none" });
     });
     await h.show(AgentWorkspaceAdvancedPage);
     await h.goAvailable();
     await h.advance(ARRIVAL_GRACE_MS);
     await h.startInbound("chat", "ana@example.com", "Ana Silva");
     await h.advance(500);
-    expect(incoming()).toHaveLength(1);
+    expect(incoming()).toHaveLength(0);
 
     await h.show(NotificationSettings);
-    const forced = h.container.querySelector<HTMLElement>('[data-forced-setting="notifications.toasts.events.incoming"]');
-    expect(forced?.textContent).toContain("On — required while assignments aren't in the left nav");
-    expect(forced?.querySelector("button[role=checkbox], input[type=checkbox]")?.hasAttribute("disabled")).toBe(true);
-    // The master switch is held on too (its reason on hover; the note once, on incoming).
-    const master = h.container.querySelector<HTMLElement>('[data-forced-setting="notifications.toasts.enabled"]');
-    expect(master?.querySelector("button[role=switch]")?.hasAttribute("disabled")).toBe(true);
-    expect(h.container.textContent?.match(/On — required/g)).toHaveLength(1);
+    expect(h.container.querySelector("[data-forced-setting]")).toBeNull();
+    expect(h.container.querySelector("button[role=switch]")?.hasAttribute("disabled")).toBe(false);
   });
 });
 

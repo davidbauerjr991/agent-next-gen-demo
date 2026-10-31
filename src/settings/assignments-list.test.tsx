@@ -205,10 +205,10 @@ describe("Assignments placement → Interior panel (0c; lyra SidePanel left sinc
     expect(panelChips()).toHaveLength(0);
   });
 
-  it("\"auto\" chips: hidden in the interior panel, shown at the top of Home (there's room there; P-HOME-1n)", async () => {
+  it("\"auto\" chips: hidden in the interior panel, shown in Home's Active assignments (there's room there; P-HOME-1n, P-LAYOUT-F1 B)", async () => {
     await act(async () => {
       store().update("channels", { chat: true });
-      store().update("assignments", { placement: "none" });
+      store().update("home", (home) => ({ sections: home.sections.map((s) => (s.key === "activeAssignments" ? { ...s, enabled: true } : s)) }));
     });
     await h.show(AgentWorkspaceAdvancedPage);
     await h.goAvailable();

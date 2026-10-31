@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // The Settings page's grouping (P-HOME-1n): top-level groups in order, each a larger lyra heading with a Separator
-// between; the assignments placement as a three-option preset in Settings → Layout (P-LAYOUT); the incoming toast forced on, disabled with its reason,
-// under placement "none"; admin-scope settings tagged.
+// between; the assignments placement as a two-option preset in Settings → Layout (P-LAYOUT; "none" retired in
+// P-LAYOUT-F1 B, Home's Active assignments section instead); admin-scope settings tagged.
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
@@ -74,21 +74,15 @@ describe("Settings grouping (P-HOME-1n)", () => {
     expect(layout.textContent).toContain("Home layout");
     expect(layout.textContent).toContain("AI display");
     const placement = layout.querySelector("[data-layout-preset='assignments.placement']")!;
-    expect([...placement.querySelectorAll("[role=radio]")].map((r) => r.textContent)).toEqual(["Left nav", "Interior panel", "None"]);
+    // "None" retired (P-LAYOUT-F1 B): Home's Active assignments section lists them instead.
+    expect([...placement.querySelectorAll("[role=radio]")].map((r) => r.textContent)).toEqual(["Left nav", "Interior panel"]);
   });
 
-  it("placement none: the incoming toast is shown on, disabled, with the reason; another placement frees it", async () => {
+  it("Home's section list offers Active assignments, off, first (P-LAYOUT-F1 B)", async () => {
     await h.render(<SettingsView />);
-    await h.click(h.container.querySelectorAll<HTMLElement>("[data-layout-preset='assignments.placement'] [role=radio]")[2]);
-    expect(getSettingsStore().getState().values.assignments.placement).toBe("none");
-    const forced = h.container.querySelector<HTMLElement>('[data-forced-setting="notifications.toasts.events.incoming"]')!;
-    expect(forced.textContent).toContain("On — required while assignments aren't in the left nav");
-    expect(forced.querySelector("[role=checkbox]")!.hasAttribute("disabled")).toBe(true);
-    expect(forced.querySelector("[role=checkbox]")!.getAttribute("aria-checked")).toBe("true");
-    await act(async () => {
-      getSettingsStore().update("assignments", { placement: "leftNav" });
-    });
-    expect(h.container.querySelector('[data-forced-setting="notifications.toasts.events.incoming"]')).toBeNull();
+    const home = h.container.querySelector<HTMLElement>("[data-settings-group=home]")!;
+    expect(home.textContent).toContain("Active assignments");
+    expect(getSettingsStore().getState().values.home.sections[0]).toEqual({ key: "activeAssignments", enabled: false });
   });
 
   it("admin-scope settings carry an Admin tag: Brand and Social", async () => {

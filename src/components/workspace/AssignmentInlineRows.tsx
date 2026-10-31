@@ -1,9 +1,9 @@
-// The assignments part at the top of Home (placement "none"; P-LAYOUT fix (b), Dave 2026-10-30): one lyra
-// `InlineNotification` per open assignment, stacked, newest first — its avatar (or the kind's icon), the name, its
-// channel or kind chip, its status, and View, which opens it in the main column. An offer shows Accept / Decline in
-// View's place. Reads the one card list (`useAssignmentCards`), so kind cards and tasks are rows too. Mirrors the
-// rail card (`AssignmentEntryCard`); what it reuses and omits is the mirror table in PLAN "P-LAYOUT" (b). The app
-// header's My Assignment Queue chip stays the full switcher.
+// Home's Active assignments section (P-LAYOUT-F1 B, where placement "none"'s rows above Home went; P-LAYOUT fix (b),
+// Dave 2026-10-30): one lyra `InlineNotification` per open assignment, stacked, newest first — its avatar (or the
+// kind's icon), the name, its channel or kind chip, its status, and View, which opens it in the main column. An offer
+// shows Accept / Decline in View's place. Reads the one card list (`useAssignmentCards`), so kind cards and tasks are
+// rows too. Mirrors the rail card (`AssignmentEntryCard`); what it reuses and omits is the mirror table in PLAN
+// "P-LAYOUT" (b), under the section since P-LAYOUT-F1.
 import type { ReactNode } from "react";
 import { Avatar, Button, EmptyState, InlineNotification, Tag, Tooltip } from "@nicecxone/lyra-ui";
 import { Inbox } from "lucide-react";
@@ -26,46 +26,31 @@ function newestFirst(entries: readonly AssignmentEntry[]): AssignmentEntry[] {
   return [...conversations, ...entries.filter((e) => e.type === "schedule")];
 }
 
-export function AssignmentInlineRows({ section = false }: { section?: boolean } = {}) {
-  const { activeDeskTab } = useWorkspace();
+/** The rows in the section's card (home-dashboard frames it), the rail's empty state when nothing is open. */
+export function AssignmentInlineRows() {
   const { entries } = useAssignmentCards(false);
-  // As Home's "Active assignments" section (P-LAYOUT-F1 B): the rows in the section's card, the feed's empty state
-  // when nothing is open.
-  if (section) {
-    if (entries.length === 0) {
-      return (
-        <EmptyState
-          icon={<Inbox className="h-8 w-8" strokeWidth={1.5} />}
-          message={t("No active assignments")}
-          className="h-auto w-full py-6"
-          tone="secondary"
-        />
-      );
-    }
+  if (entries.length === 0) {
     return (
-      <div role="list" aria-label={t("Active assignments")} className="flex flex-col gap-2" data-slot="assignment-inline-rows">
-        {newestFirst(entries).map((entry) => (
-          <AssignmentInlineRow key={entry.key} entry={entry} />
-        ))}
-      </div>
+      <EmptyState
+        icon={<Inbox className="h-8 w-8" strokeWidth={1.5} />}
+        message={t("No active assignments")}
+        className="h-auto w-full py-6"
+        tone="secondary"
+      />
     );
   }
-  // Only on Home's own tab, and only while something is open (no empty row: the queue chip says "Empty").
-  if (activeDeskTab !== "dashboard" || entries.length === 0) return null;
   return (
-    <div className="shrink-0 max-h-[45%] overflow-y-auto px-6 pt-4" data-slot="assignment-inline-rows">
-      <div role="list" aria-label={t("Assignments")} className="mx-auto flex w-full max-w-[1024px] flex-col gap-2">
-        {newestFirst(entries).map((entry) => (
-          <AssignmentInlineRow key={entry.key} entry={entry} />
-        ))}
-      </div>
+    <div role="list" aria-label={t("Active assignments")} className="flex flex-col gap-2" data-slot="assignment-inline-rows">
+      {newestFirst(entries).map((entry) => (
+        <AssignmentInlineRow key={entry.key} entry={entry} />
+      ))}
     </div>
   );
 }
 
 function AssignmentInlineRow({ entry }: { entry: AssignmentEntry }) {
   const { incomingOffer, setPanelFullScreen, switchActiveInteraction } = useWorkspace();
-  const chipShown = useChannelChipsShown("homeTop");
+  const chipShown = useChannelChipsShown("homeSection");
   const open = () => {
     switchActiveInteraction(entry.key);
     setPanelFullScreen(false);

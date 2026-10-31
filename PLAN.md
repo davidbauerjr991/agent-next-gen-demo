@@ -114,7 +114,7 @@ All client-side. The provider layer keeps a real backend (Twilio, CXone ACD) a s
   | pinned and open state | per-browser working state, default pinned |
   | the rail's Assignments item | reused: it stays the overlay trigger while the panel is overlaid |
 
-  (b) **Placement "none" renders the assignments part inline**: one compact row per open assignment at the top of Home, on lyra `InlineNotification` with lyra's new `icon` prop. Rows are stacked, newest first, and not the rail's card column. Kind cards and tasks are included; the test covers a kind card and a task. The My Assignment Queue chip stays the full switcher. Built in P-LAYOUT commit 8 (`AssignmentInlineRows.tsx`). It mirrors `AssignmentEntryCard`:
+  (b) **Placement "none" renders the assignments part inline** — *since P-LAYOUT-F1 B, Home's "Active assignments" section (off by default; placement "none" retired, a stored one migrates to the left nav with the section on). The table below now describes the section's rows; the section's own differences: a DashboardCard titled "Active assignments" (the feed's card form), the rail's EmptyState when nothing is open, no dashboard-tab gate, and the rail stays the agent's list (the cards are in the nav or the panel too).* As built in P-LAYOUT: one compact row per open assignment at the top of Home, on lyra `InlineNotification` with lyra's new `icon` prop. Rows are stacked, newest first, and not the rail's card column. Kind cards and tasks are included; the test covers a kind card and a task. The My Assignment Queue chip stayed the full switcher (gone with placement none). Built in P-LAYOUT commit 8 (`AssignmentInlineRows.tsx`). It mirrors `AssignmentEntryCard`:
 
   | Affordance | Inline row |
   |---|---|

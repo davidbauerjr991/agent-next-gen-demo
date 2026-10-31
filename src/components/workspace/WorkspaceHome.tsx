@@ -45,7 +45,7 @@ export function WorkspaceHome() {
   return (
                 <div key="dashboard" className="flex flex-1 flex-col min-w-0 overflow-hidden animate-in fade-in-0 duration-200">
               {/* The page header first, then the Home tabs, then the tab's body (P-HOME-1m; one column and two). The
-                  page header's actions are the home-top slot's (the queue chip, unless it's in the app header). */}
+                  page header's actions are the home-top slot's (the queue chip). */}
               {showPageHeader && <HomePageHeader actions={<Slot id="home-top" region="page-header" />} />}
               {/* Home tabs: shown while any app is placed as "tab" (Settings → Header). */}
               {showPageHeader && tabApps.length > 0 && (
@@ -55,9 +55,8 @@ export function WorkspaceHome() {
                   onReorder={(order) => updateHeaderSettings((prev) => tabOrderPatch(prev, order))}
                 />
               )}
-              {/* The home-top slot (P-HOME-1n, placement "none"): the assignments part above the dashboard. Header
-                  apps placed there are the tab strip's own tabs. */}
-              <Slot id="home-top" />
+              {/* (The home-top slot's parts are the tab strip's tabs above and the page header's queue chip; its
+                  assignments rows, placement "none", became the Active assignments section in P-LAYOUT-F1 B.) */}
               {/* Body row: main content + interior panel */}
               <div className="relative flex flex-1 overflow-hidden">
               {/* The Customers tab (table + row panel) and the customer tabs

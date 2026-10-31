@@ -1,8 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// P-HOME-1n: the assignments part in its three slots, the incoming toast it forces, Settings' grouping, lyra's
-// gradient tokens, and Contact Details / Session Details in the reference slide-over. Layout, widths, real hover and
-// computed styles, so Chrome.
+// P-HOME-1n: the assignments part in its slots (left nav, interior panel; placement "none" migrated to Home's Active
+// assignments section, P-LAYOUT-F1 B), Settings' grouping, lyra's gradient tokens, and Contact Details / Session
+// Details in the reference slide-over. Layout, widths, real hover and computed styles, so Chrome.
 
 async function setUp(page: Page, assignments: Record<string, unknown>, width = 1600, ai: Record<string, unknown> = { displayLocation: "inline", canvasLayout: "twoColumn" }) {
   await page.setViewportSize({ width, height: 1000 });
@@ -24,33 +24,25 @@ async function setUp(page: Page, assignments: Record<string, unknown>, width = 1
 }
 
 const inlineRows = (page: Page) => page.locator("[data-slot=assignment-inline-row]");
-const queueChip = (page: Page) => page.locator("header [data-slot=queue-chip]");
 
-test("placement none: a row per open assignment at the top of Home; View opens one; the app header's My Assignment Queue menu switches between them and Home", async ({ page }) => {
+test("a stored placement none migrates (P-LAYOUT-F1 B): the cards in the left nav, and Home's Active assignments section on and first, a row per card; View opens one", async ({ page }) => {
   await setUp(page, { placement: "none" });
-  await expect(inlineRows(page).first()).toBeVisible();
-  const count = await inlineRows(page).count();
-  expect(count).toBeGreaterThan(0);
-  // None in the left nav.
-  await expect(page.locator("aside [data-slot=assignment-card]")).toHaveCount(0);
-  // Stacked above the dashboard, each with its avatar or kind icon, as lyra InlineNotifications in a list.
-  await expect(page.getByRole("list", { name: "Assignments" }).getByRole("listitem")).toHaveCount(count);
+  const cards = page.locator("aside [data-slot=assignment-card]");
+  await expect(cards.first()).toBeVisible();
+  const count = await cards.count();
+  // The section is Home's first, its rows the same cards (lyra InlineNotifications in a list), with their icons.
+  await expect(page.locator("[data-home-section]").first()).toHaveAttribute("data-home-section", "activeAssignments");
+  await expect(page.getByRole("list", { name: "Active assignments" }).getByRole("listitem")).toHaveCount(count);
   await expect(inlineRows(page).first().locator("[data-slot=inline-notification-icon]")).toBeVisible();
-  const rowsBottom = await inlineRows(page).last().evaluate((el) => el.getBoundingClientRect().bottom);
-  const dashboardTop = await page.locator("[data-home-layout]").first().evaluate((el) => el.getBoundingClientRect().top);
-  expect(rowsBottom).toBeLessThanOrEqual(dashboardTop + 1);
+  // Kept: after a reload it's still the left nav with the section on.
+  await page.reload();
+  await page.getByRole("button", { name: "Go Available" }).click();
+  await expect(page.locator("[data-home-section]").first()).toHaveAttribute("data-home-section", "activeAssignments");
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("agent-next-gen:settings:assignments")!).value.placement)).toBe("leftNav");
   // View opens one in the main column.
   const viewable = inlineRows(page).filter({ has: page.getByRole("button", { name: "View" }) }).first();
   await viewable.getByRole("button", { name: "View" }).click();
   await expect(page.locator("[data-slot=record-header]")).toBeVisible();
-  // The chip is in the app header on an assignment too; its menu lists Home and every open assignment.
-  await queueChip(page).click();
-  const menu = page.getByRole("menu");
-  await expect(menu).toBeVisible();
-  await expect(menu.getByRole("menuitem")).toHaveCount(count + 1);
-  await menu.getByRole("menuitem", { name: /Home/ }).click();
-  await expect(page.locator("[data-slot=record-header]")).toHaveCount(0);
-  await expect(inlineRows(page).first()).toBeVisible();
 });
 
 test("interior panel: lyra's left SidePanel inside the content card, at its start, resizable within 256–425 (P-LAYOUT fix (a); its minimum the nav's expanded width, P-LAYOUT-F1 A2)", async ({ page }) => {
@@ -73,20 +65,19 @@ test("interior panel: lyra's left SidePanel inside the content card, at its star
   expect(wider).toBeLessThanOrEqual(426);
 });
 
-test("placement none: a new assignment raises the incoming toast with View; Settings shows the switch forced on with its reason", async ({ page }) => {
-  await setUp(page, { placement: "none" });
-  // The day's starting cards never toast (the grace after Go Available, ARRIVAL_GRACE_MS); then Lucas Thomas
-  // (dev hotkey A), a scripted contact the sim routes in, does.
-  await page.waitForTimeout(2_500);
-  await expect(page.locator("[data-assignment-toast=incoming]")).toHaveCount(0);
-  await page.keyboard.press("a");
-  const toast = page.locator("[data-assignment-toast=incoming]").first();
-  await expect(toast).toBeVisible({ timeout: 10_000 });
-  await expect(toast.getByRole("button", { name: "View" })).toBeVisible();
-  await page.locator("aside").getByText("Settings", { exact: true }).first().click();
-  const forced = page.locator('[data-forced-setting="notifications.toasts.events.incoming"]');
-  await expect(forced).toContainText("On — required while assignments aren't in the left nav");
-  await expect(forced.getByRole("checkbox")).toBeDisabled();
+test("interior panel (P-LAYOUT-F1 A2): the nav starts as a rail; a closed panel opens when a call comes in, and the nav stays as it was", async ({ page }) => {
+  await setUp(page, { placement: "interiorPanel" });
+  const toggle = page.locator("[aria-controls=assignments-panel]");
+  await expect(page.locator("aside").getByRole("button", { name: "Expand sidebar" })).toBeVisible();
+  await page.locator("[data-slot=assignments-panel]").getByRole("button", { name: "Close panel" }).click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  // Maya Chen (dev hotkey B), a call answered on arrival.
+  await page.keyboard.press("b");
+  await expect(toggle).toHaveAttribute("aria-expanded", "true", { timeout: 15_000 });
+  await expect(page.locator("[data-slot=assignments-panel]")).toContainText("Maya Chen");
+  await expect(page.locator("aside").getByRole("button", { name: "Expand sidebar" })).toBeVisible();
+  // The toggle's badge counts every active assignment, in its name too.
+  await expect(toggle).toHaveAttribute("aria-label", /^Assignments \(\d+\)$/);
 });
 
 test("Settings: the ten groups in order (Layout second, P-LAYOUT), each a lyra heading", async ({ page }) => {

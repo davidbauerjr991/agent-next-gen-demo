@@ -37,7 +37,6 @@ describe("the map moves every part, hosted ones included (P-LAYOUT)", () => {
   // A follower's slot is forced from its leader's (SETTING_CONSTRAINTS): its leader's slot moves it, not its own.
   const FOLLOWS: Partial<Record<PartId, { leader: PartId; leaderSlotFor: (slot: SlotId) => SlotId }>> = {
     incomingTile: { leader: "assignments", leaderSlotFor: (slot) => slot },
-    queueChip: { leader: "assignments", leaderSlotFor: (slot) => (slot === "header" ? "home-top" : "left-nav") },
     copilotInput: { leader: "aiFeed", leaderSlotFor: (slot) => slot },
   };
   const memoryStorage = (): SettingsStorage => {
@@ -90,6 +89,7 @@ describe("the map moves every part, hosted ones included (P-LAYOUT)", () => {
       }
     }
     // Only these have nowhere else to go.
-    expect(single.sort()).toEqual(["contactHistory", "dueSoon", "notifications"]);
+    // The queue chip too, since its app-header form went with placement none (P-LAYOUT-F1 B).
+    expect(single.sort()).toEqual(["contactHistory", "dueSoon", "notifications", "queueChip"]);
   });
 });

@@ -130,8 +130,8 @@ export function AssignmentsEmptyState() {
 }
 
 /** The empty state and every card: the assignments part in the interior panel, whose SidePanel header carries the
- *  title, count and the caption's controls (`AssignmentsHeaderActions`; P-LAYOUT-F1). (The top of Home has its
- *  inline rows, `AssignmentInlineRows`, since P-LAYOUT.) */
+ *  title, count and the caption's controls (`AssignmentsHeaderActions`; P-LAYOUT-F1). (Home's Active assignments
+ *  section has its inline rows, `AssignmentInlineRows`.) */
 export function AssignmentsStack({
   mount,
   className,

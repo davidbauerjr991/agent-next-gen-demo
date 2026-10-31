@@ -28,61 +28,67 @@ describe("setting constraints (P-HOME-1n)", () => {
     expect(applyConstraints(defaults).values).toBe(defaults);
   });
 
-  it("placement none forces toasts and incoming on; leaving it releases them", () => {
-    const store = createSettingsStore(safeStorage(() => memoryStorage()));
-    store.update("notifications", (n) => ({ toasts: { ...n.toasts, enabled: false } }));
-    store.update("assignments", { placement: "none" });
-    expect(toasts(store.getState().values)).toMatchObject({ enabled: true, events: { incoming: true } });
-    expect(activeConstraint(store.getState().values, "notifications.toasts.events.incoming")?.reason).toBe(
-      "Required while assignments aren't in the left nav",
-    );
+  // The engine's forces rules, through the voice bar's follow rule (P-LAYOUT-F1 A3): with the voice controls at the
+  // top, the bar is at the top of the assignments list, wherever the list is. (These cases used placement none's
+  // forced toasts until P-LAYOUT-F1 B retired that placement.)
+  const voiceSlot = (values: SettingsState) => values.layout.parts.voiceBar.slot;
+  const VOICE = "layout.parts.voiceBar.slot";
 
-    store.update("assignments", { placement: "leftNav" });
-    expect(activeConstraint(store.getState().values, "notifications.toasts.events.incoming")).toBeNull();
-    // Released, not reset: the agent turns it off themselves.
-    expect(toasts(store.getState().values).events.incoming).toBe(true);
+  it("a rule forces its target while it holds, with its reason; leaving the condition releases it", () => {
+    const store = createSettingsStore(safeStorage(() => memoryStorage()));
+    store.update("voice", { controlsLocation: "top" });
+    store.update("assignments", { placement: "interiorPanel" });
+    expect(voiceSlot(store.getState().values)).toBe("interior-panel");
+    expect(activeConstraint(store.getState().values, VOICE)?.reason).toBe("At the top of the assignments list");
+    store.update("voice", { controlsLocation: "bottom" });
+    expect(voiceSlot(store.getState().values)).toBe("dock-bottom");
+    expect(activeConstraint(store.getState().values, VOICE)).toBeNull();
   });
 
-  it("turning incoming off under none doesn't take, and the unforced value is never stored", () => {
+  it("a write against the rule doesn't take, and the unforced value is never stored", () => {
     const backing = memoryStorage();
     const store = createSettingsStore(safeStorage(() => backing));
-    store.update("assignments", { placement: "none" });
-    store.update("notifications", (n) => ({ toasts: { ...n.toasts, events: { ...n.toasts.events, incoming: false } } }));
-    expect(toasts(store.getState().values).events.incoming).toBe(true);
-    expect(JSON.parse(backing.getItem(sectionStorageKey("notifications"))!).value.toasts.events.incoming).toBe(true);
+    store.update("voice", { controlsLocation: "top" });
+    store.update("assignments", { placement: "interiorPanel" });
+    store.update("layout", (l) => ({ parts: { ...l.parts, voiceBar: { ...l.parts.voiceBar, slot: "left-nav" as const } } }));
+    expect(voiceSlot(store.getState().values)).toBe("interior-panel");
+    expect(JSON.parse(backing.getItem(sectionStorageKey("layout"))!).value.parts.voiceBar.slot).toBe("interior-panel");
   });
 
   it("writes the forced section with the source, so a new store reads both", () => {
     const backing = memoryStorage();
-    createSettingsStore(safeStorage(() => backing)).update("assignments", { placement: "none" });
+    const first = createSettingsStore(safeStorage(() => backing));
+    first.update("voice", { controlsLocation: "top" });
+    first.update("assignments", { placement: "interiorPanel" });
     const again = createSettingsStore(safeStorage(() => backing));
-    expect(again.getState().stored.notifications).toBe(true);
-    expect(toasts(again.getState().values).events.incoming).toBe(true);
+    expect(again.getState().stored.layout).toBe(true);
+    expect(voiceSlot(again.getState().values)).toBe("interior-panel");
   });
 
   it("a stored invalid combination heals on read", () => {
-    const off = { ...defaultSettings().notifications, toasts: { ...defaultSettings().notifications.toasts, enabled: false } };
     const backing = memoryStorage({
-      [sectionStorageKey("assignments")]: stored({ ...defaultSettings().assignments, placement: "none" }, SECTIONS.assignments.version),
-      [sectionStorageKey("notifications")]: stored(off, SECTIONS.notifications.version),
+      [sectionStorageKey("assignments")]: stored({ ...defaultSettings().assignments, placement: "interiorPanel" }, SECTIONS.assignments.version),
+      [sectionStorageKey("voice")]: stored({ ...defaultSettings().voice, controlsLocation: "top" }, SECTIONS.voice.version),
+      [sectionStorageKey("layout")]: stored({ parts: { voiceBar: { slot: "left-nav" } } }, SECTIONS.layout.version),
     });
     const store = createSettingsStore(safeStorage(() => backing));
-    expect(toasts(store.getState().values)).toMatchObject({ enabled: true, events: { incoming: true } });
+    expect(voiceSlot(store.getState().values)).toBe("interior-panel");
   });
 
-  it("a profile lock on the target doesn't block the forced value", () => {
-    const store = createSettingsStore(safeStorage(() => memoryStorage()), SECTIONS, { lockedSections: () => ["notifications"] });
-    store.update("assignments", { placement: "none" });
-    expect(toasts(store.getState().values).events.incoming).toBe(true);
+  // (A forced value written through a profile lock on its target had its case in placement none's toasts, a target in
+  // another section than the rule's source. Every remaining forces rule targets the layout map its source writes, and
+  // a write that would move a locked map is refused before any rule runs:)
+  it("under a lock on the layout, the write that would move a part is refused whole", () => {
+    const store = createSettingsStore(safeStorage(() => memoryStorage()), SECTIONS, { lockedSections: () => ["layout"] });
+    store.update("voice", { controlsLocation: "top" });
+    expect(store.getState().values.voice.controlsLocation).toBe("bottom");
+    expect(voiceSlot(store.getState().values)).toBe("dock-bottom");
   });
 
   it("applies to several sections written at once (applying a profile)", () => {
     const store = createSettingsStore(safeStorage(() => memoryStorage()));
-    store.updateMany({
-      assignments: { placement: "none" },
-      notifications: { toasts: { ...defaultSettings().notifications.toasts, enabled: false } },
-    });
-    expect(toasts(store.getState().values)).toMatchObject({ enabled: true, events: { incoming: true } });
+    store.updateMany({ assignments: { placement: "interiorPanel" }, voice: { controlsLocation: "top" } });
+    expect(voiceSlot(store.getState().values)).toBe("interior-panel");
   });
 
   it("every rule's paths exist in the schema", () => {

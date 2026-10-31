@@ -119,29 +119,30 @@ const HEADER_APP: Def = {
 };
 
 const DEFS: Record<PartId, Def> = {
+  // P-LAYOUT-F1 B: the left nav or the interior panel; the top of Home ("none") retired (Home's Active assignments
+  // section lists them instead).
   assignments: {
-    component: "AssignmentEntryCard list (left nav), AssignmentsStack (interior panel), the inline rows (top of Home)",
+    component: "AssignmentEntryCard list (left nav), AssignmentsStack (interior panel)",
     label: "Assignments",
-    allowedSlots: ["left-nav", "interior-panel", "home-top"],
+    allowedSlots: ["left-nav", "interior-panel"],
     defaultSlot: "left-nav",
-    constraints: ["placement-none-toasts", "placement-none-incoming"],
     source: "assignments.placement",
   },
   incomingTile: {
     component: "IncomingOfferActions",
     label: "Incoming offer",
-    allowedSlots: ["left-nav", "interior-panel", "home-top"],
+    allowedSlots: ["left-nav", "interior-panel"],
     defaultSlot: "left-nav",
-    constraints: ["incoming-follows-assignments-left-nav", "incoming-follows-assignments-interior-panel", "incoming-follows-assignments-home-top"],
+    constraints: ["incoming-follows-assignments-left-nav", "incoming-follows-assignments-interior-panel"],
     source: "follows assignments",
   },
   queueChip: {
     component: "QueueChip",
     label: "My Assignment Queue",
-    allowedSlots: ["home-top", "header"],
+    allowedSlots: ["home-top"],
     defaultSlot: "home-top",
-    constraints: ["queue-chip-header", "queue-chip-home"],
-    source: "follows assignments (header under none)",
+    source: "Home's page header",
+    pages: HOME,
   },
   voiceBar: {
     component: "VoiceBar (voiceBarHost)",

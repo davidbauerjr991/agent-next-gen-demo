@@ -32,7 +32,7 @@ const DISPLAY = ["inline", "panel", "main"] as const;
 const CANVAS = ["stacked", "twoColumn"] as const;
 const VOICE = ["bottom", "top"] as const;
 
-/** Every combination of the six enums (144). */
+/** Every combination of the six enums (96). */
 function* enumCombinations(): Generator<SettingsState> {
   const base = defaultSettings();
   for (const placement of ASSIGNMENTS_PLACEMENTS)
@@ -71,15 +71,16 @@ describe("the migration: legacy placement fields → layout.parts (P-LAYOUT)", (
       const reset = { ...settled, ...defaultSettings(), layout: settled.layout, notifications: settled.notifications };
       expect(legacy(legacyFromLayout(reset).values), name(values)).toEqual(legacy(settled));
     }
-    expect(count).toBe(144);
+    // 96 since P-LAYOUT-F1 B retired placement "none" (was 144).
+    expect(count).toBe(96);
   });
 
   it("each enum's values put its parts where the legacy layout did", () => {
     const parts = (patch: (s: SettingsState) => SettingsState) => withDerivedLayout(patch(defaultSettings())).layout.parts;
     expect(parts((s) => s).assignments.slot).toBe("left-nav");
     expect(parts((s) => ({ ...s, assignments: { ...s.assignments, placement: "interiorPanel" } })).assignments.slot).toBe("interior-panel");
-    const none = parts((s) => ({ ...s, assignments: { ...s.assignments, placement: "none" } }));
-    expect(none).toMatchObject({ assignments: { slot: "home-top" }, incomingTile: { slot: "home-top" }, queueChip: { slot: "header" } });
+    const panel = parts((s) => ({ ...s, assignments: { ...s.assignments, placement: "interiorPanel" } }));
+    expect(panel).toMatchObject({ assignments: { slot: "interior-panel" }, incomingTile: { slot: "interior-panel" }, queueChip: { slot: "home-top" } });
     expect(parts((s) => ({ ...s, ai: { ...s.ai, displayLocation: "panel" } }))).toMatchObject({
       conversation: { slot: "main" },
       aiFeed: { slot: "docked-panel" },
@@ -333,22 +334,16 @@ describe("profile locks hold across the reconciliation (P-LAYOUT)", () => {
     expect(store.getState().values.voice.controlsLocation).toBe("bottom");
   });
 
-  it("a forced value still goes through a lock", () => {
-    const store = locked(["notifications"]);
-    store.update("assignments", { placement: "none" });
-    expect(store.getState().values.notifications.toasts.events.incoming).toBe(true);
-  });
 });
 
 describe("constraints on the map (P-LAYOUT)", () => {
   const settled = (patch: (s: SettingsState) => SettingsState) => settle(null, patch(defaultSettings())).values;
 
-  it("placement none forces the toasts on and moves the incoming tile and the queue chip", () => {
-    const v = settled((s) => ({ ...s, assignments: { ...s.assignments, placement: "none" } }));
-    expect(v.notifications.toasts.enabled).toBe(true);
-    expect(v.notifications.toasts.events.incoming).toBe(true);
-    expect(v.layout.parts.incomingTile.slot).toBe("home-top");
-    expect(v.layout.parts.queueChip.slot).toBe("header");
+  it("the incoming tile follows the assignments; the toasts and the queue chip don't move with them (P-LAYOUT-F1 B)", () => {
+    const v = settled((s) => ({ ...s, assignments: { ...s.assignments, placement: "interiorPanel" } }));
+    expect(v.layout.parts.incomingTile.slot).toBe("interior-panel");
+    expect(v.layout.parts.queueChip.slot).toBe("home-top");
+    expect(v.notifications.toasts).toEqual(defaultSettings().notifications.toasts);
   });
 
   it("the conversation and the AI feed are never both docked; the Copilot input follows the feed", () => {

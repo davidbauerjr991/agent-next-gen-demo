@@ -35,12 +35,11 @@ const VISIBLE_TOASTS = 3;
 /** The events that stay until acted on, and that `quietOnVoice` never holds back. */
 export const URGENT_TOAST_EVENTS: readonly ToastEvent[] = ["approval"];
 
-/** Whether `event` raises a toast under `settings` (`onCall`: the agent is on a live call). `forced`: a setting
- *  constraint holds this event on (the incoming toast under placement "none"), so "Quiet during a call" doesn't hold
- *  it back either. */
-export function toastAllowed(event: ToastEvent, settings: ToastSettings, onCall: boolean, forced = false): boolean {
+/** Whether `event` raises a toast under `settings` (`onCall`: the agent is on a live call). (P-LAYOUT-F1 B retired
+ *  the constraint that held the incoming toast on under placement "none", and with it the `forced` exception.) */
+export function toastAllowed(event: ToastEvent, settings: ToastSettings, onCall: boolean): boolean {
   if (!settings.enabled || !settings.events[event]) return false;
-  return !(settings.quietOnVoice && onCall && !forced && !URGENT_TOAST_EVENTS.includes(event));
+  return !(settings.quietOnVoice && onCall && !URGENT_TOAST_EVENTS.includes(event));
 }
 
 /** The stack, newest first: the visible toasts and how many more wait. */

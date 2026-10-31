@@ -12,7 +12,7 @@ Each field below is read through `layout.parts` until the next step that touches
 | --- | --- | --- | --- |
 | `ai.canvasLayout` | `ai` v1 → v2 | `customerInfo`, `journeySummary`, `realTimeSummary` | `stacked`, `twoColumn` |
 | `ai.displayLocation` | `ai` v1 → v2 | `aiFeed`, `conversation`, `copilotInput` | `inline`, `panel`, `main` |
-| `assignments.placement` | `assignments` v2 → v3 | `assignments` | `leftNav`, `interiorPanel`, `none` |
+| `assignments.placement` | `assignments` v2 → v3 | `assignments` | `leftNav`, `interiorPanel` |
 | `canvas.cells.customer-info.region` | `canvas` v1 → v2 | `customerInfo` | read through only |
 | `canvas.cells.journey-summary.region` | `canvas` v1 → v2 | `journeySummary` | read through only |
 | `canvas.cells.real-time-summary.region` | `canvas` v1 → v2 | `realTimeSummary` | read through only |
@@ -36,7 +36,7 @@ The legacy placement fields offered as presets (Settings → Layout). Default **
 | --- | --- | --- | --- | --- |
 | `ai.canvasLayout` | stacked, **twoColumn** | twoColumn | twoColumn | twoColumn |
 | `ai.displayLocation` | **inline**, panel, main | inline | inline | main |
-| `assignments.placement` | **leftNav**, interiorPanel, none | leftNav | leftNav | leftNav |
+| `assignments.placement` | **leftNav**, interiorPanel | leftNav | leftNav | leftNav |
 | `header.agentChat.placement` | **header**, leftnav | header | header | header |
 | `header.apps.accounts.placement` | **header**, leftnav, tab | header (off) | tab | tab |
 | `header.apps.customers.placement` | **header**, leftnav, tab | header (off) | tab | tab |
@@ -63,7 +63,7 @@ Legacy fields:
 
 - `ai.canvasLayout`: `stacked`
 - `ai.displayLocation`: `panel`
-- `assignments.placement`: `interiorPanel`, `none`
+- `assignments.placement`: `interiorPanel`
 - `header.agentChat.placement`: `leftnav`
 - `header.apps.accounts.placement`: `leftnav`
 - `header.apps.customers.placement`: `leftnav`
@@ -80,15 +80,14 @@ Parts, by slot (`layout.parts`; Settings → Layout → Advanced reaches every o
 - `activityFeed` in `main-trailing`
 - `agentChat` in `left-nav`
 - `aiFeed` in `docked-panel`
-- `assignments` in `interior-panel`, `home-top`
+- `assignments` in `interior-panel`
 - `contactDetails` in `docked-panel`
 - `copilotInput` in `docked-panel`
 - `customerInfo` in `main`
 - `customers` in `left-nav`
 - `experienceMemory` in `docked-panel`
-- `incomingTile` in `interior-panel`, `home-top`
+- `incomingTile` in `interior-panel`
 - `journeySummary` in `main`
-- `queueChip` in `header`
 - `realTimeSummary` in `main`
 - `schedule` in `left-nav`, `home-top`
 - `screenpop` in `left-nav`, `home-top`
@@ -108,7 +107,7 @@ Every part, the slots it allows and where each built-in profile puts it (`layout
 | `activityFeed` | Activity | home | `main` | main, main-trailing | main | main | main | home.layout, home.activityView |
 | `agentChat` | Agent Chat | home, interaction | `header` | header, left-nav | header | header | header | header.agentChat.placement |
 | `aiFeed` | AI feed | interaction | `main` | main, docked-panel | main | main | main | ai.displayLocation |
-| `assignments` | Assignments | home, interaction | `left-nav` | left-nav, interior-panel, home-top | left-nav | left-nav | left-nav | assignments.placement |
+| `assignments` | Assignments | home, interaction | `left-nav` | left-nav, interior-panel | left-nav | left-nav | left-nav | assignments.placement |
 | `campaignToday` | Campaign today | home | `main` | main, main-trailing | main | main | main-trailing | home.layout (slot), home.sections (order) |
 | `contactDetails` | Contact Details | interaction | `reference` | reference, docked-panel | reference | reference | reference |  |
 | `contactHistory` | Contact history | home | `main` | main | main | main | main | home.layout (slot), home.sections (order) |
@@ -119,7 +118,7 @@ Every part, the slots it allows and where each built-in profile puts it (`layout
 | `dueSoon` | Due soon | home | `main` | main | main | main | main | home.layout (slot), home.sections (order) |
 | `experienceMemory` | Experience Memory | interaction | `reference` | reference, docked-panel | reference | reference | reference |  |
 | `followUps` | Follow-ups | home | `main` | main, main-trailing | main | main | main-trailing | home.layout (slot), home.sections (order) |
-| `incomingTile` | Incoming offer | home, interaction | `left-nav` | left-nav, interior-panel, home-top | left-nav | left-nav | left-nav | follows assignments |
+| `incomingTile` | Incoming offer | home, interaction | `left-nav` | left-nav, interior-panel | left-nav | left-nav | left-nav | follows assignments |
 | `journeySummary` | Journey Summary | interaction | `reference` | reference, main | reference | reference | reference | ai.canvasLayout, canvas.cells region |
 | `needsYou` | Needs you | home | `main` | main, main-trailing | main | main | main-trailing | home.layout (slot), home.sections (order) |
 | `notifications` | Notifications | home, interaction | `header` | header | header | header | header | header.pins (unchanged) |
@@ -127,7 +126,7 @@ Every part, the slots it allows and where each built-in profile puts it (`layout
 | `pipeline` | Pipeline | home | `main` | main, main-trailing | main | main | main-trailing | home.layout (slot), home.sections (order) |
 | `productivity` | Productivity | home | `main` | main, main-trailing | main | main | main-trailing | home.layout (slot), home.sections (order) |
 | `queue` | Queue | home | `main` | main, main-trailing | main | main | main-trailing | home.layout (slot), home.sections (order) |
-| `queueChip` | My Assignment Queue | home, interaction | `home-top` | home-top, header | home-top | home-top | home-top | follows assignments (header under none) |
+| `queueChip` | My Assignment Queue | home | `home-top` | home-top | home-top | home-top | home-top | Home's page header |
 | `realTimeSummary` | Real-Time Summary | interaction | `reference` | reference, main | reference | reference | reference | ai.canvasLayout, canvas.cells region |
 | `schedule` | Schedule | home, interaction | `header` | header, left-nav, home-top | header | header | header | header.apps.<app>.placement |
 | `screenpop` | Screen Pop | home, interaction | `header` | header, left-nav, home-top | header | header | header | header.apps.<app>.placement |
@@ -165,13 +164,8 @@ Widths are tokens the container resolves: `card` (lyra's `LYRA_CARD_MAX_WIDTH`),
 | `conversation-docked` | `layout.parts.conversation.slot` in `docked-panel` | `layout.parts.aiFeed.slot` = `main` | The AI feed is the main column while the conversation is in the panel |
 | `copilot-follows-ai-feed-docked-panel` | `layout.parts.aiFeed.slot` in `docked-panel` | `layout.parts.copilotInput.slot` = `docked-panel` | Follows the AI feed |
 | `copilot-follows-ai-feed-main` | `layout.parts.aiFeed.slot` in `main` | `layout.parts.copilotInput.slot` = `main` | Follows the AI feed |
-| `incoming-follows-assignments-home-top` | `layout.parts.assignments.slot` in `home-top` | `layout.parts.incomingTile.slot` = `home-top` | Follows Assignments |
 | `incoming-follows-assignments-interior-panel` | `layout.parts.assignments.slot` in `interior-panel` | `layout.parts.incomingTile.slot` = `interior-panel` | Follows Assignments |
 | `incoming-follows-assignments-left-nav` | `layout.parts.assignments.slot` in `left-nav` | `layout.parts.incomingTile.slot` = `left-nav` | Follows Assignments |
-| `placement-none-incoming` | `layout.parts.assignments.slot` in `home-top` | `notifications.toasts.events.incoming` = `true` | Required while assignments aren't in the left nav ("On — required while assignments aren't in the left nav") |
-| `placement-none-toasts` | `layout.parts.assignments.slot` in `home-top` | `notifications.toasts.enabled` = `true` | Required while assignments aren't in the left nav |
-| `queue-chip-header` | `layout.parts.assignments.slot` in `home-top` | `layout.parts.queueChip.slot` = `header` | In the header while assignments are at the top of Home |
-| `queue-chip-home` | `layout.parts.assignments.slot` in `left-nav`, `interior-panel` | `layout.parts.queueChip.slot` = `home-top` | On Home while assignments are in a panel |
 | `voice-top-follows-assignments-interior-panel` | `layout.parts.assignments.slot` in `interior-panel` and `layout.parts.voiceBar.slot` in `left-nav`, `interior-panel` | `layout.parts.voiceBar.slot` = `interior-panel` | At the top of the assignments list |
 | `voice-top-follows-assignments-left-nav` | `layout.parts.assignments.slot` in `left-nav` and `layout.parts.voiceBar.slot` in `left-nav`, `interior-panel` | `layout.parts.voiceBar.slot` = `left-nav` | At the top of the assignments list |
 

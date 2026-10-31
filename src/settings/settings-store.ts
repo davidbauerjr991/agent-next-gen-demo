@@ -5,6 +5,7 @@
 // `index.ts`.
 import { getProfileLibrary, resetProfileLibraryForTests } from "./saved-profiles";
 import { settle } from "./settle";
+import { storedPlacementNone, withActiveAssignmentsSection } from "./migrations";
 import { profileFieldKeys } from "./scope";
 import { SECTIONS, defaultSettings, type SectionKey, type SectionSchemas, type SettingsState } from "./settings-schema";
 import { SETTINGS_KEY_PREFIX, safeStorage, type SettingsStorage } from "./settings-storage";
@@ -104,7 +105,30 @@ export function createSettingsStore(
     // A stored invalid combination heals on load (in memory; the next write stores it). An unstored (or partial)
     // layout map reads through to the legacy placement fields: the first-read migration, written on the next change.
     const all = values as SettingsState;
-    return { values: settle(null, all, stored.layout ? all.layout.parts : undefined).values, stored };
+    const settled = settle(null, all, stored.layout ? all.layout.parts : undefined).values;
+    // P-LAYOUT-F1 B: a stored placement "none" reads as the left nav with Home's Active assignments section on. Written
+    // at once, so a later write to one of these sections can't leave the others behind. A section the applied
+    // profile locks keeps the profile's value (the lock wins over the migration, as over any write).
+    if (storedPlacementNone(rawValue("assignments"), rawValue("layout"))) {
+      const migrated = isLocked("home") ? settled : withActiveAssignmentsSection(settled);
+      for (const key of ["assignments", "layout", "home"] as const) {
+        if (isLocked(key)) continue;
+        write(key, migrated[key]);
+        stored[key] = true;
+      }
+      return { values: migrated, stored };
+    }
+    return { values: settled, stored };
+  }
+
+  /** A section's stored value as it was written, before its fields are read (for the migrations). */
+  function rawValue(key: SectionKey): unknown {
+    try {
+      const raw = storage.get(sectionStorageKey(key));
+      return raw === null ? undefined : (JSON.parse(raw) as { value?: unknown })?.value;
+    } catch {
+      return undefined;
+    }
   }
 
   let state = readAll();

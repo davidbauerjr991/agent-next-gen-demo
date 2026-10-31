@@ -46,7 +46,7 @@ const PRESET_ROWS: readonly PresetRow[] = [
     field: "assignments.placement",
     label: ASSIGNMENTS_PLACEMENT_FIELD.meta!.label,
     help: ASSIGNMENTS_PLACEMENT_FIELD.meta!.description,
-    options: (["leftNav", "interiorPanel", "none"] as const).map((value) => ({
+    options: (["leftNav", "interiorPanel"] as const).map((value) => ({
       value,
       label: ASSIGNMENTS_PLACEMENT_OPTIONS[value].label,
       description: ASSIGNMENTS_PLACEMENT_OPTIONS[value].description,
