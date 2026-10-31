@@ -18,6 +18,9 @@ export interface LayoutPartEntry {
 export type LayoutParts = Record<PartId, LayoutPartEntry>;
 export interface LayoutSettings {
   parts: LayoutParts;
+  /** Settings → Layout's Advanced layout switch (P-LAYOUT-F1 E): on, the parts are moved by hand (Advanced) and the
+   *  presets are disabled; off, the presets set them and Advanced is disabled. */
+  advanced: boolean;
 }
 
 const optionDefaults = (id: PartId): Record<string, string> =>

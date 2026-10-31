@@ -175,6 +175,19 @@ Widths are tokens the container resolves: `card` (lyra's `LYRA_CARD_MAX_WIDTH`),
 
 | Rule | When | Disabled | Reason |
 | --- | --- | --- | --- |
+| `advanced-layout-ai.canvasLayout` | `layout.advanced` in `true` | `ai.canvasLayout` | Advanced layout is on. |
+| `advanced-layout-ai.displayLocation` | `layout.advanced` in `true` | `ai.displayLocation` | Advanced layout is on. |
+| `advanced-layout-assignments.placement` | `layout.advanced` in `true` | `assignments.placement` | Advanced layout is on. |
+| `advanced-layout-header.agentChat.placement` | `layout.advanced` in `true` | `header.agentChat.placement` | Advanced layout is on. |
+| `advanced-layout-header.apps.accounts.placement` | `layout.advanced` in `true` | `header.apps.accounts.placement` | Advanced layout is on. |
+| `advanced-layout-header.apps.customers.placement` | `layout.advanced` in `true` | `header.apps.customers.placement` | Advanced layout is on. |
+| `advanced-layout-header.apps.schedule.placement` | `layout.advanced` in `true` | `header.apps.schedule.placement` | Advanced layout is on. |
+| `advanced-layout-header.apps.screenpop.placement` | `layout.advanced` in `true` | `header.apps.screenpop.placement` | Advanced layout is on. |
+| `advanced-layout-header.apps.tickets.placement` | `layout.advanced` in `true` | `header.apps.tickets.placement` | Advanced layout is on. |
+| `advanced-layout-header.apps.wem.placement` | `layout.advanced` in `true` | `header.apps.wem.placement` | Advanced layout is on. |
+| `advanced-layout-home.layout` | `layout.advanced` in `true` | `home.layout` | Advanced layout is on. |
+| `advanced-layout-off` | `layout.advanced` in `false` | `layout.parts` | Turn on Advanced layout to drag parts. |
+| `advanced-layout-voice.controlsLocation` | `layout.advanced` in `true` | `voice.controlsLocation` | Advanced layout is on. |
 | `ai-panel-canvas` | `layout.parts.aiFeed.slot` in `docked-panel` | `ai.canvasLayout` | Not used when AI display is In the Contact Details panel |
 | `ai-panel-legs` | `layout.parts.aiFeed.slot` in `docked-panel` | `assignments.legs` | Contact Details panel uses tabs |
 | `custom-sort-direction` | `assignments.sort.mode` in `custom` | `assignments.sort.direction` | Custom uses your dragged order |

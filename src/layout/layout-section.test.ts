@@ -133,7 +133,7 @@ describe("the migration: legacy placement fields → layout.parts (P-LAYOUT)", (
       performance: { ...base.layout.parts.performance, order: base.layout.parts.productivity.order },
       productivity: { ...base.layout.parts.productivity, order: base.layout.parts.performance.order },
     };
-    const projected = legacyFromLayout({ ...base, layout: { parts } }).values.home.sections.map((s) => s.key);
+    const projected = legacyFromLayout({ ...base, layout: { ...base.layout, parts } }).values.home.sections.map((s) => s.key);
     const swapped = [...keys];
     swapped[keys.indexOf("performance")] = "productivity";
     swapped[keys.indexOf("productivity")] = "performance";

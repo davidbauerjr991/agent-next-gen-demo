@@ -10,6 +10,9 @@ export type Field<T> = (raw: unknown, fallback: T) => T;
 
 export const bool = (): Field<boolean> => (raw, fallback) => (typeof raw === "boolean" ? raw : fallback);
 
+/** A switch with its declaration (label, description) for the forms that render it. */
+export const flag = (meta: FieldMeta): Field<boolean> & { readonly meta: FieldMeta } => Object.assign(bool(), { meta });
+
 export const str = (): Field<string> => (raw, fallback) => (typeof raw === "string" ? raw : fallback);
 
 /** A setting's declaration for the forms that render it (CLAUDE.md: admin
@@ -824,6 +827,11 @@ const connections = defineSection<ConnectionsSettings>({
   },
 });
 
+export const LAYOUT_ADVANCED_FIELD = flag({
+  label: "Advanced layout",
+  description: "Move each part to any slot it allows, by hand, in Advanced. While it's on, the presets don't apply.",
+});
+
 /** P-LAYOUT: every part's slot, order and options (`src/layout/`). Read part by part (a stored map may be partial:
  *  what it doesn't name reads through to the legacy placement fields, `settleLayout`). Its defaults are the map the
  *  other sections' defaults describe. Agent scope: profiles snapshot it. */
@@ -841,8 +849,13 @@ const layout: SectionDef<LayoutSettings> = defineSection<LayoutSettings>({
       ai: ai.defaults,
       canvas: canvas.defaults,
     } as never),
+    advanced: false,
   },
-  fields: { parts: ((raw: unknown) => readStoredParts(raw)) as unknown as Field<LayoutParts> },
+  // `advanced` (P-LAYOUT-F1 E) needs no version bump: a missing key reads as off.
+  fields: {
+    parts: ((raw: unknown) => readStoredParts(raw)) as unknown as Field<LayoutParts>,
+    advanced: LAYOUT_ADVANCED_FIELD,
+  },
 });
 
 export const SECTIONS = {
@@ -888,6 +901,17 @@ export interface SettingConstraint {
 }
 
 const AI_IN_PANEL = "layout.parts.aiFeed.slot";
+/** The placement presets the Advanced layout switch turns off (P-LAYOUT-F1 E): every field that says where a part
+ *  goes. (Activity view is how the feed looks: it isn't one.) */
+const ADVANCED_LAYOUT_PRESETS: readonly SettingPath[] = [
+  "home.layout",
+  "assignments.placement",
+  "ai.displayLocation",
+  "ai.canvasLayout",
+  "voice.controlsLocation",
+  "header.agentChat.placement",
+  ...EXTRA_HEADER_APPS.map((app) => `header.apps.${app}.placement` as SettingPath),
+];
 const ASSIGNMENTS_SLOT = "layout.parts.assignments.slot";
 
 /** A part following another's slot: one rule per slot. */
@@ -920,6 +944,14 @@ export const SETTING_CONSTRAINTS: readonly SettingConstraint[] = [
   { id: "ai-panel-canvas", when: { path: AI_IN_PANEL, in: ["docked-panel"] }, disables: { path: "ai.canvasLayout" }, reason: "Not used when AI display is In the Contact Details panel" },
   { id: "ai-panel-legs", when: { path: AI_IN_PANEL, in: ["docked-panel"] }, disables: { path: "assignments.legs" }, reason: "Contact Details panel uses tabs" },
   { id: "custom-sort-direction", when: { path: "assignments.sort.mode", in: ["custom"] }, disables: { path: "assignments.sort.direction" }, reason: "Custom uses your dragged order" },
+  // P-LAYOUT-F1 E: the Advanced layout switch picks one way to place the parts — the presets, or Advanced by hand.
+  ...ADVANCED_LAYOUT_PRESETS.map((path) => ({
+    id: `advanced-layout-${path}`,
+    when: { path: "layout.advanced" as SettingPath, in: [true] },
+    disables: { path },
+    reason: "Advanced layout is on.",
+  })),
+  { id: "advanced-layout-off", when: { path: "layout.advanced", in: [false] }, disables: { path: "layout.parts" }, reason: "Turn on Advanced layout to drag parts." },
 ];
 export type SectionSchemas = { [K in SectionKey]: SectionDef<SettingsState[K]> };
 

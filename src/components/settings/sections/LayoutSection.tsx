@@ -4,7 +4,7 @@
 // matches no value. Then Advanced: every part of a page by slot, dragged between the slots it allows, beside a live
 // preview. The applied profile's `layout` lock makes all of it read-only.
 import * as React from "react";
-import { Accordion, Button, Label, Tag, ToggleGroup } from "@nicecxone/lyra-ui";
+import { Accordion, Button, Label, Switch, Tag, ToggleGroup } from "@nicecxone/lyra-ui";
 import { DisabledReason } from "@/contact-handling/DisabledReason";
 import { t } from "@/i18n";
 import { PRESET_FIELDS, type LegacyField } from "@/layout/presets";
@@ -15,10 +15,12 @@ import {
   ASSIGNMENTS_PLACEMENT_OPTIONS,
   HOME_ACTIVITY_VIEW_FIELD,
   HOME_LAYOUT_FIELD,
+  LAYOUT_ADVANCED_FIELD,
   resetLayoutToProfile,
   useLayoutPreset,
   useSectionLocked,
   useSettingDisabledBy,
+  useSettings,
   type SettingPath,
 } from "@/settings";
 import { LockScope, Section, SettingsGroup } from "../settings-parts";
@@ -129,6 +131,8 @@ export function LayoutSection() {
   const [page, setPage] = React.useState<Page>("interaction");
   const pageLabelId = React.useId();
   const locked = useSectionLocked("layout");
+  const [{ advanced: advancedOn }, updateLayout] = useSettings("layout");
+  const advancedOff = useSettingDisabledBy("layout.parts");
   const advanced = (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
@@ -153,6 +157,16 @@ export function LayoutSection() {
   );
   return (
     <SettingsGroup id="layout" title={t("Layout")} lockKey="layout">
+      {/* P-LAYOUT-F1 E: one way to place the parts at a time — the presets, or Advanced by hand. Each side is disabled,
+          with its reason, while the other is on (`advanced-layout-*` in SETTING_CONSTRAINTS). */}
+      <Switch
+        size="sm"
+        label={t(LAYOUT_ADVANCED_FIELD.meta.label)}
+        labelHelpText={t(LAYOUT_ADVANCED_FIELD.meta.description)}
+        checked={advancedOn}
+        onCheckedChange={(advanced) => updateLayout({ advanced })}
+        data-setting="layout.advanced"
+      />
       <Section title={t("Presets")}>
         {PRESET_ROWS.map((row) => (
           <LayoutPresetRow key={row.field} row={row} />
@@ -172,8 +186,16 @@ export function LayoutSection() {
               {
                 id: "advanced",
                 title: t("Advanced"),
-                subhead: t("Move each part to any slot it allows, and see the page change"),
-                content: advanced,
+                // Off (P-LAYOUT-F1 E): disabled, its reason in place of the subhead.
+                subhead: advancedOff ? t(advancedOff.reason) : t("Move each part to any slot it allows, and see the page change"),
+                disabled: !!advancedOff,
+                // `disabled` only locks the trigger; an item open as the switch turns off goes read-only (its menus
+                // here, its drag in LayoutAdvanced).
+                content: (
+                  <fieldset disabled={!!advancedOff} className="m-0 min-w-0 border-0 p-0">
+                    {advanced}
+                  </fieldset>
+                ),
               },
             ]}
           />

@@ -17,6 +17,7 @@ import {
   useConstraint,
   useProfileLibrary,
   useSectionLocked,
+  useSettingDisabledBy,
   useSettings,
   useSettingsDerived,
   type SettingPath,
@@ -115,6 +116,8 @@ function SlotList({ slot, page, feedback, instructionsId }: { slot: SlotId; page
   const [{ parts }] = useSettings("layout");
   const values = useSettingsDerived(allValues);
   const locked = useSectionLocked("layout");
+  // Advanced layout off (P-LAYOUT-F1 E): read-only like a lock, even when the item was open as it turned off.
+  const off = !!useSettingDisabledBy("layout.parts");
   const locks = useProfileLibrary().applied?.locks ?? [];
   const write = useWriteParts(feedback);
   const order = partsOnPage(parts, slot, page);
@@ -126,7 +129,7 @@ function SlotList({ slot, page, feedback, instructionsId }: { slot: SlotId; page
     group: `layout-${page}`,
     id: slot,
     label: t(SLOTS[slot].label),
-    disabled: locked,
+    disabled: locked || off,
     getLabel: (key) => t(PARTS[key as PartId].label),
     onReorder: (next) => {
       const patch = reorderPatch(parts, slot, page, next);

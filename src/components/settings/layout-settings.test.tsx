@@ -32,8 +32,18 @@ const slotOf = (id: string) => part(id)?.closest("[data-layout-slot]")?.getAttri
 const previewSlotOf = (id: string) => h.container.querySelector(`[data-layout-preview] [data-preview-part="${id}"]`)?.closest("[data-preview-slot]")?.getAttribute("data-preview-slot");
 const liveRegion = () => document.getElementById("lyra-tabs-live-region")?.textContent ?? "";
 
+/** The Advanced accordion's trigger. */
+const advancedTrigger = () =>
+  [...h.container.querySelectorAll<HTMLElement>("[data-settings-group=layout] button")].find((b) => b.textContent?.includes("Advanced") && b.hasAttribute("aria-expanded"))!;
+
 async function openAdvanced(page: "Home" | "Interaction") {
-  const header = [...h.container.querySelectorAll<HTMLElement>("[data-settings-group=layout] button")].find((b) => b.textContent?.includes("Advanced"))!;
+  // Advanced moves parts only with the Advanced layout switch on (P-LAYOUT-F1 E).
+  if (!values().layout.advanced) {
+    await act(async () => {
+      getSettingsStore().update("layout", { advanced: true });
+    });
+  }
+  const header = advancedTrigger();
   await h.click(header);
   await h.click(radioIn(h.container.querySelector<HTMLElement>("[data-settings-group=layout]")!, page));
 }
@@ -80,6 +90,42 @@ describe("Settings → Layout presets (P-LAYOUT)", () => {
     await h.click(radioIn(preset("home.layout"), "Two columns"));
     expect(values().home.layout).toBe("twoColumn");
     expect(preset("home.layout").textContent).not.toContain("Custom");
+  });
+});
+
+describe("the Advanced layout switch (P-LAYOUT-F1 E)", () => {
+  it("off (the default): the presets apply and Advanced is disabled, with its reason", async () => {
+    await h.render(<SettingsView />);
+    expect(values().layout.advanced).toBe(false);
+    expect(advancedTrigger().hasAttribute("disabled")).toBe(true);
+    expect(h.container.querySelector("[data-settings-group=layout]")!.textContent).toContain("Turn on Advanced layout to drag parts.");
+    expect([...preset("home.layout").querySelectorAll("[role=radio]")].some((r) => r.hasAttribute("disabled"))).toBe(false);
+  });
+
+  it("on: every placement preset is disabled with its reason, and Advanced opens", async () => {
+    await h.render(<SettingsView />);
+    // The group's first switch: Advanced layout, above the presets.
+    await h.click(h.container.querySelector<HTMLElement>("[data-settings-group=layout] button[role=switch]")!);
+    expect(values().layout.advanced).toBe(true);
+    for (const field of ["home.layout", "assignments.placement", "ai.displayLocation", "ai.canvasLayout", "voice.controlsLocation"]) {
+      const row = preset(field);
+      expect([...row.querySelectorAll("[role=radio]")].every((r) => r.hasAttribute("disabled")), field).toBe(true);
+      expect(row.textContent, field).toContain("Advanced layout is on.");
+    }
+    await h.click(advancedTrigger());
+    expect(advancedTrigger().getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("turned off with Advanced open: the lists go read-only — no keyboard move, the menus disabled", async () => {
+    await h.render(<SettingsView />);
+    await openAdvanced("Home");
+    await h.click(h.container.querySelector<HTMLElement>("[data-settings-group=layout] button[role=switch]")!);
+    expect(values().layout.advanced).toBe(false);
+    // The move the first Advanced test makes (main → the Cards column), refused now.
+    await press("activityFeed", "ArrowRight");
+    expect(values().layout.parts.activityFeed.slot).toBe("main");
+    const menu = part("activityFeed").querySelector<HTMLElement>("button[role=combobox]");
+    expect(menu?.closest("fieldset")?.disabled).toBe(true);
   });
 });
 

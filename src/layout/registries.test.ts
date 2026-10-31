@@ -70,7 +70,7 @@ describe("parts registry (P-LAYOUT)", () => {
     // Three header apps on one key; the map object lists them reversed.
     for (const app of ["schedule", "wem", "customers"] as const) parts[app] = { ...parts[app], slot: "header", order: 7 };
     const reversed = Object.fromEntries(Object.entries(parts).reverse()) as typeof parts;
-    const ordered = partsIn("header", { ...base, layout: { parts: reversed } }).filter((p) => ["schedule", "wem", "customers"].includes(p));
+    const ordered = partsIn("header", { ...base, layout: { ...base.layout, parts: reversed } }).filter((p) => ["schedule", "wem", "customers"].includes(p));
     expect(ordered).toEqual(["customers", "wem", "schedule"]);
     expect(PART_IDS.indexOf("customers")).toBeLessThan(PART_IDS.indexOf("wem"));
   });

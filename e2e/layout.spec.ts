@@ -152,7 +152,8 @@ test("Settings → Layout: a drag onto a list that refuses the part shows why un
   await dragRow(page, voiceRow, layout.locator('[data-layout-slot="interior-panel"] ul'));
   const refusal = layout.locator('[data-layout-refusal="interior-panel"]');
   await expect(refusal).toBeVisible();
-  await expect(refusal).toContainText("Voice controls can't go in the Interior panel");
+  // Allowed there since P-LAYOUT-F1 A3, but only at the top of the assignments list, which is in the left nav.
+  await expect(refusal).toContainText("At the top of the assignments list");
   // Only the list it was let go over: the ones it crossed on the way say nothing.
   await expect(layout.locator("[data-layout-refusal]")).toHaveCount(1);
   await expect(layout.locator('[data-layout-slot="dock-bottom"] [data-layout-part="voiceBar"]')).toBeVisible();
@@ -173,7 +174,12 @@ async function openLayoutAdvanced(page: Page) {
   await page.locator("aside").getByText("Settings", { exact: true }).first().click();
   await page.setViewportSize({ width: 2400, height: 2000 });
   const layout = page.locator("[data-settings-group=layout]");
-  await layout.getByRole("button", { name: /Advanced/ }).click();
+  // Advanced moves parts only with the Advanced layout switch on (P-LAYOUT-F1 E); off, its trigger is disabled.
+  const advanced = layout.getByRole("button", { name: /^Advanced/ });
+  await expect(advanced).toBeDisabled();
+  await layout.getByRole("switch", { name: "Advanced layout" }).click();
+  await expect(layout.locator('[data-layout-preset="home.layout"]').getByRole("radio").first()).toBeDisabled();
+  await advanced.click();
   const voiceRow = layout.locator('[data-layout-part="voiceBar"]');
   await expect(voiceRow).toBeVisible();
   // Until the accordion's open animation ends its content clips (overflow-hidden), and scrolling to a row scrolls
