@@ -19,7 +19,8 @@ import {
 import type { CustomerTableState } from "@/components/customer-table-state";
 import { HOME_APP_TAB_LABELS, keptMountedClass, type HomeTabs } from "@/components/home-tabs-state";
 import { WorkspacePageHeader } from "@/components/workspace/WorkspacePageHeader";
-import type { ExtraHeaderApp } from "@/settings";
+import { useSettings, type ExtraHeaderApp } from "@/settings";
+import { homeIsTwoColumn } from "@/contact-handling/home/home-layout";
 import { cn } from "@/lib/utils";
 
 /** Dashboard, the tab-placed apps (draggable), then the closable customer
@@ -33,8 +34,21 @@ export function HomeTabStrip({
   apps: readonly ExtraHeaderApp[];
   onReorder: (order: string[]) => void;
 }) {
-  return (
-    <TabList overflowMenu reorderable onReorder={onReorder} className="px-6 bg-lyra-bg-surface-base shrink-0" data-slot="home-tabs">
+  // P-LAYOUT-F1 C: the strip lines up with the greeting and the cards. One column: the same centred max-width wrapper
+  // as the greeting and the dashboard (HomePageHeader's, home-dashboard's), the list with no inset of its own, so the
+  // first tab sits on the content's left edge. Two columns: full width under the welcome header, the inset on the
+  // TabList itself (lyra's rule: on a wrapper it would inset the border too), its title's 24px.
+  const [home] = useSettings("home");
+  const [{ parts }] = useSettings("layout");
+  const twoColumn = homeIsTwoColumn(home, parts);
+  const list = (
+    <TabList
+      overflowMenu
+      reorderable
+      onReorder={onReorder}
+      className={cn("shrink-0 bg-lyra-bg-surface-base", twoColumn && "px-6")}
+      data-slot="home-tabs"
+    >
       <Tab active={tabs.activeTab === "dashboard"} onClick={() => tabs.setActiveTab("dashboard")}>
         Dashboard
       </Tab>
@@ -45,6 +59,12 @@ export function HomeTabStrip({
       ))}
       {customerTabElements(tabs)}
     </TabList>
+  );
+  if (twoColumn) return list;
+  return (
+    <div className="shrink-0 bg-lyra-bg-surface-base px-6" data-home-tabs-row="">
+      <div className="mx-auto w-full max-w-[1024px]">{list}</div>
+    </div>
   );
 }
 
