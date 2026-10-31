@@ -53,15 +53,19 @@ test("fix (a): pinned, the interior panel pushes the content; unpinned, hovering
   await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
 });
 
-test("A1: pinned and closed, hovering the toggle previews the panel without moving the content; a click opens it", async ({ page }) => {
+test("A1: pinned and closed, hovering the toggle shows nothing (a preview would cover the toggle); a click opens it docked", async ({ page }) => {
   await setUp(page, { placement: "interiorPanel" });
   await panel(page).getByRole("button", { name: "Close panel" }).click();
   await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
   const closed = await homeBox(page);
   await toggle(page).hover();
-  await page.waitForTimeout(300);
-  // Previewed: the panel shows over the content, which stays where it was.
-  expect(((await panel(page).boundingBox())?.width ?? 0)).toBeGreaterThan(300);
+  await page.waitForTimeout(400);
+  // No preview: nothing of the panel shows, the toggle is still the element under the pointer, and the content
+  // hasn't moved.
+  const shown = await page.locator("[data-slot=assignments-panel] [role=region]").evaluateAll((els) => els.map((el) => el.getBoundingClientRect().width));
+  expect(Math.max(0, ...shown)).toBeLessThan(1);
+  const t = (await toggle(page).boundingBox())!;
+  expect(await page.evaluate(({ x, y }) => !!document.elementFromPoint(x, y)?.closest("[aria-controls=assignments-panel]"), { x: t.x + t.width / 2, y: t.y + t.height / 2 })).toBe(true);
   expect(Math.round((await homeBox(page)).x)).toBe(Math.round(closed.x));
   await toggle(page).click();
   await expect(panel(page)).toHaveAttribute("data-docked", "true");

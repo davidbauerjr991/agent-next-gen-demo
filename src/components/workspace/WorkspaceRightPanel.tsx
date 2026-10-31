@@ -155,7 +155,8 @@ export function WorkspaceRightPanel() {
                   onToggleFullScreen={
                     isSidePanelAtMinimalThreshold ? undefined : () => setSidePanelFullScreen((v) => !v)
                   }
-                  // The page header's right toggle and its hover preview (lyra `useSidePanelToggle`, P-LAYOUT-F1).
+                  // The page header's right toggle (lyra `useSidePanelToggle`, P-LAYOUT-F1): its id, and its hover
+                  // flyout while the panel renders unpinned; pinned, it opens on a click only.
                   id={dockedToggle?.sidePanelProps.id}
                   preview={dockedToggle?.sidePanelProps.preview}
                   onMouseEnter={dockedToggle?.sidePanelProps.onMouseEnter}

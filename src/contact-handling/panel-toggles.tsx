@@ -1,6 +1,7 @@
 // The content card's side panels and their PageHeader toggles (P-LAYOUT-F1 A1): lyra's `useSidePanelToggle` (the
 // wiring AdminShell has), one instance per panel for the whole content card, so the toggle in whichever page header
-// shows and the panel it opens share their hover and preview state.
+// shows and the panel it opens share their state (an unpinned panel's hover flyout; a pinned one opens on a click,
+// with no hover preview: `WorkspacePageHeader`'s `withoutPinnedPreview`).
 // - Left: the assignments in the interior-panel slot. Open, pinned and width are the per-browser working state
 //   (`assignments-working-state.ts`); pinned, it pushes the content while it fits (`assignmentsPanelDocks`), and
 //   where it doesn't it renders unpinned, as lyra's `pinDisabled`.

@@ -2,8 +2,8 @@
 // lyra's left `SidePanel` inside the content card, its first flex child, before the record header, body, Home and
 // Settings — the "Side Panel — Left" story's shape. Its toggle is the page header's own (lyra PageHeader
 // `panelToggle`, through `WorkspacePageHeader`), and the two share lyra `useSidePanelToggle`'s state
-// (`PanelTogglesProvider`): pinned, the toggle opens and closes it and hovering the toggle while it's closed previews
-// it; unpinned, it's a hover flyout. Pinned, it pushes the content while it, the action area and the reference slot
+// (`PanelTogglesProvider`): pinned, a click on the toggle opens and closes it (no hover preview: it would cover the
+// toggle, `withoutPinnedPreview`); unpinned, it's a hover flyout. Pinned, it pushes the content while it, the action area and the reference slot
 // fit (`assignmentsPanelDocks`, counting the reference slot, which widens with an open slide-over); where they don't,
 // it renders unpinned (lyra's `pinDisabled`). Its header is SidePanel's: "Assignments", the count, the caption's
 // controls, the pin and the close. Open, pinned (both on by default) and its dragged width are per-browser working

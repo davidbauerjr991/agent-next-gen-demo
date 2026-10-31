@@ -1,10 +1,11 @@
 // Every page header in the content card (P-LAYOUT-F1 A1): lyra's PageHeader with its panel toggles applied once —
 // the left one for the assignments panel (while the assignments are in the interior-panel slot), and, where a page
 // opts in with `rightPanel`, the right one for the reference column's overlay or the docked panel
-// (`rightPanelTarget`). The toggles, their hover reveal and preview are lyra's (PageHeader `panelToggle`,
-// `useSidePanelToggle`, through `PanelTogglesProvider`); callers pass PageHeader's own props unchanged.
+// (`rightPanelTarget`). The toggles and their hover flyout are lyra's (PageHeader `panelToggle`,
+// `useSidePanelToggle`, through `PanelTogglesProvider`); a pinned panel has no hover preview (`withoutPinnedPreview`).
+// Callers pass PageHeader's own props unchanged.
 import * as React from "react";
-import { PageHeader, type PageHeaderProps } from "@nicecxone/lyra-ui";
+import { PageHeader, type PageHeaderProps, type UseSidePanelToggleReturn } from "@nicecxone/lyra-ui";
 import { rightPanelTarget, usePanelToggles } from "@/contact-handling/panel-toggles";
 import { t } from "@/i18n";
 
@@ -33,11 +34,22 @@ export const WorkspacePageHeader = React.forwardRef<HTMLDivElement, WorkspacePag
       ref={ref}
       {...props}
       panelToggle={panelToggle}
-      {...(left && { ...left.pageHeaderProps, panelToggleLabel: t("Assignments") })}
+      {...(left && { ...withoutPinnedPreview(left), panelToggleLabel: t("Assignments") })}
       {...(right && {
-        ...right.pageHeaderProps,
+        ...withoutPinnedPreview(right),
         innerPanelToggleLabel: target === "reference" ? t("Summaries") : t("Details panel"),
       })}
     />
   );
 });
+
+/** The toggle's props with no hover while its panel is pinned (Dave, 2026-10-31): a pinned, closed panel opens on a
+ *  click only. lyra's hover preview (SidePanel `preview`) slides the panel in over the page header's toggle that
+ *  triggered it (side-panel.tsx's preview layer, z-[5] over the content), so the click that would dock it can't reach
+ *  the toggle. Unpinned, hover is the flyout, as lyra has it. */
+function withoutPinnedPreview(toggle: UseSidePanelToggleReturn): Partial<PageHeaderProps> {
+  if (!toggle.pinned) return toggle.pageHeaderProps;
+  const { onPanelHoverStart: _ps, onPanelHoverEnd: _pe, onInnerPanelHoverStart: _is, onInnerPanelHoverEnd: _ie, ...props } =
+    toggle.pageHeaderProps;
+  return props;
+}
