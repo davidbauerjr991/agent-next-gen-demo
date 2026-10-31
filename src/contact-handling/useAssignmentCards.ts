@@ -6,7 +6,7 @@
 import * as React from "react";
 import { useListReorder, type ListReorderItemProps } from "@nicecxone/lyra-ui";
 import { t } from "@/i18n";
-import { useSettings } from "@/settings";
+import { useSettings, type AssignmentSortSettings } from "@/settings";
 import type { Interaction } from "@/components/agent-next-gen-interaction-dashboard";
 import { sortAssignmentCards } from "./assignment-sort";
 import { setAssignmentsWorkingState, useAssignmentsWorkingState } from "./assignments-working-state";
@@ -30,6 +30,37 @@ export type AssignmentEntry =
   | { type: "conversation"; key: string; interaction: Interaction }
   | { type: "schedule"; key: string; item: ScheduleItem };
 
+/** The list's order, pure (the hook below, and what opens after a close, `nextAfterClose`): the conversations by the
+ *  sort (a call joined to a kind card is that card's leg, not a card of its own), then the kind cards by due; Custom
+ *  puts new conversations first, new kind cards after them, then every placed card by the dragged order. */
+export function orderAssignmentEntries({
+  interactions,
+  legCardKeys,
+  scheduleCards,
+  mode,
+  direction,
+  order,
+}: {
+  interactions: readonly Interaction[];
+  legCardKeys: ReadonlySet<string>;
+  scheduleCards: readonly ScheduleItem[];
+  mode: AssignmentSortSettings["mode"];
+  direction: AssignmentSortSettings["direction"];
+  order: readonly string[];
+}): AssignmentEntry[] {
+  const conversations = sortAssignmentCards(
+    interactions.filter((i) => !legCardKeys.has(i.id)),
+    { mode, direction },
+    order,
+  ).map((interaction): AssignmentEntry => ({ type: "conversation", key: interaction.id, interaction }));
+  const kinds = scheduleCards.map((item): AssignmentEntry => ({ type: "schedule", key: scheduleCardKey(item.id), item }));
+  if (mode !== "custom") return [...conversations, ...kinds];
+  const position = new Map(order.map((id, i) => [id, i]));
+  const fresh = [...conversations, ...kinds].filter((e) => !position.has(e.key));
+  const placed = [...conversations, ...kinds].filter((e) => position.has(e.key)).sort((a, b) => position.get(a.key)! - position.get(b.key)!);
+  return [...fresh, ...placed];
+}
+
 /** The sorted cards and the drag wiring, for every card the rail shows (conversations and kind cards, P-HOME-1m).
  *  A drag (or Ctrl+Shift+Up / Down on a card) in any mode switches the sort to Custom, seeded with the order on
  *  screen; the order is kept per browser, pruned to the cards that exist. The other sorts list the conversations
@@ -44,21 +75,10 @@ export function useAssignmentCards(enabled: boolean): {
   const scheduleCards = useScheduleCards();
   // P-HOME-1e: a call joined to an open schedule item's card is that card's leg: the kind card renders it.
   const legCardKeys = useScheduleLegCardKeys();
-  const entries = React.useMemo(() => {
-    const conversations = sortAssignmentCards(
-      interactions.filter((i) => !legCardKeys.has(i.id)),
-      { mode: assignmentSort, direction: assignmentSortDirection },
-      order,
-    ).map((interaction): AssignmentEntry => ({ type: "conversation", key: interaction.id, interaction }));
-    const kinds = scheduleCards.map((item): AssignmentEntry => ({ type: "schedule", key: scheduleCardKey(item.id), item }));
-    if (assignmentSort !== "custom") return [...conversations, ...kinds];
-    // Custom: `applyCustomOrder` already put new conversations first; new kind cards follow them, then every placed
-    // card by the dragged order.
-    const position = new Map(order.map((id, i) => [id, i]));
-    const fresh = [...conversations, ...kinds].filter((e) => !position.has(e.key));
-    const placed = [...conversations, ...kinds].filter((e) => position.has(e.key)).sort((a, b) => position.get(a.key)! - position.get(b.key)!);
-    return [...fresh, ...placed];
-  }, [interactions, legCardKeys, scheduleCards, assignmentSort, assignmentSortDirection, order]);
+  const entries = React.useMemo(
+    () => orderAssignmentEntries({ interactions, legCardKeys, scheduleCards, mode: assignmentSort, direction: assignmentSortDirection, order }),
+    [interactions, legCardKeys, scheduleCards, assignmentSort, assignmentSortDirection, order],
+  );
   const ids = React.useMemo(() => entries.map((e) => e.key), [entries]);
   const names = React.useMemo(
     () => new Map(entries.map((e) => [e.key, e.type === "conversation" ? (e.interaction.customerName ?? "") : e.item.title])),

@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { useProviders } from "@/provider-context";
 import { useCardCollapse } from "@/contact-handling/useCardCollapse";
 import { t } from "@/i18n";
@@ -52,6 +53,17 @@ export function NavCardItem({
     panelPlacement, scenarioKeyOf, selectPanel, setInteractions, setPanelFullScreen,
     setVoiceVideoFullScreen, setVoiceVideoWindowOpen, switchActiveInteraction, botHolds,
   } = useWorkspace();
+  // A row's Unassign & Dismiss is inside the card, so its click bubbles to the card's own activation, which would
+  // select the card being closed and undo what opens after it (P-LAYOUT-F1 A4: the top active assignment, else
+  // Home). The dismiss marks it; that one bubbled activation is skipped. The mark clears once the event is done (a
+  // microtask, after React's synchronous dispatch), so a dismiss that doesn't bubble never swallows a later click.
+  const dismissing = useRef(false);
+  const markDismissing = () => {
+    dismissing.current = true;
+    queueMicrotask(() => {
+      dismissing.current = false;
+    });
+  };
   const consultChannels = useProviders().capabilities.interaction.transfer.consultChannels ?? [];
   const cardHeldByBot = botHolds(interaction.id);
   /** A voice leg is live until the call ends or the card closes; its timer follows the leg, not the case status. */
@@ -642,6 +654,7 @@ export function NavCardItem({
                     // to see. Harmless/redundant on a real switch, where
                     // the effect would already handle it.
                     onClick={() => {
+                      if (dismissing.current) return;
                       switchActiveInteraction(interaction.id);
                       setPanelFullScreen(false);
                     }}
@@ -681,8 +694,14 @@ export function NavCardItem({
                     }
                     expanded={slotExpanded ?? navOpen}
                     channels={kind ? [kind.row, ...channels] : channels}
-                    onDismiss={() => confirmDismiss(() => handleDismissInteraction(interaction.id))}
-                    onDismissChannel={(channel) => confirmDismiss(() => handleDismissChannel(interaction.id, channel))}
+                    onDismiss={() => {
+                      markDismissing();
+                      confirmDismiss(() => handleDismissInteraction(interaction.id));
+                    }}
+                    onDismissChannel={(channel) => {
+                      markDismissing();
+                      confirmDismiss(() => handleDismissChannel(interaction.id, channel));
+                    }}
                     footerAction={
                       !kind && interaction.offered ? (
                         // A ringing offer: a call (P0.5d.1, P0.5c's Tom) or a digital one with Auto-accept off.

@@ -84,6 +84,56 @@ describe("assignment sort modes", () => {
   });
 });
 
+describe("after a close (P-LAYOUT-F1 A4)", () => {
+  const recordName = () => h.container.querySelector("[data-slot=record-header]")?.textContent ?? "";
+  const dismiss = async (id: string, name: string) => {
+    await h.click(h.navCard(name));
+    await act(async () => {
+      h.customer.hangUp({ interactionId: id as never });
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    await h.click(h.container.querySelector<HTMLElement>('aside [title="Unassign & Dismiss"], aside [aria-label="Unassign & Dismiss"]')!);
+    await h.advance(500);
+  };
+
+  it("the top active assignment in the list's order opens (the agent's sort), then Home when none remain", async () => {
+    const [ana, ben, cy] = await threeChats();
+    // Last updated, newest first: Cy, Ben, Ana. Closing Ana opens Cy, the top of the list (not Ben, the next one
+    // created).
+    const names = () => cardEls().map((el) => ["Ana Ruiz", "Ben Ito", "Cy Park"].find((n) => el.textContent?.includes(n)));
+    expect(names()).toEqual(["Cy Park", "Ben Ito", "Ana Ruiz"]);
+    await dismiss(ana, "Ana Ruiz");
+    expect(recordName()).toContain("Cy Park");
+    // Ascending: Ben is on top now.
+    await act(async () => {
+      store().update("assignments", { sort: { mode: "lastUpdated", direction: "asc" } });
+    });
+    await dismiss(cy, "Cy Park");
+    expect(recordName()).toContain("Ben Ito");
+    await dismiss(ben, "Ben Ito");
+    expect(h.container.querySelector("[data-slot=record-header]")).toBeNull();
+    expect(h.container.querySelector("[data-home-layout]")).not.toBeNull();
+  });
+
+  it("with Confirm before closing on, the top active assignment opens once the dialog's Close contact confirms", async () => {
+    const [ana] = await threeChats();
+    await act(async () => {
+      store().update("assignments", { confirmClose: true });
+    });
+    await h.click(h.navCard("Ana Ruiz"));
+    await act(async () => {
+      h.customer.hangUp({ interactionId: ana as never });
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    await h.click(h.container.querySelector<HTMLElement>('aside [title="Unassign & Dismiss"], aside [aria-label="Unassign & Dismiss"]')!);
+    // Still Ana until the dialog confirms (the dismiss's bubbled click didn't select anything else either).
+    expect(recordName()).toContain("Ana Ruiz");
+    await h.click(h.buttonByText("Close contact")!);
+    await h.advance(500);
+    expect(recordName()).toContain("Cy Park");
+  });
+});
+
 describe("Assignments placement → Interior panel (0c; lyra SidePanel left since P-LAYOUT)", () => {
   const panel = () => h.container.querySelector<HTMLElement>("[data-slot=assignments-panel]");
   /** The rail's Assignments item: the expanded rail is a TreeMenu (a text

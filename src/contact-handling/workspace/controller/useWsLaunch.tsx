@@ -35,6 +35,10 @@ import { isThreadOnScreen, resolveContactDetailsView, type ContactDetailsTabCont
 import { transcriptToggleApplies, useTranscriptHidden } from "@/contact-handling/transcript-visibility";
 import { useSlotFor } from "@/layout/useSlot";
 import { useSettings } from "@/settings";
+import { nextAfterClose } from "@/contact-handling/after-close";
+import { useAssignmentsWorkingState } from "@/contact-handling/assignments-working-state";
+import { useScheduleLegCardKeys } from "@/contact-handling/home/useScheduleCards";
+import { orderAssignmentEntries } from "@/contact-handling/useAssignmentCards";
 import type { WorkspaceLate } from "./workspace-late";
 import type { WsPanels } from "./useWsPanels";
 
@@ -53,7 +57,11 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
     setNavOpen, setSelectedContactHistoryEntry, setSidePanelOpen, setStatusSinceTick,
     sidePanelStateByAssignmentId, switchActiveInteraction, windowWidth, customerPanelActiveTab, aiInPanel,
     activeInteractionIsRealCustomer, activeChannelType, isHistoryConversationView, panelVoiceThread, contactSubject,
+    assignmentSort, assignmentSortDirection,
   } = prev;
+  // The list's order, for what opens after a close (A4).
+  const { order: workingOrder } = useAssignmentsWorkingState();
+  const legCardKeys = useScheduleLegCardKeys();
   // A call's "Hide Transcript" (P-CANVAS; AI display inline, voice), per card.
   const conversationSlot = useSlotFor("conversation");
   const aiFeedSlot = useSlotFor("aiFeed");
@@ -630,12 +638,6 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
         fireDismissToast(dismissed, !everSentAgentMessage);
       }
     }
-    // Dismissing the active assignment shouldn't strand the agent on an
-    // empty dashboard when there's other open work waiting — hand "active"
-    // to whichever assignment now sits at the top of the LeftNav list
-    // (`interactions` renders top-down, see the `header` block below)
-    // instead of clearing to `null`. Only clears to `null` (back to the
-    // dashboard) once every assignment is gone.
     const remaining = interactions.filter((interaction) => interaction.id !== id);
     // The dismissed id no longer belongs to any real assignment — drop its
     // Customer Information panel snapshot too (see `switchActiveInteraction`
@@ -647,8 +649,13 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
     // first, and `switchActiveInteraction` itself already needs a real,
     // synchronous "outgoing id" read rather than a queued updater (see its
     // own doc comment for why).
+    // Dismissing the active assignment opens the top active assignment in the list's own order (the agent's sort,
+    // Custom included), else Home (P-LAYOUT-F1 A4) — `nextAfterClose`, one function so it can become a setting.
     if (activeInteractionId === id) {
-      switchActiveInteraction(remaining[0]?.id ?? null);
+      const entries = orderAssignmentEntries({
+        interactions: remaining, legCardKeys, scheduleCards: [], mode: assignmentSort, direction: assignmentSortDirection, order: workingOrder,
+      });
+      switchActiveInteraction(nextAfterClose(entries, id));
     }
   };
   dismissInteractionRef.current = handleDismissInteraction;
