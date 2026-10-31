@@ -15,8 +15,11 @@ import {
 import defaultAppIcon from "@/assets/app-icon.svg";
 import { applyBrandColors } from "./brand-colors";
 import { withAgentSettings } from "./scope";
-import { activeConstraint } from "./constraints";
-import { DEFAULT_APP_NAME, type SectionKey, type SettingConstraint, type SettingPath, type SettingsState } from "./settings-schema";
+import { activeConstraint, disabledBy } from "./constraints";
+import { DEFAULT_APP_NAME, defaultSettings, type SectionKey, type SettingConstraint, type SettingPath, type SettingsState } from "./settings-schema";
+import { withDerivedLayout } from "./settle";
+import type { LegacyField } from "@/layout/presets";
+import { patchParts } from "@/layout/layout-section";
 import { getSettingsStore, type SectionPatch, type SettingsStoreState, type UpdateOptions } from "./settings-store";
 
 function useSettingsSelector<T>(select: (state: SettingsStoreState) => T): T {
@@ -65,6 +68,46 @@ export function useSettingsDerived<T>(derive: (values: SettingsState) => T): T {
  *  at `forces.value` with `reason`. */
 export function useConstraint(path: SettingPath): SettingConstraint | null {
   return useSettingsSelector(useCallback((state: SettingsStoreState) => activeConstraint(state.values, path), [path]));
+}
+
+/** The rule that makes a setting unused right now (`SETTING_CONSTRAINTS`' `disables`), if any: Settings shows it
+ *  disabled with `reason`. */
+export function useSettingDisabledBy(path: SettingPath): SettingConstraint | null {
+  return useSettingsSelector(useCallback((state: SettingsStoreState) => disabledBy(state.values, path), [path]));
+}
+
+/** A layout preset row (P-LAYOUT, Settings → Layout): the value of `field` that `layout.parts` reproduces
+ *  (undefined: a custom arrangement), and the setter, which writes the legacy field, so the store moves its parts
+ *  (`settleLayout`). A lock on the field's section or on `layout` drops the write, as every locked write. */
+export function useLayoutPreset(field: LegacyField): [string | undefined, (value: string) => void] {
+  const value = useSettingsSelector(
+    useCallback((state: SettingsStoreState) => field.reproduced(state.values.layout.parts, state.values) as string | undefined, [field]),
+  );
+  const set = useCallback(
+    (next: string) => {
+      const store = getSettingsStore();
+      const values = store.getState().values;
+      // The field and its parts together: from a custom map the field may already hold `next` (the store applies a
+      // preset only when the field changes), and picking it must still apply it.
+      store.updateMany({
+        [field.section]: field.set(values, next)[field.section],
+        layout: { parts: patchParts(values.layout.parts, field.preset(next, values)) },
+      });
+    },
+    [field],
+  );
+  return [value, set];
+}
+
+/** Writes the applied profile's `layout.parts` back (a saved profile's, else a built-in's), or the defaults' when
+ *  none is applied (Settings → Layout's "Reset to profile default"). */
+export function resetLayoutToProfile() {
+  const applied = getProfileLibrary().getState().applied;
+  const saved = applied && isSavedProfileId(applied.id) ? getProfileLibrary().getState().saved.find((p) => p.id === applied.id) : undefined;
+  const parts =
+    (saved ? saved.values.layout?.parts : applied ? profileValues(applied.id as ProfileId).layout?.parts : undefined) ??
+    withDerivedLayout(defaultSettings()).layout.parts;
+  getSettingsStore().update("layout", { parts });
 }
 
 /** Whether a section has a stored value (the launch screen's "Save

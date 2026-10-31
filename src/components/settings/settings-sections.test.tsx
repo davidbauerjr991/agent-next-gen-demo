@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 // The Settings page's grouping (P-HOME-1n): top-level groups in order, each a larger lyra heading with a Separator
-// between; the assignments placement as a three-option radio; the incoming toast forced on, disabled with its reason,
+// between; the assignments placement as a three-option preset in Settings → Layout (P-LAYOUT); the incoming toast forced on, disabled with its reason,
 // under placement "none"; admin-scope settings tagged.
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -26,6 +26,7 @@ describe("Settings grouping (P-HOME-1n)", () => {
     await h.render(<SettingsView />);
     expect(groups().map(groupTitle)).toEqual([
       "Workspace",
+      "Layout",
       "Assignments",
       "Home",
       "Notifications",
@@ -43,7 +44,7 @@ describe("Settings grouping (P-HOME-1n)", () => {
     expect(subGroups.find((f) => f.querySelector(":scope > legend")?.textContent?.startsWith("Social"))).toBeDefined();
     expect(subGroups.every((f) => f.classList.contains("mt-6"))).toBe(true);
     expect(groups().every((g) => g.classList.contains("[&>legend+fieldset]:mt-0"))).toBe(true);
-    expect(h.container.querySelectorAll("[data-testid=settings-view] [role=separator], [data-testid=settings-view] [data-orientation=horizontal]").length).toBeGreaterThanOrEqual(8);
+    expect(h.container.querySelectorAll("[data-testid=settings-view] [role=separator], [data-testid=settings-view] [data-orientation=horizontal]").length).toBeGreaterThanOrEqual(9);
   });
 
   it("a sub-group of one control named as itself shows its title once and names the control (P-POLISH 6)", async () => {
@@ -64,24 +65,21 @@ describe("Settings grouping (P-HOME-1n)", () => {
     expect(profile.getAttribute("aria-labelledby")).toBeNull();
   });
 
-  it("Workspace → Layout holds Home layout, the placement radio (three options), AI display and the canvas layout", async () => {
+  it("Settings → Layout's presets hold Workspace's old Layout controls, labels unchanged, plus the voice controls and the Activity view (P-LAYOUT)", async () => {
     await h.render(<SettingsView />);
-    const workspace = groups()[0];
-    const layout = [...workspace.querySelectorAll("fieldset")].find((f) => f.querySelector("legend")?.textContent === "Layout")!;
-    // Home layout (One column / Two columns), AI display, the canvas layout.
+    expect(groups()[0].textContent).not.toContain("Home layout");
+    const layout = groups()[1];
+    const presets = [...layout.querySelectorAll<HTMLElement>("[data-layout-preset]")].map((el) => el.getAttribute("data-layout-preset"));
+    expect(presets).toEqual(["home.layout", "assignments.placement", "ai.displayLocation", "ai.canvasLayout", "voice.controlsLocation", "home.activityView"]);
     expect(layout.textContent).toContain("Home layout");
-    expect(layout.textContent).toContain("One column");
     expect(layout.textContent).toContain("AI display");
-    const placement = layout.querySelector("[data-setting='assignments.placement']")!;
-    expect([...placement.querySelectorAll("[role=radio]")]).toHaveLength(3);
-    expect(placement.textContent).toContain("Left nav");
-    expect(placement.textContent).toContain("Interior panel");
-    expect(placement.textContent).toContain("None");
+    const placement = layout.querySelector("[data-layout-preset='assignments.placement']")!;
+    expect([...placement.querySelectorAll("[role=radio]")].map((r) => r.textContent)).toEqual(["Left nav", "Interior panel", "None"]);
   });
 
   it("placement none: the incoming toast is shown on, disabled, with the reason; another placement frees it", async () => {
     await h.render(<SettingsView />);
-    await h.click(h.container.querySelectorAll<HTMLElement>("[data-setting='assignments.placement'] [role=radio]")[2]);
+    await h.click(h.container.querySelectorAll<HTMLElement>("[data-layout-preset='assignments.placement'] [role=radio]")[2]);
     expect(getSettingsStore().getState().values.assignments.placement).toBe("none");
     const forced = h.container.querySelector<HTMLElement>('[data-forced-setting="notifications.toasts.events.incoming"]')!;
     expect(forced.textContent).toContain("On — required while assignments aren't in the left nav");

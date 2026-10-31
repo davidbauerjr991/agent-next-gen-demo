@@ -32,6 +32,16 @@ describe("parts registry (P-LAYOUT)", () => {
     for (const id of PART_IDS) expect(PARTS[id].id).toBe(id);
   });
 
+  it("every part and slot has a label; on each page a part shows on, one of its allowed slots exists", () => {
+    for (const id of SLOT_IDS) expect(SLOTS[id].label, id).not.toBe("");
+    for (const id of PART_IDS) {
+      const { label, pages, allowedSlots } = PARTS[id];
+      expect(label, id).not.toBe("");
+      expect(pages.length, id).toBeGreaterThan(0);
+      for (const page of pages) expect(allowedSlots.some((s) => SLOTS[s].pages.includes(page)), `${id} on ${page}`).toBe(true);
+    }
+  });
+
   it("every part allows only registered slots, without repeats, and its default is one of them", () => {
     for (const id of PART_IDS) {
       const { allowedSlots, defaultSlot } = PARTS[id];

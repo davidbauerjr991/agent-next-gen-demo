@@ -59,10 +59,13 @@ async function expectOneIn(page: Page, title: string, host: string) {
   await expect.poll(() => slideOvers(page, title), { timeout: 3_000 }).toEqual([{ host, onScreen: true }]);
 }
 
+/** Settings → Layout's AI display preset (a ToggleGroup since P-LAYOUT). */
+const pickAiDisplay = (page: Page, to: Ai) =>
+  page.locator('[data-layout-preset="ai.displayLocation"]').getByRole("radio", { name: LABEL[to], exact: true }).click();
+
 async function switchAi(page: Page, to: Ai) {
   await page.locator("aside").getByText("Settings", { exact: true }).first().click();
-  await page.getByRole("combobox", { name: "AI display" }).click();
-  await page.getByRole("option", { name: LABEL[to], exact: true }).click();
+  await pickAiDisplay(page, to);
   await page.getByText("Lucas Thomas").first().click();
 }
 
@@ -182,8 +185,7 @@ for (const [from, to] of [
     await expect(visibleRow(page, before)).toBeVisible({ timeout: 15_000 });
 
     await page.locator("aside").getByText("Settings", { exact: true }).first().click();
-    await page.getByRole("combobox", { name: "AI display" }).click();
-    await page.getByRole("option", { name: LABEL[to], exact: true }).click();
+    await pickAiDisplay(page, to);
     await davidsCard(page).click({ force: true });
 
     // Control: a row asked after the switch opens, then closes by its X.
@@ -212,8 +214,7 @@ for (const [from, to] of pairs) {
     await expect.poll(() => resultOpen(page, before), { timeout: 3_000 }).toBe(true);
 
     await page.locator("aside").getByText("Settings", { exact: true }).first().click();
-    await page.getByRole("combobox", { name: "AI display" }).click();
-    await page.getByRole("option", { name: LABEL[to], exact: true }).click();
+    await pickAiDisplay(page, to);
     await davidsCard(page).click({ force: true });
 
     await expect.poll(() => resultOpen(page, before), { timeout: 3_000 }).toBe(true);

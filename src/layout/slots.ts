@@ -41,6 +41,8 @@ export type SlotWidth = "card" | "container" | "action-area" | "row-less-action"
 export interface SlotDef {
   id: SlotId;
   container: SlotContainer;
+  /** English source label (Settings → Layout wraps it in `t()`). */
+  label: string;
   /** What the container is, for the docs. */
   description: string;
   minWidth?: SlotWidth;
@@ -58,6 +60,7 @@ export const SLOTS: Record<SlotId, SlotDef> = {
   "left-nav": {
     id: "left-nav",
     container: "LeftNav",
+    label: "Left nav",
     description: "lyra LeftNav: its header and sticky caption (the left-nav `<Slot>`s) and the rail",
     capacity: "many",
     pages: BOTH,
@@ -65,6 +68,7 @@ export const SLOTS: Record<SlotId, SlotDef> = {
   "interior-panel": {
     id: "interior-panel",
     container: "SidePanel-left",
+    label: "Interior panel",
     description: "lyra SidePanel side=\"left\" inside the content container: pinned pushes the content, unpinned overlays; a toggle button",
     minWidth: "card",
     maxWidth: "container",
@@ -75,6 +79,7 @@ export const SLOTS: Record<SlotId, SlotDef> = {
   "home-top": {
     id: "home-top",
     container: "stack",
+    label: "Top of Home",
     description: "a stack in Home's flow, above the view switcher",
     capacity: "many",
     pages: ["home"],
@@ -82,6 +87,7 @@ export const SLOTS: Record<SlotId, SlotDef> = {
   main: {
     id: "main",
     container: "column",
+    label: "Main column",
     description: "the main column: the action area on an interaction, the feed column on Home",
     minWidth: "action-area",
     capacity: "many",
@@ -90,6 +96,7 @@ export const SLOTS: Record<SlotId, SlotDef> = {
   "main-trailing": {
     id: "main-trailing",
     container: "column",
+    label: "Cards column",
     description: "Home's Cards column beside the feed (ReferenceSlotFrame referenceTitle=\"Cards\")",
     minWidth: "card",
     maxWidth: "card",
@@ -100,6 +107,7 @@ export const SLOTS: Record<SlotId, SlotDef> = {
   reference: {
     id: "reference",
     container: "slide-over-frame",
+    label: "Reference column",
     description: "ReferenceSlotFrame: the reference column for cells, InteriorPanel overlayHeader for the detail slide-over",
     minWidth: "card",
     maxWidth: "row-less-action",
@@ -110,6 +118,7 @@ export const SLOTS: Record<SlotId, SlotDef> = {
   "docked-panel": {
     id: "docked-panel",
     container: "SidePanel-right",
+    label: "Docked panel",
     description: "lyra SidePanel side=\"right\": the docked panel (WorkspaceRightPanel; Home's detail panel)",
     minWidth: "container",
     maxWidth: "container",
@@ -119,6 +128,7 @@ export const SLOTS: Record<SlotId, SlotDef> = {
   overlay: {
     id: "overlay",
     container: "overlay",
+    label: "Overlay",
     description: "where a slot that doesn't fit goes: an unpinned SidePanel, an InteriorPanel overlay, the Summaries overlay",
     capacity: "many",
     pages: BOTH,
@@ -126,6 +136,7 @@ export const SLOTS: Record<SlotId, SlotDef> = {
   "dock-bottom": {
     id: "dock-bottom",
     container: "dock",
+    label: "Bottom dock",
     description: "the bottom dock under the content (the voice bar's host)",
     capacity: 1,
     pages: BOTH,
@@ -133,6 +144,7 @@ export const SLOTS: Record<SlotId, SlotDef> = {
   header: {
     id: "header",
     container: "AppHeader",
+    label: "App header",
     description: "lyra AppHeader's actions row",
     capacity: "many",
     pages: BOTH,

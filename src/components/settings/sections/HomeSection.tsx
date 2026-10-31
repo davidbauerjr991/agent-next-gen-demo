@@ -1,20 +1,21 @@
 // Settings → Home (v3's Settings → Home; P-HOME-1n grouping): the welcome header, the sections and their order, the
-// Activity view. Home layout itself is under Workspace → Layout.
+// Activity view. Home layout itself is under Settings → Layout.
 import * as React from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { ActionIconButton, Checkbox, Input, RadioGroup, RadioGroupItem, Switch } from "@nicecxone/lyra-ui";
+import { ActionIconButton, Checkbox, Input, RadioGroup, RadioGroupItem, Switch, Tag } from "@nicecxone/lyra-ui";
 import { homeIsTwoColumn } from "@/contact-handling/home/home-layout";
 import { t } from "@/i18n";
 import {
   HOME_ACTIVITY_VIEWS,
   HOME_ACTIVITY_VIEW_FIELD,
   HOME_QUEUE_CHANNELS,
+  useSectionLocked,
   useSettings,
   type HomeActivityView,
   type HomeQueueChannel,
   type HomeSectionKey,
 } from "@/settings";
-import { Section, SettingsGroup, SwitchRow } from "../settings-parts";
+import { LockScope, Section, SettingsGroup, SwitchRow } from "../settings-parts";
 
 const HOME_SECTION_LABELS: Record<HomeSectionKey, string> = {
   queue: "Queue",
@@ -57,6 +58,8 @@ function moveItem<T>(items: T[], index: number, delta: -1 | 1): T[] {
 export function HomeSection() {
   const [home, updateHome] = useSettings("home");
   const [{ parts }] = useSettings("layout");
+  // The sections' order is their parts' order: the `layout` lock holds it (the switches stay the agent's).
+  const orderLocked = useSectionLocked("layout");
   return (
     <SettingsGroup id="home" title={t("Home")} lockKey="home">
       <Section title={t("Welcome header")}>
@@ -72,6 +75,11 @@ export function HomeSection() {
       </Section>
 
       <Section title={t("Sections")}>
+        {orderLocked && (
+          <div>
+            <Tag variant="neutral" label={t("Order set by your team profile")} />
+          </div>
+        )}
         {home.sections.map((section, index) => (
           <React.Fragment key={section.key}>
             <div className="flex max-w-sm items-center justify-between gap-2" data-home-section-row={section.key}>
@@ -95,7 +103,7 @@ export function HomeSection() {
                 <ActionIconButton
                   size="sm"
                   title={`Move ${HOME_SECTION_LABELS[section.key]} up`}
-                  disabled={index === 0}
+                  disabled={index === 0 || orderLocked}
                   onClick={() => updateHome((prev) => ({ sections: moveItem(prev.sections, index, -1) }))}
                 >
                   <ChevronUp className="h-4 w-4" strokeWidth={1.5} />
@@ -103,7 +111,7 @@ export function HomeSection() {
                 <ActionIconButton
                   size="sm"
                   title={`Move ${HOME_SECTION_LABELS[section.key]} down`}
-                  disabled={index === home.sections.length - 1}
+                  disabled={index === home.sections.length - 1 || orderLocked}
                   onClick={() => updateHome((prev) => ({ sections: moveItem(prev.sections, index, 1) }))}
                 >
                   <ChevronDown className="h-4 w-4" strokeWidth={1.5} />
@@ -127,17 +135,20 @@ export function HomeSection() {
       </Section>
 
       <Section title={t("Activity view")}>
-        <RadioGroup
-          label={t(HOME_ACTIVITY_VIEW_FIELD.meta!.label)}
-          labelHelpText={t(HOME_ACTIVITY_VIEW_FIELD.meta!.description)}
-          value={home.activityView}
-          onValueChange={(value) => updateHome({ activityView: value as HomeActivityView })}
-          data-setting="home.activityView"
-        >
-          {HOME_ACTIVITY_VIEWS.map((view) => (
-            <RadioGroupItem key={view} value={view} label={t(HOME_ACTIVITY_VIEW_LABELS[view])} />
-          ))}
-        </RadioGroup>
+        {/* The Activity feed's `view` option (also a preset in Settings → Layout): the `layout` lock makes it read-only too. */}
+        <LockScope lockKey="layout">
+          <RadioGroup
+            label={t(HOME_ACTIVITY_VIEW_FIELD.meta!.label)}
+            labelHelpText={t(HOME_ACTIVITY_VIEW_FIELD.meta!.description)}
+            value={home.activityView}
+            onValueChange={(value) => updateHome({ activityView: value as HomeActivityView })}
+            data-setting="home.activityView"
+          >
+            {HOME_ACTIVITY_VIEWS.map((view) => (
+              <RadioGroupItem key={view} value={view} label={t(HOME_ACTIVITY_VIEW_LABELS[view])} />
+            ))}
+          </RadioGroup>
+        </LockScope>
       </Section>
     </SettingsGroup>
   );

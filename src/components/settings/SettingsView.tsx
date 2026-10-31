@@ -2,13 +2,15 @@
 // store through hooks and applies immediately; there's no save button.
 // Settings with no target in the workspace yet stay toggleable (they count
 // toward the profile) and carry a tag saying which step brings them.
-// Grouped (P-HOME-1n) into Workspace, Assignments, Home, Notifications,
-// Appearance, Channels, Voice, Phone and Connections, one file each under
-// `sections/`; the grouping is presentation only (no store section moves).
+// Grouped (P-HOME-1n) into Workspace, Layout (P-LAYOUT), Assignments, Home,
+// Notifications, Appearance, Channels, Voice, Phone and Connections, one file
+// each under `sections/`; the grouping is presentation only (no store section
+// moves).
 import * as React from "react";
 import { Button, Modal, PageHeader, WarningIcon } from "@nicecxone/lyra-ui";
 import { useResetSettings } from "@/settings";
 import { WorkspaceSection } from "./sections/WorkspaceSection";
+import { LayoutSection } from "./sections/LayoutSection";
 import { AssignmentsSection } from "./sections/AssignmentsSection";
 import { HomeSection } from "./sections/HomeSection";
 import { NotificationsSection } from "./sections/NotificationsSection";
@@ -37,6 +39,7 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
       )}
       <div className="flex-1 overflow-y-auto p-6" data-testid="settings-view">
         <WorkspaceSection first />
+        <LayoutSection />
         <AssignmentsSection />
         <HomeSection />
         <NotificationsSection />

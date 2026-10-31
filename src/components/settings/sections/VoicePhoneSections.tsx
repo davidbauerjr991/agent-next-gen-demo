@@ -3,7 +3,7 @@
 import { Input, RadioGroup, RadioGroupItem, Select } from "@nicecxone/lyra-ui";
 import { t } from "@/i18n";
 import { useSettings, type PhoneSetup } from "@/settings";
-import { Pending, SettingsGroup } from "../settings-parts";
+import { LockScope, Pending, SettingsGroup } from "../settings-parts";
 
 const VALID_STATION_ID = "12345";
 
@@ -11,17 +11,20 @@ export function VoiceSection() {
   const [voice, updateVoice] = useSettings("voice");
   return (
     <SettingsGroup id="voice" title={t("Voice")} lockKey="voice">
-      <div className="max-w-xs">
-        <Select
-          label="Voice controls location"
-          options={[
-            { value: "bottom", label: "Bottom" },
-            { value: "top", label: "Top of left nav" },
-          ]}
-          value={voice.controlsLocation}
-          onValueChange={(value) => updateVoice({ controlsLocation: value as typeof voice.controlsLocation })}
-        />
-      </div>
+      {/* A placement (the voice bar's slot; also a preset in Settings → Layout): the `layout` lock makes it read-only too. */}
+      <LockScope lockKey="layout">
+        <div className="max-w-xs">
+          <Select
+            label="Voice controls location"
+            options={[
+              { value: "bottom", label: "Bottom" },
+              { value: "top", label: "Top of left nav" },
+            ]}
+            value={voice.controlsLocation}
+            onValueChange={(value) => updateVoice({ controlsLocation: value as typeof voice.controlsLocation })}
+          />
+        </div>
+      </LockScope>
     </SettingsGroup>
   );
 }

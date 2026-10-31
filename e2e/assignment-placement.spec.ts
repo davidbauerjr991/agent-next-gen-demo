@@ -89,12 +89,12 @@ test("placement none: a new assignment raises the incoming toast with View; Sett
   await expect(forced.getByRole("checkbox")).toBeDisabled();
 });
 
-test("Settings: the nine groups in order, each a lyra heading", async ({ page }) => {
+test("Settings: the ten groups in order (Layout second, P-LAYOUT), each a lyra heading", async ({ page }) => {
   await setUp(page, {});
   await page.locator("aside").getByText("Settings", { exact: true }).first().click();
   const legends = page.locator("[data-settings-group] > legend");
   const titles = await legends.evaluateAll((els) => els.map((el) => el.firstChild?.textContent?.trim()));
-  expect(titles).toEqual(["Workspace", "Assignments", "Home", "Notifications", "Appearance", "Channels", "Voice", "Phone", "Connections"]);
+  expect(titles).toEqual(["Workspace", "Layout", "Assignments", "Home", "Notifications", "Appearance", "Channels", "Voice", "Phone", "Connections"]);
   for (const legend of await legends.all()) await expect(legend).toHaveClass(/lyra-heading-md/);
 });
 

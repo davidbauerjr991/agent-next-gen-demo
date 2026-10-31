@@ -242,7 +242,7 @@ test("one column: the feed is a row among the sections; two columns: the feed le
   await expect(page.locator('[data-home-section="contactHistory"]')).toBeVisible();
 
   await settingsSection(page);
-  await page.getByRole("radio", { name: "Two columns" }).click();
+  await page.locator('[data-layout-preset="home.layout"]').getByRole("radio", { name: "Two columns" }).click();
   // With the feed on in two columns, Contact History is the feed's History view: no switch for it.
   await expect(page.locator('[data-home-section-row="contactHistory"]')).toContainText("Shown in the Activity feed's History view");
   await expect(page.locator('[data-home-section-row="contactHistory"]').getByRole("switch")).toHaveCount(0);

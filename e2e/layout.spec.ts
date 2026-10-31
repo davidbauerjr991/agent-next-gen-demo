@@ -91,3 +91,47 @@ test("fix (a): the close hides the panel, the content takes its room, and the to
   await toggle(page).click();
   await expect(panel(page)).toHaveAttribute("data-docked", "true");
 });
+
+test("Settings → Layout: dragging the voice controls into the Left nav list moves the live call's bar there, and the legacy setting follows", async ({ page }) => {
+  await setUp(page, {});
+  // Maya Chen (dev hotkey B) connects at once; her bar starts at the bottom.
+  await page.keyboard.press("b");
+  await expect(page.locator("aside").getByText("Maya Chen").first()).toBeVisible({ timeout: 15_000 });
+  const navBar = page.locator("[data-slot=left-nav-voice] [data-slot=voice-bar]");
+  const bottomBar = page.locator("[data-slot=voice-bar-bottom] [data-slot=voice-bar]");
+  await expect(bottomBar).toBeVisible({ timeout: 10_000 });
+
+  await page.locator("aside").getByText("Settings", { exact: true }).first().click();
+  // Tall enough for the Left nav list and the Bottom dock list together.
+  await page.setViewportSize({ width: 2400, height: 2000 });
+  const layout = page.locator("[data-settings-group=layout]");
+  await layout.getByRole("button", { name: /Advanced/ }).click();
+  const voiceRow = layout.locator('[data-layout-part="voiceBar"]');
+  await expect(voiceRow).toBeVisible();
+  // Until the accordion's open animation ends its content clips (overflow-hidden), and scrolling to a row scrolls
+  // that box instead of the page: a drag started then misses. Wait for it to settle.
+  await expect
+    .poll(() => voiceRow.evaluate((el) => el.closest<HTMLElement>(".overflow-hidden[data-state=open]")?.getAnimations().length ?? -1))
+    .toBe(0);
+  // A real pointer drag, both lists on screen: a drag that has to scroll the page part-way never reaches the list.
+  const target = layout.locator('[data-layout-slot="left-nav"] ul');
+  // The target list at the top of the view, so the Bottom dock list below it is on screen too.
+  await target.evaluate((el) => el.scrollIntoView({ block: "start" }));
+  const from = (await voiceRow.locator("svg").first().boundingBox())!;
+  const to = (await target.boundingBox())!;
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  const steps = 12;
+  for (let i = 1; i <= steps; i++) {
+    await page.mouse.move(from.x + ((to.x + 40 - from.x) * i) / steps, from.y + ((to.y + to.height - 8 - from.y) * i) / steps);
+  }
+  await page.mouse.up();
+
+  await expect(layout.locator('[data-layout-slot="left-nav"] [data-layout-part="voiceBar"]')).toBeVisible();
+  await expect(navBar).toBeVisible();
+  await expect(page.locator("[data-slot=voice-bar]")).toHaveCount(1);
+  // The preview and the legacy setting (Settings → Voice) follow.
+  await expect(layout.locator('[data-layout-preview] [data-preview-slot="left-nav"] [data-preview-part="voiceBar"]')).toHaveCount(1);
+  await expect(page.getByRole("combobox", { name: "Voice controls location" })).toContainText("Top of left nav");
+  await expect(layout.locator('[data-layout-preset="voice.controlsLocation"]').getByRole("radio", { name: "Top of left nav" })).toHaveAttribute("aria-checked", "true");
+});

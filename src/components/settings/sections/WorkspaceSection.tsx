@@ -1,35 +1,24 @@
-// Settings → Workspace (P-HOME-1n grouping): the profile, the persona, the layout (Home layout, assignments
-// placement, AI display, canvas layout), the header and its apps, and AI assist. Presentation only: each control
-// writes the store section it always did, and that section's lock disables it.
+// Settings → Workspace (P-HOME-1n grouping): the profile, the persona, the header and its apps, and AI assist. The
+// layout controls moved to Settings → Layout (P-LAYOUT). Presentation only: each control writes the store section it
+// always did, and that section's lock disables it; an app's display is a placement, so the `layout` lock does too.
 import * as React from "react";
 import { Checkbox, RadioGroup, RadioGroupItem, Select } from "@nicecxone/lyra-ui";
-import { DisabledReason } from "@/contact-handling/DisabledReason";
 import { t } from "@/i18n";
 import {
-  AI_CANVAS_LAYOUT_FIELD,
   AI_CHIP_BEHAVIOR_FIELD,
   AI_NBA_PAUSE_CHAT_FIELD,
   AI_NBA_PAUSE_VOICE_FIELD,
   AI_NBA_SCRIPTED_DELAY_FIELD,
-  ASSIGNMENTS_PLACEMENTS,
-  ASSIGNMENTS_PLACEMENT_FIELD,
-  ASSIGNMENTS_PLACEMENT_OPTIONS,
   EXTRA_HEADER_APPS,
-  HOME_LAYOUTS,
-  HOME_LAYOUT_FIELD,
   PERSONAS,
   PERSONA_FIELD,
   useSetPersona,
   useSettings,
   type AgentChatDisplay,
-  type AiCanvasLayout,
   type AiChipBehavior,
-  type AiDisplayLocation,
   type AppDisplay,
   type AppPlacement,
-  type AssignmentsPlacement,
   type ExtraHeaderApp,
-  type HomeLayout,
   type Persona,
 } from "@/settings";
 import { ProfileSettings } from "../ProfileSettings";
@@ -53,11 +42,6 @@ const APP_DISPLAY_OPTIONS = [
 ];
 const AGENT_CHAT_DISPLAY_OPTIONS = APP_DISPLAY_OPTIONS.filter((o) => o.value !== "tab");
 
-const HOME_LAYOUT_LABELS: Record<HomeLayout, string> = {
-  oneColumn: "One column",
-  twoColumn: "Two columns",
-};
-
 const PERSONA_LABELS: Record<Persona, string> = {
   agent: "Agent",
   supervisor: "Supervisor",
@@ -66,10 +50,8 @@ const PERSONA_LABELS: Record<Persona, string> = {
 
 export function WorkspaceSection({ first }: { first?: boolean }) {
   const [header, updateHeader] = useSettings("header");
-  const [home, updateHome] = useSettings("home");
   const [workspace] = useSettings("workspace");
   const setPersona = useSetPersona();
-  const [assignments, updateAssignments] = useSettings("assignments");
   const [ai, updateAi] = useSettings("ai");
   const personaLabelId = React.useId();
   return (
@@ -91,77 +73,6 @@ export function WorkspaceSection({ first }: { first?: boolean }) {
         </RadioGroup>
       </Section>
 
-      <Section title={t("Layout")}>
-        <LockScope lockKey="home">
-          <RadioGroup
-            label={t(HOME_LAYOUT_FIELD.meta!.label)}
-            labelHelpText={t(HOME_LAYOUT_FIELD.meta!.description)}
-            value={home.layout}
-            onValueChange={(value) => updateHome({ layout: value as HomeLayout })}
-          >
-            {HOME_LAYOUTS.map((layout) => (
-              <RadioGroupItem key={layout} value={layout} label={t(HOME_LAYOUT_LABELS[layout])} />
-            ))}
-          </RadioGroup>
-        </LockScope>
-        <LockScope lockKey="assignments">
-          <RadioGroup
-            label={t(ASSIGNMENTS_PLACEMENT_FIELD.meta!.label)}
-            labelHelpText={t(ASSIGNMENTS_PLACEMENT_FIELD.meta!.description)}
-            value={assignments.placement}
-            onValueChange={(value) => updateAssignments({ placement: value as AssignmentsPlacement })}
-            data-setting="assignments.placement"
-          >
-            {ASSIGNMENTS_PLACEMENTS.map((placement) => (
-              <RadioGroupItem
-                key={placement}
-                value={placement}
-                // lyra's item takes a node label: the option and its declared description beneath.
-                label={
-                  <span className="flex flex-col">
-                    <span>{t(ASSIGNMENTS_PLACEMENT_OPTIONS[placement].label)}</span>
-                    <span className="lyra-body-sm text-lyra-fg-secondary">{t(ASSIGNMENTS_PLACEMENT_OPTIONS[placement].description)}</span>
-                  </span>
-                }
-              />
-            ))}
-          </RadioGroup>
-        </LockScope>
-        <LockScope lockKey="ai">
-          <div className="max-w-xs">
-            <Select
-              label="AI display"
-              options={[
-                { value: "inline", label: "Inline in the transcript" },
-                { value: "panel", label: "In the Contact Details panel" },
-                { value: "main", label: "Main column (conversations in panel)" },
-              ]}
-              value={ai.displayLocation}
-              onValueChange={(value) => updateAi({ displayLocation: value as AiDisplayLocation })}
-            />
-          </div>
-          <div className="max-w-xs">
-            {/* Rendered from its declaration (label, description); unused under "panel", so disabled with the reason. */}
-            <DisabledReason
-              reason={ai.displayLocation === "panel" ? t("Not used when AI display is In the Contact Details panel") : undefined}
-              className="flex w-full"
-            >
-              <Select
-                label={t(AI_CANVAS_LAYOUT_FIELD.meta!.label)}
-                labelHelpText={t(AI_CANVAS_LAYOUT_FIELD.meta!.description)}
-                options={[
-                  { value: "twoColumn", label: t("Two columns") },
-                  { value: "stacked", label: t("Stacked") },
-                ]}
-                value={ai.canvasLayout}
-                disabled={ai.displayLocation === "panel"}
-                onValueChange={(value) => updateAi({ canvasLayout: value as AiCanvasLayout })}
-              />
-            </DisabledReason>
-          </div>
-        </LockScope>
-      </Section>
-
       <Section title={t("Header & apps")} lockKey="header">
         <SwitchRow
           label="Show app icons"
@@ -180,18 +91,21 @@ export function WorkspaceSection({ first }: { first?: boolean }) {
               <Pending>Chat drawer arrives in P0.9.3</Pending>
             </div>
             {header.agentChat.enabled && (
-              <div className="ms-7 max-w-xs">
-                <Select
-                  label="Agent chat display"
-                  options={AGENT_CHAT_DISPLAY_OPTIONS}
-                  value={header.agentChat.placement}
-                  onValueChange={(value) =>
-                    updateHeader((prev) => ({
-                      agentChat: { ...prev.agentChat, placement: value as AgentChatDisplay["placement"] },
-                    }))
-                  }
-                />
-              </div>
+              // A placement (a part's slot): the `layout` lock makes it read-only too.
+              <LockScope lockKey="layout">
+                <div className="ms-7 max-w-xs">
+                  <Select
+                    label="Agent chat display"
+                    options={AGENT_CHAT_DISPLAY_OPTIONS}
+                    value={header.agentChat.placement}
+                    onValueChange={(value) =>
+                      updateHeader((prev) => ({
+                        agentChat: { ...prev.agentChat, placement: value as AgentChatDisplay["placement"] },
+                      }))
+                    }
+                  />
+                </div>
+              </LockScope>
             )}
             <Checkbox label="Notifications" checked={header.notifications} onCheckedChange={(c) => updateHeader({ notifications: !!c })} />
             <div className="flex items-center gap-2">
@@ -206,14 +120,16 @@ export function WorkspaceSection({ first }: { first?: boolean }) {
                 <React.Fragment key={app}>
                   <Checkbox label={EXTRA_APP_LABELS[app]} checked={display.enabled} onCheckedChange={(c) => setDisplay({ enabled: !!c })} />
                   {display.enabled && (
-                    <div className="ms-7 w-full max-w-xs">
-                      <Select
-                        label={`${EXTRA_APP_LABELS[app]} display`}
-                        options={APP_DISPLAY_OPTIONS}
-                        value={display.placement}
-                        onValueChange={(value) => setDisplay({ placement: value as AppPlacement })}
-                      />
-                    </div>
+                    <LockScope lockKey="layout">
+                      <div className="ms-7 w-full max-w-xs">
+                        <Select
+                          label={`${EXTRA_APP_LABELS[app]} display`}
+                          options={APP_DISPLAY_OPTIONS}
+                          value={display.placement}
+                          onValueChange={(value) => setDisplay({ placement: value as AppPlacement })}
+                        />
+                      </div>
+                    </LockScope>
                   )}
                 </React.Fragment>
               );

@@ -5,7 +5,7 @@
 // one. A part's slot, order and options come from `layout.parts` (the `layout` section, `layout-section.ts`);
 // components ask `slotFor` / `useSlotFor` / `useSlotParts`, never a legacy placement setting.
 import type { SettingConstraint, SettingsState } from "@/settings";
-import type { SlotId } from "./slots";
+import { PAGES, type Page, type SlotId } from "./slots";
 
 /** Home's sections as parts: `HOME_SECTIONS` less the feed, which is `activityFeed` (a test holds the two lists
  *  together; listed here so the registry imports no settings values). */
@@ -56,6 +56,8 @@ export type PartId = (typeof PART_IDS)[number];
 export interface PartOption {
   label: string;
   values: readonly string[];
+  /** English source label per value (Settings → Layout wraps them in `t()`). */
+  valueLabels: Readonly<Record<string, string>>;
   default: string;
 }
 
@@ -72,15 +74,21 @@ export interface PartDef {
   constraints?: readonly SettingConstraint["id"][];
   /** The legacy setting(s) its slot, order or options read through, for the docs and the retirement checklist. */
   source?: string;
+  /** The pages it shows on (Settings → Layout lists a page's parts). Default: both. */
+  pages: readonly Page[];
 }
 
-type Def = Omit<PartDef, "id">;
+type Def = Omit<PartDef, "id" | "pages"> & { pages?: readonly Page[] };
+
+const INTERACTION: readonly Page[] = ["interaction"];
+const HOME: readonly Page[] = ["home"];
 
 const DETAIL: Def = {
   component: "contactDetailsFor bodies in the slide-over",
   label: "",
   allowedSlots: ["reference", "docked-panel"],
   defaultSlot: "reference",
+  pages: INTERACTION,
 };
 
 const REFERENCE_CELL: Def = {
@@ -89,6 +97,7 @@ const REFERENCE_CELL: Def = {
   allowedSlots: ["reference", "main"],
   defaultSlot: "reference",
   source: "ai.canvasLayout, canvas.cells region",
+  pages: INTERACTION,
 };
 
 const HOME_SECTION: Def = {
@@ -97,6 +106,7 @@ const HOME_SECTION: Def = {
   allowedSlots: ["main", "main-trailing"],
   defaultSlot: "main",
   source: "home.layout (slot), home.sections (order)",
+  pages: HOME,
 };
 
 const HEADER_APP: Def = {
@@ -146,6 +156,7 @@ const DEFS: Record<PartId, Def> = {
     defaultSlot: "main",
     constraints: ["conversation-docked", "ai-feed-docked"],
     source: "ai.displayLocation",
+    pages: INTERACTION,
   },
   aiFeed: {
     component: "inline AI rows / AiWorkspaceColumn / OverviewBody",
@@ -154,6 +165,7 @@ const DEFS: Record<PartId, Def> = {
     defaultSlot: "main",
     constraints: ["conversation-docked", "ai-feed-docked", "ai-panel-canvas", "ai-panel-legs"],
     source: "ai.displayLocation",
+    pages: INTERACTION,
   },
   copilotInput: {
     component: "Copilot composer (copilotHost)",
@@ -162,6 +174,7 @@ const DEFS: Record<PartId, Def> = {
     defaultSlot: "main",
     constraints: ["copilot-follows-ai-feed-main", "copilot-follows-ai-feed-docked-panel"],
     source: "follows aiFeed",
+    pages: INTERACTION,
   },
   customerInfo: { ...REFERENCE_CELL, label: "Customer Info" },
   realTimeSummary: { ...REFERENCE_CELL, label: "Real-Time Summary" },
@@ -176,8 +189,9 @@ const DEFS: Record<PartId, Def> = {
     label: "Activity",
     allowedSlots: ["main", "main-trailing"],
     defaultSlot: "main",
-    options: { view: { label: "View", values: ["list", "table"], default: "list" } },
+    options: { view: { label: "View", values: ["list", "table"], valueLabels: { list: "List", table: "Table" }, default: "list" } },
     source: "home.layout, home.activityView",
+    pages: HOME,
   },
   queue: { ...HOME_SECTION, component: "DashboardQueue / QueueListCard", label: "Queue" },
   // Due soon and Contact History are one-column cards: beside the feed, the feed already lists what's next and its
@@ -209,7 +223,7 @@ const DEFS: Record<PartId, Def> = {
   agentChat: { ...HEADER_APP, label: "Agent Chat", allowedSlots: ["header", "left-nav"], source: "header.agentChat.placement" },
 };
 
-export const PARTS = Object.fromEntries(PART_IDS.map((id) => [id, { id, ...DEFS[id] }])) as Record<PartId, PartDef>;
+export const PARTS = Object.fromEntries(PART_IDS.map((id) => [id, { id, pages: PAGES, ...DEFS[id] }])) as Record<PartId, PartDef>;
 
 /** The slot `layout.parts` puts a part in. */
 export function slotFor(part: PartId, settings: SettingsState): SlotId {

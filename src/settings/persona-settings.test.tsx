@@ -43,7 +43,12 @@ describe("Settings → Workspace → Persona", () => {
 
   const radio = (label: string) =>
     [...h.container.querySelectorAll<HTMLElement>("[role=radio]")].find(
-      (el) => el.getAttribute("aria-label") === label || el.closest("label")?.textContent?.trim() === label || el.parentElement?.textContent?.trim() === label,
+      (el) =>
+        el.getAttribute("aria-label") === label ||
+        el.closest("label")?.textContent?.trim() === label ||
+        el.parentElement?.textContent?.trim() === label ||
+        // A ToggleGroup item (Settings → Layout's presets, P-LAYOUT): the radio is the button holding its label.
+        el.textContent?.trim() === label,
     );
 
   it("defaults to Agent; picking Sales stores it and applies the sales cards, keeping the order", async () => {
