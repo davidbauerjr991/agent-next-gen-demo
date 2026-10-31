@@ -465,7 +465,7 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   // into the docked Contact Details panel (`renderAiPanelFeed`). AI display
   // "main" (AI-first) makes it the main column instead (`AiWorkspaceColumn`),
   // every thread opens in the panel, and it implies the omnichannel routing.
-  const { panelPlacement, placement, aiInPanel, asyncPlacement, aiWorkspaceInMain } = useConversationPlacement();
+  const { panelPlacement, placement, aiInPanel, asyncPlacement } = useConversationPlacement();
   // AI display inline / panel: the header channel icons are tabs for the main column (P-AIFIRST (k), (k3)).
   const tabs = asyncPlacement === "tabs";
   // Threads open in the docked panel, one that moves: AI display "main" only since (k3) (no omnichannel setting).
@@ -667,7 +667,7 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   // The main column is the AI workspace (Autosummary, AI feed, Copilot
   // composer, wrap-up card) under "main" only. A call's tab follows AI
   // display like every other thread (k5): its transcript in the main column.
-  const aiWorkspaceMain = aiWorkspaceInMain(activeChannelType);
+  const aiWorkspaceMain = panelPlacement;
   // The selected card's call in wrap-up, if any (its inline wrap-up card).
   const activeWrapUpThread = voiceWrapUpThread(activeInteraction);
   // A call whose transcript isn't on screen as a thread gets Contact Details' Transcript tab: (Lucas) a live
@@ -1019,7 +1019,7 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
     channelsAllExpanded, setChannelsAllExpanded, channelsExpandedOverrideVersion, setChannelsExpandedOverrideVersion,
     handleToggleAllChannelsExpanded, assignmentsSettings, outboundSettings, enabledChannels, calling, pendingClose,
     setPendingClose, pendingCloseCopy, confirmDismiss, panelPlacement, placement, aiInPanel, asyncPlacement,
-    aiWorkspaceInMain, tabs, omnichannel, rightPanelEl, rightPanelSlotMounted, setRightPanelSlotMounted,
+    tabs, omnichannel, rightPanelEl, rightPanelSlotMounted, setRightPanelSlotMounted,
     rightPanelRef, portalInto, stripAiInPanel, copilotHost, aiFollowSignal,
     setAiFollowSignal, copilotFollows, voiceBarHost, sessionRowHost, voiceNavSlotMounted, setVoiceNavSlotMounted,
     newOutboundAtBottom, navItemsAtTop, noInteractionCollapse, channelsExpandedById, setChannelsExpandedById,

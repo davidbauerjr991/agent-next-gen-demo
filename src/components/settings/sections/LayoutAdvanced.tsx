@@ -130,18 +130,24 @@ function PartRow({
   const write = useWriteParts(notify);
   // A part that follows another (the incoming tile, the queue chip, Ask Copilot) is placed by its rule.
   const rule = useConstraint(`layout.parts.${part}.slot` as SettingPath);
+  const reasonId = React.useId();
   return (
     <li
       {...dragProps}
       tabIndex={0}
-      aria-describedby={instructionsId}
+      // The rule's reason too: a disabled Slot menu takes no focus, so the row (which does) carries why.
+      aria-describedby={rule ? `${reasonId} ${instructionsId}` : instructionsId}
       className="flex flex-wrap items-center gap-2 rounded-lyra-sm bg-lyra-bg-surface-base px-2 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lyra-border-focus data-[drag-over]:bg-lyra-bg-active-moderate data-[dragging]:opacity-50"
       data-layout-part={part}
     >
       <GripVertical className="h-4 w-4 shrink-0 text-lyra-fg-secondary" strokeWidth={1.5} aria-hidden />
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="lyra-body-md text-lyra-fg-default">{t(def.label)}</span>
-        {rule && <span className="lyra-body-sm text-lyra-fg-secondary">{t(rule.reason)}</span>}
+        {rule && (
+          <span id={reasonId} className="lyra-body-sm text-lyra-fg-secondary">
+            {t(rule.reason)}
+          </span>
+        )}
       </span>
       {Object.entries(def.options ?? {}).map(([name, option]) => (
         <div key={name} className="w-28">

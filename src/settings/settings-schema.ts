@@ -440,7 +440,7 @@ export const ASSIGNMENTS_PLACEMENT_OPTIONS: Record<AssignmentsPlacement, FieldMe
   interiorPanel: {
     label: "Interior panel",
     description:
-      "A fixed panel between the left nav and your work, with the Assignments header and cards. Resizable; it becomes an overlay only when it doesn't fit.",
+      "A panel at the start of your work, with the Assignments header and cards. Pinned, it moves your work aside (or opens over it where they don't fit); unpinned, it opens over your work. Close it and the button at the top brings it back. Resizable.",
   },
   none: {
     label: "None",

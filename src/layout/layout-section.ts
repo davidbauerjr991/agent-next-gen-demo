@@ -24,7 +24,7 @@ const optionDefaults = (id: PartId): Record<string, string> =>
   Object.fromEntries(Object.entries(PARTS[id].options ?? {}).map(([name, o]) => [name, o.default]));
 
 /** Every part at its registry default, in registry order. */
-export function defaultLayoutParts(): LayoutParts {
+function defaultLayoutParts(): LayoutParts {
   return Object.fromEntries(
     PART_IDS.map((id, index) => [id, { slot: PARTS[id].defaultSlot, order: index, options: optionDefaults(id) }]),
   ) as LayoutParts;

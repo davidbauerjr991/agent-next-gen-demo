@@ -859,7 +859,7 @@ export function InteractionTranscript({
           {/* Content after the conversation, scrolling with it (e.g. the
               voice wrap-up card, P0.5d.1) — see `trailingContent`. */}
           {trailingContent && !sessionRowOnly && (
-            <div ref={trailingContentRef} className="w-full max-w-[768px] mx-auto px-6 pt-2 pb-4">
+            <div ref={trailingContentRef} className="w-full max-w-[768px] mx-auto px-6 pt-2 pb-4" data-slot="transcript-trailing">
               {trailingContent}
             </div>
           )}

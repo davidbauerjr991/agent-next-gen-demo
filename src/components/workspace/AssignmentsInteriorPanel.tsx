@@ -68,6 +68,25 @@ function AssignmentsSidePanel() {
     if (docks) setFitOverlayOpen(false);
   }, [docks, setDocks, setFitOverlayOpen]);
 
+  // Focus follows the panel (WCAG 2.4.3): its close hides the focused button with the panel, so focus moves to the
+  // toggle that brings it back; the toggle unmounts as the panel opens, so focus moves into the panel.
+  const toggleRef = React.useRef<HTMLButtonElement>(null);
+  const focusNext = React.useRef<"toggle" | "panel" | null>(null);
+  React.useEffect(() => {
+    const target = focusNext.current;
+    focusNext.current = null;
+    if (target === "toggle" && !panel.open) toggleRef.current?.focus();
+    if (target === "panel" && panel.open) document.querySelector<HTMLElement>("[data-slot=assignments-panel] button")?.focus();
+  }, [panel.open]);
+  const close = () => {
+    focusNext.current = "toggle";
+    panel.close();
+  };
+  const open = () => {
+    focusNext.current = "panel";
+    panel.toggle();
+  };
+
   const toggleLabel = t("Show assignments");
   return (
     <>
@@ -78,7 +97,7 @@ function AssignmentsSidePanel() {
       {!panel.docked && (
         <div className="w-10 shrink-0 ps-2 pt-3" data-slot="assignments-panel-toggle">
           {!panel.open && (
-            <ActionIconButton title={toggleLabel} aria-label={toggleLabel} aria-expanded={false} onClick={panel.toggle}>
+            <ActionIconButton ref={toggleRef} title={toggleLabel} aria-label={toggleLabel} aria-expanded={false} onClick={open}>
               <PanelLeftOpen className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
             </ActionIconButton>
           )}
@@ -90,7 +109,9 @@ function AssignmentsSidePanel() {
         pinned={panel.pinned}
         onPinToggle={panel.togglePin}
         showCloseButton
-        onClose={panel.close}
+        onClose={close}
+        // The page has its own skip link; a left SidePanel would add a second, identical one.
+        skipToMain={false}
         headerTitle={t("Assignments")}
         // The cards are laid out at the card width: SidePanel's 200px minimum would crush them. Its own 425 max.
         minWidth={LYRA_CARD_MAX_WIDTH}

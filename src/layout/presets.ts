@@ -13,7 +13,7 @@ export type PartPatch = Partial<Record<PartId, Partial<LayoutPartEntry>>>;
 
 /** Where the main column's interaction parts sort: stacked reference cells, the conversation, the AI feed, then
  *  action-region cells. Home's parts in `main` sort by their `home.sections` index, below these. */
-export const MAIN_ORDER = { cellsBefore: 100, conversation: 200, aiFeed: 201, cellsAfter: 300 } as const;
+const MAIN_ORDER = { cellsBefore: 100, conversation: 200, aiFeed: 201, cellsAfter: 300 } as const;
 
 export interface LegacyField<V = unknown> {
   /** The setting's path, as Settings and the docs name it. */

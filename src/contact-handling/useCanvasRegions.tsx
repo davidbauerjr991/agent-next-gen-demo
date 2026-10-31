@@ -90,10 +90,13 @@ function useCellOverrides(): CanvasCellOverrides {
   const [{ parts }] = useSettings("layout");
   return useMemo(() => {
     const out: Record<string, CanvasCellOverrides[string]> = { ...cells };
+    // After the conversation as the map says (Settings → Layout and its preview show it there), in the map's order:
+    // the cell's own canvas order would put a low-ordered cell back above it.
+    const anchor = conversationOrder(cells);
     for (const part of REFERENCE_CELL_PARTS) {
       const id = REFERENCE_CELL_IDS[part].cell;
       const { region: _legacy, ...rest } = cells[id] ?? {};
-      const entry = cellPlace(parts, part) === "after" ? { ...rest, region: "action" as const } : rest;
+      const entry = cellPlace(parts, part) === "after" ? { ...rest, region: "action" as const, order: anchor + 1 + Math.max(0, parts[part].order) } : rest;
       if (Object.keys(entry).length > 0) out[id] = entry;
       else delete out[id];
     }

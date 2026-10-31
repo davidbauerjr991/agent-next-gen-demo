@@ -125,6 +125,9 @@ describe("Settings → Layout → Advanced (P-LAYOUT)", () => {
     expect(copilot.textContent).toContain("Follows the AI feed");
     const slotMenu = copilot.querySelector<HTMLElement>('[role=combobox][aria-label="Slot for Ask Copilot"]')!;
     expect(slotMenu.hasAttribute("disabled") || slotMenu.getAttribute("aria-disabled") === "true").toBe(true);
+    // The disabled menu takes no focus: the row, which does, is described by the reason.
+    const described = copilot.getAttribute("aria-describedby")!.split(" ").map((id) => document.getElementById(id)?.textContent);
+    expect(described).toContain("Follows the AI feed");
     // A free part's menu isn't.
     const conversationMenu = part("conversation").querySelector<HTMLElement>('[role=combobox][aria-label="Slot for Conversation"]')!;
     expect(conversationMenu.hasAttribute("disabled") || conversationMenu.getAttribute("aria-disabled") === "true").toBe(false);

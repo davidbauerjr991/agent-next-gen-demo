@@ -20,7 +20,7 @@ const arrivedAt = (entry: AssignmentEntry) =>
 
 /** Newest first: conversations by arrival, latest on top; then the kind cards in the card list's order (a schedule
  *  item has no arrival on the same clock). */
-export function newestFirst(entries: readonly AssignmentEntry[]): AssignmentEntry[] {
+function newestFirst(entries: readonly AssignmentEntry[]): AssignmentEntry[] {
   const conversations = entries.filter((e) => e.type === "conversation").sort((a, b) => arrivedAt(b) - arrivedAt(a));
   return [...conversations, ...entries.filter((e) => e.type === "schedule")];
 }

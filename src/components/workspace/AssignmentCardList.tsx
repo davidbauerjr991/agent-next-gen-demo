@@ -18,7 +18,7 @@ import { KindNavCard } from "./KindNavCard";
 import { NavCardItem } from "./NavCardItem";
 import { ADVANCED_ASSIGNMENT_SORT_OPTIONS } from "./workspace-constants";
 
-export function DraggableAssignment({ props, children }: { props: ListReorderItemProps; children: React.ReactNode }) {
+function DraggableAssignment({ props, children }: { props: ListReorderItemProps; children: React.ReactNode }) {
   return (
     <div
       {...props}

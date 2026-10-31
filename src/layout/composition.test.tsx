@@ -20,6 +20,11 @@ import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/setting
 import { showEmptyReferenceCards } from "@/test-utils/reference-cards";
 import { resetCanvasRegistry } from "@/contact-handling/canvas-registry";
 
+// The harness's 30s isn't enough under the full suite's parallel load: each case mounts the whole page under a
+// profile and plays a contact in; alone the file passes, but in a full run one case went past 30s and, still running
+// past its teardown, broke the cases after it (as next-best-action.test did). 90s leaves room for that load.
+vi.setConfig({ testTimeout: 90_000 });
+
 const h = createWorkspaceHarness({ seed: SIM_DEMO_SEED, schedule: true });
 const priya = CREATE_NEW_CUSTOMERS.find((c) => c.id === "priya-shah-history")!;
 

@@ -155,12 +155,16 @@ describe("Assignments placement → Interior panel (0c; lyra SidePanel left sinc
     expect(railItem()).not.toBeNull();
     await h.click(button(/^Pin panel$/)!);
     expect(panel()!.getAttribute("data-docked")).toBe("true");
-    // Closed: the toggle at the content card's top start reopens it, docked.
+    // Closed: the toggle at the content card's top start reopens it, docked. Focus follows (a11y review, WCAG 2.4.3):
+    // the close hides its own button, so focus goes to the toggle; the toggle goes as the panel opens, so into it.
+    button(/^Close panel$/)!.focus();
     await h.click(button(/^Close panel$/)!);
     expect(panel()!.getAttribute("data-docked")).toBeNull();
     expect(toggle()!.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(toggle());
     await h.click(toggle() as HTMLElement);
     expect(panel()!.getAttribute("data-docked")).toBe("true");
+    expect(panel()!.contains(document.activeElement)).toBe(true);
   });
 
   it("its width comes from the working state, clamped to 350–425; a resize is saved there", async () => {

@@ -145,6 +145,21 @@ describe("stacked canvas and panel mode", () => {
     expect(cellsIn(region("action"))).toEqual(["customer-info"]);
   });
 
+  it("a cell the map puts after the conversation renders after it, as Settings → Layout lists it (P-LAYOUT review)", async () => {
+    await open({ displayLocation: "inline", canvasLayout: "twoColumn" });
+    await act(async () => {
+      const store = getSettingsStore();
+      const parts = store.getState().values.layout.parts;
+      // Customer Info's canvas order (30, the conversation's own) would put it above; the map's says after it.
+      store.update("layout", { parts: { ...parts, customerInfo: { ...parts.customerInfo, slot: "main", order: parts.aiFeed.order + 1 } } });
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    await CASES.noah();
+    // After the conversation: the transcript's trailing block, not the overview above the messages.
+    const trailing = region("action")!.querySelector("[data-slot=transcript-trailing]");
+    expect(cellsIn(trailing as HTMLElement | null)).toEqual(["customer-info"]);
+  });
+
   it("AI display panel: no canvas, whatever the layout setting; the reference cells are Contact Details' Overview", async () => {
     await open({ displayLocation: "panel", canvasLayout: "twoColumn" });
     await CASES.noah();

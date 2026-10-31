@@ -9,6 +9,7 @@ import {
   ASSIGNMENT_SORT_DIRECTION_FIELD,
   ASSIGNMENT_SORT_MODE_FIELD,
   AUTO_ACCEPT_CHANNELS,
+  useSettingDisabledBy,
   useSettings,
   type AssignmentChannelChips,
   type AssignmentLegs,
@@ -41,7 +42,7 @@ const SORT_DIRECTION_LABELS: Record<AssignmentSortDirectionSetting, string> = {
 
 export function AssignmentsSection() {
   const [assignments, updateAssignments] = useSettings("assignments");
-  const [ai] = useSettings("ai");
+  const legsUnused = useSettingDisabledBy("assignments.legs");
   return (
     <SettingsGroup id="assignments" title={t("Assignments")} lockKey="assignments">
       <Section title={t("Auto-accept")}>
@@ -139,15 +140,16 @@ export function AssignmentsSection() {
 
       <Section title={t("Legs")}>
         <div className="max-w-xs">
-          {/* `assignments.legs`, dependent on AI display (P-PROFILES). Only "Separate tabs" is offered until P-STREAM adds
-              "One stream"; the schema already accepts it, so a profile file can carry it. */}
-          <DisabledReason reason={ai.displayLocation === "panel" ? t("Contact Details panel uses tabs") : undefined} className="flex w-full">
+          {/* `assignments.legs`, unused while the AI feed is docked (the `ai-panel-legs` rule; P-LAYOUT reads it from the
+              map, not AI display). Only "Separate tabs" is offered until P-STREAM adds "One stream"; the schema already
+              accepts it, so a profile file can carry it. */}
+          <DisabledReason reason={legsUnused ? t(legsUnused.reason) : undefined} className="flex w-full">
             <Select
               label={t(ASSIGNMENT_LEGS_FIELD.meta!.label)}
               labelHelpText={t(ASSIGNMENT_LEGS_FIELD.meta!.description)}
               options={[{ value: "tabs", label: t("Separate tabs — one thread per channel") }]}
               value={assignments.legs}
-              disabled={ai.displayLocation === "panel"}
+              disabled={!!legsUnused}
               onValueChange={(value) => updateAssignments({ legs: value as AssignmentLegs })}
             />
           </DisabledReason>

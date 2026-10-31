@@ -1,4 +1,3 @@
-import { useCallback } from "react";
 import { useSlotFor } from "@/layout/useSlot";
 import type { AsyncPlacement, ConversationPlacement } from "./omnichannel";
 
@@ -11,13 +10,10 @@ import type { AsyncPlacement, ConversationPlacement } from "./omnichannel";
  *  - `asyncPlacement`: "panel" under "main"; otherwise "tabs": every thread
  *    on a card, voice included, is a tab for the main column, and the docked
  *    panel holds Contact Details only.
- *  - `aiWorkspaceInMain`: the main column shows the AI workspace
- *    (Autosummary, AI feed, Copilot composer, wrap-up card): under "main".
- *    A call's tab follows AI display like every other thread (k5): its
- *    transcript, with AI rows inline (inline) or AI in Contact Details
- *    (panel).
+ *    Under it the main column shows the AI workspace (Autosummary, AI feed,
+ *    Copilot composer, wrap-up card); a call's tab follows AI display like
+ *    every other thread (k5).
  *  - `aiInPanel`: AI display "panel", the AI feed in Contact Details.
- *  - `aiInMain`: AI display "main".
  *  Since P-LAYOUT these read the parts' slots (`layout.parts`): "main" is the conversation in the docked panel,
  *  "panel" the AI feed there. */
 export function useConversationPlacement() {
@@ -25,13 +21,10 @@ export function useConversationPlacement() {
   const aiFeedDocked = useSlotFor("aiFeed") === "docked-panel";
   const placement: ConversationPlacement = panelPlacement ? "panel" : "main";
   const asyncPlacement: AsyncPlacement = panelPlacement ? "panel" : "tabs";
-  const aiWorkspaceInMain = useCallback((_channel?: string | undefined) => panelPlacement, [panelPlacement]);
   return {
     panelPlacement,
     placement,
     asyncPlacement,
-    aiWorkspaceInMain,
     aiInPanel: aiFeedDocked,
-    aiInMain: panelPlacement,
   };
 }

@@ -36,7 +36,7 @@ export function HomePageHeader({ actions }: { actions: React.ReactNode }) {
   );
 }
 
-export function HomeGreetingHeader({ actions, welcome }: { actions: React.ReactNode; welcome: boolean }) {
+function HomeGreetingHeader({ actions, welcome }: { actions: React.ReactNode; welcome: boolean }) {
   const [home] = useSettings("home");
   const title = `${home.greeting.trim() || "Hello"}${home.showFirstName ? ` ${CURRENT_AGENT_FIRST_NAME}` : ""}`;
   const subtitle = t("User Name: {id}", { id: CURRENT_AGENT_ID });
