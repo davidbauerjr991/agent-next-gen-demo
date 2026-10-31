@@ -26,7 +26,7 @@ export function WorkspaceRightPanel() {
     activeInteractionIsAgentCall, activeInteractionIsRealCustomer, addToast, aiInPanel, channelPreviewMeta, channelPreviewThread,
     channelPreviewThreadKey, channelPreviewThreadStableKey, confirmDismiss, copilotComposerProps,
     copilotDockConcealed, copilotDockShown, copilotHost, copilotSlot,
-    effectiveSidePanelPinned, focusCustomerPanelTab,
+    effectiveSidePanelPinned, focusCustomerInfoFromName,
     handleInteractionStatusChange, handleOutcomeSaveAndDismissChannel,
     handleSendEmailDraft, handleSendMessage, handleSidePanelClose, handleStartCall,
     botHolds, hideAiActions, isSidePanelAtMinimalThreshold,
@@ -237,8 +237,9 @@ export function WorkspaceRightPanel() {
                   // interactions/tabs already replaces this same panel's
                   // content in place (no second panel).
                   // P-HOME-1n: without a thread, the docked panel is panel mode's AI Overview (Contact Details, its
-                  // Experience Memory, Artifacts and Customer Info drill-in are in the reference slide-over).
-                  headerTitleOverride={channelPreviewThread ? channelPreviewMeta?.label : t("Overview")}
+                  // Experience Memory, Artifacts and Customer Info drill-in are in the reference slide-over),
+                  // titled "Copilot" (P-LAYOUT-F1 F).
+                  headerTitleOverride={channelPreviewThread ? channelPreviewMeta?.label : t("Copilot")}
                   // Per explicit request ("move the customer information
                   // content back to the side panel... have a back arrow
                   // next to the Customer's name"): while
@@ -252,7 +253,7 @@ export function WorkspaceRightPanel() {
                   // neither prop has a pre-existing ternary of its own to
                   // slot into (unlike `headerTitleOverride` above).
                   // The customer's name (the panel's subhead) opens the Customer Info drill-in, now in the slide-over.
-                  onViewCustomerInfo={!channelPreviewThread && activeInteractionIsRealCustomer ? focusCustomerPanelTab : undefined}
+                  onViewCustomerInfo={!channelPreviewThread && activeInteractionIsRealCustomer ? focusCustomerInfoFromName : undefined}
                   headerTabsOverride={
                     channelPreviewThread && activeInteraction
                       ? panelPlacement && (

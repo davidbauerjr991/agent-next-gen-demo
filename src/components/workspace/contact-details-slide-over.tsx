@@ -22,7 +22,7 @@ const RECORD_VIEWS = new Set(["Customer Info", "Customer Information", "Notes", 
 
 export function useContactDetailsSlideOverParts(): DetailSlideOverParts {
   const {
-    activeInteraction, contactDetails, contactDetailsView: view, customerInfoOverlayContent, experienceMemoryFocus,
+    activeInteraction, contactDetails, contactDetailsView: view, customerInfoBack, customerInfoOverlayContent, experienceMemoryFocus,
     marcusMemoryFocus, openDetailPanelContent, panelArtifacts, reopenPanelArtifact, scenarioKeyOf, setCustomerPanelActiveTab,
   } = useWorkspace();
   const name = contactDetails?.name;
@@ -70,7 +70,8 @@ export function useContactDetailsSlideOverParts(): DetailSlideOverParts {
     return {
       headerTitle: customerInfoOverlayContent.headerTitle,
       headerSubhead: typeof customerInfoOverlayContent.headerSubhead === "string" ? customerInfoOverlayContent.headerSubhead : name,
-      onBack: back,
+      // None from the docked panel's customer name (P-LAYOUT-F1 F): the agent didn't come from Contact Details.
+      onBack: customerInfoBack ? back : undefined,
       headerTabs: <div className="animate-in fade-in-0 duration-200">{customerInfoOverlayContent.headerTabs}</div>,
       footer,
       body: <div className="animate-in fade-in-0 duration-200">{customerInfoOverlayContent.body}</div>,

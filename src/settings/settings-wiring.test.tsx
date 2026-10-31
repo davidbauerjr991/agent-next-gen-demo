@@ -527,6 +527,26 @@ describe("AI display panel: docked Copilot composer", () => {
     await h.click(slideOver()!.querySelector<HTMLElement>('[aria-label="Back"], [aria-label^="Back"]')!);
     expect(slideOver()?.querySelector("[data-slot=contact-details-tabs]")).not.toBeNull();
   });
+
+  it("the docked panel is titled Copilot; its customer name opens Customer Info with no back arrow, the card's link with one (P-LAYOUT-F1 F)", async () => {
+    await lucasInPanelMode();
+    const panel = () => document.body.querySelector<HTMLElement>("[data-slot=right-panel]")!;
+    const slideOver = () => document.body.querySelector<HTMLElement>("[data-slot=reference-slide-over]");
+    const back = () => slideOver()?.querySelector('[aria-label="Back"], [aria-label^="Back"]') ?? null;
+    expect(panel().textContent).toContain("Copilot");
+    expect([...panel().querySelectorAll("h1, h2, h3, h4, [data-slot=container-header-title], [class*=heading]")].some((el) => el.textContent?.trim() === "Overview")).toBe(false);
+
+    // The name in the panel's header.
+    const name = [...panel().querySelectorAll("button")].find((b) => b.textContent?.trim() === "Lucas Thomas")!;
+    await h.click(name);
+    expect(slideOver()).not.toBeNull();
+    expect(back()).toBeNull();
+
+    // The Customer Info card's link (an Overview card): the drill-in keeps its back arrow.
+    await h.click(panel().querySelector("[data-slot=customer-info-card] [aria-expanded]")!);
+    await clickText("View customer info");
+    expect(back()).not.toBeNull();
+  });
 });
 
 describe("Contact Details Overview stack, events, composer fade", () => {

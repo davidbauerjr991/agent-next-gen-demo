@@ -457,7 +457,17 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
   };
   /** "View customer info" (the Contact Overview's link, the Customer Info card, the preview's name): Contact
    *  Details' customer drill-in, in its slide-over. */
+  /** Whether the Customer Info drill-in has a back arrow to Contact Details: not when the agent came from the docked
+   *  panel's customer name (P-LAYOUT-F1 F). */
+  const [customerInfoBack, setCustomerInfoBack] = useState(true);
   const focusCustomerPanelTab = () => {
+    setCustomerInfoBack(true);
+    setCustomerPanelActiveTab("Customer Info");
+    showContactDetails();
+  };
+  /** The docked panel's customer name: the same drill-in, with no back arrow. */
+  const focusCustomerInfoFromName = () => {
+    setCustomerInfoBack(false);
     setCustomerPanelActiveTab("Customer Info");
     showContactDetails();
   };
@@ -884,6 +894,7 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
     setChannelHoverPreviewKey, threadMenu, channelHoverPreviewTimer, channelHoverOpenTimer,
     marcusMemoryFocus, setMarcusMemoryFocus,
     experienceMemoryFocus, setExperienceMemoryFocus, openExperienceMemoryInSidePanel, openArtifactsList, focusCustomerPanelTab,
+    focusCustomerInfoFromName, customerInfoBack,
     sidePanelPinned, sidePanelResizing, setSidePanelResizing, sidePanelWidth, setSidePanelWidth, sidePanelFullScreen,
     setSidePanelFullScreen, isSidePanelContainerNarrow, effectiveSidePanelPinned,
     isSidePanelAtMaxWidthBreakpoint, isSidePanelAtMinimalThreshold,
