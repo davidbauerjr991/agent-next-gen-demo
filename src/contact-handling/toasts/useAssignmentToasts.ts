@@ -4,7 +4,7 @@ import { assignmentIdFor, scheduleCardKey, type ChannelKind } from "@/domain";
 import { useAgentState, useInteractionProvider, useScheduleProvider, useScheduleSnapshot } from "@/provider-context";
 import { useConstraint, useSettings, type ToastEvent } from "@/settings";
 import { inArrivalGrace, isRoutedContact, isScheduleArrival, newArrivals } from "./arrivals";
-import { useSlotFor } from "@/layout/useSlot";
+import { useAssignmentsAtHomeTop } from "../useAssignmentsPanel";
 import { t } from "@/i18n";
 import type { useWsHeaderApps } from "../workspace/controller/useWsHeaderApps";
 import { useWorkspaceUiStore } from "../workspace-ui-store";
@@ -47,7 +47,7 @@ export function useAssignmentToasts(ws: WorkspaceBase) {
   const incomingForced = !!useConstraint("notifications.toasts.events.incoming");
   // The handlers below read the latest of these, not the values they were registered with.
   // Where an offer's tile is: the rail (left nav or interior panel), or the top of Home.
-  const offersAtHome = useSlotFor("assignments") === "home-top";
+  const offersAtHome = useAssignmentsAtHomeTop();
   const latest = useRef({ ws, settings, incomingForced, offersAtHome });
   latest.current = { ws, settings, incomingForced, offersAtHome };
   // Toast ids, per workspace mount (a toast's id is also its drawer row's).

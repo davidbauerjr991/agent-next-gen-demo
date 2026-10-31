@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import { Container } from "@nicecxone/lyra-ui";
 import { CustomerInfoCard } from "@/components/ai-cards/CustomerInfoCard";
 import { initialsFor } from "@/components/agent-next-gen-shared-utils";
-import { homeIsTwoColumn } from "@/contact-handling/home/home-layout";
+import { homeIsTwoColumn, homeSectionsInOrder, partOf } from "@/contact-handling/home/home-layout";
 import { JourneySummaryCard } from "@/components/ai-cards/JourneySummaryCard";
 import { RealTimeSummaryCard } from "@/components/ai-cards/RealTimeSummaryCard";
 import { t } from "@/i18n";
@@ -49,15 +49,15 @@ export function LayoutPreview({ page }: { page: Page }) {
   const [canvas] = useSettings("canvas");
   const [home] = useSettings("home");
   // What the page would render: a switched-off reference cell or Home section isn't drawn.
-  const homeOff = new Set<string>(home.sections.filter((s) => !s.enabled).map((s) => (s.key === "activity" ? "activityFeed" : s.key)));
+  const homeOff = new Set<string>(home.sections.filter((s) => !s.enabled).map((s) => partOf(s.key)));
   const shown = (part: PartId) =>
     !homeOff.has(part) && (!isReferenceCell(part) || canvas.cells[REFERENCE_CELL_IDS[part].cell]?.enabled !== false);
-  // Home's own rule: one column unless the feed is on in main with a section beside it. In one column the trailing
-  // sections join main in the map's order, as `homeSectionsInOrder` lays them out.
+  // Home's own rule: one column unless the feed is on in main with a section beside it. In one column main is Home's
+  // own one-column rows, wherever the map puts them.
   const oneColumnHome = page === "home" && !homeIsTwoColumn(home, parts);
-  const partsIn = (id: SlotId) =>
+  const partsIn = (id: SlotId): PartId[] =>
     oneColumnHome && id === "main"
-      ? [...partsOnPage(parts, "main", page), ...partsOnPage(parts, "main-trailing", page)].sort((a, b) => parts[a].order - parts[b].order)
+      ? homeSectionsInOrder(home, parts).map(partOf)
       : oneColumnHome && id === "main-trailing"
         ? []
         : partsOnPage(parts, id, page);

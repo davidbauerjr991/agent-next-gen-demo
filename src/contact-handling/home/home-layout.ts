@@ -2,7 +2,7 @@ import type { LayoutParts } from "@/layout/layout-section";
 import type { HomeSectionKey, HomeSettings } from "@/settings";
 
 /** A Home section's part in `layout.parts` (the feed is `activityFeed`). */
-const partOf = (key: HomeSectionKey) => (key === "activity" ? "activityFeed" : key);
+export const partOf = (key: HomeSectionKey) => (key === "activity" ? "activityFeed" : key);
 
 /** One-column Home's rows: every enabled section, wherever `layout.parts` puts it, in the map's order (P-LAYOUT;
  *  the `home.sections` order the map's orders come from). */

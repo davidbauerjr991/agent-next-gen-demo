@@ -30,6 +30,12 @@ export interface AssignmentsPanelState {
   attentionCount: number;
 }
 
+/** The assignments are rows at the top of Home (placement none, or the part moved there): an offer is its row there,
+ *  with Accept / Decline: the feed's Needs a decision leaves it out, and the incoming toast's View goes Home. */
+export function useAssignmentsAtHomeTop(): boolean {
+  return useSlotFor("assignments") === "home-top";
+}
+
 export function useAssignmentsPanel(): AssignmentsPanelState {
   const inPanel = useSlotFor("assignments") === "interior-panel";
   const [fits] = useWorkspaceUiField("assignmentsPanelDocks");

@@ -5,8 +5,8 @@ import { contactHistoryEntryMatches, type ContactHistoryEntry } from "@/componen
 import { contactHistoryInRange, contactHistoryWindow } from "../contact-history-range";
 import { assignmentIdFor, scheduleCardKey, type AssignmentKind, type ChannelKind } from "@/domain";
 import { useScheduleProvider, useScheduleSnapshot } from "@/provider-context";
-import { useSlotFor } from "@/layout/useSlot";
 import { useSettings } from "@/settings";
+import { useAssignmentsAtHomeTop } from "../useAssignmentsPanel";
 import { useWorkspace } from "../workspace/WorkspaceContext";
 import { useWorkspaceUiField } from "../workspace-ui-store";
 import { buildFeed, feedRowMatches, type Feed, type FeedRow, type FeedTarget, type FeedView } from "./activity-feed";
@@ -183,7 +183,7 @@ export function useActivityFeed(): ActivityFeed {
   const legCardKeys = useScheduleLegCardKeys();
   // Placement none: an offered card is already its inline row above Home (Accept / Decline there), so Needs a
   // decision leaves it out and it shows once. The rows read the card list, which skips a schedule item's leg card.
-  const offersInRows = useSlotFor("assignments") === "home-top";
+  const offersInRows = useAssignmentsAtHomeTop();
 
   const feed = useMemo(() => {
     void minute;
