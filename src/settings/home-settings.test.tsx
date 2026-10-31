@@ -48,7 +48,8 @@ describe("Home: the Dashboard follows Settings → Home", () => {
     expect(renderedSections()).toEqual(["queue", "contactHistory", "performance"]);
     // Productivity, the Activity feed and every role card are off until a profile or persona turns them on.
     const off = SECTIONS.home.defaults.sections.filter((s) => !s.enabled).map((s) => s.key);
-    expect(off).toEqual(["productivity", "activity", "dueSoon", "teamQueues", "teamToday", "needsYou", "pipeline", "campaignToday", "followUps"]);
+    // Active assignments (P-LAYOUT-F1 B) leads the order, off: an opt-in.
+    expect(off).toEqual(["activeAssignments", "productivity", "activity", "dueSoon", "teamQueues", "teamToday", "needsYou", "pipeline", "campaignToday", "followUps"]);
     expect(SECTIONS.home.defaults.layout).toBe("oneColumn");
     expect(queueTileNames()).toEqual(["Inbound Voice", "Voicemail", "Outbound Voice"]);
   });
@@ -130,12 +131,15 @@ describe("Settings → Home controls", () => {
       (el) => el.textContent?.trim() === "Settings",
     )!;
     await h.click(settings);
-    expect(button("Move Queue up")?.disabled).toBe(true);
+    // Active assignments is the first row (P-LAYOUT-F1 B).
+    expect(button("Move Active assignments up")?.disabled).toBe(true);
+    expect(button("Move Queue up")?.disabled).toBe(false);
     expect(button("Move Queue down")?.disabled).toBe(false);
     expect(button("Move Follow-ups down")?.disabled).toBe(true);
     expect(button("Move Follow-ups up")?.disabled).toBe(false);
     await h.click(button("Move Queue down")!);
     expect(getSettingsStore().getState().values.home.sections.map((s) => s.key)).toEqual([
+      "activeAssignments",
       "contactHistory",
       "queue",
       "performance",
@@ -149,7 +153,9 @@ describe("Settings → Home controls", () => {
       "campaignToday",
       "followUps",
     ]);
-    expect(button("Move Contact history up")?.disabled).toBe(true);
+    // Contact history is second now, after Active assignments: up moves it, it isn't disabled.
+    expect(button("Move Contact history up")?.disabled).toBe(false);
+    expect(button("Move Active assignments up")?.disabled).toBe(true);
   });
 
   it("the queue tile checkboxes show only while Queue is on; greeting fields only while the header is on", async () => {
@@ -199,6 +205,8 @@ describe("home section storage", () => {
     expect(value.sections).toEqual([
       { key: "productivity", enabled: false },
       { key: "queue", enabled: true },
+      // Missing keys follow in the default order, Active assignments (P-LAYOUT-F1 B) first.
+      { key: "activeAssignments", enabled: false },
       { key: "contactHistory", enabled: true },
       { key: "performance", enabled: true },
       { key: "activity", enabled: false },

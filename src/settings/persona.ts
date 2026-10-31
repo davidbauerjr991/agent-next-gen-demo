@@ -5,8 +5,9 @@ import { useCallback } from "react";
 import type { HomeSection, HomeSectionKey, Persona } from "./settings-schema";
 import { getSettingsStore } from "./settings-store";
 
-/** Which Home sections each persona has on. Contact History is in none of
- *  them: it stays a section the agent can turn on. */
+/** Which Home sections each persona has on. Contact History and Active
+ *  assignments (P-LAYOUT-F1 B) are in none of them: they stay sections the
+ *  agent can turn on. */
 export const PERSONA_HOME_SECTIONS: Record<Persona, readonly HomeSectionKey[]> = {
   agent: ["activity", "queue", "performance", "productivity", "dueSoon"],
   supervisor: ["activity", "teamQueues", "teamToday", "needsYou"],
