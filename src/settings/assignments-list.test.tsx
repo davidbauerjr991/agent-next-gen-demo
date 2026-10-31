@@ -141,30 +141,38 @@ describe("Assignments placement → Interior panel (0c; lyra SidePanel left sinc
     expect(rowChips.length).toBeGreaterThan(0);
   });
 
-  it("docked: no rail item; its pin unpins it to an overlay, its close hides it and the toggle brings it back; resizable (P-LAYOUT fix (a))", async () => {
+  /** The page header's left toggle (lyra PageHeader `panelToggle`, P-LAYOUT-F1 A1): it controls the panel. */
+  const headerToggle = () => h.container.querySelector<HTMLElement>("[aria-controls=assignments-panel]");
+
+  it("docked: no rail item; the header is SidePanel's (title and count, no second caption); its pin unpins it to an overlay, its close hides it and the page header's toggle brings it back; resizable (P-LAYOUT fix (a), P-LAYOUT-F1 A1)", async () => {
     await inPanel();
     expect(railItem()).toBeNull();
     const button = (label: RegExp) => [...h.container.querySelectorAll<HTMLButtonElement>("button")].find((b) => label.test(b.getAttribute("aria-label") ?? ""));
-    const toggle = () => h.container.querySelector("[data-slot=assignments-panel-toggle] button");
+    // One "Assignments": SidePanel's title with the count beside it; the stack has no caption of its own.
+    expect(panel()!.textContent).toContain("Assignments(1)");
+    expect(panel()!.querySelector("[data-slot=assignments-stack]")!.textContent).not.toContain("Assignments");
     // Resizable, no narrower than the card width (SidePanel's own 200 would crush the cards).
     expect(panel()!.querySelector("[role=separator]")!.getAttribute("aria-valuemin")).toBe("350");
-    expect(toggle()).toBeNull();
-    // Unpinned: SidePanel's overlay, so the rail item and the toggle show; pinned again, it pushes once more.
+    // The page header's toggle (the app's own strip is gone).
+    expect(h.container.querySelector("[data-slot=assignments-panel-toggle]")).toBeNull();
+    expect(headerToggle()!.getAttribute("aria-label")).toBe("Assignments");
+    expect(headerToggle()!.getAttribute("aria-expanded")).toBe("true");
+    // Unpinned: SidePanel's overlay (and closed, as lyra's AdminShell unpins); pinned again, it pushes once more.
     await h.click(button(/^Unpin panel$/)!);
     expect(panel()!.getAttribute("data-docked")).toBeNull();
+    expect(headerToggle()!.getAttribute("aria-expanded")).toBe("false");
     expect(railItem()).not.toBeNull();
+    await h.click(headerToggle()!);
     await h.click(button(/^Pin panel$/)!);
     expect(panel()!.getAttribute("data-docked")).toBe("true");
-    // Closed: the toggle at the content card's top start reopens it, docked. Focus follows (a11y review, WCAG 2.4.3):
-    // the close hides its own button, so focus goes to the toggle; the toggle goes as the panel opens, so into it.
+    // Closed: focus follows to the toggle (WCAG 2.4.3: the close hides its own button), which reopens it docked.
     button(/^Close panel$/)!.focus();
     await h.click(button(/^Close panel$/)!);
     expect(panel()!.getAttribute("data-docked")).toBeNull();
-    expect(toggle()!.getAttribute("aria-expanded")).toBe("false");
-    expect(document.activeElement).toBe(toggle());
-    await h.click(toggle() as HTMLElement);
+    expect(headerToggle()!.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(headerToggle());
+    await h.click(headerToggle()!);
     expect(panel()!.getAttribute("data-docked")).toBe("true");
-    expect(panel()!.contains(document.activeElement)).toBe(true);
   });
 
   it("its width comes from the working state, clamped to 350–425; a resize is saved there", async () => {
@@ -181,23 +189,26 @@ describe("Assignments placement → Interior panel (0c; lyra SidePanel left sinc
     expect(JSON.parse(localStorage.getItem("agent-next-gen:working:assignments")!).panelWidth).toBe(resized);
   });
 
-  it("where it doesn't fit, pinned is an overlay that starts closed; unpinning and pinning again keep a shown panel shown", async () => {
+  it("where it doesn't fit, pinned renders unpinned (lyra's pinDisabled): it closes, has no pin, and the toggle opens it as a flyout with focus inside; Escape closes it", async () => {
     // Every element measures 600px wide: less than the panel and the action area's minimum, so it doesn't fit.
     const rect = vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({ width: 600, height: 800, x: 0, y: 0, top: 0, left: 0, right: 600, bottom: 800, toJSON: () => ({}) } as DOMRect);
     try {
       await inPanel();
       const button = (label: RegExp) => [...h.container.querySelectorAll<HTMLButtonElement>("button")].find((b) => label.test(b.getAttribute("aria-label") ?? ""));
-      const toggle = () => h.container.querySelector<HTMLElement>("[data-slot=assignments-panel-toggle] button");
       expect(panel()!.getAttribute("data-docked")).toBeNull();
-      // Closed: the toggle shows. Opened, it's the overlay (the toggle's button goes while it's shown).
-      expect(toggle()).not.toBeNull();
-      await h.click(toggle()!);
-      expect(toggle()).toBeNull();
-      await h.click(button(/^Unpin panel$/)!);
-      expect(toggle()).toBeNull();
-      await h.click(button(/^Pin panel$/)!);
-      expect(toggle()).toBeNull();
-      expect(panel()!.getAttribute("data-docked")).toBeNull();
+      expect(headerToggle()!.getAttribute("aria-expanded")).toBe("false");
+      // A keyboard / assistive-tech activation (a click with no pointer) opens the flyout and moves focus in.
+      await h.click(headerToggle()!);
+      expect(headerToggle()!.getAttribute("aria-expanded")).toBe("true");
+      expect(panel()!.contains(document.activeElement)).toBe(true);
+      expect(button(/^(Un)?[Pp]in panel$/)).toBeUndefined();
+      await act(async () => {
+        document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        await vi.advanceTimersByTimeAsync(100);
+      });
+      expect(headerToggle()!.getAttribute("aria-expanded")).toBe("false");
+      // The working state keeps it pinned: fitting again restores it pinned and open.
+      expect(JSON.parse(localStorage.getItem("agent-next-gen:working:assignments") ?? "{}").panelPinned ?? true).toBe(true);
     } finally {
       rect.mockRestore();
     }

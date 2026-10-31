@@ -19,7 +19,7 @@ import { t } from "@/i18n";
  *  page header); shown only while the column doesn't fit. */
 export function HomeCardsToggle() {
   const { wanted } = useHomeDetailPanel();
-  return <ReferenceOverlayToggle label={t("Cards")} hidden={wanted} ghost />;
+  return <ReferenceOverlayToggle label={t("Cards")} hidden={wanted} />;
 }
 
 export function HomeTwoColumn({ feed, side }: { feed: React.ReactNode; side: React.ReactNode[] }) {

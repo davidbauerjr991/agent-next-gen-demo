@@ -1,55 +1,29 @@
-import { ActionIconButton, Button, Tooltip } from "@nicecxone/lyra-ui";
+import { ActionIconButton } from "@nicecxone/lyra-ui";
 import { PanelRight } from "lucide-react";
-import { panelToggleClass } from "@/contact-handling";
 import { useCanvasRegions } from "@/contact-handling/useCanvasRegions";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
-import { t } from "@/i18n";
-import { cn } from "@/lib/utils";
 
-/** The reference column's overlay toggle: shown only while the column
- *  doesn't fit beside the main column (`referenceColumnFits`, measured by
- *  `ReferenceSlotFrame`); it opens the column as an overlay
- *  (`ReferenceColumn`). Docked, there is nothing to toggle. */
-export function ReferenceOverlayToggle({ label, hidden = false, ghost = false }: { label: string; hidden?: boolean; ghost?: boolean }) {
+/** Two-column Home's Cards toggle (P-HOME-1m): lyra's ghost icon button in the feed's toolbar row, shown only while
+ *  the right column doesn't fit beside the feed (`referenceColumnFits`, measured by `ReferenceSlotFrame`); it opens
+ *  the column as an overlay (`ReferenceColumn`). Docked, there is nothing to toggle. An interaction's or a kind
+ *  cell's reference column is toggled from its page header instead (`WorkspacePageHeader`'s right toggle,
+ *  P-LAYOUT-F1). */
+export function ReferenceOverlayToggle({ label, hidden = false }: { label: string; hidden?: boolean }) {
   const [fits] = useWorkspaceUiField("referenceColumnFits");
   const [open, setOpen] = useWorkspaceUiField("summariesOverlayOpen");
   if (fits || hidden) return null;
-  // `ghost`: lyra's ghost icon button, for a toolbar row (Home's Cards toggle beside the list / table toggle, P-HOME-1m).
-  if (ghost) {
-    return (
-      <ActionIconButton title={label} aria-label={label} aria-pressed={open} data-summaries-toggle="" onClick={() => setOpen((v) => !v)}>
-        <PanelRight className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-      </ActionIconButton>
-    );
-  }
   return (
-    <Tooltip content={label} placement="bottom">
-      <Button
-        variant="outline"
-        size="md"
-        className={cn("w-8 shrink-0 gap-0 px-0 animate-in fade-in-0 duration-200", panelToggleClass({ active: open }))}
-        aria-label={label}
-        aria-pressed={open}
-        data-summaries-toggle=""
-        onClick={() => setOpen((v) => !v)}
-      >
-        <PanelRight className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
-      </Button>
-    </Tooltip>
+    <ActionIconButton title={label} aria-label={label} aria-pressed={open} data-summaries-toggle="" onClick={() => setOpen((v) => !v)}>
+      <PanelRight className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+    </ActionIconButton>
   );
 }
 
-/** P-CANVAS: the record header's "Summaries" toggle, right of Contact
- *  Details, under the two-column canvas. */
-export function SummariesToggle() {
+/** P-CANVAS: the interaction has a reference column to toggle — the two-column canvas, unless a slide-over in the
+ *  reference slot has taken the column's place. */
+export function useRecordReferenceColumn(): boolean {
   const { twoColumn } = useCanvasRegions();
   const { selectedDetailPanelContent, slideOverMode } = useWorkspace();
-  // A slide-over in the reference slot takes the column's place, so there's nothing to toggle.
-  return (
-    <ReferenceOverlayToggle
-      label={t("Summaries")}
-      hidden={!twoColumn || (slideOverMode === "referenceSlot" && !!selectedDetailPanelContent)}
-    />
-  );
+  return twoColumn && !(slideOverMode === "referenceSlot" && !!selectedDetailPanelContent);
 }

@@ -11,7 +11,7 @@
 // with its slide-over; the action area ends with the Copilot input, whose
 // answers are scoped to the item (src/scenarios/schedule-copilot.ts).
 import { createPortal } from "react-dom";
-import { Avatar, PageHeader, Tag } from "@nicecxone/lyra-ui";
+import { Avatar, Tag } from "@nicecxone/lyra-ui";
 import { Clock } from "lucide-react";
 import { initialsFor } from "@/components/agent-next-gen-shared-utils";
 import { KindTag } from "@/components/home/home-kinds";
@@ -20,7 +20,7 @@ import { useScheduleAddChannel } from "@/contact-handling/home/useScheduleCalls"
 import { useDetailSlideOverPanel } from "@/components/workspace/detail-slide-over-parts";
 import { ContactDetailsControl } from "@/components/workspace/ContactDetailsControl";
 import { ReferenceSlotFrame } from "@/components/workspace/ReferenceSlot";
-import { ReferenceOverlayToggle } from "@/components/workspace/SummariesToggle";
+import { WorkspacePageHeader } from "@/components/workspace/WorkspacePageHeader";
 import { scheduleCardKey } from "@/domain";
 import { feedTimeLabel } from "@/contact-handling/home/time";
 import { HostSlot } from "@/contact-handling/portal-hosts";
@@ -103,11 +103,14 @@ export function KindCell({ item }: { item: ScheduleItem }) {
       data-schedule-item={item.id}
     >
       <div data-slot="record-header" className="shrink-0">
-        <PageHeader
+        <WorkspacePageHeader
           title={customer?.name ?? item.title}
           subtitle={subjectLine(item)}
           bordered={false}
           compact
+          // The right toggle: the reference column's overlay while it doesn't fit, else the docked panel (P-LAYOUT-F1).
+          rightPanel
+          referenceColumn={!selectedDetailPanelContent}
           // The customer's avatar, as a conversation's record header shows it (P-HOME-1m). No back arrow: Home is the
           // left nav's, and the X / Return to feed's.
           icon={
@@ -121,7 +124,6 @@ export function KindCell({ item }: { item: ScheduleItem }) {
           actions={
             <div className="flex items-center gap-1">
               <KindCustomerActions item={item} />
-              <ReferenceOverlayToggle label={t("Summaries")} hidden={!!selectedDetailPanelContent} />
             </div>
           }
         />

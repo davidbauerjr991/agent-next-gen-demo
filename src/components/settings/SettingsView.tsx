@@ -7,7 +7,8 @@
 // each under `sections/`; the grouping is presentation only (no store section
 // moves).
 import * as React from "react";
-import { Button, Modal, PageHeader, WarningIcon } from "@nicecxone/lyra-ui";
+import { Button, Modal, WarningIcon } from "@nicecxone/lyra-ui";
+import { WorkspacePageHeader } from "@/components/workspace/WorkspacePageHeader";
 import { useResetSettings } from "@/settings";
 import { WorkspaceSection } from "./sections/WorkspaceSection";
 import { LayoutSection } from "./sections/LayoutSection";
@@ -26,7 +27,7 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
   return (
     <>
       {showPageHeader && (
-        <PageHeader
+        <WorkspacePageHeader
           title="Settings"
           // In the header's action slot, reachable without scrolling; opens
           // the confirm dialog below.

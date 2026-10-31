@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { LYRA_CARD_MAX_WIDTH, SidePanel } from "@nicecxone/lyra-ui";
+import { usePanelToggles } from "@/contact-handling/panel-toggles";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { t } from "@/i18n";
@@ -32,6 +33,9 @@ export function ReferenceColumn({
   const [docked] = useWorkspaceUiField("referenceColumnFits");
   const [overlayOpen, setOverlayOpen] = useWorkspaceUiField("summariesOverlayOpen");
   const columnRef = useRef<HTMLDivElement>(null);
+  // The record header's right toggle (lyra `useSidePanelToggle`, P-LAYOUT-F1): its hover reveal and keyboard focus.
+  const toggle = usePanelToggles()?.reference;
+  const toggleId = toggle?.panelId;
 
   // The overlay closes when the column docks again and when the card changes.
   useEffect(() => {
@@ -48,11 +52,12 @@ export function ReferenceColumn({
     const onPointerDown = (e: PointerEvent) => {
       const target = e.target as Element | null;
       if (!target || columnRef.current?.contains(target) || target.closest("[data-summaries-toggle]")) return;
+      if (toggleId && target.closest(`[aria-controls="${CSS.escape(toggleId)}"]`)) return;
       setOverlayOpen(false);
     };
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [open, setOverlayOpen]);
+  }, [open, setOverlayOpen, toggleId]);
 
   return (
     <>
@@ -79,6 +84,10 @@ export function ReferenceColumn({
           headerTitle={title ?? t("Summaries")}
           showCloseButton
           onClose={() => setOverlayOpen(false)}
+          id={toggleId}
+          tabIndex={toggleId ? -1 : undefined}
+          onMouseEnter={toggle?.sidePanelProps.onMouseEnter}
+          onMouseLeave={toggle?.sidePanelProps.onMouseLeave}
           data-canvas-region="reference"
         >
           <div className="flex flex-col gap-3 p-4">{children}</div>

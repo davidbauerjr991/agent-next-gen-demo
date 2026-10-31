@@ -1,7 +1,6 @@
 // Home's tab strip and tab bodies (P0.5d.2, ported from Desk).
 import type * as React from "react";
 import {
-  PageHeader,
   Tab,
   TabList,
   type ChannelType,
@@ -19,6 +18,7 @@ import {
 } from "@/components/customer-info";
 import type { CustomerTableState } from "@/components/customer-table-state";
 import { HOME_APP_TAB_LABELS, keptMountedClass, type HomeTabs } from "@/components/home-tabs-state";
+import { WorkspacePageHeader } from "@/components/workspace/WorkspacePageHeader";
 import type { ExtraHeaderApp } from "@/settings";
 import { cn } from "@/lib/utils";
 
@@ -72,7 +72,7 @@ function customerTabElements(tabs: HomeTabs) {
 export function LeftNavAppPage({ title, showHeader, children }: { title: string; showHeader: boolean; children: React.ReactNode }) {
   return (
     <div className="flex flex-1 flex-col min-w-0 overflow-hidden animate-in fade-in-0 duration-200" data-slot="left-nav-page" data-app={title}>
-      {showHeader && <PageHeader title={title} />}
+      {showHeader && <WorkspacePageHeader title={title} />}
       {/* Positioned, scrolling sideways, and its own stacking context
           (`isolate`): lyra's table resize handles (z-10) stay inside the
           page instead of painting over the left nav's hover overlay. */}

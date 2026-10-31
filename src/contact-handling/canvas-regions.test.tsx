@@ -373,7 +373,8 @@ describe("a slide-over takes the reference slot (inline and main)", () => {
 });
 
 describe("the Summaries overlay when the column doesn't fit", () => {
-  const summaries = () => h.container.querySelector<HTMLElement>("[data-summaries-toggle]");
+  /** The record header's right toggle while it drives the Summaries overlay (lyra PageHeader, P-LAYOUT-F1 A1). */
+  const summaries = () => h.container.querySelector<HTMLElement>('[data-slot=record-header] button[aria-label="Summaries"]');
   const fits = async (value: boolean) => {
     await act(async () => {
       getWorkspaceUiStore(h.provider).update((s) => ({ ...s, referenceColumnFits: value }));
@@ -390,7 +391,7 @@ describe("the Summaries overlay when the column doesn't fit", () => {
     expect(region("reference")!.hasAttribute("data-docked")).toBe(false);
     expect(columnOpen()).toBe(false);
     await h.click(summaries()!);
-    expect(summaries()!.getAttribute("aria-pressed")).toBe("true");
+    expect(summaries()!.getAttribute("aria-expanded")).toBe("true");
     expect(columnOpen()).toBe(true);
     // Outside click.
     await act(async () => {
@@ -402,10 +403,25 @@ describe("the Summaries overlay when the column doesn't fit", () => {
     await h.click(summaries()!);
     await h.click(region("reference")!.querySelector<HTMLElement>('button[aria-label="Close panel"]')!);
     expect(columnOpen()).toBe(false);
-    // Fits again: docked, no toggle.
+    // Fits again: docked, no toggle (under "main" the docked panel is a thread, picked from the channel icons).
     await fits(true);
     expect(summaries()).toBeNull();
+    expect(h.container.querySelector('[data-slot=record-header] button[aria-label="Details panel"]')).toBeNull();
     expect(region("reference")!.hasAttribute("data-docked")).toBe(true);
+  });
+
+  it("AI display panel: the record header's right toggle opens and closes the docked AI panel (P-LAYOUT-F1 A1)", async () => {
+    await open({ displayLocation: "panel", canvasLayout: "twoColumn" });
+    await CASES.noah();
+    const toggle = () => h.container.querySelector<HTMLElement>('[data-slot=record-header] button[aria-label="Details panel"]')!;
+    const shown = () => h.container.querySelector("[data-slot=right-panel]")?.getAttribute("data-open") === "true";
+    const before = shown();
+    expect(toggle().getAttribute("aria-expanded")).toBe(String(before));
+    await h.click(toggle());
+    expect(shown()).toBe(!before);
+    expect(toggle().getAttribute("aria-expanded")).toBe(String(!before));
+    await h.click(toggle());
+    expect(shown()).toBe(before);
   });
 
   it("stacked never shows the toggle", async () => {

@@ -8,7 +8,11 @@ import { EmptyState, type ListReorderItemProps } from "@nicecxone/lyra-ui";
 import { Inbox } from "lucide-react";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { AssignmentsSectionCaption } from "@/components/agent-next-gen-interaction-dashboard";
+import {
+  AssignmentsExpandCollapseAllButton,
+  AssignmentsSectionCaption,
+  AssignmentsSortButton,
+} from "@/components/agent-next-gen-interaction-dashboard";
 import { ClockTick } from "@/components/agent-next-gen-clock-tick";
 import { useAssignmentCards, useChannelChipsShown, type AssignmentEntry, type AssignmentsMount } from "@/contact-handling/useAssignmentCards";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
@@ -58,6 +62,31 @@ export function AssignmentsCaption({ expanded, mount }: { expanded: boolean; mou
   );
 }
 
+/** The caption's controls on their own — Collapse / Expand all and the sort popover, with 2+ assignments — for the
+ *  interior panel's header, where SidePanel's own title and count stand for the caption (P-LAYOUT-F1). */
+export function AssignmentsHeaderActions() {
+  const {
+    assignmentSort, assignmentSortDirection, channelsAllExpanded, handleToggleAllChannelsExpanded,
+    noInteractionCollapse, setAssignmentSort, setAssignmentSortDirection,
+  } = useWorkspace();
+  const count = useRailAssignmentCount();
+  if (count < 2) return null;
+  return (
+    <span className="flex items-center gap-1">
+      {!noInteractionCollapse && (
+        <AssignmentsExpandCollapseAllButton allExpanded={channelsAllExpanded} onToggle={handleToggleAllChannelsExpanded} />
+      )}
+      <AssignmentsSortButton
+        value={assignmentSort}
+        onValueChange={(value) => setAssignmentSort(value as AssignmentSortMode)}
+        options={ADVANCED_ASSIGNMENT_SORT_OPTIONS}
+        direction={assignmentSortDirection}
+        onDirectionChange={setAssignmentSortDirection}
+      />
+    </span>
+  );
+}
+
 /** One rail card in its drag target: a conversation's `NavCardItem` in its own `ClockTick` (a tick re-renders the
  *  card, not the page), or an open schedule item's `KindNavCard`. `slotExpanded` is LeftNav's hover value in the
  *  left nav (undefined inline, so the card falls back to `navOpen`); the panel and Home pass true. */
@@ -100,8 +129,9 @@ export function AssignmentsEmptyState() {
   );
 }
 
-/** The caption, the empty state and every card: the assignments part in the interior panel (the top of Home has its
- *  inline rows, `AssignmentInlineRows`, since P-LAYOUT). */
+/** The empty state and every card: the assignments part in the interior panel, whose SidePanel header carries the
+ *  title, count and the caption's controls (`AssignmentsHeaderActions`; P-LAYOUT-F1). (The top of Home has its
+ *  inline rows, `AssignmentInlineRows`, since P-LAYOUT.) */
 export function AssignmentsStack({
   mount,
   className,
@@ -113,7 +143,6 @@ export function AssignmentsStack({
   const chipsShown = useChannelChipsShown(mount);
   return (
     <div className={cn("flex flex-col gap-2", className)} data-slot="assignments-stack" data-mount={mount}>
-      <AssignmentsCaption expanded mount={mount} />
       {entries.length === 0 ? (
         <AssignmentsEmptyState />
       ) : (

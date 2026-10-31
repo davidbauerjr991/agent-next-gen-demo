@@ -481,7 +481,6 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
   // panel shouldn't silently reopen full-screen from a previous session.
   const [sidePanelFullScreen, setSidePanelFullScreen] = useState(false);
   sidePanelFullScreenRef.current = sidePanelFullScreen;
-  const sidePanelHoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // Per the MOST RECENT explicit follow-up request ("start every
   // conversation with the contact details panel closed") — reverses yet
   // again. The immediately prior request ("every interaction should open
@@ -586,19 +585,8 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
   // panel's own close button, or the header icon toggle while pinned)
   // changes it now.
 
-  // Hover-preview handlers — guarded on `sidePanelPinned` (not the
-  // narrow-adjusted `effectiveSidePanelPinned`): once pinned, hover does
-  // nothing at all in either direction, open/closed is controlled solely by
-  // the click toggle while pinned, same as every other `SidePanel` consumer.
-  const onSidePanelHoverStart = () => {
-    if (sidePanelPinned) return;
-    clearTimeout(sidePanelHoverTimer.current);
-    setSidePanelOpen(true);
-  };
-  const onSidePanelHoverEnd = () => {
-    if (sidePanelPinned) return;
-    sidePanelHoverTimer.current = setTimeout(() => setSidePanelOpen(false), 300);
-  };
+  // Hover (the page header's right toggle, a preview while it's closed) is lyra `useSidePanelToggle`'s, in
+  // `PanelTogglesProvider` (P-LAYOUT-F1).
   // Fired by the panel's own header button (a `PanelPinButton` wearing a
   // `PanelLeftClose` icon instead of the default `Pin` glyph, per explicit
   // request) — just hides the panel, per explicit follow-up request;
@@ -897,8 +885,8 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
     marcusMemoryFocus, setMarcusMemoryFocus,
     experienceMemoryFocus, setExperienceMemoryFocus, openExperienceMemoryInSidePanel, openArtifactsList, focusCustomerPanelTab,
     sidePanelPinned, sidePanelResizing, setSidePanelResizing, sidePanelWidth, setSidePanelWidth, sidePanelFullScreen,
-    setSidePanelFullScreen, sidePanelHoverTimer, isSidePanelContainerNarrow, effectiveSidePanelPinned,
-    isSidePanelAtMaxWidthBreakpoint, isSidePanelAtMinimalThreshold, onSidePanelHoverStart, onSidePanelHoverEnd,
+    setSidePanelFullScreen, isSidePanelContainerNarrow, effectiveSidePanelPinned,
+    isSidePanelAtMaxWidthBreakpoint, isSidePanelAtMinimalThreshold,
     handleSidePanelClose, sidePanelStateByAssignmentId, switchActiveInteraction, handleLucasTakeover,
     contactDetailsShowing, showContactDetails, selectPanel, handleLinkCustomerFromPreview, openCustomerInfoPreview,
     scheduleCloseCustomerInfoPreview, openChannelHoverPreview, scheduleCloseChannelHoverPreview, lastPreviewKey,

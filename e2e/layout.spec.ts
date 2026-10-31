@@ -22,30 +22,49 @@ async function setUp(page: Page, assignments: Record<string, unknown>, width = 2
 }
 
 const panel = (page: Page) => page.locator("[data-slot=assignments-panel]");
-const toggle = (page: Page) => page.locator("[data-slot=assignments-panel-toggle]").getByRole("button", { name: "Show assignments" });
+/** The page header's left toggle (lyra PageHeader `panelToggle`, P-LAYOUT-F1 A1): always in the header while the
+ *  assignments are in the interior panel. */
+const toggle = (page: Page) => page.locator("[aria-controls=assignments-panel]");
 /** The content column: the content card's row's last flex child before any docked right panel — Home's own root here. */
 const homeBox = async (page: Page) => (await page.locator("[data-home-layout]").first().boundingBox())!;
 
-test("fix (a): pinned, the interior panel pushes the content; unpinned, it overlays it and the toggle shows", async ({ page }) => {
+test("fix (a): pinned, the interior panel pushes the content; unpinned, hovering the toggle opens it over the content (lyra's flyout)", async ({ page }) => {
   await setUp(page, { placement: "interiorPanel" });
   await expect(panel(page)).toHaveAttribute("data-docked", "true");
   const pinned = (await panel(page).boundingBox())!;
   const pushed = await homeBox(page);
-  // Pinned: the content starts after the panel.
+  // Pinned: the content starts after the panel; the page header's toggle says it's open.
   expect(Math.round(pushed.x)).toBeGreaterThanOrEqual(Math.round(pinned.x + pinned.width) - 1);
-  await expect(toggle(page)).toHaveCount(0);
+  await expect(toggle(page)).toHaveAttribute("aria-expanded", "true");
 
+  // Unpinning closes it (as lyra's AdminShell does); the content takes the room back.
   await panel(page).getByRole("button", { name: "Unpin panel" }).click();
   await expect(panel(page)).not.toHaveAttribute("data-docked", "true");
-  // Unpinned: the content moves back under the panel (only the toggle's strip before it), and the panel lies over it.
+  await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
   await expect.poll(async () => (await homeBox(page)).x).toBeLessThan(pushed.x);
+  // Hovering the toggle opens it as a flyout over the content; leaving it and the panel closes it again.
+  await toggle(page).hover();
+  await expect(toggle(page)).toHaveAttribute("aria-expanded", "true");
+  await page.waitForTimeout(300);
   const overlay = (await panel(page).boundingBox())!;
   const under = await homeBox(page);
   expect(Math.round(overlay.x + overlay.width)).toBeGreaterThan(Math.round(under.x));
-  // The open overlay covers the strip, so its button waits until the panel is closed.
-  await expect(toggle(page)).toHaveCount(0);
+  await page.mouse.move(1200, 600);
+  await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
+});
+
+test("A1: pinned and closed, hovering the toggle previews the panel without moving the content; a click opens it", async ({ page }) => {
+  await setUp(page, { placement: "interiorPanel" });
   await panel(page).getByRole("button", { name: "Close panel" }).click();
-  await expect(toggle(page)).toBeVisible();
+  await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
+  const closed = await homeBox(page);
+  await toggle(page).hover();
+  await page.waitForTimeout(300);
+  // Previewed: the panel shows over the content, which stays where it was.
+  expect(((await panel(page).boundingBox())?.width ?? 0)).toBeGreaterThan(300);
+  expect(Math.round((await homeBox(page)).x)).toBe(Math.round(closed.x));
+  await toggle(page).click();
+  await expect(panel(page)).toHaveAttribute("data-docked", "true");
 });
 
 test("fix (a): a dragged width is kept across a reload, within 350–425", async ({ page }) => {
@@ -71,7 +90,7 @@ test("fix (a): a dragged width is kept across a reload, within 350–425", async
   await expect.poll(async () => Math.round((await panel(page).boundingBox())!.width)).toBe(dragged);
 });
 
-test("fix (a): the close hides the panel, the content takes its room, and the toggle at the card's top start brings it back", async ({ page }) => {
+test("fix (a): the close hides the panel, the content takes its room, and the page header's toggle brings it back, clear of the nav's chevron", async ({ page }) => {
   await setUp(page, { placement: "interiorPanel" });
   await expect(panel(page)).toHaveAttribute("data-docked", "true");
   const pushed = await homeBox(page);
@@ -80,9 +99,11 @@ test("fix (a): the close hides the panel, the content takes its room, and the to
   await expect.poll(async () => (await homeBox(page)).x).toBeLessThan(pushed.x);
   const card = (await page.locator("[data-slot=content-card]").boundingBox())!;
   const t = (await toggle(page).boundingBox())!;
-  // The toggle sits at the content card's top start.
-  expect(t.x - card.x).toBeLessThan(24);
-  expect(t.y - card.y).toBeLessThan(24);
+  // The toggle sits in the page header's own inset (lyra PageHeader's px-6), as AdminShell's does: past the left nav's
+  // chevron, which hangs over the content card's edge.
+  const chevron = (await page.locator("aside").getByRole("button", { name: /sidebar/ }).boundingBox())!;
+  expect(t.x).toBeGreaterThan(chevron.x + chevron.width);
+  expect(Math.round(t.x - card.x)).toBeGreaterThanOrEqual(24);
   await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
   // Kept per browser: still closed after a reload.
   await page.reload();

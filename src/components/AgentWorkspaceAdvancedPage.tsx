@@ -25,7 +25,7 @@ import { RecordHeader } from "@/components/workspace/RecordHeader";
 import { InteractionBody } from "@/components/workspace/InteractionBody";
 import { WorkspaceHome } from "@/components/workspace/WorkspaceHome";
 import { WorkspaceRightPanel } from "@/components/workspace/WorkspaceRightPanel";
-import { AssignmentsInteriorPanel } from "@/components/workspace/AssignmentsInteriorPanel";
+import { PanelToggleRow } from "@/components/workspace/AssignmentsInteriorPanel";
 import { DetailSlideOver } from "@/components/workspace/DetailSlideOver";
 import { WorkspaceVoiceBar } from "@/components/workspace/WorkspaceVoiceBar";
 import { WorkspaceModals } from "@/components/workspace/WorkspaceModals";
@@ -104,9 +104,7 @@ export function AgentWorkspaceAdvancedPage({
 
             {/* Row: the content column + the docked right panel. Not flattened into Container:
                 `isCombinedPanelMode`'s tab row stays outside the panels' reach. */}
-            <div className="flex flex-1 overflow-hidden min-h-0">
-              {/* The interior-panel slot (P-LAYOUT fix (a)): the assignments' left SidePanel, inside the content card. */}
-              <AssignmentsInteriorPanel />
+            <PanelToggleRow>
               <div id="main-content" className="flex flex-1 flex-col min-w-0 overflow-hidden">
 
                 {/* Below 768px with a docked panel open: a second region
@@ -379,7 +377,7 @@ export function AgentWorkspaceAdvancedPage({
                   "unknown contact" fallback. */}
               <WorkspaceRightPanel />
 
-            </div>
+            </PanelToggleRow>
 
             {/* The "View customer info" floating overlay that used to
                 render here is gone — per explicit request ("move the

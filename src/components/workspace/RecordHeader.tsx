@@ -6,7 +6,6 @@ import {
   type ChannelOutcomeConfig,
   ChannelToggle,
   ChannelToggleGroup,
-  PageHeader,
   PanelHeader,
   PlainToggleTab,
   Popover,
@@ -37,7 +36,8 @@ import {
 import { formatElapsedTime, getAwaitingSeverity, initialsFor } from "@/components/agent-next-gen-shared-utils";
 import { cn } from "@/lib/utils";
 import { SHOW_CHANNEL_TOGGLE_GROUP } from "./workspace-constants";
-import { SummariesToggle } from "./SummariesToggle";
+import { useRecordReferenceColumn } from "./SummariesToggle";
+import { WorkspacePageHeader } from "./WorkspacePageHeader";
 import { ContactDetailsControl } from "./ContactDetailsControl";
 
 /** The active interaction's record header (P-EXTRACT C8, from the page):
@@ -58,6 +58,7 @@ export function RecordHeader() {
     setHistoryConversationTab, setOutcomeDraft, showChannelTabRow,
     storeContacts, tabs, threadMenu, sessionRowHost, sessionRowInHeader,
   } = useWorkspace();
+  const hasReferenceColumn = useRecordReferenceColumn();
   if (!activeInteraction) return null;
   return (
                     <>
@@ -117,10 +118,14 @@ export function RecordHeader() {
                         second line (AI display "main": the session row is the panel thread's, k5 B) the PageHeader
                         carries the border. */}
                     <div data-slot="record-header" className="shrink-0">
-                    <PageHeader
+                    <WorkspacePageHeader
                       ref={recordHeaderRef}
                       bordered={false}
                       compact
+                      // The right toggle (P-LAYOUT-F1): the Summaries overlay while the reference column doesn't fit,
+                      // else the docked panel.
+                      rightPanel
+                      referenceColumn={hasReferenceColumn}
                       className={sessionRowInHeader ? undefined : "border-b border-lyra-border-subtle pb-3"}
                       // Per explicit request ("add an icon indicating
                       // whether the interaction is an agent or a customer
@@ -700,8 +705,6 @@ export function RecordHeader() {
                             every AI display mode, selected while the panel shows Contact Details (clicking it then
                             closes the panel), with its hover preview. */}
                         {activeInteraction && <ContactDetailsControl compact={recordHeaderWidth < 768} />}
-                        {/* Outside the wrapper above: hovering it must not open the Contact Details preview. */}
-                        <SummariesToggle />
                         </div>
                       }
                     />

@@ -1,28 +1,46 @@
-// The interior-panel slot (P-PROFILES 0c; P-HOME-1n; P-LAYOUT fix (a), Dave 2026-10-30): the assignments part in
+// The interior-panel slot (P-PROFILES 0c; P-HOME-1n; P-LAYOUT fix (a); P-LAYOUT-F1 A1): the assignments part in
 // lyra's left `SidePanel` inside the content card, its first flex child, before the record header, body, Home and
-// Settings — the "Side Panel — Left" story's shape. Pinned, it pushes the content while it, the action area and the
-// reference slot fit (`assignmentsPanelDocks`, counting the reference slot, which widens with an open slide-over);
-// where they don't, or unpinned, it's SidePanel's own overlay. Its header has the pin and the close; closed (or as an
-// overlay), the "Show assignments" toggle sits at the content card's top start. Open, pinned (both on by default,
-// `useAssignmentsPanel`) and its dragged width are per-browser working state.
+// Settings — the "Side Panel — Left" story's shape. Its toggle is the page header's own (lyra PageHeader
+// `panelToggle`, through `WorkspacePageHeader`), and the two share lyra `useSidePanelToggle`'s state
+// (`PanelTogglesProvider`): pinned, the toggle opens and closes it and hovering the toggle while it's closed previews
+// it; unpinned, it's a hover flyout. Pinned, it pushes the content while it, the action area and the reference slot
+// fit (`assignmentsPanelDocks`, counting the reference slot, which widens with an open slide-over); where they don't,
+// it renders unpinned (lyra's `pinDisabled`). Its header is SidePanel's: "Assignments", the count, the caption's
+// controls, the pin and the close. Open, pinned (both on by default) and its dragged width are per-browser working
+// state.
 import * as React from "react";
-import { ActionIconButton, LYRA_CARD_MAX_WIDTH, SidePanel } from "@nicecxone/lyra-ui";
-import { PanelLeftOpen } from "lucide-react";
+import { LYRA_CARD_MAX_WIDTH, SidePanel } from "@nicecxone/lyra-ui";
 import { t } from "@/i18n";
 import { useSlotHas } from "@/layout/useSlot";
 import { assignmentsPanelDocks, availableForAssignmentsPanel } from "@/contact-handling/assignments-panel-placement";
-import { useAssignmentsPanel } from "@/contact-handling/useAssignmentsPanel";
+import { useRailAssignmentCount } from "@/contact-handling/home/useScheduleCards";
+import { ASSIGNMENTS_PANEL_ID, PanelTogglesProvider, usePanelToggles } from "@/contact-handling/panel-toggles";
 import { setAssignmentsWorkingState, useAssignmentsWorkingState } from "@/contact-handling/assignments-working-state";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
-import { AssignmentsStack } from "./AssignmentCardList";
+import { AssignmentsHeaderActions, AssignmentsStack } from "./AssignmentCardList";
 
-/** The assignments part in the interior-panel slot: the panel, and its toggle while it isn't pushing the content. */
+/** The content card's row of the content column and its side panels (the page's, P-LAYOUT-F1): the panels' toggle
+ *  state for every page header in it (`PanelTogglesProvider`), then the interior-panel slot, then the page's
+ *  children (the content column and the docked right panel). */
+export function PanelToggleRow({ children }: { children: React.ReactNode }) {
+  return (
+    <PanelTogglesProvider>
+      <div className="flex flex-1 overflow-hidden min-h-0">
+        <AssignmentsInteriorPanel />
+        {children}
+      </div>
+    </PanelTogglesProvider>
+  );
+}
+
+/** The assignments part in the interior-panel slot. */
 export function AssignmentsInteriorPanel() {
   return useSlotHas("interior-panel", "assignments") ? <AssignmentsSidePanel /> : null;
 }
 
 function AssignmentsSidePanel() {
-  const panel = useAssignmentsPanel();
+  const toggle = usePanelToggles()?.assignments;
+  const count = useRailAssignmentCount();
   const anchorRef = React.useRef<HTMLDivElement>(null);
   const contentRowWidth = useParentWidth(anchorRef);
   // The dragged width, kept per browser (the working state; clamped to the panel's bounds on read). Live while
@@ -49,80 +67,49 @@ function AssignmentsSidePanel() {
   const [regionsRowWidth] = useWorkspaceUiField("regionsRowWidth");
   const [referenceSlotWidth] = useWorkspaceUiField("referenceSlotWidth");
   const [, setDocks] = useWorkspaceUiField("assignmentsPanelDocks");
-  const [, setFitOverlayOpen] = useWorkspaceUiField("assignmentsPanelOverlayOpen");
+  const docked = !!toggle && toggle.pinned && toggle.open;
 
   const docks = assignmentsPanelDocks({
     available: availableForAssignmentsPanel({
       regionsRowWidth,
       referenceSlotMounted: referenceSlotWidth !== null,
       contentRowWidth,
-      panelDocked: panel.docked,
+      panelDocked: docked,
       panelWidth,
     }),
     panelWidth,
     referenceSlotWidth: referenceSlotWidth ?? 0,
   });
-  React.useEffect(() => {
-    setDocks(docks);
-    // Fitting again ends the fit overlay, so a later "doesn't fit" starts closed rather than reopening it.
-    if (docks) setFitOverlayOpen(false);
-  }, [docks, setDocks, setFitOverlayOpen]);
+  React.useEffect(() => setDocks(docks), [docks, setDocks]);
 
-  // Focus follows the panel (WCAG 2.4.3): its close hides the focused button with the panel, so focus moves to the
-  // toggle that brings it back; the toggle unmounts as the panel opens, so focus moves into the panel.
-  const toggleRef = React.useRef<HTMLButtonElement>(null);
-  const focusNext = React.useRef<"toggle" | "panel" | null>(null);
-  React.useEffect(() => {
-    const target = focusNext.current;
-    focusNext.current = null;
-    if (target === "toggle" && !panel.open) toggleRef.current?.focus();
-    if (target === "panel" && panel.open) document.querySelector<HTMLElement>("[data-slot=assignments-panel] button")?.focus();
-  }, [panel.open]);
-  const close = () => {
-    focusNext.current = "toggle";
-    panel.close();
-  };
-  const open = () => {
-    focusNext.current = "panel";
-    panel.toggle();
-  };
-
-  const toggleLabel = t("Show assignments");
+  if (!toggle) return null;
   return (
     <>
       {/* Measures the panel-and-content row (a hidden child, so the row is its parent). */}
       <div ref={anchorRef} hidden aria-hidden="true" />
-      {/* Not pushing: the toggle's strip at the card's top start. Its button only while the panel is hidden (open, the
-          panel's own close hides it, and an open overlay would cover the button). */}
-      {!panel.docked && (
-        <div className="w-10 shrink-0 ps-2 pt-3" data-slot="assignments-panel-toggle">
-          {!panel.open && (
-            <ActionIconButton ref={toggleRef} title={toggleLabel} aria-label={toggleLabel} aria-expanded={false} onClick={open}>
-              <PanelLeftOpen className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-            </ActionIconButton>
-          )}
-        </div>
-      )}
       <SidePanel
         side="left"
-        open={panel.open}
-        pinned={panel.pinned}
-        onPinToggle={panel.togglePin}
+        {...toggle.sidePanelProps}
         showCloseButton
-        onClose={close}
+        // The close hides its own button with the panel, so focus moves to the page header's toggle (WCAG 2.4.3).
+        onClose={() => {
+          toggle.setOpen(false);
+          requestAnimationFrame(() => document.querySelector<HTMLElement>(`[aria-controls="${ASSIGNMENTS_PANEL_ID}"]`)?.focus());
+        }}
         // The page has its own skip link; a left SidePanel would add a second, identical one.
         skipToMain={false}
         headerTitle={t("Assignments")}
+        headerTitleBadge={<span className="lyra-body-md text-lyra-fg-secondary">{t("({count})", { count })}</span>}
+        headerActions={<AssignmentsHeaderActions />}
         // The cards are laid out at the card width: SidePanel's 200px minimum would crush them. Its own 425 max.
         minWidth={LYRA_CARD_MAX_WIDTH}
         maxWidth={PANEL_MAX_WIDTH}
         width={panelWidth}
         onWidthChange={setPanelWidth}
         resizable
-        // Pinned, it pushes only while the three fit; otherwise SidePanel's overlay.
-        absoluteBreakpoint={docks ? 0 : Number.POSITIVE_INFINITY}
+        className="focus:outline-none"
         data-slot="assignments-panel"
-        data-docked={panel.docked || undefined}
+        data-docked={docked || undefined}
       >
         <AssignmentsStack mount="interiorPanel" className="px-3 pb-3" />
       </SidePanel>

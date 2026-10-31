@@ -4,7 +4,7 @@ import { expect, test, type Page } from "@playwright/test";
 // main the two-column canvas puts the reference cards in a column at lyra's
 // max card width (--lyra-size-card-max-width) on the main column's right
 // edge, docked while it fits and an overlay behind the record header's
-// "Summaries" toggle when it doesn't; "stacked" keeps one column. Contact
+// right toggle ("Summaries"; lyra PageHeader since P-LAYOUT-F1) when it doesn't; "stacked" keeps one column. Contact
 // Details' tab set follows the mode. Layout and widths, so Chrome.
 
 type Ai = { displayLocation: "inline" | "panel" | "main"; canvasLayout: "stacked" | "twoColumn" };
@@ -28,7 +28,9 @@ async function setUp(page: Page, ai: Ai, width = 1600) {
 
 const action = (page: Page) => page.locator("[data-canvas-region=action]");
 const reference = (page: Page) => page.locator("[data-canvas-region=reference]");
-const summaries = (page: Page) => page.locator("[data-summaries-toggle]");
+/** The record header's right toggle while it drives the Summaries overlay (lyra PageHeader, P-LAYOUT-F1 A1): an
+ *  unpinned flyout, so a pointer opens it on hover and a click doesn't shut it. */
+const summaries = (page: Page) => page.locator('[data-slot=record-header] button[aria-label="Summaries"]');
 const box = async (page: Page, selector: string) =>
   page.evaluate((s) => {
     const r = document.querySelector(s)!.getBoundingClientRect();
@@ -201,7 +203,9 @@ test("narrow: the column becomes the Summaries overlay; outside click and its cl
   // Closed: the action area keeps the whole row.
   expect(Math.round(before.width)).toBe(Math.round(r.width));
   await summaries(page).click();
-  await expect(summaries(page)).toHaveAttribute("aria-pressed", "true");
+  await expect(summaries(page)).toHaveAttribute("aria-expanded", "true");
+  // Into the panel, so the flyout stays open (the pointer leaving the toggle and the panel closes it).
+  await page.locator("[data-canvas-region=reference]").hover();
   await page.waitForTimeout(400);
   const col = await box(page, "[data-canvas-region=reference]");
   expect(Math.round(col.width)).toBe(Math.round(await tokenWidth(page)));
@@ -210,13 +214,13 @@ test("narrow: the column becomes the Summaries overlay; outside click and its cl
   expect(Math.round((await box(page, "[data-canvas-region=action]")).width)).toBe(Math.round(before.width));
   // Outside click closes it.
   await page.mouse.click(before.left + 40, 300);
-  await expect(summaries(page)).toHaveAttribute("aria-pressed", "false");
+  await expect(summaries(page)).toHaveAttribute("aria-expanded", "false");
   await page.waitForTimeout(400);
   expect(Math.round((await box(page, "[data-canvas-region=reference]")).width)).toBe(0);
   // So does its close button.
   await summaries(page).click();
   await reference(page).getByRole("button", { name: "Close panel" }).click();
-  await expect(summaries(page)).toHaveAttribute("aria-pressed", "false");
+  await expect(summaries(page)).toHaveAttribute("aria-expanded", "false");
 });
 
 test("main with the card's thread open in the docked panel: the column is the overlay at a width where inline docks it", async ({ page }) => {
@@ -225,7 +229,7 @@ test("main with the card's thread open in the docked panel: the column is the ov
   await expect(page.locator("[data-slot=right-panel][data-open=true]")).toBeVisible();
   await expect(summaries(page)).toBeVisible();
   await summaries(page).click();
-  await expect(summaries(page)).toHaveAttribute("aria-pressed", "true");
+  await expect(summaries(page)).toHaveAttribute("aria-expanded", "true");
 });
 
 // P-HOME-1n: Contact Details opens in the reference slide-over under every AI display; Session left the tabs (its

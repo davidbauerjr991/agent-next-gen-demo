@@ -1,4 +1,5 @@
-import { Button, InteriorPanel, PageHeader, Tab, TabList } from "@nicecxone/lyra-ui";
+import { Button, InteriorPanel, Tab, TabList } from "@nicecxone/lyra-ui";
+import { WorkspacePageHeader } from "./WorkspacePageHeader";
 import { PhoneOutgoing, RotateCcw } from "lucide-react";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { ContactHistoryEntryDetail } from "@/components/agent-next-gen-contact-history";
@@ -13,7 +14,7 @@ export function AllContactsView() {
   return (
                 <div key="all-contacts" className="flex flex-1 flex-col min-w-0 overflow-hidden animate-in fade-in-0 duration-200">
                   {showPageHeader && (
-                    <PageHeader
+                    <WorkspacePageHeader
                       title="All Contacts"
                       breadcrumb={{
                         label: "Dashboard",

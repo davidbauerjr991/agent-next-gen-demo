@@ -9,6 +9,7 @@ import {
   threadAcceptsReplies,
 } from "@/contact-handling";
 import { HostSlot } from "@/contact-handling/portal-hosts";
+import { hasDockedPanel, usePanelToggles } from "@/contact-handling/panel-toggles";
 import { LUCAS_THOMAS_ID } from "@/contact-handling/scenario-cases";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { AGENT_WORKSPACE_CUSTOMER_PANEL_TABS, CustomerInformationSidePanel } from "@/components/customer-info";
@@ -29,7 +30,7 @@ export function WorkspaceRightPanel() {
     handleInteractionStatusChange, handleOutcomeSaveAndDismissChannel,
     handleSendEmailDraft, handleSendMessage, handleSidePanelClose, handleStartCall,
     botHolds, hideAiActions, isSidePanelAtMinimalThreshold,
-    onSidePanelHoverEnd, onSidePanelHoverStart, outcomeDrafts,
+    outcomeDrafts,
     panelPlacement,
     rightPanelRef, scenarioKeyOf, setActiveCustomerOverviewEditing,
     setHistoryConversationTab,
@@ -37,10 +38,11 @@ export function WorkspaceRightPanel() {
     sidePanelFullScreen, sidePanelOpen, sidePanelResizing, sidePanelWidth, threadOutcomeProps,
     viewSessionDetails,
   } = useWorkspace();
+  const dockedToggle = usePanelToggles()?.docked;
   return (
     <>
               {/* Contact Details' subject: a conversation, or a kind cell's customer (P-HOME-1m). */}
-              {!activeInteractionIsAgentCall && showPanelToggle && contactSubject && (
+              {hasDockedPanel({ showPanelToggle, contactSubject, activeInteractionIsAgentCall }) && contactSubject && (
                 // `key`ed on the assignment's own id, same "force a full
                 // remount on every genuine switch" technique the content
                 // column further down already uses (see that div's own
@@ -153,8 +155,11 @@ export function WorkspaceRightPanel() {
                   onToggleFullScreen={
                     isSidePanelAtMinimalThreshold ? undefined : () => setSidePanelFullScreen((v) => !v)
                   }
-                  onMouseEnter={onSidePanelHoverStart}
-                  onMouseLeave={sidePanelResizing ? undefined : onSidePanelHoverEnd}
+                  // The page header's right toggle and its hover preview (lyra `useSidePanelToggle`, P-LAYOUT-F1).
+                  id={dockedToggle?.sidePanelProps.id}
+                  preview={dockedToggle?.sidePanelProps.preview}
+                  onMouseEnter={dockedToggle?.sidePanelProps.onMouseEnter}
+                  onMouseLeave={sidePanelResizing ? undefined : dockedToggle?.sidePanelProps.onMouseLeave}
                   customerName={contactSubject.customerName}
                   recordId={contactSubject.customerId}
                   channels={contactSubject.threads}

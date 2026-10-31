@@ -88,6 +88,8 @@ export function CustomerInformationSidePanel({
   onToggleFullScreen,
   onMouseEnter,
   onMouseLeave,
+  id,
+  preview,
   customerName,
   recordId,
   channels,
@@ -136,6 +138,10 @@ export function CustomerInformationSidePanel({
   onToggleFullScreen?: () => void;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
+  /** The panel's id (its PageHeader toggle's `aria-controls`) and SidePanel's `preview`: lyra
+   *  `useSidePanelToggle`'s panel props (P-LAYOUT-F1). */
+  id?: string;
+  preview?: boolean;
   customerName?: string;
   recordId: string;
   channels: Thread[];
@@ -449,6 +455,9 @@ export function CustomerInformationSidePanel({
       instantWidthChange={fullScreenJustToggled}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      id={id}
+      tabIndex={id ? -1 : undefined}
+      preview={preview}
       // Static "Customer Information" title (was the customer's own name +
       // record id in the TITLE, `headerSubhead={recordId}` below) — per
       // explicit request. The name/id already show again in the page

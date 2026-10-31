@@ -5,7 +5,7 @@
 // oneColumn's; the counts are on the view buttons, P-HOME-1h) and the
 // header's actions (P-HOME-1e, -1f).
 import * as React from "react";
-import { PageHeader } from "@nicecxone/lyra-ui";
+import { WorkspacePageHeader } from "@/components/workspace/WorkspacePageHeader";
 import { CURRENT_AGENT_FIRST_NAME, CURRENT_AGENT_ID } from "@/components/agent-next-gen-shared-utils";
 import { homeIsTwoColumn } from "@/contact-handling/home/home-layout";
 import { useSettings } from "@/settings";
@@ -41,12 +41,12 @@ function HomeGreetingHeader({ actions, welcome }: { actions: React.ReactNode; we
   const title = `${home.greeting.trim() || "Hello"}${home.showFirstName ? ` ${CURRENT_AGENT_FIRST_NAME}` : ""}`;
   const subtitle = t("User Name: {id}", { id: CURRENT_AGENT_ID });
   if (!welcome) {
-    return <PageHeader title={title} subtitle={subtitle} bordered={false} titleSize="2xl" actions={actions} />;
+    return <WorkspacePageHeader title={title} subtitle={subtitle} bordered={false} titleSize="2xl" actions={actions} />;
   }
   // The record header's own bottom border (RecordHeader: compact, one line under the whole header). Presence is the
   // header's presence menu, not a button here (P-HOME-1f).
   return (
-    <PageHeader
+    <WorkspacePageHeader
       title={title}
       subtitle={subtitle}
       bordered={false}

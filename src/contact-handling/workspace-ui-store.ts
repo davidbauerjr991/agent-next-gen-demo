@@ -80,10 +80,6 @@ export interface WorkspaceUiState {
   /** P-PROFILES: the assignments interior panel fits docked beside the action
    *  area and the reference slot (`assignmentsPanelDocks`); false: an overlay. */
   assignmentsPanelDocks: boolean;
-  /** P-PROFILES: the pinned assignments panel is open as the overlay it becomes
-   *  where it doesn't fit (from its toggle or the rail's Assignments item);
-   *  cleared when it fits again. Unpinned, the working state's `panelOpen` decides. */
-  assignmentsPanelOverlayOpen: boolean;
   /** P-HOME-1e: the Activity feed's view (Activity / Parked / History). */
   activityView: FeedView;
   /** P-HOME-1f: History's search (Contact History's own search box). */
@@ -188,7 +184,6 @@ export const INITIAL_WORKSPACE_UI_STATE: WorkspaceUiState = Object.freeze({
   navChannelsExpandedById: Object.freeze({}),
   referenceSlotWidth: null,
   assignmentsPanelDocks: true,
-  assignmentsPanelOverlayOpen: false,
   activityView: "assignments",
   activityHistoryQuery: "",
   activityQuery: "",

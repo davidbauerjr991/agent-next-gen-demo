@@ -212,9 +212,9 @@ All of these live in a new UI-side folder (e.g. `src/contact-handling/`). They c
 
     agent-walkthrough and a11y-review.
   - **Interior panel:**
-    - It shows "Assignments" twice: the SidePanel title and the caption "Assignments (n)" below it.
-    - Unpinned, it overlays the record header and stays open on a click in the content.
-    - Opening it focuses the first button in it found by selector (the pin), not a ref.
+    - ~~It shows "Assignments" twice: the SidePanel title and the caption "Assignments (n)" below it.~~ Closed by P-LAYOUT-F1 2: the header is SidePanel's alone (title, count, the caption's controls).
+    - Unpinned, it overlays the record header and stays open on a click in the content. Since P-LAYOUT-F1 2 an unpinned panel is lyra's hover flyout (it closes once the pointer leaves the toggle and the panel); one opened from the keyboard or by code still stays open on a click in the content.
+    - ~~Opening it focuses the first button in it found by selector (the pin), not a ref.~~ Closed by P-LAYOUT-F1 2: the app's focus code is gone; lyra `useSidePanelToggle` moves focus into a keyboard-opened flyout, and the close moves it to the page header's toggle.
 
     agent-walkthrough and commit-check.
   - **Settings → Layout:**
