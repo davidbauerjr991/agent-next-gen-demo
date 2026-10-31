@@ -202,26 +202,25 @@ describe("the Next Best Action: the greeting on connect, then on a pause or on r
     expect(nba()!.textContent).toContain("Check whether Priya needs anything else");
   });
 
-  it("every default chip on a seeded contact with no script (Ethan's SMS) answers: a row and its result for each; the Next Best Action chip every time it's asked", async () => {
+  it("every default chip on a seeded contact with no script (Ethan's SMS) answers: a plain answer, each an inline line with nothing to open (P-LAYOUT-F1 F); the Next Best Action chip every time it's asked", async () => {
     await open({ displayLocation: "inline" });
     await h.click(h.navCard("Ethan Zhang"));
     await h.advance(500);
     const composer = () => document.body.querySelector<HTMLElement>("[data-slot=copilot-composer]")!;
     const result = () => document.querySelector<HTMLElement>("[data-slot=copilot-result]");
-    const rowFor = (text: string) =>
-      [...h.container.querySelectorAll<HTMLElement>("button")].find((b) => b.textContent?.startsWith(text) && b.textContent.includes("John Smith"));
+    const lineFor = (text: string) => [...main().querySelectorAll<HTMLElement>("[data-event-line]")].find((l) => l.textContent?.includes(`Copilot · ${text}`));
     for (const text of ["Suggest a reply", "Summarize this conversation", "What is the customer's history?"]) {
       const chipButton = () =>
         [...composer().querySelectorAll<HTMLElement>("[data-slot=copilot-chips] [role=button]")].find((c) => c.textContent?.trim() === text);
       if (!chipButton()) await h.click(composer().querySelector("[data-slot=copilot-chips-refresh] button")!);
       await h.click(chipButton()!);
       await h.advance(100);
-      expect(main().textContent).toContain("AI agent is performing this now…");
-      // Once Copilot "finishes": the row, and its result open by itself.
+      expect(lineFor(text), text).toBeUndefined();
+      // Once Copilot "finishes": the line, with the answer; no row, no slide-over.
       await h.advance(2_000);
-      expect(rowFor(text), text).toBeTruthy();
-      expect(result()?.textContent, text).toContain(text);
-      expect(rowFor(text)!.getAttribute("aria-current")).toBe("true");
+      expect(lineFor(text)?.querySelector("li"), text).not.toBeNull();
+      expect(lineFor(text)!.closest("button"), text).toBeNull();
+      expect(result(), text).toBeNull();
     }
     // What should I do next?: the greeting, the reason, then the generic check — never nothing.
     for (const title of ["Greet Ethan", "Ask what Ethan is contacting us about", "Check whether Ethan needs anything else"]) {
@@ -323,8 +322,8 @@ describe("an unscripted call's caller answers with canned lines", () => {
 describe("Settings → AI: chip behaviour", () => {
   const firstChip = () => document.body.querySelector<HTMLElement>("[data-slot=copilot-chips] [role=button]")!;
   const askInput = () => document.body.querySelector<HTMLTextAreaElement>("[data-slot=copilot-composer] textarea")!;
-  const resultRow = (text: string) =>
-    [...main().querySelectorAll<HTMLElement>("button")].find((b) => b.textContent?.startsWith(text) && b.textContent.includes("John Smith"));
+  /** The question was posted: Copilot answered it (a plain answer, its inline line, P-LAYOUT-F1 F). */
+  const answered = (text: string) => [...main().querySelectorAll<HTMLElement>("[data-event-line]")].find((l) => l.textContent?.includes(`Copilot · ${text}`));
 
   it("run (the default): a chip posts its question on the click, with no send", async () => {
     expect(getSettingsStore().getState().values.ai.chipBehavior).toBe("run");
@@ -333,7 +332,7 @@ describe("Settings → AI: chip behaviour", () => {
     const text = firstChip().textContent!.trim();
     await h.click(firstChip());
     await h.advance(2_500);
-    expect(resultRow(text)).toBeDefined();
+    expect(answered(text)).toBeDefined();
     expect(askInput().value).toBe("");
   });
 
@@ -344,7 +343,7 @@ describe("Settings → AI: chip behaviour", () => {
     await h.click(firstChip());
     await h.advance(2_500);
     expect(askInput().value).toBe(text);
-    expect(resultRow(text)).toBeUndefined();
+    expect(answered(text)).toBeUndefined();
   });
 
   it("run: the Next Best Action chip surfaces it at once in panel mode too", async () => {

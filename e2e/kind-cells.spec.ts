@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { registerCardResult } from "./helpers";
 
 // A kind cell's Ask Copilot (P-HOME-1h) in a real browser: the ask is logged
 // in the action area as the transcript's instruction row under the Module
@@ -17,7 +18,9 @@ test("ask Copilot on a training: the inline row and its result under the Module 
   await expect(cell).toBeVisible();
   await expect(cell.locator("[data-kind-copilot] textarea, [data-kind-copilot] input").first()).toHaveAttribute("placeholder", "Ask Copilot about this module…");
 
-  // The chip (the composer also keeps an invisible measuring copy of its chips).
+  // The chip (the composer also keeps an invisible measuring copy of its chips), its answer a card (a plain one is an
+  // inline line, with no row or slide-over, P-LAYOUT-F1 F).
+  await registerCardResult(page, "Quiz me on it");
   await cell.locator("[data-kind-copilot] [data-slot=copilot-chips]").getByText("Quiz me on it").first().click();
   const rows = cell.locator("[data-kind-action-column] [data-kind-copilot-rows]");
   await expect(rows).toContainText("AI agent is performing this now…");

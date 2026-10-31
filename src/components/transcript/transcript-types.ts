@@ -19,6 +19,14 @@ export interface TranscriptMessage {
   tags?: TranscriptTag[];
   /** Renders as a plain system-event line ("time · name" over bold text, no bubble/avatar) instead of a chat bubble. */
   event?: boolean;
+  /** An event line's third header segment ("time · name · context"): a plain Copilot answer's question (P-LAYOUT-F1 F). */
+  eventContext?: string;
+  /** An event line's bullets, under its text (a plain Copilot answer's, at most three). */
+  eventPoints?: readonly string[];
+  /** A plain Copilot answer: until then (epoch ms) it shows the instruction row's "performing" state, asked by
+   *  `eventAskedBy`, then the line. */
+  eventPerformedAt?: number;
+  eventAskedBy?: string;
   /** Renders as a collapsible AI "Approval request" summary card (purple header band, checklist, experience memory, sentiment). */
   summary?: TranscriptApprovalSummary;
   /** The decision already made on this approval card (the provider's record), so a remounted card shows it decided. */

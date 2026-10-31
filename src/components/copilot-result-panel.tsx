@@ -1,10 +1,11 @@
 import React from "react";
 import { Badge } from "@nicecxone/lyra-ui";
 import { Sparkles } from "lucide-react";
+import { copilotResultFor } from "@/contact-handling/copilot-results";
 
 // The slide-over body for a Copilot result row on a contact with no script
-// (any channel). There's no AssistProvider answer yet (P4.8), so the result
-// is a placeholder shaped like the scripted cases' results.
+// (any channel): the registry's result for the question (copilot-results.ts),
+// the placeholder until AssistProvider answers (P4.8).
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -15,37 +16,11 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function placeholderAnswer(question: string): { summary: string; points: string[] } {
-  const q = question.toLowerCase();
-  if (q.includes("draft") || q.includes("suggest a reply")) {
-    return {
-      summary: "Here is a reply Copilot drafted from the conversation so far.",
-      points: ["Acknowledges the customer's request.", "Confirms the next step and when they'll hear back.", "Review it before sending."],
-    };
-  }
-  if (q.includes("next step")) {
-    return {
-      summary: "Suggested next steps for this contact.",
-      points: ["Confirm the customer's details.", "Resolve the open request or set a follow-up.", "Add a disposition when you wrap up."],
-    };
-  }
-  if (q.includes("history")) {
-    return {
-      summary: "The customer's recent contacts, from Contact History.",
-      points: ["Open Contact History for the full list.", "Prior outcomes and notes appear in Contact Details."],
-    };
-  }
-  return {
-    summary: "Here is what Copilot found in this contact.",
-    points: ["The customer's request and its current status.", "Anything still open before you wrap up."],
-  };
-}
-
 export function CopilotResultPanelBody({
   text,
   time,
   by = "John Smith",
-  answer = placeholderAnswer(text),
+  answer = copilotResultFor(text),
 }: {
   text: string;
   time: string;

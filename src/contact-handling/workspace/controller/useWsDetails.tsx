@@ -19,6 +19,7 @@ import type { InteractionHistoryRecord } from "@/components/agent-next-gen-inter
 import { filterCustomersByQuery, findPossibleCustomerMatches } from "@/components/customer-info";
 import { MARCUS_WEBB_ID, LUCAS_THOMAS_ID, TOM_LEWIS_CALL_ID, MAYA_CHEN_CALL_ID } from "@/contact-handling/scenario-cases";
 import { useCopilotAsk, useCopilotResultTimer } from "@/contact-handling/useCopilotAsk";
+import { copilotResultFor } from "@/contact-handling/copilot-results";
 import { useBrand, useSettings, type ExtraHeaderApp } from "@/settings";
 import { LUCAS_THOMAS_PANEL_TITLES, LUCAS_THOMAS_ORDER_DETAILS, TOM_LEWIS_CALL_PANEL_TITLES } from "@/components/agent-next-gen-lucas-thomas-panels";
 import type { DetailPanelContent } from "@/contact-handling/workspace/workspace-types";
@@ -457,6 +458,11 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
   // Always points at the latest `handleDismissInteraction`, for the engine's
   // dismiss of a scripted case (below).
   const dismissInteractionRef = useRef<((id: string) => void) | null>(null);
+  /** A scripted case's own Copilot result panel: one it registers (Marcus), or Lucas's and the cold calls' instruction
+   *  panel; undefined for any other contact. */
+  const scriptedCopilotResult = (cardId: string, request: { text: string; time: string; link: string }): DetailPanelContent | undefined =>
+    slideOverContent(scenarioKeyOf(cardId), request.link) ??
+    (scenarioKeyOf(cardId) === LUCAS_THOMAS_ID || isColdCallId(cardId) ? { kind: "lucas-instruction", decision: "copilot", ...request } : undefined);
   // Anything the agent asks Copilot is logged in the chat as the same "AI agent finished performing this." + clickable
   // instruction row used for approval decisions; the row reopens the question in the side panel (shared `useCopilotAsk`).
   const handleCopilotAsk = useCopilotAsk({
@@ -474,16 +480,12 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
               ? (MARCUS_WEBB_SCRIPT.content.copilot.links as Record<string, string>)[text]
               : undefined;
     },
-    // A case that registers its slide-overs (Marcus) opens its own Copilot result; Lucas and the cold calls theirs; any
-    // other contact the generic result (P-HOME-1j: every assignment's ask opens its result, as the row does).
-    openResult: (cardId, { text, time, link }) =>
-      setSlideOverContent(
-        cardId,
-        slideOverContent(scenarioKeyOf(cardId), link) ??
-          (scenarioKeyOf(cardId) === LUCAS_THOMAS_ID || isColdCallId(cardId)
-            ? { kind: "lucas-instruction", decision: "copilot", text, time, link }
-            : { kind: "copilot-result", text, time, link }),
-      ),
+    // A scripted case answers with a panel of its own (an artifact: a card that opens); any other contact with the
+    // registry's result, a line when it's plain (P-LAYOUT-F1 F).
+    resultFor: (cardId, { text, link }) =>
+      scriptedCopilotResult(cardId, { text, time: "", link }) ? { summary: text, points: [], artifact: { kind: "panel" } } : copilotResultFor(text),
+    openResult: (cardId, request) =>
+      setSlideOverContent(cardId, scriptedCopilotResult(cardId, request) ?? { kind: "copilot-result", ...request }),
   });
   const copilotResultTimer = useCopilotResultTimer();
   // "Call now" on Lucas's escalation card: opens the outbound popover on the button; `confirm` marks the card decided once launched.

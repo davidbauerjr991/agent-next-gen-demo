@@ -6,6 +6,7 @@ import type { AssignmentToast } from "./toasts/assignment-toasts";
 import { assignmentIdFor, type AssignmentKind } from "@/domain";
 import type { DateRange, DateRangeFilterValue } from "@nicecxone/lyra-ui";
 import type { FeedTarget, FeedView } from "./home/activity-feed";
+import type { CopilotResult } from "./copilot-results";
 
 /** P-HOME-1h: one Copilot ask on a schedule item: its question, when, the answer, and the link its row and summary
  *  line open (the result's slide-over). */
@@ -16,7 +17,8 @@ export interface KindCopilotAsk {
   time: string;
   askedAt: number;
   link: string;
-  answer: { summary: string; points: readonly string[] };
+  /** Its presentation is `resultPresentation(answer)` (P-LAYOUT-F1 F): a plain one is a line, with no row or link. */
+  answer: CopilotResult;
 }
 
 // The Workspace's UI state keyed by card or thread id (P-EXTRACT). State that

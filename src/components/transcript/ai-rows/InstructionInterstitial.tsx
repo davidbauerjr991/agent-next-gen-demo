@@ -1,5 +1,5 @@
 // An AI instruction row (P-EXTRACT: split out of agent-next-gen-transcript.tsx).
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Interstitial } from "@nicecxone/lyra-ui";
 
 /** "AI agent is performing this now…" until the row's `performedAt`, then the clickable instruction row.
@@ -12,6 +12,7 @@ export function InstructionInterstitial({
   onOpen,
   active,
   performedAt: performedAtProp,
+  performedContent,
 }: {
   /** True while this row's panel is the one open in the side panel (same selected look as Marcus's action-log rows). */
   active?: boolean;
@@ -22,6 +23,9 @@ export function InstructionInterstitial({
   onOpen: (link: string) => void;
   /** Overrides `instruction.performedAt` (Marcus's own Copilot rows). Absent on both: already performed. */
   performedAt?: number;
+  /** Shown in the row's place once performed (a plain Copilot answer's line, P-LAYOUT-F1 F): the pending state is the
+   *  row's, the result isn't a row. */
+  performedContent?: ReactNode;
 }) {
   const performedAt = performedAtProp ?? instruction.performedAt;
   const pending = performedAt !== undefined && Date.now() < performedAt;
@@ -32,6 +36,7 @@ export function InstructionInterstitial({
     const t = window.setTimeout(() => rerender((n) => n + 1), Math.max(0, performedAt - Date.now()));
     return () => window.clearTimeout(t);
   }, [pending, performedAt, renders]);
+  if (!pending && performedContent) return <>{performedContent}</>;
   return (
     <Interstitial
       title={instruction.title}

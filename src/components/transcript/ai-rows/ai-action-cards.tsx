@@ -4,7 +4,8 @@ import React, { useEffect, useState } from "react";
 import { AICard, Badge, Button, Label, Link, Tag, Textarea } from "@nicecxone/lyra-ui";
 import { AlertCircle, CheckCircle2, History, Sparkles, UserCheck } from "lucide-react";
 import { KnowledgeArticleSummaryRow } from "@/components/agent-next-gen-knowledge-article-card";
-import { isAiActionMessage } from "@/components/agent-next-gen-ai-messages";
+import { isAiActionMessage, isCopilotLine } from "@/components/agent-next-gen-ai-messages";
+import { TranscriptEventLine } from "../TranscriptEventLine";
 import { SaveAddressCard } from "@/contact-handling/SaveAddressCard";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { cn } from "@/lib/utils";
@@ -17,8 +18,9 @@ import { NextBestActionRow } from "@/contact-handling/NextBestActionRow";
  * Settings → AI display "In the Contact Details panel" (P-SETTINGS, ported
  * from v3): the AI cards that normally sit inline in the transcript
  * (instruction interstitials, approval request summaries, wrap-up cards)
- * rendered as a stacked feed for the Contact Details panel instead. Event
- * rows stay in the transcript. `overview` is the (already built) Autosummary block shown first.
+ * rendered as a stacked feed for the Contact Details panel instead. Other
+ * event rows stay in the transcript (a plain Copilot answer's line comes along).
+ * `overview` is the (already built) Autosummary block shown first.
  * Same components and handlers the inline transcript uses, so behavior
  * matches.
  */
@@ -66,7 +68,7 @@ export interface AiActionCardHandlers {
   activeSnapshotLink?: string;
 }
 
-/** One AI action (an instruction row, the wrap-up card or an approval
+/** One AI action (an instruction row, a plain Copilot answer's line, the wrap-up card or an approval
  *  request), the same in every placement: interleaved with the transcript
  *  (AI display inline) or in the AI feed (panel and "main"). */
 export function AiActionCard({
@@ -79,6 +81,21 @@ export function AiActionCard({
   onSnapshotLink,
   activeSnapshotLink,
 }: { message: TranscriptMessage } & AiActionCardHandlers) {
+  if (isCopilotLine(message)) {
+    const line = (
+      <TranscriptEventLine time={message.timestamp} name={message.name} context={message.eventContext} text={message.text} points={message.eventPoints} />
+    );
+    // The instruction row's "performing" state until Copilot finishes, then the line in its place.
+    return (
+      <InstructionInterstitial
+        id={message.id}
+        instruction={{ title: message.eventContext!, by: message.eventAskedBy ?? "", link: "", performedAt: message.eventPerformedAt }}
+        timestamp={message.timestamp}
+        onOpen={() => {}}
+        performedContent={line}
+      />
+    );
+  }
   if (message.instruction) {
     return (
       <InstructionInterstitial

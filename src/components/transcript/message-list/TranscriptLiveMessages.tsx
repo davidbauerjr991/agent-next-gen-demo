@@ -5,6 +5,8 @@ import type { ChannelType } from "@nicecxone/lyra-ui";
 import { AiActionCard, AiActionCollapse, type AiActionCardHandlers } from "../ai-rows/ai-action-cards";
 import type { TranscriptMessage, TranscriptTag } from "../transcript-types";
 import { TranscriptMessageBubble, TranscriptPlainLine, TypingIndicator } from "./transcript-bubbles";
+import { TranscriptEventLine } from "../TranscriptEventLine";
+import { isAiActionMessage } from "@/components/agent-next-gen-ai-messages";
 
 export function TranscriptLiveMessages({
   existingLiveMessages,
@@ -97,7 +99,7 @@ export function TranscriptLiveMessages({
   const renderLiveMessage = (message: TranscriptMessage) => {
     const isAiAction = !!(message.instruction || message.wrapUp || message.summary || message.saveAddress || message.nbaOutcome || message.nba || message.event);
     if (hideTranscript && !isAiAction) return null;
-    const rendered = message.instruction || message.wrapUp || message.saveAddress || message.nbaOutcome || message.nba ? (
+    const rendered = isAiActionMessage(message) && !message.summary ? (
       <AiActionCard key={message.id} message={message} {...aiCardHandlers} />
     ) : message.summary ? (
       <div key={message.id} className="flex flex-col gap-5">
@@ -105,12 +107,14 @@ export function TranscriptLiveMessages({
         <AiActionCard message={message} {...aiCardHandlers} />
       </div>
     ) : message.event ? (
-      <div key={message.id} className="flex flex-col gap-0.5">
-        <span className="lyra-body-sm text-lyra-fg-secondary">
-          {message.timestamp} · {message.name}
-        </span>
-        <span className="lyra-body-md-emphasis text-lyra-fg-default">{message.text}</span>
-      </div>
+      <TranscriptEventLine
+        key={message.id}
+        time={message.timestamp}
+        name={message.name}
+        context={message.eventContext}
+        text={message.text}
+        points={message.eventPoints}
+      />
     ) : channelType === "voice" ? (
       renderPlainLine(message)
     ) : (

@@ -10,6 +10,7 @@ import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedP
 import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
 import { withPersonaSections } from "@/settings/persona";
 import { getWorkspaceUiStore } from "@/contact-handling/workspace-ui-store";
+import { registerCardResult } from "@/test-utils/copilot-results";
 
 const h = createWorkspaceHarness({ schedule: true });
 
@@ -155,27 +156,35 @@ describe("schedule items open as assignments", () => {
     expect(reference().querySelector('[data-canvas-cell="kind-related"]')).toBeNull();
 
     // The Copilot input (lyra AIInput, single-line pill) under the action area, with the seed's chips and the kind's
-    // placeholder; a chip is logged inline as the transcript's instruction row, and its scripted answer opens in the
-    // reference slot's slide-over once Copilot "finishes".
+    // placeholder. A chip's scripted answer, plain, is an inline line once Copilot "finishes" (P-LAYOUT-F1 F); a card
+    // answer is the transcript's instruction row, its result opening in the reference slot's slide-over.
     const copilot = cell()!.querySelector<HTMLElement>("[data-kind-action-area] [data-kind-copilot] [data-slot=copilot-composer]")!;
     expect(copilot).not.toBeNull();
     expect(copilot.querySelector("textarea, input")?.getAttribute("placeholder")).toBe("Ask Copilot about this callback…");
-    const chip = [...copilot.querySelectorAll<HTMLElement>("button, [role=button]")].find((b) => b.textContent?.includes("Where is refund RF-20451?"))!;
-    await h.click(chip);
-    await h.advance(100);
+    const chipNamed = (text: string) => [...copilot.querySelectorAll<HTMLElement>("button, [role=button]")].find((b) => b.textContent?.includes(text))!;
     const asks = () => cell()!.querySelector<HTMLElement>("[data-kind-action-column] [data-kind-copilot-rows]")!;
-    expect(asks().textContent).toContain("AI agent is performing this now…");
-    expect(document.querySelector("[data-slot=copilot-result]")).toBeNull();
-    await h.advance(1800);
     const answer = () => document.querySelector<HTMLElement>("[data-slot=copilot-result]");
-    expect(answer()!.textContent).toContain("RF-20451 was approved on the 22nd");
+    await h.click(chipNamed("Where is refund RF-20451?"));
+    await h.advance(1900);
+    const plainLine = asks().querySelector<HTMLElement>("[data-event-line]")!;
+    expect(plainLine.textContent).toContain("Copilot · Where is refund RF-20451?");
+    expect(plainLine.textContent).toContain("RF-20451 was approved on the 22nd");
+    expect(answer()).toBeNull();
+
+    registerCardResult("What did Priya say last time?");
+    await h.click(chipNamed("What did Priya say last time?"));
+    await h.advance(100);
+    expect(asks().textContent).toContain("AI agent is performing this now…");
+    expect(answer()).toBeNull();
+    await h.advance(1800);
+    expect(answer()!.textContent).toContain("What did Priya say last time?");
     expect(answer()!.closest('[data-slot="reference-slide-over"]')).not.toBeNull();
     // The row (the question, the time, who asked; selected while its result is open) and the result card under it.
     const row = () => asks().querySelector<HTMLButtonElement>("button[aria-current], button")!;
-    expect(row().textContent).toContain("Where is refund RF-20451?");
+    expect(row().textContent).toContain("What did Priya say last time?");
     expect(row().textContent).toContain("John Smith");
     expect(row().getAttribute("aria-current")).toBe("true");
-    expect(asks().querySelector("[data-kind-copilot-result]")?.textContent).toContain("RF-20451 was approved on the 22nd");
+    expect(asks().querySelector("[data-kind-copilot-result]")?.textContent).toContain("Here is what Copilot found");
     // The row closes the result and reopens it.
     await h.click(row());
     await h.advance(400);
@@ -185,7 +194,9 @@ describe("schedule items open as assignments", () => {
     expect(answer()).not.toBeNull();
     // The Real-Time Summary lists the ask as a linked line that toggles the same result.
     const line = () => reference().querySelector<HTMLElement>('[data-canvas-cell="kind-summary"] [data-slot=summary-asks] a, [data-canvas-cell="kind-summary"] [data-slot=summary-asks] button');
-    expect(line()?.textContent).toMatch(/\d{1,2}:\d{2}\s?[AP]M · Where is refund RF-20451\?/);
+    expect(line()?.textContent).toMatch(/\d{1,2}:\d{2}\s?[AP]M · What did Priya say last time\?/);
+    // Only the card ask: the plain answer's line has nothing to open.
+    expect(reference().querySelectorAll('[data-canvas-cell="kind-summary"] [data-slot=summary-asks] a, [data-canvas-cell="kind-summary"] [data-slot=summary-asks] button')).toHaveLength(1);
     await h.click(line()!);
     await h.advance(400);
     expect(answer()).toBeNull();

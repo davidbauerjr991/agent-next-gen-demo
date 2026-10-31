@@ -2,14 +2,19 @@ import { useCallback, useEffect, useRef } from "react";
 import type { NavCard } from "@/adapters/legacy/nav-card-view-model";
 import type { TranscriptMessage } from "@/components/transcript/InteractionTranscript";
 import { AI_PERFORM_MS } from "./ai-perform";
+import { resultPresentation, type CopilotResult } from "./copilot-results";
+import { t } from "@/i18n";
 
 // Ask Copilot on an assignment (P0.5c, moved out of the Advanced page; every
-// card since P-HOME-1j): anything the agent asks is logged in the chat as an
+// card since P-HOME-1j). P-LAYOUT-F1 F: a plain answer (`resultPresentation`,
+// copilot-results.ts) shows the instruction row's "performing" state, then,
+// once Copilot "finishes", an event line — "time · Copilot · the question",
+// then the text — not clickable and not an artifact. Anything more is the
 // instruction row (the same clickable interstitial an approval decision
-// gets), and a question or chip opens its result panel once Copilot
-// "finishes" (a lookup chip opens its own panel instead). Agent-side assist
-// UI, so it stays a page overlay row on the card's thread; AssistProvider
-// takes it over in P4.8.
+// gets), whose result opens on its own only
+// when it carries an artifact (a lookup chip opens its own panel instead).
+// Agent-side assist UI, so it stays a page overlay row on the card's thread;
+// AssistProvider takes it over in P4.8.
 
 /** How long Copilot "works" on a free-form question before its panel opens. */
 const COPILOT_ASK_RESULT_MS = 1800;
@@ -50,14 +55,18 @@ export interface CopilotAskOptions {
   setCards: (update: (prev: NavCard[]) => NavCard[]) => void;
   /** The panel a lookup chip opens (so the row reopens the same content), if `text` is one. */
   linkFor: (cardId: string, text: string) => string | undefined;
-  /** Opens a question's result once Copilot "finishes" (every card, P-HOME-1j). `link`: the row's own link, so the opened result marks that row active. */
+  /** The result for a question (not a lookup chip): a scripted case's own panel carries an artifact. `link`: the row's
+   *  own link. */
+  resultFor: (cardId: string, request: { text: string; link: string }) => CopilotResult;
+  /** Opens a card result that carries an artifact once Copilot "finishes". `link`: the row's own link, so the opened
+   *  result marks that row active. */
   openResult: (cardId: string, request: { text: string; time: string; link: string }) => void;
   /** Called on every ask (the page reveals hidden AI action rows). */
   onAsk?: () => void;
   agentName?: string;
 }
 
-export function useCopilotAsk({ setCards, linkFor, openResult, onAsk, agentName = "John Smith" }: CopilotAskOptions) {
+export function useCopilotAsk({ setCards, linkFor, resultFor, openResult, onAsk, agentName = "John Smith" }: CopilotAskOptions) {
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
   useEffect(() => {
     const pending = timers.current;
@@ -67,9 +76,9 @@ export function useCopilotAsk({ setCards, linkFor, openResult, onAsk, agentName 
     };
   }, []);
 
-  const latest = useRef({ linkFor, openResult, onAsk });
+  const latest = useRef({ linkFor, resultFor, openResult, onAsk });
   useEffect(() => {
-    latest.current = { linkFor, openResult, onAsk };
+    latest.current = { linkFor, resultFor, openResult, onAsk };
   });
 
   return useCallback(
@@ -79,9 +88,43 @@ export function useCopilotAsk({ setCards, linkFor, openResult, onAsk, agentName 
       const time = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
       const chipLink = link(cardId, text);
       const id = `${ASK_ID_PREFIX}${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const append = (message: TranscriptMessage) =>
+        setCards((prev) =>
+          prev.map((card) =>
+            card.id === cardId
+              ? { ...card, liveMessages: { ...card.liveMessages, [threadKey]: [...(card.liveMessages?.[threadKey] ?? []), message] } }
+              : card,
+          ),
+        );
+      const later = (run: () => void) => {
+        const timer = setTimeout(() => {
+          timers.current.delete(timer);
+          run();
+        }, COPILOT_ASK_RESULT_MS);
+        timers.current.add(timer);
+      };
       // A free-form question's row is identified by its own id (the trailing segment), not by its text and
       // minute: the same question asked twice is two rows, each opening and marking its own result (P-EXTRACT).
       const ownLink = `instruction:copilot:${encodeURIComponent(text)}:${encodeURIComponent(time)}:${id}`;
+      const result = chipLink ? undefined : latest.current.resultFor(cardId, { text, link: ownLink });
+      // A plain answer: the row's "performing" state where the line will land, then the line once Copilot "finishes";
+      // no row, nothing to open.
+      if (result && resultPresentation(result) === "line") {
+        append({
+          id,
+          sender: "agent",
+          name: t("Copilot"),
+          initials: "",
+          timestamp: time,
+          text: result.summary,
+          event: true,
+          eventContext: text,
+          eventPoints: result.points,
+          eventPerformedAt: Date.now() + AI_PERFORM_MS,
+          eventAskedBy: agentName,
+        });
+        return;
+      }
       const message: TranscriptMessage = {
         id,
         sender: "agent",
@@ -102,21 +145,10 @@ export function useCopilotAsk({ setCards, linkFor, openResult, onAsk, agentName 
           performedAt: Date.now() + AI_PERFORM_MS,
         },
       };
-      setCards((prev) =>
-        prev.map((card) =>
-          card.id === cardId
-            ? { ...card, liveMessages: { ...card.liveMessages, [threadKey]: [...(card.liveMessages?.[threadKey] ?? []), message] } }
-            : card,
-        ),
-      );
-      // A lookup chip opens its own panel (its link); anything else opens its result here, on every card.
-      if (!chipLink) {
-        const timer = setTimeout(() => {
-          timers.current.delete(timer);
-          latest.current.openResult(cardId, { text, time, link: ownLink });
-        }, COPILOT_ASK_RESULT_MS);
-        timers.current.add(timer);
-      }
+      append(message);
+      // A lookup chip opens its own panel (its link); a card result opens here only with an artifact (else its row
+      // does, on a click).
+      if (result?.artifact) later(() => latest.current.openResult(cardId, { text, time, link: ownLink }));
     },
     [setCards, agentName],
   );

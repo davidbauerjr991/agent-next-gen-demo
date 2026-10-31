@@ -173,10 +173,10 @@ Reference implementation: the Lucas Thomas case on the Advanced page (`src/scena
 - Hide the channel icon / chat-active icon; hide the unassign/dismiss icons in the left-nav card and session row; lock Outcome (and kebab) in the left-nav card until takeover via `controlsDisabled`.
 
 **Interstitials (agent actions logged in the chat)**
-- A bordered clickable row: note icon, title, time, actor (John Smith or Checkout AI Agent), chevron; clicking opens a side panel. Add one whenever the agent acts: approve, decline, something else, and every Ask Copilot question or chip.
+- A bordered clickable row: note icon, title, time, actor (John Smith or Checkout AI Agent), chevron; clicking opens a side panel. Add one whenever the agent acts: approve, decline, something else, and every Ask Copilot question or chip whose answer is a card (P-LAYOUT-F1 F: a plain answer is an event line instead, below).
 - First show "AI agent is performing this now…" with a spinner (~1.8s), then replace it with the row alone — do NOT show an "AI agent finished performing this" line.
 - The row whose panel is open gets the selected look (`border-lyra-border-active bg-lyra-status-info-subtle`); clicking it again closes the panel.
-- Chip rows reopen the chip's own panel; typed free-form questions open the instruction panel with a "Copilot result" card and auto-open when finished.
+- Chip rows reopen the chip's own panel; a typed question's card opens the instruction panel with a "Copilot result" card, and opens on its own when finished only if the result carries an artifact (changed 2026-10-31, P-LAYOUT-F1 F; it used to auto-open every time).
 - Every panel the agent opens is added to the Artifacts (the Journey Summary card's last section, shown once there's an artifact: the reference column under AI display inline and main, the docked panel's AI Overview under panel) as a re-open link (Experience Memory, Contact Details and Session Details excluded); "View All" appears only above 10 and opens an Artifacts list in the Contact Details slide-over (the reference slot, P-HOME-1n) with a back arrow to Contact Details.
 
 **Approval request box**
@@ -200,7 +200,7 @@ Reference implementation: the Lucas Thomas case on the Advanced page (`src/scena
 
 **Chat input / Ask Copilot**
 - A lyra-ui `ToggleGroup` (not tabs): "Chat with Customer" / "Ask Copilot"; one mode always active; switching focuses that mode's input; both panes stay mounted (the chat draft and the Copilot question are kept) and the area takes the active pane's height, ending at its last row (changed 2026-10-22, P-CANVAS browser pass: the Copilot pane is lyra's single-line `AIInput` pill, shorter than the chat box).
-- Ask Copilot uses `AIInput` with purple pill suggestion chips beneath it. A chip in the Approval request box and the same chip in Ask Copilot must open the same panel, add the same chat row, and reopen the same content. Anything asked of Copilot is logged in the chat as an interstitial.
+- Ask Copilot uses `AIInput` with purple pill suggestion chips beneath it. A chip in the Approval request box and the same chip in Ask Copilot must open the same panel, add the same chat row, and reopen the same content. Anything asked of Copilot is logged in the chat (changed 2026-10-31, P-LAYOUT-F1 F; it used to be an interstitial every time): `resultPresentation` (`src/contact-handling/copilot-results.ts`) is the one decider. A plain answer (no actions, no artifact, one paragraph, at most three bullets, no headings) is an event line, "time · Copilot · the question" then the text, styled as the AI agent's event lines: not clickable, not collapsible, not added to Artifacts or the Real-Time Summary's asks. Anything else is a card: the interstitial, the result card, the slide-over on a row click.
 
 **Verification**
 - After every edit run `npx tsc -b --noEmit` here (baseline 1, `Shell.stories.tsx`'s `@storybook/react`; it was 3 until lyra `82208be`, the other two being lyra's `admin-shell.tsx` seen through the source alias) and `npx tsc --noEmit` in `../lyra-ui` (baseline 0 since lyra `82208be`, which removed `admin-shell.tsx`'s two); don't fix baseline errors unless asked. Say honestly when nothing was verified in a browser. Don't commit unless asked.

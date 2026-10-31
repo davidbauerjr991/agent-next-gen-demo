@@ -21,6 +21,7 @@ import { registerCanvasCell, resetCanvasRegistry, canvasCellDefinition } from ".
 import { getWorkspaceUiStore } from "./workspace-ui-store";
 import { resetReferenceCardsWorkingStateForTests } from "./reference-cards-working-state";
 import { showEmptyReferenceCards } from "@/test-utils/reference-cards";
+import { registerCardResult } from "@/test-utils/copilot-results";
 
 const h = createWorkspaceHarness({ seed: SIM_DEMO_SEED });
 const priya = CREATE_NEW_CUSTOMERS.find((c) => c.id === "priya-shah-history")!;
@@ -289,6 +290,12 @@ describe("canvas.cells overrides the registry (P-PROFILES)", () => {
 describe("a slide-over takes the reference slot (inline and main)", () => {
   const slideOver = () => h.container.querySelector<HTMLElement>("[data-slot=reference-slide-over]");
   const composer = () => document.body.querySelector<HTMLElement>("[data-slot=copilot-composer]")!;
+  /** The composer's first chip, its answer a card (a plain one is a line with no slide-over, P-LAYOUT-F1 F). */
+  const cardChip = () => {
+    const chip = composer().querySelector<HTMLElement>("[data-slot=copilot-chips] [role=button]")!;
+    registerCardResult(chip.textContent!.trim());
+    return chip;
+  };
   const resultRow = (text: string) =>
     [...h.container.querySelectorAll<HTMLElement>("[data-canvas-region=action] button")].find(
       (b) => b.textContent?.startsWith(text) && b.textContent.includes("John Smith"),
@@ -304,7 +311,7 @@ describe("a slide-over takes the reference slot (inline and main)", () => {
         await open({ displayLocation: "inline", canvasLayout: "stacked" });
         await CASES.noah();
         expect(region("reference")).toBeNull();
-        await h.click(composer().querySelector<HTMLElement>("[data-slot=copilot-chips] [role=button]")!);
+        await h.click(cardChip());
         await h.advance(2_500);
         expect(slideOver()).not.toBeNull();
         expect(slideOver()!.className.includes("absolute")).toBe(!docks);
@@ -325,7 +332,7 @@ describe("a slide-over takes the reference slot (inline and main)", () => {
 
       // Ask Copilot with the first chip (the click asks it): its result opens in the slide-over once Copilot
       // "finishes" (P-HOME-1j).
-      const chip = composer().querySelector<HTMLElement>("[data-slot=copilot-chips] [role=button]")!;
+      const chip = cardChip();
       const text = chip.textContent!.trim();
       await h.click(chip);
       await h.advance(2_500);

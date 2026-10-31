@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { registerCardResult } from "./helpers";
 
 // P-EXTRACT, Bug 2: after an AI display switch, Lucas's approve/decline rows
 // must still open their slide-over, and one already open must follow the
@@ -148,6 +149,8 @@ async function askCopilot(page: Page, rotate = false) {
   if (rotate) await composer.locator("[data-slot=copilot-chips-refresh] button").click();
   const chip = composer.locator("[data-slot=copilot-chips] [role=button]").first();
   const text = (await chip.textContent())!.trim();
+  // A card result (a plain answer is an inline line, with no row, P-LAYOUT-F1 F).
+  await registerCardResult(page, text);
   await chip.click();
   // Its result opens by itself once Copilot "finishes" (P-HOME-1j); close it by its X, so the rows are what's tested.
   await expect.poll(() => resultOpen(page, text), { timeout: 10_000 }).toBe(true);

@@ -21,7 +21,7 @@ import { RealTimeSummaryCard } from "@/components/ai-cards/RealTimeSummaryCard";
 import { aiCardIcon as ic } from "@/components/ai-cards/ai-card-icon";
 import { useSettings } from "@/settings";
 import { t } from "@/i18n";
-import { useKindCopilotAsks, useToggleAskResult } from "./KindCopilot";
+import { isCardAsk, useKindCopilotAsks, useToggleAskResult } from "./KindCopilot";
 
 const copy = (text: string) => void navigator.clipboard?.writeText(text).catch(() => {});
 
@@ -63,7 +63,8 @@ function KindSummaryCell() {
         updatedAt: Date.now(),
       }}
       onCopy={copy}
-      asks={asks.map((ask) => ({ id: ask.id, time: ask.time, text: ask.text, onOpen: () => toggle(ask) }))}
+      // A plain answer is a line with nothing to open: only the card asks are listed (P-LAYOUT-F1 F), as on a conversation.
+      asks={asks.filter(isCardAsk).map((ask) => ({ id: ask.id, time: ask.time, text: ask.text, onOpen: () => toggle(ask) }))}
       {...accordion}
     />
   );

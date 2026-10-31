@@ -25,3 +25,18 @@ export function overviewScroller(page: Page) {
 export async function scrollMetrics(page: Page) {
   return overviewScroller(page).evaluate((el) => ({ top: el.scrollTop, client: el.clientHeight, height: el.scrollHeight }));
 }
+
+/** A card-presenting Copilot result (one with an artifact: it opens on its own, its row reopens it) for `question`,
+ *  for a spec whose way into the slide-over is an Ask Copilot question: a plain answer is an inline line with no row
+ *  or slide-over (P-LAYOUT-F1 F). The e2e twin of src/test-utils/copilot-results.ts, through the dev-only
+ *  `window.__copilotResults`; call it after the page has loaded. */
+export async function registerCardResult(page: Page, question: string) {
+  await page.waitForFunction(() => !!window.__copilotResults);
+  await page.evaluate((q) => {
+    window.__copilotResults!.register(q, {
+      summary: "Here is what Copilot found in this contact.",
+      points: ["The customer's request and its current status.", "Anything still open before you wrap up."],
+      artifact: { kind: "panel" },
+    });
+  }, question);
+}

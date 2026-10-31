@@ -19,6 +19,7 @@ import type { ProviderSet, ScheduleProvider } from "@/providers";
 import { DEFAULT_SLA } from "@/profiles/contact-center-profile";
 import { ProviderRoot } from "@/provider-context";
 import { SCENARIOS } from "@/scenarios";
+import { resetCopilotResults } from "@/contact-handling/copilot-results";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -163,6 +164,7 @@ export function createWorkspaceHarness(
       return schedule;
     },
     setUp() {
+      resetCopilotResults();
       vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
       databaseCounter += 1;
       databaseId = `harness-${databaseCounter}`;

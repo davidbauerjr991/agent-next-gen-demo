@@ -15,6 +15,7 @@ import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedP
 import { LUCAS_THOMAS_SCRIPT } from "@/scenarios";
 import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
 import type { AiDisplayLocation } from "@/settings/settings-schema";
+import { registerCardResult } from "@/test-utils/copilot-results";
 
 const h = createWorkspaceHarness();
 
@@ -162,6 +163,8 @@ describe("Bug 2c: a Copilot result row asked before a mode switch still opens it
     if (rotate) await h.click(composer().querySelector("[data-slot=copilot-chips-refresh] button")!);
     const chip = composer().querySelector<HTMLElement>("[data-slot=copilot-chips] [role=button]")!;
     const text = chip.textContent!.trim();
+    // A card result (a plain answer is a line, with no row, P-LAYOUT-F1 F).
+    registerCardResult(text);
     await h.click(chip);
     await h.advance(2_500);
     // The ask opened its result once Copilot "finished" (P-HOME-1j); close it by its X, so the rows are what's tested.

@@ -8,6 +8,8 @@ import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
 import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
+import { registerCardResult } from "@/test-utils/copilot-results";
+import { registerCopilotResult } from "@/contact-handling/copilot-results";
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
 import { getSettingsStore, resetSettingsStoreForTests } from "./settings-store";
 import { AI_DISPLAY_LOCATIONS, type AiSettings } from "./settings-schema";
@@ -51,6 +53,8 @@ async function ask(rotate = false): Promise<string> {
   if (rotate) await h.click(composer().querySelector('[data-slot=copilot-chips-refresh] button')!);
   const chip = composer().querySelector<HTMLElement>("[data-slot=copilot-chips] [role=button]")!;
   const text = chip.textContent!.trim();
+  // A card result (a plain answer is a line, with no row, P-LAYOUT-F1 F).
+  registerCardResult(text);
   await h.click(chip);
   await h.advance(2_500);
   return text;
@@ -123,6 +127,22 @@ describe("a Copilot result row toggles the interior slide-over (email contact)",
   }
 });
 
+describe("a card result with no artifact (P-LAYOUT-F1 F)", () => {
+  it("logs its row and result but opens nothing on its own; the row opens it", async () => {
+    await emailContact("inline");
+    const chip = composer().querySelector<HTMLElement>("[data-slot=copilot-chips] [role=button]")!;
+    const text = chip.textContent!.trim();
+    // Too long for a line (four bullets), with no artifact: the rule itself, so this test's own result.
+    registerCopilotResult(text, { summary: "What Copilot found.", points: ["One.", "Two.", "Three.", "Four."] });
+    await h.click(chip);
+    await h.advance(2_500);
+    expect(row(text)).toBeTruthy();
+    expect(openResult()).toBeNull();
+    await h.click(row(text));
+    expect(openResult()!.textContent).toContain("Four.");
+  });
+});
+
 describe("an unscripted voice call has an AI feed for its Copilot rows", () => {
   /** An outbound call to an unknown number (no script, no utterances), its card selected. */
   async function unscriptedCall(displayLocation: AiSettings["displayLocation"]) {
@@ -147,6 +167,7 @@ describe("an unscripted voice call has an AI feed for its Copilot rows", () => {
         (c) => c.textContent?.trim() === "Summarize this call",
       )!;
       expect(chip).toBeTruthy();
+      registerCardResult("Summarize this call");
       // The chip asks on the click ("run").
       await h.click(chip);
       await h.advance(2_500);
@@ -167,4 +188,56 @@ describe("an unscripted voice call has an AI feed for its Copilot rows", () => {
       expect(openResult()?.textContent).toContain("Summarize this call");
     });
   }
+});
+
+describe("a plain answer's line goes where the AI rows go (P-LAYOUT-F1 F)", () => {
+  /** The line answering `question`, in `container`. */
+  const lineIn = (container: string, question: string) =>
+    [...document.body.querySelectorAll<HTMLElement>(`${container} [data-event-line]`)].find((l) => l.textContent?.includes(`Copilot · ${question}`));
+
+  for (const displayLocation of AI_DISPLAY_LOCATIONS) {
+    it(`AI display ${displayLocation}: an email's chip answers with a line in the feed (the panel under panel), not the other column; nothing opens`, async () => {
+      await emailContact(displayLocation);
+      const chip = composer().querySelector<HTMLElement>("[data-slot=copilot-chips] [role=button]")!;
+      const text = chip.textContent!.trim();
+      await h.click(chip);
+      await h.advance(2_500);
+      const [feed, other] = displayLocation !== "panel" ? ["[data-main-thread]", "[data-slot=right-panel]"] : ["[data-slot=right-panel]", "[data-main-thread]"];
+      expect(lineIn(feed, text)).toBeTruthy();
+      expect(lineIn(other, text)).toBeUndefined();
+      expect(row(text)).toBeUndefined();
+      expect(openResult()).toBeNull();
+    });
+  }
+
+  it("while Copilot works, the instruction row's \"performing\" state stands where the line will land; then the line replaces it", async () => {
+    await emailContact("panel");
+    const chip = composer().querySelector<HTMLElement>("[data-slot=copilot-chips] [role=button]")!;
+    const text = chip.textContent!.trim();
+    await h.click(chip);
+    await h.advance(100);
+    const panel = () => document.body.querySelector<HTMLElement>("[data-slot=right-panel]")!;
+    expect(panel().textContent).toContain("AI agent is performing this now…");
+    expect(lineIn("[data-slot=right-panel]", text)).toBeUndefined();
+    await h.advance(2_000);
+    expect(lineIn("[data-slot=right-panel]", text)).toBeTruthy();
+    expect(panel().textContent).not.toContain("AI agent is performing this now…");
+    expect(row(text)).toBeUndefined();
+  });
+
+  it("an unscripted call's \"Summarize this call\" answers with a line in its feed", async () => {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await h.goAvailable();
+    await act(async () => {
+      const dialed = h.provider.dial({ channel: "voice", address: "(161) 474-9179", skillId: "general" });
+      await vi.advanceTimersByTimeAsync(500);
+      await dialed;
+    });
+    await h.click(h.navCard("(161) 474-9179"));
+    const chip = [...composer().querySelectorAll<HTMLElement>("[data-slot=copilot-chips] [role=button]")].find((c) => c.textContent?.trim() === "Summarize this call")!;
+    await h.click(chip);
+    await h.advance(2_500);
+    expect(lineIn("[data-main-thread]", "Summarize this call")?.textContent).toContain("Here is what Copilot found");
+    expect(openResult()).toBeNull();
+  });
 });
