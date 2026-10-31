@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// E1 (P-EXTRACT browser check): with Settings → Voice controls location "Top of
+// E1 (P-EXTRACT browser check): with Voice controls location (then under Settings → Voice) "Top of
 // left nav", a live call's voice bar rendered nowhere. Both slots (the left
 // nav's and the bottom one) became active in the same commit on load; the
 // bottom one took the bar's host, then gave it up when it deactivated, and the
@@ -46,13 +46,12 @@ for (const mode of MODES) {
     // Switch the setting during the call (Settings keeps the bar on screen).
     await page.locator("aside").getByText("Settings", { exact: true }).first().click();
     await expect(navBar(page)).toBeVisible();
-    const select = page.getByRole("combobox", { name: "Voice controls location" });
-    await select.click();
-    await page.getByRole("option", { name: "Bottom" }).click();
+    // Settings → Layout's preset row, the setting's one place (P-LAYOUT-F1 E).
+    const preset = page.locator('[data-layout-preset="voice.controlsLocation"]');
+    await preset.getByRole("radio", { name: "Bottom" }).click();
     await expect(bottomBar(page)).toBeVisible();
     await expect(anyBar(page)).toHaveCount(1);
-    await select.click();
-    await page.getByRole("option", { name: "Top of assignments" }).click();
+    await preset.getByRole("radio", { name: "Top of assignments" }).click();
     await expect(navBar(page)).toBeVisible();
     await expect(anyBar(page)).toHaveCount(1);
   });

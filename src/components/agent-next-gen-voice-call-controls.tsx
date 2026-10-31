@@ -599,7 +599,7 @@ export interface VoiceCallControlsProps {
    *  doc comment). */
   customerInitials?: string;
   /** Vertical layout for a narrow column such as the left nav (Settings →
-   *  Voice controls location "Top of assignments"; ported from v3): identity +
+   *  Layout → Voice controls location "Top of assignments"; ported from v3): identity +
    *  timer on top, an icon-only strip of Hold/Mask/Record/Keypad/Transcript/
    *  Volume, then Mute and End Call side by side. Ignores the width
    *  breakpoints. */

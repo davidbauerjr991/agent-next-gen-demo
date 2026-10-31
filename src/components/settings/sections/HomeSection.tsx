@@ -136,7 +136,7 @@ export function HomeSection() {
       </Section>
 
       <Section title={t("Activity view")}>
-        {/* The Activity feed's `view` option (also a preset in Settings → Layout): the `layout` lock makes it read-only too. */}
+        {/* The Activity feed's `view` option, set only here (P-LAYOUT-F1 E): the `layout` lock makes it read-only too. */}
         <LockScope lockKey="layout">
           <RadioGroup
             label={t(HOME_ACTIVITY_VIEW_FIELD.meta!.label)}

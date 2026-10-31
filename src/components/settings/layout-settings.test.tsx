@@ -258,7 +258,7 @@ describe("the layout lock (P-LAYOUT)", () => {
     expect(values().home).toBe(before.home);
   });
 
-  it("makes Settings → Layout read-only, and the placement controls in Workspace, Home and Voice with it", async () => {
+  it("makes Settings → Layout read-only (every placement's one place since P-LAYOUT-F1 E), and Home's activity view with it", async () => {
     await act(async () => {
       getSettingsStore().update("header", (prev) => ({ showAppIcons: true, apps: { ...prev.apps, customers: { ...prev.apps.customers, enabled: true } } }));
     });
@@ -273,17 +273,13 @@ describe("the layout lock (P-LAYOUT)", () => {
     await press("customerInfo", "ArrowLeft");
     expect(values().layout.parts).toBe(before);
     expect(slotOf("customerInfo")).toBe("reference");
-    // Elsewhere: each placement control sits in the lock's read-only scope, with its tag.
+    // The presets, the voice controls' and the header apps' display among them, are inside the locked group.
+    expect(layout.querySelector("[data-layout-preset='voice.controlsLocation']")).not.toBeNull();
+    expect(layout.querySelector("[data-layout-preset='header.apps.customers.placement']")).not.toBeNull();
+    // Elsewhere: Home's activity view sits in the lock's read-only scope, with its tag.
     const lockedScope = (el: Element | null) => el?.closest<HTMLFieldSetElement>("fieldset[data-section-locked]");
-    const voice = h.container.querySelector('[data-settings-group=voice] [role=combobox]');
-    expect(lockedScope(voice)?.disabled).toBe(true);
     const activityView = h.container.querySelector("[data-setting='home.activityView']");
     expect(lockedScope(activityView)?.disabled).toBe(true);
-    const customersDisplay = [...h.container.querySelectorAll("[data-settings-group=workspace] label, [data-settings-group=workspace] span")].find(
-      (el) => el.textContent?.trim() === "Customers display",
-    );
-    expect(customersDisplay).toBeDefined();
-    expect(lockedScope(customersDisplay!)?.disabled).toBe(true);
     // Queue's down move is enabled unlocked (home-settings.test); the lock holds it.
     const queueDown = h.container.querySelector<HTMLButtonElement>('[title="Move Queue down"], [aria-label="Move Queue down"]');
     expect(queueDown?.disabled).toBe(true);

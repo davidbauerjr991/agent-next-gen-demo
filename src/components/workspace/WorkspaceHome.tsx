@@ -47,7 +47,7 @@ export function WorkspaceHome() {
               {/* The page header first, then the Home tabs, then the tab's body (P-HOME-1m; one column and two). The
                   page header's actions are the home-top slot's (the queue chip). */}
               {showPageHeader && <HomePageHeader actions={<Slot id="home-top" region="page-header" />} />}
-              {/* Home tabs: shown while any app is placed as "tab" (Settings → Header). */}
+              {/* Home tabs: shown while any app is placed as "tab" (Settings → Layout). */}
               {showPageHeader && tabApps.length > 0 && (
                 <HomeTabStrip
                   tabs={homeTabs}

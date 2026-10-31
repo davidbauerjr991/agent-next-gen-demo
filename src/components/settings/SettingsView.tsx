@@ -3,7 +3,8 @@
 // Settings with no target in the workspace yet stay toggleable (they count
 // toward the profile) and carry a tag saying which step brings them.
 // Grouped (P-HOME-1n) into Workspace, Layout (P-LAYOUT), Assignments, Home,
-// Notifications, Appearance, Channels, Voice, Phone and Connections, one file
+// Notifications, Appearance, Channels, Phone and Connections (Voice
+// went in P-LAYOUT-F1 E: its one control is a Layout preset), one file
 // each under `sections/`; the grouping is presentation only (no store section
 // moves).
 import * as React from "react";
@@ -17,7 +18,7 @@ import { HomeSection } from "./sections/HomeSection";
 import { NotificationsSection } from "./sections/NotificationsSection";
 import { AppearanceSection } from "./sections/AppearanceSection";
 import { ChannelsSection } from "./sections/ChannelsSection";
-import { PhoneSection, VoiceSection } from "./sections/VoicePhoneSections";
+import { PhoneSection } from "./sections/PhoneSection";
 import { ConnectionsSection } from "./sections/ConnectionsSection";
 
 export function SettingsView({ showPageHeader = true }: { showPageHeader?: boolean }) {
@@ -46,7 +47,6 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
         <NotificationsSection />
         <AppearanceSection />
         <ChannelsSection />
-        <VoiceSection />
         <PhoneSection />
         <ConnectionsSection />
 

@@ -467,7 +467,7 @@ export interface AssignmentSortSettings {
   mode: AssignmentSortMode;
   direction: (typeof ASSIGNMENT_SORT_DIRECTIONS)[number];
 }
-export const ASSIGNMENT_CHANNEL_CHIPS = ["auto", "show", "hide"] as const;
+export const ASSIGNMENT_CHANNEL_CHIPS = ["auto", "show"] as const;
 export type AssignmentChannelChips = (typeof ASSIGNMENT_CHANNEL_CHIPS)[number];
 export const ASSIGNMENT_CHANNEL_CHIPS_FIELD = oneOf(ASSIGNMENT_CHANNEL_CHIPS, {
   label: "Channel chips",

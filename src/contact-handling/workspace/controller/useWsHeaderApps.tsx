@@ -744,7 +744,7 @@ export function useWsHeaderApps(prev: WsOutbound) {
   // two `LeftNav` slots, per Settings → Assignments ("Home and Settings at
   // the top" → `items`, else the `footer` rail; "New Outbound at the bottom"
   // → `footer`, else `pinnedHeader`).
-  // Apps placed in the left nav (Settings → Header → "<App> display" /
+  // Apps placed in the left nav (Settings → Layout → "<App> display" /
   // "Agent chat display") sit between Home and Settings, as in v3. An app
   // opens as a page in the main column; Agent chat, a drawer, opens in the
   // shared panel its header icon would.

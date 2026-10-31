@@ -15,7 +15,7 @@ export interface VoiceBarProps
   /** Provider state and handlers (`useVoiceCallControls`). */
   controls: VoiceCallControlProps;
   /** How the bar renders where it is: "top" is the stacked bar at the top of
-   *  the left nav (Settings → Voice controls location, while the nav is
+   *  the left nav (Settings → Layout → Voice controls location, while the nav is
    *  open), "bottom" the docked one. */
   placement?: "bottom" | "top";
   /** The page's stable host for the bar (`usePortalHost`): the bar always

@@ -31,7 +31,6 @@ const AUTO_ACCEPT_LABELS: Record<AutoAcceptChannel, string> = {
 const CHANNEL_CHIP_LABELS: Record<AssignmentChannelChips, string> = {
   auto: "Automatic",
   show: "Show",
-  hide: "Hide",
 };
 
 // Neutral wording: the direction applies to every mode (dates, and Channel's A–Z).

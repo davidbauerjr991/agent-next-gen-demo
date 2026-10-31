@@ -84,7 +84,7 @@ function variables(): string {
   return [
     "## Variables",
     "",
-    "The legacy placement fields offered as presets (Settings → Layout). Default **bold**. A header app the profile turns off (`header.apps.<app>.enabled`) is marked (off): its placement still counts as exercised.",
+    "The legacy placement fields: Settings → Layout's preset rows, and the Activity view (Settings → Home). Default **bold**. A header app the profile turns off (`header.apps.<app>.enabled`) is marked (off): its placement still counts as exercised.",
     "",
     table(["Setting", "Values", ...profiles.map((p) => p.label)], rows),
     "",

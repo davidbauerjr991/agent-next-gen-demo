@@ -1,5 +1,5 @@
 // Home tabs (P0.5d.2, ported from Desk): Dashboard, then each app placed as
-// "tab" (Settings → Header), then any customer opened full screen from the
+// "tab" (Settings → Layout), then any customer opened full screen from the
 // Customers tab's row panel.
 import { useEffect, useRef, useState } from "react";
 import type { ExtraHeaderApp } from "@/settings";

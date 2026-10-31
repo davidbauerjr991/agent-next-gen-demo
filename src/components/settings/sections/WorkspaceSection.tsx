@@ -1,6 +1,6 @@
 // Settings → Workspace (P-HOME-1n grouping): the profile, the persona, the header and its apps, and AI assist. The
 // layout controls moved to Settings → Layout (P-LAYOUT). Presentation only: each control writes the store section it
-// always did, and that section's lock disables it; an app's display is a placement, so the `layout` lock does too.
+// always did, and that section's lock disables it. The apps are enabled here and placed in Layout (P-LAYOUT-F1 E).
 import * as React from "react";
 import { Checkbox, RadioGroup, RadioGroupItem, Select } from "@nicecxone/lyra-ui";
 import { t } from "@/i18n";
@@ -14,33 +14,13 @@ import {
   PERSONA_FIELD,
   useSetPersona,
   useSettings,
-  type AgentChatDisplay,
   type AiChipBehavior,
-  type AppDisplay,
-  type AppPlacement,
-  type ExtraHeaderApp,
   type Persona,
 } from "@/settings";
 import { ProfileSettings } from "../ProfileSettings";
 import { IntSettingInput } from "../IntSettingInput";
-import { LockScope, Pending, Section, SettingsGroup, SwitchRow } from "../settings-parts";
-
-const EXTRA_APP_LABELS: Record<ExtraHeaderApp, string> = {
-  customers: "Customers",
-  accounts: "Accounts",
-  tickets: "Tickets",
-  wem: "WEM",
-  schedule: "Schedule",
-  screenpop: "Screen Pop",
-};
-
-// v3's per-app display options; Agent chat is a drawer, so it has no tab.
-const APP_DISPLAY_OPTIONS = [
-  { value: "tab", label: "Display in tab" },
-  { value: "leftnav", label: "Display in Left Nav" },
-  { value: "header", label: "Display in App Header" },
-];
-const AGENT_CHAT_DISPLAY_OPTIONS = APP_DISPLAY_OPTIONS.filter((o) => o.value !== "tab");
+import { Pending, Section, SettingsGroup, SwitchRow } from "../settings-parts";
+import { EXTRA_APP_LABELS } from "../header-app-options";
 
 const PERSONA_LABELS: Record<Persona, string> = {
   agent: "Agent",
@@ -90,50 +70,20 @@ export function WorkspaceSection({ first }: { first?: boolean }) {
               />
               <Pending>Chat drawer arrives in P0.9.3</Pending>
             </div>
-            {header.agentChat.enabled && (
-              // A placement (a part's slot): the `layout` lock makes it read-only too.
-              <LockScope lockKey="layout">
-                <div className="ms-7 max-w-xs">
-                  <Select
-                    label="Agent chat display"
-                    options={AGENT_CHAT_DISPLAY_OPTIONS}
-                    value={header.agentChat.placement}
-                    onValueChange={(value) =>
-                      updateHeader((prev) => ({
-                        agentChat: { ...prev.agentChat, placement: value as AgentChatDisplay["placement"] },
-                      }))
-                    }
-                  />
-                </div>
-              </LockScope>
-            )}
             <Checkbox label="Notifications" checked={header.notifications} onCheckedChange={(c) => updateHeader({ notifications: !!c })} />
             <div className="flex items-center gap-2">
               <Checkbox label="Apps grid" checked={header.appsGrid} onCheckedChange={(c) => updateHeader({ appsGrid: !!c })} />
               <Pending>Embedded apps arrive in P7.6</Pending>
             </div>
-            {EXTRA_HEADER_APPS.map((app) => {
-              const display = header.apps[app];
-              const setDisplay = (patch: Partial<AppDisplay>) =>
-                updateHeader((prev) => ({ apps: { ...prev.apps, [app]: { ...prev.apps[app], ...patch } } }));
-              return (
-                <React.Fragment key={app}>
-                  <Checkbox label={EXTRA_APP_LABELS[app]} checked={display.enabled} onCheckedChange={(c) => setDisplay({ enabled: !!c })} />
-                  {display.enabled && (
-                    <LockScope lockKey="layout">
-                      <div className="ms-7 w-full max-w-xs">
-                        <Select
-                          label={`${EXTRA_APP_LABELS[app]} display`}
-                          options={APP_DISPLAY_OPTIONS}
-                          value={display.placement}
-                          onValueChange={(value) => setDisplay({ placement: value as AppPlacement })}
-                        />
-                      </div>
-                    </LockScope>
-                  )}
-                </React.Fragment>
-              );
-            })}
+            {/* Where each enabled app shows is a placement: Settings → Layout's presets (P-LAYOUT-F1 E). */}
+            {EXTRA_HEADER_APPS.map((app) => (
+              <Checkbox
+                key={app}
+                label={t(EXTRA_APP_LABELS[app])}
+                checked={header.apps[app].enabled}
+                onCheckedChange={(c) => updateHeader((prev) => ({ apps: { ...prev.apps, [app]: { ...prev.apps[app], enabled: !!c } } }))}
+              />
+            ))}
           </div>
         )}
       </Section>

@@ -123,7 +123,7 @@ test("fix (a): the close hides the panel, the content takes its room, and the pa
   await expect(panel(page)).toHaveAttribute("data-docked", "true");
 });
 
-test("Settings → Layout: dragging the voice controls into the Left nav list moves the live call's bar there, and the legacy setting follows", async ({ page }) => {
+test("Settings → Layout: dragging the voice controls into the Left nav list moves the live call's bar there, and its preset row follows", async ({ page }) => {
   await setUp(page, {});
   // Maya Chen (dev hotkey B) connects at once; her bar starts at the bottom.
   await page.keyboard.press("b");
@@ -139,9 +139,8 @@ test("Settings → Layout: dragging the voice controls into the Left nav list mo
   await expect(layout.locator('[data-layout-slot="left-nav"] [data-layout-part="voiceBar"]')).toBeVisible();
   await expect(navBar).toBeVisible();
   await expect(page.locator("[data-slot=voice-bar]")).toHaveCount(1);
-  // The preview and the legacy setting (Settings → Voice) follow.
+  // The preview and the preset row follow (Settings → Layout is the setting's one place, P-LAYOUT-F1 E).
   await expect(layout.locator('[data-layout-preview] [data-preview-slot="left-nav"] [data-preview-part="voiceBar"]')).toHaveCount(1);
-  await expect(page.getByRole("combobox", { name: "Voice controls location" })).toContainText("Top of assignments");
   await expect(layout.locator('[data-layout-preset="voice.controlsLocation"]').getByRole("radio", { name: "Top of assignments" })).toHaveAttribute("aria-checked", "true");
 });
 

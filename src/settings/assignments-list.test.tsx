@@ -9,6 +9,7 @@ import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
 import { resetAssignmentsWorkingStateForTests } from "@/contact-handling/assignments-working-state";
 import { getSettingsStore, resetSettingsStoreForTests } from "./settings-store";
+import { SECTIONS } from "./settings-schema";
 
 const h = createWorkspaceHarness();
 
@@ -366,13 +367,14 @@ describe("Assignments placement → Interior panel (0c; lyra SidePanel left sinc
 
 describe("channel chips", () => {
   /** The visible "Chat" pill on the card's rows. */
+  // The cards are in one place at a time: the left nav or the interior panel.
   const chips = () =>
-    [...h.container.querySelectorAll("aside [data-slot=assignment-card] span")].filter(
+    [...h.container.querySelectorAll("[data-slot=assignment-card] span")].filter(
       (el) => el.textContent === "Chat" && !el.classList.contains("sr-only"),
     );
-  const srChat = () => [...h.container.querySelectorAll("aside [data-slot=assignment-card] .sr-only")].filter((el) => el.textContent === "Chat");
+  const srChat = () => [...h.container.querySelectorAll("[data-slot=assignment-card] .sr-only")].filter((el) => el.textContent === "Chat");
 
-  it("show by default in the left nav; hide removes them; the channel name stays for screen readers", async () => {
+  it("Automatic (the default) shows them in the left nav and hides them in the interior panel, the channel name kept for screen readers; Show shows them there too", async () => {
     await act(async () => {
       store().update("channels", { chat: true });
     });
@@ -384,16 +386,20 @@ describe("channel chips", () => {
     expect(srChat()).toHaveLength(0);
 
     await act(async () => {
-      store().update("assignments", { channelChips: "hide" });
+      store().update("assignments", { placement: "interiorPanel" });
     });
+    await h.advance(500);
     expect(chips()).toHaveLength(0);
     expect(srChat()).toHaveLength(1);
 
-    // "auto" shows them in the left nav (the interior panel hides them).
     await act(async () => {
-      store().update("assignments", { channelChips: "auto" });
+      store().update("assignments", { channelChips: "show" });
     });
     expect(chips()).toHaveLength(1);
+  });
+
+  it("a stored Hide (removed, P-LAYOUT-F1 E) reads as Automatic", () => {
+    expect(SECTIONS.assignments.read({ channelChips: "hide" }, SECTIONS.assignments.defaults).channelChips).toBe("auto");
   });
 });
 

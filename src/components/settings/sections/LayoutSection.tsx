@@ -1,7 +1,7 @@
 // Settings → Layout (P-LAYOUT): where the workspace's parts go, as one map (`layout.parts`). Presets first: a
 // ToggleGroup per legacy placement field (Workspace's old Layout sub-group, labels unchanged, plus the voice
-// controls' location and the Activity view), each writing its field, which moves its parts; "Custom" when the map
-// matches no value. Then Advanced: every part of a page by slot, dragged between the slots it allows, beside a live
+// controls' location and each enabled header app's display: their one place, P-LAYOUT-F1 E), each writing its
+// field, which moves its parts; "Custom" when the map matches no value. Then Advanced: every part of a page by slot, dragged between the slots it allows, beside a live
 // preview. The applied profile's `layout` lock makes all of it read-only.
 import * as React from "react";
 import { Accordion, Button, Label, Switch, Tag, ToggleGroup } from "@nicecxone/lyra-ui";
@@ -13,7 +13,7 @@ import {
   AI_CANVAS_LAYOUT_FIELD,
   ASSIGNMENTS_PLACEMENT_FIELD,
   ASSIGNMENTS_PLACEMENT_OPTIONS,
-  HOME_ACTIVITY_VIEW_FIELD,
+  EXTRA_HEADER_APPS,
   HOME_LAYOUT_FIELD,
   LAYOUT_ADVANCED_FIELD,
   resetLayoutToProfile,
@@ -24,12 +24,15 @@ import {
   type SettingPath,
 } from "@/settings";
 import { LockScope, Section, SettingsGroup } from "../settings-parts";
+import { AGENT_CHAT_DISPLAY_OPTIONS, APP_DISPLAY_OPTIONS, EXTRA_APP_LABELS } from "../header-app-options";
 import { LayoutAdvanced } from "./LayoutAdvanced";
 import { LayoutPreview } from "./LayoutPreview";
 
 interface PresetRow {
   field: string;
   label: string;
+  /** ICU values for `label`. */
+  labelValues?: Record<string, string>;
   help?: string;
   options: { value: string; label: string; description?: string }[];
 }
@@ -80,16 +83,24 @@ const PRESET_ROWS: readonly PresetRow[] = [
       { value: "top", label: "Top of assignments" },
     ],
   },
-  {
-    field: "home.activityView",
-    label: HOME_ACTIVITY_VIEW_FIELD.meta!.label,
-    help: HOME_ACTIVITY_VIEW_FIELD.meta!.description,
-    options: [
-      { value: "list", label: "List" },
-      { value: "table", label: "Table" },
-    ],
-  },
 ];
+
+/** The header apps' rows (moved from Settings → Workspace, P-LAYOUT-F1 E): one per app Workspace enables. */
+function useHeaderAppRows(): PresetRow[] {
+  const [header] = useSettings("header");
+  if (!header.showAppIcons) return [];
+  return [
+    ...(header.agentChat.enabled
+      ? [{ field: "header.agentChat.placement", label: "Agent chat display", options: AGENT_CHAT_DISPLAY_OPTIONS }]
+      : []),
+    ...EXTRA_HEADER_APPS.filter((app) => header.apps[app].enabled).map((app) => ({
+      field: `header.apps.${app}.placement`,
+      label: "{app} display",
+      labelValues: { app: t(EXTRA_APP_LABELS[app]) },
+      options: APP_DISPLAY_OPTIONS,
+    })),
+  ];
+}
 
 const fieldFor = (id: string): LegacyField => PRESET_FIELDS.find((f) => f.id === id)!;
 
@@ -104,7 +115,7 @@ function LayoutPresetRow({ row }: { row: PresetRow }) {
     <LockScope lockKey={field.section}>
       <div className="flex flex-col gap-1.5" data-layout-preset={row.field}>
         <span className="flex items-center gap-2">
-          <Label id={labelId} label={t(row.label)} labelHelpText={row.help && t(row.help)} />
+          <Label id={labelId} label={t(row.label, row.labelValues)} labelHelpText={row.help && t(row.help)} />
           {value === undefined && <Tag variant="neutral" label={t("Custom")} />}
         </span>
         <DisabledReason reason={unused ? t(unused.reason) : undefined} className="flex w-fit">
@@ -133,6 +144,7 @@ export function LayoutSection() {
   const locked = useSectionLocked("layout");
   const [{ advanced: advancedOn }, updateLayout] = useSettings("layout");
   const advancedOff = useSettingDisabledBy("layout.parts");
+  const headerAppRows = useHeaderAppRows();
   const advanced = (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
@@ -168,7 +180,7 @@ export function LayoutSection() {
         data-setting="layout.advanced"
       />
       <Section title={t("Presets")}>
-        {PRESET_ROWS.map((row) => (
+        {[...PRESET_ROWS, ...headerAppRows].map((row) => (
           <LayoutPresetRow key={row.field} row={row} />
         ))}
       </Section>

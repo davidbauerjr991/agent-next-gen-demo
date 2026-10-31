@@ -305,5 +305,6 @@ export const LEGACY_FIELDS: readonly LegacyField[] = [
   agentChat,
 ] as unknown as readonly LegacyField[];
 
-/** The preset rows Settings → Layout offers: the legacy fields with values. */
+/** The legacy fields with values. Settings → Layout offers each as a preset row (a header app's while the app is on)
+ *  except `home.activityView`, a look set in Settings → Home (P-LAYOUT-F1 E). */
 export const PRESET_FIELDS = LEGACY_FIELDS.filter((f) => f.values.length > 0);

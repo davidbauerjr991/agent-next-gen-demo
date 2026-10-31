@@ -36,7 +36,7 @@ export function WorkspaceVoiceBar() {
               calls={voiceBarCalls(interactions, voiceBarCallOf)}
               onSelectCall={switchActiveInteraction}
               controls={liveVoiceCallControls}
-              // Settings → Voice controls location; the slot at the top of
+              // Settings → Layout → Voice controls location; the slot at the top of
               // the left nav exists only while the nav is open. The bar
               // portals into one host either way, so moving never remounts it.
               placement={inLeftNav ? "top" : "bottom"}

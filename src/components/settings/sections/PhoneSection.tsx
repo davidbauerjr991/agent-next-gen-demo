@@ -1,33 +1,11 @@
-// Settings → Voice and → Phone (P-HOME-1n grouping): the voice controls' location, and the agent's phone setup
-// (personal scope; the launch screen reads it).
-import { Input, RadioGroup, RadioGroupItem, Select } from "@nicecxone/lyra-ui";
+// Settings → Phone (P-HOME-1n grouping): the agent's phone setup (personal scope; the launch screen reads it). The
+// voice controls' location, once Settings → Voice, is a Layout preset only (P-LAYOUT-F1 E).
+import { Input, RadioGroup, RadioGroupItem } from "@nicecxone/lyra-ui";
 import { t } from "@/i18n";
 import { useSettings, type PhoneSetup } from "@/settings";
-import { LockScope, Pending, SettingsGroup } from "../settings-parts";
+import { Pending, SettingsGroup } from "../settings-parts";
 
 const VALID_STATION_ID = "12345";
-
-export function VoiceSection() {
-  const [voice, updateVoice] = useSettings("voice");
-  return (
-    <SettingsGroup id="voice" title={t("Voice")} lockKey="voice">
-      {/* A placement (the voice bar's slot; also a preset in Settings → Layout): the `layout` lock makes it read-only too. */}
-      <LockScope lockKey="layout">
-        <div className="max-w-xs">
-          <Select
-            label="Voice controls location"
-            options={[
-              { value: "bottom", label: "Bottom" },
-              { value: "top", label: "Top of assignments" },
-            ]}
-            value={voice.controlsLocation}
-            onValueChange={(value) => updateVoice({ controlsLocation: value as typeof voice.controlsLocation })}
-          />
-        </div>
-      </LockScope>
-    </SettingsGroup>
-  );
-}
 
 export function PhoneSection() {
   const [phone, updatePhone] = useSettings("phone");

@@ -189,20 +189,24 @@ describe("Header: Show app icons", () => {
     expect(panelTitleShown()).toBe(true);
   });
 
-  it("each display Select shows only while its app is checked", async () => {
+  it("each app's display row (Settings → Layout, its one place since P-LAYOUT-F1 E) shows only while the app is checked in Workspace", async () => {
     await h.show(AgentWorkspaceAdvancedPage);
     await setSettings("header", { showAppIcons: true });
     await openSettings();
-    const hasLabel = (text: string) => [...h.container.querySelectorAll("label")].some((l) => l.textContent?.trim() === text);
+    const row = (field: string) => h.container.querySelector(`[data-settings-group=layout] [data-layout-preset="${field}"]`);
+    // None in Workspace any more.
+    const workspace = h.container.querySelector("[data-settings-group=workspace]")!.textContent;
+    expect(workspace).not.toContain("Agent chat display");
+    expect(workspace).not.toContain("Customers display");
 
     // Agent chat starts checked.
-    expect(hasLabel("Agent chat display")).toBe(true);
+    expect(row("header.agentChat.placement")?.textContent).toContain("Agent chat display");
     await h.click(checkboxLabeled("Agent chat"));
-    expect(hasLabel("Agent chat display")).toBe(false);
+    expect(row("header.agentChat.placement")).toBeNull();
 
-    expect(hasLabel("Customers display")).toBe(false);
+    expect(row("header.apps.customers.placement")).toBeNull();
     await h.click(checkboxLabeled("Customers"));
-    expect(hasLabel("Customers display")).toBe(true);
+    expect(row("header.apps.customers.placement")?.textContent).toContain("Customers display");
     expect(store().getState().values.header.apps.customers.enabled).toBe(true);
   });
 });

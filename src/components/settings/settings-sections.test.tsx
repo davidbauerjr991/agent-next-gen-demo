@@ -32,7 +32,7 @@ describe("Settings grouping (P-HOME-1n)", () => {
       "Notifications",
       "Appearance",
       "Channels",
-      "Voice",
+      // No Voice (P-LAYOUT-F1 E): its one control, Voice controls location, is a Layout preset.
       "Phone",
       "Connections",
     ]);
@@ -44,7 +44,7 @@ describe("Settings grouping (P-HOME-1n)", () => {
     expect(subGroups.find((f) => f.querySelector(":scope > legend")?.textContent?.startsWith("Social"))).toBeDefined();
     expect(subGroups.every((f) => f.classList.contains("mt-6"))).toBe(true);
     expect(groups().every((g) => g.classList.contains("[&>legend+fieldset]:mt-0"))).toBe(true);
-    expect(h.container.querySelectorAll("[data-testid=settings-view] [role=separator], [data-testid=settings-view] [data-orientation=horizontal]").length).toBeGreaterThanOrEqual(9);
+    expect(h.container.querySelectorAll("[data-testid=settings-view] [role=separator], [data-testid=settings-view] [data-orientation=horizontal]").length).toBeGreaterThanOrEqual(8);
   });
 
   it("a sub-group of one control named as itself shows its title once and names the control (P-POLISH 6)", async () => {
@@ -65,12 +65,15 @@ describe("Settings grouping (P-HOME-1n)", () => {
     expect(profile.getAttribute("aria-labelledby")).toBeNull();
   });
 
-  it("Settings → Layout's presets hold Workspace's old Layout controls, labels unchanged, plus the voice controls and the Activity view (P-LAYOUT)", async () => {
+  it("Settings → Layout's presets hold Workspace's old Layout controls, labels unchanged, the voice controls and each enabled header app's display: one place per setting (P-LAYOUT, P-LAYOUT-F1 E)", async () => {
     await h.render(<SettingsView />);
     expect(groups()[0].textContent).not.toContain("Home layout");
     const layout = groups()[1];
     const presets = [...layout.querySelectorAll<HTMLElement>("[data-layout-preset]")].map((el) => el.getAttribute("data-layout-preset"));
-    expect(presets).toEqual(["home.layout", "assignments.placement", "ai.displayLocation", "ai.canvasLayout", "voice.controlsLocation", "home.activityView"]);
+    // The Activity view is Home's (a look, not a placement); Voice controls location left Voice. The header apps'
+    // rows join while app icons are on (settings-wiring.test).
+    expect(presets).toEqual(["home.layout", "assignments.placement", "ai.displayLocation", "ai.canvasLayout", "voice.controlsLocation"]);
+    expect(h.container.querySelector("[data-settings-group=home] [data-setting='home.activityView']")).not.toBeNull();
     expect(layout.textContent).toContain("Home layout");
     expect(layout.textContent).toContain("AI display");
     const placement = layout.querySelector("[data-layout-preset='assignments.placement']")!;
