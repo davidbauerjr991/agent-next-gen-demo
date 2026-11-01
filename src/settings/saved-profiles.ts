@@ -107,6 +107,31 @@ export function readProfileSections(
   return { values: agentSettings(values, sections), warnings };
 }
 
+/** Reads an org layer's `{ [section]: { v?, value } }` (P-CONFIG-LAYERS): only the sections present, each through
+ *  its own reader and stripped to agent scope; a missing `v` reads as the current version, another one is skipped
+ *  with a warning. Unlike a saved profile, a layer is partial: what it leaves out, it doesn't set. */
+export function readLayerSections(
+  raw: unknown,
+  sections: SectionSchemas = SECTIONS,
+): { values: Partial<AgentSettings>; warnings: ProfileReadWarning[] } {
+  const source = isRecord(raw) ? raw : {};
+  const full = defaultSettings(sections) as Record<SectionKey, unknown>;
+  const present: SectionKey[] = [];
+  const warnings: ProfileReadWarning[] = [];
+  for (const key of profileSectionKeys(sections)) {
+    const entry = source[key];
+    if (!isRecord(entry) || !("value" in entry)) continue;
+    if (entry.v !== undefined && entry.v !== sections[key].version) {
+      warnings.push({ section: key, reason: "version" });
+      continue;
+    }
+    full[key] = sections[key].read(entry.value, sections[key].defaults as never);
+    present.push(key);
+  }
+  const stripped = agentSettings(full as SettingsState, sections);
+  return { values: Object.fromEntries(present.map((key) => [key, stripped[key]])) as Partial<AgentSettings>, warnings };
+}
+
 /** The lock keys that name a section a profile carries; anything else dropped. */
 export function readLocks(raw: unknown, sections: SectionSchemas = SECTIONS): SectionKey[] {
   if (!Array.isArray(raw)) return [];

@@ -5,6 +5,7 @@ import { createSimAssistProvider } from "./sim-assist-provider";
 import { createSimCustomerClient } from "./sim-customer-client";
 import { installScenarioHotkeys } from "./sim-scenario-hotkeys";
 import { createSimScheduleProvider } from "./sim-schedule-source";
+import { createSimOrgLayerProvider } from "./sim-org-tree";
 import { createSimTranscriptExportProvider } from "./sim-transcript-export-provider";
 import { createBroadcastTransport, DEFAULT_LATENCY, withLatency, type LatencyRange } from "./sim-transport";
 import { createSimulatedInteractionProvider, type SimOptions } from "./simulated-interaction-provider";
@@ -62,5 +63,6 @@ function withPlaceholders(
     assist,
     transcriptExport: createSimTranscriptExportProvider({ latency }),
     schedule: createSimScheduleProvider({ latency }),
+    orgLayers: createSimOrgLayerProvider({ latency }),
   };
 }

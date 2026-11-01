@@ -17,6 +17,8 @@ export type EntityId = Brand<string, "EntityId">;
 export type RelatedRecordId = Brand<string, "RelatedRecordId">;
 export type ContactMethodId = Brand<string, "ContactMethodId">;
 export type AgentId = Brand<string, "AgentId">;
+/** A person in the directory (P-CONFIG-LAYERS' org tree; P-EMPLOYEES' directory). */
+export type EmployeeId = Brand<string, "EmployeeId">;
 
 /** A record's id in an outside system. `system` names the adapter that owns
  *  it ("cxone", "twilio", "demo-crm", "sim"), so ids from two backends can

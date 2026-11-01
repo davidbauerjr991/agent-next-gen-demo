@@ -6,6 +6,7 @@ import { PROVIDER_FACTORIES, type ProviderFactory } from "./factories";
 import { getInteractionStore } from "./interaction-store";
 import { getAssistCardStore } from "./assist-card-store";
 import { getScheduleStore } from "./schedule-store";
+import { startOrgLayerSync } from "../settings";
 import { peekProviderSet, releaseProviderSet, retainProviderSet } from "./provider-cache";
 import type { ProviderKind, SimLatencyPreset } from "./provider-kind";
 
@@ -54,6 +55,12 @@ export function ProviderRoot({ kind, profile, database, factory, simLatency, chi
     const store = getScheduleStore(providers.schedule);
     store.start();
     return () => store.stop();
+  }, [providers]);
+
+  // The org layers (P-CONFIG-LAYERS) the same way, when the set has an org source: the persona's chain, cleared on stop.
+  useEffect(() => {
+    if (!providers.orgLayers) return;
+    return startOrgLayerSync(providers.orgLayers);
   }, [providers]);
 
   // Dev-only devtools handle (`__providers.interaction.accept("x")`). App

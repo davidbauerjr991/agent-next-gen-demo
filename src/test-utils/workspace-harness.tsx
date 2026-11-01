@@ -12,6 +12,7 @@ import { SIM_DEMO_DIRECTORY } from "@/adapters/sim/sim-demo-directory";
 import type { SimSeedContact } from "@/adapters/sim/sim-fixtures";
 import { createSimTranscriptExportProvider } from "@/adapters/sim/sim-transcript-export-provider";
 import { createSimScheduleProvider, type SimScheduleProvider } from "@/adapters/sim/sim-schedule-source";
+import { createSimOrgLayerProvider } from "@/adapters/sim/sim-org-tree";
 import { createSimCustomerClient, type SimCustomerClient } from "@/adapters/sim/sim-customer-client";
 import { createSimulatedInteractionProvider, type SimulatedInteractionProvider } from "@/adapters/sim/simulated-interaction-provider";
 import type { ChannelKind, InteractionId } from "@/domain";
@@ -126,6 +127,8 @@ export function createWorkspaceHarness(
               assist: createSimAssistProvider({ sessionId: provider.sessionId, transport: bus.createTransport() }),
               transcriptExport: options.transcriptExport ?? createSimTranscriptExportProvider({ latency: ZERO }),
               ...(options.schedule ? { schedule: (schedule = createSimScheduleProvider({ latency: ZERO })) } : {}),
+              // The sim's org tree, as the app's sim set has it (P-CONFIG-LAYERS): inert under the default persona.
+              orgLayers: createSimOrgLayerProvider({ latency: ZERO }),
             };
           }}
         >

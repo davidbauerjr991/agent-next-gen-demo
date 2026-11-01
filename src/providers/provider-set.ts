@@ -2,13 +2,15 @@ import type { AssistProvider } from "./assist-provider";
 import type { CustomerDataProvider } from "./customer-data-provider";
 import type { InteractionCapabilities, InteractionProvider } from "./interaction-provider";
 import type { MediaCapabilities, MediaProvider } from "./media-provider";
+import type { OrgLayerProvider } from "./org-layer-provider";
 import type { ScheduleProvider } from "./schedule-provider";
 import type { TranscriptExportCapabilities, TranscriptExportProvider } from "./transcript-export-provider";
 
 /** The four providers the workspace runs on, built together by one factory
  *  and supplied through the provider context (P0.3), plus the optional
  *  transcript export (P-POLISH 3) and schedule source (P-HOME-1): absent,
- *  their controls and rows are hidden. */
+ *  their controls and rows are hidden. The org layers (P-CONFIG-LAYERS)
+ *  too: absent, settings resolve from the agent's own alone. */
 export interface ProviderSet {
   interaction: InteractionProvider;
   media: MediaProvider;
@@ -16,6 +18,7 @@ export interface ProviderSet {
   assist: AssistProvider;
   transcriptExport?: TranscriptExportProvider;
   schedule?: ScheduleProvider;
+  orgLayers?: OrgLayerProvider;
 }
 
 /** Every provider's static `capabilities`, keyed like `ProviderSet`. Only
