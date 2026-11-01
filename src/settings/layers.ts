@@ -83,6 +83,14 @@ function chainOf(layers: readonly LayerProfile[], agent: AgentLayer): ChainEntry
   return [...org, { level: "agent", profileName: agent.profileName, sets: agent.sets, locks: agent.locks }];
 }
 
+const defaultsBySchema = new WeakMap<SectionSchemas, AgentSettings>();
+/** The schema's agent-scope defaults, once per schema (the store resolves on every write). */
+function agentDefaults(sections: SectionSchemas): AgentSettings {
+  let defaults = defaultsBySchema.get(sections);
+  if (!defaults) defaultsBySchema.set(sections, (defaults = agentSettings(defaultSettings(sections), sections)));
+  return defaults;
+}
+
 const ref = (entry: ChainEntry): LayerRef => ({ level: entry.level, profileName: entry.profileName, primary: entry.primary });
 
 /** The section's source in `chain`, and the entry whose value wins (undefined: the defaults). */
@@ -109,7 +117,7 @@ export function resolveLayers(
   const incoming: Partial<AgentSettings> = {};
   const sources = {} as Record<SectionKey, SectionSource>;
   const sets = {} as Record<SectionKey, boolean>;
-  const defaults = agentSettings(defaultSettings(sections), sections);
+  const defaults = agentDefaults(sections);
   for (const key of Object.keys(sections) as SectionKey[]) {
     if (!sectionInProfiles(key, sections)) {
       // Nothing in it is a profile's (wholly personal or admin): the agent's, never locked.
