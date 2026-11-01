@@ -4,15 +4,11 @@
 // inline instead (LeftNav clones `expanded` onto its header's top-level children only). The order and drag wiring
 // are `useAssignmentCards` (src/contact-handling/).
 import * as React from "react";
-import { EmptyState, type ListReorderItemProps } from "@nicecxone/lyra-ui";
-import { Inbox } from "lucide-react";
+import { EmptyState, KebabMenuButton, type ListReorderItemProps, type MenuEntry } from "@nicecxone/lyra-ui";
+import { ChevronsDownUp, ChevronsUpDown, Inbox } from "lucide-react";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
-import {
-  AssignmentsExpandCollapseAllButton,
-  AssignmentsSectionCaption,
-  AssignmentsSortButton,
-} from "@/components/agent-next-gen-interaction-dashboard";
+import { AssignmentsSectionCaption } from "@/components/agent-next-gen-interaction-dashboard";
 import { ClockTick } from "@/components/agent-next-gen-clock-tick";
 import { useAssignmentCards, useChannelChipsShown, type AssignmentEntry, type AssignmentsMount } from "@/contact-handling/useAssignmentCards";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
@@ -62,8 +58,11 @@ export function AssignmentsCaption({ expanded, mount }: { expanded: boolean; mou
   );
 }
 
-/** The caption's controls on their own — Collapse / Expand all and the sort popover, with 2+ assignments — for the
- *  interior panel's header, where SidePanel's own title and count stand for the caption (P-LAYOUT-F1). */
+/** The caption's controls for the interior panel's header, where SidePanel's own title and count stand for the
+ *  caption (P-LAYOUT-F1), with 2+ assignments: one lyra `KebabMenuButton` (the feed table's pinned-column pattern),
+ *  so "Assignments (n)" fits beside it and the pin at the panel's minimum width (P-LAYOUT-F2 1c). Its menu: the sort
+ *  modes (the current one active), the direction (not for Custom, the agent's own order), then Collapse / Expand
+ *  all. The left nav's caption keeps its own buttons. */
 export function AssignmentsHeaderActions() {
   const {
     assignmentSort, assignmentSortDirection, channelsAllExpanded, handleToggleAllChannelsExpanded,
@@ -71,20 +70,40 @@ export function AssignmentsHeaderActions() {
   } = useWorkspace();
   const count = useRailAssignmentCount();
   if (count < 2) return null;
-  return (
-    <span className="flex items-center gap-1">
-      {!noInteractionCollapse && (
-        <AssignmentsExpandCollapseAllButton allExpanded={channelsAllExpanded} onToggle={handleToggleAllChannelsExpanded} />
-      )}
-      <AssignmentsSortButton
-        value={assignmentSort}
-        onValueChange={(value) => setAssignmentSort(value as AssignmentSortMode)}
-        options={ADVANCED_ASSIGNMENT_SORT_OPTIONS}
-        direction={assignmentSortDirection}
-        onDirectionChange={setAssignmentSortDirection}
-      />
-    </span>
-  );
+  const directions =
+    assignmentSort === "channel"
+      ? [{ value: "asc", label: t("A–Z") }, { value: "desc", label: t("Z–A") }]
+      : [{ value: "asc", label: t("Ascending") }, { value: "desc", label: t("Descending") }];
+  const items: MenuEntry[] = [
+    { sectionLabel: t("Sort by") },
+    ...ADVANCED_ASSIGNMENT_SORT_OPTIONS.map((option) => ({
+      id: `sort-${option.value}`,
+      label: t(option.label),
+      active: option.value === assignmentSort,
+      onClick: () => setAssignmentSort(option.value as AssignmentSortMode),
+    })),
+  ];
+  if (assignmentSort !== "custom") {
+    items.push(
+      "separator",
+      ...directions.map((d) => ({
+        id: `direction-${d.value}`,
+        label: d.label,
+        active: d.value === assignmentSortDirection,
+        onClick: () => setAssignmentSortDirection(d.value as typeof assignmentSortDirection),
+      })),
+    );
+  }
+  if (!noInteractionCollapse) {
+    const Icon = channelsAllExpanded ? ChevronsDownUp : ChevronsUpDown;
+    items.push("separator", {
+      id: "expand-collapse-all",
+      label: channelsAllExpanded ? t("Collapse all") : t("Expand all"),
+      icon: <Icon className="h-4 w-4" strokeWidth={1.5} />,
+      onClick: handleToggleAllChannelsExpanded,
+    });
+  }
+  return <KebabMenuButton ariaLabel={t("Assignment options")} items={items} data-slot="assignments-options" />;
 }
 
 /** One rail card in its drag target: a conversation's `NavCardItem` in its own `ClockTick` (a tick re-renders the

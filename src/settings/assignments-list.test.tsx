@@ -282,6 +282,36 @@ describe("Assignments placement → Interior panel (0c; lyra SidePanel left sinc
     expect(panel()!.textContent).toContain("Assignments(2)");
   });
 
+  it("P-LAYOUT-F2 1c: the panel header's Sort and Collapse all are one kebab beside the pin; its menu sorts and collapses", async () => {
+    await inPanel();
+    await h.accept(await h.startInbound("chat", "bo@example.com", "Bo Lane"));
+    await h.advance(1000);
+    const kebab = () => panel()!.querySelector<HTMLElement>('[aria-label="Assignment options"]');
+    expect(kebab()).not.toBeNull();
+    // No separate buttons in the panel header (the left nav's caption keeps them).
+    expect(panel()!.querySelector('[aria-label="Collapse all"], [aria-label^="Sort by"]')).toBeNull();
+    const menuItems = () => [...document.body.querySelectorAll<HTMLElement>('[role="menuitem"]')];
+    const open = async () =>
+      act(async () => {
+        kebab()!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+        await vi.advanceTimersByTimeAsync(50);
+      });
+    await open();
+    expect(menuItems().map((m) => m.textContent?.trim())).toEqual([
+      "Last Updated", "Create Date", "Channel A–Z", "Custom", "Ascending", "Descending", "Collapse all",
+    ]);
+    await h.click(menuItems().find((m) => m.textContent?.trim() === "Create Date")!);
+    expect(store().getState().values.assignments.sort.mode).toBe("startDate");
+    await open();
+    await h.click(menuItems().find((m) => m.textContent?.trim() === "Collapse all")!);
+    await open();
+    expect(menuItems().some((m) => m.textContent?.trim() === "Expand all")).toBe(true);
+    // Custom is the agent's own order: no direction rows.
+    await h.click(menuItems().find((m) => m.textContent?.trim() === "Custom")!);
+    await open();
+    expect(menuItems().some((m) => /^(Ascending|Descending)$/.test(m.textContent?.trim() ?? ""))).toBe(false);
+  });
+
   it("A2: switching the placement to the interior panel collapses the nav to a rail and opens the panel pinned; the nav can be expanded again", async () => {
     localStorage.setItem("agent-next-gen:working:assignments", JSON.stringify({ panelOpen: false, panelPinned: false }));
     await act(async () => {

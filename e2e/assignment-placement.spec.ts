@@ -69,6 +69,33 @@ test("interior panel: lyra's left SidePanel inside the content card, at its star
   // A dragged width surviving a reload is layout.spec's "dragged width" case.
 });
 
+test("interior panel at its minimum width (P-LAYOUT-F2 1c): \"Assignments (n)\" isn't cut off; Sort and Collapse all are one kebab beside the pin", async ({ page }) => {
+  await setUp(page, { placement: "interiorPanel" }, 1600);
+  const panel = page.locator("[data-slot=assignments-panel]");
+  await expect(panel).toHaveAttribute("data-docked", "true");
+  await expect.poll(async () => (await panel.locator("[data-slot=assignment-card]").count())).toBeGreaterThanOrEqual(2);
+  expect(Math.round((await panel.boundingBox())!.width)).toBe(256);
+  // The title isn't truncated, and its count sits beside it on the same row as the kebab and the pin.
+  const title = panel.getByRole("heading", { name: "Assignments" });
+  expect(await title.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  const kebab = panel.getByRole("button", { name: "Assignment options" });
+  const pin = panel.getByRole("button", { name: "Unpin panel" });
+  const [t, k, p] = [(await title.boundingBox())!, (await kebab.boundingBox())!, (await pin.boundingBox())!];
+  expect(Math.abs(t.y + t.height / 2 - (k.y + k.height / 2))).toBeLessThan(4);
+  expect(Math.abs(k.y - p.y)).toBeLessThan(4);
+  expect(t.x + t.width).toBeLessThanOrEqual(k.x);
+  await expect(panel.getByRole("button", { name: /^Sort by/ })).toHaveCount(0);
+  await expect(panel.getByRole("button", { name: "Collapse all" })).toHaveCount(0);
+  // The menu sorts and collapses.
+  await kebab.click();
+  await page.getByRole("menuitem", { name: "Create Date" }).click();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("agent-next-gen:settings:assignments")!).value.sort.mode)).toBe("startDate");
+  await kebab.click();
+  await page.getByRole("menuitem", { name: "Collapse all" }).click();
+  await kebab.click();
+  await expect(page.getByRole("menuitem", { name: "Expand all" })).toBeVisible();
+});
+
 test("interior panel (P-LAYOUT-F1 A2): the nav starts as a rail; a closed panel opens when a call comes in, and the nav stays as it was", async ({ page }) => {
   await setUp(page, { placement: "interiorPanel" });
   const toggle = page.locator("[aria-controls=assignments-panel]");
