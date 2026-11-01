@@ -25,6 +25,7 @@ export {
 export { useSetPersona } from "./persona";
 export { startOrgLayerSync } from "./org-layer-sync";
 export { sourceLabel, lockedByLabel } from "./source-labels";
+export { resolvedRows, type ResolvedRow } from "./resolved-rows";
 export type { SectionSource } from "./layers";
 export { readLogoFile, sanitizeSvg, LOGO_ERROR_MESSAGES, type LogoReadResult } from "./brand";
 export { primaryContrastFailures, type Theme as BrandTheme } from "./brand-colors";

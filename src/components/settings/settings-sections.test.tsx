@@ -35,6 +35,8 @@ describe("Settings grouping (P-HOME-1n)", () => {
       "Voice",
       "Phone",
       "Connections",
+      // P-CONFIG-LAYERS 7: every agent-scope value with its source layer.
+      "Resolved settings",
     ]);
     // P-POLISH 6: group lyra-heading-md > sub-group lyra-heading-sm, each sub-group but the first with its own top margin.
     expect(groups().every((g) => g.querySelector("legend")!.classList.contains("lyra-heading-md"))).toBe(true);

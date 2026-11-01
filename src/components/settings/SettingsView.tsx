@@ -22,6 +22,7 @@ import { ChannelsSection } from "./sections/ChannelsSection";
 import { PhoneSection } from "./sections/PhoneSection";
 import { VoiceSection } from "./sections/VoiceSection";
 import { ConnectionsSection } from "./sections/ConnectionsSection";
+import { ResolvedSection } from "./sections/ResolvedSection";
 
 export function SettingsView({ showPageHeader = true }: { showPageHeader?: boolean }) {
   const resetSettings = useResetSettings();
@@ -52,6 +53,7 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
         <VoiceSection />
         <PhoneSection />
         <ConnectionsSection />
+        <ResolvedSection />
 
         {/* lyra `Modal` as an alert dialog — same shape as its "Alert Dialog
             (Destructive)" story (Modal.variants.stories.tsx): header title +

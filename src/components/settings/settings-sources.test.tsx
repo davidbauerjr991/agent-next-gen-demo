@@ -73,6 +73,17 @@ describe("Settings over the org layers", () => {
     expect(marker(group("notifications"))).toBeNull();
   });
 
+  it("the Resolved settings view lists each value with its source, and follows a persona switch", async () => {
+    await h.render(<SettingsView />);
+    await act(async () => vi.advanceTimersByTimeAsync(50));
+    const row = (key: string) => h.container.querySelector(`[data-resolved-settings] [data-resolved-row='${key}']`);
+    expect(row("notifications.toasts")?.textContent).toContain("Set by: Atlas team profile (primary)");
+    expect(row("assignments.placement")?.textContent).toContain("Default");
+    await persona("supervisor");
+    expect(row("notifications.toasts")?.textContent).toContain("Locked by: Supervisors team profile");
+    expect(row("notifications.toasts")?.hasAttribute("data-resolved-locked")).toBe(true);
+  });
+
   it("the supervisor's primary team locks Notifications read-only, and switching back unlocks it", async () => {
     await h.render(<SettingsView />);
     await persona("supervisor");
