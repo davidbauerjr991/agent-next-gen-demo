@@ -20,7 +20,6 @@ import { useCardCollapse } from "@/contact-handling/useCardCollapse";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import type { ScheduleItem } from "@/providers";
-import { ClockTick } from "@/components/agent-next-gen-clock-tick";
 import { KindIcon, kindLabel } from "@/components/home/home-kinds";
 import { t } from "@/i18n";
 import { KindCloseButton } from "./kind-cells/KindCloseButton";
@@ -68,25 +67,20 @@ export function KindNavCard({ item, expanded }: { item: ScheduleItem; expanded: 
   if (leg) {
     return (
       <div data-kind-nav-card={item.id} data-kind-leg={leg.id}>
-        <ClockTick>
-          {(clockTick) => (
-            <NavCardItem
-              interaction={leg}
-              slotExpanded={expanded}
-              clockTick={clockTick}
-              kind={{
-                name,
-                identified: !!item.customer,
-                row,
-                selected: kindCellShownFor === key,
-                onSelectRow: (kindRowPicked) => {
-                  setKindCellShownFor(kindRowPicked ? key : null);
-                  switchActiveInteraction(key);
-                },
-              }}
-            />
-          )}
-        </ClockTick>
+        <NavCardItem
+          interaction={leg}
+          slotExpanded={expanded}
+          kind={{
+            name,
+            identified: !!item.customer,
+            row,
+            selected: kindCellShownFor === key,
+            onSelectRow: (kindRowPicked) => {
+              setKindCellShownFor(kindRowPicked ? key : null);
+              switchActiveInteraction(key);
+            },
+          }}
+        />
       </div>
     );
   }

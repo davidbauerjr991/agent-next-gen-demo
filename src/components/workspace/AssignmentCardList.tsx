@@ -9,7 +9,6 @@ import { ChevronsDownUp, ChevronsUpDown, Inbox } from "lucide-react";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { AssignmentsSectionCaption } from "@/components/agent-next-gen-interaction-dashboard";
-import { ClockTick } from "@/components/agent-next-gen-clock-tick";
 import { useAssignmentCards, useChannelChipsShown, type AssignmentEntry, type AssignmentsMount } from "@/contact-handling/useAssignmentCards";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useRailAssignmentCount } from "@/contact-handling/home/useScheduleCards";
@@ -106,8 +105,8 @@ export function AssignmentsHeaderActions() {
   return <KebabMenuButton ariaLabel={t("Assignment options")} items={items} data-slot="assignments-options" />;
 }
 
-/** One rail card in its drag target: a conversation's `NavCardItem` in its own `ClockTick` (a tick re-renders the
- *  card, not the page), or an open schedule item's `KindNavCard`. `slotExpanded` is LeftNav's hover value in the
+/** One rail card in its drag target: a conversation's `NavCardItem` (its timers tick on their own; the card
+ *  re-renders when a colour tier changes, P-LAYOUT-F2 8), or an open schedule item's `KindNavCard`. `slotExpanded` is LeftNav's hover value in the
  *  left nav (undefined inline, so the card falls back to `navOpen`); the panel and Home pass true. */
 export function AssignmentEntryCard({
   entry,
@@ -127,9 +126,8 @@ export function AssignmentEntryCard({
       {entry.type === "schedule" ? (
         <KindNavCard item={entry.item} expanded={slotExpanded ?? navOpen} />
       ) : (
-        <ClockTick>
-          {(clockTick) => <NavCardItem interaction={entry.interaction} slotExpanded={slotExpanded} clockTick={clockTick} hideChip={hideChip} />}
-        </ClockTick>
+        // No ClockTick: the card ticks only its timers and re-renders when a colour tier changes (P-LAYOUT-F2 8).
+        <NavCardItem interaction={entry.interaction} slotExpanded={slotExpanded} hideChip={hideChip} />
       )}
     </DraggableAssignment>
   );

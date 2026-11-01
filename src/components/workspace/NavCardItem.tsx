@@ -21,22 +21,23 @@ import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { NeedsOutcomeBadge } from "@/components/OnHoldBadge";
 import type { Interaction, Thread } from "@/components/agent-next-gen-interaction-dashboard";
 import { formatElapsedTime, getAwaitingSeverity } from "@/components/agent-next-gen-shared-utils";
+import { ElapsedSince } from "@/components/agent-next-gen-clock-tick";
+import { useClockValue } from "@/components/agent-next-gen-page-clock";
+import { cardTimeTiers } from "@/contact-handling/nav-card-ticks";
 import { InteractionNavCard } from "./left-nav-parts";
 
-/** One assignment card in the left nav (P-EXTRACT C8, from the page): the
- *  body of the card's `ClockTick` callback, so a tick re-renders this card
- *  and not the page. `slotExpanded` is the overlay hover's `expanded`, from
- *  the left-nav `<Slot>` (P-LAYOUT). */
+/** One assignment card in the left nav (P-EXTRACT C8, from the page). It reads the page clock without re-rendering on
+ *  every tick (P-LAYOUT-F2 8): its timers are self-ticking nodes (`ElapsedSince`, which lyra's timer props take, F2-L3),
+ *  and it re-renders only when one of its colour tiers changes (`cardTimeTiers`). `slotExpanded` is the overlay
+ *  hover's `expanded`, from the left-nav `<Slot>` (P-LAYOUT). */
 export function NavCardItem({
   interaction,
   slotExpanded,
-  clockTick,
   hideChip = false,
   kind,
 }: {
   interaction: Interaction;
   slotExpanded: boolean | undefined;
-  clockTick: number;
   /** Hides the channel chip on the card's rows (`assignments.channelChips`, P-PROFILES). */
   hideChip?: boolean;
   /** P-HOME-1e, -1f: this card is a schedule item's, with the call as its leg (KindNavCard): the item's name, and its
@@ -53,6 +54,9 @@ export function NavCardItem({
     panelPlacement, scenarioKeyOf, selectPanel, setInteractions, setPanelFullScreen,
     setVoiceVideoFullScreen, setVoiceVideoWindowOpen, switchActiveInteraction, botHolds,
   } = useWorkspace();
+  // Re-renders when a colour tier changes; the tick itself is read, not subscribed to (the timers tick on their own).
+  useClockValue(clock, (tick) => cardTimeTiers(interaction, tick, answerSla));
+  const clockTick = clock.now();
   // A row's Unassign & Dismiss is inside the card, so its click bubbles to the card's own activation, which would
   // select the card being closed and undo what opens after it (P-LAYOUT-F1 A4: the top active assignment, else
   // Home). The dismiss marks it; that one bubbled activation is skipped. The mark clears once the event is done (a
@@ -197,18 +201,21 @@ export function NavCardItem({
                     // Still blanked once `slaSuppressed` (closed/resolved)
                     // — same "nothing left to time" reasoning as every
                     // other channel type.
+                    // Live timers are self-ticking nodes (P-LAYOUT-F2 8): only the text re-renders each second.
                     elapsed: c.type === "voice"
                       ? // The leg's timer: counts while the call is live (whatever the case status), freezes at hang-up.
-                        legLive(c) || (c.wrapUpSinceTick !== undefined && !interaction.closed)
-                        ? formatElapsedTime((legLive(c) ? clockTick : c.wrapUpSinceTick!) - c.startTick)
+                        legLive(c)
+                        ? <ElapsedSince since={c.startTick} />
+                        : c.wrapUpSinceTick !== undefined && !interaction.closed
+                        ? formatElapsedTime(c.wrapUpSinceTick - c.startTick)
                         : ""
                       : slaSuppressed
                       ? ""
                       : !hasCustomerResponded(c)
                       ? ""
                       : effectiveAwaitingResponse
-                      ? formatElapsedTime(channelAwaitingWaitSeconds(c))
-                      : formatElapsedTime(clockTick - c.startTick),
+                      ? <ElapsedSince since={c.lastCustomerMessageTick ?? c.startTick} />
+                      : <ElapsedSince since={c.startTick} />,
                     // Recording (the provider's state): the timer's clock
                     // becomes a pulsing red dot, still counting (P0.5d.1).
                     recording: c.recording,
@@ -220,14 +227,13 @@ export function NavCardItem({
                     // (his controls are locked).
                     statusBadge:
                       c.wrapUpSinceTick !== undefined ? (
-                        <NeedsOutcomeBadge elapsed={formatElapsedTime(clockTick - c.wrapUpSinceTick)} />
+                        <NeedsOutcomeBadge since={c.wrapUpSinceTick} />
                       ) : c.type === "voice" &&
                         findLiveVoiceThread(interaction)?.id === c.id &&
                         !(scenarioKeyOf(interaction.id) === MARCUS_WEBB_ID && marcusWebbReviewing) ? (
                         <VoiceHoldChip
                           held={!!c.heldByAgent}
-                          heldSeconds={c.heldSinceTick !== undefined ? clockTick - c.heldSinceTick : 0}
-                          heldLabel={c.heldSinceTick !== undefined ? formatElapsedTime(clockTick - c.heldSinceTick) : undefined}
+                          heldSinceTick={c.heldSinceTick}
                           callerName={interaction.customerName ?? c.addressLabel ?? c.value ?? "caller"}
                           onClick={() => handleCallHoldChip(interaction, c)}
                         />
@@ -532,6 +538,11 @@ export function NavCardItem({
                   cardAwaitingChannels.length > 0
                     ? Math.max(...cardAwaitingChannels.map(channelAwaitingWaitSeconds))
                     : undefined;
+                // The same wait as a start tick, for the tile's self-ticking timer: the longest wait started first.
+                const cardAwaitingSince =
+                  cardAwaitingChannels.length > 0
+                    ? Math.min(...cardAwaitingChannels.map((c) => c.lastCustomerMessageTick ?? c.startTick))
+                    : undefined;
                 // The card's SLA tier: a ringing offer on its answer SLA
                 // (profile thresholds), else the longest awaiting reply.
                 // Drives the outline/timer and the new-assignment dot.
@@ -685,13 +696,17 @@ export function NavCardItem({
                     // that plain computation whenever nothing's held
                     // (`cardHeldSinceTick === undefined`), exactly as
                     // before this feature existed.
+                    // Self-ticking (P-LAYOUT-F2 8); the on-hold badge's colour comes with it, since a node isn't text.
                     elapsed={
-                      cardHeldSinceTick !== undefined
-                        ? formatElapsedTime(clockTick - cardHeldSinceTick)
-                        : earliestStart !== undefined
-                        ? formatElapsedTime(cardAwaitingWaitSeconds ?? clockTick - earliestStart)
-                        : ""
+                      cardHeldSinceTick !== undefined ? (
+                        <ElapsedSince since={cardHeldSinceTick} />
+                      ) : earliestStart !== undefined ? (
+                        <ElapsedSince since={cardAwaitingSince ?? earliestStart} />
+                      ) : (
+                        ""
+                      )
                     }
+                    holdSeverity={cardHeldSinceTick !== undefined ? getHoldSeverity(clockTick - cardHeldSinceTick) : undefined}
                     expanded={slotExpanded ?? navOpen}
                     channels={kind ? [kind.row, ...channels] : channels}
                     onDismiss={() => {

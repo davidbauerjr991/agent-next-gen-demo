@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, useSyncExternalStore } from "react";
+import { formatElapsedTime } from "./agent-next-gen-shared-utils";
 
 /* ── Page clock ──
    The workspace pages' shared 1-per-second counter (the `clockTick` scale
@@ -69,4 +70,10 @@ export function usePageClock(): PageClock {
  *  return a primitive (or a stable reference). */
 export function useClockValue<T>(clock: PageClock, select: (tick: number) => T): T {
   return useSyncExternalStore(clock.subscribe, () => select(clock.now()));
+}
+
+/** "mm:ss" since `since` (a page-clock tick), re-rendering the caller only when the text changes (P-LAYOUT-F2 8). */
+export function useElapsedSince(since: number): string {
+  const clock = usePageClock();
+  return useClockValue(clock, (tick) => formatElapsedTime(tick - since));
 }
