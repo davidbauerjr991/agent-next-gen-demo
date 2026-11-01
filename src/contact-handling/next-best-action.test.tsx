@@ -26,6 +26,7 @@ import { canvasCellDefinition, resetCanvasRegistry } from "./canvas-registry";
 import { showEmptyReferenceCards } from "@/test-utils/reference-cards";
 import { simVoiceCustomerLines } from "@/adapters/sim/sim-auto-replies";
 import { NBA_CHIP } from "./next-best-action";
+import { copilotSuggestionsFor } from "./copilot-suggestions";
 
 // The harness's 30s isn't enough here. These cases play whole scripted cases on the full page: 6–8s each alone
 // (the Lucas takeover chat is 8.3s), and over 30s while the full suite runs every file in parallel. A case that
@@ -229,6 +230,64 @@ describe("the Next Best Action: the greeting on connect, then on a pause or on r
       expect(nba()?.textContent, title).toContain(title);
       await h.click(button("Not now")!);
       await h.advance(1_500);
+    }
+  });
+
+  it("P-LAYOUT-F2 5a: \"What should I do next?\" while a suggestion is showing (Noah's email, his greeting up) answers with a line pointing at it, after the performing state; every click", async () => {
+    await open({ displayLocation: "inline" });
+    await h.click(h.navCard("Noah Patel"));
+    await h.advance(2_000);
+    expect(nba()?.textContent).toContain("Greet Noah");
+    const lines = () => [...main().querySelectorAll<HTMLElement>("[data-event-line]")].filter((l) => l.textContent?.includes(`Copilot · ${NBA_CHIP}`));
+    for (let i = 1; i <= 2; i++) {
+      await h.click(chip()!);
+      await h.advance(100);
+      // Performing first (the instruction row's state), then the line.
+      expect(lines().length, `click ${i}`).toBe(i - 1);
+      await h.advance(2_500);
+      expect(lines().length, `click ${i}`).toBe(i);
+      expect(lines()[i - 1].textContent).toContain("The next step is still: Greet Noah");
+    }
+  });
+
+  // P-LAYOUT-F2 5a: the Ethan case above clicks only SMS's chips, and its Next Best Action check matched the greeting
+  // that had surfaced on its own seconds before — it passed when the click did nothing. This counts what each click
+  // adds, on every channel.
+  it.each([
+    ["chat", "dee@example.com", "Dee Park"],
+    ["sms", "(312) 555-0141", "Sam Ortiz"],
+    ["whatsapp", "(312) 555-0142", "Wren Hale"],
+    ["email", "eli@example.com", "Eli Grant"],
+    ["voice", "+15550104413", "Val Moss"],
+  ] as const)("every default chip on a live %s contact with no script answers with a new line or row, every click", async (channel, address, name) => {
+    await open({ displayLocation: "inline" });
+    if (channel === "voice" || channel === "chat") {
+      await h.accept(await h.startInbound(channel, address, name));
+      await h.advance(500);
+      await h.click(h.navCard(name));
+    } else {
+      // The sim has no inbound email, SMS or WhatsApp: an outbound (its card is labelled by the address).
+      await act(async () => {
+        const dialed = h.provider.dial({ channel, address, skillId: "general" });
+        await vi.advanceTimersByTimeAsync(300);
+        await dialed;
+      });
+      await h.click(h.navCard(address));
+    }
+    await h.advance(2_000);
+    const composer = () => document.body.querySelector<HTMLElement>("[data-slot=copilot-composer]")!;
+    const answers = () => main().querySelectorAll("[data-event-line], [data-slot=next-best-action], [data-slot=nba-outcome]").length;
+    const chipNamed = (text: string) =>
+      [...composer().querySelectorAll<HTMLElement>("[data-slot=copilot-chips] [role=button]")].find((c) => c.textContent?.trim() === text);
+    for (const text of [...copilotSuggestionsFor(channel), NBA_CHIP, NBA_CHIP]) {
+      const before = answers();
+      if (text === NBA_CHIP) await h.click(chip()!);
+      else {
+        if (!chipNamed(text)) await h.click(composer().querySelector("[data-slot=copilot-chips-refresh] button")!);
+        await h.click(chipNamed(text)!);
+      }
+      await h.advance(2_500);
+      expect(answers(), `${channel}: ${text}`).toBeGreaterThan(before);
     }
   });
 

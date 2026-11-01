@@ -45,7 +45,7 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
   // A Next Best Action's "Insert into reply" (P-CANVAS): the thread's chat composer takes it once.
   const [composerPrefill, setComposerPrefill] = useWorkspaceUiField("composerPrefill");
   // The Next Best Action on request (P-CANVAS; every AI display): the "What should I do next?" chip.
-  const requestNextBestAction = useRequestNextBestAction(interactions);
+  const requestNextBestAction = useRequestNextBestAction(interactions, prev.setInteractions);
   const copilotComposerProps = (interactionId: string, threadKey: string): CopilotComposerProps =>
     copilotChipsFor(baseCopilotComposerProps(interactionId, threadKey), prev.botHolds(interactionId), () =>
       requestNextBestAction(interactionId, threadKey),

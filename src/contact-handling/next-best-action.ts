@@ -9,6 +9,8 @@ import type { InteractionId } from "@/domain";
 import { getAssistCardStore, useAssistCardsByContact, useAssistProvider, useContactAssistCards, useInteraction, useInteractions } from "@/provider-context";
 import { redact } from "@/providers/redaction";
 import { useSettings } from "@/settings";
+import { t } from "@/i18n";
+import { AI_PERFORM_MS } from "./ai-perform";
 import { useWorkspaceUiField, useWorkspaceUiStore } from "./workspace-ui-store";
 import { useWorkspace } from "./workspace/WorkspaceContext";
 
@@ -238,9 +240,13 @@ export function useTypedTurnRelease() {
 
 /** Asks for the Next Best Action now (the "What should I do next?" chip, or
  *  that question in Ask Copilot) on a card's thread. The answer surfaces as a
- *  row: the suggestion, or "Nothing to suggest". Nothing while a bot holds
- *  the contact. */
-export function useRequestNextBestAction(cards: Cards) {
+ *  row: the suggestion, or "Nothing to suggest". While a suggestion is already
+ *  showing, the provider has nothing new to send (it surfaces one at a time),
+ *  so the ask answers with a Copilot line pointing at it, after the
+ *  instruction row's "performing" state (P-LAYOUT-F2 5a: the ask used to do
+ *  nothing then, e.g. on an email whose greeting had surfaced). Nothing while
+ *  a bot holds the contact. */
+export function useRequestNextBestAction(cards: Cards, setCards: SetCards) {
   const assist = useAssistProvider();
   const contacts = useInteractions();
   const store = useWorkspaceUiStore();
@@ -250,12 +256,27 @@ export function useRequestNextBestAction(cards: Cards) {
       const contactId = thread?.providerInteractionId;
       const contact = contactId ? contacts.find((c) => c.id === contactId) : undefined;
       if (!contactId || !contact || contact.review) return;
+      const showing = getAssistCardStore(assist).getState()[contactId]?.nba;
+      if (showing?.frame === "suggestion" && showing.suggestion) {
+        setCards((prev) =>
+          appendRow(prev, cardId, threadKey, {
+            ...row({ id: `nba-still-${contactId}-${Date.now()}`, text: t("The next step is still: {title}", { title: showing.suggestion!.title }) }),
+            name: t("Copilot"),
+            initials: "",
+            event: true,
+            eventContext: NBA_CHIP,
+            eventPerformedAt: Date.now() + AI_PERFORM_MS,
+            eventAskedBy: AGENT_NAME,
+          }),
+        );
+        return;
+      }
       store.update((s) => ({ ...s, nbaRequested: new Set(s.nbaRequested).add(contactId) }));
       assist
         .suggest({ interactionId: contactId as InteractionId, trigger: { kind: "next-best-action" } })
         .catch((err) => import.meta.env.DEV && console.warn("[nba] request failed", err));
     },
-    [assist, cards, contacts, store],
+    [assist, cards, contacts, setCards, store],
   );
 }
 

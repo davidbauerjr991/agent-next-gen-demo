@@ -160,3 +160,17 @@ test("inline, Maya: her card-on-file turn expands Customer Info beside the agent
   await expect.poll(words, { timeout: 10_000 }).not.toBe(before);
   expect(await expanded()).toEqual(["journey-summary", "customer-info-card"]);
 });
+
+// P-LAYOUT-F2 5a: the chip on Noah's email, his greeting already showing, used to do nothing (no pending row, no
+// line): the assist provider surfaces one suggestion at a time and dropped the request. It answers with a line now.
+test("\"What should I do next?\" on Noah's email while his greeting shows: the performing row, then a line pointing at it", async ({ page }) => {
+  await start(page, "inline");
+  await openCard(page, "Noah Patel");
+  const thread = page.locator("[data-main-thread]");
+  await expect(thread.locator("[data-slot=next-best-action]")).toContainText("Greet Noah", { timeout: 10_000 });
+  const lines = thread.locator("[data-event-line]", { hasText: "Copilot · What should I do next?" });
+  await expect(lines).toHaveCount(0);
+  await page.locator("[data-slot=copilot-chip-pinned]").click();
+  await expect(lines).toHaveCount(1, { timeout: 5_000 });
+  await expect(lines.first()).toContainText("The next step is still: Greet Noah");
+});
