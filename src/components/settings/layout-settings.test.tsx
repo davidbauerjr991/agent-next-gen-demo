@@ -111,6 +111,9 @@ describe("the Advanced layout switch (P-LAYOUT-F1 E)", () => {
       const row = preset(field);
       expect([...row.querySelectorAll("[role=radio]")].every((r) => r.hasAttribute("disabled")), field).toBe(true);
       expect(row.textContent, field).toContain("Advanced layout is on.");
+      // The reason describes the group, so the keyboard reaches it (lyra L2 `ariaDescribedBy`).
+      const group = row.querySelector("[role=radiogroup]")!;
+      expect(document.getElementById(group.getAttribute("aria-describedby") ?? "")?.textContent, field).toBe("Advanced layout is on.");
     }
     await h.click(advancedTrigger());
     expect(advancedTrigger().getAttribute("aria-expanded")).toBe("true");

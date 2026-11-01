@@ -68,7 +68,7 @@ function AssignmentInlineRow({ entry }: { entry: AssignmentEntry }) {
     // The card list's schedule items are the active ones (a scheduled offer stays a feed row, its preview's Accept).
     status = t("Open");
     avatar = item.customer ? <Avatar size="xs" initials={initialsFor(name)} /> : <Avatar size="xs" icon={kindIconFor(item.kind)} />;
-    action = <ViewButton onClick={open} />;
+    action = <ViewButton name={name} onClick={open} />;
   } else {
     const { interaction } = entry;
     const current = interaction.threads[interaction.threads.length - 1];
@@ -82,7 +82,7 @@ function AssignmentInlineRow({ entry }: { entry: AssignmentEntry }) {
         onDecline={incomingOffer.canDecline ? () => void incomingOffer.decline(interaction) : undefined}
       />
     ) : (
-      <ViewButton onClick={open} />
+      <ViewButton name={name} onClick={open} />
     );
   }
 
@@ -110,9 +110,10 @@ function AssignmentInlineRow({ entry }: { entry: AssignmentEntry }) {
   );
 }
 
-function ViewButton({ onClick }: { onClick: () => void }) {
+/** Named with the row's name (WCAG 2.4.4): every row has one. */
+function ViewButton({ name, onClick }: { name: string; onClick: () => void }) {
   return (
-    <Button variant="outline" size="sm" onClick={onClick}>
+    <Button variant="outline" size="sm" onClick={onClick} aria-label={t("View {name}", { name })}>
       {t("View")}
     </Button>
   );

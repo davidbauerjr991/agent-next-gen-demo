@@ -35,7 +35,7 @@ export function PanelToggleRow({ children }: { children: React.ReactNode }) {
 }
 
 /** The assignments part in the interior-panel slot. */
-export function AssignmentsInteriorPanel() {
+function AssignmentsInteriorPanel() {
   return useSlotHas("interior-panel", "assignments") ? <AssignmentsSidePanel /> : null;
 }
 

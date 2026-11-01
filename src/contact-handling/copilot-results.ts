@@ -40,11 +40,12 @@ export function resetCopilotResults(): void {
   registered = new Map();
 }
 
-// Dev-only handle for Playwright (e2e's `registerCardResult`), as ProviderRoot's `__providers`; app code never reads it.
-if (import.meta.env.DEV && typeof window !== "undefined") window.__copilotResults = { register: registerCopilotResult };
+// Dev-only handle for Playwright (e2e's `registerCardResult`, which builds its card from the same placeholder), as
+// ProviderRoot's `__providers`; app code never reads it.
+if (import.meta.env.DEV && typeof window !== "undefined") window.__copilotResults = { register: registerCopilotResult, placeholder: placeholderCopilotResult };
 
 /** The placeholder for a question on a contact with no script, shaped like the scripted cases' results. */
-function placeholderResult(question: string): CopilotResult {
+export function placeholderCopilotResult(question: string): CopilotResult {
   const q = question.toLowerCase();
   if (q.includes("draft") || q.includes("suggest a reply")) {
     return {
@@ -72,6 +73,6 @@ function placeholderResult(question: string): CopilotResult {
 
 /** The result for a question: a registered one, else `fallback`'s (a kind item's scripted answer), else the
  *  placeholder for a contact with no script. */
-export function copilotResultFor(question: string, fallback: (question: string) => CopilotResult = placeholderResult): CopilotResult {
+export function copilotResultFor(question: string, fallback: (question: string) => CopilotResult = placeholderCopilotResult): CopilotResult {
   return registered.get(keyOf(question)) ?? fallback(question);
 }

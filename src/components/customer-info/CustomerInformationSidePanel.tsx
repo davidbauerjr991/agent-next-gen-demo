@@ -28,6 +28,7 @@ import {
 } from "./customer-info-seed";
 import { CustomerDetailTabContent, CustomerRecordSaveFooter, type useCustomerRecordDraft } from "./CustomerDetailTabs";
 import { CustomerInformationPanelBody } from "./CustomerInformationPanelBody";
+import { t } from "@/i18n";
 import { buildCustomerMatchSubhead, CustomerMatchSearchBody } from "./customer-match";
 
 /* ── CustomerInformationSidePanel ──
@@ -560,8 +561,9 @@ export function CustomerInformationSidePanel({
               // the panel collapses toward, so it needs to flip along with
               // the panel's actual position.
               icon={<PanelRightClose className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />}
-              pinnedLabel="Close Customer Information"
-              unpinnedLabel="Close Customer Information"
+              // Named by the title it closes ("Copilot" for the docked AI panel, P-LAYOUT-F1 F).
+              pinnedLabel={t("Close {title}", { title: headerTitleOverride ?? t("Customer Information") })}
+              unpinnedLabel={t("Close {title}", { title: headerTitleOverride ?? t("Customer Information") })}
             />
           )}
         </>

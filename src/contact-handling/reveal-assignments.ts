@@ -15,7 +15,7 @@ export function revealAssignments(slot: SlotId, setNavOpen: (open: boolean) => v
 
 /** The interior panel's defaults: the left nav as a rail, the panel open and pinned. Defaults, not a lock: the agent
  *  can expand the nav or close the panel afterwards. */
-export function applyInteriorPanelDefaults(setNavOpen: (open: boolean) => void): void {
+function applyInteriorPanelDefaults(setNavOpen: (open: boolean) => void): void {
   setNavOpen(false);
   setAssignmentsWorkingState({ panelOpen: true, panelPinned: true });
 }

@@ -535,6 +535,8 @@ describe("AI display panel: docked Copilot composer", () => {
     const back = () => slideOver()?.querySelector('[aria-label="Back"], [aria-label^="Back"]') ?? null;
     expect(panel().textContent).toContain("Copilot");
     expect([...panel().querySelectorAll("h1, h2, h3, h4, [data-slot=container-header-title], [class*=heading]")].some((el) => el.textContent?.trim() === "Overview")).toBe(false);
+    // Its close is named by it (a11y review).
+    expect(panel().querySelector('[aria-label="Close Copilot"]')).not.toBeNull();
 
     // The name in the panel's header.
     const name = [...panel().querySelectorAll("button")].find((b) => b.textContent?.trim() === "Lucas Thomas")!;

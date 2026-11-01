@@ -111,6 +111,8 @@ describe("Home's Active assignments section (P-LAYOUT-F1 B)", () => {
     }
     const rows = () => [...section()!.querySelectorAll("[role=list] > *")];
     expect(rows().map((r) => (r.textContent?.includes("Ben Ito") ? "Ben" : "Ana"))).toEqual(["Ben", "Ana"]);
+    // Each View is named with its row (a11y review): the visible "View" stays in the name.
+    expect([...rows()[1].querySelectorAll("button")].find((b) => b.textContent?.trim() === "View")?.getAttribute("aria-label")).toBe("View Ana Ruiz");
     await h.click([...rows()[1].querySelectorAll<HTMLElement>("button")].find((b) => b.textContent?.trim() === "View")!);
     expect(h.container.querySelector("[data-slot=record-header]")?.textContent).toContain("Ana Ruiz");
   });
@@ -237,7 +239,7 @@ describe("Assignments placement → Interior panel (0c; lyra SidePanel left sinc
     expect(panel()!.querySelector("[role=separator]")!.getAttribute("aria-valuemin")).toBe("256");
     // The page header's toggle (the app's own strip is gone), its name carrying the count (A2).
     expect(h.container.querySelector("[data-slot=assignments-panel-toggle]")).toBeNull();
-    expect(headerToggle()!.getAttribute("aria-label")).toBe("Assignments (1)");
+    expect(headerToggle()!.getAttribute("aria-label")).toBe("Assignments, 1 active");
     expect(headerToggle()!.getAttribute("aria-expanded")).toBe("true");
     // Unpinned: SidePanel's overlay (and closed, as lyra's AdminShell unpins); pinned again, it pushes once more.
     await h.click(button(/^Unpin panel$/)!);
@@ -276,7 +278,7 @@ describe("Assignments placement → Interior panel (0c; lyra SidePanel left sinc
       await h.advance(1000);
     }
     // Both are active, not new ones only: the same number as the panel's "Assignments (n)".
-    expect(headerToggle()!.getAttribute("aria-label")).toBe("Assignments (2)");
+    expect(headerToggle()!.getAttribute("aria-label")).toBe("Assignments, 2 active");
     expect(headerToggle()!.textContent).toContain("2");
     expect(panel()!.textContent).toContain("Assignments(2)");
   });
@@ -344,6 +346,17 @@ describe("Assignments placement → Interior panel (0c; lyra SidePanel left sinc
       expect(button(/^(Un)?[Pp]in panel$/)).toBeUndefined();
       await act(async () => {
         document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        await vi.advanceTimersByTimeAsync(100);
+      });
+      expect(headerToggle()!.getAttribute("aria-expanded")).toBe("false");
+      // Focus back on the toggle from inside the flyout (Tab past its last control) closes it: the flyout covers the
+      // toggle (lyra L2, WCAG 2.4.11).
+      await h.click(headerToggle()!);
+      expect(headerToggle()!.getAttribute("aria-expanded")).toBe("true");
+      const inside = document.activeElement as HTMLElement;
+      expect(panel()!.contains(inside)).toBe(true);
+      await act(async () => {
+        headerToggle()!.focus();
         await vi.advanceTimersByTimeAsync(100);
       });
       expect(headerToggle()!.getAttribute("aria-expanded")).toBe("false");

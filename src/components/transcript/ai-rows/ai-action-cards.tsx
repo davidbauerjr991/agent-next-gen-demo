@@ -85,15 +85,18 @@ export function AiActionCard({
     const line = (
       <TranscriptEventLine time={message.timestamp} name={message.name} context={message.eventContext} text={message.text} points={message.eventPoints} />
     );
-    // The instruction row's "performing" state until Copilot finishes, then the line in its place.
+    // The instruction row's "performing" state until Copilot finishes, then the line in its place. The polite status
+    // wraps both, mounted before the swap, so the answer's arrival is announced (WCAG 4.1.3).
     return (
-      <InstructionInterstitial
-        id={message.id}
-        instruction={{ title: message.eventContext!, by: message.eventAskedBy ?? "", link: "", performedAt: message.eventPerformedAt }}
-        timestamp={message.timestamp}
-        onOpen={() => {}}
-        performedContent={line}
-      />
+      <div role="status" aria-live="polite">
+        <InstructionInterstitial
+          id={message.id}
+          instruction={{ title: message.eventContext!, by: message.eventAskedBy ?? "", link: "", performedAt: message.eventPerformedAt }}
+          timestamp={message.timestamp}
+          onOpen={() => {}}
+          performedContent={line}
+        />
+      </div>
     );
   }
   if (message.instruction) {

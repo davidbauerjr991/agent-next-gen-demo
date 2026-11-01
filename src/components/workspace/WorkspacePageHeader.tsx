@@ -23,8 +23,8 @@ export const WorkspacePageHeader = React.forwardRef<HTMLDivElement, WorkspacePag
 ) {
   const toggles = usePanelToggles();
   const left = toggles?.assignments ?? null;
-  // A2: the left toggle's badge is every active assignment, the panel's own "Assignments (n)" (none at zero), and
-  // the count is in its name, since the badge isn't.
+  // A2: the left toggle's badge is every active assignment, the panel's own "Assignments (n)" (none at zero). The
+  // badge is hidden from assistive tech (lyra F1-L2), so the count is in the name: "Assignments, n active".
   const assignmentCount = toggles?.assignmentCount ?? 0;
   const target =
     toggles && rightPanel
@@ -40,7 +40,7 @@ export const WorkspacePageHeader = React.forwardRef<HTMLDivElement, WorkspacePag
       {...(left && {
         ...withoutPinnedPreview(left),
         panelToggleBadge: assignmentCount,
-        panelToggleLabel: assignmentCount > 0 ? t("Assignments ({count})", { count: assignmentCount }) : t("Assignments"),
+        panelToggleLabel: assignmentCount > 0 ? t("Assignments, {count} active", { count: assignmentCount }) : t("Assignments"),
       })}
       {...(right && {
         ...withoutPinnedPreview(right),

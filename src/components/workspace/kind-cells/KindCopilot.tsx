@@ -40,7 +40,7 @@ function placeholderFor(item: ScheduleItem): string {
 export const isCardAsk = (ask: KindCopilotAsk): boolean => resultPresentation(ask.answer) === "card";
 
 /** An ask's result, as the slide-over shows it. */
-export const askResult = (ask: KindCopilotAsk): DetailPanelContent => ({ kind: "copilot-result", text: ask.text, time: ask.time, link: ask.link, answer: ask.answer });
+const askResult = (ask: KindCopilotAsk): DetailPanelContent => ({ kind: "copilot-result", text: ask.text, time: ask.time, link: ask.link, answer: ask.answer });
 
 /** Opens an ask's result in the slide-over, or closes it when it's the one showing (the row's and the summary line's
  *  toggle, as on a conversation). */
@@ -77,8 +77,8 @@ export function KindCopilotRows({ item }: { item: ScheduleItem }) {
     <div className="flex flex-col gap-4" data-kind-copilot-rows="">
       {asks.map((ask) =>
         !isCardAsk(ask) ? (
-          // The row's "performing" state, then the line in its place, as on a conversation.
-          <div key={ask.id} data-kind-copilot-ask={ask.id}>
+          // The row's "performing" state, then the line in its place, as on a conversation; announced on arrival.
+          <div key={ask.id} data-kind-copilot-ask={ask.id} role="status" aria-live="polite">
             <InstructionInterstitial
               id={ask.id}
               instruction={{ title: ask.text, by: CURRENT_AGENT_NAME, link: ask.link, performedAt: ask.askedAt + AI_PERFORM_MS }}

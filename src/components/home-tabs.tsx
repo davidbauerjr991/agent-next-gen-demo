@@ -22,6 +22,7 @@ import { WorkspacePageHeader } from "@/components/workspace/WorkspacePageHeader"
 import { useSettings, type ExtraHeaderApp } from "@/settings";
 import { homeIsTwoColumn } from "@/contact-handling/home/home-layout";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /** Dashboard, the tab-placed apps (draggable), then the closable customer
  *  tabs. Dashboard has no `key`, so it can't be dragged and stays first. */
@@ -43,6 +44,7 @@ export function HomeTabStrip({
   const twoColumn = homeIsTwoColumn(home, parts);
   const list = (
     <TabList
+      aria-label={t("Home")}
       overflowMenu
       reorderable
       onReorder={onReorder}
@@ -120,7 +122,7 @@ export function CustomersPage({
   return (
     <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
       {tabs.customerTabs.length > 0 && (
-        <TabList className="px-6 bg-lyra-bg-surface-base shrink-0">
+        <TabList aria-label={t("Customers")} className="px-6 bg-lyra-bg-surface-base shrink-0">
           <Tab active={onList} onClick={() => tabs.setActiveTab("customers")}>
             Customers
           </Tab>

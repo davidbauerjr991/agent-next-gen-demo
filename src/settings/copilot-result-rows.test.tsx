@@ -219,8 +219,13 @@ describe("a plain answer's line goes where the AI rows go (P-LAYOUT-F1 F)", () =
     const panel = () => document.body.querySelector<HTMLElement>("[data-slot=right-panel]")!;
     expect(panel().textContent).toContain("AI agent is performing this now…");
     expect(lineIn("[data-slot=right-panel]", text)).toBeUndefined();
+    // One polite status around both, mounted before the swap, so the arrival is announced (a11y review).
+    const status = [...panel().querySelectorAll<HTMLElement>("[role=status][aria-live=polite]")].find((s) => s.textContent?.includes("AI agent is performing this now…"))!;
+    expect(status).toBeTruthy();
     await h.advance(2_000);
     expect(lineIn("[data-slot=right-panel]", text)).toBeTruthy();
+    expect(status.isConnected).toBe(true);
+    expect(status.contains(lineIn("[data-slot=right-panel]", text)!)).toBe(true);
     expect(panel().textContent).not.toContain("AI agent is performing this now…");
     expect(row(text)).toBeUndefined();
   });

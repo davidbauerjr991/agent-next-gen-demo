@@ -12,14 +12,24 @@ import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useRailAssignmentCount } from "@/contact-handling/home/useScheduleCards";
 
 export function QueueChip() {
-  const { hasBreachedSlaAssignment, setNavOpen } = useWorkspace();
+  const { hasBreachedSlaAssignment, navOpen, setNavOpen } = useWorkspace();
   const inPanel = useSlotFor("assignments") === "interior-panel";
   const { panelOpen } = useAssignmentsWorkingState();
   const count = useRailAssignmentCount();
   const toggle = () => (inPanel ? setAssignmentsWorkingState({ panelOpen: !panelOpen }) : setNavOpen((v) => !v));
   return (
-    <Tooltip content={t("Toggle Assignment Panel")} placement="bottom" asLabel>
-      <Button variant="ghost" size="sm" onClick={toggle} data-slot="queue-chip" className="h-auto shrink-0 rounded-full p-0">
+    // The tooltip describes; the name stays the visible text (WCAG 2.5.3). It says whether what it toggles is open.
+    <Tooltip content={t("Toggle Assignment Panel")} placement="bottom">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={toggle}
+        data-slot="queue-chip"
+        // No aria-controls: the page header's toggle is the one control `[aria-controls=assignments-panel]` finds
+        // (lyra's useSidePanelToggle and the panel's close look it up that way).
+        aria-expanded={inPanel ? panelOpen : navOpen}
+        className="h-auto shrink-0 rounded-full p-0"
+      >
         <Tag
           label={t("My Assignment Queue: {count}", { count: count > 0 ? String(count) : t("Empty") })}
           variant={hasBreachedSlaAssignment ? "critical" : count > 0 ? "warning" : "success"}

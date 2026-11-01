@@ -109,6 +109,7 @@ function LayoutPresetRow({ row }: { row: PresetRow }) {
   const [value, apply] = useLayoutPreset(field);
   const unused = useSettingDisabledBy(row.field as SettingPath);
   const labelId = React.useId();
+  const noteId = React.useId();
   const description = row.options.find((o) => o.value === value)?.description;
   return (
     // The field's own section lock as well as the group's: the store refuses a write to either.
@@ -121,6 +122,8 @@ function LayoutPresetRow({ row }: { row: PresetRow }) {
         <DisabledReason reason={unused ? t(unused.reason) : undefined} className="flex w-fit">
           <ToggleGroup
             ariaLabelledBy={labelId}
+            // The reason (or the value's description) under it, read on entering the group (lyra L2).
+            ariaDescribedBy={unused || description ? noteId : undefined}
             items={row.options.map((o) => ({ value: o.value, label: t(o.label) }))}
             value={value ?? ""}
             disabled={!!unused}
@@ -129,9 +132,9 @@ function LayoutPresetRow({ row }: { row: PresetRow }) {
         </DisabledReason>
         {/* The reason as text too: a disabled control takes no focus, so its tooltip alone never reaches the keyboard. */}
         {unused ? (
-          <p className="lyra-body-sm text-lyra-fg-secondary">{t(unused.reason)}</p>
+          <p id={noteId} className="lyra-body-sm text-lyra-fg-secondary">{t(unused.reason)}</p>
         ) : (
-          description && <p className="lyra-body-sm text-lyra-fg-secondary">{t(description)}</p>
+          description && <p id={noteId} className="lyra-body-sm text-lyra-fg-secondary">{t(description)}</p>
         )}
       </div>
     </LockScope>

@@ -15,5 +15,8 @@ interface Window {
   /** Dev-only customer side of the sim bus (P0.4), until the P0.6 console. */
   __simCustomer?: import("./adapters/sim/sim-customer-client").SimCustomerClient;
   /** Dev-only: Playwright registers a Copilot result for a question (e2e `registerCardResult`, P-LAYOUT-F1 F). */
-  __copilotResults?: { register: typeof import("./contact-handling/copilot-results").registerCopilotResult };
+  __copilotResults?: {
+    register: typeof import("./contact-handling/copilot-results").registerCopilotResult;
+    placeholder: typeof import("./contact-handling/copilot-results").placeholderCopilotResult;
+  };
 }

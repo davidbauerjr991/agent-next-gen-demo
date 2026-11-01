@@ -77,7 +77,7 @@ test("interior panel (P-LAYOUT-F1 A2): the nav starts as a rail; a closed panel 
   await expect(page.locator("[data-slot=assignments-panel]")).toContainText("Maya Chen");
   await expect(page.locator("aside").getByRole("button", { name: "Expand sidebar" })).toBeVisible();
   // The toggle's badge counts every active assignment, in its name too.
-  await expect(toggle).toHaveAttribute("aria-label", /^Assignments \(\d+\)$/);
+  await expect(toggle).toHaveAttribute("aria-label", /^Assignments, \d+ active$/);
 });
 
 test("after a close (P-LAYOUT-F1 A4): the top active assignment in the list opens, not the next one created", async ({ page }) => {
