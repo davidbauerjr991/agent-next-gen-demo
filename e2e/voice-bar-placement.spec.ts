@@ -21,7 +21,8 @@ async function mayaLive(page: Page, displayLocation: (typeof MODES)[number], con
   await page.getByRole("button", { name: "Go Available" }).click();
   // Maya Chen (dev hotkey B) connects at once.
   await page.keyboard.press("b");
-  await expect(page.locator("aside").getByText("Maya Chen").first()).toBeVisible({ timeout: 15_000 });
+  // Her card, in the left nav or the interior panel.
+  await expect(page.locator("[data-slot=assignment-card]").getByText("Maya Chen").first()).toBeVisible({ timeout: 15_000 });
 }
 
 const navBar = (page: Page) => page.locator("[data-slot=left-nav-voice] [data-slot=voice-bar]");
@@ -72,3 +73,41 @@ test("controls in the left nav: the bar's header shows Maya's name and a running
   const first = (await navBar(page).innerText()).match(/\d{2}:\d{2}/)?.[0];
   await expect.poll(async () => (await navBar(page).innerText()).match(/\d{2}:\d{2}/)?.[0], { timeout: 5_000 }).not.toBe(first);
 });
+
+// P-LAYOUT-F2 2: at the top of the assignments list, in the left nav and in the interior panel, the bar takes the
+// cards' inset (its edges are theirs) and stays put while the cards scroll under it.
+for (const placement of ["leftNav", "interiorPanel"] as const) {
+  test(`Top of assignments (${placement}): the bar's edges are the cards', and the list scrolls under it`, async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 560 });
+    await page.addInitScript((placement) => {
+      localStorage.setItem("agent-next-gen:settings:assignments", JSON.stringify({ v: 2, value: { placement } }));
+      localStorage.setItem(
+        "agent-next-gen:settings:channels",
+        JSON.stringify({ v: 1, value: { voice: true, chat: true, email: true, sms: true, whatsapp: true } }),
+      );
+    }, placement);
+    await mayaLive(page, "inline", "top");
+    const container = placement === "leftNav" ? "aside" : "[data-slot=assignments-panel]";
+    const bar = page.locator(`${container} [data-slot=voice-bar]`);
+    await expect(bar).toBeVisible({ timeout: 10_000 });
+    const cards = page.locator(`${container} [data-slot=assignment-card]`);
+    await expect.poll(() => cards.count()).toBeGreaterThanOrEqual(3);
+    await page.waitForTimeout(500);
+    const b = (await bar.boundingBox())!;
+    const c = (await cards.first().boundingBox())!;
+    expect(Math.abs(b.x - c.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(b.x + b.width - (c.x + c.width))).toBeLessThanOrEqual(1);
+    // Scroll the list: the bar's top doesn't move; the cards do.
+    const scrolled = await cards.first().evaluate((el) => {
+      let p: HTMLElement | null = el.parentElement;
+      while (p && !(getComputedStyle(p).overflowY === "auto" && p.scrollHeight > p.clientHeight)) p = p.parentElement;
+      if (!p) return false;
+      p.scrollTop = p.scrollHeight;
+      return true;
+    });
+    expect(scrolled).toBe(true);
+    await page.waitForTimeout(200);
+    expect(Math.round((await bar.boundingBox())!.y)).toBe(Math.round(b.y));
+    expect((await cards.first().boundingBox())!.y).toBeLessThan(c.y);
+  });
+}

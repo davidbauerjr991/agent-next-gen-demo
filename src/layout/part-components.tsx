@@ -69,20 +69,29 @@ function LeftNavAssignments({ expanded }: PartProps) {
 
 // ── The voice bar, the queue chip ───────────────────────────────────────────────────────────────────────────
 
-/** Voice controls "Top of assignments" with the assignments in the left nav: the voice bar portals in here (v3's `LeftNavVoiceSlot`), only while the nav
- *  is open; collapsed, it falls back to the bottom (`WorkspaceVoiceBar`). */
-function LeftNavVoiceHost() {
+/** Voice controls "Top of assignments" (P-LAYOUT-F1 A3): one host for the top of the assignments list, wherever it
+ *  is (v3's `LeftNavVoiceSlot`). The bar portals in here while its container is open (the nav expanded, the panel
+ *  open); otherwise it falls back to the bottom (`WorkspaceVoiceBar`). It stays put while the cards scroll under it,
+ *  at the cards' inset (P-LAYOUT-F2 2): in the left nav it's in LeftNav's sticky caption box (`WorkspaceLeftNav`),
+ *  already the cards' `px-2`; in the panel it sticks itself, at `AssignmentsStack`'s `px-3`, on the panel's surface. */
+function AssignmentsVoiceHost({ mount }: { mount: "leftNav" | "interiorPanel" }) {
   const { navOpen, setVoiceNavSlotMounted, voiceBarHost } = useWorkspace();
-  return navOpen ? <HostSlot host={voiceBarHost} data-slot="left-nav-voice" onMountedChange={setVoiceNavSlotMounted} /> : null;
+  const panelOpen = !!usePanelToggles()?.assignments?.open;
+  if (mount === "leftNav") {
+    return navOpen ? <HostSlot host={voiceBarHost} data-slot="left-nav-voice" onMountedChange={setVoiceNavSlotMounted} /> : null;
+  }
+  return panelOpen ? (
+    <HostSlot
+      host={voiceBarHost}
+      data-slot="interior-panel-voice"
+      onMountedChange={setVoiceNavSlotMounted}
+      style={{ display: "block" }}
+      className="sticky top-0 z-10 bg-lyra-bg-surface-container-subtle px-3"
+    />
+  ) : null;
 }
-
-/** Voice controls at the top of the assignments list in the interior panel (P-LAYOUT-F1 A3): the bar portals in here
- *  while the panel is open; closed, it falls back to the bottom, as the left nav's host does when the nav collapses. */
-function PanelVoiceHost() {
-  const { setVoiceNavSlotMounted, voiceBarHost } = useWorkspace();
-  const open = !!usePanelToggles()?.assignments?.open;
-  return open ? <HostSlot host={voiceBarHost} data-slot="interior-panel-voice" onMountedChange={setVoiceNavSlotMounted} /> : null;
-}
+const LeftNavVoiceHost = () => <AssignmentsVoiceHost mount="leftNav" />;
+const PanelVoiceHost = () => <AssignmentsVoiceHost mount="interiorPanel" />;
 
 const HomeQueueChip = () => <QueueChip />;
 

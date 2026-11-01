@@ -56,7 +56,16 @@ export function WorkspaceLeftNav() {
           // scrolling away with the cards under it.
           // The caption and cards show only in the left-nav slot (Assignments
           // placement → Left nav; P-HOME-1n).
-          stickyCaption={captionFilled ? <Slot id="left-nav" region="caption" /> : undefined}
+          // The voice bar's host (voice controls "Top of assignments") sits under the caption in the same sticky box,
+          // so the cards scroll under it too, at their own px-2 (P-LAYOUT-F2 2).
+          stickyCaption={
+            captionFilled ? (
+              <>
+                <Slot id="left-nav" region="caption" />
+                <Slot id="left-nav" region="top" />
+              </>
+            ) : undefined
+          }
           // Home + Settings — per explicit request ("move the home button
           // above the settings like in phase 1 left nav (match to phase
           // 1)"), both render together in `footer`, Home first, genuinely
@@ -112,14 +121,14 @@ export function WorkspaceLeftNav() {
           // The New Outbound launcher (`newOutboundLauncher`, above the
           // return), unless Settings moves it to the footer.
           pinnedHeader={newOutboundAtBottom ? undefined : newOutboundLauncher}
-          // The left-nav slot's parts (P-LAYOUT, `layout.parts`): its top (the voice bar's host, voice controls "Top
-          // of left nav"), then the rest in order (the assignments' cards, or their empty message). Each `<Slot>` is
+          // The left-nav slot's parts (P-LAYOUT, `layout.parts`): its top (the voice bar's host; in the sticky
+          // caption box above while the caption is filled, P-LAYOUT-F2 2), then the rest in order (the assignments' cards, or their empty message). Each `<Slot>` is
           // a top-level `header` child, so LeftNav's overlay mode clones its hover `expanded` onto it (`injectExpanded`
           // reaches only top-level children) and the slot hands it to the cards, as lyra's "Agent Next Gen Left Nav"
           // story wires them. The rail's app items are the rail's own (`navRailItems`).
           header={
             <>
-              <Slot id="left-nav" region="top" />
+              {!captionFilled && <Slot id="left-nav" region="top" />}
               <Slot id="left-nav" />
             </>
           }
