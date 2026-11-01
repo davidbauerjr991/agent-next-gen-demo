@@ -146,7 +146,7 @@ export function applyProfile(id: ProfileId | SavedProfileId) {
 }
 
 /** The change set that makes `profile` the `level` layer: each section it carries set (and locked as it locks it). */
-export function profileToLayer(profile: SavedProfile, level: OrgLevel): ChangeSet {
+function profileToLayer(profile: SavedProfile, level: OrgLevel): ChangeSet {
   const current = getOrgLayers().getState().layers.find((l) => l.level === level && l.id === profile.id);
   return {
     intent: assignIntent(level, profile.name),

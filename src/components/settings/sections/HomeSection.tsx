@@ -80,7 +80,7 @@ export function HomeSection() {
       <Section title={t("Sections")}>
         {orderLock && (
           <div>
-            <Tag variant="neutral" label={t("Order — {reason}", { reason: orderLock })} />
+            <Tag variant="neutral" label={t("Order — {reason}", { reason: orderLock })} fullLabel />
           </div>
         )}
         {home.sections.map((section, index) => (

@@ -58,7 +58,7 @@ const levelIndex = (level: LayerLevel) => LAYER_LEVELS.indexOf(level);
 
 /** The org layers that enter the chain, top to bottom: a team only when it's primary. Two layers at one level (the
  *  directory gives one per level) keep their given order, the later one lower. */
-export function orgChain(layers: readonly LayerProfile[]): LayerProfile[] {
+function orgChain(layers: readonly LayerProfile[]): LayerProfile[] {
   return layers.filter((l) => l.level !== "team" || l.primary).sort((a, b) => levelIndex(a.level) - levelIndex(b.level));
 }
 

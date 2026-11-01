@@ -143,12 +143,12 @@ test("after a close (P-LAYOUT-F1 A4): the top active assignment in the list open
   await expect(page.locator("[data-slot=record-header]")).toContainText("Ben Ito");
 });
 
-test("Settings: the ten groups in order (Layout second, P-LAYOUT; Voice empty since P-LAYOUT-F1 E), each a lyra heading", async ({ page }) => {
+test("Settings: the eleven groups in order (Layout second, P-LAYOUT; Voice empty since P-LAYOUT-F1 E; Resolved settings last, P-CONFIG-LAYERS), each a lyra heading", async ({ page }) => {
   await setUp(page, {});
   await page.locator("aside").getByText("Settings", { exact: true }).first().click();
   const legends = page.locator("[data-settings-group] > legend");
   const titles = await legends.evaluateAll((els) => els.map((el) => el.firstChild?.textContent?.trim()));
-  expect(titles).toEqual(["Workspace", "Layout", "Assignments", "Home", "Notifications", "Appearance", "Channels", "Voice", "Phone", "Connections"]);
+  expect(titles).toEqual(["Workspace", "Layout", "Assignments", "Home", "Notifications", "Appearance", "Channels", "Voice", "Phone", "Connections", "Resolved settings"]);
   for (const legend of await legends.all()) await expect(legend).toHaveClass(/lyra-heading-md/);
 });
 

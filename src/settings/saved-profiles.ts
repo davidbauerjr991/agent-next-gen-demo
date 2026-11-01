@@ -83,28 +83,18 @@ export function readProfileSections(
   sections: SectionSchemas = SECTIONS,
 ): { values: AgentSettings; warnings: ProfileReadWarning[] } {
   const source = isRecord(raw) ? raw : {};
-  const full = defaultSettings(sections) as Record<SectionKey, unknown>;
-  const warnings: ProfileReadWarning[] = [];
-  let storedLayout = false;
-  for (const key of profileSectionKeys(sections)) {
-    const def = sections[key];
-    const entry = source[key];
-    if (!isRecord(entry) || !("value" in entry)) {
-      // A profile saved before P-LAYOUT has no layout map: it's derived from the profile's own placement fields
-      // below, not defaulted, so it isn't a warning.
-      if (key !== "layout") warnings.push({ section: key, reason: "missing" });
-      continue;
-    }
-    if (entry.v !== def.version) {
-      warnings.push({ section: key, reason: "version" });
-      continue;
-    }
-    full[key] = def.read(entry.value, def.defaults as never);
-    if (key === "layout") storedLayout = true;
+  const { full, present, warnings } = readEntries(source, sections, false);
+  // A profile saved before P-LAYOUT has no layout map: it's derived from the profile's own placement fields below,
+  // not defaulted, so it isn't a warning.
+  const order = profileSectionKeys(sections);
+  for (const key of order) {
+    // A section with a version warning isn't present either, but already has its warning.
+    if (key !== "layout" && !present.includes(key) && !warnings.some((w) => w.section === key)) warnings.push({ section: key, reason: "missing" });
   }
+  warnings.sort((a, b) => order.indexOf(a.section) - order.indexOf(b.section));
   // The map (possibly partial) over the one the profile's legacy fields describe, as the store reads it.
-  const state = full as SettingsState;
-  const settled = settle(null, state, storedLayout ? state.layout.parts : undefined).values;
+  const state = full;
+  const settled = settle(null, state, present.includes("layout") ? state.layout.parts : undefined).values;
   // P-LAYOUT-F1 B: a profile saved with placement "none" applies as the left nav with Active assignments on.
   const rawOf = (key: SectionKey) => (isRecord(source[key]) ? (source[key] as { value?: unknown }).value : undefined);
   const values = storedPlacementNone(rawOf("assignments"), rawOf("layout")) ? withActiveAssignmentsSection(settled) : settled;
@@ -118,27 +108,38 @@ export function readLayerSections(
   raw: unknown,
   sections: SectionSchemas = SECTIONS,
 ): { values: Partial<AgentSettings>; warnings: ProfileReadWarning[] } {
-  const source = isRecord(raw) ? raw : {};
+  const { full, present, warnings } = readEntries(isRecord(raw) ? raw : {}, sections, true);
+  const stripped = agentSettings(full, sections);
+  return { values: Object.fromEntries(present.map((key) => [key, stripped[key]])) as Partial<AgentSettings>, warnings };
+}
+
+/** Each section a profile carries that `source` has, through its own reader over the defaults: the full state, the
+ *  sections read, and a warning for each one of another version (`versionOptional`: a missing `v` is the current
+ *  one, as an org layer's file may omit it). */
+function readEntries(
+  source: Record<string, unknown>,
+  sections: SectionSchemas,
+  versionOptional: boolean,
+): { full: SettingsState; present: SectionKey[]; warnings: ProfileReadWarning[] } {
   const full = defaultSettings(sections) as Record<SectionKey, unknown>;
   const present: SectionKey[] = [];
   const warnings: ProfileReadWarning[] = [];
   for (const key of profileSectionKeys(sections)) {
     const entry = source[key];
     if (!isRecord(entry) || !("value" in entry)) continue;
-    if (entry.v !== undefined && entry.v !== sections[key].version) {
+    if (!(versionOptional && entry.v === undefined) && entry.v !== sections[key].version) {
       warnings.push({ section: key, reason: "version" });
       continue;
     }
     full[key] = sections[key].read(entry.value, sections[key].defaults as never);
     present.push(key);
   }
-  const stripped = agentSettings(full as SettingsState, sections);
-  return { values: Object.fromEntries(present.map((key) => [key, stripped[key]])) as Partial<AgentSettings>, warnings };
+  return { full: full as SettingsState, present, warnings };
 }
 
 /** A profile's level as stored or imported: one of `LAYER_LEVELS`, else (missing, from before P-CONFIG-LAYERS, or
  *  unknown) the agent's own. */
-export function readLevel(raw: unknown): LayerLevel {
+function readLevel(raw: unknown): LayerLevel {
   return typeof raw === "string" && (LAYER_LEVELS as readonly string[]).includes(raw) ? (raw as LayerLevel) : "agent";
 }
 

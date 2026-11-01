@@ -35,7 +35,7 @@ export function SettingsGroup({
       <fieldset className="flex min-w-0 flex-col gap-6 [&>legend+fieldset]:mt-0" disabled={locked} data-settings-group={id} data-section-locked={locked || undefined}>
         <legend className="mb-4 flex items-center gap-2 lyra-heading-md text-lyra-fg-default">
           {title}
-          {marker && <Tag variant="neutral" label={marker} data-section-source />}
+          {marker && <Tag variant="neutral" label={marker} fullLabel data-section-source />}
         </legend>
         {children}
       </fieldset>
@@ -78,7 +78,7 @@ export function Section({
           title
         )}
         {tag && <Tag variant="info" label={tag} />}
-        {marker && <Tag variant="neutral" label={marker} data-section-source />}
+        {marker && <Tag variant="neutral" label={marker} fullLabel data-section-source />}
       </legend>
       {children}
     </fieldset>
@@ -92,7 +92,7 @@ export function LockScope({ lockKey, children }: { lockKey: SectionKey; children
   return (
     <fieldset className="contents" disabled={locked} data-section-locked={locked || undefined}>
       {children}
-      {marker && <Tag variant="neutral" label={marker} data-section-source />}
+      {marker && <Tag variant="neutral" label={marker} fullLabel data-section-source />}
     </fieldset>
   );
 }

@@ -34,7 +34,8 @@ export function ResolvedSection() {
           {rows.map((row) => (
             <TableRow key={`${row.section}.${row.field}`} data-resolved-row={`${row.section}.${row.field}`} data-resolved-locked={row.locked || undefined}>
               <TableCell className="flex-1 text-lyra-fg-secondary">{t(SECTION_TITLES[row.section])}</TableCell>
-              <TableCell className="flex-[1.5]">{row.label}</TableCell>
+              {/* The row's header: a screen reader names each value's row by its setting (a11y-review). */}
+              <TableCell role="rowheader" className="flex-[1.5]">{row.label}</TableCell>
               <TableCell className="flex-[2] break-words">{row.value}</TableCell>
               <TableCell className="flex-[2] text-lyra-fg-secondary">{row.source}</TableCell>
             </TableRow>
