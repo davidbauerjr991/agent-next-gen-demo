@@ -175,7 +175,7 @@ describe("assignments.legs (P-PROFILES schema; P-STREAM builds stream)", () => {
 });
 
 describe("locks", () => {
-  it("applying a profile with locked sections renders them read-only with \"Set by your team profile\"", async () => {
+  it("applying a profile with locked sections renders them read-only with \"Locked by: <name> agent profile\"", async () => {
     const team = saveTeamProfile();
     await apply(team.id);
     expect(store().getState().values.assignments.confirmClose).toBe(true);
@@ -183,7 +183,7 @@ describe("locks", () => {
 
     const assignments = section("Assignments");
     expect(assignments.disabled).toBe(true);
-    expect(assignments.querySelector("legend")!.textContent).toContain("Set by your team profile");
+    expect(assignments.querySelector("legend")!.textContent).toContain("Locked by: Billing team agent profile");
     // Every lyra control in it is disabled (greyed, not hidden).
     const switches = [...assignments.querySelectorAll<HTMLButtonElement>('button[role="switch"]')];
     expect(switches.length).toBeGreaterThan(0);
@@ -191,7 +191,7 @@ describe("locks", () => {
     expect(section("AI").disabled).toBe(true);
     // Unlocked sections stay editable.
     expect(section("Header").disabled).toBe(false);
-    expect(section("Header").querySelector("legend")!.textContent).not.toContain("Set by your team profile");
+    expect(section("Header").querySelector("legend")!.textContent).not.toContain("Locked by");
   });
 
   it("the store refuses writes to a locked section; personal settings in the page stay editable", async () => {

@@ -18,6 +18,7 @@ import { withAgentSettings } from "./scope";
 import { activeConstraint, disabledBy } from "./constraints";
 import { DEFAULT_APP_NAME, defaultSettings, type SectionKey, type SettingConstraint, type SettingPath, type SettingsState } from "./settings-schema";
 import { withDerivedLayout } from "./settle";
+import type { SectionSource } from "./layers";
 import type { LegacyField } from "@/layout/presets";
 import { patchParts } from "@/layout/layout-section";
 import { getSettingsStore, type SectionPatch, type SettingsStoreState, type UpdateOptions } from "./settings-store";
@@ -139,11 +140,20 @@ export function useProfileLibrary(): ProfileLibraryState {
   return useSyncExternalStore(library.subscribe, library.getState);
 }
 
-/** Whether the applied profile locks `section` (it renders read-only in
- *  Settings, and the store refuses its agent-scope writes). */
+/** Whether a lock at any layer holds `section` (P-CONFIG-LAYERS; the applied profile's own locks included): it
+ *  renders read-only in Settings, and the store refuses its agent-scope writes. */
 export function useSectionLocked(section: SectionKey | undefined): boolean {
-  const { applied } = useProfileLibrary();
-  return !!section && !!applied?.locks.includes(section);
+  return useSettingsSelector(useCallback((state: SettingsStoreState) => !!section && !!state.sources[section].lockedBy, [section]));
+}
+
+/** Where `section`'s value comes from and whose lock holds it (Settings' "Set by" / "Locked by"). */
+export function useSectionSource(section: SectionKey | undefined): SectionSource | undefined {
+  return useSettingsSelector(useCallback((state: SettingsStoreState) => (section ? state.sources[section] : undefined), [section]));
+}
+
+/** Every section's source (Settings → Layout's moves, the Resolved view). */
+export function useSettingSources(): Record<SectionKey, SectionSource> {
+  return useSettingsSelector(useCallback((state: SettingsStoreState) => state.sources, []));
 }
 
 export interface WorkspaceProfileApi {

@@ -9,7 +9,8 @@ import {
   HOME_ACTIVITY_VIEWS,
   HOME_ACTIVITY_VIEW_FIELD,
   HOME_QUEUE_CHANNELS,
-  useSectionLocked,
+  lockedByLabel,
+  useSectionSource,
   useSettings,
   type HomeActivityView,
   type HomeQueueChannel,
@@ -60,7 +61,8 @@ export function HomeSection() {
   const [home, updateHome] = useSettings("home");
   const [{ parts }] = useSettings("layout");
   // The sections' order is their parts' order: the `layout` lock holds it (the switches stay the agent's).
-  const orderLocked = useSectionLocked("layout");
+  const orderLock = lockedByLabel(useSectionSource("layout"));
+  const orderLocked = orderLock !== null;
   return (
     <SettingsGroup id="home" title={t("Home")} lockKey="home">
       <Section title={t("Welcome header")}>
@@ -76,9 +78,9 @@ export function HomeSection() {
       </Section>
 
       <Section title={t("Sections")}>
-        {orderLocked && (
+        {orderLock && (
           <div>
-            <Tag variant="neutral" label={t("Order set by your team profile")} />
+            <Tag variant="neutral" label={t("Order — {reason}", { reason: orderLock })} />
           </div>
         )}
         {home.sections.map((section, index) => (

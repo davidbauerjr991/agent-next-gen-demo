@@ -158,7 +158,7 @@ export function ProfileLocksDialog({
     >
       <div className="flex flex-col gap-3 px-5 pb-2" data-slot="profile-locks">
         <p className="lyra-body-md text-lyra-fg-default">
-          {t("A locked section is read-only in Settings once this profile is applied (\"Set by your team profile\").")}
+          {t("A locked section is read-only in Settings once this profile is applied (\"Locked by: {name} agent profile\"); a lock from your team or organization's profile holds above it.", { name })}
         </p>
         {profileSectionKeys().map((key) => (
           <Checkbox

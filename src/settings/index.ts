@@ -13,6 +13,8 @@ export {
   useWorkspaceProfile,
   useProfileLibrary,
   useSectionLocked,
+  useSectionSource,
+  useSettingSources,
   type WorkspaceProfileApi,
   applyProfile,
   useResetSettings,
@@ -22,6 +24,8 @@ export {
 } from "./hooks";
 export { useSetPersona } from "./persona";
 export { startOrgLayerSync } from "./org-layer-sync";
+export { sourceLabel, lockedByLabel } from "./source-labels";
+export type { SectionSource } from "./layers";
 export { readLogoFile, sanitizeSvg, LOGO_ERROR_MESSAGES, type LogoReadResult } from "./brand";
 export { primaryContrastFailures, type Theme as BrandTheme } from "./brand-colors";
 export { PROFILE_LABELS, PROFILE_IDS, type ProfileId, type WorkspaceProfile } from "./profiles";

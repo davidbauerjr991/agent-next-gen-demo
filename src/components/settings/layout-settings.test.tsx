@@ -254,7 +254,7 @@ describe("the layout lock (P-LAYOUT)", () => {
     await press("queue", "ArrowDown");
     expect(values().layout.parts).toBe(before.layout.parts);
     expect(values().home.sections).toBe(before.home.sections);
-    expect(h.container.querySelector("[data-layout-notice]")?.textContent).toBe("Queue can't move: Set by your team profile");
+    expect(h.container.querySelector("[data-layout-notice]")?.textContent).toBe("Queue can't move: Locked by: Phase 1 agent profile");
     // Moving the feed beside it reaches no locked field (a custom map leaves Home's layout as it is): it lands.
     await press("activityFeed", "ArrowRight");
     expect(values().layout.parts.activityFeed.slot).toBe("main-trailing");
@@ -269,7 +269,7 @@ describe("the layout lock (P-LAYOUT)", () => {
     await act(async () => getProfileLibrary().setApplied({ id: "phase1", locks: ["layout"] }));
     const layout = h.container.querySelector<HTMLFieldSetElement>("[data-settings-group=layout]")!;
     expect(layout.disabled).toBe(true);
-    expect(layout.querySelector("legend")?.textContent).toContain("Set by your team profile");
+    expect(layout.querySelector("legend")?.textContent).toContain("Locked by: Phase 1 agent profile");
     // The parts are shown, not behind the (disabled) accordion; a keyboard move that would otherwise land does nothing.
     expect(slotOf("customerInfo")).toBe("reference");
     const before = values().layout.parts;
@@ -286,6 +286,6 @@ describe("the layout lock (P-LAYOUT)", () => {
     // Queue's down move is enabled unlocked (home-settings.test); the lock holds it.
     const queueDown = h.container.querySelector<HTMLButtonElement>('[title="Move Queue down"], [aria-label="Move Queue down"]');
     expect(queueDown?.disabled).toBe(true);
-    expect(h.container.querySelector("[data-settings-group=home]")?.textContent).toContain("Order set by your team profile");
+    expect(h.container.querySelector("[data-settings-group=home]")?.textContent).toContain("Order — Locked by: Phase 1 agent profile");
   });
 });

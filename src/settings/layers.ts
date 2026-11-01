@@ -14,15 +14,6 @@ export type LayerLevel = (typeof LAYER_LEVELS)[number];
 /** The levels above the agent's own: the org's. */
 export type OrgLevel = Exclude<LayerLevel, "agent">;
 
-/** Each level as it reads inside "Set by: Atlas team profile" (through `t()` where shown). */
-export const LAYER_LABELS: Record<LayerLevel, string> = {
-  tenant: "tenant",
-  enterprise: "enterprise",
-  contactCenter: "contact center",
-  team: "team",
-  agent: "agent",
-};
-
 /** One org layer's profile. `values` holds only the sections it sets; a field a set section leaves out reads as its
  *  default, never as the agent's. A team's `primary` says whether it's the employee's primary team, the only one
  *  that enters the chain. */

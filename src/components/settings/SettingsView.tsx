@@ -10,6 +10,7 @@
 import * as React from "react";
 import { Button, Modal, WarningIcon } from "@nicecxone/lyra-ui";
 import { WorkspacePageHeader } from "@/components/workspace/WorkspacePageHeader";
+import { t } from "@/i18n";
 import { useResetSettings } from "@/settings";
 import { WorkspaceSection } from "./sections/WorkspaceSection";
 import { LayoutSection } from "./sections/LayoutSection";
@@ -87,8 +88,9 @@ export function SettingsView({ showPageHeader = true }: { showPageHeader?: boole
         >
           <div className="flex flex-col gap-2 px-5 pb-2">
             <p className="lyra-body-md text-lyra-fg-default">
-              Every setting on this page goes back to its default (Phase 1), and any profile locks are lifted. Your
-              saved profiles are kept. This can't be undone.
+              {t(
+                "Every setting on this page goes back to its default (Phase 1), and your own profile's locks are lifted; your organization's profiles still apply. Your saved profiles are kept. This can't be undone.",
+              )}
             </p>
           </div>
         </Modal>

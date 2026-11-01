@@ -15,9 +15,9 @@ import { REFERENCE_CELL_IDS, type PartPatch } from "@/layout/presets";
 import { SLOTS, type Page, type SlotId } from "@/layout/slots";
 import {
   useConstraint,
-  useProfileLibrary,
   useSectionLocked,
   useSettingDisabledBy,
+  useSettingSources,
   useSettings,
   useSettingsDerived,
   type SettingPath,
@@ -43,9 +43,9 @@ interface Feedback {
 function useWriteParts({ notify, moved }: Feedback) {
   const [{ parts }, updateLayout] = useSettings("layout");
   const values = useSettingsDerived(allValues);
-  const locks = useProfileLibrary().applied?.locks ?? [];
+  const sources = useSettingSources();
   return (patch: PartPatch, part: PartId) => {
-    const reason = lockedBy(values, patch, locks);
+    const reason = lockedBy(values, patch, sources);
     if (reason) return notify(t("{part} can't move: {reason}", { part: t(PARTS[part].label), reason }));
     updateLayout({ parts: patchParts(parts, patch) });
     moved();
@@ -118,7 +118,7 @@ function SlotList({ slot, page, feedback, instructionsId }: { slot: SlotId; page
   const locked = useSectionLocked("layout");
   // Advanced layout off (P-LAYOUT-F1 E): read-only like a lock, even when the item was open as it turned off.
   const off = !!useSettingDisabledBy("layout.parts");
-  const locks = useProfileLibrary().applied?.locks ?? [];
+  const sources = useSettingSources();
   const write = useWriteParts(feedback);
   const order = partsOnPage(parts, slot, page);
   const headingId = React.useId();
@@ -140,7 +140,7 @@ function SlotList({ slot, page, feedback, instructionsId }: { slot: SlotId; page
     // Refused before the drop: a slot it doesn't allow, a rule, or a lock on a section the move would reach.
     canAccept: (key) => {
       const placed = canPlace(values, key as PartId, slot);
-      const ok = placed === true ? (lockedBy(values, movePatch(parts, key as PartId, slot, order.length, page), locks) ?? true) : placed;
+      const ok = placed === true ? (lockedBy(values, movePatch(parts, key as PartId, slot, order.length, page), sources) ?? true) : placed;
       if (ok !== true) feedback.refuse({ slot, reason: ok });
       return ok;
     },

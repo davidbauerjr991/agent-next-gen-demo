@@ -2,7 +2,8 @@
 // and keeps every other key (so Home's sections and the interaction's parts, which share `main`, never disturb each
 // other); neighbours sharing a key renumber the list. canPlace says why a slot refuses a part.
 import { describe, expect, it } from "vitest";
-import { defaultSettings } from "@/settings/settings-schema";
+import type { SectionSource } from "@/settings/layers";
+import { defaultSettings, type SectionKey } from "@/settings/settings-schema";
 import { withDerivedLayout } from "@/settings/settle";
 import { canPlace, lockedBy, movePatch, partsOnPage, reorderPatch, slotsOnPage } from "./layout-edit";
 import { patchParts, type LayoutParts } from "./layout-section";
@@ -55,14 +56,17 @@ describe("layout edits (P-LAYOUT)", () => {
     expect(reorderPatch(parts, "main", "interaction", before)).toEqual({});
   });
 
-  it("lockedBy names a lock on a section the write would reach, as the store would drop it", () => {
+  it("lockedBy names the lock, at any layer, on a section the write would reach, as the store would drop it", () => {
     const v = values();
+    const lockedAt = (key: SectionKey, lockedBy: SectionSource["lockedBy"]) =>
+      Object.fromEntries((Object.keys(v) as SectionKey[]).map((k) => [k, { from: null, lockedBy: k === key ? lockedBy : null }])) as Record<SectionKey, SectionSource>;
     // The voice bar's slot is Voice's controls location.
-    expect(lockedBy(v, { voiceBar: { slot: "left-nav" } }, ["voice"])).toBe("Set by your team profile");
-    expect(lockedBy(v, { voiceBar: { slot: "left-nav" } }, ["home"])).toBeNull();
-    expect(lockedBy(v, { voiceBar: { slot: "left-nav" } }, [])).toBeNull();
+    expect(lockedBy(v, { voiceBar: { slot: "left-nav" } }, lockedAt("voice", { level: "team", profileName: "Birch" }))).toBe("Locked by: Birch team profile");
+    expect(lockedBy(v, { voiceBar: { slot: "left-nav" } }, lockedAt("voice", { level: "agent", profileName: "Mine" }))).toBe("Locked by: Mine agent profile");
+    expect(lockedBy(v, { voiceBar: { slot: "left-nav" } }, lockedAt("home", { level: "team", profileName: "Birch" }))).toBeNull();
+    expect(lockedBy(v, { voiceBar: { slot: "left-nav" } }, lockedAt("home", null))).toBeNull();
     // A custom arrangement reproduces no value, so it reaches nothing: Home's lock doesn't stop it.
-    expect(lockedBy(v, { queue: { slot: "main-trailing" } }, ["home"])).toBeNull();
+    expect(lockedBy(v, { queue: { slot: "main-trailing" } }, lockedAt("home", { level: "enterprise", profileName: "Northwind" }))).toBeNull();
   });
 
   it("canPlace refuses a slot the part doesn't allow, and one a rule keeps it out of", () => {

@@ -2,8 +2,14 @@
 // a Separator before it), a sub-group, a lock scope for one control, and the switch / checkbox rows.
 import * as React from "react";
 import { Checkbox, Label, Separator, Switch, Tag } from "@nicecxone/lyra-ui";
-import { t } from "@/i18n";
-import { useSectionLocked, type SectionKey } from "@/settings";
+import { lockedByLabel, sourceLabel, useSectionSource, type SectionKey } from "@/settings";
+
+/** A store section's lock (any layer's, P-CONFIG-LAYERS) and its marker: "Locked by: …" while a lock holds it, "Set
+ *  by: …" while an org layer sets it (`all`), nothing for the agent's own values. */
+function useSourceMarker(lockKey: SectionKey | undefined, all = true): { locked: boolean; marker: string | null } {
+  const source = useSectionSource(lockKey);
+  return { locked: !!source?.lockedBy, marker: all ? sourceLabel(source) : lockedByLabel(source) };
+}
 
 /** A top-level group: a `lyra-heading-md` legend (16px, one step above the sub-groups' 14px `lyra-heading-sm`;
  *  lyra-tokens.css), a Separator before every group but the first, with the group's own top margin above it. With
@@ -21,7 +27,7 @@ export function SettingsGroup({
   first?: boolean;
   children: React.ReactNode;
 }) {
-  const locked = useSectionLocked(lockKey);
+  const { locked, marker } = useSourceMarker(lockKey);
   return (
     <>
       {!first && <Separator className="mb-8 mt-12" />}
@@ -29,7 +35,7 @@ export function SettingsGroup({
       <fieldset className="flex min-w-0 flex-col gap-6 [&>legend+fieldset]:mt-0" disabled={locked} data-settings-group={id} data-section-locked={locked || undefined}>
         <legend className="mb-4 flex items-center gap-2 lyra-heading-md text-lyra-fg-default">
           {title}
-          {locked && <Tag variant="neutral" label={t("Set by your team profile")} />}
+          {marker && <Tag variant="neutral" label={marker} data-section-source />}
         </legend>
         {children}
       </fieldset>
@@ -59,7 +65,7 @@ export function Section({
   labelHelpText?: string;
   children: React.ReactNode;
 }) {
-  const locked = useSectionLocked(lockKey);
+  const { locked, marker } = useSourceMarker(lockKey);
   return (
     <fieldset className="mt-6 flex min-w-0 flex-col gap-3" data-settings-subgroup disabled={locked} data-section-locked={locked || undefined}>
       <legend className="mb-1 flex items-center gap-2 lyra-heading-sm text-lyra-fg-default">
@@ -72,7 +78,7 @@ export function Section({
           title
         )}
         {tag && <Tag variant="info" label={tag} />}
-        {locked && <Tag variant="neutral" label={t("Set by your team profile")} />}
+        {marker && <Tag variant="neutral" label={marker} data-section-source />}
       </legend>
       {children}
     </fieldset>
@@ -82,11 +88,11 @@ export function Section({
 /** One control from a store section other than its group's (the Layout group mixes Home, Assignments and AI): that
  *  section's lock disables it alone. */
 export function LockScope({ lockKey, children }: { lockKey: SectionKey; children: React.ReactNode }) {
-  const locked = useSectionLocked(lockKey);
+  const { locked, marker } = useSourceMarker(lockKey, false);
   return (
     <fieldset className="contents" disabled={locked} data-section-locked={locked || undefined}>
       {children}
-      {locked && <Tag variant="neutral" label={t("Set by your team profile")} />}
+      {marker && <Tag variant="neutral" label={marker} data-section-source />}
     </fieldset>
   );
 }

@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 // P-PROFILES: saved workspace profiles on the Settings page — Save as, Export
 // as a real file download, Import of that file on a fresh workspace, and a
-// locked section greyed with "Set by your team profile". (The store refusing
+// locked section greyed with "Locked by: <name> agent profile". (The store refusing
 // writes and the import's field-by-field fallback are covered in vitest.)
 
 async function openSettings(page: Page) {
@@ -50,7 +50,7 @@ test("Save as, Export and Import: the file round-trips the profile, and its lock
   await expect(fresh.getByRole("combobox", { name: "Profile" })).toHaveText("Billing team");
   // Assignments is locked: greyed, labeled, its controls disabled.
   const locked = assignmentsSection(fresh);
-  await expect(locked.locator(":scope > legend")).toContainText("Set by your team profile");
+  await expect(locked.locator(":scope > legend")).toContainText("Locked by: Billing team agent profile");
   await expect(locked.getByRole("switch").first()).toBeDisabled();
   // Unlocked sections stay editable.
   const header = fresh.locator("fieldset").filter({ has: fresh.locator("legend", { hasText: /^Header/ }) });

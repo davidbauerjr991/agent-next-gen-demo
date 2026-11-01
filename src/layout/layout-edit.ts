@@ -5,6 +5,8 @@ import { t } from "@/i18n";
 import { activeConstraint } from "@/settings/constraints";
 import type { SectionKey, SettingPath, SettingsState } from "@/settings/settings-schema";
 import { settle } from "@/settings/settle";
+import type { SectionSource } from "@/settings/layers";
+import { lockedByLabel } from "@/settings/source-labels";
 import { partsInSlot, patchParts, type LayoutParts } from "./layout-section";
 import { PARTS, type PartId } from "./parts";
 import type { PartPatch } from "./presets";
@@ -33,13 +35,13 @@ export function canPlace(values: SettingsState, part: PartId, slot: SlotId): tru
   return true;
 }
 
-/** Why a map write would be refused by a profile lock on a section it reaches (a legacy field it projects onto, as
- *  the store checks: `settle`'s `derived`), or null. */
-export function lockedBy(values: SettingsState, patch: PartPatch, locks: readonly SectionKey[]): string | null {
-  if (locks.length === 0) return null;
+/** Why a map write would be refused by a lock, at any layer, on a section it reaches (a legacy field it projects
+ *  onto, as the store checks: `settle`'s `derived`): "Locked by: Birch team profile", or null. */
+export function lockedBy(values: SettingsState, patch: PartPatch, sources: Record<SectionKey, SectionSource>): string | null {
+  if (!Object.values(sources).some((s) => s.lockedBy)) return null;
   const next = { ...values, layout: { ...values.layout, parts: patchParts(values.layout.parts, patch) } };
-  const reached = settle(values, next).derived.filter((key) => key !== "layout" && locks.includes(key));
-  return reached.length > 0 ? t("Set by your team profile") : null;
+  const reached = settle(values, next).derived.find((key) => key !== "layout" && sources[key].lockedBy);
+  return reached ? lockedByLabel(sources[reached]) : null;
 }
 
 /** `part` at `index` among `list` (the slot's listed parts without it): an order key between its new neighbours,
