@@ -13,7 +13,7 @@ import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedP
 import { SettingsView } from "@/components/settings/SettingsView";
 import type { EntityId, Interaction, InteractionId, JourneyId } from "@/domain";
 import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
-import { profileValues } from "@/settings/profiles";
+import { PROFILE_IDS, profileValues } from "@/settings/profiles";
 import type { AiDisplayLocation } from "@/settings/settings-schema";
 import { ALREADY_OPEN_REASON, alreadyOpenReasons } from "./already-open";
 import { callBadge } from "./call-badge";
@@ -366,7 +366,7 @@ describe("E4: WhatsApp is a phone channel", () => {
 describe("3: Settings → Assignments → Show status chip in the session row", () => {
   it("on by default and in every built-in profile; off hides the session row's status pill", async () => {
     expect(getSettingsStore().getState().values.assignments.showStatusChip).toBe(true);
-    for (const id of ["phase1", "phase2", "aifirst"] as const) expect(profileValues(id).assignments?.showStatusChip ?? true).toBe(true);
+    for (const id of PROFILE_IDS) expect(profileValues(id).assignments?.showStatusChip ?? true).toBe(true);
     await setUp("inline");
     await act(async () => getSettingsStore().update("channels", { chat: true }));
     await h.accept(await h.startInbound("chat", priya.emailAddress!, priya.name));

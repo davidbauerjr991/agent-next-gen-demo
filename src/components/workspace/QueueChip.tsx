@@ -7,14 +7,16 @@ import { Button, Tag, Tooltip } from "@nicecxone/lyra-ui";
 import { ChevronRight, CircleAlert } from "lucide-react";
 import { t } from "@/i18n";
 import { useSlotFor } from "@/layout/useSlot";
-import { setAssignmentsWorkingState, useAssignmentsWorkingState } from "@/contact-handling/assignments-working-state";
+import { setAssignmentsWorkingState } from "@/contact-handling/assignments-working-state";
+import { usePanelToggles } from "@/contact-handling/panel-toggles";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useRailAssignmentCount } from "@/contact-handling/home/useScheduleCards";
 
 export function QueueChip() {
   const { hasBreachedSlaAssignment, navOpen, setNavOpen } = useWorkspace();
   const inPanel = useSlotFor("assignments") === "interior-panel";
-  const { panelOpen } = useAssignmentsWorkingState();
+  // The panel's open state as its page-header toggle has it (the working state, else Settings' pinned default).
+  const panelOpen = !!usePanelToggles()?.assignments?.open;
   const count = useRailAssignmentCount();
   const toggle = () => (inPanel ? setAssignmentsWorkingState({ panelOpen: !panelOpen }) : setNavOpen((v) => !v));
   return (

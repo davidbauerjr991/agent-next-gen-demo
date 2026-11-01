@@ -152,6 +152,7 @@ async function openDialedCall() {
     await vi.advanceTimersByTimeAsync(500);
     await dialed;
   });
+  await h.openAssignments();
   await h.click(h.navCard(UNKNOWN));
   await h.advance(500);
 }
@@ -159,6 +160,7 @@ async function openDialedCall() {
 async function openPriyaChat() {
   const id = await h.startInbound("chat", priya.emailAddress!, priya.name);
   await h.accept(id);
+  await h.openAssignments();
   await h.click(h.navCard(priya.name));
   await h.advance(500);
 }

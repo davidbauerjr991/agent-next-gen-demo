@@ -42,7 +42,7 @@ import { useCustomerTableState } from "@/components/customer-table-state";
 import { type CustomerHistorySessionEntry, useCustomerRecordDraft } from "@/components/customer-info";
 import { contactDetailsFor } from "@/contact-handling/contact-details-model";
 import { MARCUS_WEBB_ID, LUCAS_THOMAS_ID, TOM_LEWIS_CALL_ID, MAYA_CHEN_CALL_ID, mergeRows, useScenarioCases } from "@/contact-handling/scenario-cases";
-import { CONTACT_CHANNELS, useSettings } from "@/settings";
+import { CONTACT_CHANNELS, useSetting, useSettings } from "@/settings";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { usePortalHost } from "@/contact-handling/portal-hosts";
 import { findContactHistoryMatch, extractPriorContactInfo } from "@/contact-handling/workspace/active-channel-labels";
@@ -65,7 +65,7 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   // becomes the interior panel (`useInteriorPanelDefaults`).
   const assignmentsSlot = useSlotFor("assignments");
   const [navOpen, setNavOpen] = useState(() => navStartsOpen(assignmentsSlot));
-  useInteriorPanelDefaults(assignmentsSlot, setNavOpen);
+  useInteriorPanelDefaults(assignmentsSlot, setNavOpen, useSetting("assignments", "panelPinned")[0] === "pinned");
   /** Show an arrival's assignments list wherever it is (the nav, or the interior panel without touching the nav). */
   const revealAssignmentsList = useCallback(() => revealAssignments(assignmentsSlot, setNavOpen), [assignmentsSlot]);
   // No interactions exist until the agent launches one from the CreateNew

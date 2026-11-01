@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
 import { AgentWorkspaceAdvancedPage } from "@/components/AgentWorkspaceAdvancedPage";
 import { getSettingsStore, resetSettingsStoreForTests } from "@/settings/settings-store";
-import { PROFILES } from "@/settings/profiles";
+import { PROFILE_IDS, PROFILES } from "@/settings/profiles";
 import { SettingsView } from "@/components/settings/SettingsView";
 
 const h = createWorkspaceHarness();
@@ -127,7 +127,7 @@ describe("digital offers load as cards", () => {
       expect(boxes.every((b) => b.getAttribute("aria-checked") === "true")).toBe(true);
       await h.click(boxes[0]);
       expect(getSettingsStore().getState().values.assignments.autoAccept).toEqual({ chat: false, email: true, sms: true, whatsapp: true });
-      for (const id of ["phase1", "phase2", "aifirst"] as const) {
+      for (const id of PROFILE_IDS) {
         expect(Object.values(PROFILES[id].assignments.autoAccept).every(Boolean)).toBe(true);
       }
     });

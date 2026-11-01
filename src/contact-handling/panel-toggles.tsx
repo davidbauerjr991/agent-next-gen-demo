@@ -12,6 +12,7 @@
 import * as React from "react";
 import { useSidePanelToggle, type UseSidePanelToggleReturn } from "@nicecxone/lyra-ui";
 import { useSlotFor } from "@/layout/useSlot";
+import { useSetting } from "@/settings";
 import { setAssignmentsWorkingState, useAssignmentsWorkingState } from "./assignments-working-state";
 import { useRevealOnIncomingCall } from "./reveal-assignments";
 import { useRailAssignmentCount } from "./home/useScheduleCards";
@@ -79,12 +80,15 @@ export function PanelTogglesProvider({ children }: { children: React.ReactNode }
   const inPanel = assignmentsSlot === "interior-panel";
   const [fits] = useWorkspaceUiField("assignmentsPanelDocks");
   const { panelOpen, panelPinned } = useAssignmentsWorkingState();
+  // Until this browser has its own open / pinned state, Settings' default decides: pinned and open, or unpinned and
+  // closed until the toggle opens it (P-LAYOUT-F2 6).
+  const pinnedByDefault = useSetting("assignments", "panelPinned")[0] === "pinned";
   const assignments = useSidePanelToggle({
     side: "left",
     id: ASSIGNMENTS_PANEL_ID,
-    open: panelOpen,
+    open: panelOpen ?? pinnedByDefault,
     onOpenChange: (open) => setAssignmentsWorkingState({ panelOpen: open }),
-    pinned: panelPinned,
+    pinned: panelPinned ?? pinnedByDefault,
     onPinnedChange: (pinned) => setAssignmentsWorkingState({ panelPinned: pinned }),
     pinDisabled: inPanel && !fits,
   });

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
 import { SettingsView } from "@/components/settings/SettingsView";
 import { applyProfile } from "./hooks";
-import { PROFILES } from "./profiles";
+import { PROFILE_IDS, PROFILES } from "./profiles";
 import { exportProfile, getProfileLibrary } from "./saved-profiles";
 import { agentSettings } from "./scope";
 import { SECTIONS } from "./settings-schema";
@@ -81,7 +81,7 @@ describe("the profile picker and its actions", () => {
     expect(profileCombobox().textContent).toContain("Billing team");
 
     await h.click(profileCombobox());
-    expect(optionLabels()).toEqual(["Phase 1", "Phase 2", "AI-first", "Billing team"]);
+    expect(optionLabels()).toEqual(["Phase 1", "Phase 2", "AI-first", "Panel agent", "Compact", "Focus", "Back office", "Billing team"]);
   });
 
   it("built-ins offer Duplicate and Export only; a saved profile adds Rename, Locks and Delete", async () => {
@@ -146,7 +146,7 @@ describe("the profile picker and its actions", () => {
 
 describe("assignments.legs (P-PROFILES schema; P-STREAM builds stream)", () => {
   it("defaults to tabs, is in every built-in, and the schema accepts stream so a profile file can carry it", () => {
-    for (const id of ["phase1", "phase2", "aifirst"] as const) expect(PROFILES[id].assignments.legs).toBe("tabs");
+    for (const id of PROFILE_IDS) expect(PROFILES[id].assignments.legs).toBe("tabs");
     const read = (legs: unknown) => SECTIONS.assignments.read({ legs }, SECTIONS.assignments.defaults).legs;
     expect(read("stream")).toBe("stream");
     expect(read("columns")).toBe("tabs");

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { deriveProfile, deriveProfileState, profileValues, PROFILES } from "./profiles";
+import { deriveProfile, deriveProfileState, profileValues, PROFILE_BUILDERS, PROFILE_IDS, PROFILES } from "./profiles";
+import { withDerivedLayout } from "./settle";
 import { agentSettings, sectionInProfiles, withAgentSettings } from "./scope";
 import { SECTIONS, defaultSettings, defineSection, group, str, type SectionSchemas, type SettingsState } from "./settings-schema";
 import { safeStorage } from "./settings-storage";
@@ -177,18 +178,79 @@ describe("workspace profiles", () => {
     expect(on("phase1")).toEqual(["queue", "contactHistory", "performance"]);
     expect(on("phase2")).toEqual(["queue", "contactHistory", "performance"]);
     expect(on("aifirst")).toEqual(["queue", "contactHistory", "performance", "activity"]);
-    for (const id of ["phase1", "phase2", "aifirst"] as const) expect(PROFILES[id].workspace.persona).toBe("agent");
+    for (const id of PROFILE_IDS) expect(PROFILES[id].workspace.persona, id).toBe("agent");
     expect(profileValues("aifirst")).toHaveProperty("home.layout", "twoColumn");
     expect(profileValues("phase1")).toHaveProperty("workspace.persona", "agent");
   });
 
-  it("canvasLayout defaults to twoColumn in every built-in; a stored ai section without it (or the pauses) reads the defaults", () => {
-    for (const id of ["phase1", "phase2", "aifirst"] as const) expect(PROFILES[id].ai.canvasLayout).toBe("twoColumn");
+  it("canvasLayout is twoColumn in every built-in but Compact (stacked); a stored ai section without it (or the pauses) reads the defaults", () => {
+    for (const id of PROFILE_IDS) expect(PROFILES[id].ai.canvasLayout, id).toBe(id === "compact" ? "stacked" : "twoColumn");
     const read = SECTIONS.ai.read({ displayLocation: "main" }, SECTIONS.ai.defaults);
     expect(read).toEqual({ displayLocation: "main", canvasLayout: "twoColumn", nbaPauseChatMs: 6000, nbaPauseVoiceMs: 8000, nbaScriptedDelayMs: 900, chipBehavior: "run" });
     expect(SECTIONS.ai.read({ displayLocation: "main", canvasLayout: "grid" }, SECTIONS.ai.defaults).canvasLayout).toBe("twoColumn");
     // The pauses are whole numbers in range; anything else reads its default.
     expect(SECTIONS.ai.read({ nbaPauseChatMs: 3000, nbaPauseVoiceMs: 10 }, SECTIONS.ai.defaults)).toMatchObject({ nbaPauseChatMs: 3000, nbaPauseVoiceMs: 8000 });
+  });
+});
+
+describe("every built-in is equal by construction (P-LAYOUT-F2 6)", () => {
+  // Each built-in is its builder's values settled (`withDerivedLayout`: the map from its own placement fields, then
+  // the follow rules), and settling it again changes nothing, so the fields and the map can't disagree.
+  it.each(PROFILE_IDS)("%s: its builder's values, settled; settled again, the same", (id) => {
+    expect(PROFILES[id]).toEqual(withDerivedLayout(PROFILE_BUILDERS[id]()));
+    expect(withDerivedLayout(PROFILES[id])).toEqual(PROFILES[id]);
+    expect(deriveProfile(PROFILES[id])).toBe(id);
+  });
+
+  /** Phase 2 with `changes`, every section but the map (each profile derives its own). */
+  const phase2With = (changes: Partial<SettingsState>) => ({ ...PROFILES.phase2, ...changes, layout: null });
+  const withActivity = PROFILES.phase2.home.sections.map((s) => (s.key === "activity" ? { ...s, enabled: true } : s));
+  const p2 = PROFILES.phase2;
+
+  it("Panel agent is Phase 2 with the interior panel pinned, the voice controls at its top, AI inline in two columns", () => {
+    expect({ ...PROFILES.panelAgent, layout: null }).toEqual(
+      phase2With({
+        assignments: { ...p2.assignments, placement: "interiorPanel", panelPinned: "pinned" },
+        voice: { ...p2.voice, controlsLocation: "top" },
+        ai: { ...p2.ai, displayLocation: "inline", canvasLayout: "twoColumn" },
+      }),
+    );
+    expect(PROFILES.panelAgent.layout.parts).toMatchObject({ assignments: { slot: "interior-panel" }, voiceBar: { slot: "interior-panel" } });
+  });
+
+  it("Compact is Phase 2 with the interior panel unpinned, the voice bar at the bottom, AI inline stacked, Activity as a table in one column", () => {
+    expect({ ...PROFILES.compact, layout: null }).toEqual(
+      phase2With({
+        assignments: { ...p2.assignments, placement: "interiorPanel", panelPinned: "unpinned" },
+        voice: { ...p2.voice, controlsLocation: "bottom" },
+        ai: { ...p2.ai, displayLocation: "inline", canvasLayout: "stacked" },
+        home: { ...p2.home, sections: withActivity, layout: "oneColumn", activityView: "table" },
+      }),
+    );
+    expect(PROFILES.compact.layout.parts).toMatchObject({ assignments: { slot: "interior-panel" }, voiceBar: { slot: "dock-bottom" } });
+  });
+
+  it("Focus is Phase 2 with AI in the Contact Details panel, two-column Home, every header app and Agent chat in the header", () => {
+    const inHeader = Object.fromEntries(Object.keys(p2.header.apps).map((key) => [key, { enabled: true, placement: "header" }]));
+    expect({ ...PROFILES.focus, layout: null }).toEqual(
+      phase2With({
+        header: { ...p2.header, showAppIcons: true, apps: inHeader as typeof p2.header.apps, agentChat: { enabled: true, placement: "header" } },
+        ai: { ...p2.ai, displayLocation: "panel", canvasLayout: "twoColumn" },
+        home: { ...p2.home, sections: withActivity, layout: "twoColumn" },
+      }),
+    );
+    expect(PROFILES.focus.assignments.placement).toBe("leftNav");
+  });
+
+  it("Back office is Phase 2 with the voice bar at the bottom and two-column Home, Activity as a table; Customers, Accounts and Tickets as Home tabs", () => {
+    expect({ ...PROFILES.backOffice, layout: null }).toEqual(
+      phase2With({
+        voice: { ...p2.voice, controlsLocation: "bottom" },
+        home: { ...p2.home, sections: withActivity, layout: "twoColumn", activityView: "table" },
+      }),
+    );
+    for (const app of ["customers", "accounts", "tickets"] as const) expect(PROFILES.backOffice.header.apps[app].placement).toBe("tab");
+    expect(PROFILES.backOffice.assignments.placement).toBe("leftNav");
   });
 });
 

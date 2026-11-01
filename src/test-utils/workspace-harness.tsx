@@ -219,9 +219,20 @@ export function createWorkspaceHarness(
       });
     },
 
-    /** The nav card for `name` (its button's label starts with the name). */
+    /** Opens the assignments interior panel from the page header's toggle if it's closed (an unpinned panel, P-LAYOUT-F2
+     *  6's Compact), so its cards can be clicked. No-op under the left nav. */
+    async openAssignments() {
+      const toggle = container.querySelector<HTMLElement>("[aria-controls=assignments-panel]");
+      if (!toggle || toggle.getAttribute("aria-expanded") === "true") return;
+      await act(async () => {
+        toggle.click();
+        await vi.advanceTimersByTimeAsync(100);
+      });
+    },
+
+    /** The nav card for `name` (its button's label starts with the name), in the left nav or the interior panel. */
     navCard(name: string): HTMLElement {
-      const card = [...container.querySelectorAll("aside [aria-label]")].find((el) => {
+      const card = [...container.querySelectorAll("aside [aria-label], [data-slot=assignments-panel] [aria-label]")].find((el) => {
         const label = el.getAttribute("aria-label")!;
         return label === name || label.startsWith(`${name},`);
       });

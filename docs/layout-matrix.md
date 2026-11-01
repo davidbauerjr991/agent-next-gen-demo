@@ -32,38 +32,35 @@ Each field below is read through `layout.parts` until the next step that touches
 
 The legacy placement fields: Settings → Layout's preset rows, and the Activity view (Settings → Home). Default **bold**. A header app the profile turns off (`header.apps.<app>.enabled`) is marked (off): its placement still counts as exercised.
 
-| Setting | Values | Phase 1 | Phase 2 | AI-first |
-| --- | --- | --- | --- | --- |
-| `ai.canvasLayout` | stacked, **twoColumn** | twoColumn | twoColumn | twoColumn |
-| `ai.displayLocation` | **inline**, panel, main | inline | inline | main |
-| `assignments.placement` | **leftNav**, interiorPanel | leftNav | leftNav | leftNav |
-| `header.agentChat.placement` | **header**, leftnav | header | header | header |
-| `header.apps.accounts.placement` | **header**, leftnav, tab | header (off) | tab | tab |
-| `header.apps.customers.placement` | **header**, leftnav, tab | header (off) | tab | tab |
-| `header.apps.schedule.placement` | **header**, leftnav, tab | header (off) | header | header |
-| `header.apps.screenpop.placement` | **header**, leftnav, tab | header (off) | header (off) | header (off) |
-| `header.apps.tickets.placement` | **header**, leftnav, tab | header (off) | tab | tab |
-| `header.apps.wem.placement` | **header**, leftnav, tab | header (off) | header | header |
-| `home.activityView` | **list**, table | list | list | list |
-| `home.layout` | **oneColumn**, twoColumn | oneColumn | oneColumn | twoColumn |
-| `voice.controlsLocation` | **bottom**, top | bottom | bottom | bottom |
+| Setting | Values | Phase 1 | Phase 2 | AI-first | Panel agent | Compact | Focus | Back office |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `ai.canvasLayout` | stacked, **twoColumn** | twoColumn | twoColumn | twoColumn | twoColumn | stacked | twoColumn | twoColumn |
+| `ai.displayLocation` | **inline**, panel, main | inline | inline | main | inline | inline | panel | inline |
+| `assignments.placement` | **leftNav**, interiorPanel | leftNav | leftNav | leftNav | interiorPanel | interiorPanel | leftNav | leftNav |
+| `header.agentChat.placement` | **header**, leftnav | header | header | header | header | header | header | header |
+| `header.apps.accounts.placement` | **header**, leftnav, tab | header (off) | tab | tab | tab | tab | header | tab |
+| `header.apps.customers.placement` | **header**, leftnav, tab | header (off) | tab | tab | tab | tab | header | tab |
+| `header.apps.schedule.placement` | **header**, leftnav, tab | header (off) | header | header | header | header | header | header |
+| `header.apps.screenpop.placement` | **header**, leftnav, tab | header (off) | header (off) | header (off) | header (off) | header (off) | header | header (off) |
+| `header.apps.tickets.placement` | **header**, leftnav, tab | header (off) | tab | tab | tab | tab | header | tab |
+| `header.apps.wem.placement` | **header**, leftnav, tab | header (off) | header | header | header | header | header | header |
+| `home.activityView` | **list**, table | list | list | list | list | table | list | table |
+| `home.layout` | **oneColumn**, twoColumn | oneColumn | oneColumn | twoColumn | oneColumn | oneColumn | twoColumn | twoColumn |
+| `voice.controlsLocation` | **bottom**, top | bottom | bottom | bottom | top | bottom | bottom | bottom |
 
 Read through only (no preset row; the map's order or a cell's region writes them):
 
-| Setting | Default | Phase 1 | Phase 2 | AI-first |
-| --- | --- | --- | --- | --- |
-| `canvas.cells.customer-info.region` | reference | = default | = default | = default |
-| `canvas.cells.journey-summary.region` | reference | = default | = default | = default |
-| `canvas.cells.real-time-summary.region` | reference | = default | = default | = default |
-| `home.sections (order)` | activeAssignments, queue, contactHistory, performance, productivity, activity, dueSoon, teamQueues, teamToday, needsYou, pipeline, campaignToday, followUps | = default | = default | = default |
+| Setting | Default | Phase 1 | Phase 2 | AI-first | Panel agent | Compact | Focus | Back office |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `canvas.cells.customer-info.region` | reference | = default | = default | = default | = default | = default | = default | = default |
+| `canvas.cells.journey-summary.region` | reference | = default | = default | = default | = default | = default | = default | = default |
+| `canvas.cells.real-time-summary.region` | reference | = default | = default | = default | = default | = default | = default | = default |
+| `home.sections (order)` | activeAssignments, queue, contactHistory, performance, productivity, activity, dueSoon, teamQueues, teamToday, needsYou, pipeline, campaignToday, followUps | = default | = default | = default | = default | = default | = default | = default |
 
 ## Values no built-in profile exercises
 
 Legacy fields:
 
-- `ai.canvasLayout`: `stacked`
-- `ai.displayLocation`: `panel`
-- `assignments.placement`: `interiorPanel`
 - `header.agentChat.placement`: `leftnav`
 - `header.apps.accounts.placement`: `leftnav`
 - `header.apps.customers.placement`: `leftnav`
@@ -71,71 +68,62 @@ Legacy fields:
 - `header.apps.screenpop.placement`: `leftnav`, `tab`
 - `header.apps.tickets.placement`: `leftnav`
 - `header.apps.wem.placement`: `leftnav`, `tab`
-- `home.activityView`: `table`
-- `voice.controlsLocation`: `top`
 
 Parts, by slot (`layout.parts`; Settings → Layout → Advanced reaches every one):
 
 - `accounts` in `left-nav`
 - `activityFeed` in `main-trailing`
 - `agentChat` in `left-nav`
-- `aiFeed` in `docked-panel`
-- `assignments` in `interior-panel`
 - `contactDetails` in `docked-panel`
-- `copilotInput` in `docked-panel`
-- `customerInfo` in `main`
 - `customers` in `left-nav`
 - `experienceMemory` in `docked-panel`
-- `incomingTile` in `interior-panel`
-- `journeySummary` in `main`
-- `realTimeSummary` in `main`
 - `schedule` in `left-nav`, `home-top`
 - `screenpop` in `left-nav`, `home-top`
 - `sessionDetails` in `docked-panel`
 - `tickets` in `left-nav`
-- `voiceBar` in `left-nav`, `interior-panel`
+- `voiceBar` in `left-nav`
 - `wem` in `left-nav`, `home-top`
 
 ## Parts and slots
 
 Every part, the slots it allows and where each built-in profile puts it (`layout.parts`).
 
-| Part | Label | Pages | Default | Allowed | Phase 1 | Phase 2 | AI-first | Reads through |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `accounts` | Accounts | home, interaction | `header` | header, left-nav, home-top | header | home-top | home-top | header.apps.<app>.placement |
-| `activeAssignments` | Active assignments | home | `main` | main, main-trailing | main | main | main-trailing | home.layout (slot), home.sections (order) |
-| `activityFeed` | Activity | home | `main` | main, main-trailing | main | main | main | home.layout, home.activityView |
-| `agentChat` | Agent Chat | home, interaction | `header` | header, left-nav | header | header | header | header.agentChat.placement |
-| `aiFeed` | AI feed | interaction | `main` | main, docked-panel | main | main | main | ai.displayLocation |
-| `assignments` | Assignments | home, interaction | `left-nav` | left-nav, interior-panel | left-nav | left-nav | left-nav | assignments.placement |
-| `campaignToday` | Campaign today | home | `main` | main, main-trailing | main | main | main-trailing | home.layout (slot), home.sections (order) |
-| `contactDetails` | Contact Details | interaction | `reference` | reference, docked-panel | reference | reference | reference |  |
-| `contactHistory` | Contact history | home | `main` | main | main | main | main | home.layout (slot), home.sections (order) |
-| `conversation` | Conversation | interaction | `main` | main, docked-panel | main | main | docked-panel | ai.displayLocation |
-| `copilotInput` | Ask Copilot | interaction | `main` | main, docked-panel | main | main | main | follows aiFeed |
-| `customerInfo` | Customer Info | interaction | `reference` | reference, main | reference | reference | reference | ai.canvasLayout, canvas.cells region |
-| `customers` | Customers | home, interaction | `header` | header, left-nav, home-top | header | home-top | home-top | header.apps.<app>.placement |
-| `dueSoon` | Due soon | home | `main` | main | main | main | main | home.layout (slot), home.sections (order) |
-| `experienceMemory` | Experience Memory | interaction | `reference` | reference, docked-panel | reference | reference | reference |  |
-| `followUps` | Follow-ups | home | `main` | main, main-trailing | main | main | main-trailing | home.layout (slot), home.sections (order) |
-| `incomingTile` | Incoming offer | home, interaction | `left-nav` | left-nav, interior-panel | left-nav | left-nav | left-nav | follows assignments |
-| `journeySummary` | Journey Summary | interaction | `reference` | reference, main | reference | reference | reference | ai.canvasLayout, canvas.cells region |
-| `needsYou` | Needs you | home | `main` | main, main-trailing | main | main | main-trailing | home.layout (slot), home.sections (order) |
-| `notifications` | Notifications | home, interaction | `header` | header | header | header | header | header.pins (unchanged) |
-| `performance` | Performance | home | `main` | main, main-trailing | main | main | main-trailing | home.layout (slot), home.sections (order) |
-| `pipeline` | Pipeline | home | `main` | main, main-trailing | main | main | main-trailing | home.layout (slot), home.sections (order) |
-| `productivity` | Productivity | home | `main` | main, main-trailing | main | main | main-trailing | home.layout (slot), home.sections (order) |
-| `queue` | Queue | home | `main` | main, main-trailing | main | main | main-trailing | home.layout (slot), home.sections (order) |
-| `queueChip` | My Assignment Queue | home | `home-top` | home-top | home-top | home-top | home-top | Home's page header |
-| `realTimeSummary` | Real-Time Summary | interaction | `reference` | reference, main | reference | reference | reference | ai.canvasLayout, canvas.cells region |
-| `schedule` | Schedule | home, interaction | `header` | header, left-nav, home-top | header | header | header | header.apps.<app>.placement |
-| `screenpop` | Screen Pop | home, interaction | `header` | header, left-nav, home-top | header | header | header | header.apps.<app>.placement |
-| `sessionDetails` | Session Details | interaction | `reference` | reference, docked-panel | reference | reference | reference |  |
-| `teamQueues` | Team queues | home | `main` | main, main-trailing | main | main | main-trailing | home.layout (slot), home.sections (order) |
-| `teamToday` | Team today | home | `main` | main, main-trailing | main | main | main-trailing | home.layout (slot), home.sections (order) |
-| `tickets` | Tickets | home, interaction | `header` | header, left-nav, home-top | header | home-top | home-top | header.apps.<app>.placement |
-| `voiceBar` | Voice controls | home, interaction | `dock-bottom` | dock-bottom, left-nav, interior-panel | dock-bottom | dock-bottom | dock-bottom | voice.controlsLocation (top follows assignments) |
-| `wem` | WEM | home, interaction | `header` | header, left-nav, home-top | header | header | header | header.apps.<app>.placement |
+| Part | Label | Pages | Default | Allowed | Phase 1 | Phase 2 | AI-first | Panel agent | Compact | Focus | Back office | Reads through |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `accounts` | Accounts | home, interaction | `header` | header, left-nav, home-top | header | home-top | home-top | home-top | home-top | header | home-top | header.apps.<app>.placement |
+| `activeAssignments` | Active assignments | home | `main` | main, main-trailing | main | main | main-trailing | main | main | main-trailing | main-trailing | home.layout (slot), home.sections (order) |
+| `activityFeed` | Activity | home | `main` | main, main-trailing | main | main | main | main | main | main | main | home.layout, home.activityView |
+| `agentChat` | Agent Chat | home, interaction | `header` | header, left-nav | header | header | header | header | header | header | header | header.agentChat.placement |
+| `aiFeed` | AI feed | interaction | `main` | main, docked-panel | main | main | main | main | main | docked-panel | main | ai.displayLocation |
+| `assignments` | Assignments | home, interaction | `left-nav` | left-nav, interior-panel | left-nav | left-nav | left-nav | interior-panel | interior-panel | left-nav | left-nav | assignments.placement |
+| `campaignToday` | Campaign today | home | `main` | main, main-trailing | main | main | main-trailing | main | main | main-trailing | main-trailing | home.layout (slot), home.sections (order) |
+| `contactDetails` | Contact Details | interaction | `reference` | reference, docked-panel | reference | reference | reference | reference | reference | reference | reference |  |
+| `contactHistory` | Contact history | home | `main` | main | main | main | main | main | main | main | main | home.layout (slot), home.sections (order) |
+| `conversation` | Conversation | interaction | `main` | main, docked-panel | main | main | docked-panel | main | main | main | main | ai.displayLocation |
+| `copilotInput` | Ask Copilot | interaction | `main` | main, docked-panel | main | main | main | main | main | docked-panel | main | follows aiFeed |
+| `customerInfo` | Customer Info | interaction | `reference` | reference, main | reference | reference | reference | reference | main | reference | reference | ai.canvasLayout, canvas.cells region |
+| `customers` | Customers | home, interaction | `header` | header, left-nav, home-top | header | home-top | home-top | home-top | home-top | header | home-top | header.apps.<app>.placement |
+| `dueSoon` | Due soon | home | `main` | main | main | main | main | main | main | main | main | home.layout (slot), home.sections (order) |
+| `experienceMemory` | Experience Memory | interaction | `reference` | reference, docked-panel | reference | reference | reference | reference | reference | reference | reference |  |
+| `followUps` | Follow-ups | home | `main` | main, main-trailing | main | main | main-trailing | main | main | main-trailing | main-trailing | home.layout (slot), home.sections (order) |
+| `incomingTile` | Incoming offer | home, interaction | `left-nav` | left-nav, interior-panel | left-nav | left-nav | left-nav | interior-panel | interior-panel | left-nav | left-nav | follows assignments |
+| `journeySummary` | Journey Summary | interaction | `reference` | reference, main | reference | reference | reference | reference | main | reference | reference | ai.canvasLayout, canvas.cells region |
+| `needsYou` | Needs you | home | `main` | main, main-trailing | main | main | main-trailing | main | main | main-trailing | main-trailing | home.layout (slot), home.sections (order) |
+| `notifications` | Notifications | home, interaction | `header` | header | header | header | header | header | header | header | header | header.pins (unchanged) |
+| `performance` | Performance | home | `main` | main, main-trailing | main | main | main-trailing | main | main | main-trailing | main-trailing | home.layout (slot), home.sections (order) |
+| `pipeline` | Pipeline | home | `main` | main, main-trailing | main | main | main-trailing | main | main | main-trailing | main-trailing | home.layout (slot), home.sections (order) |
+| `productivity` | Productivity | home | `main` | main, main-trailing | main | main | main-trailing | main | main | main-trailing | main-trailing | home.layout (slot), home.sections (order) |
+| `queue` | Queue | home | `main` | main, main-trailing | main | main | main-trailing | main | main | main-trailing | main-trailing | home.layout (slot), home.sections (order) |
+| `queueChip` | My Assignment Queue | home | `home-top` | home-top | home-top | home-top | home-top | home-top | home-top | home-top | home-top | Home's page header |
+| `realTimeSummary` | Real-Time Summary | interaction | `reference` | reference, main | reference | reference | reference | reference | main | reference | reference | ai.canvasLayout, canvas.cells region |
+| `schedule` | Schedule | home, interaction | `header` | header, left-nav, home-top | header | header | header | header | header | header | header | header.apps.<app>.placement |
+| `screenpop` | Screen Pop | home, interaction | `header` | header, left-nav, home-top | header | header | header | header | header | header | header | header.apps.<app>.placement |
+| `sessionDetails` | Session Details | interaction | `reference` | reference, docked-panel | reference | reference | reference | reference | reference | reference | reference |  |
+| `teamQueues` | Team queues | home | `main` | main, main-trailing | main | main | main-trailing | main | main | main-trailing | main-trailing | home.layout (slot), home.sections (order) |
+| `teamToday` | Team today | home | `main` | main, main-trailing | main | main | main-trailing | main | main | main-trailing | main-trailing | home.layout (slot), home.sections (order) |
+| `tickets` | Tickets | home, interaction | `header` | header, left-nav, home-top | header | home-top | home-top | home-top | home-top | header | home-top | header.apps.<app>.placement |
+| `voiceBar` | Voice controls | home, interaction | `dock-bottom` | dock-bottom, left-nav, interior-panel | dock-bottom | dock-bottom | dock-bottom | interior-panel | dock-bottom | dock-bottom | dock-bottom | voice.controlsLocation (top follows assignments) |
+| `wem` | WEM | home, interaction | `header` | header, left-nav, home-top | header | header | header | header | header | header | header | header.apps.<app>.placement |
 
 ## Slots
 
@@ -191,3 +179,4 @@ Widths are tokens the container resolves: `card` (lyra's `LYRA_CARD_MAX_WIDTH`),
 | `ai-panel-canvas` | `layout.parts.aiFeed.slot` in `docked-panel` | `ai.canvasLayout` | Not used when AI display is In the Contact Details panel |
 | `ai-panel-legs` | `layout.parts.aiFeed.slot` in `docked-panel` | `assignments.legs` | Contact Details panel uses tabs |
 | `custom-sort-direction` | `assignments.sort.mode` in `custom` | `assignments.sort.direction` | Custom uses your dragged order |
+| `panel-pinned-left-nav` | `assignments.placement` in `leftNav` | `assignments.panelPinned` | Only the interior panel pins |

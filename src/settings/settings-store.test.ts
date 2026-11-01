@@ -113,6 +113,7 @@ describe("settings store", () => {
       sort: { mode: "lastUpdated", direction: "desc" },
       channelChips: "auto",
       placement: "leftNav",
+      panelPinned: "pinned",
     });
     expect(store.getState().values.voice.controlsLocation).toBe("bottom");
   });

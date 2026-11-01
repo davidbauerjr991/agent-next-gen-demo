@@ -16,7 +16,7 @@ import {
   type SettingsState,
 } from "./settings-schema";
 
-export type ProfileId = "phase1" | "phase2" | "aifirst";
+export type ProfileId = "phase1" | "phase2" | "aifirst" | "panelAgent" | "compact" | "focus" | "backOffice";
 /** A built-in profile, a saved one (`saved:…`, ./saved-profiles.ts), or
  *  "custom" (differs from every profile). */
 export type WorkspaceProfile = ProfileId | `saved:${string}` | "custom";
@@ -73,12 +73,78 @@ function aiFirst(): SettingsState {
   };
 }
 
+/** Home with the Activity feed on (the two-column Home's main column, or one column's Activity card). */
+const withActivity = (home: SettingsState["home"]): SettingsState["home"] => ({
+  ...home,
+  sections: home.sections.map((s) => (s.key === "activity" ? { ...s, enabled: true } : s)),
+});
+
+// P-LAYOUT-F2 6: four more built-ins, so the layout matrix exercises the placements no profile used. Each is a delta
+// on Phase 2 (its apps and channels), settled through `withDerivedLayout` like the others.
+
+/** Panel agent: the assignments in the interior panel, pinned, with the voice controls at its top; AI inline, the
+ *  canvas in two columns; Home in one column. */
+function panelAgent(): SettingsState {
+  const base = phase2();
+  return {
+    ...base,
+    assignments: { ...base.assignments, placement: "interiorPanel", panelPinned: "pinned" },
+    voice: { ...base.voice, controlsLocation: "top" },
+    ai: { ...base.ai, displayLocation: "inline", canvasLayout: "twoColumn" },
+  };
+}
+
+/** Compact: the interior panel unpinned (a flyout), the voice controls at the bottom; AI inline, the canvas stacked;
+ *  Home in one column with Activity as a table. */
+function compact(): SettingsState {
+  const base = phase2();
+  return {
+    ...base,
+    assignments: { ...base.assignments, placement: "interiorPanel", panelPinned: "unpinned" },
+    voice: { ...base.voice, controlsLocation: "bottom" },
+    ai: { ...base.ai, displayLocation: "inline", canvasLayout: "stacked" },
+    home: { ...withActivity(base.home), layout: "oneColumn", activityView: "table" },
+  };
+}
+
+/** Focus: the assignments in the left nav; AI in the Contact Details panel, the canvas in two columns; Home in two
+ *  columns; every header app (Agent chat too) in the header. */
+function focus(): SettingsState {
+  const base = phase2();
+  const inHeader = Object.fromEntries(Object.keys(base.header.apps).map((key) => [key, app(true, "header")])) as Record<ExtraHeaderApp, AppDisplay>;
+  return {
+    ...base,
+    header: { ...base.header, showAppIcons: true, apps: inHeader, agentChat: { ...base.header.agentChat, enabled: true, placement: "header" } },
+    ai: { ...base.ai, displayLocation: "panel", canvasLayout: "twoColumn" },
+    home: { ...withActivity(base.home), layout: "twoColumn" },
+  };
+}
+
+/** Back office: the assignments in the left nav, the voice controls at the bottom; Home in two columns with Activity
+ *  as a table; Customers, Accounts and Tickets as Home tabs (Phase 2's). */
+function backOffice(): SettingsState {
+  const base = phase2();
+  return {
+    ...base,
+    voice: { ...base.voice, controlsLocation: "bottom" },
+    home: { ...withActivity(base.home), layout: "twoColumn", activityView: "table" },
+  };
+}
+
 /** Each built-in carries its layout map (P-LAYOUT), derived from its own placement fields so the two agree. */
 export const PROFILES: Record<ProfileId, SettingsState> = {
   phase1: withDerivedLayout(phase1()),
   phase2: withDerivedLayout(phase2()),
   aifirst: withDerivedLayout(aiFirst()),
+  panelAgent: withDerivedLayout(panelAgent()),
+  compact: withDerivedLayout(compact()),
+  focus: withDerivedLayout(focus()),
+  backOffice: withDerivedLayout(backOffice()),
 };
+
+/** Each built-in as its base and its own changes, before its layout is settled: the equal-by-construction test's
+ *  source (profiles.test.ts). */
+export const PROFILE_BUILDERS: Record<ProfileId, () => SettingsState> = { phase1, phase2, aifirst: aiFirst, panelAgent, compact, focus, backOffice };
 
 export const PROFILE_IDS = Object.keys(PROFILES) as ProfileId[];
 
@@ -86,6 +152,10 @@ export const PROFILE_LABELS: Record<ProfileId | "custom", string> = {
   phase1: "Phase 1",
   phase2: "Phase 2",
   aifirst: "AI-first",
+  panelAgent: "Panel agent",
+  compact: "Compact",
+  focus: "Focus",
+  backOffice: "Back office",
   custom: "Custom",
 };
 

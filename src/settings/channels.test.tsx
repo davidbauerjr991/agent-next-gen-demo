@@ -15,7 +15,7 @@ import { enabledChannelOptions, withEnabledChannels } from "@/contact-handling/c
 import { SettingsView } from "@/components/settings/SettingsView";
 import { getSettingsStore, resetSettingsStoreForTests } from "./settings-store";
 import { applyProfile } from "./hooks";
-import { PROFILES, deriveProfile, profileValues } from "./profiles";
+import { PROFILE_IDS, PROFILES, deriveProfile, profileValues } from "./profiles";
 import { SECTIONS, SOCIAL_CHANNELS, type ChannelsSettings, type SectionKey, type SettingsState } from "./settings-schema";
 
 const h = createWorkspaceHarness();
@@ -84,7 +84,7 @@ describe("channel gates (pure)", () => {
     expect(profileValues("phase2").channels).toEqual({ voice: true, chat: true, email: true, sms: true, whatsapp: true });
     expect(profileValues("aifirst").channels).toEqual(profileValues("phase2").channels);
     // The built-in snapshots themselves leave every social channel off.
-    for (const id of ["phase1", "phase2", "aifirst"] as const) expect(PROFILES[id].channels.social).toEqual(SOCIAL_OFF);
+    for (const id of PROFILE_IDS) expect(PROFILES[id].channels.social).toEqual(SOCIAL_OFF);
   });
 });
 

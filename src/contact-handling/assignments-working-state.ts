@@ -12,15 +12,17 @@ const LEGACY_WIDTH_COOKIE = "workspace.assignmentsPanel";
 export interface AssignmentsWorkingState {
   /** Card ids in the agent's dragged order (Sort → Custom). */
   order: string[];
-  /** The interior panel is open (its toggle). */
-  panelOpen: boolean;
-  /** The interior panel is pinned: it pushes the content while it fits; unpinned, it's an overlay. */
-  panelPinned: boolean;
+  /** The interior panel is open (its toggle); `null` until it's set, when Settings' pinned default decides (pinned:
+   *  open; unpinned: closed, P-LAYOUT-F2 6). */
+  panelOpen: boolean | null;
+  /** The interior panel is pinned: it pushes the content while it fits; unpinned, it's an overlay. `null` until it's
+   *  set: `assignments.panelPinned` decides (P-LAYOUT-F2 6). */
+  panelPinned: boolean | null;
   /** The interior panel's dragged width, px; `null` until the agent drags it (the reader clamps it to the panel's bounds). */
   panelWidth: number | null;
 }
 
-const DEFAULTS: AssignmentsWorkingState = { order: [], panelOpen: true, panelPinned: true, panelWidth: null };
+const DEFAULTS: AssignmentsWorkingState = { order: [], panelOpen: null, panelPinned: null, panelWidth: null };
 
 /** The old panel's width cookie, if any, moved into the stored state (unless that already has a width), then the
  *  cookie is expired. Runs on the first read. */
