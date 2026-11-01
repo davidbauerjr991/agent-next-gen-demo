@@ -941,7 +941,7 @@ export function InteractionsListView({ onAddToast, onOpenInteraction, activeReco
   };
 
   return (
-    <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden">
+    <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden" data-table-container="interactions">
       <TableToolbar
         className="px-6"
         searchQuery={searchQuery}

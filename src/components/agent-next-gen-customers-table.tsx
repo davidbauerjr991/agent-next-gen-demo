@@ -1052,7 +1052,7 @@ export function CustomersListView({
     // (refuse to shrink below their content's own intrinsic width).
     // Matches the sibling Dashboard-tab column's own `min-w-0` a few
     // lines below in this same file.
-    <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden">
+    <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden" data-table-container="customers">
       <TableToolbar
         className="px-6"
         searchQuery={searchQuery}
