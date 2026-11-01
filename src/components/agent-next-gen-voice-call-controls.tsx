@@ -1132,7 +1132,7 @@ export function VoiceCallControls({
         <div
           className={cn(
             "flex min-w-0 items-stretch gap-1",
-            stacked ? "justify-between rounded-lyra-sm bg-lyra-bg-surface-container-subtle px-1" : "justify-center"
+            stacked ? "flex-wrap justify-between rounded-lyra-sm bg-lyra-bg-surface-container-subtle px-1" : "justify-center"
           )}
         >
           {/* Decorative cluster — Hold/Mask/Record/Keypad/Transcript/Volume,

@@ -111,3 +111,28 @@ for (const placement of ["leftNav", "interiorPanel"] as const) {
     expect((await cards.first().boundingBox())!.y).toBeLessThan(c.y);
   });
 }
+
+// P-LAYOUT-F3 1: at the top of the assignments list (the nav's and the panel's width) the six controls don't fit
+// one row, so the row wraps: Volume, the last, keeps its 40px button inside the bar instead of being clipped.
+for (const placement of ["leftNav", "interiorPanel"] as const) {
+  test(`Top of assignments (${placement}): the control row wraps and Volume stays whole inside the bar`, async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await page.addInitScript((placement) => {
+      localStorage.setItem("agent-next-gen:settings:assignments", JSON.stringify({ v: 2, value: { placement } }));
+    }, placement);
+    await mayaLive(page, "inline", "top");
+    const container = placement === "leftNav" ? "aside" : "[data-slot=assignments-panel]";
+    const bar = page.locator(`${container} [data-slot=voice-bar]`);
+    await expect(bar).toBeVisible({ timeout: 10_000 });
+    const volume = bar.getByRole("button", { name: "Volume", exact: true });
+    await expect(volume).toBeVisible();
+    const b = (await bar.boundingBox())!;
+    const v = (await volume.boundingBox())!;
+    expect(Math.round(v.width)).toBe(40);
+    expect(v.x).toBeGreaterThanOrEqual(b.x);
+    expect(v.x + v.width).toBeLessThanOrEqual(b.x + b.width + 0.5);
+    // It wrapped: Volume sits on a row below Hold's.
+    const hold = (await bar.getByRole("button", { name: "Hold", exact: true }).boundingBox())!;
+    expect(v.y).toBeGreaterThan(hold.y);
+  });
+}
