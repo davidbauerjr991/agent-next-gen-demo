@@ -8,7 +8,8 @@ import { PLACEHOLDER_DATABASE } from "../../data/database-handle";
 import { PLACEHOLDER_PROFILE } from "../../profiles/contact-center-profile";
 import { PROVIDER_FACTORIES } from "../../provider-context/factories";
 import { readProviderKind } from "../../provider-context/provider-kind";
-import type { ProviderSet } from "../../providers";
+import type { AssistEvents, ProviderSet } from "../../providers";
+import { simCopilotAnswer } from "./sim-copilot-answers";
 
 let set: ProviderSet | undefined;
 
@@ -58,5 +59,20 @@ describe("the sim is the default provider, and its scenario hotkeys come with it
     await set!.interaction.dispose();
     set = undefined;
     expect(remove.mock.calls.filter(([type]) => type === "keydown")).toHaveLength(1);
+  });
+});
+
+describe("Ask Copilot through the assist provider (P-LAYOUT-F2 5b)", () => {
+  it("the sim answers an ask with an answer card: the question as asked and its placeholder answer", async () => {
+    boot("/#/agent-advanced", "dev");
+    const cards: AssistEvents["card"][] = [];
+    set!.assist.on("card", (event) => cards.push(event));
+    const id = window.__simCustomer!.startInbound({ channel: "chat", address: "ask@example.com", displayName: "Ask Test" });
+    await vi.waitFor(async () => expect((await set!.interaction.getSnapshot()).interactions.some((i) => i.id === id)).toBe(true));
+    await set!.assist.suggest({ interactionId: id, trigger: { kind: "ask", text: "Draft a reply" } });
+    await vi.waitFor(() => expect(cards.some((c) => c.card.kind === "answer")).toBe(true));
+    const answer = cards.find((c) => c.card.kind === "answer")!;
+    expect(answer.interactionId).toBe(id);
+    expect(answer.card).toMatchObject({ kind: "answer", question: "Draft a reply", answer: simCopilotAnswer("Draft a reply"), status: "complete" });
   });
 });

@@ -29,12 +29,12 @@ export async function scrollMetrics(page: Page) {
 /** A card-presenting Copilot result (one with an artifact: it opens on its own, its row reopens it) for `question`,
  *  for a spec whose way into the slide-over is an Ask Copilot question: a plain answer is an inline line with no row
  *  or slide-over (P-LAYOUT-F1 F). The e2e twin of src/test-utils/copilot-results.ts: the same card, the question's
- *  placeholder answer read from the app through the dev-only `window.__copilotResults`, not a copy; call it after the
+ *  sim's answer read from the app through the dev-only `window.__copilotAnswers` and registered through
+ *  `window.__copilotResults` (P-LAYOUT-F2 5b), not a copy; call it after the
  *  page has loaded. */
 export async function registerCardResult(page: Page, question: string) {
-  await page.waitForFunction(() => !!window.__copilotResults);
+  await page.waitForFunction(() => !!window.__copilotResults && !!window.__copilotAnswers);
   await page.evaluate((q) => {
-    const results = window.__copilotResults!;
-    results.register(q, { ...results.placeholder(q), artifact: { kind: "panel" } });
+    window.__copilotResults!.register(q, { ...window.__copilotAnswers!.placeholder(q), artifact: { kind: "panel" } });
   }, question);
 }

@@ -2,19 +2,12 @@
 // answer is an event line in the conversation ("time · Copilot · the question", then the text): not clickable, not
 // collapsible, not an artifact. Anything more is a card: the instruction row, the result card, the slide-over on a
 // row click, opened on its own only when the result carries an artifact. `resultPresentation` is the only decider.
-// There's no AssistProvider answer yet (P4.8): a question with no registered result gets the placeholder for it.
+// The result is the AssistProvider's answer (P-LAYOUT-F2 5b): a question with no registered result is asked of the
+// provider (`useCopilotAsk`), and its answer is kept for that row alone (by the row's link), so its slide-over finds
+// it again; the question registry holds only tests' and scripted cases' results.
+import type { AssistAnswer } from "@/providers";
 
-export interface CopilotResult {
-  /** The answer's text; paragraphs separated by a blank line. */
-  summary: string;
-  points: readonly string[];
-  /** Section headings, for an answer long enough to need them. */
-  headings?: readonly string[];
-  /** Things the agent can do with the answer (insert a draft, open a record). */
-  actions?: readonly { label: string }[];
-  /** The result is a panel of its own (a scripted case's result, a lookup): it's added to the Artifacts. */
-  artifact?: { kind: "panel" };
-}
+export type CopilotResult = AssistAnswer;
 
 /** How many bullets a plain line may carry. */
 const LINE_MAX_POINTS = 3;
@@ -28,51 +21,39 @@ export function resultPresentation(result: CopilotResult): "line" | "card" {
 }
 
 let registered = new Map<string, CopilotResult>();
+/** The provider's answers, by the row they answer (its link, unique per ask): the row's slide-over reads its own. */
+let answers = new Map<string, CopilotResult>();
 
 const keyOf = (question: string) => question.trim().toLowerCase();
 
-/** A result for one question or chip text, ahead of the placeholder. */
+/** A result for one question or chip text, on every contact (a test's or a scripted case's). */
 export function registerCopilotResult(question: string, result: CopilotResult): void {
   registered.set(keyOf(question), result);
 }
 
 export function resetCopilotResults(): void {
   registered = new Map();
+  answers = new Map();
 }
 
-// Dev-only handle for Playwright (e2e's `registerCardResult`, which builds its card from the same placeholder), as
-// ProviderRoot's `__providers`; app code never reads it.
-if (import.meta.env.DEV && typeof window !== "undefined") window.__copilotResults = { register: registerCopilotResult, placeholder: placeholderCopilotResult };
-
-/** The placeholder for a question on a contact with no script, shaped like the scripted cases' results. */
-export function placeholderCopilotResult(question: string): CopilotResult {
-  const q = question.toLowerCase();
-  if (q.includes("draft") || q.includes("suggest a reply")) {
-    return {
-      summary: "Here is a reply Copilot drafted from the conversation so far.",
-      points: ["Acknowledges the customer's request.", "Confirms the next step and when they'll hear back.", "Review it before sending."],
-    };
-  }
-  if (q.includes("next step")) {
-    return {
-      summary: "Suggested next steps for this contact.",
-      points: ["Confirm the customer's details.", "Resolve the open request or set a follow-up.", "Add a disposition when you wrap up."],
-    };
-  }
-  if (q.includes("history")) {
-    return {
-      summary: "The customer's recent contacts, from Contact History.",
-      points: ["Open Contact History for the full list.", "Prior outcomes and notes appear in Contact Details."],
-    };
-  }
-  return {
-    summary: "Here is what Copilot found in this contact.",
-    points: ["The customer's request and its current status.", "Anything still open before you wrap up."],
-  };
+/** Keeps the provider's answer for one row (`useCopilotAsk`), so its slide-over shows it again. */
+export function rememberCopilotAnswer(rowLink: string, answer: CopilotResult): void {
+  answers.set(rowLink, answer);
 }
 
-/** The result for a question: a registered one, else `fallback`'s (a kind item's scripted answer), else the
- *  placeholder for a contact with no script. */
-export function copilotResultFor(question: string, fallback: (question: string) => CopilotResult = placeholderCopilotResult): CopilotResult {
-  return registered.get(keyOf(question)) ?? fallback(question);
+/** A row's own answer, if the provider answered it. */
+export function copilotAnswerForRow(rowLink: string): CopilotResult | undefined {
+  return answers.get(rowLink);
+}
+
+// Dev-only handle for Playwright (e2e's `registerCardResult`), as ProviderRoot's `__providers`; app code never reads
+// it.
+if (import.meta.env.DEV && typeof window !== "undefined") window.__copilotResults = { register: registerCopilotResult };
+
+/** The registered result for a question, else `fallback`'s (a kind item's scripted answer); undefined with neither
+ *  (the provider hasn't answered it yet). */
+export function copilotResultFor(question: string, fallback: (question: string) => CopilotResult): CopilotResult;
+export function copilotResultFor(question: string): CopilotResult | undefined;
+export function copilotResultFor(question: string, fallback?: (question: string) => CopilotResult): CopilotResult | undefined {
+  return registered.get(keyOf(question)) ?? fallback?.(question);
 }

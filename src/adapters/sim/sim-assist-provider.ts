@@ -82,7 +82,8 @@ export function createSimAssistProvider(options: {
         set.delete(handler as AnyHandler);
       };
     },
-    // The Next Best Action triggers ("next-best-action", "pause") are simulated; the engine rejects the rest.
+    // The Next Best Action triggers ("next-best-action", "pause", "turn") and Ask Copilot's "ask" (P-LAYOUT-F2 5b) are
+    // simulated; the engine rejects the rest.
     async suggest(suggestRequest) {
       const requestId = simId("assist") as AssistRequestId;
       await request({ name: "suggest", requestId, request: suggestRequest });

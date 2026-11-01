@@ -481,9 +481,11 @@ export function useWsDetails(prev: WsCards, late: WorkspaceLate) {
               : undefined;
     },
     // A scripted case answers with a panel of its own (an artifact: a card that opens); any other contact with the
-    // registry's result, a line when it's plain (P-LAYOUT-F1 F).
+    // registry's result, else the AssistProvider's answer (P-LAYOUT-F2 5b), a line when it's plain (P-LAYOUT-F1 F).
     resultFor: (cardId, { text, link }) =>
       scriptedCopilotResult(cardId, { text, time: "", link }) ? { summary: text, points: [], artifact: { kind: "panel" } } : copilotResultFor(text),
+    interactionIdFor: (cardId, threadKey) =>
+      interactions.find((i) => i.id === cardId)?.threads.find((t) => (t.id ?? t.type) === threadKey)?.providerInteractionId,
     openResult: (cardId, request) =>
       setSlideOverContent(cardId, scriptedCopilotResult(cardId, request) ?? { kind: "copilot-result", ...request }),
   });

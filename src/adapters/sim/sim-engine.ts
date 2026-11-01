@@ -41,6 +41,7 @@ import type { ScenarioScript } from "../../scenarios/scenario-script";
 import { startRequest } from "../../scenarios/validate";
 import { createScenarioPlayer, LIVE_PRESENCE } from "./sim-scenario-player";
 import { createGuidance } from "./sim-guidance";
+import { simCopilotAnswer } from "./sim-copilot-answers";
 
 // The simulated contact-center "switch" (P0.4). It owns all interaction and
 // agent state, answers commands from its session's provider over the bus,
@@ -633,6 +634,23 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
       case "suggest": {
         const { interactionId, trigger } = command.request;
         get(interactionId);
+        // Ask Copilot (P-LAYOUT-F2 5b): the placeholder answer for the question, as an answer card.
+        if (trigger.kind === "ask") {
+          emitAssist({
+            requestId: command.requestId,
+            interactionId,
+            card: {
+              id: `answer-${command.requestId}`,
+              kind: "answer",
+              title: trigger.text,
+              status: "complete",
+              provenance: { tier: 1, collections: ["transcript"] },
+              question: trigger.text,
+              answer: simCopilotAnswer(trigger.text),
+            },
+          });
+          return command.requestId;
+        }
         if (trigger.kind !== "next-best-action" && trigger.kind !== "pause" && trigger.kind !== "turn") {
           throw providerError("not-supported", `suggest: "${trigger.kind}" isn't simulated yet`);
         }

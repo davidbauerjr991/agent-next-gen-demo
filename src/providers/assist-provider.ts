@@ -51,6 +51,20 @@ export interface AssistProvenance {
   collections: string[];
 }
 
+/** Copilot's answer to an "ask" (Ask Copilot's question or chip; P-LAYOUT-F2 5b): the answer card's content. How it
+ *  shows (an inline line or a card) is the agent UI's `resultPresentation`. */
+export interface AssistAnswer {
+  /** The answer's text; paragraphs separated by a blank line. */
+  summary: string;
+  points: readonly string[];
+  /** Section headings, for an answer long enough to need them. */
+  headings?: readonly string[];
+  /** Things the agent can do with the answer (insert a draft, open a record). */
+  actions?: readonly { label: string }[];
+  /** The answer is a panel of its own (a scripted case's result, a lookup): it's added to the Artifacts. */
+  artifact?: { kind: "panel" };
+}
+
 /** A button on a card that navigates within the app. */
 export interface AssistCardAction {
   id: string;
@@ -117,11 +131,14 @@ export type ReferenceCardFocus = "summary" | "journey" | "customer";
 /** A card. Records cards show the actual rows; text cards carry streamed
  *  Tier 2 synthesis; hint cards are the no-match fallback; the nba card is
  *  the contact's Next Best Action. It shows a suggestion only once one has
- *  surfaced (`suggest` with a "next-best-action" or "pause" trigger);
+ *  surfaced (`suggest` with a "next-best-action" or "pause" trigger), one at
+ *  a time: a "next-best-action" `suggest` while one is showing surfaces
+ *  nothing new (the agent UI points at the one showing, P-LAYOUT-F2 5a);
  *  otherwise it's "listening" (nothing showing), or "nothing" (nothing to
  *  suggest: the answer to a request, or the contact is over). `stepId`
  *  changes with every new state (a surfaced suggestion, an AI focus), so the
- *  agent UI can tell one step from the next. */
+ *  agent UI can tell one step from the next. The answer card is Copilot's
+ *  answer to an "ask" (P-LAYOUT-F2 5b). */
 export type AssistCard =
   | (AssistCardBase & { kind: "records"; collection: string; query: CollectionQuery; records: RelatedRecord[] })
   | (AssistCardBase & {
@@ -131,6 +148,8 @@ export type AssistCard =
       purpose?: "real-time-summary";
     })
   | (AssistCardBase & { kind: "hint"; text: string; collections: string[] })
+  /** The answer to an "ask" trigger: `question` as asked (redacted), `answer` its content. */
+  | (AssistCardBase & { kind: "answer"; question: string; answer: AssistAnswer })
   | (AssistCardBase & {
       kind: "nba";
       stepId: string;

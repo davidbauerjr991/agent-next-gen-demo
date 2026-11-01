@@ -2,8 +2,11 @@ import { useCallback, useEffect, useRef } from "react";
 import type { NavCard } from "@/adapters/legacy/nav-card-view-model";
 import type { TranscriptMessage } from "@/components/transcript/InteractionTranscript";
 import { AI_PERFORM_MS } from "./ai-perform";
-import { resultPresentation, type CopilotResult } from "./copilot-results";
+import { rememberCopilotAnswer, resultPresentation, type CopilotResult } from "./copilot-results";
 import { t } from "@/i18n";
+import type { InteractionId } from "@/domain";
+import { useAssistProvider } from "@/provider-context";
+import { redact } from "@/providers/redaction";
 
 // Ask Copilot on an assignment (P0.5c, moved out of the Advanced page; every
 // card since P-HOME-1j). P-LAYOUT-F1 F: a plain answer (`resultPresentation`,
@@ -13,8 +16,9 @@ import { t } from "@/i18n";
 // instruction row (the same clickable interstitial an approval decision
 // gets), whose result opens on its own only
 // when it carries an artifact (a lookup chip opens its own panel instead).
-// Agent-side assist UI, so it stays a page overlay row on the card's thread;
-// AssistProvider takes it over in P4.8.
+// Agent-side assist UI, so it stays a page overlay row on the card's thread.
+// The answer is the AssistProvider's ("ask" trigger, an answer card;
+// P-LAYOUT-F2 5b), unless the question has a registered result.
 
 /** How long Copilot "works" on a free-form question before its panel opens. */
 const COPILOT_ASK_RESULT_MS = 1800;
@@ -55,9 +59,11 @@ export interface CopilotAskOptions {
   setCards: (update: (prev: NavCard[]) => NavCard[]) => void;
   /** The panel a lookup chip opens (so the row reopens the same content), if `text` is one. */
   linkFor: (cardId: string, text: string) => string | undefined;
-  /** The result for a question (not a lookup chip): a scripted case's own panel carries an artifact. `link`: the row's
-   *  own link. */
-  resultFor: (cardId: string, request: { text: string; link: string }) => CopilotResult;
+  /** The result for a question (not a lookup chip) when it's known: a scripted case's own panel (an artifact), or the
+   *  registry's. `link`: the row's own link. Unknown (undefined): the AssistProvider answers it (P-LAYOUT-F2 5b). */
+  resultFor: (cardId: string, request: { text: string; link: string }) => CopilotResult | undefined;
+  /** The provider contact a card's thread is, which the AssistProvider is asked about. */
+  interactionIdFor: (cardId: string, threadKey: string) => string | undefined;
   /** Opens a card result that carries an artifact once Copilot "finishes". `link`: the row's own link, so the opened
    *  result marks that row active. */
   openResult: (cardId: string, request: { text: string; time: string; link: string }) => void;
@@ -66,19 +72,25 @@ export interface CopilotAskOptions {
   agentName?: string;
 }
 
-export function useCopilotAsk({ setCards, linkFor, resultFor, openResult, onAsk, agentName = "John Smith" }: CopilotAskOptions) {
+export function useCopilotAsk({ setCards, linkFor, resultFor, interactionIdFor, openResult, onAsk, agentName = "John Smith" }: CopilotAskOptions) {
+  const assist = useAssistProvider();
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
+  // Asks waiting on the provider's answer: dropped on unmount.
+  const subscriptions = useRef(new Set<() => void>());
   useEffect(() => {
     const pending = timers.current;
+    const waiting = subscriptions.current;
     return () => {
       for (const timer of pending) clearTimeout(timer);
       pending.clear();
+      for (const stop of waiting) stop();
+      waiting.clear();
     };
   }, []);
 
-  const latest = useRef({ linkFor, resultFor, openResult, onAsk });
+  const latest = useRef({ linkFor, resultFor, interactionIdFor, openResult, onAsk });
   useEffect(() => {
-    latest.current = { linkFor, resultFor, openResult, onAsk };
+    latest.current = { linkFor, resultFor, interactionIdFor, openResult, onAsk };
   });
 
   return useCallback(
@@ -106,26 +118,35 @@ export function useCopilotAsk({ setCards, linkFor, resultFor, openResult, onAsk,
       // A free-form question's row is identified by its own id (the trailing segment), not by its text and
       // minute: the same question asked twice is two rows, each opening and marking its own result (P-EXTRACT).
       const ownLink = `instruction:copilot:${encodeURIComponent(text)}:${encodeURIComponent(time)}:${id}`;
-      const result = chipLink ? undefined : latest.current.resultFor(cardId, { text, link: ownLink });
-      // A plain answer: the row's "performing" state where the line will land, then the line once Copilot "finishes";
-      // no row, nothing to open.
-      if (result && resultPresentation(result) === "line") {
-        append({
-          id,
-          sender: "agent",
-          name: t("Copilot"),
-          initials: "",
-          timestamp: time,
-          text: result.summary,
-          event: true,
-          eventContext: text,
-          eventPoints: result.points,
-          eventPerformedAt: Date.now() + AI_PERFORM_MS,
-          eventAskedBy: agentName,
-        });
-        return;
-      }
-      const message: TranscriptMessage = {
+      const known = chipLink ? undefined : latest.current.resultFor(cardId, { text, link: ownLink });
+      const askedAt = Date.now();
+      // Copilot "finishes" no sooner than its usual beat after the ask, nor before the answer is in.
+      const finishedAt = () => Math.max(askedAt + AI_PERFORM_MS, Date.now());
+      const replace = (message: TranscriptMessage) =>
+        setCards((prev) =>
+          prev.map((card) =>
+            card.id === cardId
+              ? { ...card, liveMessages: { ...card.liveMessages, [threadKey]: (card.liveMessages?.[threadKey] ?? []).map((m) => (m.id === id ? message : m)) } }
+              : card,
+          ),
+        );
+      /** A plain answer's event line ("performing" until it's finished); with no answer yet, performing until it comes. */
+      const line = (result: CopilotResult | undefined): TranscriptMessage => ({
+        id,
+        sender: "agent",
+        name: t("Copilot"),
+        initials: "",
+        timestamp: time,
+        text: result?.summary ?? "",
+        event: true,
+        eventContext: text,
+        eventPoints: result?.points,
+        eventPerformedAt: result ? finishedAt() : askedAt + ANSWER_WAIT_MS,
+        eventAskedBy: agentName,
+      });
+      /** Anything more: the instruction row. Lookup chips reopen the exact panel the chip opens; free-form questions
+       *  open the instruction/result panel. */
+      const row = (): TranscriptMessage => ({
         id,
         sender: "agent",
         name: agentName,
@@ -136,20 +157,50 @@ export function useCopilotAsk({ setCards, linkFor, resultFor, openResult, onAsk,
           .join(""),
         timestamp: time,
         text,
-        instruction: {
-          title: text,
-          by: agentName,
-          // Lookup chips reopen the exact panel the chip opens; free-form
-          // questions open the instruction/result panel.
-          link: chipLink ?? ownLink,
-          performedAt: Date.now() + AI_PERFORM_MS,
-        },
+        instruction: { title: text, by: agentName, link: chipLink ?? ownLink, performedAt: finishedAt() },
+      });
+      /** Shows the result: a plain answer as a line, anything more as the row (`placed`: in place of the pending line). A
+       *  card result opens here only with an artifact (else its row does, on a click). */
+      const present = (result: CopilotResult | undefined, placed: boolean) => {
+        const message = result && resultPresentation(result) === "line" ? line(result) : row();
+        if (placed) replace(message);
+        else append(message);
+        if (result?.artifact) later(() => latest.current.openResult(cardId, { text, time, link: ownLink }));
       };
-      append(message);
-      // A lookup chip opens its own panel (its link); a card result opens here only with an artifact (else its row
-      // does, on a click).
-      if (result?.artifact) later(() => latest.current.openResult(cardId, { text, time, link: ownLink }));
+      // Not known (a contact with no script): the AssistProvider answers (P-LAYOUT-F2 5b; the sim's placeholder
+      // answers). The line goes in at once, "performing" as before, and takes the answer (or becomes the row) when it
+      // comes. The answer is kept for this row alone (`rememberCopilotAnswer`, by its link), never under the question:
+      // another contact or a kind item asking the same thing gets its own answer.
+      if (!chipLink && !known) {
+        const interactionId = latest.current.interactionIdFor(cardId, threadKey);
+        if (!interactionId) return;
+        append(line(undefined));
+        const question = redact(text);
+        const done = () => {
+          stop();
+          subscriptions.current.delete(stop);
+        };
+        const stop = assist.on("card", ({ interactionId: about, card }) => {
+          if (about !== interactionId || card.kind !== "answer" || card.question !== question) return;
+          done();
+          rememberCopilotAnswer(ownLink, card.answer);
+          present(card.answer, true);
+        });
+        subscriptions.current.add(stop);
+        assist
+          .suggest({ interactionId: interactionId as InteractionId, trigger: { kind: "ask", text: question } })
+          .catch((err) => {
+            done();
+            present({ summary: t("Copilot couldn't answer that just now."), points: [] }, true);
+            if (import.meta.env.DEV) console.warn("[copilot] ask failed", err);
+          });
+        return;
+      }
+      present(known, false);
     },
-    [setCards, agentName],
+    [assist, setCards, agentName],
   );
 }
+
+/** How long a line waits on the provider's answer, "performing", before it stops (the answer still fills it in). */
+const ANSWER_WAIT_MS = 30_000;

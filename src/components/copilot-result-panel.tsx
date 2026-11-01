@@ -1,11 +1,11 @@
 import React from "react";
 import { Badge } from "@nicecxone/lyra-ui";
 import { Sparkles } from "lucide-react";
-import { copilotResultFor } from "@/contact-handling/copilot-results";
+import { copilotAnswerForRow, copilotResultFor } from "@/contact-handling/copilot-results";
 
 // The slide-over body for a Copilot result row on a contact with no script
 // (any channel): the registry's result for the question (copilot-results.ts),
-// the placeholder until AssistProvider answers (P4.8).
+// the AssistProvider's answer once it came (P-LAYOUT-F2 5b).
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -20,12 +20,15 @@ export function CopilotResultPanelBody({
   text,
   time,
   by = "John Smith",
-  answer = copilotResultFor(text),
+  link,
+  answer = (link ? copilotAnswerForRow(link) : undefined) ?? copilotResultFor(text) ?? { summary: "", points: [] },
 }: {
   text: string;
   time: string;
   by?: string;
-  /** A scripted answer (a kind cell's, P-HOME-1f); else the placeholder for the question. */
+  /** The row's link: its own answer from the provider. */
+  link?: string;
+  /** A scripted answer (a kind cell's, P-HOME-1f); else the row's own answer, else the question's registered result. */
   answer?: { summary: string; points: readonly string[] };
 }) {
   return (

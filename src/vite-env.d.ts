@@ -17,6 +17,9 @@ interface Window {
   /** Dev-only: Playwright registers a Copilot result for a question (e2e `registerCardResult`, P-LAYOUT-F1 F). */
   __copilotResults?: {
     register: typeof import("./contact-handling/copilot-results").registerCopilotResult;
-    placeholder: typeof import("./contact-handling/copilot-results").placeholderCopilotResult;
+  };
+  /** Dev-only: the sim's placeholder Copilot answer for a question, for the same e2e helper (P-LAYOUT-F2 5b). */
+  __copilotAnswers?: {
+    placeholder: typeof import("./adapters/sim/sim-copilot-answers").simCopilotAnswer;
   };
 }
