@@ -52,4 +52,14 @@ describe("nav card timers on the page clock, with no ClockTick around the card",
     await h.advance(300_000);
     expect(rowTone(card())).toBe("critical");
   });
+
+  it("the app header's status timer counts on its own (a node in AgentProfile's timer, no ClockTick around the profile)", async () => {
+    await h.show(AgentWorkspaceAdvancedPage);
+    await h.goAvailable();
+    const timer = () => h.container.querySelector("header")?.textContent?.match(/\d{2}:\d{2}:\d{2}/)?.[0];
+    const first = timer();
+    expect(first).toBeDefined();
+    await h.advance(3000);
+    expect(timer()).not.toBe(first);
+  });
 });

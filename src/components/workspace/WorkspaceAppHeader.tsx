@@ -12,10 +12,16 @@ import {
 import { LayoutGrid, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrandMark } from "@/components/BrandMark";
-import { ClockTick } from "@/components/agent-next-gen-clock-tick";
+import { useClockValue, usePageClock } from "@/components/agent-next-gen-page-clock";
 import { formatWaitTime } from "@/components/agent-next-gen-shared-utils";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { Slot } from "@/layout/Slot";
+
+/** The time in the agent's current status, ticking on its own: only this text re-renders each second. */
+function StatusTimeSince({ since }: { since: number }) {
+  const clock = usePageClock();
+  return <>{useClockValue(clock, (tick) => formatWaitTime(tick - since))}</>;
+}
 
 /** The workspace's app header (P-EXTRACT C8, from the page): the brand and
  *  app-name menu, the header app icons and "View All Apps", and the agent's
@@ -275,10 +281,8 @@ export function WorkspaceAppHeader() {
             )}
               </>
             )}
-            {/* Status timer: only `AgentProfile` re-renders each second
-                (its `timer` prop is a string, so it can't tick on its own). */}
-            <ClockTick>
-              {(clockTick) => (
+            {/* Status timer: a self-ticking node (lyra F2-L3), so only its text re-renders each second, not
+                `AgentProfile` (P-LAYOUT-F2 8). */}
             <AgentProfile
               name="John Smith"
               initials="JS"
@@ -286,7 +290,7 @@ export function WorkspaceAppHeader() {
               onStatusChange={handleStatusChange}
               onDarkModeToggle={handleDarkModeToggle}
               isDarkMode={darkMode}
-              timer={formatWaitTime(clockTick - statusSinceTick)}
+              timer={<StatusTimeSince since={statusSinceTick} />}
               // Hidden while the provider has no agent leg, and until the
               // first agent snapshot arrives (no fake state before hydrate).
               agentLegStatus={agentState?.leg}
@@ -307,8 +311,6 @@ export function WorkspaceAppHeader() {
               hideConnectedApps
               className="ml-1"
             />
-              )}
-            </ClockTick>
           </>
         }
       />
