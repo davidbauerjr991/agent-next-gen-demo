@@ -56,6 +56,9 @@ export interface Interaction {
   /** The phone number, email address, or handle used for this contact. */
   address?: { value: string; label?: string };
   skill?: { id: string; name: string };
+  /** The client the contact is for, when the agent serves several (a BPO's enterprises; P-CONFIG-LAYERS). With the
+   *  skill, the key of the assignment's skill policy (`src/contact-handling/skill-policy.ts`). */
+  clientId?: string;
   /** Case status from the active profile's vocabulary (Open, Pending, …).
    *  Business status, independent of the connection `state`. */
   caseStatus?: string;
