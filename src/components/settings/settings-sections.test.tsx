@@ -32,7 +32,7 @@ describe("Settings grouping (P-HOME-1n)", () => {
       "Notifications",
       "Appearance",
       "Channels",
-      // No Voice (P-LAYOUT-F1 E): its one control, Voice controls location, is a Layout preset.
+      "Voice",
       "Phone",
       "Connections",
     ]);
@@ -44,7 +44,11 @@ describe("Settings grouping (P-HOME-1n)", () => {
     expect(subGroups.find((f) => f.querySelector(":scope > legend")?.textContent?.startsWith("Social"))).toBeDefined();
     expect(subGroups.every((f) => f.classList.contains("mt-6"))).toBe(true);
     expect(groups().every((g) => g.classList.contains("[&>legend+fieldset]:mt-0"))).toBe(true);
-    expect(h.container.querySelectorAll("[data-testid=settings-view] [role=separator], [data-testid=settings-view] [data-orientation=horizontal]").length).toBeGreaterThanOrEqual(8);
+    expect(h.container.querySelectorAll("[data-testid=settings-view] [role=separator], [data-testid=settings-view] [data-orientation=horizontal]").length).toBeGreaterThanOrEqual(9);
+    // Voice stays with an empty state: its one control, Voice controls location, is a Layout preset (P-LAYOUT-F1 E).
+    const voice = h.container.querySelector<HTMLElement>("[data-settings-group=voice]")!;
+    expect(voice.textContent).toContain("Voice settings will appear here");
+    expect(voice.querySelector("[role=combobox], [role=radio], input")).toBeNull();
   });
 
   it("a sub-group of one control named as itself shows its title once and names the control (P-POLISH 6)", async () => {

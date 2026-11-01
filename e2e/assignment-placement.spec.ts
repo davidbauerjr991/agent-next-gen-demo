@@ -80,7 +80,39 @@ test("interior panel (P-LAYOUT-F1 A2): the nav starts as a rail; a closed panel 
   await expect(toggle).toHaveAttribute("aria-label", /^Assignments \(\d+\)$/);
 });
 
-test("Settings: the ten groups in order (Layout second, P-LAYOUT), each a lyra heading", async ({ page }) => {
+test("after a close (P-LAYOUT-F1 A4): the top active assignment in the list opens, not the next one created", async ({ page }) => {
+  await setUp(page, {});
+  // Two inbound chats, auto-accepted: Ana, then Ben (newest first, so Ben above Ana). Each started once, then waited
+  // on until that same contact is live.
+  const ids: Record<string, string> = {};
+  for (const [address, name] of [["ana.ruiz@example.com", "Ana Ruiz"], ["ben.ito@example.com", "Ben Ito"]]) {
+    const id = await page.evaluate(
+      ([address, name]) => (window as any).__simCustomer.startInbound({ channel: "chat", address, displayName: name }) as string,
+      [address, name],
+    );
+    await expect
+      .poll(() => page.evaluate(async (id) => (await (window as any).__providers.interaction.getSnapshot()).interactions.some((i: any) => i.id === id && i.state === "active"), id), { timeout: 15_000 })
+      .toBe(true);
+    ids[name] = id;
+  }
+  const card = (name: string) => page.locator(`aside [aria-label="${name}"], aside [aria-label^="${name},"]`).first();
+  // Ana is selected and closed: the customer leaves, then Unassign & Dismiss.
+  await card("Ana Ruiz").click({ force: true });
+  await expect(page.locator("[data-slot=record-header]")).toContainText("Ana Ruiz");
+  await page.evaluate((id) => (window as any).__simCustomer.hangUp({ interactionId: id }), ids["Ana Ruiz"]);
+  // Ana's own card's dismiss (hover-revealed; the click dispatched on it).
+  await page
+    .locator("aside [data-slot=assignment-card]", { has: page.locator('[aria-label="Ana Ruiz"], [aria-label^="Ana Ruiz,"]') })
+    .locator('[title="Unassign & Dismiss"], [aria-label="Unassign & Dismiss"]')
+    .first()
+    .dispatchEvent("click");
+  await expect(card("Ana Ruiz")).toHaveCount(0);
+  // Ben: the newest active conversation, the top of the list under the default sort (offers and kind cards aren't
+  // opened after a close).
+  await expect(page.locator("[data-slot=record-header]")).toContainText("Ben Ito");
+});
+
+test("Settings: the ten groups in order (Layout second, P-LAYOUT; Voice empty since P-LAYOUT-F1 E), each a lyra heading", async ({ page }) => {
   await setUp(page, {});
   await page.locator("aside").getByText("Settings", { exact: true }).first().click();
   const legends = page.locator("[data-settings-group] > legend");

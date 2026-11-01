@@ -144,6 +144,29 @@ test("Settings → Layout: dragging the voice controls into the Left nav list mo
   await expect(layout.locator('[data-layout-preset="voice.controlsLocation"]').getByRole("radio", { name: "Top of assignments" })).toHaveAttribute("aria-checked", "true");
 });
 
+test("Settings → Layout: the Advanced layout switch disables one side or the other, with the reason (P-LAYOUT-F1 E)", async ({ page }) => {
+  await setUp(page, {});
+  await page.locator("aside").getByText("Settings", { exact: true }).first().click();
+  const layout = page.locator("[data-settings-group=layout]");
+  const advanced = layout.getByRole("button", { name: /^Advanced/ });
+  const homeLayout = layout.locator('[data-layout-preset="home.layout"]');
+  const sw = layout.getByRole("switch", { name: "Advanced layout" });
+  // Off (the default): the presets apply; Advanced is disabled, its reason in its place.
+  await expect(sw).toHaveAttribute("aria-checked", "false");
+  await expect(homeLayout.getByRole("radio").first()).toBeEnabled();
+  await expect(advanced).toBeDisabled();
+  await expect(layout).toContainText("Turn on Advanced layout to drag parts.");
+  // On: every preset is disabled with its reason; Advanced opens.
+  await sw.click();
+  await expect(homeLayout.getByRole("radio").first()).toBeDisabled();
+  await expect(homeLayout).toContainText("Advanced layout is on.");
+  await expect(advanced).toBeEnabled();
+  // Off again: the presets are back.
+  await sw.click();
+  await expect(homeLayout.getByRole("radio").first()).toBeEnabled();
+  await expect(advanced).toBeDisabled();
+});
+
 test("Settings → Layout: a drag onto a list that refuses the part shows why under that list, until a move lands", async ({ page }) => {
   await setUp(page, {});
   const layout = await openLayoutAdvanced(page);

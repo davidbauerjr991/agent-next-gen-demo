@@ -1,5 +1,5 @@
 // Settings → Phone (P-HOME-1n grouping): the agent's phone setup (personal scope; the launch screen reads it). The
-// voice controls' location, once Settings → Voice, is a Layout preset only (P-LAYOUT-F1 E).
+// voice controls' location, once under Settings → Voice, is a Layout preset only (P-LAYOUT-F1 E).
 import { Input, RadioGroup, RadioGroupItem } from "@nicecxone/lyra-ui";
 import { t } from "@/i18n";
 import { useSettings, type PhoneSetup } from "@/settings";
