@@ -127,7 +127,8 @@ describe("saved profiles: share as JSON", () => {
     const values = agentSettings(customValues());
     const json = exportProfile({ name: "Billing", values, locks: ["assignments", "ai"] });
     const result = importProfile(json);
-    expect(result).toEqual({ ok: true, profile: { name: "Billing", values, locks: ["assignments", "ai"] }, warnings: [] });
+    // The level too (P-CONFIG-LAYERS): none given exports as the agent's own.
+    expect(result).toEqual({ ok: true, profile: { name: "Billing", values, locks: ["assignments", "ai"], level: "agent" }, warnings: [] });
   });
 
   it("an exported file carries no admin- or personal-scope settings", () => {

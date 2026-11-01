@@ -11,6 +11,7 @@ import {
   PROFILE_IDS,
   PROFILE_LABELS,
   isSavedProfileId,
+  savedProfilesByLevel,
   useWorkspaceProfile,
   type ProfileId,
   type SavedProfileId,
@@ -54,7 +55,9 @@ export function ProfileSettings() {
   const labelFor = (id: string, name: string) => (modified && id === profile ? t("{name} · modified", { name }) : name);
   const options = [
     ...PROFILE_IDS.map((id) => ({ value: id, label: labelFor(id, t(PROFILE_LABELS[id])), group: t("Built-in") })),
-    ...saved.map((p) => ({ value: p.id, label: labelFor(p.id, p.name), group: t("Saved") })),
+    // Saved profiles by level (P-CONFIG-LAYERS): the agent's own, then any imported for an org level, which applying
+    // puts in that layer instead (a demo stand-in for the admin's assignment).
+    ...savedProfilesByLevel(saved).map(({ profile: p, group }) => ({ value: p.id, label: labelFor(p.id, p.name), group })),
     ...(profile === "custom" ? [{ value: "custom", label: t(PROFILE_LABELS.custom), disabled: true }] : []),
   ];
 

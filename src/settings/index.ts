@@ -24,7 +24,7 @@ export {
 } from "./hooks";
 export { useSetPersona } from "./persona";
 export { startOrgLayerSync } from "./org-layer-sync";
-export { sourceLabel, lockedByLabel } from "./source-labels";
+export { sourceLabel, lockedByLabel, savedProfilesByLevel } from "./source-labels";
 export { resolvedRows, type ResolvedRow } from "./resolved-rows";
 export type { SectionSource } from "./layers";
 export { readLogoFile, sanitizeSvg, LOGO_ERROR_MESSAGES, type LogoReadResult } from "./brand";

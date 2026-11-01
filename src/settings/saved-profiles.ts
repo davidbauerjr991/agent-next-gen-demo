@@ -7,6 +7,7 @@
 // store and the export file, so stored and imported profiles go through one
 // reader that falls back field by field (`readProfileSections`).
 import { t } from "@/i18n";
+import { LAYER_LEVELS, type LayerLevel } from "./layers";
 import { PROFILE_IDS, PROFILE_LABELS, profileValues, type ProfileId } from "./profiles";
 import { agentSettings, sectionInProfiles, type AgentSettings } from "./scope";
 import { settle } from "./settle";
@@ -24,6 +25,9 @@ export interface SavedProfile {
   values: AgentSettings;
   /** Sections that render read-only once this profile is applied. */
   locks: SectionKey[];
+  /** The layer it's for (P-CONFIG-LAYERS): "agent" (the agent's own, every profile before the step) or an org level,
+   *  which applying puts in that layer through a change set instead of writing the agent's settings. */
+  level: LayerLevel;
 }
 
 /** The profile applied last (or saved last) and the locks it carries: the
@@ -132,6 +136,12 @@ export function readLayerSections(
   return { values: Object.fromEntries(present.map((key) => [key, stripped[key]])) as Partial<AgentSettings>, warnings };
 }
 
+/** A profile's level as stored or imported: one of `LAYER_LEVELS`, else (missing, from before P-CONFIG-LAYERS, or
+ *  unknown) the agent's own. */
+export function readLevel(raw: unknown): LayerLevel {
+  return typeof raw === "string" && (LAYER_LEVELS as readonly string[]).includes(raw) ? (raw as LayerLevel) : "agent";
+}
+
 /** The lock keys that name a section a profile carries; anything else dropped. */
 export function readLocks(raw: unknown, sections: SectionSchemas = SECTIONS): SectionKey[] {
   if (!Array.isArray(raw)) return [];
@@ -158,16 +168,20 @@ export interface ProfileFile {
   name: string;
   values: AgentSettings;
   locks: SectionKey[];
+  /** Absent: "agent". */
+  level?: LayerLevel;
 }
 
-/** The share file: every agent-scope section with its version, and the
- *  locks. Admin- and personal-scope settings are never in it. */
+/** The share file: every agent-scope section with its version, the locks and the level (P-CONFIG-LAYERS; additive,
+ *  so the format stays 1 and a file without one reads as the agent's own). Admin- and personal-scope settings are
+ *  never in it. */
 export function exportProfile(profile: ProfileFile, sections: SectionSchemas = SECTIONS): string {
   return JSON.stringify(
     {
       kind: PROFILE_FILE_KIND,
       format: PROFILE_FILE_FORMAT,
       name: profile.name,
+      level: profile.level ?? "agent",
       locks: readLocks(profile.locks, sections),
       sections: writeSections(profile.values, sections),
     },
@@ -196,7 +210,7 @@ export function importProfile(text: string, sections: SectionSchemas = SECTIONS)
   if (typeof parsed.format !== "number" || parsed.format > PROFILE_FILE_FORMAT) return { ok: false, error: "newerFormat" };
   const { values, warnings } = readProfileSections(parsed.sections, sections);
   const name = typeof parsed.name === "string" && parsed.name.trim() ? parsed.name.trim() : t("Imported profile");
-  return { ok: true, profile: { name, values, locks: readLocks(parsed.locks, sections) }, warnings };
+  return { ok: true, profile: { name, values, locks: readLocks(parsed.locks, sections), level: readLevel(parsed.level) }, warnings };
 }
 
 // ── The library (a small store, like the settings store) ──
@@ -204,8 +218,9 @@ export function importProfile(text: string, sections: SectionSchemas = SECTIONS)
 export interface ProfileLibrary {
   getState(): ProfileLibraryState;
   subscribe(listener: () => void): () => void;
-  /** Saves `values` (agent scope only) under a unique name; null for an empty name. */
-  saveAs(name: string, values: SettingsState | AgentSettings, locks?: SectionKey[]): SavedProfile | null;
+  /** Saves `values` (agent scope only) under a unique name, at `level` (default the agent's own); null for an empty
+   *  name. */
+  saveAs(name: string, values: SettingsState | AgentSettings, locks?: SectionKey[], level?: LayerLevel): SavedProfile | null;
   /** Writes `values` (agent scope only) back into a saved profile, keeping its
    *  name and locks; false for an unknown id. */
   overwrite(id: SavedProfileId, values: SettingsState | AgentSettings): boolean;
@@ -255,6 +270,7 @@ export function createProfileLibrary(
           createdAt: typeof entry.createdAt === "string" ? entry.createdAt : new Date(0).toISOString(),
           values: readProfileSections(entry.sections, sections).values,
           locks: readLocks(entry.locks, sections),
+          level: readLevel(entry.level),
         });
       }
       const appliedRaw = parsed.value.applied;
@@ -279,7 +295,7 @@ export function createProfileLibrary(
       JSON.stringify({
         v: LIBRARY_VERSION,
         value: {
-          saved: next.saved.map((p) => ({ id: p.id, name: p.name, createdAt: p.createdAt, locks: p.locks, sections: writeSections(p.values, sections) })),
+          saved: next.saved.map((p) => ({ id: p.id, name: p.name, createdAt: p.createdAt, level: p.level, locks: p.locks, sections: writeSections(p.values, sections) })),
           applied: next.applied,
         },
       }),
@@ -287,10 +303,10 @@ export function createProfileLibrary(
     for (const listener of [...listeners]) listener();
   }
 
-  function add(name: string, values: AgentSettings, locks: SectionKey[]): SavedProfile | null {
+  function add(name: string, values: AgentSettings, locks: SectionKey[], level: LayerLevel = "agent"): SavedProfile | null {
     const unique = uniqueProfileName(name, takenNames(state.saved));
     if (!unique) return null;
-    const profile: SavedProfile = { id: newId(), name: unique, createdAt: new Date().toISOString(), values, locks: readLocks(locks, sections) };
+    const profile: SavedProfile = { id: newId(), name: unique, createdAt: new Date().toISOString(), values, locks: readLocks(locks, sections), level };
     commit({ ...state, saved: [...state.saved, profile] });
     return profile;
   }
@@ -303,10 +319,10 @@ export function createProfileLibrary(
         listeners.delete(listener);
       };
     },
-    saveAs(name, values, locks = []) {
+    saveAs(name, values, locks = [], level = "agent") {
       // Read the values through the section readers so a partial or loose
       // object is stored as a complete agent-scope snapshot.
-      return add(name, readProfileSections(writeSections(values as AgentSettings, sections), sections).values, locks);
+      return add(name, readProfileSections(writeSections(values as AgentSettings, sections), sections).values, locks, readLevel(level));
     },
     overwrite(id, values) {
       if (!state.saved.some((p) => p.id === id)) return false;
@@ -324,7 +340,7 @@ export function createProfileLibrary(
     duplicate(id) {
       if (isBuiltInProfileId(id)) return add(t("Copy of {name}", { name: PROFILE_LABELS[id] }), profileValues(id), []);
       const source = state.saved.find((p) => p.id === id);
-      return source ? add(t("Copy of {name}", { name: source.name }), source.values, source.locks) : null;
+      return source ? add(t("Copy of {name}", { name: source.name }), source.values, source.locks, source.level) : null;
     },
     remove(id) {
       if (!state.saved.some((p) => p.id === id)) return;

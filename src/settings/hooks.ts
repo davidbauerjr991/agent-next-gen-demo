@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 import { PROFILE_LABELS, deriveProfileState, profileValues, type ProfileId, type WorkspaceProfile } from "./profiles";
+import { applyChangeSet, type ChangeSet } from "./change-set";
+import { assignIntent } from "./source-labels";
+import type { OrgLevel } from "./layers";
+import { getOrgLayers } from "./org-layers";
 import {
   exportProfile,
   getProfileLibrary,
   importProfile,
   isSavedProfileId,
+  profileSectionKeys,
   type ProfileImportError,
   type ProfileLibrary,
   type ProfileLibraryState,
@@ -127,11 +132,34 @@ export function applyProfile(id: ProfileId | SavedProfileId) {
   const library = getProfileLibrary();
   const saved = isSavedProfileId(id) ? library.getState().saved.find((p) => p.id === id) : undefined;
   if (isSavedProfileId(id) && !saved) return;
+  // A profile for an org level goes into that layer, as one change set (a demo stand-in for the admin's assignment,
+  // P-ADMIN / P-EMPLOYEES; until the persona's next chain): the agent's own settings and applied base are untouched.
+  if (saved && saved.level !== "agent") {
+    applyChangeSet(profileToLayer(saved, saved.level));
+    return;
+  }
   const values = saved ? saved.values : profileValues(id as ProfileId);
   // Locks first come off, so the write lands; then the new ones go on.
   library.setApplied(null);
   store.updateMany(withAgentSettings(store.getState().values, values));
   library.setApplied({ id, locks: saved ? saved.locks : [] });
+}
+
+/** The change set that makes `profile` the `level` layer: each section it carries set (and locked as it locks it). */
+export function profileToLayer(profile: SavedProfile, level: OrgLevel): ChangeSet {
+  const current = getOrgLayers().getState().layers.find((l) => l.level === level && l.id === profile.id);
+  return {
+    intent: assignIntent(level, profile.name),
+    affected: [`${level}:${profile.id}`],
+    changes: profileSectionKeys().map((section) => ({
+      level,
+      profileId: profile.id,
+      profileName: profile.name,
+      section,
+      before: { value: current?.values[section], locked: !!current?.locks.includes(section) },
+      after: { value: profile.values[section], locked: profile.locks.includes(section) },
+    })),
+  };
 }
 
 /** The saved profiles and the applied locks. */
@@ -186,7 +214,11 @@ export function useWorkspaceProfile(): WorkspaceProfileApi {
   const library = getProfileLibrary();
   const { saved, applied } = useProfileLibrary();
   const values = useSettingsSelector(useCallback((state: SettingsStoreState) => state.values, []));
-  const { profile, modified } = useMemo(() => deriveProfileState(values, saved, applied?.id ?? null), [values, saved, applied]);
+  // Only the agent's own profiles can be the one the settings read as: an org-level one is a layer, never the base.
+  const { profile, modified } = useMemo(
+    () => deriveProfileState(values, saved.filter((p) => p.level === "agent"), applied?.id ?? null),
+    [values, saved, applied],
+  );
   return useMemo(
     () => ({
       profile,
@@ -216,7 +248,7 @@ export function useWorkspaceProfile(): WorkspaceProfileApi {
       importFile: (text) => {
         const result = importProfile(text);
         if (!result.ok) return result;
-        const added = library.saveAs(result.profile.name, result.profile.values, result.profile.locks);
+        const added = library.saveAs(result.profile.name, result.profile.values, result.profile.locks, result.profile.level);
         return added ? { ok: true, profile: added, warnings: result.warnings } : { ok: false, error: "malformed" };
       },
     }),
