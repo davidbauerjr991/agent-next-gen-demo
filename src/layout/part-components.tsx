@@ -7,7 +7,7 @@ import type { ComponentType } from "react";
 import { HostSlot } from "@/contact-handling/portal-hosts";
 import { usePanelToggles } from "@/contact-handling/panel-toggles";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
-import { useAssignmentCards, useChannelChipsShown } from "@/contact-handling/useAssignmentCards";
+import { useAssignmentCards } from "@/contact-handling/useAssignmentCards";
 import { AssignmentEntryCard, AssignmentsCaption, AssignmentsEmptyState } from "@/components/workspace/AssignmentCardList";
 import { QueueChip } from "@/components/workspace/QueueChip";
 import { HEADER_APP_PARTS, HOME_SECTION_PARTS, PARTS, REFERENCE_CELL_PARTS, type PartId } from "./parts";
@@ -48,7 +48,6 @@ function LeftNavAssignmentsCaption() {
 function LeftNavAssignments({ expanded }: PartProps) {
   const { interactions, isNavNarrow, navOpen } = useWorkspace();
   const { entries, itemProps } = useAssignmentCards(navOpen && !isNavNarrow);
-  const chipsShown = useChannelChipsShown("leftNav");
   if (interactions.length === 0 && entries.length === 0) {
     return navOpen ? (
       <div className="flex flex-1 min-h-0 items-center justify-center animate-in fade-in-0 duration-150 delay-200 fill-mode-backwards">
@@ -61,7 +60,7 @@ function LeftNavAssignments({ expanded }: PartProps) {
   return (
     <>
       {entries.map((entry) => (
-        <AssignmentEntryCard key={entry.key} entry={entry} dragProps={itemProps(entry.key)} slotExpanded={expanded} navOpen={navOpen} hideChip={!chipsShown} />
+        <AssignmentEntryCard key={entry.key} entry={entry} dragProps={itemProps(entry.key)} slotExpanded={expanded} navOpen={navOpen} />
       ))}
     </>
   );

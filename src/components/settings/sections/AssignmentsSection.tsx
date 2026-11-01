@@ -4,7 +4,6 @@ import { Select } from "@nicecxone/lyra-ui";
 import { DisabledReason } from "@/contact-handling/DisabledReason";
 import { t } from "@/i18n";
 import {
-  ASSIGNMENT_CHANNEL_CHIPS_FIELD,
   ASSIGNMENT_LEGS_FIELD,
   ASSIGNMENT_SORT_DIRECTION_FIELD,
   ASSIGNMENT_SORT_MODE_FIELD,
@@ -13,7 +12,6 @@ import {
   AUTO_ACCEPT_CHANNELS,
   useSettingDisabledBy,
   useSettings,
-  type AssignmentChannelChips,
   type AssignmentLegs,
   type AssignmentsPanelPinned,
   type AssignmentSortDirectionSetting,
@@ -29,11 +27,6 @@ const AUTO_ACCEPT_LABELS: Record<AutoAcceptChannel, string> = {
   email: "Email",
   sms: "SMS",
   whatsapp: "WhatsApp",
-};
-
-const CHANNEL_CHIP_LABELS: Record<AssignmentChannelChips, string> = {
-  auto: "Automatic",
-  show: "Show",
 };
 
 // Neutral wording: the direction applies to every mode (dates, and Channel's A–Z).
@@ -93,16 +86,8 @@ export function AssignmentsSection() {
         </div>
       </Section>
 
+      {/* The channel chips always show (P-LAYOUT-F3 5); the status chip stays a choice. */}
       <Section title={t("Chips")}>
-        <div className="max-w-xs">
-          <Select
-            label={t(ASSIGNMENT_CHANNEL_CHIPS_FIELD.meta!.label)}
-            labelHelpText={t(ASSIGNMENT_CHANNEL_CHIPS_FIELD.meta!.description)}
-            options={ASSIGNMENT_CHANNEL_CHIPS_FIELD.values.map((value) => ({ value, label: t(CHANNEL_CHIP_LABELS[value]) }))}
-            value={assignments.channelChips}
-            onValueChange={(value) => updateAssignments({ channelChips: value as AssignmentChannelChips })}
-          />
-        </div>
         <SwitchRow
           label="Show status chip in the session row"
           checked={assignments.showStatusChip}

@@ -32,13 +32,10 @@ import { InteractionNavCard } from "./left-nav-parts";
 export function NavCardItem({
   interaction,
   slotExpanded,
-  hideChip = false,
   kind,
 }: {
   interaction: Interaction;
   slotExpanded: boolean | undefined;
-  /** Hides the channel chip on the card's rows (`assignments.channelChips`, P-PROFILES). */
-  hideChip?: boolean;
   /** P-HOME-1e, -1f: this card is a schedule item's, with the call as its leg (KindNavCard): the item's name, and its
    *  kind row first among the rows (the order they were opened), no "+". `selected`: the kind row is the current row
    *  (the main column shows the kind's cell); `onSelectRow` reports which kind of row was picked. */
@@ -589,7 +586,6 @@ export function NavCardItem({
                 )?.heldSinceTick;
                 return (
                   <InteractionNavCard
-                    hideChip={hideChip}
                     // While the call is unanswered and the nav is collapsed, show the hover preview automatically.
                     forceHoverOpen={!!interaction.offered}
                     key={interaction.id}

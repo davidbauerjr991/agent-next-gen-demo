@@ -111,7 +111,6 @@ describe("settings store", () => {
       showStatusChip: true,
       legs: "tabs",
       sort: { mode: "lastUpdated", direction: "desc" },
-      channelChips: "auto",
       placement: "leftNav",
       panelPinned: "pinned",
     });

@@ -14,6 +14,15 @@ export function storedPlacementNone(rawAssignments: unknown, rawLayout: unknown)
   return assignments?.slot === "home-top";
 }
 
+/** Fields retired from the stored `assignments` section (P-LAYOUT-F3): `channelChips` (the chips always show). The
+ *  readers already ignore them; a stored one is dropped from storage once, so it doesn't linger. */
+export const RETIRED_ASSIGNMENTS_FIELDS = ["channelChips"] as const;
+
+/** Whether the raw stored `assignments` value still carries a retired field. */
+export function storedRetiredAssignmentsFields(rawAssignments: unknown): boolean {
+  return isRecord(rawAssignments) && RETIRED_ASSIGNMENTS_FIELDS.some((key) => key in rawAssignments);
+}
+
 /** `values` with Home's Active assignments section on and first, the rest in their order. */
 export function withActiveAssignmentsSection(values: SettingsState): SettingsState {
   const rest = values.home.sections.filter((s) => s.key !== "activeAssignments");

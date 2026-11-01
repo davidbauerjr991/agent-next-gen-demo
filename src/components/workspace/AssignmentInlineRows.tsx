@@ -8,7 +8,7 @@ import type { ReactNode } from "react";
 import { Avatar, Button, EmptyState, InlineNotification, Tag, Tooltip } from "@nicecxone/lyra-ui";
 import { Inbox } from "lucide-react";
 import { t } from "@/i18n";
-import { useAssignmentCards, useChannelChipsShown, type AssignmentEntry } from "@/contact-handling/useAssignmentCards";
+import { useAssignmentCards, type AssignmentEntry } from "@/contact-handling/useAssignmentCards";
 import { IncomingOfferActions } from "@/contact-handling/IncomingOfferActions";
 import { isIdentifiedWorkItem } from "@/contact-handling/card-identity";
 import { useScheduleItemCustomer } from "@/contact-handling/home/useScheduleCards";
@@ -53,7 +53,6 @@ export function AssignmentInlineRows() {
 function AssignmentInlineRow({ entry }: { entry: AssignmentEntry }) {
   const { incomingOffer, isIdentified, setPanelFullScreen, switchActiveInteraction } = useWorkspace();
   const itemCustomer = useScheduleItemCustomer(entry.type === "schedule" ? entry.item : null);
-  const chipShown = useChannelChipsShown("homeSection");
   const open = () => {
     switchActiveInteraction(entry.key);
     setPanelFullScreen(false);
@@ -101,7 +100,7 @@ function AssignmentInlineRow({ entry }: { entry: AssignmentEntry }) {
           <Tooltip content={name} onlyWhenTruncated>
             <span className="min-w-0 truncate">{name}</span>
           </Tooltip>
-          {chipShown && chip && <Tag label={chip} />}
+          {chip && <Tag label={chip} />}
         </span>
       }
       actionPlacement="inline"

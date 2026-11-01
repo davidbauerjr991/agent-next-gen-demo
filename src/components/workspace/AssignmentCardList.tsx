@@ -9,7 +9,7 @@ import { ChevronsDownUp, ChevronsUpDown, Inbox } from "lucide-react";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { AssignmentsSectionCaption } from "@/components/agent-next-gen-interaction-dashboard";
-import { useAssignmentCards, useChannelChipsShown, type AssignmentEntry, type AssignmentsMount } from "@/contact-handling/useAssignmentCards";
+import { useAssignmentCards, type AssignmentEntry, type AssignmentsMount } from "@/contact-handling/useAssignmentCards";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useRailAssignmentCount } from "@/contact-handling/home/useScheduleCards";
 import type { AssignmentSortMode } from "@/settings";
@@ -117,13 +117,11 @@ export function AssignmentEntryCard({
   dragProps,
   slotExpanded,
   navOpen = true,
-  hideChip,
 }: {
   entry: AssignmentEntry;
   dragProps: ListReorderItemProps;
   slotExpanded: boolean | undefined;
   navOpen?: boolean;
-  hideChip: boolean;
 }) {
   return (
     <DraggableAssignment props={dragProps}>
@@ -131,7 +129,7 @@ export function AssignmentEntryCard({
         <KindNavCard item={entry.item} expanded={slotExpanded ?? navOpen} />
       ) : (
         // No ClockTick: the card ticks only its timers and re-renders when a colour tier changes (P-LAYOUT-F2 8).
-        <NavCardItem interaction={entry.interaction} slotExpanded={slotExpanded} hideChip={hideChip} />
+        <NavCardItem interaction={entry.interaction} slotExpanded={slotExpanded} />
       )}
     </DraggableAssignment>
   );
@@ -161,14 +159,13 @@ export function AssignmentsStack({
   className?: string;
 }) {
   const { entries, itemProps } = useAssignmentCards(true);
-  const chipsShown = useChannelChipsShown(mount);
   return (
     <div className={cn("flex flex-col gap-2", className)} data-slot="assignments-stack" data-mount={mount}>
       {entries.length === 0 ? (
         <AssignmentsEmptyState />
       ) : (
         entries.map((entry) => (
-          <AssignmentEntryCard key={entry.key} entry={entry} dragProps={itemProps(entry.key)} slotExpanded hideChip={!chipsShown} />
+          <AssignmentEntryCard key={entry.key} entry={entry} dragProps={itemProps(entry.key)} slotExpanded />
         ))
       )}
     </div>

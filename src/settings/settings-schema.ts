@@ -425,9 +425,6 @@ export interface AssignmentsSettings {
   /** The nav's card order (P-PROFILES). Custom's dragged order itself is
    *  per-browser working state, not a setting. */
   sort: AssignmentSortSettings;
-  /** The channel chip on each card's rows: "auto" shows it in the left nav
-   *  and hides it in the interior panel. */
-  channelChips: AssignmentChannelChips;
   /** Where the assignment cards show: the left nav, or lyra's left interior panel (P-PROFILES 0c). P-LAYOUT-F1 B
    *  retired "none" (the top of Home): a stored one reads as the left nav with Home's Active assignments section on
    *  (`migrations.ts`). */
@@ -483,13 +480,6 @@ export interface AssignmentSortSettings {
   mode: AssignmentSortMode;
   direction: (typeof ASSIGNMENT_SORT_DIRECTIONS)[number];
 }
-export const ASSIGNMENT_CHANNEL_CHIPS = ["auto", "show"] as const;
-export type AssignmentChannelChips = (typeof ASSIGNMENT_CHANNEL_CHIPS)[number];
-export const ASSIGNMENT_CHANNEL_CHIPS_FIELD = oneOf(ASSIGNMENT_CHANNEL_CHIPS, {
-  label: "Channel chips",
-  description:
-    "The channel name on each card's rows. Automatic shows it where there's room (the left nav, Home's Active assignments) and hides it in the interior panel.",
-});
 
 /** "tabs": one thread per channel (today). "stream" (P-STREAM): every leg in
  *  one timeline, filtered by the header icons. Depends on AI display: under
@@ -501,8 +491,8 @@ export const ASSIGNMENT_LEGS_FIELD = oneOf(ASSIGNMENT_LEGS, {
   description: "Separate tabs shows one thread per channel; one stream shows every channel in one transcript, filtered by the header icons.",
 });
 
-// No version bump for `legs`, `sort`, `channelChips`, `placement` or `panelPinned`: a missing stored key reads as its
-// default.
+// No version bump for `legs`, `sort`, `placement` or `panelPinned`: a missing stored key reads as its default. A
+// retired key (`channelChips`, P-LAYOUT-F3 5: the chips always show) isn't read, and `migrations.ts` drops it.
 const assignments = defineSection<AssignmentsSettings>({
   key: "assignments",
   version: 2,
@@ -516,7 +506,6 @@ const assignments = defineSection<AssignmentsSettings>({
     showStatusChip: true,
     legs: "tabs",
     sort: { mode: "lastUpdated", direction: "desc" },
-    channelChips: "auto",
     placement: "leftNav",
     panelPinned: "pinned",
   },
@@ -532,7 +521,6 @@ const assignments = defineSection<AssignmentsSettings>({
     showStatusChip: bool(),
     legs: ASSIGNMENT_LEGS_FIELD,
     sort: group<AssignmentSortSettings>({ mode: ASSIGNMENT_SORT_MODE_FIELD, direction: ASSIGNMENT_SORT_DIRECTION_FIELD }),
-    channelChips: ASSIGNMENT_CHANNEL_CHIPS_FIELD,
     placement: ASSIGNMENTS_PLACEMENT_FIELD,
     panelPinned: ASSIGNMENTS_PANEL_PINNED_FIELD,
   },

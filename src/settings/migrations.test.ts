@@ -37,6 +37,15 @@ describe("placement none's migration (P-LAYOUT-F1 B)", () => {
     expect(again.home.sections[0]).toEqual({ key: "activeAssignments", enabled: true });
   });
 
+  it("a stored none beside a retired channelChips (every pre-F3 write had one) still migrates, and the key is dropped", () => {
+    const backing = memoryStorage({
+      [sectionStorageKey("assignments")]: stored({ ...defaultSettings().assignments, channelChips: "auto", placement: "none" }, SECTIONS.assignments.version),
+    });
+    const values = createSettingsStore(safeStorage(() => backing)).getState().values;
+    expect(values.home.sections[0]).toEqual({ key: "activeAssignments", enabled: true });
+    expect(JSON.parse(backing.getItem(sectionStorageKey("assignments"))!).value).not.toHaveProperty("channelChips");
+  });
+
   it("a stored map with the assignments at the top of Home migrates the same way", () => {
     const backing = memoryStorage({
       [sectionStorageKey("layout")]: stored({ parts: { assignments: { slot: "home-top" } } }, SECTIONS.layout.version),

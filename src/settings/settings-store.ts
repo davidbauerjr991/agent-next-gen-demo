@@ -5,7 +5,7 @@
 // `index.ts`.
 import { getProfileLibrary, isSavedProfileId, resetProfileLibraryForTests } from "./saved-profiles";
 import { settle } from "./settle";
-import { storedPlacementNone, withActiveAssignmentsSection } from "./migrations";
+import { storedPlacementNone, storedRetiredAssignmentsFields, withActiveAssignmentsSection } from "./migrations";
 import { lockedSections, resolveLayers, type LayerProfile, type SectionSource } from "./layers";
 import { getOrgLayers, resetOrgLayersForTests } from "./org-layers";
 import { PROFILE_LABELS, type ProfileId } from "./profiles";
@@ -138,6 +138,10 @@ export function createSettingsStore(
       }
       return { values: migrated, stored, sources: sourcesFor(stored) };
     }
+    // P-LAYOUT-F3: a retired `assignments` field still in storage is dropped once — the agent's own stored values,
+    // rewritten through the reader (which reads only declared fields); nothing they mean changes. After the "none"
+    // migration above, which reads the raw value (the reader would turn "none" into the left nav) and writes its own.
+    if (stored.assignments && storedRetiredAssignmentsFields(rawValue("assignments"))) write("assignments", values.assignments as SettingsState["assignments"]);
     return { values: settled, stored, sources };
   }
 

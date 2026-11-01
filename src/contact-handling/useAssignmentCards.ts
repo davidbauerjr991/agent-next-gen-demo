@@ -1,4 +1,4 @@
-// The assignments list's order, drag and chip rule (P-PROFILES 0b), shared by
+// The assignments list's order and drag (P-PROFILES 0b; the chips always show since P-LAYOUT-F3 5), shared by
 // the left nav and the interior panel so both render one implementation. The
 // left nav keeps its own `.map` (LeftNav's overlay mode clones `expanded` onto
 // `header`'s top-level children only), so this is a hook; each card's drag
@@ -17,13 +17,6 @@ import type { ScheduleItem } from "@/providers";
 
 /** Where the cards render: the left nav, the interior panel, or Home's Active assignments section (P-LAYOUT-F1 B). */
 export type AssignmentsMount = "leftNav" | "interiorPanel" | "homeSection";
-
-/** Whether a mount shows the channel chip: "auto" shows it where there's room (the left nav, Home's section) and
- *  hides it where there isn't (the interior panel). */
-export function useChannelChipsShown(mount: AssignmentsMount): boolean {
-  const [{ channelChips }] = useSettings("assignments");
-  return channelChips === "show" || (channelChips === "auto" && mount !== "interiorPanel");
-}
 
 /** One card in the rail: a conversation card, or an open schedule item's kind card (keyed by its card key,
  *  `schedule:<id>`, so the Custom order holds both). */

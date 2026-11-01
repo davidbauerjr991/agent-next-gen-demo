@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 // The assignments list (P-PROFILES 0b): the sort is a setting, a drag (here
 // its keyboard form, Ctrl+Shift+Arrow) switches it to Custom with the order
-// kept per browser, new cards land on top, and the channel chips follow
-// `assignments.channelChips`.
+// kept per browser, new cards land on top, and the channel chips always show
+// (P-LAYOUT-F3 5; `assignments.channelChips` is retired).
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createWorkspaceHarness } from "@/test-utils/workspace-harness";
@@ -204,11 +204,11 @@ describe("Assignments placement → Interior panel (0c; lyra SidePanel left sinc
     const header = card!.querySelector("[data-slot=record-header], [data-home-layout]");
     expect(header).not.toBeNull();
     expect(panel()!.compareDocumentPosition(header!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // "auto" hides the channel chip in the panel.
-    expect(panelChips()).toHaveLength(0);
+    // The channel chip shows in the panel too (P-LAYOUT-F3 5; was hidden under "auto").
+    expect(panelChips()).toHaveLength(1);
   });
 
-  it("\"auto\" chips: hidden in the interior panel, shown in Home's Active assignments (there's room there; P-HOME-1n, P-LAYOUT-F1 B)", async () => {
+  it("chips show in Home's Active assignments rows too (P-HOME-1n, P-LAYOUT-F1 B, P-LAYOUT-F3 5)", async () => {
     await act(async () => {
       store().update("channels", { chat: true });
       store().update("home", (home) => ({ sections: home.sections.map((s) => (s.key === "activeAssignments" ? { ...s, enabled: true } : s)) }));
@@ -443,7 +443,8 @@ describe("channel chips", () => {
     );
   const srChat = () => [...h.container.querySelectorAll("[data-slot=assignment-card] .sr-only")].filter((el) => el.textContent === "Chat");
 
-  it("Automatic (the default) shows them in the left nav and hides them in the interior panel, the channel name kept for screen readers; Show shows them there too", async () => {
+  // P-LAYOUT-F3 5: the chips always show — the Channel chips setting is gone (was Automatic: hidden in the panel).
+  it("show in the left nav and in the interior panel alike", async () => {
     await act(async () => {
       store().update("channels", { chat: true });
     });
@@ -458,22 +459,23 @@ describe("channel chips", () => {
       store().update("assignments", { placement: "interiorPanel" });
     });
     await h.advance(500);
-    expect(chips()).toHaveLength(0);
-    expect(srChat()).toHaveLength(1);
-
-    await act(async () => {
-      store().update("assignments", { channelChips: "show" });
-    });
     expect(chips()).toHaveLength(1);
+    expect(srChat()).toHaveLength(0);
   });
 
-  it("a stored Hide (removed, P-LAYOUT-F1 E) reads as Automatic", () => {
-    expect(SECTIONS.assignments.read({ channelChips: "hide" }, SECTIONS.assignments.defaults).channelChips).toBe("auto");
+  it("a stored channelChips value (retired) isn't read, and is dropped from storage on load", () => {
+    expect("channelChips" in SECTIONS.assignments.read({ channelChips: "hide" }, SECTIONS.assignments.defaults)).toBe(false);
+    localStorage.setItem("agent-next-gen:settings:assignments", JSON.stringify({ v: 2, value: { channelChips: "show", confirmClose: true } }));
+    resetSettingsStoreForTests();
+    expect(store().getState().values.assignments.confirmClose).toBe(true);
+    const stored = JSON.parse(localStorage.getItem("agent-next-gen:settings:assignments")!).value;
+    expect(stored).not.toHaveProperty("channelChips");
+    expect(stored.confirmClose).toBe(true);
   });
 });
 
 describe("sort popover", () => {
-  it("offers sort modes and direction, no channel chips control (that stays a setting)", async () => {
+  it("offers sort modes and direction, no channel chips control", async () => {
     await threeChats();
     await h.click(h.container.querySelector('aside [aria-label^="Sort by"]')!);
     const text = document.body.textContent ?? "";

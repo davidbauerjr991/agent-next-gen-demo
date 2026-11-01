@@ -85,6 +85,26 @@ const NEW_PROFILES: { label: string; check: (page: Page) => Promise<void> }[] = 
   },
 ];
 
+// P-LAYOUT-F3 5: the channel chips always show — the interior panel's cards carry them under Panel agent and Compact
+// (the retired "auto" hid them there).
+for (const label of ["Panel agent", "Compact"]) {
+  test(`${label}: the interior panel's cards show their channel chip`, async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await page.addInitScript(() => {
+      localStorage.setItem("agent-next-gen:settings:channels", JSON.stringify({ v: 1, value: { voice: true, chat: true, email: true, sms: true, whatsapp: true } }));
+    });
+    await page.goto("?provider=sim&latency=off#/agent-advanced");
+    await page.getByRole("button", { name: "Go Available" }).click();
+    await pickProfile(page, label);
+    const toggle = page.locator("[aria-controls=assignments-panel]");
+    if ((await toggle.getAttribute("aria-expanded")) === "false") await toggle.click();
+    const card = page.locator("[data-slot=assignments-panel] [data-slot=assignment-card]").first();
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    // A seeded card's channel chip ("Email", "Chat", …), visible text, not the screen-reader-only name.
+    await expect(card.locator("span:not(.sr-only)", { hasText: /^(Email|Chat|SMS|WhatsApp|Voice)$/ }).first()).toBeVisible();
+  });
+}
+
 for (const { label, check } of NEW_PROFILES) {
   test(`the Settings picker applies ${label}, recognisably`, async ({ page }) => {
     await page.setViewportSize({ width: 1600, height: 900 });
