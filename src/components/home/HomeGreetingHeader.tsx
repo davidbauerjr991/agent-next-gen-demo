@@ -9,26 +9,31 @@ import { WorkspacePageHeader } from "@/components/workspace/WorkspacePageHeader"
 import { CURRENT_AGENT_FIRST_NAME, CURRENT_AGENT_ID } from "@/components/agent-next-gen-shared-utils";
 import { homeIsTwoColumn } from "@/contact-handling/home/home-layout";
 import { useSettings } from "@/settings";
+import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
+import { HOME_DASHBOARD_WIDTH_CLASS, homeHeaderCentred } from "./home-header-width";
 
 /** Home's page header, above the Home tabs (P-HOME-1m: the header, then the tab row, then the dashboard, in one
- *  column and two). Settings → Home "Show header" hides it. One column: its old place's spacing, centred like the
- *  dashboard; two columns: the welcome header. (The right column's Cards toggle is in the feed's switcher row.) */
-export function HomePageHeader({ actions }: { actions: React.ReactNode }) {
+ *  column and two). Settings → Home "Show header" hides it. One column: its old place's spacing, at the active tab's
+ *  body width (`homeHeaderCentred`: centred like the dashboard on Dashboard, full width on an app or customer tab,
+ *  P-LAYOUT-F2 3); two columns: the welcome header. (The right column's Cards toggle is in the feed's switcher row.) */
+export function HomePageHeader({ actions, activeTab }: { actions: React.ReactNode; activeTab: string }) {
   const [home] = useSettings("home");
   const [{ parts }] = useSettings("layout");
   if (!home.showHeader) return null;
-  if (homeIsTwoColumn(home, parts)) {
+  const twoColumn = homeIsTwoColumn(home, parts);
+  if (twoColumn) {
     return (
       <div className="shrink-0" data-home-header="">
         <HomeGreetingHeader welcome actions={actions} />
       </div>
     );
   }
+  const centred = homeHeaderCentred(twoColumn, activeTab);
   return (
-    <div className="shrink-0 px-6 pt-6" data-home-header="">
-      <div className="mx-auto w-full max-w-[1024px]">
-        <div className="-mx-6">
+    <div className={cn("shrink-0 pt-6", centred && "px-6")} data-home-header="" data-home-header-width={centred ? "centred" : "full"}>
+      <div className={cn(centred && "mx-auto w-full", centred && HOME_DASHBOARD_WIDTH_CLASS)}>
+        <div className={cn(centred && "-mx-6")}>
           <HomeGreetingHeader actions={actions} welcome={false} />
         </div>
       </div>

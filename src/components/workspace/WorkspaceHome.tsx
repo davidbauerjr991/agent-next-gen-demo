@@ -46,7 +46,7 @@ export function WorkspaceHome() {
                 <div key="dashboard" className="flex flex-1 flex-col min-w-0 overflow-hidden animate-in fade-in-0 duration-200">
               {/* The page header first, then the Home tabs, then the tab's body (P-HOME-1m; one column and two). The
                   page header's actions are the home-top slot's (the queue chip). */}
-              {showPageHeader && <HomePageHeader actions={<Slot id="home-top" region="page-header" />} />}
+              {showPageHeader && <HomePageHeader actions={<Slot id="home-top" region="page-header" />} activeTab={homeTabs.activeTab} />}
               {/* Home tabs: shown while any app is placed as "tab" (Settings → Layout). */}
               {showPageHeader && tabApps.length > 0 && (
                 <HomeTabStrip

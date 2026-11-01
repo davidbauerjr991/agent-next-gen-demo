@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { ActivityFeed } from "@/components/home/ActivityFeed";
 import { DueSoonCard, MetricCard } from "@/components/home/persona-cards";
 import { HomeTwoColumn } from "@/components/home/HomeTwoColumn";
+import { HOME_DASHBOARD_WIDTH_CLASS } from "@/components/home/home-header-width";
 import { homeIsTwoColumn, homeSectionsInOrder, homeSideSections } from "@/contact-handling/home/home-layout";
 import { usePartOption } from "@/layout/useSlot";
 import { QueueListCard } from "@/components/home/QueueListCard";
@@ -173,7 +174,7 @@ export function HomeDashboard({ selectedQueueId, onSelectQueue, contactHistory }
 
   return (
     <div className="flex flex-1 flex-col min-w-0 overflow-y-auto px-6 py-6 animate-in fade-in-0 duration-200" data-home-layout="oneColumn">
-      <div className="w-full max-w-[1024px] mx-auto lyra-container-grid-wrap">
+      <div className={cn("w-full mx-auto lyra-container-grid-wrap", HOME_DASHBOARD_WIDTH_CLASS)}>
         {rows}
       </div>
     </div>
