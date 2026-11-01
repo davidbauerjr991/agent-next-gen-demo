@@ -35,7 +35,9 @@ import {
   useMainPins,
   useAnswerSla,
   deriveCardIdentity,
+  isIdentifiedContact,
   useStampCardIdentity,
+  type CardIdentityFacts,
   type OutcomeDraft,
 } from "@/contact-handling";
 import { useCustomerTableState } from "@/components/customer-table-state";
@@ -818,21 +820,6 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   const voiceBarCall = useVoiceBarCall(interactions, activeInteractionId, voiceBarCallOf);
   const liveVoiceCallInteraction = voiceBarCall?.card ?? null;
   const liveVoiceCallThread = voiceBarCall?.thread;
-  /** Same "real, matched customer vs. a raw unidentified address" gate
-   *  `activeInteractionIsRealCustomer` (above) already establishes, scoped
-   *  to `liveVoiceCallInteraction` instead of `activeInteraction` since a
-   *  live call and the page's currently-viewed interaction can be two
-   *  different interactions (see this call's own `VoiceCallControls` doc
-   *  comment below). Feeds `customerInitials` there — per explicit request
-   *  ("avatars within the contact and call details should be the initials
-   *  of the customer OR a customer avatar if no customer name is known"),
-   *  the same `hasCustomerName ? initials : <User />` split
-   *  `interaction-nav-item.tsx`'s own collapsed-tile avatar already uses. */
-  const liveVoiceCallInteractionIsRealCustomer = liveVoiceCallInteraction
-    ? CREATE_NEW_CUSTOMERS.some((c) => c.id === liveVoiceCallInteraction.entityId) ||
-      createdCustomerRecords.some((c) => c.id === liveVoiceCallInteraction.entityId) ||
-      !!liveVoiceCallInteraction.entityId?.startsWith("history:")
-    : false;
   // Whether the call-controls bar below is showing for whichever
   // interaction is ALSO the one currently on screen — `onToggleVideo`
   // below only makes sense against that one interaction's
@@ -893,16 +880,18 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   // A known customer is a fact on the card (P-EXTRACT, Bug 3): stamped the first time it holds, so a
   // scripted case (Lucas arrives linked to an existing customer; the cold calls are known callers) stays
   // one after its scripted contact ends.
-  const cardIdentityOf = (card: Interaction) =>
-    deriveCardIdentity(card, {
-      isDirectoryEntity: (entityId) => CREATE_NEW_CUSTOMERS.some((c) => c.id === entityId),
-      isCreatedEntity: (entityId) => createdCustomerRecords.some((c) => c.id === entityId),
-      isKnownScenario: (cardId) => scenarioKeyOf(cardId) === LUCAS_THOMAS_ID || isColdCallId(cardId),
-    });
+  const identityFacts: CardIdentityFacts = {
+    isDirectoryEntity: (entityId) => CREATE_NEW_CUSTOMERS.some((c) => c.id === entityId),
+    isCreatedEntity: (entityId) => createdCustomerRecords.some((c) => c.id === entityId),
+    isKnownScenario: (cardId) => scenarioKeyOf(cardId) === LUCAS_THOMAS_ID || isColdCallId(cardId),
+  };
+  const cardIdentityOf = (card: Interaction) => deriveCardIdentity(card, identityFacts);
   useStampCardIdentity(interactions, setInteractions, cardIdentityOf);
-  const activeInteractionIsRealCustomer = activeInteraction
-    ? !!(activeInteraction.identity ?? cardIdentityOf(activeInteraction))
-    : true;
+  // P-LAYOUT-F3 7: the one avatar and Contact Details rule, for any card (`isIdentifiedContact`).
+  const isIdentified = (card: Interaction) => isIdentifiedContact(card, identityFacts);
+  const activeInteractionIsRealCustomer = activeInteraction ? isIdentified(activeInteraction) : true;
+  // The live call can be another card than the one shown; its avatar follows the same rule.
+  const liveVoiceCallInteractionIsRealCustomer = liveVoiceCallInteraction ? isIdentified(liveVoiceCallInteraction) : false;
   // Feeds the Customer Context Overview accordion (`customerContextOverview`
   // prop, below) that now renders in place of the old plain `ContactOverview`
   // block — per explicit request to mirror `AgentNextGenPage.tsx`'s ("Phase
@@ -1039,7 +1028,7 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
     findLiveVoiceThread, marcusWebbReviewing, lucasThomasReviewing, botHolds, voiceBarCallOf, voiceBarCall,
     liveVoiceCallInteraction, liveVoiceCallThread, liveVoiceCallInteractionIsRealCustomer,
     isViewingLiveVoiceCallInteraction, activeChannelIsNewOutboundThread, activeInteractionIsAgentCall,
-    cardIdentityOf, activeInteractionIsRealCustomer, customerContextOverviewBase, findDirectoryCustomer, contactSubject,
+    isIdentified, activeInteractionIsRealCustomer, customerContextOverviewBase, findDirectoryCustomer, contactSubject,
   };
 }
 

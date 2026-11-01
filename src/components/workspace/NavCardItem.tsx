@@ -3,7 +3,6 @@ import { useProviders } from "@/provider-context";
 import { useCardCollapse } from "@/contact-handling/useCardCollapse";
 import { t } from "@/i18n";
 import type { ChannelKind } from "@/domain";
-import { CREATE_NEW_CUSTOMERS } from "@nicecxone/lyra-ui/customers-data";
 import { getHoldSeverity, type InteractionChannel } from "@nicecxone/lyra-ui";
 import {
   IncomingOfferActions,
@@ -48,7 +47,7 @@ export function NavCardItem({
   const {
     activeInteractionId, addChannelActionFor, answerSla, assignmentsSettings, channelPreviewThreadKey,
     clock, confirmDismiss, contactCommands,
-    contactStateById, createdCustomerRecords, findLiveVoiceThread, handleCallHoldChip, handleDismissChannel,
+    contactStateById, findLiveVoiceThread, isIdentified, handleCallHoldChip, handleDismissChannel,
     handleDismissInteraction, incomingOffer, isNewAssignment, lucasThomasReviewing, mainPins,
     marcusWebbReviewing, navOpen, noInteractionCollapse, omnichannel, outcomeConfigFor, outcomeDrafts,
     panelPlacement, scenarioKeyOf, selectPanel, setInteractions, setPanelFullScreen,
@@ -564,30 +563,12 @@ export function NavCardItem({
                 // `navOpen` the way it originally did.
                 const currentChannelType =
                   channels.find((c) => c.id === currentId)?.type ?? channels[channels.length - 1]?.type;
+                // The collapsed tile's avatar: initials for an identified contact, the user icon otherwise, by the
+                // one rule (`isIdentifiedContact`, P-LAYOUT-F3 7), whether or not the card is selected. A raw
+                // dialed number (quickdial:, redial:, adhoc:) is never identified.
+                const cardIsRealCustomer = isIdentified(interaction);
                 // Same `heldByAgent` field the expanded card's own
                 // `onHoldElapsed` line above already reads directly off
-                // Per bug report ("when an unknown customer is dialed,
-                // the collapsed interactionNavItem should display a user
-                // icon - this was fixed a while ago not sure why it's
-                // back"): the collapsed tile's own `customerIdentified`
-                // (below, at this card's `InteractionNavCard`) used to
-                // check only `!interaction.id.startsWith("adhoc:")` — but
-                // a fresh quick-dial to an unmatched number gets a
-                // `quickdial:`-prefixed id (`handleStartCall`, above), and
-                // a redial with no real contact gets `redial:` (`handleRedial`,
-                // above), neither of which is `adhoc:` — so both silently
-                // read as "identified" and showed meaningless
-                // phone-number-derived initials instead of the generic
-                // `User` fallback. Same general, precise "is this a real
-                // customer" signal `activeInteractionIsRealCustomer`
-                // (above) already established for the record header/etc.,
-                // just re-derived per-card here since this loop iterates
-                // every interaction, not only the active one.
-                const cardIsRealCustomer =
-                  CREATE_NEW_CUSTOMERS.some((c) => c.id === interaction.entityId) ||
-                  createdCustomerRecords.some((c) => c.id === interaction.entityId) ||
-                  !!interaction.entityId?.startsWith("history:") ||
-                  scenarioKeyOf(interaction.id) === LUCAS_THOMAS_ID;
                 // `interaction.threads` — re-derived here (not from
                 // `cardOpenChannels`, which a closed/resolved held call
                 // would already have dropped out of) since a collapsed
@@ -637,15 +618,8 @@ export function NavCardItem({
                     // avatar/border, the elapsed timer, the corner dot).
                     badgeSeverity={cardAwaitingWaitSeconds !== undefined ? getAwaitingSeverity(cardAwaitingWaitSeconds) : undefined}
                     customerName={kind?.name ?? interaction.customerName}
-                    // `cardIsRealCustomer` (just above, in this same
-                    // `.map()`) — was a narrow `!id.startsWith("adhoc:")`
-                    // check that missed the `quickdial:`/`redial:`
-                    // synthetic-id cases (see that const's own doc
-                    // comment for the bug this fixes). Tells the compact
-                    // tile to show a generic `User` icon in its avatar
-                    // instead of deriving meaningless initials off a raw
-                    // dialed number — `customerName` itself is untouched,
-                    // so the card's title text still reads as the address.
+                    // The one avatar rule (above); a kind card with a joined call reads its work item's customer
+                    // (`isIdentifiedWorkItem`). `customerName` is untouched, so an unknown card's title reads as the address.
                     customerIdentified={kind?.identified ?? cardIsRealCustomer}
                     // Per explicit request ("add the new badge to any
                     // unread assignments (assignments that haven't been

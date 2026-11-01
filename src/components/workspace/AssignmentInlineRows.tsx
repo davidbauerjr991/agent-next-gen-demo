@@ -10,6 +10,8 @@ import { Inbox } from "lucide-react";
 import { t } from "@/i18n";
 import { useAssignmentCards, useChannelChipsShown, type AssignmentEntry } from "@/contact-handling/useAssignmentCards";
 import { IncomingOfferActions } from "@/contact-handling/IncomingOfferActions";
+import { isIdentifiedWorkItem } from "@/contact-handling/card-identity";
+import { useScheduleItemCustomer } from "@/contact-handling/home/useScheduleCards";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { CHANNEL_NAMES } from "@/contact-handling/home/channel-names";
 import { initialsFor } from "@/components/agent-next-gen-shared-utils";
@@ -49,7 +51,8 @@ export function AssignmentInlineRows() {
 }
 
 function AssignmentInlineRow({ entry }: { entry: AssignmentEntry }) {
-  const { incomingOffer, setPanelFullScreen, switchActiveInteraction } = useWorkspace();
+  const { incomingOffer, isIdentified, setPanelFullScreen, switchActiveInteraction } = useWorkspace();
+  const itemCustomer = useScheduleItemCustomer(entry.type === "schedule" ? entry.item : null);
   const chipShown = useChannelChipsShown("homeSection");
   const open = () => {
     switchActiveInteraction(entry.key);
@@ -63,11 +66,11 @@ function AssignmentInlineRow({ entry }: { entry: AssignmentEntry }) {
   let action: ReactNode;
   if (entry.type === "schedule") {
     const { item } = entry;
-    name = item.customer?.name ?? item.title;
+    name = itemCustomer?.name ?? item.title;
     chip = t(kindLabel(item.kind));
     // The card list's schedule items are the active ones (a scheduled offer stays a feed row, its preview's Accept).
     status = t("Open");
-    avatar = item.customer ? <Avatar size="xs" initials={initialsFor(name)} /> : <Avatar size="xs" icon={kindIconFor(item.kind)} />;
+    avatar = isIdentifiedWorkItem(itemCustomer) ? <Avatar size="xs" initials={initialsFor(name)} /> : <Avatar size="xs" icon={kindIconFor(item.kind)} />;
     action = <ViewButton name={name} onClick={open} />;
   } else {
     const { interaction } = entry;
@@ -75,7 +78,8 @@ function AssignmentInlineRow({ entry }: { entry: AssignmentEntry }) {
     name = interaction.customerName ?? current?.value ?? "";
     chip = [...new Set(interaction.threads.map((th) => t((CHANNEL_NAMES as Record<string, string>)[th.type] ?? th.type)))].join(" · ");
     status = interaction.offered ? t("Offered") : t(interaction.threadStatuses?.[current?.id ?? ""] ?? "Open");
-    avatar = <Avatar size="xs" initials={interaction.customerName ? initialsFor(interaction.customerName) : undefined} />;
+    // The one avatar rule (P-LAYOUT-F3 7): initials only for an identified contact, never a raw address's.
+    avatar = <Avatar size="xs" initials={isIdentified(interaction) && interaction.customerName ? initialsFor(interaction.customerName) : undefined} />;
     action = interaction.offered ? (
       <IncomingOfferActions
         onAccept={() => void incomingOffer.accept(interaction)}

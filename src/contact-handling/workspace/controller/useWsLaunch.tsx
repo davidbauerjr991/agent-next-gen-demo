@@ -48,7 +48,7 @@ const CUSTOMER_RECORD_TAB = { "Customer Information": "Overview", Notes: "Notes"
 export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
   const {
     LUCAS_THOMAS_PHONE, activeChannel, activeChannelKey, activeChannelStatus, activeCustomerOverviewEditing,
-    activeCustomerRecordDraft, activeInteraction, activeInteractionId, addToast, agentStatus, cardIdentityOf, channelPreviewThread,
+    activeCustomerRecordDraft, activeInteraction, activeInteractionId, addToast, agentStatus, isIdentified, channelPreviewThread,
     channelPreviewThreadKey, clock, containerRef, customerTable, dismissInteractionRef,
     enabledChannels, findDirectoryCustomer, findOpenCard, fireDismissToast, interactions, isNavNarrow, launchLucasCall, lucasCallConfirmRef,
     mainPins, navOpen, omni, omnichannel, outcomeDrafts, panelOpen, panelPlacement, placement,
@@ -238,7 +238,7 @@ export function useWsLaunch(prev: WsPanels, late: WorkspaceLate) {
   /** A card's contact methods (E2): what Contact Details shows for it, plus added addresses; the "+" picker
    *  and the save-address offer both read it. */
   const cardContactMethodsOf = (card: Interaction) => {
-    const known = !!(card.identity ?? cardIdentityOf(card));
+    const known = isIdentified(card);
     const record = card.entityId ? findDirectoryCustomer(card.entityId) : undefined;
     const key = scenarioKeyOf(card.id);
     const scenarioPhone = key ? SCENARIOS.find((s) => s.id === key || s.entity.key === key)?.entity.phone : undefined;

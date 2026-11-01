@@ -15,7 +15,8 @@
 import type { InteractionChannel } from "@nicecxone/lyra-ui";
 import { scheduleCardKey } from "@/domain";
 import { feedTimeLabel } from "@/contact-handling/home/time";
-import { useScheduleLeg } from "@/contact-handling/home/useScheduleCards";
+import { useScheduleItemCustomer, useScheduleLeg } from "@/contact-handling/home/useScheduleCards";
+import { isIdentifiedWorkItem } from "@/contact-handling/card-identity";
 import { useCardCollapse } from "@/contact-handling/useCardCollapse";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
@@ -58,7 +59,10 @@ export function KindNavCard({ item, expanded }: { item: ScheduleItem; expanded: 
   const [kindCellShownFor, setKindCellShownFor] = useWorkspaceUiField("kindCellShownFor");
   const leg = useScheduleLeg(item);
   const key = scheduleCardKey(item.id);
-  const name = item.customer?.name ?? item.title;
+  // Its customer through the directory and the agent's links, as every kind surface reads it; the one avatar rule.
+  const customer = useScheduleItemCustomer(item);
+  const name = customer?.name ?? item.title;
+  const identified = isIdentifiedWorkItem(customer);
   const row = kindRow(item);
   // The same Collapse all / accordion state as a conversation card, under the card's key (P-HOME-1m); a card with a
   // joined call is NavCardItem, keyed by the leg, whose id is this same key.
@@ -72,7 +76,7 @@ export function KindNavCard({ item, expanded }: { item: ScheduleItem; expanded: 
           slotExpanded={expanded}
           kind={{
             name,
-            identified: !!item.customer,
+            identified,
             row,
             selected: kindCellShownFor === key,
             onSelectRow: (kindRowPicked) => {
@@ -91,7 +95,7 @@ export function KindNavCard({ item, expanded }: { item: ScheduleItem; expanded: 
         expanded={expanded}
         showChannelBadge={false}
         customerName={name}
-        customerIdentified={!!item.customer}
+        customerIdentified={identified}
         elapsed={row.elapsed}
         active={activeInteractionId === key}
         isNewAssignment={isNewAssignment(key)}
