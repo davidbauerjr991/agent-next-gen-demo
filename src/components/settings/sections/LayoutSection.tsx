@@ -122,7 +122,7 @@ function LayoutPresetRow({ row }: { row: PresetRow }) {
         <DisabledReason reason={unused ? t(unused.reason) : undefined} className="flex w-fit">
           <ToggleGroup
             ariaLabelledBy={labelId}
-            // The reason (or the value's description) under it, read on entering the group (lyra L2).
+            // The reason (or the value's description) under it, read on entering the group (lyra F1-L2).
             ariaDescribedBy={unused || description ? noteId : undefined}
             items={row.options.map((o) => ({ value: o.value, label: t(o.label) }))}
             value={value ?? ""}

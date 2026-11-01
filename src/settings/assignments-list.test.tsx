@@ -350,7 +350,7 @@ describe("Assignments placement → Interior panel (0c; lyra SidePanel left sinc
       });
       expect(headerToggle()!.getAttribute("aria-expanded")).toBe("false");
       // Focus back on the toggle from inside the flyout (Tab past its last control) closes it: the flyout covers the
-      // toggle (lyra L2, WCAG 2.4.11).
+      // toggle (lyra F1-L2, WCAG 2.4.11).
       await h.click(headerToggle()!);
       expect(headerToggle()!.getAttribute("aria-expanded")).toBe("true");
       const inside = document.activeElement as HTMLElement;

@@ -116,7 +116,7 @@ test("fix (a): the close hides the panel, the content takes its room, and the pa
   await page.reload();
   await page.getByRole("button", { name: "Go Available" }).click();
   await expect(toggle(page)).toBeVisible();
-  // Still closed (lyra L1b: StrictMode's second mount pass no longer reopens it).
+  // Still closed (lyra F1-L1b: StrictMode's second mount pass no longer reopens it).
   await page.waitForTimeout(500);
   await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
   await toggle(page).click();
