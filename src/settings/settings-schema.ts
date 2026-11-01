@@ -437,7 +437,7 @@ export interface AssignmentsSettings {
   panelPinned: AssignmentsPanelPinned;
 }
 
-export const ASSIGNMENTS_PANEL_PINNED = ["pinned", "unpinned"] as const;
+const ASSIGNMENTS_PANEL_PINNED = ["pinned", "unpinned"] as const;
 export type AssignmentsPanelPinned = (typeof ASSIGNMENTS_PANEL_PINNED)[number];
 export const ASSIGNMENTS_PANEL_PINNED_FIELD = oneOf(ASSIGNMENTS_PANEL_PINNED, {
   label: "Interior panel",

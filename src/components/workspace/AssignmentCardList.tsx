@@ -73,12 +73,15 @@ export function AssignmentsHeaderActions() {
     assignmentSort === "channel"
       ? [{ value: "asc", label: t("A–Z") }, { value: "desc", label: t("Z–A") }]
       : [{ value: "asc", label: t("Ascending") }, { value: "desc", label: t("Descending") }];
+  // lyra's Menu shows `active` as an accent bar only (no aria-checked): the current row's name says so too (WCAG 4.1.2).
+  const current = (active: boolean) => (active ? { rightElement: <span className="sr-only">{t(", current")}</span> } : {});
   const items: MenuEntry[] = [
     { sectionLabel: t("Sort by") },
     ...ADVANCED_ASSIGNMENT_SORT_OPTIONS.map((option) => ({
       id: `sort-${option.value}`,
       label: t(option.label),
       active: option.value === assignmentSort,
+      ...current(option.value === assignmentSort),
       onClick: () => setAssignmentSort(option.value as AssignmentSortMode),
     })),
   ];
@@ -89,6 +92,7 @@ export function AssignmentsHeaderActions() {
         id: `direction-${d.value}`,
         label: d.label,
         active: d.value === assignmentSortDirection,
+        ...current(d.value === assignmentSortDirection),
         onClick: () => setAssignmentSortDirection(d.value as typeof assignmentSortDirection),
       })),
     );

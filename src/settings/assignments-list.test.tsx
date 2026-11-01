@@ -297,9 +297,11 @@ describe("Assignments placement → Interior panel (0c; lyra SidePanel left sinc
         await vi.advanceTimersByTimeAsync(50);
       });
     await open();
+    // The current sort and direction say so in their names (a screen-reader-only "current": lyra's `active` is visual).
     expect(menuItems().map((m) => m.textContent?.trim())).toEqual([
-      "Last Updated", "Create Date", "Channel A–Z", "Custom", "Ascending", "Descending", "Collapse all",
+      "Last Updated, current", "Create Date", "Channel A–Z", "Custom", "Ascending", "Descending, current", "Collapse all",
     ]);
+    expect(menuItems()[0].querySelector(".sr-only")?.textContent).toBe(", current");
     await h.click(menuItems().find((m) => m.textContent?.trim() === "Create Date")!);
     expect(store().getState().values.assignments.sort.mode).toBe("startDate");
     await open();

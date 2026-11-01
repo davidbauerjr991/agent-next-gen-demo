@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { ActivityFeed } from "@/components/home/ActivityFeed";
 import { DueSoonCard, MetricCard } from "@/components/home/persona-cards";
 import { HomeTwoColumn } from "@/components/home/HomeTwoColumn";
-import { HOME_DASHBOARD_WIDTH_CLASS } from "@/components/home/home-header-width";
+import { ACTIVITY_TABLE_HEIGHT_CLASS, HOME_DASHBOARD_WIDTH_CLASS } from "@/components/home/home-header-width";
 import { homeIsTwoColumn, homeSectionsInOrder, homeSideSections } from "@/contact-handling/home/home-layout";
 import { usePartOption } from "@/layout/useSlot";
 import { QueueListCard } from "@/components/home/QueueListCard";
@@ -106,10 +106,8 @@ export function HomeDashboard({ selectedQueueId, onSelectQueue, contactHistory }
         ) : (
           <DashboardCard variant="neutral-subtle" headerTitle={t("Activity")}>
             {/* Table mode needs a height to fill (P-HOME-1m): one column's card is a row in the page's scroll, so its
-                body gets one — the viewport's, less the header above it — no taller than lyra DashboardCard's own
-                body (`max-h-[600px]`, dashboard-card.tsx), so the table's footer stays at the card's bottom instead of
-                scrolling away with the card's body (P-LAYOUT-F2 4). */}
-            <div className={cn("px-4 pb-4", asTable && "flex h-[70vh] min-h-[420px] max-h-[600px] flex-col")} data-feed-area="">
+                body gets one (`ACTIVITY_TABLE_HEIGHT_CLASS`, which keeps the table's footer at the card's bottom). */}
+            <div className={cn("px-4 pb-4", asTable && cn("flex flex-col", ACTIVITY_TABLE_HEIGHT_CLASS))} data-feed-area="">
               <ActivityFeed />
             </div>
           </DashboardCard>

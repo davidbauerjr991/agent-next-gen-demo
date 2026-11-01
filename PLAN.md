@@ -144,6 +144,8 @@ All client-side. The provider layer keeps a real backend (Twilio, CXone ACD) a s
 
   **The gate:** composition snapshots are taken before any change: 16 cases (`src/layout/composition.test.tsx`). Every built-in profile × Home, a call under the profile's AI display, a call under panel and a kind cell; Phase 2 and AI-first add a chat under each (Phase 1 has no chat channel). A later change to them beyond fixes (a) and (b) is shown to Dave before it's committed. None was: they stayed unchanged through commits 2–11.
 
+  **Future (parked, Dave's 1d in P-LAYOUT-F2):** centre the action area on the full content width, with the reference column in the trailing gutter when it fits.
+
 **P-LAYOUT-F1 — fixes from Dave's browser pass on P-LAYOUT (added 2026-10-31; reopens P-LAYOUT).** Plan: Opus · Implement: Opus. The reopened-step reviewer rules apply. Composition snapshots stay unchanged except at C (the Home tab strip), whose diff is shown to Dave before it's committed; any other change stops.
 
   *Dave's answers (2026-10-31), binding:*
@@ -200,6 +202,7 @@ All client-side. The provider layer keeps a real backend (Twilio, CXone ACD) a s
   - **6:** a panel's pinned default becomes an agent-scope setting, `assignments.panelPinned`, so a profile can carry it. Compact is AI inline with the canvas stacked; the `ai.canvasLayout` constraint stays.
   - **4:** lyra F2-L2 (`DashboardCard` `fillHeight`, blocked by `dashboard-card.tsx:303`'s `max-h-[600px] overflow-y-auto`) is pre-approved, used only where the card's `footer` slot can't pin a footer app-side.
   - **tsc:** the one baseline error (`Shell.stories.tsx`'s missing `@storybook/react`) is fixed first, so `npm run build` works and the baseline is 0; performance is measured on the real build.
+  - **8 (after the measurement, 2026-11-01):** Dave authorized lyra **F2-L3** (`c55da0e`). `ChannelRow`'s and `InteractionNavItem`'s `elapsed` and `AgentProfile`'s `timer` accept a node (`InteractionNavItem` adds `holdSeverity` for its on-hold colour). The app passes self-ticking nodes, so the 1 s clock re-renders the timer text, not the card. P-TIMERS supersedes it (its entry lists the five props).
 
   *Items:*
   - **1. Assignments interior panel.** (a) Opens at its min width, `LEFT_NAV_EXPANDED_WIDTH`; a dragged width is still remembered. (b) No close button in the panel header; the page-header toggle is the only control (AdminShell shows only the toggle too). (c) "Assignments (n)" fits at the min width; Sort and Collapse all in the kebab.
@@ -223,7 +226,14 @@ All client-side. The provider layer keeps a real backend (Twilio, CXone ACD) a s
 
 **P-TRANSFER — Consult / Transfer in the call controls.** One labeled Consult / Transfer button in lyra's `VoiceCallControls` after Hold, opening lyra's existing `TransferBox` (Consult warm, Transfer blind, Conference) against a seeded directory until P0.9's DirectoryProvider; the same control on digital legs from the session row. Lyra edit with authorization. About 1 day; before P0.6 so the console demo can transfer.
 
-**P-TIMERS — every lyra timer becomes controlled.** `ChannelRow`, `VoiceCallControls`, the hold and consult strips, the incoming tile and `NeedsOutcomeBadge` take an elapsed value or a tick from the consumer and keep no interval of their own; the app's page clock (P-CHORE-TICK) is the only clock. Self-managed behavior stays as the default when the controlled prop is absent, so other lyra consumers are unaffected. Needed before P0.6 so the console and agent windows share one clock. Lyra edits, authorized as the step. About half a day.
+**P-TIMERS — every lyra timer becomes controlled.** `ChannelRow`, `VoiceCallControls`, the hold and consult strips, the incoming tile and `NeedsOutcomeBadge` take an elapsed value or a tick from the consumer and keep no interval of their own; the app's page clock (P-CHORE-TICK) is the only clock. Self-managed behavior stays as the default when the controlled prop is absent, so other lyra consumers are unaffected. Needed before P0.6 so the console and agent windows share one clock. Lyra edits, authorized as the step. About half a day. **Supersedes F2-L3's ReactNode timer props** (P-LAYOUT-F2, lyra `c55da0e`): when timers become controlled, the app's self-ticking nodes go (`ElapsedSince`, `useElapsedSince`, `StatusTimeSince`, `HeldChip`, `NeedsOutcomeBadge`'s own tick) and the ReactNode variants are retired. The five props are:
+  - `ChannelRow` `elapsed`;
+  - `InteractionNavItem` `elapsed`, with its `holdSeverity`;
+  - `AgentProfile` `timer`;
+  - the app's `NeedsOutcomeBadge` `since` (was `elapsed`);
+  - the app's `VoiceHoldChip` `heldSinceTick` (was `heldSeconds` / `heldLabel`).
+
+  F2-L3's lyra stories for the node forms wait for this step, which retires them.
 
 **P-TRANSLATE — conversation translation.** The seam, detection, the session-row chip, per-message original/translation, `ai.translation`; the console sends a Spanish line and the chip appears. After Phase 2 §0–5. About 1.5 days.
 
@@ -979,3 +989,15 @@ Order of attack (revised 2026-10-19, demo-first; 2026-10-18 additions: P-LYRA-RT
   - **E2:** a stored channel-chips "hide" reads as "auto" through the oneOf field reader on every load path (store, saved profiles), not a `migrations.ts` entry. The Voice group stays with an EmptyState (Dave, 15), partly reversing 12. The header apps' display rows show only while app icons are on and the app is enabled, as the old Workspace Selects did.
   - **F2:** "short" reads as at most one paragraph and at most three bullets (and no headings, actions or artifact). A scripted case's own result panel counts as an artifact, so Lucas, the cold calls and Marcus keep their auto-opening cards; every placeholder answer on an unscripted contact is a line. A line goes where the AI rows go (`isCopilotLine` within `isAiActionMessage`: the panel's feed under "panel"), shows the instruction row's "performing" state until Copilot finishes (Dave; `InstructionInterstitial`'s `performedContent`, no new component), sits in a polite status so its arrival is announced, and isn't listed in the Real-Time Summary's asks. Tests reach the slide-over through one shared `registerCardResult` (unit and e2e; the e2e twin reads the placeholder from the app through the dev-only `window.__copilotResults`).
   - **The queue chip:** its name is its visible text, with `aria-expanded`, and no `aria-controls` — the page header's toggle is the one control `[aria-controls=assignments-panel]` finds (lyra's hook and the panel's close look it up that way).
+- 2026-11-01 — P-LAYOUT-F2 as built (commits `7698b08`…, PROGRESS row; lyra F2-L3 `c55da0e`). Where it departs from the plan, or settles what the plan left open:
+  - **1b:** the panel's only open/close control is the page header's toggle. That matches AdminShell, whose left SidePanel passes no `showCloseButton` (`admin-shell.tsx:216–224`), so it is not a departure.
+  - **1c (Dave):** no wrapping and no lyra edit. Sort and Collapse all are one `KebabMenuButton`, and the left nav's caption keeps its buttons. lyra's `Menu` shows `active` visually only, so the current rows add a screen-reader-only "current" (a11y-review; the lyra fix is in Known gaps).
+  - **3:** lyra has no "panel pushes the page header" mode, and the headers already sit beside the panel. The header's width follows the active tab (`homeHeaderCentred`): centred on the one-column Dashboard, full width otherwise. The strip's wrappers stay mounted, so a tab switch keeps focus.
+  - **4:** only one-column Activity failed. It was fixed app-side by capping the area at lyra DashboardCard's 600px body (`ACTIVITY_TABLE_HEIGHT_CLASS`), so F2-L2 wasn't needed. The Interactions table isn't reachable on Home and isn't in the spec.
+  - **5a:** while a suggestion shows, the chip answers with a Copilot line pointing at it ("The next step is still: …"). It doesn't send a request, since the provider surfaces one suggestion at a time; the AssistProvider's nba-card doc says so.
+  - **5b:** the result type is `AssistAnswer`, an `answer` AssistCard; the sim engine answers the `ask` trigger. An answer is kept per row (by its link), never under the question, so another contact or a kind item gets its own. The line goes in at once, "performing" until the answer comes.
+  - **6:** a panel's pinned default is an agent-scope setting, `assignments.panelPinned` (Dave). It sits in Settings → Assignments, disabled under the left nav. The per-browser open/pinned state is unset until the agent acts, so the setting decides: pinned is open; unpinned is closed until the toggle. Compact is AI inline with the canvas stacked (Dave). The equal-by-construction test is: `PROFILES[id]` equals its builder settled, settling it again is a no-op, and each new one is Phase 2 plus its changes.
+  - **8:** measured with `scripts/profile-renders.mjs`, on the real build (`npm run build`, working since 0b) and dev, each window after the page settles. Counts and wall-clock come from production; per-component time from dev. Fixed causes: the nav cards' tick and the status timer, through F2-L3 (Dave). Left: the whole-page re-render on card changes, and the queue tiles' tick (Known gaps).
+  - **Stacked canvas:** kept as built (Dave: it proves the UX, not loved).
+  - **`ai.displayLocation = main`:** still pending Dave.
+  - **Two further profiles, deferred to P-CONFIG-LAYERS:** "Supervisor-lite" (Agent chat and Schedule in the left nav, WEM in the header, feed off) and "Locked" (Phase 2 with the layout section locked).
