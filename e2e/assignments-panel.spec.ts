@@ -35,6 +35,8 @@ const rect = (page: Page, selector: string) =>
     const r = el.getBoundingClientRect();
     return { left: r.left, right: r.right, width: r.width };
   }, selector);
+/** lyra's `LEFT_NAV_EXPANDED_WIDTH`, the assignments panel's minimum and default width. */
+const NAV_EXPANDED_WIDTH = 256;
 const tokenWidth = (page: Page) =>
   page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--lyra-size-card-max-width")));
 
@@ -59,7 +61,8 @@ test("AI-first at a wide window: panel, action area and reference column side by
   const panel = (await rect(page, panelSel))!;
   const action = (await rect(page, "[data-canvas-region=action]"))!;
   const reference = (await rect(page, "[data-canvas-region=reference]"))!;
-  expect(Math.round(panel.width)).toBe(Math.round(token));
+  // The panel opens at its minimum, the nav's expanded width (P-LAYOUT-F2 1a); the reference column at the card width.
+  expect(Math.round(panel.width)).toBe(NAV_EXPANDED_WIDTH);
   expect(Math.round(reference.width)).toBe(Math.round(token));
   expect(action.width).toBeGreaterThanOrEqual(480);
   // Three columns, left to right, not overlapping.
@@ -85,9 +88,8 @@ test("where the three don't fit, the panel is an overlay from the page header's 
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
   await page.locator(panelSel).hover();
   await page.waitForTimeout(400);
-  const token = await tokenWidth(page);
   const panel = (await rect(page, panelSel))!;
-  expect(Math.round(panel.width)).toBe(Math.round(token));
+  expect(Math.round(panel.width)).toBe(NAV_EXPANDED_WIDTH);
   // The main column's row isn't narrowed by the overlay: action + reference fill it.
   const row = await page.evaluate(() => document.querySelector("[data-canvas-region=action]")!.parentElement!.getBoundingClientRect().width);
   const action = (await rect(page, "[data-canvas-region=action]"))!;

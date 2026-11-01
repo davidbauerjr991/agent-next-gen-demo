@@ -55,7 +55,7 @@ test("fix (a): pinned, the interior panel pushes the content; unpinned, hovering
 
 test("A1: pinned and closed, hovering the toggle shows nothing (a preview would cover the toggle); a click opens it docked", async ({ page }) => {
   await setUp(page, { placement: "interiorPanel" });
-  await panel(page).getByRole("button", { name: "Close panel" }).click();
+  await toggle(page).click();
   await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
   // The panel's own width reaches 0 (its close transition is over) before the content's place is taken.
   const panelShown = () =>
@@ -74,10 +74,11 @@ test("A1: pinned and closed, hovering the toggle shows nothing (a preview would 
   await expect(panel(page)).toHaveAttribute("data-docked", "true");
 });
 
-test("fix (a): a dragged width is kept across a reload, within 256–425", async ({ page }) => {
+test("fix (a): the panel opens at 256 (its minimum, P-LAYOUT-F2 1a); a dragged width is kept across a reload, within 256–425", async ({ page }) => {
   await setUp(page, { placement: "interiorPanel" });
   await expect(panel(page)).toHaveAttribute("data-docked", "true");
   const before = (await panel(page).boundingBox())!;
+  expect(Math.round(before.width)).toBe(256);
   const handle = (await panel(page).locator('[role="separator"]').first().boundingBox())!;
   // The handle's 8px strip is half outside the panel, which clips it: its centre is the content card's, so grab its
   // inner half.
@@ -97,11 +98,12 @@ test("fix (a): a dragged width is kept across a reload, within 256–425", async
   await expect.poll(async () => Math.round((await panel(page).boundingBox())!.width)).toBe(dragged);
 });
 
-test("fix (a): the close hides the panel, the content takes its room, and the page header's toggle brings it back, clear of the nav's chevron", async ({ page }) => {
+test("fix (a): the page header's toggle (the panel's one control, P-LAYOUT-F2 1b) hides the panel, the content takes its room, and the toggle brings it back, clear of the nav's chevron", async ({ page }) => {
   await setUp(page, { placement: "interiorPanel" });
   await expect(panel(page)).toHaveAttribute("data-docked", "true");
   const pushed = await homeBox(page);
-  await panel(page).getByRole("button", { name: "Close panel" }).click();
+  await expect(panel(page).getByRole("button", { name: "Close panel" })).toHaveCount(0);
+  await toggle(page).click();
   await expect(toggle(page)).toBeVisible();
   await expect.poll(async () => (await homeBox(page)).x).toBeLessThan(pushed.x);
   const card = (await page.locator("[data-slot=content-card]").boundingBox())!;

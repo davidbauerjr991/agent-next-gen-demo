@@ -55,7 +55,10 @@ test("interior panel: lyra's left SidePanel inside the content card, at its star
   expect(Math.round(box.x)).toBeGreaterThanOrEqual(Math.round(content.x) - 1);
   expect(Math.round(box.x + box.width)).toBeLessThanOrEqual(Math.round(content.x + content.width) + 1);
   await expect(panel.getByRole("button", { name: "Unpin panel" })).toBeVisible();
-  await expect(panel.getByRole("button", { name: "Close panel" })).toBeVisible();
+  // No close of its own: the page header's toggle is the one control, as in AdminShell (P-LAYOUT-F2 1b).
+  await expect(panel.getByRole("button", { name: "Close panel" })).toHaveCount(0);
+  // It opens at its minimum, the nav's expanded width (P-LAYOUT-F2 1a).
+  expect(Math.round(box.width)).toBe(256);
   // Its resize handle widens it, up to SidePanel's 425.
   const handle = panel.locator('[role="separator"]').first();
   await handle.focus();
@@ -63,13 +66,14 @@ test("interior panel: lyra's left SidePanel inside the content card, at its star
   const wider = (await panel.boundingBox())!.width;
   expect(wider).toBeGreaterThan(box.width);
   expect(wider).toBeLessThanOrEqual(426);
+  // A dragged width surviving a reload is layout.spec's "dragged width" case.
 });
 
 test("interior panel (P-LAYOUT-F1 A2): the nav starts as a rail; a closed panel opens when a call comes in, and the nav stays as it was", async ({ page }) => {
   await setUp(page, { placement: "interiorPanel" });
   const toggle = page.locator("[aria-controls=assignments-panel]");
   await expect(page.locator("aside").getByRole("button", { name: "Expand sidebar" })).toBeVisible();
-  await page.locator("[data-slot=assignments-panel]").getByRole("button", { name: "Close panel" }).click();
+  await toggle.click();
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
   // Maya Chen (dev hotkey B), a call answered on arrival.
   await page.keyboard.press("b");

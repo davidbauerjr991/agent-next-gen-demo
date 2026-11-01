@@ -6,16 +6,16 @@
 // toggle, `withoutPinnedPreview`); unpinned, it's a hover flyout. Pinned, it pushes the content while it, the action area and the reference slot
 // fit (`assignmentsPanelDocks`, counting the reference slot, which widens with an open slide-over); where they don't,
 // it renders unpinned (lyra's `pinDisabled`). Its header is SidePanel's: "Assignments", the count, the caption's
-// controls, the pin and the close. Open, pinned (both on by default) and its dragged width are per-browser working
-// state.
+// controls and the pin; no close (P-LAYOUT-F2 1b). Open, pinned (both on by default) and its dragged width (the
+// minimum until dragged, P-LAYOUT-F2 1a) are per-browser working state.
 import * as React from "react";
-import { LEFT_NAV_EXPANDED_WIDTH, LYRA_CARD_MAX_WIDTH, SidePanel } from "@nicecxone/lyra-ui";
+import { LEFT_NAV_EXPANDED_WIDTH, SidePanel } from "@nicecxone/lyra-ui";
 import { t } from "@/i18n";
 import { Slot } from "@/layout/Slot";
 import { useSlotHas } from "@/layout/useSlot";
 import { assignmentsPanelDocks, availableForAssignmentsPanel } from "@/contact-handling/assignments-panel-placement";
 import { useRailAssignmentCount } from "@/contact-handling/home/useScheduleCards";
-import { ASSIGNMENTS_PANEL_ID, PanelTogglesProvider, usePanelToggles } from "@/contact-handling/panel-toggles";
+import { PanelTogglesProvider, usePanelToggles } from "@/contact-handling/panel-toggles";
 import { setAssignmentsWorkingState, useAssignmentsWorkingState } from "@/contact-handling/assignments-working-state";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { AssignmentsHeaderActions, AssignmentsStack } from "./AssignmentCardList";
@@ -91,12 +91,8 @@ function AssignmentsSidePanel() {
       <SidePanel
         side="left"
         {...toggle.sidePanelProps}
-        showCloseButton
-        // The close hides its own button with the panel, so focus moves to the page header's toggle (WCAG 2.4.3).
-        onClose={() => {
-          toggle.setOpen(false);
-          requestAnimationFrame(() => document.querySelector<HTMLElement>(`[aria-controls="${ASSIGNMENTS_PANEL_ID}"]`)?.focus());
-        }}
+        // No close button of its own: the page header's toggle is the one open/close control, as in AdminShell
+        // (P-LAYOUT-F2 1b).
         // The page has its own skip link; a left SidePanel would add a second, identical one.
         skipToMain={false}
         headerTitle={t("Assignments")}
@@ -126,10 +122,10 @@ const PANEL_MAX_WIDTH = 425;
 /** A drag fires a width per frame: the saved width waits for it to settle. */
 const SAVE_WIDTH_AFTER_MS = 250;
 
-/** A saved width within the panel's bounds (the nav's expanded width to SidePanel's max); the card width when there's
- *  none. */
+/** A saved width within the panel's bounds (the nav's expanded width to SidePanel's max); the minimum, the nav's
+ *  expanded width, when there's none (P-LAYOUT-F2 1a). */
 function clampPanelWidth(width: number | null): number {
-  return Math.min(PANEL_MAX_WIDTH, Math.max(LEFT_NAV_EXPANDED_WIDTH, width ?? LYRA_CARD_MAX_WIDTH));
+  return Math.min(PANEL_MAX_WIDTH, Math.max(LEFT_NAV_EXPANDED_WIDTH, width ?? LEFT_NAV_EXPANDED_WIDTH));
 }
 
 /** The width of `ref`'s parent, tracked; 0 until laid out (jsdom). */

@@ -250,12 +250,11 @@ describe("Assignments placement → Interior panel (0c; lyra SidePanel left sinc
     await h.click(headerToggle()!);
     await h.click(button(/^Pin panel$/)!);
     expect(panel()!.getAttribute("data-docked")).toBe("true");
-    // Closed: focus follows to the toggle (WCAG 2.4.3: the close hides its own button), which reopens it docked.
-    button(/^Close panel$/)!.focus();
-    await h.click(button(/^Close panel$/)!);
+    // No close of its own: the page header's toggle closes it and reopens it docked (P-LAYOUT-F2 1b, as AdminShell).
+    expect(button(/^Close panel$/)).toBeUndefined();
+    await h.click(headerToggle()!);
     expect(panel()!.getAttribute("data-docked")).toBeNull();
     expect(headerToggle()!.getAttribute("aria-expanded")).toBe("false");
-    expect(document.activeElement).toBe(headerToggle());
     await h.click(headerToggle()!);
     expect(panel()!.getAttribute("data-docked")).toBe("true");
   });
@@ -304,8 +303,7 @@ describe("Assignments placement → Interior panel (0c; lyra SidePanel left sinc
 
   it("A2: a ringing call opens a closed assignments panel, where its incoming tile is; the nav stays as it was", async () => {
     await inPanel();
-    const button = (label: RegExp) => [...h.container.querySelectorAll<HTMLButtonElement>("button")].find((b) => label.test(b.getAttribute("aria-label") ?? ""));
-    await h.click(button(/^Close panel$/)!);
+    await h.click(headerToggle()!);
     expect(headerToggle()!.getAttribute("aria-expanded")).toBe("false");
     expect(navExpanded()).toBe(false);
     await h.startInbound("voice", "+15550101234", "Cal Ring");

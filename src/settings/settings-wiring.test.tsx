@@ -311,8 +311,8 @@ describe("Voice: controls location", () => {
     expect(store().getState().values.voice.controlsLocation).toBe("top");
     expect(panel()!.contains(bar())).toBe(true);
     expect(bar().getAttribute("data-placement")).toBe("top");
-    // The panel closed: the bar falls back to the bottom.
-    await h.click(panel()!.querySelector('button[aria-label="Close panel"]')!);
+    // The panel closed (by the page header's toggle, its one control): the bar falls back to the bottom.
+    await h.click(h.container.querySelector<HTMLElement>("[aria-controls=assignments-panel]")!);
     expect(bar().getAttribute("data-placement")).toBe("bottom");
     // Back in the left nav: so is the bar, still "top".
     await setSettings("assignments", { placement: "leftNav" });
