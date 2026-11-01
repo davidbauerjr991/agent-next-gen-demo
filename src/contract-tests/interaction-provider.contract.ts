@@ -15,7 +15,7 @@ export interface InteractionContractHarness {
   provider: InteractionProvider;
   /** The customer's side. Each call resolves once the action has been sent. */
   customer: {
-    startInbound(request: { channel: ChannelKind; address: string; displayName: string }): Promise<InteractionId>;
+    startInbound(request: { channel: ChannelKind; address: string; displayName?: string }): Promise<InteractionId>;
     message(id: InteractionId, text: string): Promise<void>;
     hangUp(id: InteractionId): Promise<void>;
     typing(id: InteractionId, isTyping: boolean): Promise<void>;

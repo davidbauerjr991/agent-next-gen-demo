@@ -22,10 +22,8 @@ const cells = (page: Page) =>
 test("an unknown contact arriving: Customer Info alone, its Link to existing customer", async ({ page }) => {
   await setUp(page);
   // The sim's customer side in dev (`window.__simCustomer`, until the P0.6 console): an inbound chat from an unknown
-  // address (chat auto-accepts by default).
-  await page.evaluate(() =>
-    window.__simCustomer!.startInbound({ channel: "chat", address: "nobody@example.com", displayName: "nobody@example.com" }),
-  );
+  // address (chat auto-accepts by default), presenting no name (P-LAYOUT-F3 8); its card reads as the address.
+  await page.evaluate(() => window.__simCustomer!.startInbound({ channel: "chat", address: "nobody@example.com" }));
   const card = page.locator("aside [aria-label^='nobody@example.com']").first();
   await card.click({ force: true });
   await expect.poll(() => cells(page)).toEqual(["customer-info"]);

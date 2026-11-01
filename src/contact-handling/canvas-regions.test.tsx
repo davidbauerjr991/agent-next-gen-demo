@@ -93,7 +93,8 @@ const EXPECTED: Record<keyof typeof CASES, { action: string[]; reference: string
   // The Next Best Action isn't a cell: it surfaces in the conversation (next-best-action.test).
   lucas: { action: [], reference: REFERENCE, unmatched: false },
   noah: { action: [], reference: REFERENCE, unmatched: false },
-  simChat: { action: [], reference: REFERENCE, unmatched: true },
+  // A chat from her directory email matches her record (P-LAYOUT-F3 8, Dave; was unmatched: chats never matched).
+  simChat: { action: [], reference: REFERENCE, unmatched: false },
   dialed: { action: [], reference: REFERENCE, unmatched: true },
 };
 

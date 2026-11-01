@@ -15,7 +15,8 @@ export interface SimCustomerClient {
   startInbound(request: {
     channel: ChannelKind;
     address: string;
-    displayName: string;
+    /** Absent for an unknown caller, who presents no name. */
+    displayName?: string;
     entityId?: EntityId;
     skillId?: string;
     summary?: string[];

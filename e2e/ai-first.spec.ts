@@ -6,7 +6,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 declare global {
   interface Window {
-    __simCustomer?: { startInbound(r: { channel: string; address: string; displayName: string }): string };
+    __simCustomer?: { startInbound(r: { channel: string; address: string; displayName?: string }): string };
     __providers?: {
       interaction: {
         accept(id: string): Promise<void>;
@@ -33,13 +33,14 @@ async function chatAndEmailCard(page: Page) {
   const failure = await page.evaluate(async () => {
     const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
     for (let attempt = 0; attempt < 20; attempt++) {
-      const id = window.__simCustomer!.startInbound({ channel: "chat", address: "lauren@example.com", displayName: "Lauren Briggs" });
+      // Her directory email: the chat matches her record, so she has Contact Details (P-LAYOUT-F3 8).
+      const id = window.__simCustomer!.startInbound({ channel: "chat", address: "lauren.briggs@example.com", displayName: "Lauren Briggs" });
       await wait(500);
       const { interactions } = await window.__providers!.interaction.getSnapshot();
       const chat = interactions.find((i) => i.id === id && (i as { state?: string }).state === "active");
       if (!chat) continue;
       try {
-        await window.__providers!.interaction.dial({ channel: "email", address: "lauren@example.com", skillId: "general", journeyId: chat.journeyId });
+        await window.__providers!.interaction.dial({ channel: "email", address: "lauren.briggs@example.com", skillId: "general", journeyId: chat.journeyId });
         return null;
       } catch (error) {
         return JSON.stringify(error);

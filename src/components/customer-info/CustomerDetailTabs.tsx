@@ -461,7 +461,8 @@ export interface CustomerRecordDraft {
  *  their own local state with (see those components' own now-superseded
  *  doc comments for the field-by-field reasoning). */
 function buildCustomerRecordDraft(fields: CustomerInfoField[], customerName?: string): CustomerRecordDraft {
-  const { firstName, lastName } = splitCustomerName(customerName);
+  // No name on file (an unknown contact, P-LAYOUT-F3 8): the name fields start empty, never "Customer" or the number.
+  const { firstName, lastName } = customerName ? splitCustomerName(customerName) : { firstName: "", lastName: "" };
   const phoneDisplay = getFieldValue(fields, "Phone #");
   return {
     originalContactNumber: "",

@@ -111,7 +111,8 @@ export type SimCustomerAction =
       interactionId: InteractionId;
       channel: ChannelKind;
       address: string;
-      displayName: string;
+      /** The name the caller presents; absent for an unknown caller (no name fields). */
+      displayName?: string;
       entityId?: EntityId;
       /** The skill the call is routed to; default General Support. */
       skillId?: string;

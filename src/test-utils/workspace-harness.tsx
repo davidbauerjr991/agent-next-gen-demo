@@ -195,7 +195,7 @@ export function createWorkspaceHarness(
     buttonByText,
     goAvailable,
 
-    async startInbound(channel: ChannelKind, address: string, displayName: string): Promise<InteractionId> {
+    async startInbound(channel: ChannelKind, address: string, displayName?: string): Promise<InteractionId> {
       let id = "" as InteractionId;
       await act(async () => {
         id = customer.startInbound({ channel, address, displayName });

@@ -22,7 +22,9 @@ export function ContactDetailsControl({ compact = false }: { compact?: boolean }
     customerInfoPreviewOpen, focusCustomerPanelTab, openCustomerInfoPreview, scheduleCloseCustomerInfoPreview, selectPanel,
     sidePanelToggleLabel,
   } = useWorkspace();
-  if (!contactSubject || !contactDetails) return null;
+  // P-LAYOUT-F3 8: hidden for an unidentified contact (`isIdentifiedContact`) — the header shows Session Details
+  // only — and shown once the contact is linked (hide-never-disable). A kind cell's subject is its customer's record.
+  if (!contactSubject || !contactDetails || !activeInteractionIsRealCustomer) return null;
   // The one view-model (`contactDetailsFor`): the slide-over's header reads the same name.
   const name = contactDetails.name;
   return (
@@ -51,7 +53,7 @@ export function ContactDetailsControl({ compact = false }: { compact?: boolean }
                 // The customer's name opens the docked panel's Customer Info drill-in, as its own header's does
                 // (`focusCustomerPanelTab` closes this preview).
                 subhead={
-                  activeInteractionIsRealCustomer && name ? (
+                  name ? (
                     <Tooltip content={t("View Customer Info")} placement="bottom">
                       <Link onClick={focusCustomerPanelTab} className="lyra-body-sm">
                         {name}

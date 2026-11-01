@@ -25,6 +25,7 @@ import type { AiSettings } from "@/settings/settings-schema";
 import { canvasCellDefinition, resetCanvasRegistry } from "./canvas-registry";
 import { showEmptyReferenceCards } from "@/test-utils/reference-cards";
 import { simVoiceCustomerLines } from "@/adapters/sim/sim-auto-replies";
+import type { EntityId } from "@/domain";
 import { NBA_CHIP } from "./next-best-action";
 import { copilotSuggestionsFor } from "./copilot-suggestions";
 
@@ -119,6 +120,18 @@ async function dialUnknown() {
     await dialed;
   });
   await h.click(h.navCard(UNKNOWN));
+}
+
+/** An outbound call to a directory customer (Nathan Cole), its card selected: identified, so it has Contact Details
+ *  (P-LAYOUT-F3 8; an unknown number has none). */
+const KNOWN = "Nathan Cole";
+async function dialKnown() {
+  await act(async () => {
+    const dialed = h.provider.dial({ channel: "voice", address: "(704) 555-0142", skillId: "general", entityId: "nathan-cole-history" as EntityId, contactName: KNOWN });
+    await vi.advanceTimersByTimeAsync(50);
+    await dialed;
+  });
+  await h.click(h.navCard(KNOWN));
 }
 
 /** The caller's canned lines in the call's transcript, in order. */
@@ -432,8 +445,9 @@ describe("Hide Transcript (a call under AI display inline)", () => {
   }
 
   it("on: the utterances leave the main column and only the AI rows stay; the Transcript tab appears; off restores both; kept per card", async () => {
+    // A known caller (P-LAYOUT-F3 8: Contact Details, whose Transcript tab this follows, is for an identified contact).
     await open({ displayLocation: "inline" });
-    await dialUnknown();
+    await dialKnown();
     await h.advance(BEAT_MS);
     await h.click(button("Said it")!);
     await h.advance(3_000);
@@ -443,13 +457,14 @@ describe("Hide Transcript (a call under AI display inline)", () => {
 
     await h.click(toggle("Hide Transcript")!);
     expect(callerLines()).toHaveLength(0);
-    expect(outcomes()).toEqual([expect.stringMatching(/^used: Used at .* — Greet the customer/)]);
+    // A known caller's greeting step names him ("Greet Nathan …"; an unknown number's reads "Greet the customer").
+    expect(outcomes()).toEqual([expect.stringMatching(/^used: Used at .* — Greet Nathan/)]);
     expect(contactDetailsTabs()).toContain("Transcript");
 
     // Another card and back: still hidden. A chat has no toggle.
     await priyaChat();
     expect(toggle("Hide Transcript")).toBeUndefined();
-    await h.click(h.navCard(UNKNOWN));
+    await h.click(h.navCard(KNOWN));
     await h.advance(300);
     expect(callerLines()).toHaveLength(0);
     expect(toggle("Hide Transcript")!.getAttribute("aria-checked") ?? toggle("Hide Transcript")!.getAttribute("data-state")).toMatch(/true|checked/);

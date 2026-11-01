@@ -34,6 +34,7 @@ import {
   useConversationPlacement,
   useMainPins,
   useAnswerSla,
+  callerOfCard,
   deriveCardIdentity,
   isIdentifiedContact,
   useStampCardIdentity,
@@ -580,6 +581,24 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   // redialing a new assignment always sets this, so the screen switches
   // over automatically the moment one is added.
   const { activeInteraction, contactSubject } = useActiveCardSubject({ activeInteractionId, interactions, scheduleSnapshot, findDirectoryCustomer });
+  // Cold inbound calls with no AI agent (Tom rings and needs Accept; Maya is answered automatically).
+  const isColdCallId = (id: string | undefined) => {
+    const key = scenarioKeyOf(id);
+    return key === TOM_LEWIS_CALL_ID || key === MAYA_CHEN_CALL_ID;
+  };
+  // A known customer is a fact on the card (P-EXTRACT, Bug 3): stamped the first time it holds, so a
+  // scripted case (Lucas arrives linked to an existing customer; the cold calls are known callers) stays
+  // one after its scripted contact ends.
+  const identityFacts: CardIdentityFacts = {
+    isDirectoryEntity: (entityId) => CREATE_NEW_CUSTOMERS.some((c) => c.id === entityId),
+    isCreatedEntity: (entityId) => createdCustomerRecords.some((c) => c.id === entityId),
+    isKnownScenario: (cardId) => scenarioKeyOf(cardId) === LUCAS_THOMAS_ID || isColdCallId(cardId),
+  };
+  const cardIdentityOf = (card: Interaction) => deriveCardIdentity(card, identityFacts);
+  useStampCardIdentity(interactions, setInteractions, cardIdentityOf);
+  // P-LAYOUT-F3 7: the one avatar and Contact Details rule, for any card (`isIdentifiedContact`).
+  const isIdentified = (card: Interaction) => isIdentifiedContact(card, identityFacts);
+  const activeInteractionIsRealCustomer = activeInteraction ? isIdentified(activeInteraction) : true;
   /** The scripted case key of the active card (`LUCAS_THOMAS_ID`, …), if any. */
   const activeScenarioKey = scenarioKeyOf(activeInteraction?.id);
 
@@ -608,7 +627,10 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const contactDetails = useMemo(() => contactDetailsFor(contactSubject), [contactSubject?.key, contactSubject?.customerName, contactSubject?.customerId, contactSubject?.threads, contactSubject?.hasThread]);
   const activeCustomerFields = useMemo(() => contactDetails?.fields ?? [], [contactDetails]);
-  const activeCustomerRecordDraft = useCustomerRecordDraft(activeCustomerFields, contactSubject?.customerName, contactSubject?.customerId);
+  // P-LAYOUT-F3 8: an unidentified contact's draft takes only a name it presented, never its raw address, so a bare
+  // number leaves First and Last Name empty.
+  const draftName = activeInteraction && !activeInteractionIsRealCustomer ? callerOfCard(activeInteraction).name : contactSubject?.customerName;
+  const activeCustomerRecordDraft = useCustomerRecordDraft(activeCustomerFields, draftName, contactSubject?.customerId);
   // Same lift as `activeCustomerRecordDraft` above, for the identical
   // reason — see that state's own doc comment.
   const [activeCustomerOverviewEditing, setActiveCustomerOverviewEditing] = useState(false);
@@ -736,11 +758,6 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   // this — see that helper's own doc comment). `undefined` once the
   // interaction is closed, has no voice thread, or the agent has already
   // hung up (`voiceCallEnded`).
-  // Cold inbound calls with no AI agent (Tom rings and needs Accept; Maya is answered automatically).
-  const isColdCallId = (id: string | undefined) => {
-    const key = scenarioKeyOf(id);
-    return key === TOM_LEWIS_CALL_ID || key === MAYA_CHEN_CALL_ID;
-  };
   const findLiveVoiceThread = (interaction: Interaction) => {
     // A ringing offer (Tom's included) isn't a call yet.
     if (interaction.closed || interaction.voiceCallEnded || interaction.offered) return undefined;
@@ -877,19 +894,7 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   // NOT a real customer here, wrongly hiding Contact Overview for a
   // genuine past contact. `startsWith("history:")` covers only that case,
   // not the genuinely-unknown `adhoc:`/`quickdial:`/`redial:` ones.
-  // A known customer is a fact on the card (P-EXTRACT, Bug 3): stamped the first time it holds, so a
-  // scripted case (Lucas arrives linked to an existing customer; the cold calls are known callers) stays
-  // one after its scripted contact ends.
-  const identityFacts: CardIdentityFacts = {
-    isDirectoryEntity: (entityId) => CREATE_NEW_CUSTOMERS.some((c) => c.id === entityId),
-    isCreatedEntity: (entityId) => createdCustomerRecords.some((c) => c.id === entityId),
-    isKnownScenario: (cardId) => scenarioKeyOf(cardId) === LUCAS_THOMAS_ID || isColdCallId(cardId),
-  };
-  const cardIdentityOf = (card: Interaction) => deriveCardIdentity(card, identityFacts);
-  useStampCardIdentity(interactions, setInteractions, cardIdentityOf);
-  // P-LAYOUT-F3 7: the one avatar and Contact Details rule, for any card (`isIdentifiedContact`).
-  const isIdentified = (card: Interaction) => isIdentifiedContact(card, identityFacts);
-  const activeInteractionIsRealCustomer = activeInteraction ? isIdentified(activeInteraction) : true;
+  // (The identity facts and `isIdentified` are above, beside the active card's subject.)
   // The live call can be another card than the one shown; its avatar follows the same rule.
   const liveVoiceCallInteractionIsRealCustomer = liveVoiceCallInteraction ? isIdentified(liveVoiceCallInteraction) : false;
   // Feeds the Customer Context Overview accordion (`customerContextOverview`

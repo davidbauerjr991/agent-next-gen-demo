@@ -201,6 +201,17 @@ describe("sim inbound routing and pre-contact summary (P0.5d.1)", () => {
     }
   }
 
+  // P-LAYOUT-F3 8 (Dave): a chat whose handle is a directory email matches the record; another handle, or an unknown
+  // caller with no name, stays unmatched and presents no name.
+  it("matches a chat by its email handle; an unmatched one, with no name presented, has no contactName", () =>
+    withSim(async ({ client, incoming }) => {
+      const known = await incoming(client.startInbound({ channel: "chat", address: "Lauren.Briggs@example.com", displayName: "Lauren" }));
+      expect(known.entityId).toBe("known-caller");
+      const handle = await incoming(client.startInbound({ channel: "chat", address: "lb-4421" }));
+      expect(handle.entityId).toBeUndefined();
+      expect(handle.contactName).toBeUndefined();
+    }));
+
   it("routes to General Support by default, or to the skill the customer side picks", () =>
     withSim(async ({ client, incoming }) => {
       const plain = await incoming(client.startInbound({ channel: "chat", address: "h", displayName: "A" }));

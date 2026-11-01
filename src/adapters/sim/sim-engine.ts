@@ -184,10 +184,12 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
 
   /** The directory customer an inbound address belongs to: a phone number
    *  compared digits-only (formatting and a leading +1 ignored), an email
-   *  case-insensitively. Chat handles never match. */
+   *  case-insensitively. A chat matches by its handle when the handle is an
+   *  email (Dave, P-LAYOUT-F3 8: a known chat customer is identified); any
+   *  other chat handle never matches. */
   function matchDirectory(channel: Interaction["channel"], address: string): SimDirectoryEntry | undefined {
-    if (channel === "chat") return undefined;
-    if (channel === "email") {
+    if (channel === "chat" && !address.includes("@")) return undefined;
+    if (channel === "email" || channel === "chat") {
       const email = address.trim().toLowerCase();
       return directory.find((entry) => entry.emails.some((e) => e.toLowerCase() === email));
     }
@@ -701,7 +703,8 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
       ...(request.caseStatus ? { caseStatus: request.caseStatus } : {}),
       ...(request.entityId ? { entityId: request.entityId } : {}),
       ...(match ? { entityId: match.entityId, entityMatchedBy: "routing" as const } : {}),
-      contactName: request.displayName,
+      // An unknown caller presents no name (P-LAYOUT-F3 8): no name fields, never its address copied into one.
+      ...(request.displayName ? { contactName: request.displayName } : {}),
       channel: request.channel,
       direction: "inbound",
       state: "offered",
@@ -716,7 +719,7 @@ export function createSimEngine(options: SimEngineOptions): SimEngine {
       interaction.preContactSummary = preContactSummary(interaction, request.summary);
     }
     add(interaction);
-    customerNames.set(interaction.id, request.displayName);
+    if (request.displayName) customerNames.set(interaction.id, request.displayName);
     return interaction;
   }
 

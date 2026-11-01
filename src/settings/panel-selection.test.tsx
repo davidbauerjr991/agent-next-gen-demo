@@ -12,7 +12,7 @@ import { getSettingsStore, resetSettingsStoreForTests } from "./settings-store";
 import { profileValues } from "./profiles";
 import type { AiDisplayLocation } from "./settings-schema";
 import { PANEL_TOGGLE_ACTIVE } from "@/contact-handling";
-import type { JourneyId } from "@/domain";
+import type { EntityId, JourneyId } from "@/domain";
 
 const h = createWorkspaceHarness();
 
@@ -113,7 +113,8 @@ describe("one selection path for the right panel", () => {
 });
 
 describe("header highlight rule", () => {
-  /** Phase 2 (inline): Dan Ortiz's card with a chat (the main column's thread) and an email. */
+  /** Phase 2 (inline): Priya Shah's card with a chat (the main column's thread) and an email. A directory customer,
+   *  so her card is identified and has Contact Details (P-LAYOUT-F3 8; was Dan Ortiz, an unlinked name). */
   async function chatAndEmailCard() {
     await act(async () => getSettingsStore().update("channels", { chat: true, email: true }));
     await h.show(AgentWorkspaceAdvancedPage);
@@ -122,14 +123,14 @@ describe("header highlight rule", () => {
       getSettingsStore().updateMany(profileValues("phase2"));
       await vi.advanceTimersByTimeAsync(50);
     });
-    const chatId = await h.startInbound("chat", "dan.ortiz@example.com", "Dan Ortiz");
+    const chatId = await h.startInbound("chat", "priya.shah@example.com", "Priya Shah");
     await h.advance(500);
-    await h.click(h.navCard("Dan Ortiz"));
+    await h.click(h.navCard("Priya Shah"));
     await act(async () => {
       const snapshot = h.provider.getSnapshot();
       await vi.advanceTimersByTimeAsync(50);
       const chat = (await snapshot).interactions.find((i) => i.id === chatId)!;
-      const dialed = h.provider.dial({ channel: "email", address: "dan.ortiz@example.com", skillId: "general", journeyId: chat.journeyId });
+      const dialed = h.provider.dial({ channel: "email", address: "priya.shah@example.com", skillId: "general", journeyId: chat.journeyId });
       await vi.advanceTimersByTimeAsync(300);
       await dialed;
     });
@@ -150,9 +151,11 @@ describe("header highlight rule", () => {
       await act(async () => {
         const dialed = h.provider.dial({
           channel,
-          address: channel === "email" ? "dan.ortiz@example.com" : "+13125550199",
+          // Priya Shah, a directory customer: identified, so Contact Details is there (P-LAYOUT-F3 8).
+          address: channel === "email" ? "priya.shah@example.com" : "(415) 555-0178",
           skillId: "general",
-          contactName: "Dan Ortiz",
+          contactName: "Priya Shah",
+          entityId: "priya-shah-history" as EntityId,
           ...(journeyId ? { journeyId: journeyId as JourneyId } : {}),
         });
         await vi.advanceTimersByTimeAsync(300);
@@ -162,7 +165,7 @@ describe("header highlight rule", () => {
         journeyId = (await snapshot).interactions.find((i) => i.id === id)!.journeyId;
       });
     }
-    await h.click(h.navCard("Dan Ortiz"));
+    await h.click(h.navCard("Priya Shah"));
     expect(h.container.querySelector("[data-main-thread]")?.getAttribute("data-main-thread")).toBe("email");
 
     const active = (el: HTMLElement) => PANEL_TOGGLE_ACTIVE.split(" ").every((c) => el.classList.contains(c));

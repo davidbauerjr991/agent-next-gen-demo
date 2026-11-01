@@ -8,7 +8,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 declare global {
   interface Window {
-    __simCustomer?: { startInbound(r: { channel: string; address: string; displayName: string }): string };
+    __simCustomer?: { startInbound(r: { channel: string; address: string; displayName?: string }): string };
     __providers?: {
       interaction: {
         accept(id: string): Promise<void>;

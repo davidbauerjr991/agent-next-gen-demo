@@ -95,11 +95,11 @@ describe("the tab set (in the reference slide-over)", () => {
       expect(slideOver()!.querySelector("[data-canvas-cell]")).toBeNull();
     });
 
-    it(`AI display ${displayLocation}: an unknown live contact has Detail`, async () => {
+    // P-LAYOUT-F3 8: was "an unknown live contact has Detail"; an unlinked contact has no Contact Details now.
+    it(`AI display ${displayLocation}: an unknown live contact has no Contact Details`, async () => {
       await open(displayLocation);
       await dialedUnknown();
-      await showContactDetails();
-      expect(tabRow()).toEqual(["Detail"]);
+      expect(contactDetailsButton()).toBeUndefined();
     });
   }
 
@@ -125,8 +125,8 @@ describe("the tab set (in the reference slide-over)", () => {
     await dialedUnknown();
     expect(docked().querySelector("[data-canvas-cell=real-time-summary]")).not.toBeNull();
     expect(docked().querySelector("[data-canvas-cell=customer-info]")?.textContent).toContain("Link to existing customer");
-    await showContactDetails();
-    expect(tabRow()).toEqual(["Detail", "Transcript"]);
+    // P-LAYOUT-F3 8: was Contact Details' Detail and Transcript tabs; an unlinked contact has no Contact Details.
+    expect(contactDetailsButton()).toBeUndefined();
   });
 });
 
