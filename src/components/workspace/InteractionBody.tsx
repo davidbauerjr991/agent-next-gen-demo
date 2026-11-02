@@ -12,6 +12,7 @@ import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useCanvasRegions } from "@/contact-handling/useCanvasRegions";
 import { copilotChipsFor, withNextBestActionChip } from "@/contact-handling/next-best-action";
 import { ReferenceSlot } from "./ReferenceSlot";
+import { WorkspaceRightPanel } from "./WorkspaceRightPanel";
 import { Slot } from "@/layout/Slot";
 import { HistoryConversationView } from "@/components/customer-info";
 import { InteractionComposer, InteractionTranscript } from "@/components/transcript/InteractionTranscript";
@@ -36,7 +37,7 @@ export function InteractionBody() {
   const {
     activeChannel, activeChannelAwaitingSeverity, activeChannelHoldSeverity, activeChannelIsNewOutboundThread,
     activeChannelKey, activeChannelStatus, activeChannelType, activeInteraction, activeInteractionIsRealCustomer,
-    activeWrapUpThread, aiFeedCount, aiFollowSignal, assignmentsSettings, calling,
+    activeWrapUpThread, aiFeedCount, aiFollowSignal, aiInPanel, assignmentsSettings, calling,
     confirmDismiss, contactStateById, copilotComposerProps, copilotDock, copilotHost, copilotSlot,
     customerTyping, focusCustomerPanelTab, handleCopilotAsk, handleDismissChannel,
     handleDismissInteraction, handleInteractionStatusChange, handleLucasApprovalDecision, handleLucasCallRequest,
@@ -632,7 +633,10 @@ export function InteractionBody() {
                       {/* P-CANVAS: the reference slot — the reference column (its cells' parts there) or a slide-over.
                           With the AI feed docked there's no column, but Contact Details and Session Details still open
                           here (P-HOME-1n). */}
-                      <ReferenceSlot reference={canvas.reference} />
+                      <ReferenceSlot reference={canvas.reference} panelColumn={aiInPanel} />
+                      {/* AI display "panel": the Copilot panel is the right column (P-LAYOUT-F4 8), here at the
+                          reference column's place, below the record header, and its width. */}
+                      <WorkspaceRightPanel inColumn />
                       {/* The separate voice/non-voice "Session Details"
                           `InteriorPanel` overlay that used to render here
                           (portaled beside `CustomerInformationSidePanel`)

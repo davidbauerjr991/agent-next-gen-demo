@@ -82,6 +82,7 @@ import { buildCustomerMatchSubhead, CustomerMatchSearchBody } from "./customer-m
    stays properly reactive to external width changes and no remount is
    needed here anymore. */
 export function CustomerInformationSidePanel({
+  headerless = false,
   open,
   pinned,
   onClose,
@@ -118,6 +119,9 @@ export function CustomerInformationSidePanel({
   headerSubheadOverride,
   onViewCustomerInfo,
 }: {
+  /** No header at all (title, name link, full screen, close, tabs), and the content card's own surface: AI display
+   *  "panel", where the panel is the right column and the page header's toggle its only control (P-LAYOUT-F4 8). */
+  headerless?: boolean;
   open: boolean;
   pinned: boolean;
   /** Forwarded to `CustomerInformationPanelBody`'s `onOpenConversation` —
@@ -485,8 +489,13 @@ export function CustomerInformationSidePanel({
       // (`headerIcon` below) instead of a normal `TabList` (`headerTabs`
       // below is `undefined` in both match steps — neither reference
       // screenshot shows any tabs).
-      headerTitle={matchState?.step === "create" ? "Create New Customer" : headerTitleOverride ?? "Customer Information"}
+      headerTitle={headerless ? undefined : matchState?.step === "create" ? "Create New Customer" : headerTitleOverride ?? "Customer Information"}
+      // Headerless (AI display "panel", P-LAYOUT-F4 8): the page header's toggle is the only control, and the panel is
+      // the right column on the content card's own surface.
+      className={headerless ? "bg-lyra-bg-surface-base" : undefined}
+      aria-label={headerless ? headerTitleOverride : undefined}
       headerSubhead={
+        headerless ? undefined :
         matchState?.step === "search"
           ? matchSubhead
           : matchState?.step === "create"
@@ -508,6 +517,7 @@ export function CustomerInformationSidePanel({
                 : customerName
       }
       headerIcon={
+        headerless ? undefined :
         matchState?.step === "create" ? (
           <ActionIconButton aria-label="Back to search" title="Back" onClick={matchState.onBackToSearch}>
             <ArrowLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
@@ -528,7 +538,7 @@ export function CustomerInformationSidePanel({
       // own `icon && pinned` branch): this is a momentary close action, not
       // a toggle with a persistent on/off state to reflect.
       headerActions={
-        <>
+        headerless ? undefined : <>
           {/* Full-screen toggle — same `PanelPinButton` atom as the close
               button below (just another icon/label/handler over the shared
               "small icon button in a panel header" shape), per explicit
@@ -575,7 +585,7 @@ export function CustomerInformationSidePanel({
       // `undefined` entirely while `matchState` is set — neither match
       // step has a tab list (see `headerTitle`'s own doc comment above).
       headerTabs={
-        matchState
+        headerless || matchState
           ? undefined
           : headerTabsOverride !== undefined
           ? headerTabsOverride

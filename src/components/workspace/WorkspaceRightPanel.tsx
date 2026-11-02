@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 /** The right panel (P-EXTRACT C8, from the page): the thread open in it (AI display "main"), or panel mode's AI
  *  Overview, in `CustomerInformationSidePanel` (P-HOME-1n: Contact Details moved to the reference slide-over). Its
  *  wrapper is the slide-over's host in the panel (`rightPanelRef`). */
-export function WorkspaceRightPanel() {
+export function WorkspaceRightPanel({ inColumn = false }: { inColumn?: boolean } = {}) {
   const {
     activeCustomerOverviewEditing, activeCustomerRecordDraft, activeInteraction, contactSubject,
     activeInteractionIsAgentCall, activeInteractionIsRealCustomer, addToast, aiInPanel, channelPreviewMeta, channelPreviewThread,
@@ -39,6 +39,10 @@ export function WorkspaceRightPanel() {
     viewSessionDetails,
   } = useWorkspace();
   const dockedToggle = usePanelToggles()?.docked;
+  // Under AI display "panel" a conversation's panel is the right column (P-LAYOUT-F4 8): the interaction's row mounts
+  // it (`inColumn`), at the reference column's place and width, below the record header. Everywhere else (a thread
+  // under "main", a kind cell's) it's the page's, beside the whole page column.
+  if (inColumn !== (aiInPanel && !!activeInteraction)) return null;
   return (
     <>
               {/* Contact Details' subject: a conversation, or a kind cell's customer (P-HOME-1m). */}
@@ -131,12 +135,15 @@ export function WorkspaceRightPanel() {
                   // `SidePanel`'s own pinned-branch outer div
                   // (side-panel.tsx), which had the identical gap.
                   ref={rightPanelRef}
-                  className="relative shrink-0 h-full z-[5] animate-in fade-in-0 duration-200 delay-150 fill-mode-backwards"
+                  // As the right column (`inColumn`) it sits under the reference slide-over (`InteriorPanel`, z-[3]),
+                  // which opens over it, as over the reference column.
+                  className={cn("relative shrink-0 h-full animate-in fade-in-0 duration-200 delay-150 fill-mode-backwards", inColumn ? "z-[2]" : "z-[5]")}
                   data-slot="right-panel"
                   data-open={sidePanelOpen || !!channelPreviewThreadKey}
                   data-thread={channelPreviewThread?.type ?? "details"}
                 >
                 <CustomerInformationSidePanel
+                  headerless={inColumn}
                   open={sidePanelOpen || !!channelPreviewThreadKey}
                   // Always unpinned (floating overlay) while full-screen —
                   // per explicit request this should overlay the parent
@@ -318,7 +325,7 @@ export function WorkspaceRightPanel() {
                           className={cn("relative", copilotDockConcealed && "invisible")}
                           inert={copilotDockConcealed || undefined}
                         >
-                          <ComposerFade toClassName="to-lyra-bg-surface-container-subtle" />
+                          <ComposerFade toClassName={inColumn ? "to-lyra-bg-surface-base" : "to-lyra-bg-surface-container-subtle"} />
                           <div data-slot="copilot-dock" className="w-full">
                             <HostSlot host={copilotHost} active={copilotSlot === "panel-footer"} />
                           </div>

@@ -5,7 +5,7 @@
 // and the hover previews. The page's body, moved in order (hook order
 // unchanged); see `useWorkspaceController`.
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import type { DraggableVariant } from "@nicecxone/lyra-ui";
+import { LYRA_CARD_MAX_WIDTH, type DraggableVariant } from "@nicecxone/lyra-ui";
 import type { TranscriptSession } from "@/components/transcript/InteractionTranscript";
 import type { ContactHistoryEntry } from "@/components/agent-next-gen-contact-history";
 import { useReplyBlockedReason, copilotSuggestionsFor, useChannelThreadMenu, type CopilotComposerProps } from "@/contact-handling";
@@ -457,20 +457,13 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
   };
   /** "View customer info" (the Contact Overview's link, the Customer Info card, the preview's name): Contact
    *  Details' customer drill-in, in its slide-over. */
-  /** Whether the Customer Info drill-in has a back arrow to Contact Details: not when the agent came from the docked
-   *  panel's customer name (P-LAYOUT-F1 F). */
-  const [customerInfoBack, setCustomerInfoBack] = useState(true);
+  // A top-level entry into the column, with no back arrow whichever way it's reached (P-LAYOUT-F4 15; it had one from
+  // the card's link, none from the panel's name, P-LAYOUT-F1 F).
   const focusCustomerPanelTab = () => {
-    setCustomerInfoBack(true);
     setCustomerPanelActiveTab("Customer Info");
     showContactDetails();
   };
-  /** The docked panel's customer name: the same drill-in, with no back arrow. */
-  const focusCustomerInfoFromName = () => {
-    setCustomerInfoBack(false);
-    setCustomerPanelActiveTab("Customer Info");
-    showContactDetails();
-  };
+  const focusCustomerInfoFromName = focusCustomerPanelTab;
   // No setter — always pinned. `onPinToggle` is deliberately left unset on
   // the real `SidePanel` below (see its own doc comment), so there's no
   // path that ever actually unpins this; kept as `useState` rather than a
@@ -481,7 +474,9 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
   // 340 — explicit starting width for the SidePanel version (was 425,
   // matching the old InteriorPanel's `maxWidth` default) — per explicit
   // request.
-  const [sidePanelWidth, setSidePanelWidth] = useState(340);
+  // The card width, so under AI display "panel" (where this panel is the right column, P-LAYOUT-F4 8) it opens at the
+  // reference column's width.
+  const [sidePanelWidth, setSidePanelWidth] = useState(LYRA_CARD_MAX_WIDTH);
   // Full-screen toggle (per explicit request) — see
   // `CustomerInformationSidePanel`'s own doc comment for how this actually
   // renders (an unpinned overlay sized to the parent Container's own
@@ -894,7 +889,7 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
     setChannelHoverPreviewKey, threadMenu, channelHoverPreviewTimer, channelHoverOpenTimer,
     marcusMemoryFocus, setMarcusMemoryFocus,
     experienceMemoryFocus, setExperienceMemoryFocus, openExperienceMemoryInSidePanel, openArtifactsList, focusCustomerPanelTab,
-    focusCustomerInfoFromName, customerInfoBack,
+    focusCustomerInfoFromName,
     sidePanelPinned, sidePanelResizing, setSidePanelResizing, sidePanelWidth, setSidePanelWidth, sidePanelFullScreen,
     setSidePanelFullScreen, isSidePanelContainerNarrow, effectiveSidePanelPinned,
     isSidePanelAtMaxWidthBreakpoint, isSidePanelAtMinimalThreshold,

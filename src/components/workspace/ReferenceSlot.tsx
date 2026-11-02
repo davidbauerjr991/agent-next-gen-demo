@@ -53,7 +53,7 @@ function afterNextFrame(run: () => void): () => void {
  *  it, however wide the row (P-LAYOUT-F4 3). Mount it as
  *  the last child of the main column's row, which must be `relative`: both
  *  this slot and the panel measure it, and the panel positions against it. */
-export function ReferenceSlot({ reference }: { reference?: ReactNode }) {
+export function ReferenceSlot({ reference, panelColumn = false }: { reference?: ReactNode; panelColumn?: boolean }) {
   const { activeInteractionId, selectedDetailPanelContent, slideOverMode } = useWorkspace();
   const sideOpen = useReferenceSideGate({ hasColumn: !!reference, content: selectedDetailPanelContent });
   const panel = useDetailSlideOverPanel({
@@ -66,7 +66,7 @@ export function ReferenceSlot({ reference }: { reference?: ReactNode }) {
   const onSlotWidthChange = useCallback((width: number) => setReferenceSlotWidth(width), [setReferenceSlotWidth]);
   useEffect(() => () => setReferenceSlotWidth(null), [setReferenceSlotWidth]);
   return (
-    <ReferenceSlotFrame reference={reference} onSlotWidthChange={onSlotWidthChange} panel={panel} headerToggle />
+    <ReferenceSlotFrame reference={reference} externalColumn={panelColumn} onSlotWidthChange={onSlotWidthChange} panel={panel} headerToggle />
   );
 }
 
@@ -112,6 +112,7 @@ export function ReferenceSlotFrame({
   onSlotWidthChange,
   bodyReserved = 0,
   headerToggle = false,
+  externalColumn = false,
 }: {
   reference?: ReactNode;
   referenceTitle?: string;
@@ -122,6 +123,10 @@ export function ReferenceSlotFrame({
   bodyReserved?: number;
   /** The column is driven by the page header's right toggle (an interaction's, a kind cell's); see `ReferenceColumn`. */
   headerToggle?: boolean;
+  /** The row's right column is mounted by the caller, not here (AI display "panel": the Copilot panel, P-LAYOUT-F4
+   *  8): the detail opens over it as over `reference`, never docked beside the page column, and the slot counts the
+   *  column's width. */
+  externalColumn?: boolean;
 }) {
   const anchorRef = useRef<HTMLDivElement>(null);
   const rowWidth = useReferenceColumnFit(anchorRef);
@@ -204,6 +209,7 @@ export function ReferenceSlotFrame({
   // its own: it's hoisted out of the dashboard, F4 4.)
   const docks =
     !reference &&
+    !externalColumn &&
     !!right &&
     right.rowWidth > 0 &&
     rowWidth > 0 &&
@@ -215,7 +221,7 @@ export function ReferenceSlotFrame({
   const slotWidth = open && !docks ? Math.max(LYRA_CARD_MAX_WIDTH, panelWidth) : LYRA_CARD_MAX_WIDTH;
   // The slot's width as the assignments panel's dock rule counts it: the column (widened by a panel over it), or
   // nothing (a docked panel is outside the measured row).
-  const reportedWidth = reference ? slotWidth : 0;
+  const reportedWidth = reference || externalColumn ? slotWidth : 0;
   const dockOrInline = (node: ReactElement) => (docks && right ? createPortal(node, right.host) : node);
   useEffect(() => {
     onSlotWidthChange?.(reportedWidth);

@@ -512,26 +512,22 @@ describe("AI display panel: docked Copilot composer", () => {
     expect(slideOver()!.querySelector('[aria-label="Back"], [aria-label^="Back"]')).toBeNull();
   });
 
-  it("the docked panel is titled Copilot; its customer name opens Customer Info with no back arrow, the card's link with one (P-LAYOUT-F1 F)", async () => {
+  it("the docked Copilot panel has no header (no title, name link, expand or close): the page header's toggle is its only control; the card's link opens Customer Info with no back arrow (P-LAYOUT-F4 8, 15)", async () => {
     await lucasInPanelMode();
     const panel = () => document.body.querySelector<HTMLElement>("[data-slot=right-panel]")!;
     const slideOver = () => document.body.querySelector<HTMLElement>("[data-slot=reference-slide-over]");
     const back = () => slideOver()?.querySelector('[aria-label="Back"], [aria-label^="Back"]') ?? null;
-    expect(panel().textContent).toContain("Copilot");
-    expect([...panel().querySelectorAll("h1, h2, h3, h4, [data-slot=container-header-title], [class*=heading]")].some((el) => el.textContent?.trim() === "Overview")).toBe(false);
-    // Its close is named by it (a11y review).
-    expect(panel().querySelector('[aria-label="Close Copilot"]')).not.toBeNull();
+    expect(panel().querySelector('[aria-label="Close Copilot"]')).toBeNull();
+    expect(panel().querySelector('[aria-label*="full screen" i], [aria-label*="Expand" i]')).toBeNull();
+    expect([...panel().querySelectorAll("button")].some((b) => b.textContent?.trim() === "Lucas Thomas")).toBe(false);
+    expect([...panel().querySelectorAll("h1, h2, h3, h4, [data-slot=container-header-title]")].some((el) => el.textContent?.trim() === "Copilot")).toBe(false);
+    expect(document.body.querySelector('[data-slot=record-header] button[aria-label="Details panel"]')).not.toBeNull();
 
-    // The name in the panel's header.
-    const name = [...panel().querySelectorAll("button")].find((b) => b.textContent?.trim() === "Lucas Thomas")!;
-    await h.click(name);
-    expect(slideOver()).not.toBeNull();
-    expect(back()).toBeNull();
-
-    // The Customer Info card's link (an Overview card): the drill-in keeps its back arrow.
+    // The Customer Info card's link (an Overview card): a top-level entry, no back arrow (P-LAYOUT-F4 15).
     await h.click(panel().querySelector("[data-slot=customer-info-card] [aria-expanded]")!);
     await clickText("View customer info");
-    expect(back()).not.toBeNull();
+    expect(slideOver()).not.toBeNull();
+    expect(back()).toBeNull();
   });
 });
 
@@ -641,7 +637,8 @@ describe("Contact Details Overview stack, events, composer fade", () => {
     const fade = dock.parentElement!.querySelector(":scope > [data-slot=composer-fade]");
     expect(fade).not.toBeNull();
     expect(fade!.className).toContain("-top-8");
-    expect(fade!.className).toContain("to-lyra-bg-surface-container-subtle");
+    // Fading into the panel's own surface: the content card's (the column has no grey fill, P-LAYOUT-F4 8).
+    expect(fade!.className).toContain("to-lyra-bg-surface-base");
   });
 });
 
