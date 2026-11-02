@@ -3,6 +3,7 @@
 // width (the minimum, and the default) up to what leaves the action area its minimum. The dragged width is kept per
 // browser (`referenceWidth` in the working state, like the assignments panel's). A detail slide-over opens over the
 // column at the column's current width, the column's own content (`ReferenceSlotFrame`).
+import { useRef } from "react";
 import { LYRA_CARD_MAX_WIDTH } from "@nicecxone/lyra-ui";
 import { ACTION_AREA_MIN_WIDTH } from "./canvas-registry";
 import { setAssignmentsWorkingState, useAssignmentsWorkingState } from "./assignments-working-state";
@@ -16,8 +17,13 @@ export interface ReferenceColumnWidth {
   width: number;
   minWidth: number;
   maxWidth: number;
-  /** A drag, live: writes the working state. */
+  /** A width change from outside a drag (the keyboard): writes the working state at once. */
   onWidthChange: (width: number) => void;
+  /** A drag's pointer move: kept in a ref only, no state write. The panel's own element follows the pointer (lyra's
+   *  drag state), so the app re-renders nothing per move (P-LAYOUT-F4 22b). */
+  preview: (width: number) => void;
+  /** The drag ended: the last previewed width is written to the working state, once. */
+  commit: () => void;
 }
 
 /** `rowWidth`: the row's measured width (0: not measured). The widest column leaves the action area its minimum. */
@@ -32,10 +38,19 @@ export function useReferenceColumnWidth(): ReferenceColumnWidth {
   const { referenceWidth } = useAssignmentsWorkingState();
   const [rowWidth] = useWorkspaceUiField("regionsRowWidth");
   const bounds = referenceColumnBounds(rowWidth);
+  const pending = useRef<number | null>(null);
   return {
     width: clampReferenceWidth(referenceWidth, bounds),
     minWidth: bounds.min,
     maxWidth: bounds.max,
     onWidthChange: (width) => setAssignmentsWorkingState({ referenceWidth: clampReferenceWidth(width, bounds) }),
+    preview: (width) => {
+      pending.current = clampReferenceWidth(width, bounds);
+    },
+    commit: () => {
+      if (pending.current === null) return;
+      setAssignmentsWorkingState({ referenceWidth: pending.current });
+      pending.current = null;
+    },
   };
 }

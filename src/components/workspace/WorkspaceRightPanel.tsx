@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { PanelFooter } from "@nicecxone/lyra-ui";
 import { OverviewBody } from "./contact-details-tab-bodies";
 import {
@@ -43,6 +44,7 @@ export function WorkspaceRightPanel({ inColumn = false }: { inColumn?: boolean }
   // click-to-pin and the always-present toggle behave as the reference column's do (P-LAYOUT-F4 16); a thread under
   // "main" and a kind cell's panel keep the docked toggle.
   const columnSize = useReferenceColumnWidth();
+  const columnDragging = useRef(false);
   const toggles = usePanelToggles();
   const dockedToggle = inColumn ? toggles?.reference : toggles?.docked;
   // Under AI display "panel" a conversation's panel is the right column (P-LAYOUT-F4 8): the interaction's row mounts
@@ -204,8 +206,19 @@ export function WorkspaceRightPanel({ inColumn = false }: { inColumn?: boolean }
                   containerWidth={sidePanelContainerWidth}
                   minWidth={inColumn ? columnSize.minWidth : undefined}
                   maxWidthRatio={inColumn && sidePanelContainerWidth > 0 ? columnSize.maxWidth / sidePanelContainerWidth : undefined}
-                  onWidthChange={inColumn ? columnSize.onWidthChange : setSidePanelWidth}
-                  onResizeStateChange={setSidePanelResizing}
+                  // The column's drag is previewed and written once on release (P-LAYOUT-F4 22b), as the reference
+                  // column's; the thread panel keeps its own width state.
+                  onWidthChange={
+                    inColumn
+                      ? (next) => (columnDragging.current ? columnSize.preview(next) : columnSize.onWidthChange(next))
+                      : setSidePanelWidth
+                  }
+                  onResizeStateChange={(resizing) => {
+                    setSidePanelResizing(resizing);
+                    if (!inColumn) return;
+                    columnDragging.current = resizing;
+                    if (!resizing) columnSize.commit();
+                  }}
                   onAddToast={addToast}
                   recordDraft={activeCustomerRecordDraft}
                   overviewEditing={activeCustomerOverviewEditing}

@@ -197,6 +197,9 @@ export function ReferenceSlotFrame({
   // The slot follows the panel's width while it's open (a drag pushes the action area); lyra opens it at the card width.
   const [panelWidth, setPanelWidth] = useState(openWidth);
   const [resizing, setResizing] = useState(false);
+  // A slide-over drag in progress, and the width it last reported (written to the memory on release).
+  const draggingRef = useRef(false);
+  const pendingWidth = useRef<number | null>(null);
   // No width transition while anything here is being dragged: the column's edge, the slide-over's, or the Copilot
   // panel's (the controller's `sidePanelResizing`). The slide-over follows the column's width on every pointer move,
   // and the column follows a wider slide-over, so each must jump, never slide (P-LAYOUT-F4 22).
@@ -235,9 +238,11 @@ export function ReferenceSlotFrame({
   // nothing (a docked panel is outside the measured row).
   const reportedWidth = reference || externalColumn ? slotWidth : 0;
   const dockOrInline = (node: ReactElement) => (docks && right ? createPortal(node, right.host) : node);
+  // Reported (a workspace UI store write the assignments panel's dock rule reads) once a drag ends, not per move.
   useEffect(() => {
+    if (resizing) return;
     onSlotWidthChange?.(reportedWidth);
-  }, [reportedWidth, onSlotWidthChange]);
+  }, [reportedWidth, onSlotWidthChange, resizing]);
 
   return (
     <>
@@ -271,11 +276,22 @@ export function ReferenceSlotFrame({
           minWidth={baseWidth}
           maxWidth={Math.max(baseWidth, available - ACTION_AREA_MIN_WIDTH - bodyReserved)}
           instantWidthChange={instantWidth}
+          // A drag's moves update only this frame's own width (the column follows a wider slide-over); the per-assignment
+          // memory (the workspace UI store, which the controller reads) is written once on release, not per move
+          // (P-LAYOUT-F4 22b). The keyboard's steps write at once.
           onWidthChange={(width) => {
             setPanelWidth(width);
-            remember({ width });
+            if (draggingRef.current) pendingWidth.current = width;
+            else remember({ width });
           }}
-          onResizeStateChange={setResizing}
+          onResizeStateChange={(isResizing) => {
+            draggingRef.current = isResizing;
+            setResizing(isResizing);
+            if (!isResizing && pendingWidth.current !== null) {
+              remember({ width: pendingWidth.current });
+              pendingWidth.current = null;
+            }
+          }}
           resizable
           allowFullScreen
           autoFullScreen

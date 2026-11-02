@@ -46,6 +46,7 @@ export function ReferenceColumn({
 }) {
   const { activeInteraction } = useWorkspace();
   const size = useReferenceColumnWidth();
+  const dragging = useRef(false);
   // Measured by whoever mounts this column (`useReferenceColumnFit`, in ReferenceSlotFrame).
   const [docked] = useWorkspaceUiField("referenceColumnFits");
   const [overlayOpen, setOverlayOpen] = useWorkspaceUiField("summariesOverlayOpen");
@@ -95,10 +96,18 @@ export function ReferenceColumn({
         minWidth={size.minWidth}
         maxWidth={size.maxWidth}
         width={width}
+        // A drag's moves are only previewed (the panel follows the pointer itself); the width is written once on
+        // release, so nothing else re-renders per move (P-LAYOUT-F4 22b). The keyboard's steps write at once.
         onWidthChange={(next) => {
-          if (width === size.width) size.onWidthChange(next);
+          if (width !== size.width) return;
+          if (dragging.current) size.preview(next);
+          else size.onWidthChange(next);
         }}
-        onResizeStateChange={onResizeStateChange}
+        onResizeStateChange={(resizing) => {
+          dragging.current = resizing;
+          onResizeStateChange?.(resizing);
+          if (!resizing) size.commit();
+        }}
         instantWidthChange={instantWidth}
         aria-label={title ?? t("Summaries")}
         // The content card's own surface, not SidePanel's grey: the column's structure is its cards and its border

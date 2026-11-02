@@ -253,6 +253,89 @@ const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
 await page.addInitScript(installHook);
 await page.goto(new URL("?provider=sim#/agent-advanced", base).toString());
 await page.getByRole("button", { name: "Go Available" }).click();
+// "drag" (P-LAYOUT-F4 22b): a 1-second drag of the right column's edge (about 60 pointer moves at 16 ms), measured
+// from just before the press to 400 ms after the release: commits and renders per move during the drag, and what a
+// release costs. Target: `column` (AI display inline, Lucas Thomas, hotkey A), `panel` (AI display "panel": the Copilot
+// panel) or `slideover` (inline, Contact Details open: its edge). No Phase 2 first: AI display is seeded.
+//   node scripts/profile-renders.mjs <base url> <label> 1 drag [column|panel|slideover]
+if (mode === "drag") {
+  const target = process.argv[6] ?? "column";
+  const display = target === "panel" ? "panel" : "inline";
+  await page.addInitScript((d) => localStorage.setItem("agent-next-gen:settings:ai", JSON.stringify({ v: 1, value: { displayLocation: d, canvasLayout: "twoColumn" } })), display);
+  await page.goto(new URL("?provider=sim&latency=off#/agent-advanced", base).toString());
+  await page.getByRole("button", { name: "Go Available" }).click();
+  await page.keyboard.press("a");
+  await page.locator("[data-slot=assignment-card]").getByText("Lucas").first().click();
+  await page.waitForTimeout(3000);
+  if (target === "slideover") {
+    await page.locator("button[data-contact-details]").first().click();
+    await page.waitForTimeout(1200);
+  }
+  await settle(page);
+  const sel = target === "slideover" ? "[data-slot=reference-slide-over]" : target === "panel" ? "[data-slot=right-panel] > div" : "[data-canvas-region=reference]";
+  const edge = await page.evaluate((s) => {
+    const b = document.querySelector(s).getBoundingClientRect();
+    return { x: b.left + 1, y: b.top + 300 };
+  }, sel);
+  await page.evaluate(() => {
+    const s = window.__renderStats;
+    s.types = new Map();
+    Object.assign(s, { commits: 0, walkMs: 0, commitLog: [], recording: true });
+  });
+  const MOVES = 60;
+  // Frame intervals during the drag (requestAnimationFrame): the layout and paint cost React's counts don't show.
+  await page.evaluate(() => {
+    window.__frames = [];
+    window.__framing = true;
+    let last = performance.now();
+    const tick = (t) => {
+      window.__frames.push(t - last);
+      last = t;
+      if (window.__framing) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+  await page.mouse.move(edge.x, edge.y);
+  await page.mouse.down();
+  const dragStart = await page.evaluate(() => window.__renderStats.commitLog.length);
+  for (let i = 1; i <= MOVES; i++) {
+    await page.mouse.move(edge.x - i * 3, edge.y);
+    await page.waitForTimeout(16);
+  }
+  const dragEnd = await page.evaluate(() => window.__renderStats.commitLog.length);
+  const frames = await page.evaluate(() => {
+    window.__framing = false;
+    return window.__frames.slice();
+  });
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  const out = await page.evaluate(([a, b]) => {
+    const s = window.__renderStats;
+    s.recording = false;
+    const during = s.commitLog.slice(a, b);
+    const small = during.filter((c) => c.renders <= 100);
+    const after = s.commitLog.slice(b);
+    const sum = (l) => l.reduce((n, c) => n + c.renders, 0);
+    const starters = new Map();
+    for (const c of during) for (const o of c.origins) starters.set(o, (starters.get(o) ?? 0) + c.renders);
+    const byCount = [...s.types.values()].sort((x, y) => y.renders - x.renders).slice(0, 12).map((t) => `${t.name} ${t.renders}`);
+    return { during: { small: { commits: small.length, renders: sum(small) }, commits: during.length, renders: sum(during), largest: during.reduce((m, c) => Math.max(m, c.renders), 0) }, after: { commits: after.length, renders: sum(after) }, starters: [...starters].sort((x, y) => y[1] - x[1]).slice(0, 8), byCount };
+  }, [dragStart, dragEnd]);
+  await browser.close();
+  const per = (n) => (n / MOVES).toFixed(1);
+  console.log(`\n### ${label} — drag ${target} (${MOVES} moves in about 1 s)\n`);
+  console.log(`During the drag: ${out.during.commits} commits (${per(out.during.commits)} per move), ${out.during.renders} component renders (${per(out.during.renders)} per move), largest commit ${out.during.largest}.`);
+  console.log(`Of those, the small commits (100 renders or fewer: the drag's own): ${out.during.small.commits} commits, ${out.during.small.renders} renders (${per(out.during.small.renders)} per move). The rest are the scripted case's events, not pointer moves.`);
+  const sorted = [...frames].sort((x, y) => x - y);
+  console.log(`Frame intervals during the drag: median ${sorted[Math.floor(sorted.length / 2)]?.toFixed(1)} ms, p95 ${sorted[Math.floor(sorted.length * 0.95)]?.toFixed(1)} ms, slowest ${sorted.at(-1)?.toFixed(1)} ms over ${frames.length} frames.`);
+  console.log(`From the release to 400 ms after: ${out.after.commits} commits, ${out.after.renders} renders.`);
+  console.log("\nWhat started the renders during the drag (component: renders in the commits it started):\n");
+  for (const [name, n] of out.starters) console.log(`- ${name}: ${n}`);
+  console.log("\nMost-rendered components over the whole window:\n");
+  for (const t of out.byCount) console.log(`- ${t}`);
+  process.exit(0);
+}
+
 // Phase 2, from Settings → Profile.
 await page.locator("aside").getByText("Settings", { exact: true }).first().click();
 await page.getByRole("combobox", { name: "Profile" }).click();
