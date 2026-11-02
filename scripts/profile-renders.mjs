@@ -3,8 +3,13 @@
 // playwright.config.ts) against a running server — the dev server or `npm run build && npm run preview` — and reads
 // React's committed fibers through a stand-in DevTools hook installed before React loads.
 //
-//   node scripts/profile-renders.mjs <base url> <label> [seconds]
+//   node scripts/profile-renders.mjs <base url> <label> [seconds] [steady|events]
 //   e.g. node scripts/profile-renders.mjs http://localhost:5199/agent-next-gen-demo/ dev
+//
+// "events" (P-LAYOUT-F3 15) measures what an event re-renders instead of the steady state: every commit for
+// [seconds] after an arrival (Maya Chen, hotkey B, answered on arrival) and after an accept (Tom Lewis, hotkey C,
+// ringing, then Accept), with no settling before each — the cards' state fanning out (the 2026-11-01 baseline's
+// cause 2). It reports commits, total renders, the largest commit, and the components that started them.
 //
 // Per component: renders (a fiber that rendered in a commit: mounted, or new props, state or context), total
 // `actualDuration` (dev only: production React keeps no per-fiber timings, so prod reports counts and the commits'
@@ -13,9 +18,9 @@
 // Production names are minified: each type is also reported with the first string literal in its source, to find it.
 import { chromium } from "@playwright/test";
 
-const [base, label = "run", seconds = "10"] = process.argv.slice(2);
+const [base, label = "run", seconds = "10", mode = "steady"] = process.argv.slice(2);
 if (!base) {
-  console.error("usage: node scripts/profile-renders.mjs <base url> <label> [seconds]");
+  console.error("usage: node scripts/profile-renders.mjs <base url> <label> [seconds] [steady|events]");
   process.exit(1);
 }
 const WINDOW_MS = Number(seconds) * 1000;
@@ -214,6 +219,35 @@ async function measure(page, what) {
   return { what, seconds: WINDOW_MS / 1000, commits: result.commits, renders: total, longTasks: result.longTasks, longTaskMs: Math.round(result.longTaskMs), timerRuns: result.intervalRuns, timerMs: Math.round(timerMs), timerMaxMs: Math.round(result.intervalMax), byCount, byTime, origins, heaviest };
 }
 
+/** Every commit from just before `act` (no settling) to WINDOW_MS after it: their count, total renders, the largest,
+ *  and what started them (each commit's origins, weighted by its renders). */
+async function measureEvent(page, what, act) {
+  await page.evaluate(() => {
+    const s = window.__renderStats;
+    s.types = new Map();
+    Object.assign(s, { commits: 0, walkMs: 0, commitLog: [], recording: true });
+  });
+  await act();
+  await page.waitForTimeout(WINDOW_MS);
+  const log = await page.evaluate(() => {
+    const s = window.__renderStats;
+    s.recording = false;
+    return s.commitLog;
+  });
+  const renders = log.reduce((n, c) => n + c.renders, 0);
+  const starters = new Map();
+  for (const c of log) for (const o of c.origins) starters.set(o, (starters.get(o) ?? 0) + c.renders);
+  return {
+    what,
+    seconds: WINDOW_MS / 1000,
+    commits: log.length,
+    renders,
+    largest: log.reduce((m, c) => Math.max(m, c.renders), 0),
+    heaviest: [...log].sort((a, b) => b.renders - a.renders).slice(0, 8),
+    starters: [...starters].sort((a, b) => b[1] - a[1]).slice(0, 12),
+  };
+}
+
 const browser = await chromium.launch({ channel: "chrome", headless: true });
 const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
 await page.addInitScript(installHook);
@@ -224,6 +258,29 @@ await page.locator("aside").getByText("Settings", { exact: true }).first().click
 await page.getByRole("combobox", { name: "Profile" }).click();
 await page.getByRole("option", { name: "Phase 2", exact: true }).click();
 await page.locator("aside").getByRole("button", { name: "Home", exact: true }).first().click();
+if (mode === "events") {
+  await settle(page);
+  const arrival = await measureEvent(page, "Arrival (Maya Chen, answered on arrival)", async () => {
+    await page.keyboard.press("b");
+  });
+  await settle(page);
+  const accept = await measureEvent(page, "Accept (Tom Lewis, ringing, then Accept)", async () => {
+    await page.keyboard.press("c");
+    await page.getByRole("button", { name: /^Accept/ }).first().click({ timeout: 20_000 });
+  });
+  await browser.close();
+  for (const run of [arrival, accept]) {
+    console.log(`\n### ${label} — ${run.what} (${run.seconds}s after it)\n`);
+    console.log(`Commits ${run.commits}, component renders ${run.renders}, largest commit ${run.largest}.`);
+    console.log("\nCommits by size (renders: what started them):\n");
+    for (const c of run.heaviest) console.log(`- ${c.renders}: ${c.origins.join(", ") || "(props only)"}`);
+    console.log("\nWhat started the renders (component: renders in the commits it started):\n");
+    for (const [name, n] of run.starters) console.log(`- ${name}: ${n}`);
+  }
+  console.log(`\n<!-- json ${JSON.stringify({ label, arrival, accept })} -->`);
+  process.exit(0);
+}
+
 // The steady state: after the seeded contacts' arrival and the profile's settling (a window that still sees page-wide
 // commits after 20 s reports them as a cause of its own).
 const homeSettle = await settle(page);
