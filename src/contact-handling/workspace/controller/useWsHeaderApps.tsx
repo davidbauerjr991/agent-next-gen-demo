@@ -6,7 +6,8 @@
 // Autosummary, the AI overview and feed, Contact Details' tabs), the docked
 // Copilot composer's slot, and the New Outbound launcher. The page's body,
 // moved in order (hook order unchanged); see `useWorkspaceController`.
-import { useState, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { useOverflowSteps } from "@/contact-handling/useOverflowSteps";
 import type { ReferenceCardProps } from "@/components/customer-info/reference-sections";
 import { scheduleItemIdOf } from "@/domain";
 import { useScheduleSnapshot } from "@/provider-context";
@@ -392,49 +393,22 @@ export function useWsHeaderApps(prev: WsOutbound) {
   const appHeaderRef = useRef<HTMLElement>(null);
   const appNameMeasureRef = useRef<HTMLDivElement>(null);
   const headerIconsMeasureRef = useRef<HTMLDivElement>(null);
-  const [autoHiddenCount, setAutoHiddenCount] = useState(0);
-  useLayoutEffect(() => {
-    const HIDE_GAP_PX = 16; // start hiding once closer than this
-    const SHOW_GAP_PX = 84; // ~44px icon + gap, plus headroom above HIDE_GAP_PX so it doesn't immediately re-show what was just hidden
-    const measure = () => {
+  // The measured overflow, one icon at a time (`useOverflowSteps`, the hook the assignments panel's header uses too):
+  // hide once closer than 16px; show one back above 84px (~44px icon + gap, plus headroom so it doesn't re-show what
+  // was just hidden). The header's own box is observed as well as the two measured ones: widening the window can grow
+  // only the space between them (`justify-between`), with neither measured box changing size.
+  const autoHiddenCount = useOverflowSteps({
+    max: pinnedKeysInHeaderOrder.length,
+    hideGap: 16,
+    showGap: 84,
+    gap: () => {
       const appNameEl = appNameMeasureRef.current;
       const iconsEl = headerIconsMeasureRef.current;
-      if (!appNameEl || !iconsEl) return;
-      const gap = iconsEl.getBoundingClientRect().left - appNameEl.getBoundingClientRect().right;
-      setAutoHiddenCount((prev) => {
-        if (gap < HIDE_GAP_PX && prev < pinnedKeysInHeaderOrder.length) return prev + 1;
-        if (gap > SHOW_GAP_PX && prev > 0) return prev - 1;
-        return prev;
-      });
-    };
-    measure();
-    // Widening the window back out doesn't necessarily change either
-    // measured element's OWN size — once `AppName` is back to its natural
-    // width and the hidden icons are gone, both boxes can sit still while
-    // `justify-between` just grows the empty space between them, so a
-    // ResizeObserver on only those two elements can miss the "there's now
-    // room again" case entirely (this was the bug: icons stayed hidden
-    // after growing the window back, even once the gap ,`prev` never
-    // re-evaluated because nothing observed had actually changed size). The
-    // header's OWN box, and the window itself, reliably do change size on
-    // every resize regardless of whether `AppName`/the icon row happen to
-    // — observing/listening to those too guarantees at least one
-    // `measure()` call per resize either way.
-    const ro = new ResizeObserver(measure);
-    if (appHeaderRef.current) ro.observe(appHeaderRef.current);
-    if (appNameMeasureRef.current) ro.observe(appNameMeasureRef.current);
-    if (headerIconsMeasureRef.current) ro.observe(headerIconsMeasureRef.current);
-    window.addEventListener("resize", measure);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", measure);
-    };
-    // Re-measure whenever the pinned set changes (pinning/unpinning shifts
-    // how many icons COULD show) and every time `autoHiddenCount` itself
-    // changes — each change nudges the count by exactly one and re-runs
-    // this effect, converging step by step rather than jumping straight to
-    // a final value in one pass.
-  }, [pinnedKeysInHeaderOrder.length, autoHiddenCount]);
+      if (!appNameEl || !iconsEl) return null;
+      return iconsEl.getBoundingClientRect().left - appNameEl.getBoundingClientRect().right;
+    },
+    observe: [appHeaderRef, appNameMeasureRef, headerIconsMeasureRef],
+  });
   const responsivelyHiddenKeys = new Set(
     pinnedKeysInHeaderOrder.slice(0, Math.min(autoHiddenCount, pinnedKeysInHeaderOrder.length))
   );
@@ -948,7 +922,7 @@ export function useWsHeaderApps(prev: WsOutbound) {
     handlePanelButtonClick, handleOpenAllContacts, PANEL_BUTTON_SELECTED_CLASS, PANEL_KEY_METADATA,
     PANEL_KEY_INITIAL_ORDER, panelOrder, panelDragOverKey, panelDragHandlers, HIDDEN_FROM_APPS_MENU, appsMenuItems,
     pinnedKeysInHeaderOrder, appHeaderRef, appNameMeasureRef, headerIconsMeasureRef, autoHiddenCount,
-    setAutoHiddenCount, responsivelyHiddenKeys, showHeaderIcon, leftNavRenderWidth, maxDockedWidthForMainFloor,
+    responsivelyHiddenKeys, showHeaderIcon, leftNavRenderWidth, maxDockedWidthForMainFloor,
     sharedPanel, sharedPanelFullScreenOverlay, leftNavKeys, leftNavPageShown, leftNavAppItems, homeNavItem,
     restNavItems, navRailItems, snapshotLinkHandlerFor, renderAiPanelFeed, referenceCardProps,
     renderContactDetailsTab, aiFeedCount, copilotDockShown, copilotDockConcealed, copilotSlot, copilotDock,

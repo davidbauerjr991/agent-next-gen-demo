@@ -8,7 +8,12 @@ import { EmptyState, KebabMenuButton, type ListReorderItemProps, type MenuEntry 
 import { ChevronsDownUp, ChevronsUpDown, Inbox } from "lucide-react";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { AssignmentsSectionCaption } from "@/components/agent-next-gen-interaction-dashboard";
+import {
+  AssignmentsExpandCollapseAllButton,
+  AssignmentsSectionCaption,
+  AssignmentsSortButton,
+} from "@/components/agent-next-gen-interaction-dashboard";
+import { useOverflowSteps } from "@/contact-handling/useOverflowSteps";
 import { useAssignmentCards, type AssignmentEntry, type AssignmentsMount } from "@/contact-handling/useAssignmentCards";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useRailAssignmentCount } from "@/contact-handling/home/useScheduleCards";
@@ -57,18 +62,72 @@ export function AssignmentsCaption({ expanded, mount }: { expanded: boolean; mou
   );
 }
 
+/** The kebab trigger's width (lyra KebabMenuButton's h-6 w-6), for the unfold threshold. */
+const KEBAB_WIDTH = 24;
+/** The inline group's width before it's been measured (jsdom; the first frame): Sort's button and Collapse all's. */
+const INLINE_WIDTH_FALLBACK = 120;
+/** Fold once the title would come closer than this to the actions. */
+const FOLD_GAP = 8;
+
 /** The caption's controls for the interior panel's header, where SidePanel's own title and count stand for the
- *  caption (P-LAYOUT-F1), with 2+ assignments: one lyra `KebabMenuButton` (the feed table's pinned-column pattern),
- *  so "Assignments (n)" fits beside it and the pin at the panel's minimum width (P-LAYOUT-F2 1c). Its menu: the sort
- *  modes (the current one active), the direction (not for Custom, the agent's own order), then Collapse / Expand
- *  all. The left nav's caption keeps its own buttons. */
-export function AssignmentsHeaderActions() {
+ *  caption (P-LAYOUT-F1), with 2+ assignments. Responsive (P-LAYOUT-F3 6; reverses part of P-LAYOUT-F2 1c, which
+ *  always used the kebab): Sort and Collapse all inline while they fit beside "Assignments (n)", folded into one lyra
+ *  `KebabMenuButton` only when they wouldn't — measured, with the app header's overflow hook (`useOverflowSteps`),
+ *  not a breakpoint. The measure is the gap between the actions and the title's natural end (its text's full width;
+ *  lyra ContainerHeader truncates it). The kebab's menu: the sort modes (the current one active), the direction (not
+ *  for Custom, the agent's own order), then Collapse / Expand all. The left nav's caption keeps its own buttons. */
+export function AssignmentsHeaderActions({ titleBadgeRef }: { titleBadgeRef: React.RefObject<HTMLElement | null> }) {
   const {
     assignmentSort, assignmentSortDirection, channelsAllExpanded, handleToggleAllChannelsExpanded,
     noInteractionCollapse, setAssignmentSort, setAssignmentSortDirection,
   } = useWorkspace();
   const count = useRailAssignmentCount();
+  const groupRef = React.useRef<HTMLSpanElement>(null);
+  // The header's row (title column and actions): its width is the panel's, so a resize re-measures.
+  const headerRowRef = React.useRef<HTMLElement | null>(null);
+  const inlineWidth = React.useRef(0);
+  const folded =
+    useOverflowSteps({
+      max: 1,
+      hideGap: FOLD_GAP,
+      // Unfold only once the inline group fits back with room to spare (it's wider than the kebab by this much).
+      showGap: (inlineWidth.current || INLINE_WIDTH_FALLBACK) - KEBAB_WIDTH + FOLD_GAP * 2,
+      gap: () => {
+        // Anchored on the app's own count (SidePanel's `headerTitleBadge`): lyra ContainerHeader renders it right
+        // after the truncating title (container-header.tsx:328–331) and the actions in a shrink-0 group
+        // (container-header.tsx:343, SidePanel's `actions`, side-panel.tsx:450). Neither exposes a ref; a lyra
+        // actions-overflow mode or a title ref would replace this.
+        const group = groupRef.current;
+        const actions = group?.parentElement;
+        const badge = titleBadgeRef.current;
+        const title = badge?.previousElementSibling as HTMLElement | null | undefined;
+        if (!group || !actions || !badge || !title) return null;
+        headerRowRef.current = actions.parentElement;
+        if (!group.hasAttribute("data-folded")) inlineWidth.current = group.getBoundingClientRect().width;
+        // The title's natural end: its text's full width, the row's gap-2 (8px), then the count.
+        const naturalRight = title.getBoundingClientRect().left + title.scrollWidth + 8 + badge.getBoundingClientRect().width;
+        return actions.getBoundingClientRect().left - naturalRight;
+      },
+      observe: [groupRef, headerRowRef],
+      active: count >= 2,
+    }) > 0;
   if (count < 2) return null;
+  if (!folded) {
+    return (
+      <span ref={groupRef} className="flex items-center gap-1" data-assignments-header-actions="">
+        {!noInteractionCollapse && (
+          <AssignmentsExpandCollapseAllButton allExpanded={channelsAllExpanded} onToggle={handleToggleAllChannelsExpanded} />
+        )}
+        <AssignmentsSortButton
+          value={assignmentSort}
+          onValueChange={(value) => setAssignmentSort(value as AssignmentSortMode)}
+          options={ADVANCED_ASSIGNMENT_SORT_OPTIONS}
+          direction={assignmentSortDirection}
+          onDirectionChange={setAssignmentSortDirection}
+        />
+      </span>
+    );
+  }
   const directions =
     assignmentSort === "channel"
       ? [{ value: "asc", label: t("A–Z") }, { value: "desc", label: t("Z–A") }]
@@ -106,7 +165,11 @@ export function AssignmentsHeaderActions() {
       onClick: handleToggleAllChannelsExpanded,
     });
   }
-  return <KebabMenuButton ariaLabel={t("Assignment options")} items={items} data-slot="assignments-options" />;
+  return (
+    <span ref={groupRef} className="flex items-center" data-assignments-header-actions="" data-folded="">
+      <KebabMenuButton ariaLabel={t("Assignment options")} items={items} data-slot="assignments-options" />
+    </span>
+  );
 }
 
 /** One rail card in its drag target: a conversation's `NavCardItem` (its timers tick on their own; the card

@@ -124,3 +124,58 @@ test("Sort → Custom: dragging a card moves it; Custom and the order are kept a
   const kept = await page.evaluate(() => JSON.parse(localStorage.getItem("agent-next-gen:working:assignments") ?? "{}").order);
   expect(kept).toEqual(stored);
 });
+
+// P-LAYOUT-F3 6: the panel header's Sort and Collapse all are inline while they fit beside "Assignments (n)" and fold
+// into the kebab only when they wouldn't — measured (the app header's overflow hook), not a breakpoint.
+for (const [panelWidth, inlineFits] of [
+  [null, false],
+  [425, true],
+] as const) {
+  test(`the panel header's actions at ${panelWidth ?? "the minimum"} px: ${inlineFits ? "Sort and Collapse all inline" : "folded into the kebab"}`, async ({ page }) => {
+    // The agent's dragged width is per-browser working state; seeded here (the reader clamps it to the bounds).
+    if (panelWidth) {
+      await page.addInitScript((width) => {
+        localStorage.setItem("agent-next-gen:working:assignments", JSON.stringify({ order: [], panelOpen: true, panelPinned: true, panelWidth: width }));
+      }, panelWidth);
+    }
+    await setUp(page, { displayLocation: "inline", canvasLayout: "twoColumn" }, 2400);
+    const panel = page.locator(panelSel);
+    await expect(panel).toBeVisible();
+    // Two or more assignments show the actions (the seeded cards).
+    await expect.poll(() => panel.locator("[data-slot=assignment-card]").count()).toBeGreaterThanOrEqual(2);
+    const kebab = panel.getByRole("button", { name: "Assignment options" });
+    const inline = panel.locator("[data-assignments-header-actions]:not([data-folded])");
+    if (inlineFits) {
+      // Room for "Assignments (n)", the pair and the pin: inline, no kebab.
+      await expect(inline).toBeVisible();
+      await expect(inline.getByRole("button")).not.toHaveCount(0);
+      await expect(kebab).toHaveCount(0);
+    } else {
+      // At 256px they wouldn't fit beside the title: the kebab.
+      await expect(kebab).toBeVisible();
+      await expect(inline).toHaveCount(0);
+    }
+  });
+}
+
+test("the panel header's actions follow a resize: widened they unfold, narrowed they fold again", async ({ page }) => {
+  await setUp(page, { displayLocation: "inline", canvasLayout: "twoColumn" }, 2400);
+  const panel = page.locator(panelSel);
+  await expect.poll(() => panel.locator("[data-slot=assignment-card]").count()).toBeGreaterThanOrEqual(2);
+  const kebab = panel.getByRole("button", { name: "Assignment options" });
+  const inline = panel.locator("[data-assignments-header-actions]:not([data-folded])");
+  await expect(kebab).toBeVisible();
+  // lyra's resize handle is a keyboard window splitter: arrows resize it.
+  const handle = panel.getByRole("separator", { name: "Resize panel" });
+  await handle.focus();
+  const width = async () => Math.round((await panel.boundingBox())!.width);
+  // To its maximum (425px, PANEL_MAX_WIDTH).
+  for (let i = 0; i < 60 && (await width()) < 425; i++) await page.keyboard.press("ArrowRight");
+  expect(await width()).toBeGreaterThanOrEqual(420);
+  await expect(inline).toBeVisible();
+  await expect(kebab).toHaveCount(0);
+  await handle.focus();
+  for (let i = 0; i < 60 && (await width()) > 256; i++) await page.keyboard.press("ArrowLeft");
+  await expect(kebab).toBeVisible();
+  await expect(inline).toHaveCount(0);
+});

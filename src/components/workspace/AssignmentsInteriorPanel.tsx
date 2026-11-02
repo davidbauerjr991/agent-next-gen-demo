@@ -45,6 +45,7 @@ function AssignmentsSidePanel() {
   const toggle = usePanelToggles()?.assignments;
   const count = useRailAssignmentCount();
   const anchorRef = React.useRef<HTMLDivElement>(null);
+  const titleBadgeRef = React.useRef<HTMLSpanElement>(null);
   const contentRowWidth = useParentWidth(anchorRef);
   // The dragged width, kept per browser (the working state; clamped to the panel's bounds on read). Live while
   // dragging, saved once the drag settles.
@@ -98,8 +99,13 @@ function AssignmentsSidePanel() {
         // The page has its own skip link; a left SidePanel would add a second, identical one.
         skipToMain={false}
         headerTitle={t("Assignments")}
-        headerTitleBadge={<span className="lyra-body-md text-lyra-fg-secondary">{t("({count})", { count })}</span>}
-        headerActions={<AssignmentsHeaderActions />}
+        headerTitleBadge={
+          <span ref={titleBadgeRef} className="lyra-body-md text-lyra-fg-secondary">
+            {t("({count})", { count })}
+          </span>
+        }
+        // The actions measure against the count (their responsive fold, P-LAYOUT-F3 6).
+        headerActions={<AssignmentsHeaderActions titleBadgeRef={titleBadgeRef} />}
         // No narrower than the left nav's expanded width, which the cards are sized for (lyra's
         // `LEFT_NAV_EXPANDED_WIDTH`, P-LAYOUT-F1 A2); SidePanel's own 200 would crush them. Its own 425 max.
         minWidth={LEFT_NAV_EXPANDED_WIDTH}
