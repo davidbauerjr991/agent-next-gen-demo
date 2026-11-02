@@ -435,16 +435,14 @@ export const ASSIGNMENTS_PLACEMENTS = ["leftNav", "interiorPanel"] as const;
 export type AssignmentsPlacement = (typeof ASSIGNMENTS_PLACEMENTS)[number];
 export const ASSIGNMENTS_PLACEMENT_FIELD = oneOf(ASSIGNMENTS_PLACEMENTS, {
   label: "Assignments placement",
-  description: "Where your assignment cards show: the left nav, or a panel beside your work. Home's Active assignments section lists them too.",
+  // The longer detail is the (?) help; each option's description is one sentence (P-LAYOUT-F3 11).
+  description:
+    "Where your assignment cards show: the left nav, or a panel beside your work. The interior panel starts pinned and moves your work aside (or opens over it where they don't fit); unpinned, it opens over your work on hover. Close it and the Assignments button in the page header brings it back; its badge counts your assignments. It's resizable. Home's Active assignments section lists the cards too.",
 });
-/** Each placement's option in Settings (P-HOME-1n's radio), declared with the field. */
+/** Each placement's option in Settings (P-HOME-1n's radio), declared with the field: one sentence each. */
 export const ASSIGNMENTS_PLACEMENT_OPTIONS: Record<AssignmentsPlacement, FieldMeta> = {
-  leftNav: { label: "Left nav", description: "The cards in the left nav, beside Home and Settings." },
-  interiorPanel: {
-    label: "Interior panel",
-    description:
-      "A panel at the start of your work, with the Assignments header and cards; the left nav starts as a rail. Pinned, it moves your work aside (or opens over it where they don't fit); unpinned, it opens over your work on hover. Close it and the Assignments button in the page header brings it back; its badge counts your assignments. Resizable.",
-  },
+  leftNav: { label: "Left nav", description: "The cards sit in the left nav, beside Home and Settings." },
+  interiorPanel: { label: "Interior panel", description: "The cards sit in a panel beside your work, and the left nav starts as a rail." },
 };
 
 /** "startDate" reads "Create Date" (the key predates the label). */

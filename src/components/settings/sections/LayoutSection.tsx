@@ -7,69 +7,13 @@ import * as React from "react";
 import { Accordion, Button, Switch, ToggleGroup } from "@nicecxone/lyra-ui";
 import { t } from "@/i18n";
 import type { Page } from "@/layout/slots";
-import {
-  AI_CANVAS_LAYOUT_FIELD,
-  ASSIGNMENTS_PLACEMENT_FIELD,
-  ASSIGNMENTS_PLACEMENT_OPTIONS,
-  HOME_LAYOUT_FIELD,
-  LAYOUT_ADVANCED_FIELD,
-  resetLayoutToProfile,
-  useSectionLocked,
-  useSettingDisabledBy,
-  useSettings,
-} from "@/settings";
+import { LAYOUT_ADVANCED_FIELD, resetLayoutToProfile, useSectionLocked, useSettingDisabledBy, useSettings } from "@/settings";
 import { Section, SettingsGroup } from "../settings-parts";
-import { LayoutPresetRow, type PresetRow } from "./LayoutPresetRow";
+import { LayoutPresetRow } from "./LayoutPresetRow";
+import { PRESET_ROWS } from "./layout-preset-rows";
 import { LayoutAdvanced } from "./LayoutAdvanced";
 import { LayoutPreview } from "./LayoutPreview";
 
-const PRESET_ROWS: readonly PresetRow[] = [
-  {
-    field: "home.layout",
-    label: HOME_LAYOUT_FIELD.meta!.label,
-    help: HOME_LAYOUT_FIELD.meta!.description,
-    options: [
-      { value: "oneColumn", label: "One column" },
-      { value: "twoColumn", label: "Two columns" },
-    ],
-  },
-  {
-    field: "assignments.placement",
-    label: ASSIGNMENTS_PLACEMENT_FIELD.meta!.label,
-    help: ASSIGNMENTS_PLACEMENT_FIELD.meta!.description,
-    options: (["leftNav", "interiorPanel"] as const).map((value) => ({
-      value,
-      label: ASSIGNMENTS_PLACEMENT_OPTIONS[value].label,
-      description: ASSIGNMENTS_PLACEMENT_OPTIONS[value].description,
-    })),
-  },
-  {
-    field: "ai.displayLocation",
-    label: "AI display",
-    options: [
-      { value: "inline", label: "Inline in the transcript" },
-      { value: "panel", label: "In the Contact Details panel" },
-      { value: "main", label: "Main column (conversations in panel)" },
-    ],
-  },
-  {
-    field: "ai.canvasLayout",
-    label: AI_CANVAS_LAYOUT_FIELD.meta!.label,
-    help: AI_CANVAS_LAYOUT_FIELD.meta!.description,
-    options: [
-      { value: "twoColumn", label: "Two columns" },
-      { value: "stacked", label: "Stacked" },
-    ],
-  },
-  {
-    field: "voice.controlsLocation",
-    label: "Voice controls location",
-    options: [
-      { value: "bottom", label: "Bottom" },
-      { value: "top", label: "Top of assignments" },
-    ],
-  },
-];
 
 export function LayoutSection() {
   const [page, setPage] = React.useState<Page>("interaction");

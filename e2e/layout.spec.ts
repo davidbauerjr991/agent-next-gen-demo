@@ -230,3 +230,18 @@ async function dragRow(page: Page, row: Locator, target: Locator) {
   }
   await page.mouse.up();
 }
+
+// P-LAYOUT-F3 11: under each Layout preset row, one sentence that stays inside the group (the Interior panel's used
+// to run off its edge); the longer detail is the row's (?) help.
+test("Settings → Layout: every preset row has its one-sentence description, inside the Layout group at 1280px", async ({ page }) => {
+  await setUp(page, { placement: "interiorPanel" }, 1280);
+  await page.locator("aside").getByRole("button", { name: "Settings", exact: true }).first().click();
+  const group = page.locator("[data-settings-group=layout]");
+  await expect(group).toBeVisible();
+  const g = (await group.boundingBox())!;
+  const notes = group.locator("[data-layout-preset] p");
+  await expect.poll(() => notes.count()).toBeGreaterThanOrEqual(5);
+  for (const box of await notes.evaluateAll((els) => els.map((el) => el.getBoundingClientRect().toJSON() as DOMRect))) {
+    expect(box.right).toBeLessThanOrEqual(g.x + g.width + 0.5);
+  }
+});
