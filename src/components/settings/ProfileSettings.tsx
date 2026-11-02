@@ -138,7 +138,7 @@ export function ProfileSettings() {
       </div>
       <p className="lyra-body-sm text-lyra-fg-secondary">
         {t(
-          "A profile sets the agent settings on this page; your theme, phone setup and Home tab order stay yours. Phase 1 is the defaults; Phase 2 adds the header apps (Customers, Accounts and Tickets as Home tabs; Schedule and WEM in the header) and every channel; AI-first is Phase 2 with every conversation in the side panel and the AI workspace in the main column. Save as keeps the current settings as your own profile; a saved profile can lock sections, export to a file and import on another workspace. Changing a setting shows the profile as modified: Save writes the changes back into a saved profile (locks kept) and Discard changes reverts them; built-in profiles are fixed, so use Save as. Custom is only for settings that match no profile.",
+          "A profile sets the agent settings on this page; your theme, phone setup and Home tab order stay yours. Phase 1 is the defaults; Phase 2 adds the header apps (Customers, Accounts and Tickets as Home tabs; Schedule and WEM in the header) and every channel; AI-first is Phase 2 with every conversation in the side panel and the AI workspace in the main column. Save as keeps your own settings (not what a team or organization profile sets) as your own profile; a saved profile can lock sections, export to a file and import on another workspace. Changing a setting shows the profile as modified: Save writes the changes back into a saved profile (locks kept) and Discard changes reverts them; built-in profiles are fixed, so use Save as. Custom is only for settings that match no profile.",
         )}
       </p>
 

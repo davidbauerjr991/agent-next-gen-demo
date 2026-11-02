@@ -91,8 +91,9 @@ describe("a profile's level", () => {
     expect(store.getState().stored.channels).toBe(false);
     expect(getProfileLibrary().getState().applied).toBe(appliedBefore);
 
-    // The picker never reads as the org-level profile, though the values now equal it (they match no built-in).
-    expect(derivedProfile()).toEqual({ profile: "custom", modified: false });
+    // The picker never reads as the org-level profile, and reads the agent's own layer, which this didn't touch
+    // (P-LAYOUT-F3 14; was "custom", from the resolved values): the defaults, Phase 1's.
+    expect(derivedProfile()).toEqual({ profile: "phase1", modified: false });
 
     const [set] = changeSetLog();
     expect(set.intent).toContain("Billing team");

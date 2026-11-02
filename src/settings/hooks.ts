@@ -219,7 +219,9 @@ export interface WorkspaceProfileApi {
 export function useWorkspaceProfile(): WorkspaceProfileApi {
   const library = getProfileLibrary();
   const { saved, applied } = useProfileLibrary();
-  const values = useSettingsSelector(useCallback((state: SettingsStoreState) => state.values, []));
+  // The agent's own layer, not the resolved values (P-LAYOUT-F3 14, Dave 2026-11-01): a section an org layer sets
+  // doesn't make the picked profile read "modified" or match a built-in; only the agent's own writes do.
+  const values = useSettingsSelector(useCallback(() => getSettingsStore().agentValues(), []));
   // Only the agent's own profiles can be the one the settings read as: an org-level one is a layer, never the base.
   const { profile, modified } = useMemo(
     () => deriveProfileState(values, saved.filter((p) => p.level === "agent"), applied?.id ?? null),
@@ -231,12 +233,14 @@ export function useWorkspaceProfile(): WorkspaceProfileApi {
       modified,
       saved,
       apply: applyProfile,
+      // The agent's own layer, as the picker compares (P-LAYOUT-F3 14): a profile saved under an org layer holds the
+      // agent's settings, not the org's, and reads unmodified right after; Discard never copies an org value down.
       saveAs: (name) => {
-        const added = library.saveAs(name, getSettingsStore().getState().values);
+        const added = library.saveAs(name, getSettingsStore().agentValues());
         if (added) library.setApplied({ id: added.id, locks: library.getState().applied?.locks ?? [] });
         return added;
       },
-      save: () => (isSavedProfileId(profile) ? library.overwrite(profile, getSettingsStore().getState().values) : false),
+      save: () => (isSavedProfileId(profile) ? library.overwrite(profile, getSettingsStore().agentValues()) : false),
       discard: () => {
         if (profile !== "custom") applyProfile(profile);
       },

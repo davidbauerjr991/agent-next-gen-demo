@@ -44,6 +44,11 @@ export interface SettingsStore {
   syncFromStorage(storageKey: string | null): void;
   /** Re-resolves after the org layers changed (`values` too), or only the applied locks (`sources` alone). */
   refreshLayers(what?: "layers" | "locks"): void;
+  /** The agent's own layer, without the org layers: each section the agent has stored, as stored, and the defaults
+   *  for the rest (P-LAYOUT-F3 14: the profile picker compares this with the profiles, and Save / Save as store it).
+   *  The same object for the same state, so a selector can return it. Read from storage: an in-memory-only write
+   *  (`persist: false`, today only the launch screen's personal `phone`) isn't in it. */
+  agentValues(): SettingsState;
 }
 
 export const sectionStorageKey = (section: string) => `${SETTINGS_KEY_PREFIX}${section}`;
@@ -195,8 +200,20 @@ export function createSettingsStore(
     return changed ? next : null;
   }
 
+  // The agent's own layer, recomputed once per state (`agentValues`).
+  let agentFor: { state: SettingsStoreState; values: SettingsState } | null = null;
+  function agentValues(): SettingsState {
+    if (agentFor?.state === state) return agentFor.values;
+    const raw = Object.fromEntries(keys.map((key) => [key, state.stored[key] ? readSection(key).value : sections[key].defaults])) as SettingsState;
+    // Settled as the resolved values are (`readAll`): the layout map from the placement fields unless stored.
+    const values = settle(null, raw, state.stored.layout ? raw.layout.parts : undefined).values;
+    agentFor = { state, values };
+    return values;
+  }
+
   return {
     getState: () => state,
+    agentValues,
 
     subscribe(listener) {
       listeners.add(listener);
