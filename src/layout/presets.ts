@@ -208,7 +208,10 @@ const homeLayout = field<HomeLayout>({
   section: "home",
   values: ["oneColumn", "twoColumn"],
   get: (s) => s.home.layout,
-  set: (s, layout) => ({ ...s, home: { ...s.home, layout } }),
+  // P-LAYOUT-F3 3, the content width's follow rule: a layout change (the preset row, or the map moving the sections)
+  // sets Home's body width to the layout's default (one column → max, two → full). Not a constraint: the agent's own
+  // choice afterwards stands until the layout changes again.
+  set: (s, layout) => ({ ...s, home: { ...s.home, layout, contentWidth: layout === "twoColumn" ? "full" : "max" } }),
   // Slots, and each section's order key from its place in `home.sections`, so a section that changes column sorts by
   // the same key wherever it lands.
   preset: (value, s) => {
@@ -308,3 +311,15 @@ export const LEGACY_FIELDS: readonly LegacyField[] = [
 /** The legacy fields with values. Settings → Layout offers each as a preset row (a header app's while the app is on)
  *  except `home.activityView`, a look set in Settings → Home (P-LAYOUT-F1 E). */
 export const PRESET_FIELDS = LEGACY_FIELDS.filter((f) => f.values.length > 0);
+
+/** Layout settings that move no parts (P-LAYOUT-F3 3): a Settings → Layout preset row each, listed in the generated
+ *  matrix beside the legacy fields. `home.contentWidth` follows `home.layout` (its `set` above). */
+export interface LayoutSetting<V extends string = string> {
+  id: string;
+  values: readonly V[];
+  get: (s: SettingsState) => V;
+}
+
+export const LAYOUT_SETTINGS: readonly LayoutSetting[] = [
+  { id: "home.contentWidth", values: ["max", "full"], get: (s) => s.home.contentWidth },
+];

@@ -147,6 +147,8 @@ describe("workspace profiles", () => {
       home: {
         ...PROFILES.phase2.home,
         layout: "twoColumn",
+        // Two columns' body width (P-LAYOUT-F3 3).
+        contentWidth: "full",
         sections: PROFILES.phase2.home.sections.map((s) => (s.key === "activity" ? { ...s, enabled: true } : s)),
       },
       ai: { ...PROFILES.phase2.ai, displayLocation: "main", canvasLayout: "twoColumn" },
@@ -165,7 +167,8 @@ describe("workspace profiles", () => {
     expect(profile(store)).toBe("aifirst");
     store.update("ai", { displayLocation: "inline" });
     expect(profile(store)).toBe("custom");
-    store.update("home", { layout: "oneColumn", sections: PROFILES.phase2.home.sections });
+    // A direct write (not the Layout preset), so the content width is written too (P-LAYOUT-F3 3).
+    store.update("home", { layout: "oneColumn", sections: PROFILES.phase2.home.sections, contentWidth: "max" });
     expect(profile(store)).toBe("phase2");
   });
 
@@ -238,7 +241,7 @@ describe("every built-in is equal by construction (P-LAYOUT-F2 6)", () => {
       phase2With({
         header: { ...p2.header, showAppIcons: true, apps: inHeader as typeof p2.header.apps, agentChat: { enabled: true, placement: "header" } },
         ai: { ...p2.ai, displayLocation: "panel", canvasLayout: "twoColumn" },
-        home: { ...p2.home, sections: withActivity, layout: "twoColumn" },
+        home: { ...p2.home, sections: withActivity, layout: "twoColumn", contentWidth: "full" },
       }),
     );
     expect(PROFILES.focus.assignments.placement).toBe("leftNav");
@@ -248,7 +251,7 @@ describe("every built-in is equal by construction (P-LAYOUT-F2 6)", () => {
     expect({ ...PROFILES.backOffice, layout: null }).toEqual(
       phase2With({
         voice: { ...p2.voice, controlsLocation: "bottom" },
-        home: { ...p2.home, sections: withActivity, layout: "twoColumn", activityView: "table" },
+        home: { ...p2.home, sections: withActivity, layout: "twoColumn", activityView: "table", contentWidth: "full" },
       }),
     );
     for (const app of ["customers", "accounts", "tickets"] as const) expect(PROFILES.backOffice.header.apps[app].placement).toBe("tab");

@@ -93,6 +93,31 @@ describe("Settings → Layout presets (P-LAYOUT)", () => {
   });
 });
 
+// P-LAYOUT-F3 3: Home's content width, a Layout preset row after Home layout. Its default follows the layout (a preset
+// write, not a constraint): switching Home layout sets it; the agent's own choice afterwards stands.
+describe("Home content width (P-LAYOUT-F3 3)", () => {
+  it("follows Home layout when it changes, and keeps the agent's choice otherwise", async () => {
+    await h.render(<SettingsView />);
+    const width = preset("home.contentWidth");
+    expect(width).not.toBeNull();
+    // After Home layout, in the presets.
+    const rows = [...h.container.querySelectorAll("[data-settings-group=layout] [data-layout-preset]")].map((el) => el.getAttribute("data-layout-preset"));
+    expect(rows.indexOf("home.contentWidth")).toBe(rows.indexOf("home.layout") + 1);
+    expect(values().home.contentWidth).toBe("max");
+    await h.click(radioIn(preset("home.layout"), "Two columns"));
+    expect(values().home.contentWidth).toBe("full");
+    // The agent's own choice: it stays while the layout does.
+    await h.click(radioIn(preset("home.contentWidth"), "Max"));
+    expect(values().home.contentWidth).toBe("max");
+    expect(values().home.layout).toBe("twoColumn");
+    // A layout change sets the default again.
+    await h.click(radioIn(preset("home.layout"), "One column"));
+    expect(values().home.contentWidth).toBe("max");
+    await h.click(radioIn(preset("home.layout"), "Two columns"));
+    expect(values().home.contentWidth).toBe("full");
+  });
+});
+
 describe("the Advanced layout switch (P-LAYOUT-F1 E)", () => {
   it("off (the default): the presets apply and Advanced is disabled, with its reason", async () => {
     await h.render(<SettingsView />);

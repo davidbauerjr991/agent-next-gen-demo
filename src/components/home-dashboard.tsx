@@ -10,6 +10,7 @@ import { DueSoonCard, MetricCard } from "@/components/home/persona-cards";
 import { HomeTwoColumn } from "@/components/home/HomeTwoColumn";
 import { ACTIVITY_TABLE_HEIGHT_CLASS } from "@/layout/content-width";
 import { CenteredColumn } from "@/layout/CenteredColumn";
+import { useHomeContentWidth } from "@/components/home/useHomeContentWidth";
 import { homeIsTwoColumn, homeSectionsInOrder, homeSideSections } from "@/contact-handling/home/home-layout";
 import { usePartOption } from "@/layout/useSlot";
 import { QueueListCard } from "@/components/home/QueueListCard";
@@ -54,6 +55,7 @@ const QUEUE_CONTACT_CHANNELS: Record<HomeQueueChannel, readonly string[] | undef
 
 export function HomeDashboard({ selectedQueueId, onSelectQueue, contactHistory }: HomeDashboardProps) {
   const [home] = useSettings("home");
+  const contentWidth = useHomeContentWidth();
   const [channels] = useSettings("channels");
   const queueBases = LATEST_CONTACTS_STATIC.filter((base) => {
     const queue = QUEUE_CHANNEL_BY_ID[base.id];
@@ -175,7 +177,8 @@ export function HomeDashboard({ selectedQueueId, onSelectQueue, contactHistory }
 
   return (
     <div className="flex flex-1 flex-col min-w-0 overflow-y-auto px-6 py-6 animate-in fade-in-0 duration-200" data-home-layout="oneColumn">
-      <CenteredColumn width="home" className="lyra-container-grid-wrap">
+      {/* Inside the scroller, so its scrollbar stays at the page's edge: `home.contentWidth` (P-LAYOUT-F3 3). */}
+      <CenteredColumn width={contentWidth} className="lyra-container-grid-wrap" data-home-content="">
         {rows}
       </CenteredColumn>
     </div>

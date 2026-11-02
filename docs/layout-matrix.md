@@ -48,6 +48,12 @@ The legacy placement fields: Settings → Layout's preset rows, and the Activity
 | `home.layout` | **oneColumn**, twoColumn | oneColumn | oneColumn | twoColumn | oneColumn | oneColumn | twoColumn | twoColumn |
 | `voice.controlsLocation` | **bottom**, top | bottom | bottom | bottom | top | bottom | bottom | bottom |
 
+Layout settings that move no parts (`LAYOUT_SETTINGS`; a Settings → Layout preset row each). `home.contentWidth` follows `home.layout` (one column → max, two → full) when the layout changes, and stays the agent's choice otherwise:
+
+| Setting | Values | Phase 1 | Phase 2 | AI-first | Panel agent | Compact | Focus | Back office |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `home.contentWidth` | **max**, full | max | max | full | max | max | full | full |
+
 Read through only (no preset row; the map's order or a cell's region writes them):
 
 | Setting | Default | Phase 1 | Phase 2 | AI-first | Panel agent | Compact | Focus | Back office |
@@ -68,6 +74,10 @@ Legacy fields:
 - `header.apps.screenpop.placement`: `leftnav`, `tab`
 - `header.apps.tickets.placement`: `leftnav`
 - `header.apps.wem.placement`: `leftnav`, `tab`
+
+Layout settings:
+
+None.
 
 Parts, by slot (`layout.parts`; Settings → Layout → Advanced reaches every one):
 

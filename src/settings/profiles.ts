@@ -65,6 +65,8 @@ function aiFirst(): SettingsState {
     home: {
       ...base.home,
       layout: "twoColumn",
+      // Two columns' default body width (P-LAYOUT-F3 3).
+      contentWidth: "full",
       sections: base.home.sections.map((s) => (s.key === "activity" ? { ...s, enabled: true } : s)),
     },
     ai: { ...base.ai, displayLocation: "main", canvasLayout: "twoColumn" },
@@ -116,7 +118,7 @@ function focus(): SettingsState {
     ...base,
     header: { ...base.header, showAppIcons: true, apps: inHeader, agentChat: { ...base.header.agentChat, enabled: true, placement: "header" } },
     ai: { ...base.ai, displayLocation: "panel", canvasLayout: "twoColumn" },
-    home: { ...withActivity(base.home), layout: "twoColumn" },
+    home: { ...withActivity(base.home), layout: "twoColumn", contentWidth: "full" },
   };
 }
 
@@ -127,7 +129,7 @@ function backOffice(): SettingsState {
   return {
     ...base,
     voice: { ...base.voice, controlsLocation: "bottom" },
-    home: { ...withActivity(base.home), layout: "twoColumn", activityView: "table" },
+    home: { ...withActivity(base.home), layout: "twoColumn", activityView: "table", contentWidth: "full" },
   };
 }
 

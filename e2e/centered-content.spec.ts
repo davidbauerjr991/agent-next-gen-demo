@@ -78,6 +78,48 @@ test("fits with a panel: Contact Details pushes, and the column re-centres in wh
   expect(Math.abs(after.referenceRight! - after.dockedLeft!)).toBeLessThanOrEqual(2);
 });
 
+// P-LAYOUT-F3 3: Home's body under home.contentWidth — max: the 1024px column centred in the page column; full: the
+// page column's width. The header is full width either way.
+test("Home: Max centres the body at 1024px in the page column; Full stretches it; the header spans the page", async ({ page }) => {
+  await page.setViewportSize({ width: 1800, height: 900 });
+  await page.goto("?provider=sim&latency=off#/agent-advanced");
+  await page.getByRole("button", { name: "Go Available" }).click();
+  const body = page.locator("[data-home-content]");
+  await expect(body).toBeVisible();
+  // The content column (`CenteredColumn`) inside the dashboard's scroller; the scroller spans the page column, so its
+  // scrollbar is at the page's edge.
+  const measure = () =>
+    page.evaluate(() => {
+      const b = document.querySelector("[data-home-content]")!.getBoundingClientRect();
+      const scroller = document.querySelector("[data-home-layout]")!.getBoundingClientRect();
+      const col = document.querySelector("[data-home-body]")!.parentElement!.getBoundingClientRect();
+      const header = document.querySelector("[data-home-header]")!.getBoundingClientRect();
+      return {
+        bodyWidth: b.width,
+        bodyCentre: b.left + b.width / 2,
+        scrollerWidth: scroller.width,
+        colWidth: col.width,
+        colCentre: col.left + col.width / 2,
+        headerWidth: header.width,
+      };
+    });
+  const max = await measure();
+  expect(Math.round(max.bodyWidth)).toBe(1024);
+  expect(Math.abs(max.bodyCentre - max.colCentre)).toBeLessThanOrEqual(1);
+  expect(Math.round(max.scrollerWidth)).toBe(Math.round(max.colWidth));
+  expect(Math.round(max.headerWidth)).toBe(Math.round(max.colWidth));
+  // Settings → Layout → Home content width: Full.
+  await page.locator("aside").getByText("Settings", { exact: true }).first().click();
+  await page.locator('[data-layout-preset="home.contentWidth"]').getByRole("radio", { name: "Full" }).click();
+  await page.locator("aside").getByText("Home", { exact: true }).first().click();
+  await expect(body).toBeVisible();
+  const full = await measure();
+  // Full: the content takes the scroller's width (less its own padding).
+  expect(full.bodyWidth).toBeGreaterThan(max.bodyWidth);
+  expect(Math.round(full.scrollerWidth)).toBe(Math.round(full.colWidth));
+  expect(Math.round(full.headerWidth)).toBe(Math.round(full.colWidth));
+});
+
 test("doesn't fit: the slide-over overlays, and the column stays where it was", async ({ page }) => {
   await mayaOpen(page, 1350);
   const before = await settled(page);

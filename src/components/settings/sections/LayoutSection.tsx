@@ -7,12 +7,25 @@ import * as React from "react";
 import { Accordion, Button, Switch, ToggleGroup } from "@nicecxone/lyra-ui";
 import { t } from "@/i18n";
 import type { Page } from "@/layout/slots";
-import { LAYOUT_ADVANCED_FIELD, resetLayoutToProfile, useSectionLocked, useSettingDisabledBy, useSettings } from "@/settings";
+import { LAYOUT_ADVANCED_FIELD, resetLayoutToProfile, useSectionLocked, useSettingDisabledBy, useSettings, type HomeContentWidth } from "@/settings";
 import { Section, SettingsGroup } from "../settings-parts";
-import { LayoutPresetRow } from "./LayoutPresetRow";
-import { PRESET_ROWS } from "./layout-preset-rows";
+import { LayoutPresetRow, SettingPresetRow } from "./LayoutPresetRow";
+import { HOME_CONTENT_WIDTH_ROW, PRESET_ROWS } from "./layout-preset-rows";
 import { LayoutAdvanced } from "./LayoutAdvanced";
 import { LayoutPreview } from "./LayoutPreview";
+
+/** Home's content width (P-LAYOUT-F3 3): its own setting, after Home layout (which writes its default). */
+function HomeContentWidthRow() {
+  const [home, updateHome] = useSettings("home");
+  return (
+    <SettingPresetRow
+      row={HOME_CONTENT_WIDTH_ROW}
+      value={home.contentWidth}
+      apply={(value) => updateHome({ contentWidth: value as HomeContentWidth })}
+      lockKey="home"
+    />
+  );
+}
 
 
 export function LayoutSection() {
@@ -57,7 +70,10 @@ export function LayoutSection() {
       />
       <Section title={t("Presets")}>
         {PRESET_ROWS.map((row) => (
-          <LayoutPresetRow key={row.field} row={row} />
+          <React.Fragment key={row.field}>
+            <LayoutPresetRow row={row} />
+            {row.field === "home.layout" && <HomeContentWidthRow />}
+          </React.Fragment>
         ))}
       </Section>
 

@@ -11,7 +11,7 @@ import { LAYER_LEVELS, type LayerLevel } from "./layers";
 import { PROFILE_IDS, PROFILE_LABELS, profileValues, type ProfileId } from "./profiles";
 import { agentSettings, sectionInProfiles, type AgentSettings } from "./scope";
 import { settle } from "./settle";
-import { storedPlacementNone, withActiveAssignmentsSection } from "./migrations";
+import { storedPlacementNone, storedTwoColumnWithoutContentWidth, withActiveAssignmentsSection } from "./migrations";
 import { SECTIONS, defaultSettings, type SectionKey, type SectionSchemas, type SettingsState } from "./settings-schema";
 import { safeStorage, type SettingsStorage } from "./settings-storage";
 
@@ -97,7 +97,9 @@ export function readProfileSections(
   const settled = settle(null, state, present.includes("layout") ? state.layout.parts : undefined).values;
   // P-LAYOUT-F1 B: a profile saved with placement "none" applies as the left nav with Active assignments on.
   const rawOf = (key: SectionKey) => (isRecord(source[key]) ? (source[key] as { value?: unknown }).value : undefined);
-  const values = storedPlacementNone(rawOf("assignments"), rawOf("layout")) ? withActiveAssignmentsSection(settled) : settled;
+  const migrated = storedPlacementNone(rawOf("assignments"), rawOf("layout")) ? withActiveAssignmentsSection(settled) : settled;
+  // P-LAYOUT-F3 3: a profile saved with two-column Home before `contentWidth` applies with that layout's default.
+  const values = storedTwoColumnWithoutContentWidth(rawOf("home")) ? { ...migrated, home: { ...migrated.home, contentWidth: "full" as const } } : migrated;
   return { values: agentSettings(values, sections), warnings };
 }
 
@@ -108,8 +110,12 @@ export function readLayerSections(
   raw: unknown,
   sections: SectionSchemas = SECTIONS,
 ): { values: Partial<AgentSettings>; warnings: ProfileReadWarning[] } {
-  const { full, present, warnings } = readEntries(isRecord(raw) ? raw : {}, sections, true);
+  const source = isRecord(raw) ? raw : {};
+  const { full, present, warnings } = readEntries(source, sections, true);
   const stripped = agentSettings(full, sections);
+  // P-LAYOUT-F3 3: a layer's two-column Home from before `contentWidth` sets that layout's default, as a profile does.
+  const home = isRecord(source.home) ? (source.home as { value?: unknown }).value : undefined;
+  if (present.includes("home") && storedTwoColumnWithoutContentWidth(home)) stripped.home = { ...stripped.home, contentWidth: "full" };
   return { values: Object.fromEntries(present.map((key) => [key, stripped[key]])) as Partial<AgentSettings>, warnings };
 }
 

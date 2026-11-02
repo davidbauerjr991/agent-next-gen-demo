@@ -24,6 +24,12 @@ export function storedRetiredAssignmentsFields(rawAssignments: unknown): boolean
   return isRecord(rawAssignments) && RETIRED_ASSIGNMENTS_FIELDS.some((key) => key in rawAssignments);
 }
 
+/** P-LAYOUT-F3 3: a stored two-column `home` from before `contentWidth` reads that layout's default ("full"), not the
+ *  field's ("max"). From the raw stored `home` value. */
+export function storedTwoColumnWithoutContentWidth(rawHome: unknown): boolean {
+  return isRecord(rawHome) && rawHome.layout === "twoColumn" && !("contentWidth" in rawHome);
+}
+
 /** `values` with Home's Active assignments section on and first, the rest in their order. */
 export function withActiveAssignmentsSection(values: SettingsState): SettingsState {
   const rest = values.home.sections.filter((s) => s.key !== "activeAssignments");

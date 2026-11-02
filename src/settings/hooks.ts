@@ -114,6 +114,12 @@ export function resetLayoutToProfile() {
     (saved ? saved.values.layout?.parts : applied ? profileValues(applied.id as ProfileId).layout?.parts : undefined) ??
     withDerivedLayout(defaultSettings()).layout.parts;
   getSettingsStore().update("layout", { parts });
+  // Home's content width is a Layout row too (P-LAYOUT-F3 3), and the map's projection may just have reset it to the
+  // layout's default: the profile's own value, written after the parts.
+  const contentWidth =
+    (saved ? saved.values.home?.contentWidth : applied ? profileValues(applied.id as ProfileId).home?.contentWidth : undefined) ??
+    defaultSettings().home.contentWidth;
+  getSettingsStore().update("home", { contentWidth });
 }
 
 /** Whether a section has a stored value (the launch screen's "Save

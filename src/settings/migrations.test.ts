@@ -57,6 +57,18 @@ describe("placement none's migration (P-LAYOUT-F1 B)", () => {
     expect(raw.placement).toBe("interiorPanel");
   });
 
+  it("a stored two-column Home from before contentWidth reads that layout's default, full, written once; an explicit value stays (P-LAYOUT-F3 3)", () => {
+    const backing = memoryStorage({
+      [sectionStorageKey("home")]: stored({ ...defaultSettings().home, layout: "twoColumn", contentWidth: undefined }, SECTIONS.home.version),
+    });
+    expect(createSettingsStore(safeStorage(() => backing)).getState().values.home.contentWidth).toBe("full");
+    expect(JSON.parse(backing.getItem(sectionStorageKey("home"))!).value.contentWidth).toBe("full");
+    const explicit = memoryStorage({
+      [sectionStorageKey("home")]: stored({ ...defaultSettings().home, layout: "twoColumn", contentWidth: "max" }, SECTIONS.home.version),
+    });
+    expect(createSettingsStore(safeStorage(() => explicit)).getState().values.home.contentWidth).toBe("max");
+  });
+
   it("a stored map with the assignments at the top of Home migrates the same way", () => {
     const backing = memoryStorage({
       [sectionStorageKey("layout")]: stored({ parts: { assignments: { slot: "home-top" } } }, SECTIONS.layout.version),

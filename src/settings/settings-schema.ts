@@ -239,6 +239,22 @@ export const HOME_LAYOUT_FIELD = oneOf(HOME_LAYOUTS, {
   description: "One column keeps the sections as rows with the Activity feed among them; two columns puts the feed on the left and the other sections on the right.",
 });
 
+/** Home's body width (P-LAYOUT-F3 3): "max" centres it at the content max width (`CenteredColumn`), "full" stretches
+ *  it. The page header is always full width. Its default follows the Home layout (one column → max, two → full): a
+ *  preset follow rule, written with the layout (`presets.ts`), not a constraint, so the agent can change it after. */
+export const HOME_CONTENT_WIDTHS = ["max", "full"] as const;
+export type HomeContentWidth = (typeof HOME_CONTENT_WIDTHS)[number];
+export const HOME_CONTENT_WIDTH_FIELD = oneOf(HOME_CONTENT_WIDTHS, {
+  label: "Home content width",
+  description:
+    "Max keeps Home's body in a centred column (1024px) inside the width beside any open panel; Full uses the whole width. The page header always spans the page. Changing Home layout sets it again: Max for one column, Full for two.",
+});
+/** Each option in Settings, one sentence (P-LAYOUT-F3 11). */
+export const HOME_CONTENT_WIDTH_OPTIONS: Record<HomeContentWidth, FieldMeta> = {
+  max: { label: "Max", description: "Home's body sits in a centred column." },
+  full: { label: "Full", description: "Home's body uses the whole width." },
+};
+
 /** How the Activity feed lists its rows (P-HOME-1m), every view alike: the list, or a table (sortable columns). */
 export const HOME_ACTIVITY_VIEWS = ["list", "table"] as const;
 export type HomeActivityView = (typeof HOME_ACTIVITY_VIEWS)[number];
@@ -263,6 +279,8 @@ export interface HomeSettings {
   layout: HomeLayout;
   /** P-HOME-1m: the Activity feed's rows as a list or a table. */
   activityView: HomeActivityView;
+  /** P-LAYOUT-F3 3: Home's body width. */
+  contentWidth: HomeContentWidth;
 }
 
 const home = defineSection<HomeSettings>({
@@ -279,6 +297,7 @@ const home = defineSection<HomeSettings>({
     queue: { channels: { digital: false, inboundVoice: true, voicemail: true, workItem: false, outboundVoice: true } },
     layout: "oneColumn",
     activityView: "list",
+    contentWidth: "max",
   },
   fields: {
     showHeader: bool(),
@@ -294,6 +313,8 @@ const home = defineSection<HomeSettings>({
     layout: HOME_LAYOUT_FIELD,
     // A new field, not a version bump, as `layout`.
     activityView: HOME_ACTIVITY_VIEW_FIELD,
+    // A new field, not a version bump (a stored two-column Home without it migrates to "full", migrations.ts).
+    contentWidth: HOME_CONTENT_WIDTH_FIELD,
   },
 });
 

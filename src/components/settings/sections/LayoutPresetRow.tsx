@@ -25,13 +25,20 @@ const fieldFor = (id: string): LegacyField => PRESET_FIELDS.find((f) => f.id ===
 export function LayoutPresetRow({ row, lockKey }: { row: PresetRow; lockKey?: SectionKey }) {
   const field = fieldFor(row.field);
   const [value, apply] = useLayoutPreset(field);
+  return <SettingPresetRow row={row} value={value} apply={apply} lockKey={lockKey ?? field.section} />;
+}
+
+/** The row itself, for any value and writer: label (and "Custom" when no value matches), the ToggleGroup, and under
+ *  it the disabled reason or the selected value's one-sentence description. A layout setting that moves no parts
+ *  (`LAYOUT_SETTINGS`, P-LAYOUT-F3 3: Home's content width) uses it directly. */
+export function SettingPresetRow({ row, value, apply, lockKey }: { row: PresetRow; value: string | undefined; apply: (value: string) => void; lockKey: SectionKey }) {
   const unused = useSettingDisabledBy(row.field as SettingPath);
   const labelId = React.useId();
   const noteId = React.useId();
   const description = row.options.find((o) => o.value === value)?.description;
   return (
     // The field's own section lock as well as the group's: the store refuses a write to either.
-    <LockScope lockKey={lockKey ?? field.section}>
+    <LockScope lockKey={lockKey}>
       <div className="flex flex-col gap-1.5" data-layout-preset={row.field}>
         <span className="flex items-center gap-2">
           <Label id={labelId} label={t(row.label, row.labelValues)} labelHelpText={row.help && t(row.help)} />

@@ -17,10 +17,14 @@ async function open(page: Page, profile?: string) {
 }
 
 const box = async (page: Page, selector: string) => (await page.locator(selector).first().boundingBox())!;
-/** The header against the page column Home fills (its root's box: the header's parent column). */
+/** The header against the page column Home fills (the body's parent; the body itself may be the centred column,
+ *  `home.contentWidth`, P-LAYOUT-F3 3). */
 async function expectFullWidth(page: Page) {
   const header = await box(page, "[data-home-header]");
-  const column = await box(page, "[data-home-layout]");
+  const column = (await page.locator("[data-home-body]").evaluate((el) => {
+    const r = el.parentElement!.getBoundingClientRect();
+    return { x: r.left, width: r.width };
+  }))!;
   expect(Math.round(header.x)).toBe(Math.round(column.x));
   expect(Math.round(header.x + header.width)).toBe(Math.round(column.x + column.width));
 }

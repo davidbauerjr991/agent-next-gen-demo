@@ -7,7 +7,7 @@ import { PROFILES, PROFILE_IDS, PROFILE_LABELS } from "@/settings/profiles";
 import { SECTIONS, SETTING_CONSTRAINTS, defaultSettings, type SettingConstraint } from "@/settings/settings-schema";
 import { withDerivedLayout } from "@/settings/settle";
 import { PARTS, PART_IDS } from "./parts";
-import { LEGACY_FIELDS, type LegacyField } from "./presets";
+import { LAYOUT_SETTINGS, LEGACY_FIELDS, type LegacyField } from "./presets";
 import { SLOTS, SLOT_IDS, type SlotDef } from "./slots";
 
 /** Code-unit order: the same on every machine (`localeCompare` follows the locale). */
@@ -77,6 +77,16 @@ function variables(): string {
     const missing = PARTS[id].allowedSlots.filter((slot) => !used.has(slot));
     return missing.length > 0 ? [`- ${code(id)} in ${missing.map(code).join(", ")}`] : [];
   });
+  // P-LAYOUT-F3 3: layout settings that move no parts (Home's content width), with the same columns.
+  const layoutSettings = LAYOUT_SETTINGS.map((setting) => {
+    const fallback = setting.get(defaults);
+    return [code(setting.id), setting.values.map((v) => (v === fallback ? `**${v}**` : v)).join(", "), ...profiles.map((p) => setting.get(p.values))];
+  });
+  const unexercisedSettings = LAYOUT_SETTINGS.flatMap((setting) => {
+    const used = new Set(profiles.map((p) => setting.get(p.values)));
+    const missing = setting.values.filter((v) => !used.has(v));
+    return missing.length > 0 ? [`- ${code(setting.id)}: ${missing.map(code).join(", ")}`] : [];
+  });
   const readThrough = byId(LEGACY_FIELDS.filter((f) => f.values.length === 0)).map((field) => {
     const fallback = shown(field, defaults);
     return [code(field.id), fallback, ...profiles.map((p) => (shown(field, p.values) === fallback ? "= default" : shown(field, p.values)))];
@@ -88,6 +98,10 @@ function variables(): string {
     "",
     table(["Setting", "Values", ...profiles.map((p) => p.label)], rows),
     "",
+    "Layout settings that move no parts (`LAYOUT_SETTINGS`; a Settings → Layout preset row each). `home.contentWidth` follows `home.layout` (one column → max, two → full) when the layout changes, and stays the agent's choice otherwise:",
+    "",
+    table(["Setting", "Values", ...profiles.map((p) => p.label)], layoutSettings),
+    "",
     "Read through only (no preset row; the map's order or a cell's region writes them):",
     "",
     table(["Setting", "Default", ...profiles.map((p) => p.label)], readThrough),
@@ -97,6 +111,10 @@ function variables(): string {
     "Legacy fields:",
     "",
     unexercised.length > 0 ? unexercised.join("\n") : "None.",
+    "",
+    "Layout settings:",
+    "",
+    unexercisedSettings.length > 0 ? unexercisedSettings.join("\n") : "None.",
     "",
     "Parts, by slot (`layout.parts`; Settings → Layout → Advanced reaches every one):",
     "",

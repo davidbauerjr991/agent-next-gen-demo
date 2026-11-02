@@ -4,9 +4,24 @@ import {
   AI_CANVAS_LAYOUT_FIELD,
   ASSIGNMENTS_PLACEMENT_FIELD,
   ASSIGNMENTS_PLACEMENT_OPTIONS,
+  HOME_CONTENT_WIDTH_FIELD,
+  HOME_CONTENT_WIDTH_OPTIONS,
   HOME_LAYOUT_FIELD,
 } from "@/settings";
 import type { PresetRow } from "./LayoutPresetRow";
+
+/** Home's content width (P-LAYOUT-F3 3): a layout setting that moves no parts, shown after Home layout (which sets
+ *  its default). */
+export const HOME_CONTENT_WIDTH_ROW: PresetRow = {
+  field: "home.contentWidth",
+  label: HOME_CONTENT_WIDTH_FIELD.meta!.label,
+  help: HOME_CONTENT_WIDTH_FIELD.meta!.description,
+  options: (["max", "full"] as const).map((value) => ({
+    value,
+    label: HOME_CONTENT_WIDTH_OPTIONS[value].label,
+    description: HOME_CONTENT_WIDTH_OPTIONS[value].description,
+  })),
+};
 
 export const PRESET_ROWS: readonly PresetRow[] = [
   {

@@ -20,6 +20,8 @@ import type { CustomerTableState } from "@/components/customer-table-state";
 import { HOME_APP_TAB_LABELS, keptMountedClass, type HomeTabs } from "@/components/home-tabs-state";
 import { WorkspacePageHeader } from "@/components/workspace/WorkspacePageHeader";
 import type { ExtraHeaderApp } from "@/settings";
+import { CenteredColumn } from "@/layout/CenteredColumn";
+import type { ContentWidth } from "@/layout/content-width";
 import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 
@@ -140,22 +142,27 @@ export function CustomerTabBodies({
   tabs,
   onStartInteraction,
   onAddToast,
+  contentWidth = "full",
 }: {
   tabs: HomeTabs;
   onStartInteraction: (contact: CreateNewOutboundContact, channel: ChannelType, phone: string, skillId: string) => void;
   onAddToast: (toast: Omit<ToastItem, "id">) => void;
+  /** Home's body width (P-LAYOUT-F3 3); the left-nav Customers page passes none (full). */
+  contentWidth?: ContentWidth;
 }) {
   return (
     <>
       {tabs.customerTabs.map((tab) => (
         <div key={tab.id} className={keptMountedClass(tabs.activeTab === tab.id)} inert={tabs.activeTab !== tab.id}>
-          <CustomerFullScreenTabContent
-            row={tab.row}
-            tabs={CUSTOMER_PANEL_TABS}
-            onStartInteraction={onStartInteraction}
-            onAddToast={onAddToast}
-            onClose={() => tabs.closeCustomer(tab.id)}
-          />
+          <CenteredColumn width={contentWidth} className="flex min-h-0 flex-1 flex-col">
+            <CustomerFullScreenTabContent
+              row={tab.row}
+              tabs={CUSTOMER_PANEL_TABS}
+              onStartInteraction={onStartInteraction}
+              onAddToast={onAddToast}
+              onClose={() => tabs.closeCustomer(tab.id)}
+            />
+          </CenteredColumn>
         </div>
       ))}
     </>
@@ -163,13 +170,20 @@ export function CustomerTabBodies({
 }
 
 /** An app placed as a tab shows the same content its header panel would. */
-export function AppTabBody({ content }: { content: EmbeddablePanelContent }) {
+export function AppTabBody({ content, contentWidth = "full" }: { content: EmbeddablePanelContent; contentWidth?: ContentWidth }) {
+  // `contentWidth`: Home's body width (P-LAYOUT-F3 3), centred inside the scroller so its scrollbar stays at the edge.
   return (
     <div className="flex flex-1 flex-col min-w-0 overflow-hidden animate-in fade-in-0 duration-200" data-slot="home-app-tab">
       {content.headerContent && (
-        <div className="shrink-0 border-b border-lyra-border-subtle px-6 pt-3 pb-3">{content.headerContent}</div>
+        <div className="shrink-0 border-b border-lyra-border-subtle px-6 pt-3 pb-3">
+          <CenteredColumn width={contentWidth}>{content.headerContent}</CenteredColumn>
+        </div>
       )}
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{content.body}</div>
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <CenteredColumn width={contentWidth} className="flex flex-1 flex-col">
+          {content.body}
+        </CenteredColumn>
+      </div>
     </div>
   );
 }
@@ -187,6 +201,8 @@ export interface CustomersTabBodyProps {
   onOpenFullScreenTab?: (row: CustomerListRecord) => void;
   className?: string;
   inert?: boolean;
+  /** Home's body width (P-LAYOUT-F3 3); the left-nav Customers page passes none (full). The table scrolls inside it. */
+  contentWidth?: ContentWidth;
 }
 
 /** The Customers table with its row panel docked to the right. */
@@ -200,11 +216,13 @@ export function CustomersTabBody({
   onOpenFullScreenTab,
   className = "relative flex flex-1 overflow-hidden animate-in fade-in-0 duration-200",
   inert,
+  contentWidth = "full",
 }: CustomersTabBodyProps) {
   return (
     // `isolate`: the table's resize handles (lyra, z-10) stack inside this
     // body, never over the left nav's hover overlay.
     <div className={cn(className, "isolate")} inert={inert}>
+      <CenteredColumn width={contentWidth} className="relative flex min-w-0 flex-1 overflow-hidden">
       <CustomersListView
         onStartInteraction={onStartInteraction}
         addedFilterKeys={table.addedFilterKeys}
@@ -235,6 +253,7 @@ export function CustomersTabBody({
         onOpenFullScreenTab={onOpenFullScreenTab}
         hidePrevNext
       />
+      </CenteredColumn>
     </div>
   );
 }

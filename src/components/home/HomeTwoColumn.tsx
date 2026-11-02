@@ -11,6 +11,8 @@ import { ReferenceSlotFrame } from "@/components/workspace/ReferenceSlot";
 import { ReferenceOverlayToggle } from "@/components/workspace/SummariesToggle";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useHomeDetailPanel } from "./home-detail-panel";
+import { useHomeContentWidth } from "./useHomeContentWidth";
+import { CenteredColumn } from "@/layout/CenteredColumn";
 import { cn } from "@/lib/utils";
 import { usePartOption } from "@/layout/useSlot";
 import { t } from "@/i18n";
@@ -26,10 +28,12 @@ export function HomeTwoColumn({ feed, side }: { feed: React.ReactNode; side: Rea
   const { showInteriorPanel } = useWorkspace();
   const panel = useHomeDetailPanel();
   const asTable = usePartOption("activityFeed", "view") === "table";
+  const contentWidth = useHomeContentWidth();
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden animate-in fade-in-0 duration-200" data-home-layout="twoColumn">
-      {/* `relative`: the overlay and the detail panel position against this row (ReferenceSlotFrame). */}
-      <div className="relative flex min-h-0 min-w-0 flex-1">
+      {/* `relative`: the overlay and the detail panel position against this row (ReferenceSlotFrame). Its width is
+          `home.contentWidth` (P-LAYOUT-F3 3; two columns default to full); the feed and the column scroll inside it. */}
+      <CenteredColumn width={contentWidth} className="relative flex min-h-0 min-w-0 flex-1" data-home-content="">
         {/* `pt-4`: the docked right column's own inset (ReferenceColumn), so both columns start at the same y. */}
         {/* Table mode (`home.activityView`): the table fills this area and scrolls inside itself, so the area doesn't. */}
         <div
@@ -50,7 +54,7 @@ export function HomeTwoColumn({ feed, side }: { feed: React.ReactNode; side: Rea
           }
           panel={{ ...panel, wanted: showInteriorPanel && panel.wanted }}
         />
-      </div>
+      </CenteredColumn>
     </div>
   );
 }

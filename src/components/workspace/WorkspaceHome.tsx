@@ -1,5 +1,6 @@
 import { Slot } from "@/layout/Slot";
 import { ReferenceSlotFrame } from "./ReferenceSlot";
+import { useHomeContentWidth } from "@/components/home/useHomeContentWidth";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useActiveScheduleItem } from "@/contact-handling/home/useScheduleCards";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
@@ -32,6 +33,7 @@ export function WorkspaceHome() {
     showPageHeader, tabApps, updateHeaderSettings,
   } = useWorkspace();
   const [home] = useSettings("home");
+  const contentWidth = useHomeContentWidth();
   const [{ parts }] = useSettings("layout");
   const [, setHomePreview] = useWorkspaceUiField("homePreview");
   // P-HOME-1: an opened schedule item (meeting, training, task, …) isn't a conversation card, so the page lands
@@ -55,8 +57,11 @@ export function WorkspaceHome() {
               )}
               {/* (The home-top slot's parts are the tab strip's tabs above and the page header's queue chip; its
                   assignments rows, placement "none", became the Active assignments section in P-LAYOUT-F1 B.) */}
-              {/* Body row: main content + interior panel */}
-              <div className="relative flex flex-1 overflow-hidden">
+              {/* Body row: main content + interior panel, full width. Each tab's body centres its own content at
+                  `home.contentWidth` inside its scroller (`useHomeContentWidth`, P-LAYOUT-F3 3), every tab alike; the
+                  header above is always full width. */}
+              <div className="relative flex flex-1 overflow-hidden" data-home-body="">
+
               {/* The Customers tab (table + row panel) and the customer tabs
                   stay mounted while another Home tab shows, so their state
                   survives switching (`keptMountedClass`). Mounted only while
@@ -71,6 +76,7 @@ export function WorkspaceHome() {
                   onAddToast={addToast}
                   onRowClick={customerTable.toggleRow}
                   onOpenFullScreenTab={homeTabs.openCustomer}
+                  contentWidth={contentWidth}
                   isRowOpen={(row) =>
                     interactions.some((i) => i.customerId === row.contactNumber) ||
                     homeTabs.customerTabs.some((t) => t.row.contactNumber === row.contactNumber)
@@ -81,10 +87,11 @@ export function WorkspaceHome() {
                 tabs={homeTabs}
                 onStartInteraction={(contact, channel, phone, skillId) => handleStartCall({ contact, channel, phone, skillId })}
                 onAddToast={addToast}
+                contentWidth={contentWidth}
               />
               {activeDeskTab !== "customers" && !isCustomerTab(activeDeskTab) && (activeDeskTab !== "dashboard" ? (
                 // Any other tab-placed app shows its header-panel content.
-                <AppTabBody key={activeDeskTab} content={contentByPanelKey[activeDeskTab]} />
+                <AppTabBody key={activeDeskTab} content={contentByPanelKey[activeDeskTab]} contentWidth={contentWidth} />
               ) : (
                 <>
                 <HomeDashboard

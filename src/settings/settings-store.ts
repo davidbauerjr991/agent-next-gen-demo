@@ -5,7 +5,7 @@
 // `index.ts`.
 import { getProfileLibrary, isSavedProfileId, resetProfileLibraryForTests } from "./saved-profiles";
 import { settle } from "./settle";
-import { storedPlacementNone, storedRetiredAssignmentsFields, withActiveAssignmentsSection } from "./migrations";
+import { storedPlacementNone, storedRetiredAssignmentsFields, storedTwoColumnWithoutContentWidth, withActiveAssignmentsSection } from "./migrations";
 import { lockedSections, resolveLayers, type LayerProfile, type SectionSource } from "./layers";
 import { getOrgLayers, resetOrgLayersForTests } from "./org-layers";
 import { PROFILE_LABELS, type ProfileId } from "./profiles";
@@ -119,6 +119,12 @@ export function createSettingsStore(
       const read = readSection(key);
       values[key] = read.value;
       stored[key] = read.stored;
+    }
+    // P-LAYOUT-F3 3: a stored two-column Home from before `contentWidth` takes that layout's default, "full" (the
+    // field's own is "max"), written once. A section a profile locks keeps the profile's value.
+    if (stored.home && !isLocked("home") && storedTwoColumnWithoutContentWidth(rawValue("home"))) {
+      values.home = { ...(values.home as SettingsState["home"]), contentWidth: "full" };
+      write("home", values.home as SettingsState["home"]);
     }
     // The org layers over the agent's stored values; nothing is written for them (P-CONFIG-LAYERS). A stored invalid
     // combination heals on load (in memory; the next write stores it). A layout map no layer sets reads through to

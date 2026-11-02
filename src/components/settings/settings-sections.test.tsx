@@ -78,7 +78,8 @@ describe("Settings grouping (P-HOME-1n)", () => {
     const presets = [...layout.querySelectorAll<HTMLElement>("[data-layout-preset]")].map((el) => el.getAttribute("data-layout-preset"));
     // The Activity view is Home's (a look, not a placement); Voice controls location left Voice. The header apps'
     // display rows sit in Workspace → Header & apps, beside each app's checkbox (P-LAYOUT-F3 9; settings-wiring.test).
-    expect(presets).toEqual(["home.layout", "assignments.placement", "ai.displayLocation", "ai.canvasLayout", "voice.controlsLocation"]);
+    // Home content width follows Home layout (P-LAYOUT-F3 3).
+    expect(presets).toEqual(["home.layout", "home.contentWidth", "assignments.placement", "ai.displayLocation", "ai.canvasLayout", "voice.controlsLocation"]);
     expect(h.container.querySelector("[data-settings-group=home] [data-setting='home.activityView']")).not.toBeNull();
     expect(layout.textContent).toContain("Home layout");
     expect(layout.textContent).toContain("AI display");
