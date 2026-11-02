@@ -4,6 +4,7 @@ import { InteriorPanel, LYRA_CARD_MAX_WIDTH } from "@nicecxone/lyra-ui";
 import { ACTION_AREA_MIN_WIDTH } from "@/contact-handling/canvas-registry";
 import { fitsBeside } from "@/contact-handling/assignments-panel-placement";
 import { useReferenceSideGate } from "@/contact-handling/panel-toggles";
+import { useReferenceColumnWidth } from "@/contact-handling/reference-column-width";
 import { assignmentIdFor } from "@/domain";
 import {
   updateAssignmentReference,
@@ -129,7 +130,12 @@ export function ReferenceSlotFrame({
   externalColumn?: boolean;
 }) {
   const anchorRef = useRef<HTMLDivElement>(null);
-  const rowWidth = useReferenceColumnFit(anchorRef);
+  // The column's own width (dragged, kept per browser; the card width otherwise) is what a detail slide-over fills and
+  // what the action area has to leave room for (P-LAYOUT-F4 19, 20). With no column there's only the card width.
+  const column = useReferenceColumnWidth();
+  const hasColumn = headerToggle && (!!reference || externalColumn);
+  const baseWidth = hasColumn ? column.width : LYRA_CARD_MAX_WIDTH;
+  const rowWidth = useReferenceColumnFit(anchorRef, baseWidth);
   const { wanted } = panel;
   // Opened by a click: mounted closed, then opened a frame later (lyra's width transition slides it in); closed by
   // `open`, then unmounted after its transition. Nothing else re-mounts. A frame that mounts already wanted (the
@@ -182,7 +188,8 @@ export function ReferenceSlotFrame({
   const store = useWorkspaceUiStore();
   const [byAssignment] = useWorkspaceUiField("referenceByAssignment");
   const remembered = assignmentKey ? byAssignment[assignmentIdFor(assignmentKey)]?.slideOver : undefined;
-  const openWidth = remembered?.width ?? LYRA_CARD_MAX_WIDTH;
+  // The slide-over fills the column at least: its width is the column's current one unless it was dragged wider.
+  const openWidth = Math.max(remembered?.width ?? 0, baseWidth);
   const remember = (change: Partial<SlideOverState>) => {
     if (!assignmentKey) return;
     updateAssignmentReference(store, assignmentKey, (r) => (r.slideOver.content ? { ...r, slideOver: { ...r.slideOver, ...change } } : r));
@@ -191,8 +198,8 @@ export function ReferenceSlotFrame({
   const [panelWidth, setPanelWidth] = useState(openWidth);
   const [resizing, setResizing] = useState(false);
   useEffect(() => {
-    if (!mounted) setPanelWidth(LYRA_CARD_MAX_WIDTH);
-  }, [mounted]);
+    if (!mounted) setPanelWidth(baseWidth);
+  }, [mounted, baseWidth]);
   // P-LAYOUT-F3 4: the panel docks beside the whole page column (the page's right host, so the page header narrows
   // with the body; AdminShell's right SidePanel) while it, the action area's minimum and the reference column (if
   // any) fit — the one fit rule, `fitsBeside` — and overlays where it is when they don't: over the column (which
@@ -218,7 +225,7 @@ export function ReferenceSlotFrame({
   useLayoutEffect(() => {
     dockedRef.current = docks;
   }, [docks]);
-  const slotWidth = open && !docks ? Math.max(LYRA_CARD_MAX_WIDTH, panelWidth) : LYRA_CARD_MAX_WIDTH;
+  const slotWidth = open && !docks ? Math.max(baseWidth, panelWidth) : baseWidth;
   // The slot's width as the assignments panel's dock rule counts it: the column (widened by a panel over it), or
   // nothing (a docked panel is outside the measured row).
   const reportedWidth = reference || externalColumn ? slotWidth : 0;
@@ -232,7 +239,7 @@ export function ReferenceSlotFrame({
       {/* Measures the row (a hidden child, so the row is its parent). */}
       <div ref={anchorRef} hidden aria-hidden="true" />
       {reference && (
-        <ReferenceColumn width={slotWidth} transition={resizing ? "none" : WIDTH_TRANSITION} title={referenceTitle} headerToggle={headerToggle}>
+        <ReferenceColumn width={slotWidth} transition={resizing ? "none" : WIDTH_TRANSITION} title={referenceTitle} headerToggle={headerToggle} onResizeStateChange={setResizing}>
           {reference}
         </ReferenceColumn>
       )}
@@ -256,8 +263,8 @@ export function ReferenceSlotFrame({
           absoluteBreakpoint={docks ? 0 : Number.POSITIVE_INFINITY}
           containerWidth={docks ? right!.rowWidth : undefined}
           width={openWidth}
-          minWidth={LYRA_CARD_MAX_WIDTH}
-          maxWidth={Math.max(LYRA_CARD_MAX_WIDTH, available - ACTION_AREA_MIN_WIDTH - bodyReserved)}
+          minWidth={baseWidth}
+          maxWidth={Math.max(baseWidth, available - ACTION_AREA_MIN_WIDTH - bodyReserved)}
           onWidthChange={(width) => {
             setPanelWidth(width);
             remember({ width });
@@ -286,7 +293,7 @@ export function ReferenceSlotFrame({
  *  zero width (not laid out; jsdom) keeps the last answer. The row is the
  *  content card minus the docked Contact Details / thread panel, so an open
  *  thread panel under "main" counts. */
-function useReferenceColumnFit(anchorRef: React.RefObject<HTMLElement | null>): number {
+function useReferenceColumnFit(anchorRef: React.RefObject<HTMLElement | null>, columnWidth: number): number {
   const [rowWidth, setRowWidth] = useWorkspaceUiField("regionsRowWidth");
   const [, setFits] = useWorkspaceUiField("referenceColumnFits");
   useLayoutEffect(() => {
@@ -295,12 +302,12 @@ function useReferenceColumnFit(anchorRef: React.RefObject<HTMLElement | null>): 
     const measure = (width: number) => {
       if (width <= 0) return;
       setRowWidth(width);
-      setFits(width >= ACTION_AREA_MIN_WIDTH + LYRA_CARD_MAX_WIDTH);
+      setFits(width >= ACTION_AREA_MIN_WIDTH + columnWidth);
     };
     measure(row.getBoundingClientRect().width);
     const ro = new ResizeObserver(([entry]) => measure(entry.contentRect.width));
     ro.observe(row);
     return () => ro.disconnect();
-  }, [anchorRef, setRowWidth, setFits]);
+  }, [anchorRef, setRowWidth, setFits, columnWidth]);
   return rowWidth;
 }

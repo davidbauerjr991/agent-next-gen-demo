@@ -83,6 +83,7 @@ import { buildCustomerMatchSubhead, CustomerMatchSearchBody } from "./customer-m
    needed here anymore. */
 export function CustomerInformationSidePanel({
   headerless = false,
+  minWidth = 325,
   open,
   pinned,
   onClose,
@@ -122,6 +123,8 @@ export function CustomerInformationSidePanel({
   /** No header at all (title, name link, full screen, close, tabs), and the content card's own surface: AI display
    *  "panel", where the panel is the right column and the page header's toggle its only control (P-LAYOUT-F4 8). */
   headerless?: boolean;
+  /** The drag-resize minimum, px (default 325; the right column's is the card width, P-LAYOUT-F4 19). */
+  minWidth?: number;
   open: boolean;
   pinned: boolean;
   /** Forwarded to `CustomerInformationPanelBody`'s `onOpenConversation` —
@@ -616,7 +619,7 @@ export function CustomerInformationSidePanel({
       // side-panel.tsx) is too narrow for this panel's own content
       // (field labels/values, Latest Interaction card, etc.) to stay
       // legible once dragged all the way down.
-      minWidth={325}
+      minWidth={minWidth}
       // 425 was `SidePanel`'s own implicit default max-width (never passed
       // explicitly before) — now clamped against `containerWidth` too, so
       // a manual drag can't resize past the parent Container's own current

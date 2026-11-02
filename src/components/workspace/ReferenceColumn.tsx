@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { LYRA_CARD_MAX_WIDTH, SidePanel } from "@nicecxone/lyra-ui";
 import { CANVAS_CONTENT_TOP_CLASS } from "@/contact-handling/canvas-registry";
 import { usePanelToggles } from "@/contact-handling/panel-toggles";
+import { useReferenceColumnWidth } from "@/contact-handling/reference-column-width";
 import { cn } from "@/lib/utils";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
@@ -25,7 +26,10 @@ export function ReferenceColumn({
   transition,
   title,
   headerToggle = false,
+  onResizeStateChange,
 }: {
+  /** A drag of the column's edge starts or ends (the frame turns its width transition off meanwhile). */
+  onResizeStateChange?: (resizing: boolean) => void;
   children: ReactNode;
   /** The page header's right toggle drives this column (an interaction's, a kind cell's; P-LAYOUT-F4 7): always a
    *  lyra `SidePanel` on that toggle's state, pinned open beside the action area or closed with a hover flyout. Off
@@ -38,6 +42,7 @@ export function ReferenceColumn({
   title?: string;
 }) {
   const { activeInteraction } = useWorkspace();
+  const size = useReferenceColumnWidth();
   // Measured by whoever mounts this column (`useReferenceColumnFit`, in ReferenceSlotFrame).
   const [docked] = useWorkspaceUiField("referenceColumnFits");
   const [overlayOpen, setOverlayOpen] = useWorkspaceUiField("summariesOverlayOpen");
@@ -80,8 +85,17 @@ export function ReferenceColumn({
         side="right"
         {...toggle.sidePanelProps}
         onPinToggle={undefined}
-        resizable={false}
+        // Resizable in every AI display, from the card width up to what leaves the action area its minimum; the
+        // dragged width is kept per browser (`useReferenceColumnWidth`, P-LAYOUT-F4 19). A slide-over wider than the
+        // column leaves the column's own width alone.
+        resizable
+        minWidth={size.minWidth}
+        maxWidth={size.maxWidth}
         width={width}
+        onWidthChange={(next) => {
+          if (width === size.width) size.onWidthChange(next);
+        }}
+        onResizeStateChange={onResizeStateChange}
         aria-label={title ?? t("Summaries")}
         // The content card's own surface, not SidePanel's grey: the column's structure is its cards and its border
         // (P-LAYOUT-F4 11). Opaque, so the hover flyout still covers the action area.

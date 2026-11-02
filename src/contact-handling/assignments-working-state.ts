@@ -22,9 +22,12 @@ export interface AssignmentsWorkingState {
   /** The reference column is pinned open beside the action area (P-LAYOUT-F4 7); false is closed, its hover flyout
    *  and a click that pins it. `null` until it's set, when it starts pinned (the column as it always was). */
   referencePinned: boolean | null;
+  /** The right column's dragged width, px, in every AI display (P-LAYOUT-F4 19); `null` until dragged (the card
+   *  width). The reader clamps it to the column's bounds (`useReferenceColumnWidth`). */
+  referenceWidth: number | null;
 }
 
-const DEFAULTS: AssignmentsWorkingState = { order: [], panelOpen: null, panelPinned: null, panelWidth: null, referencePinned: null };
+const DEFAULTS: AssignmentsWorkingState = { order: [], panelOpen: null, panelPinned: null, panelWidth: null, referencePinned: null, referenceWidth: null };
 
 /** The old panel's width cookie, if any, moved into the stored state (unless that already has a width), then the
  *  cookie is expired. Runs on the first read. */
@@ -55,6 +58,7 @@ function parse(raw: string | null): AssignmentsWorkingState {
       panelPinned: typeof parsed.panelPinned === "boolean" ? parsed.panelPinned : DEFAULTS.panelPinned,
       panelWidth: typeof parsed.panelWidth === "number" && Number.isFinite(parsed.panelWidth) ? parsed.panelWidth : DEFAULTS.panelWidth,
       referencePinned: typeof parsed.referencePinned === "boolean" ? parsed.referencePinned : DEFAULTS.referencePinned,
+      referenceWidth: typeof parsed.referenceWidth === "number" && Number.isFinite(parsed.referenceWidth) ? parsed.referenceWidth : DEFAULTS.referenceWidth,
     };
   } catch {
     return DEFAULTS;

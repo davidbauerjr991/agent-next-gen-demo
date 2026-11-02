@@ -10,6 +10,7 @@ import {
 } from "@/contact-handling";
 import { HostSlot } from "@/contact-handling/portal-hosts";
 import { hasDockedPanel, usePanelToggles } from "@/contact-handling/panel-toggles";
+import { useReferenceColumnWidth } from "@/contact-handling/reference-column-width";
 import { LUCAS_THOMAS_ID } from "@/contact-handling/scenario-cases";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { AGENT_WORKSPACE_CUSTOMER_PANEL_TABS, CustomerInformationSidePanel } from "@/components/customer-info";
@@ -41,6 +42,7 @@ export function WorkspaceRightPanel({ inColumn = false }: { inColumn?: boolean }
   // The panel as the right column (AI display "panel") is driven by the reference column's toggle, so hover-reveal,
   // click-to-pin and the always-present toggle behave as the reference column's do (P-LAYOUT-F4 16); a thread under
   // "main" and a kind cell's panel keep the docked toggle.
+  const columnSize = useReferenceColumnWidth();
   const toggles = usePanelToggles();
   const dockedToggle = inColumn ? toggles?.reference : toggles?.docked;
   // Under AI display "panel" a conversation's panel is the right column (P-LAYOUT-F4 8): the interaction's row mounts
@@ -196,9 +198,13 @@ export function WorkspaceRightPanel({ inColumn = false }: { inColumn?: boolean }
                   // tracked for the narrow-container guard) for the normal
                   // drag-resized width, so the panel's unpinned/absolute
                   // rendering covers the whole container edge to edge.
-                  width={sidePanelFullScreen ? sidePanelContainerWidth : sidePanelWidth}
+                  // As the right column (`inColumn`) its width is the column's, one rule in every AI display
+                  // (`useReferenceColumnWidth`, P-LAYOUT-F4 19); otherwise the thread panel's own.
+                  width={inColumn ? columnSize.width : sidePanelFullScreen ? sidePanelContainerWidth : sidePanelWidth}
                   containerWidth={sidePanelContainerWidth}
-                  onWidthChange={setSidePanelWidth}
+                  minWidth={inColumn ? columnSize.minWidth : undefined}
+                  maxWidthRatio={inColumn && sidePanelContainerWidth > 0 ? columnSize.maxWidth / sidePanelContainerWidth : undefined}
+                  onWidthChange={inColumn ? columnSize.onWidthChange : setSidePanelWidth}
                   onResizeStateChange={setSidePanelResizing}
                   onAddToast={addToast}
                   recordDraft={activeCustomerRecordDraft}
