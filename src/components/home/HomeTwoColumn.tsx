@@ -45,6 +45,7 @@ export function HomeTwoColumn({ feed, side }: { feed: React.ReactNode; side: Rea
         </div>
         <ReferenceSlotFrame
           referenceTitle={t("Cards")}
+          dockBesideColumn
           reference={
             side.length > 0 && (
               <div className="flex flex-col gap-6" data-home-column="side">

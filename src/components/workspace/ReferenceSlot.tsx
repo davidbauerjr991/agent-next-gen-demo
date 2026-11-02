@@ -44,11 +44,12 @@ function afterNextFrame(run: () => void): () => void {
  *  the record header, sliding in from the right. The cards stay mounted
  *  underneath. The column's slot widens with the panel (its width from
  *  `onWidthChange`), so dragging the panel pushes the action area (never
- *  below `ACTION_AREA_MIN_WIDTH`); full screen covers the row. While the
- *  panel, the action area's minimum and the column (if any) fit
- *  (`fitsBeside`), it docks beside the whole page column instead, in the
- *  page's right host, pushing the page header with the body (P-LAYOUT-F3 4;
- *  with no column it docked as this row's sibling, P-LAYOUT-F1 D). Mount it as
+ *  below `ACTION_AREA_MIN_WIDTH`); full screen covers the row. With no
+ *  column (the stacked canvas, or every card in main), while the panel and the
+ *  action area's minimum fit (`fitsBeside`), it docks beside the whole page
+ *  column instead, in the page's right host, pushing the page header with the
+ *  body (P-LAYOUT-F3 4, P-LAYOUT-F1 D); with a column it is the column's, over
+ *  it, however wide the row (P-LAYOUT-F4 3). Mount it as
  *  the last child of the main column's row, which must be `relative`: both
  *  this slot and the panel measure it, and the panel positions against it. */
 export function ReferenceSlot({ reference }: { reference?: ReactNode }) {
@@ -108,6 +109,7 @@ export function ReferenceSlotFrame({
   panel,
   onSlotWidthChange,
   bodyReserved = 0,
+  dockBesideColumn = false,
 }: {
   reference?: ReactNode;
   referenceTitle?: string;
@@ -116,6 +118,9 @@ export function ReferenceSlotFrame({
   /** Width the body needs beside the panel on top of the action area's minimum (`fitsBeside`'s `reserved`), for a
    *  body that has its own minimum (one-column Home's card grid). */
   bodyReserved?: number;
+  /** With a reference column, dock the panel beside the page column too (while it and the column fit) instead of
+   *  over the column. Two-column Home's detail panel; the interaction's Contact Details overlays the column. */
+  dockBesideColumn?: boolean;
 }) {
   const anchorRef = useRef<HTMLDivElement>(null);
   const rowWidth = useReferenceColumnFit(anchorRef);
@@ -191,11 +196,16 @@ export function ReferenceSlotFrame({
   const available = rowWidth + (dockedRef.current && mounted ? currentPanelWidth : 0);
   // The page row's width must be known too: the docked panel takes it as its container from its first render (a 0
   // there would latch lyra's autoFullScreen).
+  // F4 3 (reverses F3 10's reference-column part for the interaction): with a reference column the panel is that
+  // column's own, over it at its width, never a third column beside it; only with no column does it dock. Two-column
+  // Home's detail panel keeps F3 10's rule (`dockBesideColumn`).
+  const columnReserve = reference && dockBesideColumn ? LYRA_CARD_MAX_WIDTH : 0;
   const docks =
+    (!reference || dockBesideColumn) &&
     !!right &&
     right.rowWidth > 0 &&
     rowWidth > 0 &&
-    fitsBeside({ available, panelWidth: currentPanelWidth, reserved: (reference ? LYRA_CARD_MAX_WIDTH : 0) + bodyReserved });
+    fitsBeside({ available, panelWidth: currentPanelWidth, reserved: columnReserve + bodyReserved });
   // Docked at the last commit (read on the next render to give its width back).
   useLayoutEffect(() => {
     dockedRef.current = docks;
@@ -239,7 +249,7 @@ export function ReferenceSlotFrame({
           containerWidth={docks ? right!.rowWidth : undefined}
           width={openWidth}
           minWidth={LYRA_CARD_MAX_WIDTH}
-          maxWidth={Math.max(LYRA_CARD_MAX_WIDTH, available - ACTION_AREA_MIN_WIDTH - bodyReserved - (docks && reference ? LYRA_CARD_MAX_WIDTH : 0))}
+          maxWidth={Math.max(LYRA_CARD_MAX_WIDTH, available - ACTION_AREA_MIN_WIDTH - bodyReserved - (docks ? columnReserve : 0))}
           onWidthChange={(width) => {
             setPanelWidth(width);
             remember({ width });
