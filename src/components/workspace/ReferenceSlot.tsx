@@ -107,11 +107,15 @@ export function ReferenceSlotFrame({
   referenceTitle,
   panel,
   onSlotWidthChange,
+  bodyReserved = 0,
 }: {
   reference?: ReactNode;
   referenceTitle?: string;
   panel: ReferenceSlotPanel;
   onSlotWidthChange?: (width: number) => void;
+  /** Width the body needs beside the panel on top of the action area's minimum (`fitsBeside`'s `reserved`), for a
+   *  body that has its own minimum (one-column Home's card grid). */
+  bodyReserved?: number;
 }) {
   const anchorRef = useRef<HTMLDivElement>(null);
   const rowWidth = useReferenceColumnFit(anchorRef);
@@ -191,7 +195,7 @@ export function ReferenceSlotFrame({
     !!right &&
     right.rowWidth > 0 &&
     rowWidth > 0 &&
-    fitsBeside({ available, panelWidth: currentPanelWidth, reserved: reference ? LYRA_CARD_MAX_WIDTH : 0 });
+    fitsBeside({ available, panelWidth: currentPanelWidth, reserved: (reference ? LYRA_CARD_MAX_WIDTH : 0) + bodyReserved });
   // Docked at the last commit (read on the next render to give its width back).
   useLayoutEffect(() => {
     dockedRef.current = docks;
@@ -235,7 +239,7 @@ export function ReferenceSlotFrame({
           containerWidth={docks ? right!.rowWidth : undefined}
           width={openWidth}
           minWidth={LYRA_CARD_MAX_WIDTH}
-          maxWidth={Math.max(LYRA_CARD_MAX_WIDTH, available - ACTION_AREA_MIN_WIDTH - (docks && reference ? LYRA_CARD_MAX_WIDTH : 0))}
+          maxWidth={Math.max(LYRA_CARD_MAX_WIDTH, available - ACTION_AREA_MIN_WIDTH - bodyReserved - (docks && reference ? LYRA_CARD_MAX_WIDTH : 0))}
           onWidthChange={(width) => {
             setPanelWidth(width);
             remember({ width });

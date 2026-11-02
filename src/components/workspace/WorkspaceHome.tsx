@@ -1,3 +1,5 @@
+import { LYRA_CONTAINER_GRID_STACK_MAX_WIDTH } from "@nicecxone/lyra-ui";
+import { ACTION_AREA_MIN_WIDTH } from "@/contact-handling/canvas-registry";
 import { Slot } from "@/layout/Slot";
 import { ReferenceSlotFrame } from "./ReferenceSlot";
 import { useHomeContentWidth } from "@/components/home/useHomeContentWidth";
@@ -15,11 +17,16 @@ import { CUSTOMER_PANEL_TABS } from "@/components/customer-info";
 import { ContactHistoryCard } from "@/components/agent-next-gen-contact-history";
 import { tabOrderPatch, useSettings } from "@/settings";
 
+/** One column's cards stay 2-up while the grid's container is wider than lyra's stack width (`.lyra-container-grid`);
+ *  the row is that container plus the dashboard's `px-6` on both sides. `fitsBeside` already holds the action area's
+ *  minimum, so only the excess is reserved. */
+const HOME_CARDS_RESERVED = LYRA_CONTAINER_GRID_STACK_MAX_WIDTH + 1 + 2 * 24 - ACTION_AREA_MIN_WIDTH;
+
 /** Home's detail panel in one column (the queue drill-down, a History entry, a feed preview): the reference slot's
  *  frame with no column, so it docks beside the whole page column while it fits and overlays the body when it
  *  doesn't, as two columns' (HomeTwoColumn) and the interaction's slide-over do (P-LAYOUT-F3 4). */
 function HomeDetailPanel() {
-  return <ReferenceSlotFrame panel={useHomeDetailPanel()} />;
+  return <ReferenceSlotFrame panel={useHomeDetailPanel()} bodyReserved={HOME_CARDS_RESERVED} />;
 }
 
 /** Home: the Home tabs and the dashboard with its docked detail panel
