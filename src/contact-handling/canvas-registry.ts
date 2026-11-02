@@ -59,6 +59,10 @@ export const CONVERSATION_CELL_ID = "conversation";
  *  Provisional, tuned in the browser (as is the column's width token). */
 export const ACTION_AREA_MIN_WIDTH = 480;
 
+/** The space above the first thing in each column of the canvas row (the main column's content and the reference
+ *  column's cards), so the two share one top edge (P-LAYOUT-F4 7). A class, so Tailwind sees it. */
+export const CANVAS_CONTENT_TOP_CLASS = "pt-4";
+
 let cells = new Map<string, CanvasCell>();
 
 /** Adds a cell, or replaces the one with its id (e.g. moves it to the other region). */

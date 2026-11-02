@@ -20,6 +20,8 @@ import { VideoCallFullScreen } from "@/components/agent-next-gen-video-window";
 import { MARCUS_WEBB_SCRIPT } from "@/scenarios/scripts/marcus-webb";
 import { t } from "@/i18n";
 import { CenteredColumn } from "@/layout/CenteredColumn";
+import { CANVAS_CONTENT_TOP_CLASS } from "@/contact-handling/canvas-registry";
+import { cn } from "@/lib/utils";
 import {
   MAYA_CHEN_CALL_COPILOT_LINKS,
   MAYA_CHEN_CALL_COPILOT_SUGGESTIONS,
@@ -70,7 +72,10 @@ export function InteractionBody() {
                             role="region"
                             aria-label={t("Reference cards")}
                             tabIndex={0}
-                            className="flex max-h-[50%] shrink-0 flex-col gap-3 overflow-y-auto px-6 pt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lyra-border-focus"
+                            className={cn(
+                              "flex max-h-[50%] shrink-0 flex-col gap-3 overflow-y-auto px-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lyra-border-focus",
+                              CANVAS_CONTENT_TOP_CLASS,
+                            )}
                             data-slot="canvas-pinned"
                           >
                             {canvas.pinned}

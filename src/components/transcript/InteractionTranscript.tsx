@@ -64,6 +64,7 @@ import { useTranscriptScrollFollow } from "./useTranscriptScrollFollow";
 import { useSessionControls } from "./useSessionControls";
 import { TranscriptLiveMessages } from "./message-list/TranscriptLiveMessages";
 import { CenteredColumn } from "@/layout/CenteredColumn";
+import { CANVAS_CONTENT_TOP_CLASS } from "@/contact-handling/canvas-registry";
 export type { InteractionTranscriptProps };
 
 // `ContactOverview` and its `ContactOverviewInfo` type used to live here as
@@ -688,7 +689,8 @@ export function InteractionTranscript({
                   // same width.
                   // The centring is `CenteredColumn`'s (P-LAYOUT-F3 13: the action area's width, one primitive).
                   className={cn(
-                    "px-6 pt-4",
+                    "px-6",
+                    CANVAS_CONTENT_TOP_CLASS,
                     sessionContentDimmed && "opacity-50 transition-opacity",
                     session.id === lastSessionId && "pb-9"
                   )}

@@ -1,6 +1,8 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { LYRA_CARD_MAX_WIDTH, SidePanel } from "@nicecxone/lyra-ui";
+import { CANVAS_CONTENT_TOP_CLASS } from "@/contact-handling/canvas-registry";
 import { usePanelToggles } from "@/contact-handling/panel-toggles";
+import { cn } from "@/lib/utils";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { t } from "@/i18n";
@@ -70,7 +72,7 @@ export function ReferenceColumn({
           data-canvas-region="reference"
           data-docked="true"
         >
-          <div className="flex flex-col gap-3 p-4">{children}</div>
+          <div className={cn("flex flex-col gap-3 px-4 pb-4", CANVAS_CONTENT_TOP_CLASS)}>{children}</div>
         </div>
       ) : (
         // Overlay: the panel (header, close button, background) over the action area.
@@ -90,7 +92,7 @@ export function ReferenceColumn({
           onMouseLeave={toggle?.sidePanelProps.onMouseLeave}
           data-canvas-region="reference"
         >
-          <div className="flex flex-col gap-3 p-4">{children}</div>
+          <div className={cn("flex flex-col gap-3 px-4 pb-4", CANVAS_CONTENT_TOP_CLASS)}>{children}</div>
         </SidePanel>
       )}
     </>
