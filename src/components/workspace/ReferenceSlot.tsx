@@ -125,10 +125,12 @@ export function ReferenceSlotFrame({
   const anchorRef = useRef<HTMLDivElement>(null);
   const rowWidth = useReferenceColumnFit(anchorRef);
   const { wanted } = panel;
-  // Mounted closed, then opened a frame later (lyra's width transition slides it in); closed by `open`,
-  // then unmounted after its transition. Nothing else re-mounts.
+  // Opened by a click: mounted closed, then opened a frame later (lyra's width transition slides it in); closed by
+  // `open`, then unmounted after its transition. Nothing else re-mounts. A frame that mounts already wanted (the
+  // agent returning to an assignment, or to Home, whose panel was left open: its state outlives the mount, kept per
+  // assignment in the workspace UI store) mounts open, so the entrance isn't replayed (P-LAYOUT-F4 5).
   const [mounted, setMounted] = useState(wanted);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(wanted);
   // Focus comes back to whatever opened it (P-HOME-1n; lyra's InteriorPanel has no focus return of its own): the
   // element focused when it opened, else the `returnFocusSelector` match nearest this row. Only after it was open,
   // and only when focus is in the panel or on the page itself.
