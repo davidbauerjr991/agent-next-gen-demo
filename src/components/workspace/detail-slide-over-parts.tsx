@@ -95,10 +95,13 @@ export function useDetailSlideOverParts(): DetailSlideOverParts {
         ? `${LUCAS_THOMAS_ORDER_DETAILS[content.orderId].orderId} · ${LUCAS_THOMAS_ORDER_DETAILS[content.orderId].ordered}`
         : undefined;
   const onBack =
-    // Orders opened from the purchase-history panel go back to it; orders opened from the docked
-    // Experience Memory view have nothing to go back to inside the slide-out, so no arrow.
+    // A back arrow only where the detail has an origin inside the column (`from`, P-LAYOUT-F4 13): an order opened from
+    // the purchase-history panel goes back to it, one opened from Experience Memory back to Contact Details (still on
+    // its Experience Memory view). Top-level details have none.
     content?.kind === "lucas-order" && content.from === "purchases"
       ? () => setSelectedDetailPanelContent({ kind: "lucas", panel: "purchase-history" })
+      : content?.kind === "lucas-order" && content.from === "memory"
+      ? () => setSelectedDetailPanelContent({ kind: "contactDetails" })
       : content?.kind === "lucas-order"
       ? undefined
       : content?.kind === "article-link"

@@ -1,6 +1,7 @@
 // Contact Details in the reference slide-over (P-HOME-1n: a slot move — the part's slot changed, its component
 // didn't). The same header, tab row, bodies and footer the docked panel built: the record's tabs, its Customer Info
-// drill-in, and the Experience Memory and Artifacts sub-pages with their back arrows. The name comes from the one
+// drill-in, and the Experience Memory and Artifacts sub-pages. A back arrow only where the detail has an origin inside
+// the column (Customer Info from its link; an order from Experience Memory or Purchase history, P-LAYOUT-F4 13). The name comes from the one
 // view-model (`contactDetailsFor`) the hover preview reads too.
 import { ArtifactsListBody } from "@/components/customer-info";
 import {
@@ -26,7 +27,7 @@ export function useContactDetailsSlideOverParts(): DetailSlideOverParts {
     marcusMemoryFocus, openDetailPanelContent, panelArtifacts, reopenPanelArtifact, scenarioKeyOf, setCustomerPanelActiveTab,
   } = useWorkspace();
   const name = contactDetails?.name;
-  // A sub-page's back arrow: Contact Details' first tab.
+  // The Customer Info drill-in's back arrow (its origin is Contact Details, `customerInfoBack`): the first tab.
   const back = () => setCustomerPanelActiveTab("Customer Information");
   const footer = RECORD_VIEWS.has(view) ? customerInfoOverlayContent.footer : undefined;
 
@@ -35,7 +36,7 @@ export function useContactDetailsSlideOverParts(): DetailSlideOverParts {
     return {
       headerTitle: name,
       headerSubhead: t("Experience Memory"),
-      onBack: back,
+      // No back arrow: opened from a card or a link in the main column, it's top-level (P-LAYOUT-F4 13).
       body: (
         <div className="animate-in fade-in-0 duration-200" data-slot="experience-memory">
           {key === MAYA_CHEN_CALL_ID ? (
@@ -58,7 +59,7 @@ export function useContactDetailsSlideOverParts(): DetailSlideOverParts {
     return {
       headerTitle: t("Artifacts"),
       headerSubhead: name,
-      onBack: back,
+      // No back arrow (top-level, as Experience Memory).
       body: (
         <div className="animate-in fade-in-0 duration-200">
           <ArtifactsListBody artifacts={panelArtifacts} onOpenArtifact={reopenPanelArtifact} />

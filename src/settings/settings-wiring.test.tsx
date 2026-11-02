@@ -519,14 +519,13 @@ describe("AI display panel: docked Copilot composer", () => {
     expect(slideOver()).not.toBeNull();
     expect(composer()).not.toBeNull();
 
-    // The Journey Summary's "View Experience Memory" opens Experience Memory in the same slide-over, its back arrow
-    // to Contact Details.
+    // The Journey Summary's "View Experience Memory" opens Experience Memory in the same slide-over, top-level: no
+    // back arrow (P-LAYOUT-F4 13).
     await h.click(document.body.querySelector("[data-slot=right-panel] [data-slot=journey-summary] [aria-expanded]")!);
     await clickText("View Experience Memory");
     expect(slideOver()?.querySelector("[data-slot=experience-memory]")).not.toBeNull();
     expect(composer()).not.toBeNull();
-    await h.click(slideOver()!.querySelector<HTMLElement>('[aria-label="Back"], [aria-label^="Back"]')!);
-    expect(slideOver()?.querySelector("[data-slot=contact-details-tabs]")).not.toBeNull();
+    expect(slideOver()!.querySelector('[aria-label="Back"], [aria-label^="Back"]')).toBeNull();
   });
 
   it("the docked panel is titled Copilot; its customer name opens Customer Info with no back arrow, the card's link with one (P-LAYOUT-F1 F)", async () => {

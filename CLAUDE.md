@@ -178,7 +178,7 @@ Reference implementation: the Lucas Thomas case on the Advanced page (`src/scena
 - First show "AI agent is performing this now…" with a spinner (~1.8s), then replace it with the row alone — do NOT show an "AI agent finished performing this" line.
 - The row whose panel is open gets the selected look (`border-lyra-border-active bg-lyra-status-info-subtle`); clicking it again closes the panel.
 - Chip rows reopen the chip's own panel; a typed question's card opens the instruction panel with a "Copilot result" card, and opens on its own when finished only if the result carries an artifact (changed 2026-10-31, P-LAYOUT-F1 F; it used to auto-open every time).
-- Every panel the agent opens is added to the Artifacts (the Journey Summary card's last section, shown once there's an artifact: the reference column under AI display inline and main, the docked panel's AI Overview under panel) as a re-open link (Experience Memory, Contact Details and Session Details excluded); "View All" appears only above 10 and opens an Artifacts list in the Contact Details slide-over (the reference slot, P-HOME-1n) with a back arrow to Contact Details.
+- Every panel the agent opens is added to the Artifacts (the Journey Summary card's last section, shown once there's an artifact: the reference column under AI display inline and main, the docked panel's AI Overview under panel) as a re-open link (Experience Memory, Contact Details and Session Details excluded); "View All" appears only above 10 and opens an Artifacts list in the Contact Details slide-over (the reference slot, P-HOME-1n), top-level: no back arrow.
 
 **Approval request box**
 - Header: light blue (`bg-lyra-status-info-subtle`), sparkle icon, "Approval request · {agent}" + time, "Copilot summary" + chevron; animates open/closed.
@@ -190,7 +190,7 @@ Reference implementation: the Lucas Thomas case on the Advanced page (`src/scena
 **Autosummary / Contact Details**
 - Autosummary headings are light blue (`autosummaryBlue`: `bg-lyra-status-info-subtle`, blue icon), not a "Needs a Person" tag. In summaries, `[label](key)` creates links that open interior slide-out panels.
 - Real-Time Summary, customer card (subtitle + tags), `detailedSummary` and `snapshot` must reflect the case itself — override them per case in `customerContextOverviewInfo`, never the generic hashed profile.
-- "View Experience Memory" under the Real-Time Summary opens Experience Memory in the Contact Details slide-over (the reference slot, P-HOME-1n; back arrow, customer name, "Experience Memory" subhead). Orders opened from Experience Memory have no back arrow in the slide-out; orders opened from Purchase history keep theirs.
+- "View Experience Memory" under the Real-Time Summary opens Experience Memory in the Contact Details slide-over (the reference slot, P-HOME-1n; customer name, "Experience Memory" subhead, no back arrow: top-level). A back arrow shows only where the detail has an origin inside the column (P-LAYOUT-F4 13): an order opened from Experience Memory returns to it, one opened from Purchase history to that; Customer Info keeps its arrow from its link.
 
 **Approve / Decline / Something else**
 - Approve the Exception reveals a white bordered content area (headline, description, Experience Memory line, card of what will happen, optional knowledge-article row) with a confirm button (e.g. "Authorize and Place Order") — it does not perform immediately.

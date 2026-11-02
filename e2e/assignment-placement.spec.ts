@@ -198,7 +198,7 @@ test("Contact Details and Session Details open in the reference slide-over; the 
   await expect(slideOver.locator("[data-slot=session-slide-over]")).toBeVisible();
 });
 
-test("Experience Memory opens in the reference slide-over, its back arrow to Contact Details", async ({ page }) => {
+test("Experience Memory opens in the reference slide-over, with no back arrow (top-level, P-LAYOUT-F4 13)", async ({ page }) => {
   // Lucas Thomas (dev hotkey A) has an Experience Memory; his Journey Summary links to it.
   await setUp(page, { placement: "leftNav" }, 1800);
   await page.keyboard.press("a");
@@ -210,6 +210,5 @@ test("Experience Memory opens in the reference slide-over, its back arrow to Con
   const slideOver = page.locator("[data-slot=reference-slide-over]");
   await expect(slideOver.locator("[data-slot=experience-memory]")).toBeVisible();
   await expect(page.locator("[data-slot=right-panel][data-open=true]")).toHaveCount(0);
-  await slideOver.getByRole("button", { name: /^Back/ }).first().click();
-  await expect(slideOver).toContainText("Contact Details");
+  await expect(slideOver.getByRole("button", { name: /^Back/ })).toHaveCount(0);
 });
