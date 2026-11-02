@@ -330,11 +330,14 @@ export function useWsOutbound(prev: WsLaunch, late: WorkspaceLate) {
       callEnded: c.type !== "voice" || !!(interaction.closed || interaction.voiceCallEnded),
       // Outbound Calling → Save and Redial (off, or voice off, leaves Save & Dismiss); a digital thread never redials.
       showSaveAndRedial: c.type === "voice" && calling.saveAndRedial,
-      onSaveAndRedial: (anchorEl) =>
+      // The popover: the Outcome trigger (its own footer button unmounts as it closes). The inline wrap-up card: the
+      // Save & Redial button itself, the pad opening above it, end-aligned (P-LAYOUT-F4 14).
+      onSaveAndRedial: (anchorEl, button) =>
         handleOutcomeSaveAndRedial(
           interaction.id,
           c.value ?? c.addressLabel ?? synthesizeChannelAddress("voice", interaction.customerId ?? interaction.id, interaction.customerName),
-          anchorEl
+          surface === "inline" ? button : anchorEl,
+          surface === "inline" ? { side: "top", align: "end" } : undefined
         ),
       onSaveAndDismiss: () => confirmDismiss(() => handleOutcomeSaveAndDismissChannel(interaction, c)),
     };

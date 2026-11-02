@@ -22,6 +22,8 @@ import type { ActivationMode } from "./useContactActivation";
 export interface DialpadRequest {
   phoneNumber: string;
   anchorEl?: HTMLElement | null;
+  /** Which side of `anchorEl` it opens on (lyra's `dialpadRequest.placement`); default below, start-aligned. */
+  placement?: { side?: "top" | "bottom"; align?: "start" | "center" | "end" };
   customerName?: string;
   phoneOptions?: { value: string; label: string }[];
 }
@@ -370,10 +372,10 @@ export function useOutboundDial({
 
   /** Save & Redial from a card's Outcome popover. */
   const openCardRedialPad = useCallback(
-    (interactionId: string, phoneNumber: string, anchorEl: HTMLElement | null) => {
+    (interactionId: string, phoneNumber: string, anchorEl: HTMLElement | null, placement?: DialpadRequest["placement"]) => {
       if (refuseVoice()) return;
       setRedialActiveInteraction({ interactionId, phoneNumber });
-      setDialpadRequest({ phoneNumber, anchorEl });
+      setDialpadRequest({ phoneNumber, anchorEl, ...(placement && { placement }) });
     },
     [refuseVoice],
   );

@@ -393,9 +393,14 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
   // hand-rolled popover. `redialActiveInteraction` (below) is what lets
   // `handleDialpadSubmit` recognize a matching submission as "finish
   // redialing THIS interaction" rather than an unrelated new quick dial.
-  const handleOutcomeSaveAndRedial = (interactionId: string, phoneNumber: string, anchorEl: HTMLElement | null) => {
+  const handleOutcomeSaveAndRedial = (
+    interactionId: string,
+    phoneNumber: string,
+    anchorEl: HTMLElement | null,
+    placement?: { side?: "top" | "bottom"; align?: "start" | "center" | "end" },
+  ) => {
     setOutcomeDraftKey(null);
-    late.outboundDial.openCardRedialPad(interactionId, phoneNumber, anchorEl);
+    late.outboundDial.openCardRedialPad(interactionId, phoneNumber, anchorEl, placement);
   };
   // Formerly drove the record header's own icon-button-cluster Outcome
   // popover and status chip (Consult/Transfer, Outcome, kebab, status
