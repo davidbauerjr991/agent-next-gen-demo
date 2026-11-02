@@ -1,4 +1,4 @@
-import { LYRA_CONTAINER_GRID_STACK_MAX_WIDTH } from "@nicecxone/lyra-ui";
+import { LYRA_CARD_MAX_WIDTH, LYRA_CONTAINER_GRID_STACK_MAX_WIDTH } from "@nicecxone/lyra-ui";
 import { ACTION_AREA_MIN_WIDTH } from "@/contact-handling/canvas-registry";
 import { Slot } from "@/layout/Slot";
 import { ReferenceSlotFrame } from "./ReferenceSlot";
@@ -21,11 +21,23 @@ import { tabOrderPatch, useSettings } from "@/settings";
  *  minimum, so only the excess is reserved. */
 const HOME_CARDS_RESERVED = LYRA_CONTAINER_GRID_STACK_MAX_WIDTH + 1 + 2 * 24 - ACTION_AREA_MIN_WIDTH;
 
-/** Home's detail panel in one column (the queue drill-down, a History entry, a feed preview): the reference slot's
+/** Home's detail panel (the queue drill-down, a History entry, a feed preview), in either layout: the reference slot's
  *  frame with no column, so it docks beside the whole page column while it fits and overlays the body when it
- *  doesn't, as two columns' (HomeTwoColumn) and the interaction's slide-over do (P-LAYOUT-F3 4). */
+ *  doesn't (P-LAYOUT-F3 4). It's mounted at the Home level, beside the tab bodies, not in the Dashboard's: a tab
+ *  change doesn't unmount it, so it stays open without replaying its entrance (P-LAYOUT-F4 4). Its reserve follows
+ *  the layout, not the tab, so a tab change never flips it between docked and overlay (a remount). One column holds
+ *  its card grid 2-up; two columns hold the feed's minimum and the Cards column. */
 function HomeDetailPanel() {
-  return <ReferenceSlotFrame panel={useHomeDetailPanel()} bodyReserved={HOME_CARDS_RESERVED} />;
+  const { showInteriorPanel } = useWorkspace();
+  const [home] = useSettings("home");
+  const [{ parts }] = useSettings("layout");
+  const panel = useHomeDetailPanel();
+  return (
+    <ReferenceSlotFrame
+      panel={{ ...panel, wanted: showInteriorPanel && panel.wanted }}
+      bodyReserved={homeIsTwoColumn(home, parts) ? LYRA_CARD_MAX_WIDTH : HOME_CARDS_RESERVED}
+    />
+  );
 }
 
 /** Home: the Home tabs and the dashboard with its docked detail panel
@@ -35,11 +47,9 @@ export function WorkspaceHome() {
     activeDeskTab, addToast, contactHistory, contentByPanelKey, customerTable,
     handleStartCall, homeTabs,
     interactions, selectedContactHistoryEntry, selectedQueueId,
-    setInteriorPanelOpen, setSelectedContactHistoryEntry, setSelectedQueueId, showInteriorPanel,
+    setInteriorPanelOpen, setSelectedContactHistoryEntry, setSelectedQueueId,
     showPageHeader, tabApps, updateHeaderSettings,
   } = useWorkspace();
-  const [home] = useSettings("home");
-  const [{ parts }] = useSettings("layout");
   const [, setHomePreview] = useWorkspaceUiField("homePreview");
   // P-HOME-1: an opened schedule item (meeting, training, task, …) isn't a conversation card, so the page lands
   // here; its minimal per-kind cell takes the main column until P-HOME-3's kinds registry.
@@ -129,9 +139,10 @@ export function WorkspaceHome() {
                       />
                   }
                 />
-                {showInteriorPanel && !homeIsTwoColumn(home, parts) && <HomeDetailPanel />}
                 </>
               ))}
+              {/* Outside the tab bodies, so a tab change leaves it mounted (P-LAYOUT-F4 4). */}
+              <HomeDetailPanel />
               </div>
                 </div>
   );

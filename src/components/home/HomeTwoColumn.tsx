@@ -25,7 +25,6 @@ export function HomeCardsToggle() {
 }
 
 export function HomeTwoColumn({ feed, side }: { feed: React.ReactNode; side: React.ReactNode[] }) {
-  const { showInteriorPanel } = useWorkspace();
   const panel = useHomeDetailPanel();
   const asTable = usePartOption("activityFeed", "view") === "table";
   const contentWidth = useHomeContentWidth();
@@ -45,7 +44,6 @@ export function HomeTwoColumn({ feed, side }: { feed: React.ReactNode; side: Rea
         </div>
         <ReferenceSlotFrame
           referenceTitle={t("Cards")}
-          dockBesideColumn
           reference={
             side.length > 0 && (
               <div className="flex flex-col gap-6" data-home-column="side">
@@ -53,7 +51,9 @@ export function HomeTwoColumn({ feed, side }: { feed: React.ReactNode; side: Rea
               </div>
             )
           }
-          panel={{ ...panel, wanted: showInteriorPanel && panel.wanted }}
+          // The detail panel isn't here: it lives at the Home level (WorkspaceHome's HomeDetailPanel), so a tab
+          // change doesn't unmount it (P-LAYOUT-F4 4). This frame is the column alone.
+          panel={{ ...panel, wanted: false }}
         />
       </CenteredColumn>
     </div>
