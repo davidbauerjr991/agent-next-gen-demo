@@ -115,9 +115,11 @@ describe("Activity feed on Home", () => {
     expect(header.querySelector("h1")?.textContent).toBe("Hello John");
     expect(header.textContent).toContain("User Name:");
     expect(header.textContent).not.toContain("to decide");
-    // Presence is the header's presence menu: no Go Available here. One line under the whole header, as the record header.
+    // Presence is the header's presence menu: no Go Available here. One line under the whole header: lyra PageHeader's
+    // own border (P-LAYOUT-F3 2: the standard header in every layout; was a class the app added for two columns).
     expect(h.buttonByText("Go Available", header)).toBeUndefined();
-    expect(header.className).toContain("border-b");
+    // No Home tabs here, so the line is the PageHeader's title row's own.
+    expect(header.querySelector(".lyra-page-header-suffix-wrap")?.className).toContain("border-b");
     expect(header.textContent).toContain("My Assignment Queue");
   });
 
@@ -136,7 +138,7 @@ describe("Activity feed on Home", () => {
     expect(h.container.querySelector("[data-home-header] h1")?.textContent).toBe("Hello John");
   });
 
-  it("twoColumn: the welcome header outside the feed's scroll; no toggle while the right column fits; the queue's drill-down opens over the right column, in the feed's row", async () => {
+  it("twoColumn: the page header outside the feed's scroll; no toggle while the right column fits; the queue's drill-down opens over the right column, in the feed's row", async () => {
     turnOn();
     await showHome();
     await setLayout("twoColumn");

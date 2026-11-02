@@ -19,14 +19,14 @@ import {
 import type { CustomerTableState } from "@/components/customer-table-state";
 import { HOME_APP_TAB_LABELS, keptMountedClass, type HomeTabs } from "@/components/home-tabs-state";
 import { WorkspacePageHeader } from "@/components/workspace/WorkspacePageHeader";
-import { useSettings, type ExtraHeaderApp } from "@/settings";
-import { homeIsTwoColumn } from "@/contact-handling/home/home-layout";
-import { HOME_DASHBOARD_WIDTH_CLASS, homeHeaderCentred } from "@/components/home/home-header-width";
+import type { ExtraHeaderApp } from "@/settings";
 import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 
 /** Dashboard, the tab-placed apps (draggable), then the closable customer
- *  tabs. Dashboard has no `key`, so it can't be dragged and stays first. */
+ *  tabs. Dashboard has no `key`, so it can't be dragged and stays first. The page header's tabs row (P-LAYOUT-F3 2,
+ *  lyra PageHeader `tabs`), always full width: the inset is on the TabList itself (lyra's rule: on a wrapper it would
+ *  inset the border too), the header's 24px. */
 export function HomeTabStrip({
   tabs,
   apps,
@@ -36,21 +36,13 @@ export function HomeTabStrip({
   apps: readonly ExtraHeaderApp[];
   onReorder: (order: string[]) => void;
 }) {
-  // The strip lines up with the greeting and the active tab's body (`homeHeaderCentred`, P-LAYOUT-F2 3; reverses
-  // P-LAYOUT-F1 C, ce1f660, which centred it on every one-column tab). On the one-column Dashboard: the greeting's and
-  // the dashboard's centred max-width wrapper, the list with no inset of its own, so the first tab sits on the
-  // content's left edge. Otherwise (an app or customer tab, two columns): full width, the inset on the TabList itself
-  // (lyra's rule: on a wrapper it would inset the border too), its title's 24px.
-  const [home] = useSettings("home");
-  const [{ parts }] = useSettings("layout");
-  const centred = homeHeaderCentred(homeIsTwoColumn(home, parts), tabs.activeTab);
-  const list = (
+  return (
     <TabList
       aria-label={t("Home")}
       overflowMenu
       reorderable
       onReorder={onReorder}
-      className={cn("shrink-0 bg-lyra-bg-surface-base", !centred && "px-6")}
+      className="shrink-0 bg-lyra-bg-surface-base px-6"
       data-slot="home-tabs"
     >
       <Tab active={tabs.activeTab === "dashboard"} onClick={() => tabs.setActiveTab("dashboard")}>
@@ -63,13 +55,6 @@ export function HomeTabStrip({
       ))}
       {customerTabElements(tabs)}
     </TabList>
-  );
-  // The wrappers stay mounted either way (only their classes change), so switching tabs doesn't remount the TabList
-  // and lose the focused tab.
-  return (
-    <div className={cn("shrink-0 bg-lyra-bg-surface-base", centred && "px-6")} data-home-tabs-row="">
-      <div className={cn(centred && "mx-auto w-full", centred && HOME_DASHBOARD_WIDTH_CLASS)}>{list}</div>
-    </div>
   );
 }
 

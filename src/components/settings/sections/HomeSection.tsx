@@ -1,4 +1,4 @@
-// Settings → Home (v3's Settings → Home; P-HOME-1n grouping): the welcome header, the sections and their order, the
+// Settings → Home (v3's Settings → Home; P-HOME-1n grouping): the page header, the sections and their order, the
 // Activity view. Home layout itself is under Settings → Layout.
 import * as React from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";

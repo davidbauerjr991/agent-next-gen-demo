@@ -230,8 +230,8 @@ export interface HomeSection {
 const HOME_SECTIONS_ON_BY_DEFAULT: readonly HomeSectionKey[] = ["queue", "contactHistory", "performance"];
 
 /** oneColumn: today's rows, the feed as one more container row. twoColumn:
- *  the welcome header, the feed as the main column, the other sections
- *  stacked on the right (the wireframe; the AI-first built-in). */
+ *  the feed as the main column, the other sections stacked on the right (the
+ *  wireframe; the AI-first built-in). The page header is the same in both. */
 export const HOME_LAYOUTS = ["oneColumn", "twoColumn"] as const;
 export type HomeLayout = (typeof HOME_LAYOUTS)[number];
 export const HOME_LAYOUT_FIELD = oneOf(HOME_LAYOUTS, {

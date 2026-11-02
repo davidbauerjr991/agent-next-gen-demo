@@ -261,7 +261,7 @@ test("one column: the feed is a row among the sections; two columns: the feed le
     document.querySelector("[data-home-column=side]")!.firstElementChild!.getBoundingClientRect().top,
   ]);
   expect(firstTops[0]).toBe(firstTops[1]);
-  // The welcome header is lyra's PageHeader: the greeting, oneColumn's user-name line as its subtitle (the counts are
+  // The page header is lyra's PageHeader (one form in every layout): the greeting, the user-name line as its subtitle (the counts are
   // on the view buttons), the actions beside.
   const header = page.locator("[data-home-page-header]");
   await expect(header.locator("h1")).toHaveText("Hello John");

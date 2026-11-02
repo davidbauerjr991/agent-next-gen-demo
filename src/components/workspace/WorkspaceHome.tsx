@@ -8,7 +8,7 @@ import { KindCell } from "./kind-cells/KindCell";
 import { AppTabBody, CustomerTabBodies, CustomersTabBody, HomeTabStrip } from "@/components/home-tabs";
 import { isCustomerTab, keptMountedClass } from "@/components/home-tabs-state";
 import { HomeDashboard } from "@/components/home-dashboard";
-import { HomePageHeader } from "@/components/home/HomeGreetingHeader";
+import { HomePageHeader } from "@/components/home/HomePageHeader";
 import { useHomeDetailPanel } from "@/components/home/home-detail-panel";
 import { CUSTOMER_PANEL_TABS } from "@/components/customer-info";
 import { ContactHistoryCard } from "@/components/agent-next-gen-contact-history";
@@ -44,15 +44,17 @@ export function WorkspaceHome() {
   if (activeScheduleItem) return <KindCell key={activeScheduleItem.id} item={activeScheduleItem} />;
   return (
                 <div key="dashboard" className="flex flex-1 flex-col min-w-0 overflow-hidden animate-in fade-in-0 duration-200">
-              {/* The page header first, then the Home tabs, then the tab's body (P-HOME-1m; one column and two). The
-                  page header's actions are the home-top slot's (the queue chip). */}
-              {showPageHeader && <HomePageHeader actions={<Slot id="home-top" region="page-header" />} activeTab={homeTabs.activeTab} />}
-              {/* Home tabs: shown while any app is placed as "tab" (Settings → Layout). */}
-              {showPageHeader && tabApps.length > 0 && (
-                <HomeTabStrip
-                  tabs={homeTabs}
-                  apps={tabApps}
-                  onReorder={(order) => updateHeaderSettings((prev) => tabOrderPatch(prev, order))}
+              {/* The page header, its tabs row Home's tabs, then the tab's body (P-LAYOUT-F3 2: lyra PageHeader in every
+                  layout). Its actions are the home-top slot's (the queue chip); the tabs show while any app is placed
+                  as "tab" (Workspace → Header & apps). */}
+              {showPageHeader && (
+                <HomePageHeader
+                  actions={<Slot id="home-top" region="page-header" />}
+                  tabs={
+                    tabApps.length > 0 ? (
+                      <HomeTabStrip tabs={homeTabs} apps={tabApps} onReorder={(order) => updateHeaderSettings((prev) => tabOrderPatch(prev, order))} />
+                    ) : undefined
+                  }
                 />
               )}
               {/* (The home-top slot's parts are the tab strip's tabs above and the page header's queue chip; its

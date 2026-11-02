@@ -61,6 +61,19 @@ describe("Home: the Dashboard follows Settings → Home", () => {
     expect(h.container.textContent).not.toContain("My Assignment Queue");
   });
 
+  // P-LAYOUT-F3 2: Home's tabs are the header's tabs row; with the header off they still show on their own.
+  it("Show header off keeps Home's tabs, on their own", async () => {
+    await act(async () => {
+      getSettingsStore().update("header", (prev) => ({ apps: { ...prev.apps, customers: { enabled: true, placement: "tab" as const } } }));
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    await h.show(AgentWorkspaceAdvancedPage);
+    expect(h.container.querySelector("[data-home-header] [data-slot=home-tabs]")).not.toBeNull();
+    await setHome({ showHeader: false });
+    expect(h.container.querySelector("[data-home-header]")).toBeNull();
+    expect(h.container.querySelector("[data-home-tabs-row] [data-slot=home-tabs]")).not.toBeNull();
+  });
+
   it("composes the greeting and the first name; a blank greeting falls back to Hello", async () => {
     await h.show(AgentWorkspaceAdvancedPage);
     await setHome({ greeting: "Welcome back" });
