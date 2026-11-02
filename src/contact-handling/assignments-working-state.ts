@@ -19,9 +19,12 @@ export interface AssignmentsWorkingState {
   panelPinned: boolean | null;
   /** The interior panel's dragged width, px; `null` until the agent drags it (the reader clamps it to the panel's bounds). */
   panelWidth: number | null;
+  /** The reference column is pinned open beside the action area (P-LAYOUT-F4 7); false is closed, its hover flyout
+   *  and a click that pins it. `null` until it's set, when it starts pinned (the column as it always was). */
+  referencePinned: boolean | null;
 }
 
-const DEFAULTS: AssignmentsWorkingState = { order: [], panelOpen: null, panelPinned: null, panelWidth: null };
+const DEFAULTS: AssignmentsWorkingState = { order: [], panelOpen: null, panelPinned: null, panelWidth: null, referencePinned: null };
 
 /** The old panel's width cookie, if any, moved into the stored state (unless that already has a width), then the
  *  cookie is expired. Runs on the first read. */
@@ -51,6 +54,7 @@ function parse(raw: string | null): AssignmentsWorkingState {
       panelOpen: typeof parsed.panelOpen === "boolean" ? parsed.panelOpen : DEFAULTS.panelOpen,
       panelPinned: typeof parsed.panelPinned === "boolean" ? parsed.panelPinned : DEFAULTS.panelPinned,
       panelWidth: typeof parsed.panelWidth === "number" && Number.isFinite(parsed.panelWidth) ? parsed.panelWidth : DEFAULTS.panelWidth,
+      referencePinned: typeof parsed.referencePinned === "boolean" ? parsed.referencePinned : DEFAULTS.referencePinned,
     };
   } catch {
     return DEFAULTS;

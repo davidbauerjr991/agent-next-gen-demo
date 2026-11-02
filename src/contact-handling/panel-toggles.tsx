@@ -18,20 +18,12 @@ import { useRailAssignmentCount } from "./home/useScheduleCards";
 import { useWorkspaceUiField } from "./workspace-ui-store";
 import { useWorkspace } from "./workspace/WorkspaceContext";
 
-/** Which right panel the page header's right toggle drives: the reference column's overlay while the column is
- *  mounted and doesn't fit; else the docked panel where the active assignment has one; else none (no toggle). */
+/** Which right panel the page header's right toggle drives: the reference column while the page has one (always
+ *  present, P-LAYOUT-F4 7); else the docked panel where the active assignment has one; else none (no toggle). */
 export type RightPanelTarget = "reference" | "docked" | null;
 
-export function rightPanelTarget({
-  referenceColumn,
-  referenceColumnFits,
-  dockedPanel,
-}: {
-  referenceColumn: boolean;
-  referenceColumnFits: boolean;
-  dockedPanel: boolean;
-}): RightPanelTarget {
-  if (referenceColumn && !referenceColumnFits) return "reference";
+export function rightPanelTarget({ referenceColumn, dockedPanel }: { referenceColumn: boolean; dockedPanel: boolean }): RightPanelTarget {
+  if (referenceColumn) return "reference";
   return dockedPanel ? "docked" : null;
 }
 
@@ -59,8 +51,10 @@ interface PanelToggles {
   /** The active assignment has the docked AI panel to toggle (AI display "panel": its AI Overview). Under "main" the
    *  docked panel only shows a thread, picked from the record header's channel icons, and closes without one. */
   dockedPanel: boolean;
-  /** Whether the reference column doesn't fit beside the main column (it's the overlay). */
-  referenceColumnFits: boolean;
+  /** The right side of a page with a reference column is open (P-LAYOUT-F4 10): the column pinned beside the action
+   *  area, or (where it can't pin) the flyout-only mode, in which the detail panel isn't tied to the column. One
+   *  state for this and one for which detail is open (the slide-over's content); neither resets the other. */
+  referenceSideOpen: boolean;
   /** Every active assignment, the panel's "Assignments (n)": the left toggle's badge (A2). */
   assignmentCount: number;
 }
@@ -91,14 +85,44 @@ export function PanelTogglesProvider({ children }: { children: React.ReactNode }
     pinDisabled: inPanel && !fits,
   });
 
+  // The reference column (P-LAYOUT-F4 7): two states, per browser. Pinned open (the default): it's beside the action
+  // area, pushing it, while it fits (the toggle shows active). Closed: the toggle's hover reveals it as a flyout
+  // (`summariesOverlayOpen`, never stored) and a click on the toggle pins it open; its own header's close, or the
+  // toggle while it's pinned, returns it to closed. Where it doesn't fit beside the action area it's the flyout only
+  // (lyra's `pinDisabled`), the stored choice untouched.
   const [referenceColumnFits] = useWorkspaceUiField("referenceColumnFits");
-  const [summariesOverlayOpen, setSummariesOverlayOpen] = useWorkspaceUiField("summariesOverlayOpen");
-  const reference = useSidePanelToggle({
+  const [flyoutOpen, setFlyoutOpen] = useWorkspaceUiField("summariesOverlayOpen");
+  const { referencePinned } = useAssignmentsWorkingState();
+  const referenceWanted = referencePinned ?? true;
+  const referencePinnedNow = referenceWanted && referenceColumnFits;
+  const pinnedNowRef = React.useRef(referencePinnedNow);
+  pinnedNowRef.current = referencePinnedNow;
+  const setReferencePinned = (pinned: boolean) => {
+    setAssignmentsWorkingState({ referencePinned: pinned });
+    setFlyoutOpen(false);
+  };
+  const referenceHook = useSidePanelToggle({
     side: "right",
-    open: !referenceColumnFits && summariesOverlayOpen,
-    onOpenChange: setSummariesOverlayOpen,
-    pinned: false,
+    open: referencePinnedNow || flyoutOpen,
+    onOpenChange: (open) => {
+      // Pinned, the open state is the pin: closing is unpinning. Otherwise it's the flyout.
+      if (pinnedNowRef.current) {
+        if (!open) setReferencePinned(false);
+      } else setFlyoutOpen(open);
+    },
+    pinned: referenceWanted,
+    onPinnedChange: setReferencePinned,
+    pinDisabled: !referenceColumnFits,
   });
+  const reference: UseSidePanelToggleReturn = {
+    ...referenceHook,
+    pageHeaderProps: {
+      ...referenceHook.pageHeaderProps,
+      // A click pins the column open (closed or a hover flyout), or closes it while it's pinned; where it can't pin,
+      // lyra's own toggle (the flyout).
+      onInnerPanelToggle: referenceColumnFits ? () => setReferencePinned(!referencePinnedNow) : referenceHook.toggle,
+    },
+  };
 
   const {
     activeInteractionIsAgentCall, aiInPanel, channelPreviewThreadKey, interactions, contactSubject, effectiveSidePanelPinned, handleSidePanelClose,
@@ -116,6 +140,22 @@ export function PanelTogglesProvider({ children }: { children: React.ReactNode }
   // A2: a ringing call opens the assignments panel, where its incoming tile is; the nav stays as it was.
   useRevealOnIncomingCall(assignmentsSlot, interactions);
   const assignmentCount = useRailAssignmentCount();
-  const value: PanelToggles = { assignments: inPanel ? assignments : null, reference, docked, dockedPanel, referenceColumnFits, assignmentCount };
+  const value: PanelToggles = { assignments: inPanel ? assignments : null, reference, docked, dockedPanel, referenceSideOpen: referencePinnedNow || !referenceColumnFits, assignmentCount };
   return <PanelTogglesContext.Provider value={value}>{children}</PanelTogglesContext.Provider>;
+}
+
+/** The detail slide-over over a page's reference column (Contact Details, Session Details, a Copilot result; P-LAYOUT-F4
+ *  10, 12). Returns whether it may show: with a column, only while the right side is open, so the record header's
+ *  toggle collapses the column and the open detail together and reopening restores both. Opening a detail (`content`
+ *  changes to a new one) while the right side is collapsed opens it, as the toggle's click does, where the column fits;
+ *  where it doesn't, the detail overlays on its own. */
+export function useReferenceSideGate({ hasColumn, content }: { hasColumn: boolean; content: unknown }): boolean {
+  const open = usePanelToggles()?.referenceSideOpen ?? true;
+  const [fits] = useWorkspaceUiField("referenceColumnFits");
+  const previous = React.useRef(content);
+  React.useEffect(() => {
+    if (content && content !== previous.current && hasColumn && fits) setAssignmentsWorkingState({ referencePinned: true });
+    previous.current = content;
+  }, [content, hasColumn, fits]);
+  return !hasColumn || open;
 }

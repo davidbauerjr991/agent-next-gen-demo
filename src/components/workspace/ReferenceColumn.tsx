@@ -8,12 +8,14 @@ import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { t } from "@/i18n";
 
 /** P-CANVAS: the reference column, at lyra's max card width on the main
- *  column's right edge. Docked while the main column fits the action area's
+ *  column's right edge. Driven by the page header's right toggle (`headerToggle`, P-LAYOUT-F4 7): a lyra `SidePanel`
+ *  pinned open beside the action area while it fits, or closed with the toggle's hover flyout; see `panel-toggles.tsx`.
+ *  Without it (two-column Home) docked while the main column fits the action area's
  *  minimum plus the column: a plain column, the cards straight on the content
  *  card's background (browser pass, 2026-10-22). Otherwise a lyra `SidePanel`
  *  overlay (the same component as Contact Details, with its header and
- *  background) over the action area, opened by the record header's
- *  "Summaries" toggle and closed by its close button or a click outside it. Docked vs. overlay is derived from the measured width,
+ *  background) over the action area, opened by the toolbar's Cards toggle and closed by its close button or a click
+ *  outside it. Docked vs. overlay is derived from the measured width,
  *  never a setting. `ReferenceSlot` mounts it (the last child of the main
  *  column's row, which must be `relative`: the overlay positions against it)
  *  and measures the row. */
@@ -22,8 +24,13 @@ export function ReferenceColumn({
   width = LYRA_CARD_MAX_WIDTH,
   transition,
   title,
+  headerToggle = false,
 }: {
   children: ReactNode;
+  /** The page header's right toggle drives this column (an interaction's, a kind cell's; P-LAYOUT-F4 7): always a
+   *  lyra `SidePanel` on that toggle's state, pinned open beside the action area or closed with a hover flyout. Off
+   *  (two-column Home): the plain column while it fits, else the overlay its own toolbar toggle opens. */
+  headerToggle?: boolean;
   /** The docked slot's width: the card width, or wider while a slide-over over it is (ReferenceSlot). */
   width?: number;
   transition?: string;
@@ -41,8 +48,9 @@ export function ReferenceColumn({
 
   // The overlay closes when the column docks again and when the card changes.
   useEffect(() => {
-    if (docked) setOverlayOpen(false);
-  }, [docked, setOverlayOpen]);
+    // (Not with the header toggle: a closed column's hover flyout opens while it still fits.)
+    if (docked && !headerToggle) setOverlayOpen(false);
+  }, [docked, headerToggle, setOverlayOpen]);
   useEffect(() => {
     setOverlayOpen(false);
   }, [activeInteraction?.id, setOverlayOpen]);
@@ -50,7 +58,7 @@ export function ReferenceColumn({
   // Outside click closes the overlay (the toggle handles its own clicks).
   const open = !docked && overlayOpen;
   useEffect(() => {
-    if (!open) return;
+    if (!open || headerToggle) return;
     const onPointerDown = (e: PointerEvent) => {
       const target = e.target as Element | null;
       if (!target || columnRef.current?.contains(target) || target.closest("[data-summaries-toggle]")) return;
@@ -59,7 +67,32 @@ export function ReferenceColumn({
     };
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [open, setOverlayOpen, toggleId]);
+  }, [open, headerToggle, setOverlayOpen, toggleId]);
+
+  if (headerToggle && toggle) {
+    // Pinned open: beside the action area, pushing it (a `data-docked` column, its lyra border on the leading edge);
+    // closed: nothing in the row, the hover flyout over the action area. No header, pin or close of its own (F4 9):
+    // the record header's toggle is the one control, and the cards start at the column's top edge.
+    const pinned = toggle.pinned && toggle.open;
+    return (
+      <SidePanel
+        ref={columnRef}
+        side="right"
+        {...toggle.sidePanelProps}
+        onPinToggle={undefined}
+        resizable={false}
+        width={width}
+        aria-label={title ?? t("Summaries")}
+        // The content card's own surface, not SidePanel's grey: the column's structure is its cards and its border
+        // (P-LAYOUT-F4 11). Opaque, so the hover flyout still covers the action area.
+        className="bg-lyra-bg-surface-base"
+        data-canvas-region="reference"
+        data-docked={pinned ? "true" : undefined}
+      >
+        <div className={cn("flex flex-col gap-3 px-4 pb-4", CANVAS_CONTENT_TOP_CLASS)}>{children}</div>
+      </SidePanel>
+    );
+  }
 
   return (
     <>

@@ -428,8 +428,8 @@ describe("a slide-over takes the reference slot (inline and main)", () => {
   });
 });
 
-describe("the Summaries overlay when the column doesn't fit", () => {
-  /** The record header's right toggle while it drives the Summaries overlay (lyra PageHeader, P-LAYOUT-F1 A1). */
+describe("the reference column and its record-header toggle", () => {
+  /** The record header's right toggle (lyra PageHeader, P-LAYOUT-F1 A1; always present since P-LAYOUT-F4 7). */
   const summaries = () => h.container.querySelector<HTMLElement>('[data-slot=record-header] button[aria-label="Summaries"]');
   const fits = async (value: boolean) => {
     await act(async () => {
@@ -439,31 +439,76 @@ describe("the Summaries overlay when the column doesn't fit", () => {
   };
   const columnOpen = () => region("reference")!.style.width !== "0px";
 
-  it("the toggle opens the column over the action area; outside click and its close button close it", async () => {
+  it("the toggle is always there: pinned open by default, a click closes it, a click opens it; no header of its own (P-LAYOUT-F4 7, 9)", async () => {
     await open({ displayLocation: "main", canvasLayout: "twoColumn" });
     await CASES.noah();
-    expect(summaries()).toBeNull();
+    // Fits: pinned open beside the action area, the toggle active; the column has no header, pin or close button.
+    expect(summaries()).not.toBeNull();
+    expect(summaries()!.getAttribute("aria-expanded")).toBe("true");
+    expect(region("reference")!.getAttribute("data-docked")).toBe("true");
+    expect(columnOpen()).toBe(true);
+    expect(region("reference")!.textContent).not.toContain("Summaries");
+    expect(region("reference")!.querySelector('button[aria-label="Close panel"]')).toBeNull();
+    // A click closes it, and the choice is kept for this browser.
+    await h.click(summaries()!);
+    expect(summaries()!.getAttribute("aria-expanded")).toBe("false");
+    expect(columnOpen()).toBe(false);
+    expect(JSON.parse(localStorage.getItem("agent-next-gen:working:assignments")!).referencePinned).toBe(false);
+    // A click pins it open again.
+    await h.click(summaries()!);
+    expect(summaries()!.getAttribute("aria-expanded")).toBe("true");
+    expect(region("reference")!.getAttribute("data-docked")).toBe("true");
+    expect(columnOpen()).toBe(true);
+  });
+
+  it("where it doesn't fit beside the action area it's the toggle's flyout only; the pinned choice isn't lost", async () => {
+    await open({ displayLocation: "main", canvasLayout: "twoColumn" });
+    await CASES.noah();
     await fits(false);
     expect(region("reference")!.hasAttribute("data-docked")).toBe(false);
     expect(columnOpen()).toBe(false);
     await h.click(summaries()!);
     expect(summaries()!.getAttribute("aria-expanded")).toBe("true");
     expect(columnOpen()).toBe(true);
-    // Outside click.
-    await act(async () => {
-      region("action")!.dispatchEvent(new Event("pointerdown", { bubbles: true }));
-      await vi.advanceTimersByTimeAsync(50);
-    });
-    expect(columnOpen()).toBe(false);
-    // Its close button.
     await h.click(summaries()!);
-    await h.click(region("reference")!.querySelector<HTMLElement>('button[aria-label="Close panel"]')!);
     expect(columnOpen()).toBe(false);
-    // Fits again: docked, no toggle (under "main" the docked panel is a thread, picked from the channel icons).
+    // Fits again: back to the stored choice (pinned open), still no Details toggle under "main".
     await fits(true);
-    expect(summaries()).toBeNull();
+    expect(region("reference")!.getAttribute("data-docked")).toBe("true");
     expect(h.container.querySelector('[data-slot=record-header] button[aria-label="Details panel"]')).toBeNull();
-    expect(region("reference")!.hasAttribute("data-docked")).toBe(true);
+  });
+
+  it("a detail panel over the column: the toggle stays and closes both, opening restores both; opening a detail while collapsed opens the right side (P-LAYOUT-F4 10, 12)", async () => {
+    await open({ displayLocation: "main", canvasLayout: "twoColumn" });
+    await CASES.noah();
+    const details = () => [...h.container.querySelectorAll<HTMLElement>("button[data-contact-details]")][0];
+    const detailOpen = () => h.container.querySelector("[data-slot=reference-slide-over]") !== null;
+    await h.click(details());
+    await h.advance(400);
+    expect(detailOpen()).toBe(true);
+    // The toggle is still there and active; it collapses the column and the detail together.
+    expect(summaries()!.getAttribute("aria-expanded")).toBe("true");
+    await h.click(summaries()!);
+    await h.advance(400);
+    expect(columnOpen()).toBe(false);
+    expect(detailOpen()).toBe(false);
+    // Opening restores both: the detail where it was.
+    await h.click(summaries()!);
+    await h.advance(400);
+    expect(columnOpen()).toBe(true);
+    expect(detailOpen()).toBe(true);
+    // The detail's own close closes only the detail.
+    await h.click(h.container.querySelector<HTMLElement>('[data-slot=reference-slide-over] button[aria-label^="Close "]')!);
+    await h.advance(400);
+    expect(detailOpen()).toBe(false);
+    expect(columnOpen()).toBe(true);
+    // Collapsed, then a detail opened from its button: the right side opens with it.
+    await h.click(summaries()!);
+    expect(columnOpen()).toBe(false);
+    await h.click(details());
+    await h.advance(400);
+    expect(columnOpen()).toBe(true);
+    expect(detailOpen()).toBe(true);
   });
 
   it("AI display panel: the record header's right toggle opens and closes the docked AI panel (P-LAYOUT-F1 A1)", async () => {

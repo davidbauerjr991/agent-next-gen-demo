@@ -33,6 +33,7 @@ import { KindCopilot, KindCopilotRows } from "./KindCopilot";
 import { KindOutcomeButton } from "./KindOutcomeButton";
 import { KindBody } from "./kind-bodies";
 import { CenteredColumn } from "@/layout/CenteredColumn";
+import { useReferenceSideGate } from "@/contact-handling/panel-toggles";
 
 /** The subject line under the name: the ticket for a task, else the item's title (when a customer names the header). */
 function subjectLine(item: ScheduleItem): string {
@@ -94,7 +95,8 @@ export function KindCell({ item }: { item: ScheduleItem }) {
   const customer = useScheduleItemCustomer(item);
   const regions = useKindCanvasRegions();
   // Always the reference slot: a kind cell has no docked Contact Details for the slide-over to open in instead.
-  const slideOver = useDetailSlideOverPanel({ wanted: !!selectedDetailPanelContent, assignmentKey: scheduleCardKey(item.id) });
+  const sideOpen = useReferenceSideGate({ hasColumn: !!regions.reference, content: selectedDetailPanelContent });
+  const slideOver = useDetailSlideOverPanel({ wanted: !!selectedDetailPanelContent && sideOpen, assignmentKey: scheduleCardKey(item.id) });
   return (
     // P-HOME-1g: the main column's enter fade (the interaction body's, Home's and Settings' `animate-in fade-in-0
     // duration-200`); WorkspaceHome keys the cell on its item, so it replays per item.
@@ -111,7 +113,7 @@ export function KindCell({ item }: { item: ScheduleItem }) {
           compact
           // The right toggle: the reference column's overlay while it doesn't fit, else the docked panel (P-LAYOUT-F1).
           rightPanel
-          referenceColumn={!selectedDetailPanelContent}
+          referenceColumn={!!regions.reference}
           // The customer's avatar, as a conversation's record header shows it (P-HOME-1m). No back arrow: Home is the
           // left nav's, and the X / Return to feed's.
           icon={
@@ -148,6 +150,7 @@ export function KindCell({ item }: { item: ScheduleItem }) {
         <ReferenceSlotFrame
           reference={regions.reference && <div className="contents" data-kind-reference="">{regions.reference}</div>}
           panel={slideOver}
+          headerToggle
         />
       </div>
     </div>

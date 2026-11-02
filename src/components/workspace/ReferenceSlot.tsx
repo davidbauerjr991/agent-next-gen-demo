@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { InteriorPanel, LYRA_CARD_MAX_WIDTH } from "@nicecxone/lyra-ui";
 import { ACTION_AREA_MIN_WIDTH } from "@/contact-handling/canvas-registry";
 import { fitsBeside } from "@/contact-handling/assignments-panel-placement";
+import { useReferenceSideGate } from "@/contact-handling/panel-toggles";
 import { assignmentIdFor } from "@/domain";
 import {
   updateAssignmentReference,
@@ -54,8 +55,9 @@ function afterNextFrame(run: () => void): () => void {
  *  this slot and the panel measure it, and the panel positions against it. */
 export function ReferenceSlot({ reference }: { reference?: ReactNode }) {
   const { activeInteractionId, selectedDetailPanelContent, slideOverMode } = useWorkspace();
+  const sideOpen = useReferenceSideGate({ hasColumn: !!reference, content: selectedDetailPanelContent });
   const panel = useDetailSlideOverPanel({
-    wanted: slideOverMode === "referenceSlot" && !!selectedDetailPanelContent,
+    wanted: slideOverMode === "referenceSlot" && !!selectedDetailPanelContent && sideOpen,
     assignmentKey: activeInteractionId ?? undefined,
   });
   // P-PROFILES: the assignments interior panel's dock rule counts this slot.
@@ -64,7 +66,7 @@ export function ReferenceSlot({ reference }: { reference?: ReactNode }) {
   const onSlotWidthChange = useCallback((width: number) => setReferenceSlotWidth(width), [setReferenceSlotWidth]);
   useEffect(() => () => setReferenceSlotWidth(null), [setReferenceSlotWidth]);
   return (
-    <ReferenceSlotFrame reference={reference} onSlotWidthChange={onSlotWidthChange} panel={panel} />
+    <ReferenceSlotFrame reference={reference} onSlotWidthChange={onSlotWidthChange} panel={panel} headerToggle />
   );
 }
 
@@ -109,6 +111,7 @@ export function ReferenceSlotFrame({
   panel,
   onSlotWidthChange,
   bodyReserved = 0,
+  headerToggle = false,
 }: {
   reference?: ReactNode;
   referenceTitle?: string;
@@ -117,6 +120,8 @@ export function ReferenceSlotFrame({
   /** Width the body needs beside the panel on top of the action area's minimum (`fitsBeside`'s `reserved`), for a
    *  body that has its own minimum (one-column Home's card grid). */
   bodyReserved?: number;
+  /** The column is driven by the page header's right toggle (an interaction's, a kind cell's); see `ReferenceColumn`. */
+  headerToggle?: boolean;
 }) {
   const anchorRef = useRef<HTMLDivElement>(null);
   const rowWidth = useReferenceColumnFit(anchorRef);
@@ -221,7 +226,7 @@ export function ReferenceSlotFrame({
       {/* Measures the row (a hidden child, so the row is its parent). */}
       <div ref={anchorRef} hidden aria-hidden="true" />
       {reference && (
-        <ReferenceColumn width={slotWidth} transition={resizing ? "none" : WIDTH_TRANSITION} title={referenceTitle}>
+        <ReferenceColumn width={slotWidth} transition={resizing ? "none" : WIDTH_TRANSITION} title={referenceTitle} headerToggle={headerToggle}>
           {reference}
         </ReferenceColumn>
       )}

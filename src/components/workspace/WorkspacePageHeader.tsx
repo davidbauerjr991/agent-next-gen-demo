@@ -28,7 +28,7 @@ export const WorkspacePageHeader = React.forwardRef<HTMLDivElement, WorkspacePag
   const assignmentCount = toggles?.assignmentCount ?? 0;
   const target =
     toggles && rightPanel
-      ? rightPanelTarget({ referenceColumn, referenceColumnFits: toggles.referenceColumnFits, dockedPanel: toggles.dockedPanel })
+      ? rightPanelTarget({ referenceColumn, dockedPanel: toggles.dockedPanel })
       : null;
   const right = target === "reference" ? toggles!.reference : target === "docked" ? toggles!.docked : null;
   const panelToggle = left && right ? "both" : left ? "left" : right ? "right" : undefined;
