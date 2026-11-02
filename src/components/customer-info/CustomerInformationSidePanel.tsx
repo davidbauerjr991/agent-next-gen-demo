@@ -493,7 +493,8 @@ export function CustomerInformationSidePanel({
       // Headerless (AI display "panel", P-LAYOUT-F4 8): the page header's toggle is the only control, and the panel is
       // the right column on the content card's own surface.
       className={headerless ? "bg-lyra-bg-surface-base" : undefined}
-      aria-label={headerless ? headerTitleOverride : undefined}
+      // (Spread only when headerless: an explicit undefined would replace SidePanel's own label from its title.)
+      {...(headerless && { "aria-label": headerTitleOverride })}
       headerSubhead={
         headerless ? undefined :
         matchState?.step === "search"
