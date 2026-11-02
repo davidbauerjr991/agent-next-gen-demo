@@ -1,41 +1,27 @@
 // Settings → Layout (P-LAYOUT): where the workspace's parts go, as one map (`layout.parts`). Presets first: a
 // ToggleGroup per legacy placement field (Workspace's old Layout sub-group, labels unchanged, plus the voice
-// controls' location and each enabled header app's display: their one place, P-LAYOUT-F1 E), each writing its
-// field, which moves its parts; "Custom" when the map matches no value. Then Advanced: every part of a page by slot, dragged between the slots it allows, beside a live
+// controls' location, P-LAYOUT-F1 E; each header app's display sits beside its checkbox in Workspace → Header & apps
+// since P-LAYOUT-F3 9), each writing its field, which moves its parts; "Custom" when the map matches no value. Then Advanced: every part of a page by slot, dragged between the slots it allows, beside a live
 // preview. The applied profile's `layout` lock makes all of it read-only.
 import * as React from "react";
-import { Accordion, Button, Label, Switch, Tag, ToggleGroup } from "@nicecxone/lyra-ui";
-import { DisabledReason } from "@/contact-handling/DisabledReason";
+import { Accordion, Button, Switch, ToggleGroup } from "@nicecxone/lyra-ui";
 import { t } from "@/i18n";
-import { PRESET_FIELDS, type LegacyField } from "@/layout/presets";
 import type { Page } from "@/layout/slots";
 import {
   AI_CANVAS_LAYOUT_FIELD,
   ASSIGNMENTS_PLACEMENT_FIELD,
   ASSIGNMENTS_PLACEMENT_OPTIONS,
-  EXTRA_HEADER_APPS,
   HOME_LAYOUT_FIELD,
   LAYOUT_ADVANCED_FIELD,
   resetLayoutToProfile,
-  useLayoutPreset,
   useSectionLocked,
   useSettingDisabledBy,
   useSettings,
-  type SettingPath,
 } from "@/settings";
-import { LockScope, Section, SettingsGroup } from "../settings-parts";
-import { AGENT_CHAT_DISPLAY_OPTIONS, APP_DISPLAY_OPTIONS, EXTRA_APP_LABELS } from "../header-app-options";
+import { Section, SettingsGroup } from "../settings-parts";
+import { LayoutPresetRow, type PresetRow } from "./LayoutPresetRow";
 import { LayoutAdvanced } from "./LayoutAdvanced";
 import { LayoutPreview } from "./LayoutPreview";
-
-interface PresetRow {
-  field: string;
-  label: string;
-  /** ICU values for `label`. */
-  labelValues?: Record<string, string>;
-  help?: string;
-  options: { value: string; label: string; description?: string }[];
-}
 
 const PRESET_ROWS: readonly PresetRow[] = [
   {
@@ -85,69 +71,12 @@ const PRESET_ROWS: readonly PresetRow[] = [
   },
 ];
 
-/** The header apps' rows (moved from Settings → Workspace, P-LAYOUT-F1 E): one per app Workspace enables. */
-function useHeaderAppRows(): PresetRow[] {
-  const [header] = useSettings("header");
-  if (!header.showAppIcons) return [];
-  return [
-    ...(header.agentChat.enabled
-      ? [{ field: "header.agentChat.placement", label: "Agent chat display", options: AGENT_CHAT_DISPLAY_OPTIONS }]
-      : []),
-    ...EXTRA_HEADER_APPS.filter((app) => header.apps[app].enabled).map((app) => ({
-      field: `header.apps.${app}.placement`,
-      label: "{app} display",
-      labelValues: { app: t(EXTRA_APP_LABELS[app]) },
-      options: APP_DISPLAY_OPTIONS,
-    })),
-  ];
-}
-
-const fieldFor = (id: string): LegacyField => PRESET_FIELDS.find((f) => f.id === id)!;
-
-function LayoutPresetRow({ row }: { row: PresetRow }) {
-  const field = fieldFor(row.field);
-  const [value, apply] = useLayoutPreset(field);
-  const unused = useSettingDisabledBy(row.field as SettingPath);
-  const labelId = React.useId();
-  const noteId = React.useId();
-  const description = row.options.find((o) => o.value === value)?.description;
-  return (
-    // The field's own section lock as well as the group's: the store refuses a write to either.
-    <LockScope lockKey={field.section}>
-      <div className="flex flex-col gap-1.5" data-layout-preset={row.field}>
-        <span className="flex items-center gap-2">
-          <Label id={labelId} label={t(row.label, row.labelValues)} labelHelpText={row.help && t(row.help)} />
-          {value === undefined && <Tag variant="neutral" label={t("Custom")} />}
-        </span>
-        <DisabledReason reason={unused ? t(unused.reason) : undefined} className="flex w-fit">
-          <ToggleGroup
-            ariaLabelledBy={labelId}
-            // The reason (or the value's description) under it, read on entering the group (lyra F1-L2).
-            ariaDescribedBy={unused || description ? noteId : undefined}
-            items={row.options.map((o) => ({ value: o.value, label: t(o.label) }))}
-            value={value ?? ""}
-            disabled={!!unused}
-            onValueChange={apply}
-          />
-        </DisabledReason>
-        {/* The reason as text too: a disabled control takes no focus, so its tooltip alone never reaches the keyboard. */}
-        {unused ? (
-          <p id={noteId} className="lyra-body-sm text-lyra-fg-secondary">{t(unused.reason)}</p>
-        ) : (
-          description && <p id={noteId} className="lyra-body-sm text-lyra-fg-secondary">{t(description)}</p>
-        )}
-      </div>
-    </LockScope>
-  );
-}
-
 export function LayoutSection() {
   const [page, setPage] = React.useState<Page>("interaction");
   const pageLabelId = React.useId();
   const locked = useSectionLocked("layout");
   const [{ advanced: advancedOn }, updateLayout] = useSettings("layout");
   const advancedOff = useSettingDisabledBy("layout.parts");
-  const headerAppRows = useHeaderAppRows();
   const advanced = (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
@@ -183,7 +112,7 @@ export function LayoutSection() {
         data-setting="layout.advanced"
       />
       <Section title={t("Presets")}>
-        {[...PRESET_ROWS, ...headerAppRows].map((row) => (
+        {PRESET_ROWS.map((row) => (
           <LayoutPresetRow key={row.field} row={row} />
         ))}
       </Section>

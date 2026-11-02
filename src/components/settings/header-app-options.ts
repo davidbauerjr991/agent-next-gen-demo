@@ -1,5 +1,5 @@
-// The header apps' names and display choices: Settings → Workspace lists the apps (enable), Settings → Layout
-// places them (one preset row each, P-LAYOUT-F1 E).
+// The header apps' names and display choices: Settings → Workspace lists the apps (enable), each with its display
+// row beside its checkbox (P-LAYOUT-F3 9; in Settings → Layout from P-LAYOUT-F1 E until then).
 import type { ExtraHeaderApp } from "@/settings";
 
 export const EXTRA_APP_LABELS: Record<ExtraHeaderApp, string> = {

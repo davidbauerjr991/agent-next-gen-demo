@@ -189,15 +189,16 @@ describe("Header: Show app icons", () => {
     expect(panelTitleShown()).toBe(true);
   });
 
-  it("each app's display row (Settings → Layout, its one place since P-LAYOUT-F1 E) shows only while the app is checked in Workspace", async () => {
+  // P-LAYOUT-F3 9 (reverses F1 E2's move into Layout): beside each app's checkbox in Workspace → Header & apps.
+  it("each app's display row sits beside its checkbox in Workspace (its one place), shown only while the app is checked", async () => {
     await h.show(AgentWorkspaceAdvancedPage);
     await setSettings("header", { showAppIcons: true });
     await openSettings();
-    const row = (field: string) => h.container.querySelector(`[data-settings-group=layout] [data-layout-preset="${field}"]`);
-    // None in Workspace any more.
-    const workspace = h.container.querySelector("[data-settings-group=workspace]")!.textContent;
-    expect(workspace).not.toContain("Agent chat display");
-    expect(workspace).not.toContain("Customers display");
+    const row = (field: string) => h.container.querySelector(`[data-settings-group=workspace] [data-layout-preset="${field}"]`);
+    // None in Layout any more.
+    const layout = h.container.querySelector("[data-settings-group=layout]")!.textContent;
+    expect(layout).not.toContain("Agent chat display");
+    expect(layout).not.toContain("Customers display");
 
     // Agent chat starts checked.
     expect(row("header.agentChat.placement")?.textContent).toContain("Agent chat display");

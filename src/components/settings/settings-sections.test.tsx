@@ -71,13 +71,13 @@ describe("Settings grouping (P-HOME-1n)", () => {
     expect(profile.getAttribute("aria-labelledby")).toBeNull();
   });
 
-  it("Settings → Layout's presets hold Workspace's old Layout controls, labels unchanged, the voice controls and each enabled header app's display: one place per setting (P-LAYOUT, P-LAYOUT-F1 E)", async () => {
+  it("Settings → Layout's presets hold Workspace's old Layout controls, labels unchanged, and the voice controls: one place per setting (P-LAYOUT, P-LAYOUT-F1 E)", async () => {
     await h.render(<SettingsView />);
     expect(groups()[0].textContent).not.toContain("Home layout");
     const layout = groups()[1];
     const presets = [...layout.querySelectorAll<HTMLElement>("[data-layout-preset]")].map((el) => el.getAttribute("data-layout-preset"));
     // The Activity view is Home's (a look, not a placement); Voice controls location left Voice. The header apps'
-    // rows join while app icons are on (settings-wiring.test).
+    // display rows sit in Workspace → Header & apps, beside each app's checkbox (P-LAYOUT-F3 9; settings-wiring.test).
     expect(presets).toEqual(["home.layout", "assignments.placement", "ai.displayLocation", "ai.canvasLayout", "voice.controlsLocation"]);
     expect(h.container.querySelector("[data-settings-group=home] [data-setting='home.activityView']")).not.toBeNull();
     expect(layout.textContent).toContain("Home layout");

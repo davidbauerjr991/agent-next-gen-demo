@@ -1,6 +1,7 @@
 // Settings → Workspace (P-HOME-1n grouping): the profile, the persona, the header and its apps, and AI assist. The
 // layout controls moved to Settings → Layout (P-LAYOUT). Presentation only: each control writes the store section it
-// always did, and that section's lock disables it. The apps are enabled here and placed in Layout (P-LAYOUT-F1 E).
+// always did, and that section's lock disables it. The apps are enabled here, each with its display beside it
+// (P-LAYOUT-F3 9; placed in Layout from P-LAYOUT-F1 E until then).
 import * as React from "react";
 import { Checkbox, RadioGroup, RadioGroupItem, Select } from "@nicecxone/lyra-ui";
 import { t } from "@/i18n";
@@ -20,7 +21,18 @@ import {
 import { ProfileSettings } from "../ProfileSettings";
 import { IntSettingInput } from "../IntSettingInput";
 import { Pending, Section, SettingsGroup, SwitchRow } from "../settings-parts";
-import { EXTRA_APP_LABELS } from "../header-app-options";
+import { AGENT_CHAT_DISPLAY_OPTIONS, APP_DISPLAY_OPTIONS, EXTRA_APP_LABELS } from "../header-app-options";
+import { LayoutPresetRow, type PresetRow } from "./LayoutPresetRow";
+
+/** An enabled app's display, indented under its checkbox. It moves a part, so the layout lock holds it too, as it
+ *  did inside Settings → Layout (the store refuses a derived layout write to a locked section). */
+function AppDisplayRow({ row }: { row: PresetRow }) {
+  return (
+    <div className="ms-7">
+      <LayoutPresetRow row={row} lockKey="layout" />
+    </div>
+  );
+}
 
 const PERSONA_LABELS: Record<Persona, string> = {
   agent: "Agent",
@@ -70,19 +82,29 @@ export function WorkspaceSection({ first }: { first?: boolean }) {
               />
               <Pending>Chat drawer arrives in P0.9.3</Pending>
             </div>
+            {header.agentChat.enabled && (
+              <AppDisplayRow row={{ field: "header.agentChat.placement", label: "Agent chat display", options: AGENT_CHAT_DISPLAY_OPTIONS }} />
+            )}
             <Checkbox label="Notifications" checked={header.notifications} onCheckedChange={(c) => updateHeader({ notifications: !!c })} />
             <div className="flex items-center gap-2">
               <Checkbox label="Apps grid" checked={header.appsGrid} onCheckedChange={(c) => updateHeader({ appsGrid: !!c })} />
               <Pending>Embedded apps arrive in P7.6</Pending>
             </div>
-            {/* Where each enabled app shows is a placement: Settings → Layout's presets (P-LAYOUT-F1 E). */}
+            {/* Where each enabled app shows, beside its checkbox: its one place (P-LAYOUT-F3 9; was Settings → Layout's
+                presets, P-LAYOUT-F1 E). The same preset row, so the layout lock and Advanced layout still disable it. */}
             {EXTRA_HEADER_APPS.map((app) => (
-              <Checkbox
-                key={app}
-                label={t(EXTRA_APP_LABELS[app])}
-                checked={header.apps[app].enabled}
-                onCheckedChange={(c) => updateHeader((prev) => ({ apps: { ...prev.apps, [app]: { ...prev.apps[app], enabled: !!c } } }))}
-              />
+              <React.Fragment key={app}>
+                <Checkbox
+                  label={t(EXTRA_APP_LABELS[app])}
+                  checked={header.apps[app].enabled}
+                  onCheckedChange={(c) => updateHeader((prev) => ({ apps: { ...prev.apps, [app]: { ...prev.apps[app], enabled: !!c } } }))}
+                />
+                {header.apps[app].enabled && (
+                  <AppDisplayRow
+                    row={{ field: `header.apps.${app}.placement`, label: "{app} display", labelValues: { app: t(EXTRA_APP_LABELS[app]) }, options: APP_DISPLAY_OPTIONS }}
+                  />
+                )}
+              </React.Fragment>
             ))}
           </div>
         )}

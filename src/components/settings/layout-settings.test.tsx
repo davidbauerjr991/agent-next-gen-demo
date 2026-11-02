@@ -103,6 +103,8 @@ describe("the Advanced layout switch (P-LAYOUT-F1 E)", () => {
   });
 
   it("on: every placement preset is disabled with its reason, and Advanced opens", async () => {
+    // App icons on, so Workspace shows the header apps' display rows (Agent chat starts enabled).
+    await act(async () => getSettingsStore().update("header", { showAppIcons: true }));
     await h.render(<SettingsView />);
     // The group's first switch: Advanced layout, above the presets.
     await h.click(h.container.querySelector<HTMLElement>("[data-settings-group=layout] button[role=switch]")!);
@@ -115,6 +117,12 @@ describe("the Advanced layout switch (P-LAYOUT-F1 E)", () => {
       const group = row.querySelector("[role=radiogroup]")!;
       expect(document.getElementById(group.getAttribute("aria-describedby") ?? "")?.textContent, field).toBe("Advanced layout is on.");
     }
+    // The header apps' display rows, in Workspace beside their checkboxes (P-LAYOUT-F3 9), are disabled the same way.
+    const agentChat = h.container.querySelector<HTMLElement>("[data-settings-group=workspace] [data-layout-preset='header.agentChat.placement']");
+    expect(agentChat).not.toBeNull();
+    expect([...agentChat!.querySelectorAll("[role=radio]")].every((r) => r.hasAttribute("disabled"))).toBe(true);
+    const appGroup = agentChat!.querySelector("[role=radiogroup]")!;
+    expect(document.getElementById(appGroup.getAttribute("aria-describedby") ?? "")?.textContent).toBe("Advanced layout is on.");
     await h.click(advancedTrigger());
     expect(advancedTrigger().getAttribute("aria-expanded")).toBe("true");
   });
@@ -276,9 +284,13 @@ describe("the layout lock (P-LAYOUT)", () => {
     await press("customerInfo", "ArrowLeft");
     expect(values().layout.parts).toBe(before);
     expect(slotOf("customerInfo")).toBe("reference");
-    // The presets, the voice controls' and the header apps' display among them, are inside the locked group.
+    // The presets, the voice controls' among them, are inside the locked group. The header apps' displays sit in
+    // Workspace beside their checkboxes (P-LAYOUT-F3 9), still held by the layout lock.
     expect(layout.querySelector("[data-layout-preset='voice.controlsLocation']")).not.toBeNull();
-    expect(layout.querySelector("[data-layout-preset='header.apps.customers.placement']")).not.toBeNull();
+    expect(layout.querySelector("[data-layout-preset='header.apps.customers.placement']")).toBeNull();
+    const appRow = h.container.querySelector("[data-settings-group=workspace] [data-layout-preset='header.apps.customers.placement']");
+    expect(appRow).not.toBeNull();
+    expect(appRow!.closest<HTMLFieldSetElement>("fieldset[data-section-locked]")?.disabled).toBe(true);
     // Elsewhere: Home's activity view sits in the lock's read-only scope, with its tag.
     const lockedScope = (el: Element | null) => el?.closest<HTMLFieldSetElement>("fieldset[data-section-locked]");
     const activityView = h.container.querySelector("[data-setting='home.activityView']");
