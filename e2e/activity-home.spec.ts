@@ -270,7 +270,7 @@ test("one column: the feed is a row among the sections; two columns: the feed le
   await expect(header).toContainText("My Assignment Queue");
 });
 
-test("two columns: the header stays put, the feed and the right column scroll on their own, the column docks with no toggle and is the overlay only when it doesn't fit, and Home's panels open over the right column", async ({ page }) => {
+test("two columns: the header stays put, the feed and the right column scroll on their own, the column docks with no toggle and is the overlay only when it doesn't fit, and Home's panels dock beside the page column", async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 640 });
   await page.addInitScript((home) => {
     localStorage.setItem("agent-next-gen:settings:home", JSON.stringify({ ...home, value: { ...home.value, layout: "twoColumn" } }));
@@ -307,25 +307,26 @@ test("two columns: the header stays put, the feed and the right column scroll on
   await expect(side).toBeVisible();
   await expect(page.locator("[data-summaries-toggle]")).toHaveCount(0);
 
-  // The queue is one compact card; a row opens the skills drill-down over the right column, beside the feed (never
-  // over it): the interaction's slide-over layout, whose slot widens as the panel is dragged, pushing the feed.
-  const feedWidth = (await feedScroll.boundingBox())!.width;
+  // The queue is one compact card; a row opens the skills drill-down. P-LAYOUT-F3 4 (Dave: the same rule as one
+  // column and the interaction; was over the right column): while it fits, it docks beside the whole page column, so
+  // the page header narrows with the body; the right column stays docked, and the feed is what gives way.
   await page.locator('[data-home-card="queueList"] [data-queue-row="2"]').click();
   const panel = page.locator('[data-slot="home-detail-panel"]');
   await expect(panel.locator('[data-home-detail="queue"]')).toBeVisible();
   await expect(panel).toContainText("Skills");
-  const feedBox = (await feedScroll.boundingBox())!;
+  await expect(page.locator("[data-slot=page-right-host] [data-slot=home-detail-panel]")).toHaveCount(1);
+  await page.waitForTimeout(500); // the slide-in
+  const headerBox = (await header.boundingBox())!;
   const panelBox = (await panel.boundingBox())!;
-  expect(panelBox.x).toBeGreaterThanOrEqual(feedBox.x + feedBox.width - 1);
-  expect(Math.abs(feedBox.width - feedWidth)).toBeLessThan(2);
+  expect(Math.abs(headerBox.x + headerBox.width - panelBox.x)).toBeLessThanOrEqual(1);
+  await expect(side).toBeVisible();
 
   // A Contact History row's preview opens in the same place (its earlier contacts: History's range widened).
   await view(page, "History").click();
   await historyRange(page, "Last 7 days");
   await feed(page).locator('[data-feed-row^="history:"]').first().click();
   await expect(panel.locator('[data-home-detail="history"]')).toBeVisible();
-  const historyBox = (await panel.boundingBox())!;
-  expect(historyBox.x).toBeGreaterThanOrEqual(feedBox.x + feedBox.width - 1);
+  await expect(page.locator("[data-slot=page-right-host] [data-slot=home-detail-panel]")).toHaveCount(1);
 });
 
 test("a kind card's Outcome popover opens below its button, aligned to its end, as a conversation row's does", async ({ page }) => {

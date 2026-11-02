@@ -306,7 +306,9 @@ describe("a slide-over takes the reference slot (inline and main)", () => {
     [1400, true],
     [700, false],
   ] as const) {
-    it(`stacked, a ${width}px row: the slide-over ${docks ? "docks beside the action area and the assignments panel's rule counts its width" : "overlays and counts for nothing"} (P-LAYOUT-F1 D)`, async () => {
+    // P-LAYOUT-F3 4: docked, it's beside the whole page column (the page's right host), outside the row the
+    // assignments panel's rule measures, so it reserves nothing there (was this row's sibling, counted at its width).
+    it(`stacked, a ${width}px row: the slide-over ${docks ? "docks beside the page column, outside the measured row" : "overlays"} and the assignments panel's rule reserves nothing (P-LAYOUT-F1 D, P-LAYOUT-F3 4)`, async () => {
       const rect = vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({ width, height: 800, x: 0, y: 0, top: 0, left: 0, right: width, bottom: 800, toJSON: () => ({}) } as DOMRect);
       try {
         await open({ displayLocation: "inline", canvasLayout: "stacked" });
@@ -316,7 +318,8 @@ describe("a slide-over takes the reference slot (inline and main)", () => {
         await h.advance(2_500);
         expect(slideOver()).not.toBeNull();
         expect(slideOver()!.className.includes("absolute")).toBe(!docks);
-        expect(getWorkspaceUiStore(h.provider).getState().referenceSlotWidth).toBe(docks ? LYRA_CARD_MAX_WIDTH : 0);
+        expect(!!slideOver()!.closest("[data-slot=page-right-host]")).toBe(docks);
+        expect(getWorkspaceUiStore(h.provider).getState().referenceSlotWidth).toBe(0);
       } finally {
         rect.mockRestore();
       }
@@ -324,7 +327,8 @@ describe("a slide-over takes the reference slot (inline and main)", () => {
   }
 
   for (const displayLocation of ["inline", "main"] as const) {
-    it(`AI display ${displayLocation}: it overlays the reference cards, which stay mounted (the same nodes) before, during and after`, async () => {
+    // P-LAYOUT-F3 4: the harness's row is wide, so it docks beside the page column (was over the cards).
+    it(`AI display ${displayLocation}: it docks beside the page column while it fits; the reference cards stay mounted (the same nodes) before, during and after`, async () => {
       await open({ displayLocation, canvasLayout: "twoColumn" });
       await CASES.noah();
       expect(region("reference")).not.toBeNull();
@@ -339,9 +343,9 @@ describe("a slide-over takes the reference slot (inline and main)", () => {
       await h.advance(2_500);
       expect(slideOver()).not.toBeNull();
       expect(slideOver()!.textContent).toContain(text);
-      // The action area's sibling in the row, not inside it; lyra's overlay layout, over the cards.
-      expect(slideOver()!.parentElement).toBe(region("action")!.parentElement);
-      expect(slideOver()!.className).toContain("absolute");
+      // In the page's right host, beside the page column; not the overlay; the column and its cards stay.
+      expect(slideOver()!.closest("[data-slot=page-right-host]")).not.toBeNull();
+      expect(slideOver()!.className).not.toContain("absolute");
       expect([...region("reference")!.querySelectorAll("[data-canvas-cell]")]).toEqual(cards);
 
       // Close: still mounted (closed) through the transition, then gone; the cards were never re-mounted.

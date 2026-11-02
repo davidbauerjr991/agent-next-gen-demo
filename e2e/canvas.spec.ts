@@ -328,8 +328,11 @@ const slideOver = "[data-slot=reference-slide-over]";
 const composerSel = "[data-canvas-region=action] [data-slot=copilot-composer]";
 
 for (const displayLocation of ["inline", "main"] as const) {
-  test(`${displayLocation}: a slide-over slides in over the reference cards below the header, and dragging it pushes the action area`, async ({ page }) => {
-    await mayaLive(page, displayLocation, displayLocation === "main" ? 2200 : 1600);
+  // P-LAYOUT-F3 4: where the slide-over can't dock beside the page column (the row holds the column but not the
+  // column, the panel and the action area's minimum: 830–1180px), it slides in over the reference column, as below.
+  // Where it can, it docks beside the page column instead (right-panel-push.spec.ts).
+  test(`${displayLocation}: where it can't dock, a slide-over slides in over the reference cards below the header, and dragging it pushes the action area`, async ({ page }) => {
+    await mayaLive(page, displayLocation, 1350);
     // P-HOME-1n: the Real-Time Summary enters once her first summary turn is in; wait for it, so the cards marked
     // below are the column's settled set.
     await expect(page.locator("[data-canvas-region=reference] [data-canvas-cell=real-time-summary]")).toBeAttached({ timeout: 10_000 });

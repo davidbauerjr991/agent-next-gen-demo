@@ -1,5 +1,5 @@
-import { InteriorPanel } from "@nicecxone/lyra-ui";
 import { Slot } from "@/layout/Slot";
+import { ReferenceSlotFrame } from "./ReferenceSlot";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useActiveScheduleItem } from "@/contact-handling/home/useScheduleCards";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
@@ -14,15 +14,11 @@ import { CUSTOMER_PANEL_TABS } from "@/components/customer-info";
 import { ContactHistoryCard } from "@/components/agent-next-gen-contact-history";
 import { tabOrderPatch, useSettings } from "@/settings";
 
-/** Home's docked detail panel in one column (two columns mount the same
- *  parts over the right column, HomeTwoColumn). */
-function HomeDockedDetailPanel() {
-  const { wanted, onClose, header, body } = useHomeDetailPanel();
-  return (
-    <InteriorPanel side="right" open={wanted} onClose={onClose} {...header}>
-      {body}
-    </InteriorPanel>
-  );
+/** Home's detail panel in one column (the queue drill-down, a History entry, a feed preview): the reference slot's
+ *  frame with no column, so it docks beside the whole page column while it fits and overlays the body when it
+ *  doesn't, as two columns' (HomeTwoColumn) and the interaction's slide-over do (P-LAYOUT-F3 4). */
+function HomeDetailPanel() {
+  return <ReferenceSlotFrame panel={useHomeDetailPanel()} />;
 }
 
 /** Home: the Home tabs and the dashboard with its docked detail panel
@@ -123,7 +119,7 @@ export function WorkspaceHome() {
                       />
                   }
                 />
-                {showInteriorPanel && !homeIsTwoColumn(home, parts) && <HomeDockedDetailPanel />}
+                {showInteriorPanel && !homeIsTwoColumn(home, parts) && <HomeDetailPanel />}
                 </>
               ))}
               </div>

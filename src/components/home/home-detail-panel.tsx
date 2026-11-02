@@ -3,9 +3,10 @@
 // an Assignments row's preview (P-HOME-1h) and the "Case Details" form —
 // since only one detail view is ever relevant at a time. `selectedQueueId`
 // takes priority over the entry, then the row's preview, then
-// `interiorPanelOpen`. One column mounts it as Home's docked
-// `InteriorPanel`; two columns mount it over the right column through the
-// interaction's reference slot (`ReferenceSlotFrame`), so it pushes the feed.
+// `interiorPanelOpen`. Both layouts mount it through the interaction's
+// reference slot (`ReferenceSlotFrame`): docked beside the whole page column
+// while it fits, else over the body (or over two columns' right column),
+// P-LAYOUT-F3 4.
 import { useEffect, useRef } from "react";
 import { Button, Icon, Input, Tooltip } from "@nicecxone/lyra-ui";
 import { CheckCircle2, CircleDot, Clock, MinusCircle, PhoneOutgoing, RotateCcw } from "lucide-react";

@@ -3,9 +3,9 @@
 // the interaction's action area and reference slot (`ReferenceSlotFrame`):
 // the right column docks beside the feed while it fits and is the
 // Summaries-style overlay only when it doesn't (its toggle shows only then);
-// Home's detail panel (the queue drill-down, the History preview) opens over
-// the right column and pushes the feed narrower, as the interaction's
-// slide-over does.
+// Home's detail panel (the queue drill-down, the History preview) docks
+// beside the whole page column while it fits and opens over the right column
+// when it doesn't, as the interaction's slide-over does (P-LAYOUT-F3 4).
 import * as React from "react";
 import { ReferenceSlotFrame } from "@/components/workspace/ReferenceSlot";
 import { ReferenceOverlayToggle } from "@/components/workspace/SummariesToggle";

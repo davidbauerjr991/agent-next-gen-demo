@@ -18,18 +18,20 @@ import { useRailAssignmentCount } from "@/contact-handling/home/useScheduleCards
 import { PanelTogglesProvider, usePanelToggles } from "@/contact-handling/panel-toggles";
 import { setAssignmentsWorkingState, useAssignmentsWorkingState } from "@/contact-handling/assignments-working-state";
 import { useWorkspaceUiField } from "@/contact-handling/workspace-ui-store";
+import { PageRightHostRow } from "./page-right-host";
 import { AssignmentsHeaderActions, AssignmentsStack } from "./AssignmentCardList";
 
 /** The content card's row of the content column and its side panels (the page's, P-LAYOUT-F1): the panels' toggle
  *  state for every page header in it (`PanelTogglesProvider`), then the interior-panel slot, then the page's
- *  children (the content column and the docked right panel). */
+ *  children (the content column and the docked right panel), then the page's right host (P-LAYOUT-F3 4: where a
+ *  docking right panel mounts, beside the whole page column). */
 export function PanelToggleRow({ children }: { children: React.ReactNode }) {
   return (
     <PanelTogglesProvider>
-      <div className="flex flex-1 overflow-hidden min-h-0">
+      <PageRightHostRow>
         <AssignmentsInteriorPanel />
         {children}
-      </div>
+      </PageRightHostRow>
     </PanelTogglesProvider>
   );
 }

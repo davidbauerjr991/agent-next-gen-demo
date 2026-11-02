@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { InteriorPanel, LYRA_CARD_MAX_WIDTH } from "@nicecxone/lyra-ui";
 import { ACTION_AREA_MIN_WIDTH } from "@/contact-handling/canvas-registry";
 import { fitsBeside } from "@/contact-handling/assignments-panel-placement";
@@ -12,6 +13,7 @@ import {
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useDetailSlideOverPanel, type DetailSlideOverParts } from "@/components/workspace/detail-slide-over-parts";
 import { ReferenceColumn } from "@/components/workspace/ReferenceColumn";
+import { usePageRightHost } from "@/components/workspace/page-right-host";
 
 /** `InteriorPanel`'s close transition: the slide-over stays mounted (closed)
  *  this long after a close. */
@@ -42,11 +44,11 @@ function afterNextFrame(run: () => void): () => void {
  *  the record header, sliding in from the right. The cards stay mounted
  *  underneath. The column's slot widens with the panel (its width from
  *  `onWidthChange`), so dragging the panel pushes the action area (never
- *  below `ACTION_AREA_MIN_WIDTH`); full screen covers the row. With no
- *  reference column (the stacked canvas, or no card with content) the panel
- *  docks as the row's flex sibling, pushing the action area, while it and the
- *  action area's minimum fit (`fitsBeside`), and overlays where they don't
- *  (P-LAYOUT-F1 D). Mount it as
+ *  below `ACTION_AREA_MIN_WIDTH`); full screen covers the row. While the
+ *  panel, the action area's minimum and the column (if any) fit
+ *  (`fitsBeside`), it docks beside the whole page column instead, in the
+ *  page's right host, pushing the page header with the body (P-LAYOUT-F3 4;
+ *  with no column it docked as this row's sibling, P-LAYOUT-F1 D). Mount it as
  *  the last child of the main column's row, which must be `relative`: both
  *  this slot and the panel measure it, and the panel positions against it. */
 export function ReferenceSlot({ reference }: { reference?: ReactNode }) {
@@ -57,7 +59,7 @@ export function ReferenceSlot({ reference }: { reference?: ReactNode }) {
   });
   // P-PROFILES: the assignments interior panel's dock rule counts this slot.
   const [, setReferenceSlotWidth] = useWorkspaceUiField("referenceSlotWidth");
-  // The frame reports the column's width, or a docked slide-over's, or 0.
+  // The frame reports the column's width, or 0 (a docked slide-over is outside the measured row).
   const onSlotWidthChange = useCallback((width: number) => setReferenceSlotWidth(width), [setReferenceSlotWidth]);
   useEffect(() => () => setReferenceSlotWidth(null), [setReferenceSlotWidth]);
   return (
@@ -94,11 +96,12 @@ function nearest(from: Element | null, selector: string | undefined): HTMLElemen
 }
 
 /** The reference slot's layout, shared by the interaction (ReferenceSlot) and
- *  two-column Home (P-HOME-1e): the measured reference column and, while
- *  `panel` is wanted, the `InteriorPanel` over it that widens the slot and
- *  pushes the main column; with no column, the panel docked beside the main
- *  column while they fit (`fitsBeside`), else over it (P-LAYOUT-F1 D). Mount it
- *  as the last child of a `relative` row. */
+ *  two-column Home (P-HOME-1e), and one-column Home's detail panel: the
+ *  measured reference column and, while `panel` is wanted, the
+ *  `InteriorPanel` — docked beside the whole page column (the page's right
+ *  host) while it fits (`fitsBeside`, P-LAYOUT-F3 4), else over the column
+ *  (widening the slot) or over the body. Mount it as the last child of a
+ *  `relative` row. */
 export function ReferenceSlotFrame({
   reference,
   referenceTitle,
@@ -161,14 +164,31 @@ export function ReferenceSlotFrame({
   useEffect(() => {
     if (!mounted) setPanelWidth(LYRA_CARD_MAX_WIDTH);
   }, [mounted]);
-  const slotWidth = open ? Math.max(LYRA_CARD_MAX_WIDTH, panelWidth) : LYRA_CARD_MAX_WIDTH;
-  // P-LAYOUT-F1 D: with no reference column (the stacked canvas, or no card with content) the slide-over pushes the
-  // main column while it and the action area's minimum fit (the assignments panel's rule, `fitsBeside`), and overlays
-  // where they don't, so the composer is never clipped. With a column it overlays the column, which widens with it.
-  const docks = !reference && rowWidth > 0 && fitsBeside({ available: rowWidth, panelWidth: open ? panelWidth : openWidth });
-  // The slot's width as the assignments panel's dock rule counts it: the column (widened by an open panel), or the
-  // docked slide-over, or nothing.
-  const reportedWidth = reference ? slotWidth : docks && open ? Math.max(LYRA_CARD_MAX_WIDTH, panelWidth) : 0;
+  // P-LAYOUT-F3 4: the panel docks beside the whole page column (the page's right host, so the page header narrows
+  // with the body; AdminShell's right SidePanel) while it, the action area's minimum and the reference column (if
+  // any) fit — the one fit rule, `fitsBeside` — and overlays where it is when they don't: over the column (which
+  // widens with it) or over the body (P-LAYOUT-F1 D). Docked, it's outside this row, so the row's measured width
+  // gives its width back to count what's available.
+  const right = usePageRightHost();
+  const dockedRef = useRef(false);
+  const currentPanelWidth = open ? panelWidth : openWidth;
+  const available = rowWidth + (dockedRef.current && mounted ? currentPanelWidth : 0);
+  // The page row's width must be known too: the docked panel takes it as its container from its first render (a 0
+  // there would latch lyra's autoFullScreen).
+  const docks =
+    !!right &&
+    right.rowWidth > 0 &&
+    rowWidth > 0 &&
+    fitsBeside({ available, panelWidth: currentPanelWidth, reserved: reference ? LYRA_CARD_MAX_WIDTH : 0 });
+  // Docked at the last commit (read on the next render to give its width back).
+  useLayoutEffect(() => {
+    dockedRef.current = docks;
+  }, [docks]);
+  const slotWidth = open && !docks ? Math.max(LYRA_CARD_MAX_WIDTH, panelWidth) : LYRA_CARD_MAX_WIDTH;
+  // The slot's width as the assignments panel's dock rule counts it: the column (widened by a panel over it), or
+  // nothing (a docked panel is outside the measured row).
+  const reportedWidth = reference ? slotWidth : 0;
+  const dockOrInline = (node: ReactElement) => (docks && right ? createPortal(node, right.host) : node);
   useEffect(() => {
     onSlotWidthChange?.(reportedWidth);
   }, [reportedWidth, onSlotWidthChange]);
@@ -182,8 +202,9 @@ export function ReferenceSlotFrame({
           {reference}
         </ReferenceColumn>
       )}
-      {mounted && (
-        // A direct child of the row: the panel measures its parent and positions against it.
+      {mounted && dockOrInline(
+        // Docked: in the page's right host, a flex item of the content card's row, taking the row's width as its
+        // container. Overlaying: a direct child of this row, which it measures and positions against.
         <InteriorPanel
           key={assignmentKey}
           ref={panelRef}
@@ -199,9 +220,10 @@ export function ReferenceSlotFrame({
           // Docked: a flex sibling of the action area that pushes it; otherwise lyra's overlay layout.
           overlayHeader={!docks}
           absoluteBreakpoint={docks ? 0 : Number.POSITIVE_INFINITY}
+          containerWidth={docks ? right!.rowWidth : undefined}
           width={openWidth}
           minWidth={LYRA_CARD_MAX_WIDTH}
-          maxWidth={Math.max(LYRA_CARD_MAX_WIDTH, rowWidth - ACTION_AREA_MIN_WIDTH)}
+          maxWidth={Math.max(LYRA_CARD_MAX_WIDTH, available - ACTION_AREA_MIN_WIDTH - (docks && reference ? LYRA_CARD_MAX_WIDTH : 0))}
           onWidthChange={(width) => {
             setPanelWidth(width);
             remember({ width });
@@ -219,7 +241,7 @@ export function ReferenceSlotFrame({
           {...panel.header}
         >
           {panel.body}
-        </InteriorPanel>
+        </InteriorPanel>,
       )}
     </>
   );

@@ -384,7 +384,8 @@ describe("schedule items open as assignments", () => {
     await h.click(details());
     await h.advance(400);
     expect(details().getAttribute("aria-pressed")).toBe("true");
-    const panel = cell()!.querySelector<HTMLElement>('[data-slot="reference-slide-over"]')!;
+    // Docked beside the page column while it fits (P-LAYOUT-F3 4), in the page's right host, not inside the cell.
+    const panel = h.container.querySelector<HTMLElement>('[data-slot=page-right-host] [data-slot="reference-slide-over"]')!;
     expect(panel).not.toBeNull();
     const panelTabs = tabs(panel);
     expect(panelTabs).toEqual(expect.arrayContaining(["Overview", "Notes", "Detail"]));

@@ -138,7 +138,7 @@ describe("Activity feed on Home", () => {
     expect(h.container.querySelector("[data-home-header] h1")?.textContent).toBe("Hello John");
   });
 
-  it("twoColumn: the page header outside the feed's scroll; no toggle while the right column fits; the queue's drill-down opens over the right column, in the feed's row", async () => {
+  it("twoColumn: the page header outside the feed's scroll; no toggle while the right column fits; the queue's drill-down docks beside the page column", async () => {
     turnOn();
     await showHome();
     await setLayout("twoColumn");
@@ -160,11 +160,14 @@ describe("Activity feed on Home", () => {
     ]);
     await h.click(queueCard.querySelector('[data-queue-row="2"]')!);
     await h.advance(100);
-    // The interaction's slide-over layout: the panel is the feed's row's, over the right column (it widens the
-    // column's slot, which pushes the feed) — never Home's docked panel beside the whole dashboard.
-    const panel = home.querySelector<HTMLElement>('[data-slot="home-detail-panel"]')!;
+    // P-LAYOUT-F3 4 (Dave: the same rule as one column and the interaction; was "over the right column, in the
+    // feed's row"): while it fits, the panel docks beside the whole page column, in the page's right host, so the
+    // page header narrows with the body; the right column stays.
+    const panel = h.container.querySelector<HTMLElement>('[data-slot="home-detail-panel"]')!;
     expect(panel).not.toBeNull();
-    expect(panel.parentElement).toBe(home.querySelector("[data-home-scroll=feed]")!.parentElement);
+    expect(panel.closest("[data-slot=page-right-host]")).not.toBeNull();
+    expect(home.contains(panel)).toBe(false);
+    expect(home.querySelector('[data-canvas-region="reference"][data-docked="true"]')).not.toBeNull();
     expect(panel.querySelector('[data-home-detail="queue"]')).not.toBeNull();
     expect(h.container.textContent).toContain("Skills");
   });

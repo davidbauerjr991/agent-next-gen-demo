@@ -52,6 +52,7 @@ div[data-slot=content-card]
         div[data-home-section=queue]
           div[data-home-card=queueList]
         div[data-home-section=performance]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -104,6 +105,7 @@ div[data-slot=content-card]
           div[data-slot=copilot-chips]
             span[data-slot=copilot-chip-pinned]
             div[data-slot=copilot-chips-refresh]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
   div[data-slot=voice-bar][data-placement=bottom]
 div[role=region][aria-label=Notifications (F#)]"
@@ -159,6 +161,7 @@ div[data-slot=content-card]
       div[role=region]
       div[role=region]
       div[role=region]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
   div[data-slot=voice-bar][data-placement=bottom]
 div[role=region][aria-label=Notifications (F#)]"
@@ -211,6 +214,7 @@ div[data-slot=content-card]
           div[data-slot=copilot-chips]
             span[data-slot=copilot-chip-pinned]
             div[data-slot=copilot-chips-refresh]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -265,6 +269,7 @@ div[data-slot=content-card]
       div[role=region]
         div[data-slot=content-stack]
       div[data-slot=composer-fade]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -304,6 +309,7 @@ div[data-slot=content-card]
           div[role=region]
       div[data-canvas-cell=kind-journey]
       div[data-canvas-cell=kind-customer]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -365,6 +371,7 @@ div[data-slot=content-card]
         div[data-home-section=queue]
           div[data-home-card=queueList]
         div[data-home-section=performance]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -417,6 +424,7 @@ div[data-slot=content-card]
           div[data-slot=copilot-chips]
             span[data-slot=copilot-chip-pinned]
             div[data-slot=copilot-chips-refresh]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
   div[data-slot=voice-bar][data-placement=bottom]
 div[role=region][aria-label=Notifications (F#)]"
@@ -471,6 +479,7 @@ div[data-slot=content-card]
       div[role=region]
       div[role=region]
       div[role=region]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
   div[data-slot=voice-bar][data-placement=bottom]
 div[role=region][aria-label=Notifications (F#)]"
@@ -523,6 +532,7 @@ div[data-slot=content-card]
           div[data-slot=copilot-chips]
             span[data-slot=copilot-chip-pinned]
             div[data-slot=copilot-chips-refresh]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -574,6 +584,7 @@ div[data-slot=content-card]
       div[role=region]
       div[role=region]
       div[role=region]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -613,6 +624,7 @@ div[data-slot=content-card]
           div[role=region]
       div[data-canvas-cell=kind-journey]
       div[data-canvas-cell=kind-customer]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -680,6 +692,7 @@ div[data-slot=content-card]
           button[name=Previous page]
           button[name=Next page]
           button[name=Last page]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -735,6 +748,7 @@ div[data-slot=content-card]
           div[data-slot=copilot-chips]
             span[data-slot=copilot-chip-pinned]
             div[data-slot=copilot-chips-refresh]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
   div[data-slot=voice-bar][data-placement=bottom]
 div[role=region][aria-label=Notifications (F#)]"
@@ -792,6 +806,7 @@ div[data-slot=content-card]
       div[role=region]
       div[role=region]
       div[role=region]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
   div[data-slot=voice-bar][data-placement=bottom]
 div[role=region][aria-label=Notifications (F#)]"
@@ -847,6 +862,7 @@ div[data-slot=content-card]
           div[data-slot=copilot-chips]
             span[data-slot=copilot-chip-pinned]
             div[data-slot=copilot-chips-refresh]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -901,6 +917,7 @@ div[data-slot=content-card]
       div[role=region]
       div[role=region]
       div[role=region]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -943,6 +960,7 @@ div[data-slot=content-card]
           div[role=region]
       div[data-canvas-cell=kind-journey]
       div[data-canvas-cell=kind-customer]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -981,6 +999,7 @@ div[data-slot=content-card]
         div[data-home-section=queue]
           div[data-home-card=queueList]
         div[data-home-section=performance]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -1037,6 +1056,7 @@ div[data-slot=content-card]
           div[data-slot=copilot-chips]
             span[data-slot=copilot-chip-pinned]
             div[data-slot=copilot-chips-refresh]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
   div[data-slot=voice-bar][data-placement=bottom]
 div[role=region][aria-label=Notifications (F#)]"
@@ -1094,6 +1114,7 @@ div[data-slot=content-card]
           div[data-slot=copilot-chips]
             span[data-slot=copilot-chip-pinned]
             div[data-slot=copilot-chips-refresh]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
   div[data-slot=voice-bar][data-placement=bottom]
 div[role=region][aria-label=Notifications (F#)]"
@@ -1150,6 +1171,7 @@ div[data-slot=content-card]
           div[data-slot=copilot-chips]
             span[data-slot=copilot-chip-pinned]
             div[data-slot=copilot-chips-refresh]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -1205,6 +1227,7 @@ div[data-slot=content-card]
           div[data-slot=copilot-chips]
             span[data-slot=copilot-chip-pinned]
             div[data-slot=copilot-chips-refresh]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -1248,6 +1271,7 @@ div[data-slot=content-card]
           div[role=region]
       div[data-canvas-cell=kind-journey]
       div[data-canvas-cell=kind-customer]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -1308,6 +1332,7 @@ div[data-slot=content-card]
         button[name=Next page]
         button[name=Last page]
     div[data-home-section=performance]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -1365,6 +1390,7 @@ div[data-slot=content-card]
           div[data-slot=copilot-chips]
             span[data-slot=copilot-chip-pinned]
             div[data-slot=copilot-chips-refresh]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -1423,6 +1449,7 @@ div[data-slot=content-card]
       div[role=region]
       div[role=region]
       div[role=region]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -1478,6 +1505,7 @@ div[data-slot=content-card]
           div[data-slot=copilot-chips]
             span[data-slot=copilot-chip-pinned]
             div[data-slot=copilot-chips-refresh]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -1533,6 +1561,7 @@ div[data-slot=content-card]
       div[role=region]
       div[role=region]
       div[role=region]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -1576,6 +1605,7 @@ div[data-slot=content-card]
           div[role=region]
       div[data-canvas-cell=kind-journey]
       div[data-canvas-cell=kind-customer]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -1601,6 +1631,7 @@ div[data-slot=content-card]
         button[name=Next page]
         button[name=Last page]
     div[data-home-section=performance]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -1644,6 +1675,7 @@ div[data-slot=content-card]
           div[data-slot=copilot-chips]
             span[data-slot=copilot-chip-pinned]
             div[data-slot=copilot-chips-refresh]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
   div[data-slot=voice-bar][data-placement=bottom]
 div[role=region][aria-label=Notifications (F#)]"
@@ -1689,6 +1721,7 @@ div[data-slot=content-card]
       div[role=region]
       div[role=region]
       div[role=region]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
   div[data-slot=voice-bar][data-placement=bottom]
 div[role=region][aria-label=Notifications (F#)]"
@@ -1720,6 +1753,7 @@ div[data-slot=content-card]
           div[role=region]
       div[data-canvas-cell=kind-journey]
       div[data-canvas-cell=kind-customer]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -1776,6 +1810,7 @@ div[data-slot=content-card]
         button[name=Next page]
         button[name=Last page]
     div[data-home-section=performance]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -1828,6 +1863,7 @@ div[data-slot=content-card]
           div[data-slot=copilot-chips]
             span[data-slot=copilot-chip-pinned]
             div[data-slot=copilot-chips-refresh]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
   div[data-slot=voice-bar][data-placement=bottom]
 div[role=region][aria-label=Notifications (F#)]"
@@ -1882,6 +1918,7 @@ div[data-slot=content-card]
       div[role=region]
       div[role=region]
       div[role=region]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
   div[data-slot=voice-bar][data-placement=bottom]
 div[role=region][aria-label=Notifications (F#)]"
@@ -1934,6 +1971,7 @@ div[data-slot=content-card]
           div[data-slot=copilot-chips]
             span[data-slot=copilot-chip-pinned]
             div[data-slot=copilot-chips-refresh]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -1985,6 +2023,7 @@ div[data-slot=content-card]
       div[role=region]
       div[role=region]
       div[role=region]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
@@ -2024,6 +2063,7 @@ div[data-slot=content-card]
           div[role=region]
       div[data-canvas-cell=kind-journey]
       div[data-canvas-cell=kind-customer]
+  div[data-slot=page-right-host]
 div[data-slot=voice-bar-bottom]
 div[role=region][aria-label=Notifications (F#)]"
 `;
