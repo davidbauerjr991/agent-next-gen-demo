@@ -17,7 +17,7 @@ export function storedPlacementNone(rawAssignments: unknown, rawLayout: unknown)
 /** Fields retired from the stored `assignments` section (P-LAYOUT-F3): `channelChips` (the chips always show) and
  *  `panelPinned` (the interior panel always starts pinned; pinning is per-browser working state). The readers already
  *  ignore them; a stored one is dropped from storage once, so it doesn't linger. */
-export const RETIRED_ASSIGNMENTS_FIELDS = ["channelChips", "panelPinned"] as const;
+const RETIRED_ASSIGNMENTS_FIELDS = ["channelChips", "panelPinned"] as const;
 
 /** Whether the raw stored `assignments` value still carries a retired field. */
 export function storedRetiredAssignmentsFields(rawAssignments: unknown): boolean {

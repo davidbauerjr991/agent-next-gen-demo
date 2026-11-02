@@ -39,7 +39,7 @@ export { ChannelThreadMenu, useChannelThreadMenu } from "./ChannelThreadMenu";
 export { useFollowHeldCall } from "./useFollowHeldCall";
 export { useSaveAddressOffers } from "./useSaveAddressOffers";
 export { SaveAddressLinkContext } from "./SaveAddressCard";
-export { deriveCardIdentity, isIdentifiedContact, isIdentifiedWorkItem, useStampCardIdentity, type CardIdentityFacts } from "./card-identity";
+export { deriveCardIdentity, isIdentifiedContact, useStampCardIdentity, type CardIdentityFacts } from "./card-identity";
 export { alreadyOpenReasons, liveAddressesFor, markAlreadyOpen } from "./already-open";
 export { panelToggleClass, PANEL_TOGGLE_ACTIVE } from "./panel-toggle";
 export { DisabledReason } from "./DisabledReason";

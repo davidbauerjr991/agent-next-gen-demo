@@ -242,7 +242,7 @@ export const HOME_LAYOUT_FIELD = oneOf(HOME_LAYOUTS, {
 /** Home's body width (P-LAYOUT-F3 3): "max" centres it at the content max width (`CenteredColumn`), "full" stretches
  *  it. The page header is always full width. Its default follows the Home layout (one column → max, two → full): a
  *  preset follow rule, written with the layout (`presets.ts`), not a constraint, so the agent can change it after. */
-export const HOME_CONTENT_WIDTHS = ["max", "full"] as const;
+const HOME_CONTENT_WIDTHS = ["max", "full"] as const;
 export type HomeContentWidth = (typeof HOME_CONTENT_WIDTHS)[number];
 export const HOME_CONTENT_WIDTH_FIELD = oneOf(HOME_CONTENT_WIDTHS, {
   label: "Home content width",

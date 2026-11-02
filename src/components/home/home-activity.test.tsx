@@ -170,6 +170,21 @@ describe("Activity feed on Home", () => {
     expect(home.querySelector('[data-canvas-region="reference"][data-docked="true"]')).not.toBeNull();
     expect(panel.querySelector('[data-home-detail="queue"]')).not.toBeNull();
     expect(h.container.textContent).toContain("Skills");
+
+    // Escape with focus still on the row that opened it closes it, as Escape inside it does (P-LAYOUT-F3 a11y).
+    const row = queueCard.querySelector<HTMLElement>('[data-queue-row="2"]')!;
+    await h.click(row);
+    await h.advance(400);
+    row.focus();
+    await h.click(row);
+    await h.advance(100);
+    expect(h.container.querySelector('[data-slot="home-detail-panel"]')).not.toBeNull();
+    row.focus();
+    await act(async () => {
+      row.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    expect(h.container.querySelector('[data-slot="home-detail-panel"]')).toBeNull();
   });
 
   it("twoColumn: the right column is the overlay only when it doesn't fit, opened by a ghost icon toggle in the feed's switcher row (right of list / table, not the header) — on Dashboard only", async () => {

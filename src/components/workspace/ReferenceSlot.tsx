@@ -147,6 +147,18 @@ export function ReferenceSlotFrame({
     const timer = window.setTimeout(() => setMounted(false), SLIDE_OVER_CLOSE_MS);
     return () => window.clearTimeout(timer);
   }, [wanted]);
+  // Escape on the element that opened it closes it too, as inside it (the panel's root handler below).
+  const onClose = useRef(panel.onClose);
+  onClose.current = panel.onClose;
+  useEffect(() => {
+    if (!wanted) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented || !opener.current || document.activeElement !== opener.current) return;
+      onClose.current();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [wanted]);
 
   // An assignment's slide-over comes back as the agent left it: full screen, at its dragged width.
   const { assignmentKey } = panel;
