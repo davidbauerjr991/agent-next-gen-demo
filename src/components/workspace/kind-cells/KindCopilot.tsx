@@ -26,6 +26,7 @@ import type { DetailPanelContent } from "@/contact-handling/workspace/workspace-
 import type { ScheduleItem } from "@/providers";
 import { scheduleCopilotAnswer, scheduleCopilotFor } from "@/scenarios/schedule-copilot";
 import { t } from "@/i18n";
+import { CenteredColumn } from "@/layout/CenteredColumn";
 
 /** The input's placeholder: what the item is, by kind. */
 function placeholderFor(item: ScheduleItem): string {
@@ -139,7 +140,7 @@ export function KindCopilot({ item }: { item: ScheduleItem }) {
     setQuestion("");
   };
   return (
-    <div className="mx-auto w-full max-w-[768px] shrink-0 px-6 pb-4 pt-2" data-kind-copilot="">
+    <CenteredColumn width="action" className="shrink-0 px-6 pb-4 pt-2" data-kind-copilot="">
       <CopilotComposer
         placement="inline"
         placeholder={placeholderFor(item)}
@@ -152,6 +153,6 @@ export function KindCopilot({ item }: { item: ScheduleItem }) {
           ask(s);
         }}
       />
-    </div>
+    </CenteredColumn>
   );
 }

@@ -63,6 +63,7 @@ import type { InteractionTranscriptProps } from "./interaction-transcript-props"
 import { useTranscriptScrollFollow } from "./useTranscriptScrollFollow";
 import { useSessionControls } from "./useSessionControls";
 import { TranscriptLiveMessages } from "./message-list/TranscriptLiveMessages";
+import { CenteredColumn } from "@/layout/CenteredColumn";
 export type { InteractionTranscriptProps };
 
 // `ContactOverview` and its `ContactOverviewInfo` type used to live here as
@@ -597,11 +598,11 @@ export function InteractionTranscript({
                     bubbles, the Voice/Email placeholder) is what actually
                     dims — see `sessionContentDimmed`'s own doc comment
                     above for why this moved off the whole per-session
-                    wrapper. Plain wrapper div, not an ancestor of
-                    `TranscriptSessionSeparator` above (a SIBLING of this
-                    div, same as before) — so its own `sticky top-0` keeps
-                    working exactly as already documented there.
-                    `w-full max-w-[768px] mx-auto px-6` — per the
+                    wrapper. A `CenteredColumn` (width "action", P-LAYOUT-F3
+                    13), not an ancestor of `TranscriptSessionSeparator`
+                    above (a SIBLING of it, same as before) — so its own
+                    `sticky top-0` keeps working exactly as already
+                    documented there. `px-6` plus the column's 768px — per the
                     un-revert back to full width (see the outer scroll
                     container's own doc comment above), the centered
                     column (768px, was 1024px until a later explicit
@@ -667,12 +668,13 @@ export function InteractionTranscript({
                 >
                 <AccordionHeadlessItem value={session.id} className="border-none">
                 <AccordionHeadlessContent>
-                <div
+                <CenteredColumn
+                  width="action"
                   // The session's content stack. `pt-4`: the stack owns the space under the
                   // session row, whatever comes first (the Autosummary, an approval, the
                   // transcript); its blocks own only the space below them (`pb-4`).
                   data-slot="content-stack"
-                  // `max-w-[768px]` — per explicit request ("make the
+                  // The 768px (`CONTENT_MAX_WIDTH_CLASS.action`, content-width.ts) — per explicit request ("make the
                   // max-width of the interaction content 768px instead of
                   // 1024px"), narrowed from 1024px, itself narrowed down
                   // from the previous 1200px (see this wrapper's own
@@ -684,8 +686,9 @@ export function InteractionTranscript({
                   // sync at the same 768px so the message column, the input
                   // box below it, and the voice controls bar all stay the
                   // same width.
+                  // The centring is `CenteredColumn`'s (P-LAYOUT-F3 13: the action area's width, one primitive).
                   className={cn(
-                    "w-full max-w-[768px] mx-auto px-6 pt-4",
+                    "px-6 pt-4",
                     sessionContentDimmed && "opacity-50 transition-opacity",
                     session.id === lastSessionId && "pb-9"
                   )}
@@ -849,7 +852,7 @@ export function InteractionTranscript({
                     />
                   );
                 })()}
-                </div>
+                </CenteredColumn>
                 </AccordionHeadlessContent>
                 </AccordionHeadlessItem>
                 </AccordionHeadless>
@@ -859,9 +862,9 @@ export function InteractionTranscript({
           {/* Content after the conversation, scrolling with it (e.g. the
               voice wrap-up card, P0.5d.1) — see `trailingContent`. */}
           {trailingContent && !sessionRowOnly && (
-            <div ref={trailingContentRef} className="w-full max-w-[768px] mx-auto px-6 pt-2 pb-4" data-slot="transcript-trailing">
+            <CenteredColumn width="action" ref={trailingContentRef} className="px-6 pt-2 pb-4" data-slot="transcript-trailing">
               {trailingContent}
-            </div>
+            </CenteredColumn>
           )}
           {/* See `bottomSentinelRef`'s own declaration (above) — the
               scroll-to-bottom-on-open effect's `scrollIntoView` target.

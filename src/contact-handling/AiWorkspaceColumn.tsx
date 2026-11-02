@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { DetailsPanelAccordions } from "@/components/customer-info";
 import { ComposerFade } from "@/components/transcript/InteractionTranscript";
+import { CenteredColumn } from "@/layout/CenteredColumn";
 
 export interface AiWorkspaceColumnProps {
   /** The AI feed (the page's `renderAiPanelFeed`, its top being the canvas's
@@ -36,16 +37,16 @@ export function AiWorkspaceColumn({
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-slot="ai-workspace">
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-[768px] pb-8">
+        <CenteredColumn width="action" className="pb-8">
           <DetailsPanelAccordions aiFeed={feed ?? <div />} aiFeedCount={feedCount} followSignal={followSignal} />
           {trailing && <div className="px-4">{trailing}</div>}
-        </div>
+        </CenteredColumn>
       </div>
       <div className="relative shrink-0">
         <ComposerFade />
-        <div data-slot="copilot-dock" className="mx-auto w-full max-w-[768px] px-6 pb-4">
+        <CenteredColumn width="action" data-slot="copilot-dock" className="px-6 pb-4">
           {dock}
-        </div>
+        </CenteredColumn>
       </div>
     </div>
   );

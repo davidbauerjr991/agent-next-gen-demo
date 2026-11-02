@@ -32,6 +32,7 @@ import { KindCloseButton } from "./KindCloseButton";
 import { KindCopilot, KindCopilotRows } from "./KindCopilot";
 import { KindOutcomeButton } from "./KindOutcomeButton";
 import { KindBody } from "./kind-bodies";
+import { CenteredColumn } from "@/layout/CenteredColumn";
 
 /** The subject line under the name: the ticket for a task, else the item's title (when a customer names the header). */
 function subjectLine(item: ScheduleItem): string {
@@ -133,14 +134,14 @@ export function KindCell({ item }: { item: ScheduleItem }) {
       {/* `relative`: the reference column's overlay and its slide-over position against this row. */}
       <div className="relative flex min-h-0 min-w-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col" data-kind-action-area="">
-          {/* The conversation action area's column (the transcript's and composer's `max-w-[768px] mx-auto px-6`), so
-              the kind's card and the Copilot input don't stretch the full width. */}
+          {/* The conversation action area's centred column (`CenteredColumn`, P-LAYOUT-F3 13), so the kind's card and
+              the Copilot input don't stretch the full width. */}
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto py-6">
-            <div className="mx-auto flex w-full max-w-[768px] flex-col gap-4 px-6" data-kind-action-column="">
+            <CenteredColumn width="action" className="flex flex-col gap-4 px-6" data-kind-action-column="">
               <KindBody item={item} />
               <KindCopilotRows item={item} />
               {regions.action}
-            </div>
+            </CenteredColumn>
           </div>
           <KindCopilot item={item} />
         </div>

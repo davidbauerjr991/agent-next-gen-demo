@@ -1,0 +1,89 @@
+import { expect, test, type Page } from "@playwright/test";
+
+// P-LAYOUT-F3 13: the main column is a max-width column centred in the width available to it — the content card less
+// whatever is open beside it (the reference column, the docked panels, the Contact Details slide-over). Opening a panel
+// that fits re-centres the column in what's left; one that doesn't fit overlays and leaves it alone. Measured on an
+// interaction's transcript column (`CenteredColumn`) against the action area, the row's remainder. Widths, so Chrome.
+
+async function mayaOpen(page: Page, width: number) {
+  await page.setViewportSize({ width, height: 900 });
+  await page.addInitScript(() => {
+    localStorage.setItem("agent-next-gen:settings:ai", JSON.stringify({ v: 1, value: { displayLocation: "inline", canvasLayout: "twoColumn" } }));
+  });
+  await page.goto("?provider=sim&latency=off#/agent-advanced");
+  await page.getByRole("button", { name: "Go Available" }).click();
+  await page.keyboard.press("b");
+  await page.locator("[data-slot=assignment-card]").getByText("Maya Chen").first().click();
+  await expect(page.locator("[data-canvas-region=action] [data-centered-column=action]").first()).toBeVisible({ timeout: 15_000 });
+}
+
+/** The centred column's centre and the action area's (the available width), in px, and the action area's right edge
+ *  against what's beside it: the reference column's left edge (it sits at the card's trailing edge), and the docked
+ *  slide-over's left edge when one is in the page's right host. */
+async function centres(page: Page) {
+  return page.evaluate(() => {
+    const action = document.querySelector("[data-canvas-region=action]")!.getBoundingClientRect();
+    const column = [...document.querySelectorAll("[data-canvas-region=action] [data-centered-column=action]")]
+      .map((el) => el.getBoundingClientRect())
+      .find((r) => r.width > 0)!;
+    const reference = document.querySelector("[data-canvas-region=reference][data-docked=true]")?.getBoundingClientRect();
+    const docked = document.querySelector("[data-slot=page-right-host] [data-slot=reference-slide-over]")?.getBoundingClientRect();
+    const card = document.querySelector("[data-slot=content-card]")!.getBoundingClientRect();
+    return {
+      column: column.left + column.width / 2,
+      available: action.left + action.width / 2,
+      columnWidth: column.width,
+      availableWidth: action.width,
+      actionRight: action.right,
+      referenceLeft: reference?.left,
+      referenceRight: reference?.right,
+      dockedLeft: docked?.left,
+      cardRight: card.right,
+    };
+  });
+}
+
+async function openContactDetails(page: Page) {
+  await page.locator("button[data-contact-details]").first().click();
+  await expect(page.locator("[data-slot=reference-slide-over]")).toBeVisible();
+}
+
+/** Waits out the push: the column's centre settles on the available width's (no fixed sleep). */
+async function settled(page: Page) {
+  await expect.poll(async () => {
+    const c = await centres(page);
+    return Math.abs(c.column - c.available) <= 1;
+  }).toBe(true);
+  return centres(page);
+}
+
+test("fits without a panel: the column is centred in the action area, at its 768px cap", async ({ page }) => {
+  await mayaOpen(page, 2400);
+  const c = await settled(page);
+  expect(Math.round(c.columnWidth)).toBe(768);
+  // The available width is the card less the reference column, which sits at the card's trailing edge.
+  expect(Math.abs(c.actionRight - c.referenceLeft!)).toBeLessThanOrEqual(1);
+  expect(Math.abs(c.referenceRight! - c.cardRight)).toBeLessThanOrEqual(2);
+});
+
+test("fits with a panel: Contact Details pushes, and the column re-centres in what's left", async ({ page }) => {
+  await mayaOpen(page, 2400);
+  const before = await settled(page);
+  await openContactDetails(page);
+  await expect(page.locator("[data-slot=page-right-host] [data-slot=reference-slide-over]")).toHaveCount(1);
+  // The push lands: the available width gives up the panel's, and the column re-centres in what's left.
+  await expect.poll(async () => (await centres(page)).availableWidth).toBeLessThan(before.availableWidth - 300);
+  const after = await settled(page);
+  // The reference column stays at the row's end, now just before the docked panel.
+  expect(Math.abs(after.referenceRight! - after.dockedLeft!)).toBeLessThanOrEqual(2);
+});
+
+test("doesn't fit: the slide-over overlays, and the column stays where it was", async ({ page }) => {
+  await mayaOpen(page, 1350);
+  const before = await settled(page);
+  await openContactDetails(page);
+  await expect(page.locator("[data-slot=page-right-host] [data-slot=reference-slide-over]")).toHaveCount(0);
+  await page.locator("[data-slot=reference-slide-over]").getByRole("button", { name: /^Close / }).waitFor();
+  const after = await settled(page);
+  expect(Math.abs(after.column - before.column)).toBeLessThanOrEqual(1);
+});

@@ -15,6 +15,7 @@ import {
 import { Bold, ChevronDown, FileText, Italic, Paperclip, Send, Smile, Zap } from "lucide-react";
 import { CopilotComposer } from "@/components/copilot-composer";
 import { t } from "@/i18n";
+import { CenteredColumn } from "@/layout/CenteredColumn";
 import { useSettings } from "@/settings";
 import { ComposerFade } from "./ComposerFade";
 import {
@@ -513,14 +514,14 @@ export function InteractionComposer({
     {!(copilotDocked && copilotOnly) && (
     <div ref={composerRootRef} className="relative shrink-0 bg-lyra-bg-surface-base px-6 py-4">
       <ComposerFade />
-      {/* `max-w-[768px]` — kept in sync with the message-column wrapper's
-          own matching width above (originally narrowed together from
+      {/* The transcript's centred column (`CenteredColumn` width "action", P-LAYOUT-F3 13: one width, no hand sync;
+          originally narrowed together from
           1200px to 1024px; later narrowed again, together with that
           wrapper and `VoiceCallControls`' own floating card in
           agent-next-gen-voice-call-controls.tsx, from 1024px to 768px per
           explicit request), so the composer stays the same width as the
           transcript content sitting above it. */}
-      <div className="w-full max-w-[768px] mx-auto">
+      <CenteredColumn width="action">
         {quickReplyOpen && (
           // Normal flow, NOT `absolute` — this used to float over the
           // transcript above (a sibling `flex-1 overflow-y-auto` box, not
@@ -660,7 +661,7 @@ export function InteractionComposer({
         </div>
         </div>
         </div>
-      </div>
+      </CenteredColumn>
     </div>
     )}
     </>

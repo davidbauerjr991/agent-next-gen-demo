@@ -19,6 +19,7 @@ import type { TomLewisCallPanelKey } from "@/components/agent-next-gen-lucas-tho
 import { VideoCallFullScreen } from "@/components/agent-next-gen-video-window";
 import { MARCUS_WEBB_SCRIPT } from "@/scenarios/scripts/marcus-webb";
 import { t } from "@/i18n";
+import { CenteredColumn } from "@/layout/CenteredColumn";
 import {
   MAYA_CHEN_CALL_COPILOT_LINKS,
   MAYA_CHEN_CALL_COPILOT_SUGGESTIONS,
@@ -63,16 +64,17 @@ export function InteractionBody() {
                         {canvas.pinned && (
                           // Under "stacked" the reference cards sit here too (P-LAYOUT-F1 D), so it scrolls on its own
                           // past half the column, leaving the transcript room.
-                          <div
+                          <CenteredColumn
+                            width="action"
                             // A scroller of its own: named and reachable, so the keyboard can scroll it (a11y review).
                             role="region"
                             aria-label={t("Reference cards")}
                             tabIndex={0}
-                            className="mx-auto flex max-h-[50%] w-full max-w-[768px] shrink-0 flex-col gap-3 overflow-y-auto px-6 pt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lyra-border-focus"
+                            className="flex max-h-[50%] shrink-0 flex-col gap-3 overflow-y-auto px-6 pt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lyra-border-focus"
                             data-slot="canvas-pinned"
                           >
                             {canvas.pinned}
-                          </div>
+                          </CenteredColumn>
                         )}
                         {isHistoryConversationView && historyConversationForActive ? (
                           /* Past-session conversation, opened as its own tab in

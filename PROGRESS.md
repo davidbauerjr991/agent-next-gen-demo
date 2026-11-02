@@ -255,7 +255,7 @@ All of these live in a new UI-side folder (e.g. `src/contact-handling/`). They c
   - **lyra-review:**
     - F2-L3's node forms have no lyra stories; they wait for P-TIMERS, which retires them (PLAN P-TIMERS).
     - lyra's timer span uses `text-right`, a physical utility; ask for `text-end` in a lyra batch.
-    - The 1024px and 600px values are named constants now (`HOME_DASHBOARD_WIDTH_CLASS`, `ACTIVITY_TABLE_HEIGHT_CLASS`), with no lyra tokens yet.
+    - The 768px, 1024px and 600px values are named constants now (`CONTENT_MAX_WIDTH_CLASS`, `ACTIVITY_TABLE_HEIGHT_CLASS` in src/layout/content-width.ts since P-LAYOUT-F3 11; was `HOME_DASHBOARD_WIDTH_CLASS`), with no lyra tokens yet.
   - **bloat-review:**
     - `copilot-results.ts`'s per-row answers map is module state that only tests reset. It grows by one entry per provider-answered ask.
     - `cardTimeTiers` mirrors the severity functions the card renders with. Its tests cover each threshold, so a new tier must be added to both.

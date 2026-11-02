@@ -8,7 +8,8 @@ import { cn } from "@/lib/utils";
 import { ActivityFeed } from "@/components/home/ActivityFeed";
 import { DueSoonCard, MetricCard } from "@/components/home/persona-cards";
 import { HomeTwoColumn } from "@/components/home/HomeTwoColumn";
-import { ACTIVITY_TABLE_HEIGHT_CLASS, HOME_DASHBOARD_WIDTH_CLASS } from "@/components/home/home-header-width";
+import { ACTIVITY_TABLE_HEIGHT_CLASS } from "@/layout/content-width";
+import { CenteredColumn } from "@/layout/CenteredColumn";
 import { homeIsTwoColumn, homeSectionsInOrder, homeSideSections } from "@/contact-handling/home/home-layout";
 import { usePartOption } from "@/layout/useSlot";
 import { QueueListCard } from "@/components/home/QueueListCard";
@@ -174,9 +175,9 @@ export function HomeDashboard({ selectedQueueId, onSelectQueue, contactHistory }
 
   return (
     <div className="flex flex-1 flex-col min-w-0 overflow-y-auto px-6 py-6 animate-in fade-in-0 duration-200" data-home-layout="oneColumn">
-      <div className={cn("w-full mx-auto lyra-container-grid-wrap", HOME_DASHBOARD_WIDTH_CLASS)}>
+      <CenteredColumn width="home" className="lyra-container-grid-wrap">
         {rows}
-      </div>
+      </CenteredColumn>
     </div>
   );
 }
