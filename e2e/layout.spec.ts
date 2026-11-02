@@ -42,8 +42,11 @@ test("fix (a): pinned, the interior panel pushes the content; unpinned, hovering
   await expect(panel(page)).not.toHaveAttribute("data-docked", "true");
   await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
   await expect.poll(async () => (await homeBox(page)).x).toBeLessThan(pushed.x);
-  // Hovering the toggle opens it as a flyout over the content; leaving it and the panel closes it again.
-  await toggle(page).hover();
+  // Hovering the toggle opens it as a flyout over the content; leaving it and the panel closes it again. Since
+  // P-LAYOUT-F3 9 (item 2) Home's toggle sits at the card's start (the standard header form, as an interaction's), so the
+  // flyout opens over it: a plain pointer move, since Playwright's hover() would wait for the toggle to be uncovered.
+  const at = (await toggle(page).boundingBox())!;
+  await page.mouse.move(at.x + at.width / 2, at.y + at.height / 2);
   await expect(toggle(page)).toHaveAttribute("aria-expanded", "true");
   await page.waitForTimeout(300);
   const overlay = (await panel(page).boundingBox())!;

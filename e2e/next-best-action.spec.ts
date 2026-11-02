@@ -77,8 +77,16 @@ for (const displayLocation of ["inline", "main"] as const) {
     // A row of the conversation (the transcript inline, the AI feed under "main"), not a canvas cell.
     const placement = await nba(page).evaluate((el) => ({ inMain: !!el.closest("[data-main-thread]"), inCell: !!el.closest("[data-canvas-cell]") }));
     expect(placement).toEqual({ inMain: true, inCell: false });
-    // Every reference card starts collapsed (P-HOME-1g).
-    expect(await page.locator("[data-canvas-region=reference] [aria-expanded=true]").count()).toBe(0);
+    // Every reference card starts collapsed (P-HOME-1g), except the Journey Summary the AI brings forward for a
+    // known customer (sim-guidance's rule-journey): Priya's chat links to her record by email since P-LAYOUT-F3 3
+    // (item 8).
+    expect(
+      await page.locator("[data-canvas-region=reference] [aria-expanded=true]:not([data-slot=journey-summary] *)").count(),
+    ).toBe(0);
+    await expect(page.locator("[data-canvas-region=reference] [data-slot=journey-summary] [aria-expanded]").first()).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
   });
 
   test(`${displayLocation}, sim chat: after the greeting, the chip surfaces the next one at once`, async ({ page }) => {
