@@ -66,7 +66,8 @@ describe("placement none's migration (P-LAYOUT-F1 B)", () => {
     const explicit = memoryStorage({
       [sectionStorageKey("home")]: stored({ ...defaultSettings().home, layout: "twoColumn", contentWidth: "max" }, SECTIONS.home.version),
     });
-    expect(createSettingsStore(safeStorage(() => explicit)).getState().values.home.contentWidth).toBe("max");
+    // An explicit Max under two columns is forced to Full (P-LAYOUT-F4 6): two columns always use the full width.
+    expect(createSettingsStore(safeStorage(() => explicit)).getState().values.home.contentWidth).toBe("full");
   });
 
   it("a stored map with the assignments at the top of Home migrates the same way", () => {

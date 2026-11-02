@@ -164,6 +164,7 @@ Widths are tokens the container resolves: `card` (lyra's `LYRA_CARD_MAX_WIDTH`),
 | `copilot-follows-ai-feed-main` | `layout.parts.aiFeed.slot` in `main` | `layout.parts.copilotInput.slot` = `main` | Follows the AI feed |
 | `incoming-follows-assignments-interior-panel` | `layout.parts.assignments.slot` in `interior-panel` | `layout.parts.incomingTile.slot` = `interior-panel` | Follows Assignments |
 | `incoming-follows-assignments-left-nav` | `layout.parts.assignments.slot` in `left-nav` | `layout.parts.incomingTile.slot` = `left-nav` | Follows Assignments |
+| `two-columns-full-width` | `home.layout` in `twoColumn` | `home.contentWidth` = `full` | Two columns always uses the full width |
 | `voice-top-follows-assignments-interior-panel` | `layout.parts.assignments.slot` in `interior-panel` and `layout.parts.voiceBar.slot` in `left-nav`, `interior-panel` | `layout.parts.voiceBar.slot` = `interior-panel` | At the top of the assignments list |
 | `voice-top-follows-assignments-left-nav` | `layout.parts.assignments.slot` in `left-nav` and `layout.parts.voiceBar.slot` in `left-nav`, `interior-panel` | `layout.parts.voiceBar.slot` = `left-nav` | At the top of the assignments list |
 
@@ -189,3 +190,4 @@ Widths are tokens the container resolves: `card` (lyra's `LYRA_CARD_MAX_WIDTH`),
 | `ai-panel-canvas` | `layout.parts.aiFeed.slot` in `docked-panel` | `ai.canvasLayout` | Not used when AI display is In the Contact Details panel |
 | `ai-panel-legs` | `layout.parts.aiFeed.slot` in `docked-panel` | `assignments.legs` | Contact Details panel uses tabs |
 | `custom-sort-direction` | `assignments.sort.mode` in `custom` | `assignments.sort.direction` | Custom uses your dragged order |
+| `two-columns-width-unused` | `home.layout` in `twoColumn` | `home.contentWidth` | Two columns always uses the full width |

@@ -30,7 +30,7 @@ export const PRESET_ROWS: readonly PresetRow[] = [
     help: HOME_LAYOUT_FIELD.meta!.description,
     options: [
       { value: "oneColumn", label: "One column", description: "Home's sections stack in one column, the Activity feed among them." },
-      { value: "twoColumn", label: "Two columns", description: "The Activity feed sits on the left and the other sections on the right." },
+      { value: "twoColumn", label: "Two columns", description: "The Activity feed sits on the left and the other sections on the right, so it needs the Activity feed on." },
     ],
   },
   {

@@ -34,6 +34,11 @@ export function LayoutSection() {
   const locked = useSectionLocked("layout");
   const [{ advanced: advancedOn }, updateLayout] = useSettings("layout");
   const advancedOff = useSettingDisabledBy("layout.parts");
+  // Two columns puts the Activity feed on the left (`homeIsTwoColumn`): with the feed off it would render one column,
+  // so the option is disabled, with its reason, until the feed is on (P-LAYOUT-F4 6).
+  const [home] = useSettings("home");
+  const feedOn = home.sections.some((s) => s.key === "activity" && s.enabled);
+  const homeLayoutUnavailable = feedOn ? undefined : { twoColumn: "Turn on the Activity feed in Home's sections to use two columns." };
   const advanced = (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
@@ -71,7 +76,7 @@ export function LayoutSection() {
       <Section title={t("Presets")}>
         {PRESET_ROWS.map((row) => (
           <React.Fragment key={row.field}>
-            <LayoutPresetRow row={row} />
+            <LayoutPresetRow row={row} unavailable={row.field === "home.layout" ? homeLayoutUnavailable : undefined} />
             {row.field === "home.layout" && <HomeContentWidthRow />}
           </React.Fragment>
         ))}

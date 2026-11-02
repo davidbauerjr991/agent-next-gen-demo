@@ -247,7 +247,7 @@ export type HomeContentWidth = (typeof HOME_CONTENT_WIDTHS)[number];
 export const HOME_CONTENT_WIDTH_FIELD = oneOf(HOME_CONTENT_WIDTHS, {
   label: "Dashboard content width",
   description:
-    "Max keeps the Dashboard in a centred column (1024px) inside the width beside any open panel; Full uses the whole width. The page header and the app tabs (Customers, Accounts, Tickets) always span the page. Changing Home layout sets it again: Max for one column, Full for two.",
+    "Max keeps the one-column Dashboard in a centred column (1024px) beside any open panel and Full uses the whole width; two columns always use the full width.",
 });
 /** Each option in Settings, one sentence (P-LAYOUT-F3 11). */
 export const HOME_CONTENT_WIDTH_OPTIONS: Record<HomeContentWidth, FieldMeta> = {
@@ -953,6 +953,9 @@ export const SETTING_CONSTRAINTS: readonly SettingConstraint[] = [
   { id: "ai-panel-canvas", when: { path: AI_IN_PANEL, in: ["docked-panel"] }, disables: { path: "ai.canvasLayout" }, reason: "Not used when AI display is In the Contact Details panel" },
   { id: "ai-panel-legs", when: { path: AI_IN_PANEL, in: ["docked-panel"] }, disables: { path: "assignments.legs" }, reason: "Contact Details panel uses tabs" },
   { id: "custom-sort-direction", when: { path: "assignments.sort.mode", in: ["custom"] }, disables: { path: "assignments.sort.direction" }, reason: "Custom uses your dragged order" },
+  // P-LAYOUT-F4 6: the Dashboard's content width is the one-column Dashboard's; two columns are always full width.
+  { id: "two-columns-full-width", when: { path: "home.layout", in: ["twoColumn"] }, forces: { path: "home.contentWidth", value: "full" }, reason: "Two columns always uses the full width" },
+  { id: "two-columns-width-unused", when: { path: "home.layout", in: ["twoColumn"] }, disables: { path: "home.contentWidth" }, reason: "Two columns always uses the full width" },
   // P-LAYOUT-F1 E: the Advanced layout switch picks one way to place the parts — the presets, or Advanced by hand.
   ...ADVANCED_LAYOUT_PRESETS.map((path) => ({
     id: `advanced-layout-${path}`,

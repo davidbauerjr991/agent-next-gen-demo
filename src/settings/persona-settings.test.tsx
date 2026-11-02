@@ -81,6 +81,12 @@ describe("Settings → Workspace → Persona", () => {
     )!;
     await h.click(settings);
     expect(radio("One column")?.getAttribute("aria-checked")).toBe("true");
+    // Two columns needs the Activity feed (P-LAYOUT-F4 6): off by default, the option is disabled.
+    expect(radio("Two columns")?.hasAttribute("disabled")).toBe(true);
+    await act(async () => {
+      const home = getSettingsStore().getState().values.home;
+      getSettingsStore().update("home", { sections: home.sections.map((s) => (s.key === "activity" ? { ...s, enabled: true } : s)) });
+    });
     await h.click(radio("Two columns")!);
     expect(getSettingsStore().getState().values.home.layout).toBe("twoColumn");
   });

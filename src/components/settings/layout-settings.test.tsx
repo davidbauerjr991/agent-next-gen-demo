@@ -25,6 +25,11 @@ afterEach(async () => {
 });
 
 const values = () => getSettingsStore().getState().values;
+/** Two columns needs the Activity feed on (P-LAYOUT-F4 6): it's off by default. */
+const feedOn = () =>
+  act(async () => {
+    getSettingsStore().update("home", { sections: values().home.sections.map((s) => (s.key === "activity" ? { ...s, enabled: true } : s)) });
+  });
 const preset = (field: string) => h.container.querySelector<HTMLElement>(`[data-layout-preset="${field}"]`)!;
 const radioIn = (el: HTMLElement, label: string) => [...el.querySelectorAll<HTMLElement>("[role=radio]")].find((r) => r.textContent?.trim() === label)!;
 const part = (id: string) => h.container.querySelector<HTMLElement>(`[data-layout-part="${id}"]`)!;
@@ -73,6 +78,7 @@ describe("Settings → Layout presets (P-LAYOUT)", () => {
   });
 
   it("a map no value of a field reproduces shows Custom, nothing checked, and leaves the field as it was", async () => {
+    await feedOn();
     await h.render(<SettingsView />);
     expect(preset("home.layout").textContent).not.toContain("Custom");
     await act(async () => {
@@ -93,10 +99,11 @@ describe("Settings → Layout presets (P-LAYOUT)", () => {
   });
 });
 
-// P-LAYOUT-F3 3: Home's content width, a Layout preset row after Home layout. Its default follows the layout (a preset
-// write, not a constraint): switching Home layout sets it; the agent's own choice afterwards stands.
-describe("Home content width (P-LAYOUT-F3 3)", () => {
-  it("follows Home layout when it changes, and keeps the agent's choice otherwise", async () => {
+// P-LAYOUT-F3 3: Home's content width, a Layout preset row after Home layout. One column: the agent's choice, Max by
+// default. Two columns (P-LAYOUT-F4 6): forced to Full and the row disabled, with its reason.
+describe("Home content width (P-LAYOUT-F3 3, P-LAYOUT-F4 6)", () => {
+  it("Two columns forces Full and disables the row with its reason; One column gives the choice back", async () => {
+    await feedOn();
     await h.render(<SettingsView />);
     const width = preset("home.contentWidth");
     expect(width).not.toBeNull();
@@ -106,15 +113,34 @@ describe("Home content width (P-LAYOUT-F3 3)", () => {
     expect(values().home.contentWidth).toBe("max");
     await h.click(radioIn(preset("home.layout"), "Two columns"));
     expect(values().home.contentWidth).toBe("full");
-    // The agent's own choice: it stays while the layout does.
-    await h.click(radioIn(preset("home.contentWidth"), "Max"));
-    expect(values().home.contentWidth).toBe("max");
-    expect(values().home.layout).toBe("twoColumn");
-    // A layout change sets the default again.
+    // Disabled, with the reason on hover and as text; the write is refused.
+    const reason = "Two columns always uses the full width";
+    expect([...preset("home.contentWidth").querySelectorAll("[role=radio]")].every((r) => r.hasAttribute("disabled"))).toBe(true);
+    expect(preset("home.contentWidth").querySelector("[data-disabled-reason]")?.getAttribute("data-disabled-reason")).toBe(reason);
+    expect(preset("home.contentWidth").textContent).toContain(reason);
+    getSettingsStore().update("home", { contentWidth: "max" });
+    expect(values().home.contentWidth).toBe("full");
+    // One column: the row is the agent's again, Max by default.
     await h.click(radioIn(preset("home.layout"), "One column"));
     expect(values().home.contentWidth).toBe("max");
-    await h.click(radioIn(preset("home.layout"), "Two columns"));
+    expect([...preset("home.contentWidth").querySelectorAll("[role=radio]")].some((r) => r.hasAttribute("disabled"))).toBe(false);
+    await h.click(radioIn(preset("home.contentWidth"), "Full"));
     expect(values().home.contentWidth).toBe("full");
+  });
+});
+
+describe("Home layout: Two columns needs the Activity feed (P-LAYOUT-F4 6)", () => {
+  it("with the feed off the option is disabled, with its reason; with it on, it applies", async () => {
+    await h.render(<SettingsView />);
+    const twoColumns = () => radioIn(preset("home.layout"), "Two columns");
+    expect(twoColumns().hasAttribute("disabled")).toBe(true);
+    expect(radioIn(preset("home.layout"), "One column").hasAttribute("disabled")).toBe(false);
+    expect(preset("home.layout").textContent).toContain("Turn on the Activity feed in Home's sections to use two columns.");
+    await feedOn();
+    expect(twoColumns().hasAttribute("disabled")).toBe(false);
+    expect(preset("home.layout").textContent).not.toContain("Turn on the Activity feed");
+    await h.click(twoColumns());
+    expect(values().home.layout).toBe("twoColumn");
   });
 });
 
@@ -124,7 +150,8 @@ describe("the Advanced layout switch (P-LAYOUT-F1 E)", () => {
     expect(values().layout.advanced).toBe(false);
     expect(advancedTrigger().hasAttribute("disabled")).toBe(true);
     expect(h.container.querySelector("[data-settings-group=layout]")!.textContent).toContain("Turn on Advanced layout to drag parts.");
-    expect([...preset("home.layout").querySelectorAll("[role=radio]")].some((r) => r.hasAttribute("disabled"))).toBe(false);
+    // Two columns is disabled only for its own reason (the feed is off), not by the Advanced switch.
+    expect(radioIn(preset("home.layout"), "One column").hasAttribute("disabled")).toBe(false);
   });
 
   it("on: every placement preset is disabled with its reason, and Advanced opens", async () => {
