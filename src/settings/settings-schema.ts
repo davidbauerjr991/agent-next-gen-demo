@@ -429,23 +429,7 @@ export interface AssignmentsSettings {
    *  retired "none" (the top of Home): a stored one reads as the left nav with Home's Active assignments section on
    *  (`migrations.ts`). */
   placement: AssignmentsPlacement;
-  /** Whether the interior panel starts pinned (pushing your work aside) or unpinned (a hover flyout), P-LAYOUT-F2 6.
-   *  The agent's own pin toggle is per-browser working state on top of it. */
-  panelPinned: AssignmentsPanelPinned;
 }
-
-const ASSIGNMENTS_PANEL_PINNED = ["pinned", "unpinned"] as const;
-export type AssignmentsPanelPinned = (typeof ASSIGNMENTS_PANEL_PINNED)[number];
-export const ASSIGNMENTS_PANEL_PINNED_FIELD = oneOf(ASSIGNMENTS_PANEL_PINNED, {
-  label: "Interior panel",
-  description:
-    "Pinned, the panel moves your work aside (or opens over it where they don't fit); unpinned, it opens over your work from the page header's Assignments button. Your own pin toggle is kept per browser until this changes.",
-});
-/** Each option's label in Settings, declared with the field. */
-export const ASSIGNMENTS_PANEL_PINNED_OPTIONS: Record<AssignmentsPanelPinned, FieldMeta> = {
-  pinned: { label: "Pinned", description: "The panel moves your work aside while they fit." },
-  unpinned: { label: "Unpinned", description: "The panel opens over your work from the page header's Assignments button." },
-};
 
 export const ASSIGNMENTS_PLACEMENTS = ["leftNav", "interiorPanel"] as const;
 export type AssignmentsPlacement = (typeof ASSIGNMENTS_PLACEMENTS)[number];
@@ -491,8 +475,9 @@ export const ASSIGNMENT_LEGS_FIELD = oneOf(ASSIGNMENT_LEGS, {
   description: "Separate tabs shows one thread per channel; one stream shows every channel in one transcript, filtered by the header icons.",
 });
 
-// No version bump for `legs`, `sort`, `placement` or `panelPinned`: a missing stored key reads as its default. A
-// retired key (`channelChips`, P-LAYOUT-F3 5: the chips always show) isn't read, and `migrations.ts` drops it.
+// No version bump for `legs`, `sort` or `placement`: a missing stored key reads as its default. A retired key
+// (P-LAYOUT-F3: `channelChips`, the chips always show; `panelPinned`, the panel always starts pinned) isn't read, and
+// `migrations.ts` drops it.
 const assignments = defineSection<AssignmentsSettings>({
   key: "assignments",
   version: 2,
@@ -507,7 +492,6 @@ const assignments = defineSection<AssignmentsSettings>({
     legs: "tabs",
     sort: { mode: "lastUpdated", direction: "desc" },
     placement: "leftNav",
-    panelPinned: "pinned",
   },
   fields: {
     autoAccept: group<Record<AutoAcceptChannel, boolean>>(
@@ -522,7 +506,6 @@ const assignments = defineSection<AssignmentsSettings>({
     legs: ASSIGNMENT_LEGS_FIELD,
     sort: group<AssignmentSortSettings>({ mode: ASSIGNMENT_SORT_MODE_FIELD, direction: ASSIGNMENT_SORT_DIRECTION_FIELD }),
     placement: ASSIGNMENTS_PLACEMENT_FIELD,
-    panelPinned: ASSIGNMENTS_PANEL_PINNED_FIELD,
   },
 });
 
@@ -951,7 +934,6 @@ export const SETTING_CONSTRAINTS: readonly SettingConstraint[] = [
   { id: "ai-panel-canvas", when: { path: AI_IN_PANEL, in: ["docked-panel"] }, disables: { path: "ai.canvasLayout" }, reason: "Not used when AI display is In the Contact Details panel" },
   { id: "ai-panel-legs", when: { path: AI_IN_PANEL, in: ["docked-panel"] }, disables: { path: "assignments.legs" }, reason: "Contact Details panel uses tabs" },
   { id: "custom-sort-direction", when: { path: "assignments.sort.mode", in: ["custom"] }, disables: { path: "assignments.sort.direction" }, reason: "Custom uses your dragged order" },
-  { id: "panel-pinned-left-nav", when: { path: "assignments.placement", in: ["leftNav"] }, disables: { path: "assignments.panelPinned" }, reason: "Only the interior panel pins" },
   // P-LAYOUT-F1 E: the Advanced layout switch picks one way to place the parts — the presets, or Advanced by hand.
   ...ADVANCED_LAYOUT_PRESETS.map((path) => ({
     id: `advanced-layout-${path}`,

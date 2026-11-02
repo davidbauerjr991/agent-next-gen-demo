@@ -7,13 +7,10 @@ import {
   ASSIGNMENT_LEGS_FIELD,
   ASSIGNMENT_SORT_DIRECTION_FIELD,
   ASSIGNMENT_SORT_MODE_FIELD,
-  ASSIGNMENTS_PANEL_PINNED_FIELD,
-  ASSIGNMENTS_PANEL_PINNED_OPTIONS,
   AUTO_ACCEPT_CHANNELS,
   useSettingDisabledBy,
   useSettings,
   type AssignmentLegs,
-  type AssignmentsPanelPinned,
   type AssignmentSortDirectionSetting,
   type AssignmentSortMode,
   type AutoAcceptChannel,
@@ -38,7 +35,6 @@ const SORT_DIRECTION_LABELS: Record<AssignmentSortDirectionSetting, string> = {
 export function AssignmentsSection() {
   const [assignments, updateAssignments] = useSettings("assignments");
   const legsUnused = useSettingDisabledBy("assignments.legs");
-  const pinnedUnused = useSettingDisabledBy("assignments.panelPinned");
   return (
     <SettingsGroup id="assignments" title={t("Assignments")} lockKey="assignments">
       <Section title={t("Auto-accept")}>
@@ -93,21 +89,6 @@ export function AssignmentsSection() {
           checked={assignments.showStatusChip}
           onCheckedChange={(showStatusChip) => updateAssignments({ showStatusChip })}
         />
-      </Section>
-
-      <Section title={t("Interior panel")}>
-        <div className="max-w-xs">
-          <DisabledReason reason={pinnedUnused ? t(pinnedUnused.reason) : undefined} className="flex w-full">
-            <Select
-              label={t(ASSIGNMENTS_PANEL_PINNED_FIELD.meta!.label)}
-              labelHelpText={t(ASSIGNMENTS_PANEL_PINNED_FIELD.meta!.description)}
-              options={ASSIGNMENTS_PANEL_PINNED_FIELD.values.map((value) => ({ value, label: t(ASSIGNMENTS_PANEL_PINNED_OPTIONS[value].label) }))}
-              value={assignments.panelPinned}
-              disabled={!!pinnedUnused}
-              onValueChange={(value) => updateAssignments({ panelPinned: value as AssignmentsPanelPinned })}
-            />
-          </DisabledReason>
-        </div>
       </Section>
 
       <Section title={t("List behaviour")}>

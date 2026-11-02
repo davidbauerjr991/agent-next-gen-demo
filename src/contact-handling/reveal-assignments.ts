@@ -13,35 +13,26 @@ export function revealAssignments(slot: SlotId, setNavOpen: (open: boolean) => v
   else if (slot === "left-nav") setNavOpen(true);
 }
 
-/** The interior panel's defaults: the left nav as a rail, and the panel pinned as Settings says
- *  (`assignments.panelPinned`, P-LAYOUT-F2 6): pinned, open; unpinned, closed until the page header's toggle opens it
- *  over the work (a flyout open on its own would cover Home). Defaults, not a lock: the agent can expand the nav,
- *  close the panel or pin it afterwards. */
-function applyInteriorPanelDefaults(setNavOpen: (open: boolean) => void, pinned: boolean): void {
+/** The interior panel's defaults: the left nav as a rail, and the panel open and pinned. It always starts pinned
+ *  (P-LAYOUT-F3 10: `assignments.panelPinned` retired); pinning is the agent's per-browser working state. Defaults, not
+ *  a lock: the agent can expand the nav, close the panel or unpin it afterwards. */
+function applyInteriorPanelDefaults(setNavOpen: (open: boolean) => void): void {
   setNavOpen(false);
-  setAssignmentsWorkingState({ panelOpen: pinned, panelPinned: pinned });
+  setAssignmentsWorkingState({ panelOpen: true, panelPinned: true });
 }
 
 /** Applies `applyInteriorPanelDefaults` whenever the assignments move into the interior panel (a Settings change, a
- *  profile applied), and expands the nav again when they move back into it, so the cards are on screen. A change to
- *  the pinned setting itself (a profile applied, Settings) pins or unpins the panel to match. On load the nav's
- *  initial state already follows the slot (`navStartsOpen`), and the panel's per-browser open / pinned state is kept,
- *  so a reload doesn't reopen a panel the agent closed or re-pin one they unpinned. */
-export function useInteriorPanelDefaults(slot: SlotId, setNavOpen: (open: boolean) => void, pinned: boolean): void {
+ *  profile applied), and expands the nav again when they move back into it, so the cards are on screen. On load the
+ *  nav's initial state already follows the slot (`navStartsOpen`), and the panel's per-browser open / pinned state is
+ *  kept, so a reload doesn't reopen a panel the agent closed or re-pin one they unpinned. */
+export function useInteriorPanelDefaults(slot: SlotId, setNavOpen: (open: boolean) => void): void {
   const last = useRef(slot);
-  const lastPinned = useRef(pinned);
   useEffect(() => {
     if (last.current === slot) return;
     last.current = slot;
-    if (slot === "interior-panel") applyInteriorPanelDefaults(setNavOpen, pinned);
+    if (slot === "interior-panel") applyInteriorPanelDefaults(setNavOpen);
     else setNavOpen(navStartsOpen(slot));
-  }, [slot, setNavOpen, pinned]);
-  useEffect(() => {
-    if (lastPinned.current === pinned) return;
-    lastPinned.current = pinned;
-    // As the defaults: pinned and open, or unpinned and closed until the toggle opens it.
-    setAssignmentsWorkingState({ panelPinned: pinned, panelOpen: pinned });
-  }, [pinned]);
+  }, [slot, setNavOpen]);
 }
 
 const NAV_UNTOUCHED = () => {};

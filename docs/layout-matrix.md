@@ -179,4 +179,3 @@ Widths are tokens the container resolves: `card` (lyra's `LYRA_CARD_MAX_WIDTH`),
 | `ai-panel-canvas` | `layout.parts.aiFeed.slot` in `docked-panel` | `ai.canvasLayout` | Not used when AI display is In the Contact Details panel |
 | `ai-panel-legs` | `layout.parts.aiFeed.slot` in `docked-panel` | `assignments.legs` | Contact Details panel uses tabs |
 | `custom-sort-direction` | `assignments.sort.mode` in `custom` | `assignments.sort.direction` | Custom uses your dragged order |
-| `panel-pinned-left-nav` | `assignments.placement` in `leftNav` | `assignments.panelPinned` | Only the interior panel pins |

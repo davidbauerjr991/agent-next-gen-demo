@@ -82,25 +82,25 @@ const withActivity = (home: SettingsState["home"]): SettingsState["home"] => ({
 // P-LAYOUT-F2 6: four more built-ins, so the layout matrix exercises the placements no profile used. Each is a delta
 // on Phase 2 (its apps and channels), settled through `withDerivedLayout` like the others.
 
-/** Panel agent: the assignments in the interior panel, pinned, with the voice controls at its top; AI inline, the
- *  canvas in two columns; Home in one column. */
+/** Panel agent: the assignments in the interior panel, with the voice controls at its top; AI inline, the canvas in
+ *  two columns; Home in one column. */
 function panelAgent(): SettingsState {
   const base = phase2();
   return {
     ...base,
-    assignments: { ...base.assignments, placement: "interiorPanel", panelPinned: "pinned" },
+    assignments: { ...base.assignments, placement: "interiorPanel" },
     voice: { ...base.voice, controlsLocation: "top" },
     ai: { ...base.ai, displayLocation: "inline", canvasLayout: "twoColumn" },
   };
 }
 
-/** Compact: the interior panel unpinned (a flyout), the voice controls at the bottom; AI inline, the canvas stacked;
- *  Home in one column with Activity as a table. */
+/** Compact: the interior panel (it starts pinned, as every panel does since P-LAYOUT-F3 10), the voice controls at
+ *  the bottom; AI inline, the canvas stacked; Home in one column with Activity as a table. */
 function compact(): SettingsState {
   const base = phase2();
   return {
     ...base,
-    assignments: { ...base.assignments, placement: "interiorPanel", panelPinned: "unpinned" },
+    assignments: { ...base.assignments, placement: "interiorPanel" },
     voice: { ...base.voice, controlsLocation: "bottom" },
     ai: { ...base.ai, displayLocation: "inline", canvasLayout: "stacked" },
     home: { ...withActivity(base.home), layout: "oneColumn", activityView: "table" },

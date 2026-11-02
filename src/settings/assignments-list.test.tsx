@@ -314,10 +314,11 @@ describe("Assignments placement → Interior panel (0c; lyra SidePanel left sinc
     expect(menuItems().some((m) => /^(Ascending|Descending)$/.test(m.textContent?.trim() ?? ""))).toBe(false);
   });
 
-  it("P-LAYOUT-F2 6: assignments.panelPinned — unpinned, the panel comes in closed (the toggle opens it, undocked); pinned again, docked and open; the left nav disables it", async () => {
+  // P-LAYOUT-F3 10 (supersedes P-LAYOUT-F2 6's `assignments.panelPinned`): no setting — the panel always starts pinned,
+  // and pinning is the agent's per-browser working state.
+  it("the panel always starts pinned and open (no setting); an unpin is written to the per-browser working state", async () => {
     await act(async () => {
       store().update("channels", { chat: true });
-      store().update("assignments", { panelPinned: "unpinned" });
     });
     await h.show(AgentWorkspaceAdvancedPage);
     await h.goAvailable();
@@ -325,19 +326,13 @@ describe("Assignments placement → Interior panel (0c; lyra SidePanel left sinc
       store().update("assignments", { placement: "interiorPanel" });
     });
     await h.advance(100);
-    expect(headerToggle()!.getAttribute("aria-expanded")).toBe("false");
-    await h.click(headerToggle()!);
     expect(headerToggle()!.getAttribute("aria-expanded")).toBe("true");
-    expect(panel()!.getAttribute("data-docked")).toBeNull();
-    // The setting changed (Settings, a profile): pinned and open.
-    await act(async () => {
-      store().update("assignments", { panelPinned: "pinned" });
-    });
-    await h.advance(100);
     expect(panel()!.getAttribute("data-docked")).toBe("true");
-    // Under the left nav there's no panel to pin: the setting is disabled, with its reason.
-    const disabledBy = SETTING_CONSTRAINTS.find((c) => c.id === "panel-pinned-left-nav")!;
-    expect(disabledBy).toMatchObject({ when: { path: "assignments.placement", in: ["leftNav"] }, disables: { path: "assignments.panelPinned" } });
+    expect("panelPinned" in store().getState().values.assignments).toBe(false);
+    expect(SETTING_CONSTRAINTS.some((c) => c.id === "panel-pinned-left-nav")).toBe(false);
+    // The agent's unpin is working state: kept in this browser, not a setting.
+    await h.click([...h.container.querySelectorAll<HTMLButtonElement>("button")].find((b) => /^Unpin/.test(b.getAttribute("aria-label") ?? ""))!);
+    expect(JSON.parse(localStorage.getItem("agent-next-gen:working:assignments")!).panelPinned).toBe(false);
   });
 
   it("A2: switching the placement to the interior panel collapses the nav to a rail and opens the panel pinned; the nav can be expanded again", async () => {

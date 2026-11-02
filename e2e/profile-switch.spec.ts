@@ -56,11 +56,9 @@ const NEW_PROFILES: { label: string; check: (page: Page) => Promise<void> }[] = 
   {
     label: "Compact",
     check: async (page) => {
-      // The interior panel unpinned: closed until the page header's toggle opens it as a flyout.
-      const toggle = page.locator("[aria-controls=assignments-panel]");
-      await expect(toggle).toHaveAttribute("aria-expanded", "false");
-      await expect(page.locator("[data-slot=assignments-panel][data-docked]")).toHaveCount(0);
-      // Activity as a table in the one-column Home.
+      // The interior panel starts pinned, as every panel does (P-LAYOUT-F3 10; Compact's "unpinned" delta is gone).
+      await expect(page.locator("[data-slot=assignments-panel]")).toHaveAttribute("data-docked", "true");
+      // Activity as a table in the one-column Home (with the stacked canvas, what keeps Compact distinct).
       await expect(page.locator("[data-home-layout=oneColumn] [data-feed-table-frame]")).toBeVisible();
     },
   },

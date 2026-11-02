@@ -207,10 +207,10 @@ describe("every built-in is equal by construction (P-LAYOUT-F2 6)", () => {
   const withActivity = PROFILES.phase2.home.sections.map((s) => (s.key === "activity" ? { ...s, enabled: true } : s));
   const p2 = PROFILES.phase2;
 
-  it("Panel agent is Phase 2 with the interior panel pinned, the voice controls at its top, AI inline in two columns", () => {
+  it("Panel agent is Phase 2 with the interior panel, the voice controls at its top, AI inline in two columns", () => {
     expect({ ...PROFILES.panelAgent, layout: null }).toEqual(
       phase2With({
-        assignments: { ...p2.assignments, placement: "interiorPanel", panelPinned: "pinned" },
+        assignments: { ...p2.assignments, placement: "interiorPanel" },
         voice: { ...p2.voice, controlsLocation: "top" },
         ai: { ...p2.ai, displayLocation: "inline", canvasLayout: "twoColumn" },
       }),
@@ -218,10 +218,12 @@ describe("every built-in is equal by construction (P-LAYOUT-F2 6)", () => {
     expect(PROFILES.panelAgent.layout.parts).toMatchObject({ assignments: { slot: "interior-panel" }, voiceBar: { slot: "interior-panel" } });
   });
 
-  it("Compact is Phase 2 with the interior panel unpinned, the voice bar at the bottom, AI inline stacked, Activity as a table in one column", () => {
+  // P-LAYOUT-F3 10: Compact drops its "unpinned" delta (the setting is retired); it stays distinct through the stacked
+  // canvas and the table view.
+  it("Compact is Phase 2 with the interior panel, the voice bar at the bottom, AI inline stacked, Activity as a table in one column", () => {
     expect({ ...PROFILES.compact, layout: null }).toEqual(
       phase2With({
-        assignments: { ...p2.assignments, placement: "interiorPanel", panelPinned: "unpinned" },
+        assignments: { ...p2.assignments, placement: "interiorPanel" },
         voice: { ...p2.voice, controlsLocation: "bottom" },
         ai: { ...p2.ai, displayLocation: "inline", canvasLayout: "stacked" },
         home: { ...p2.home, sections: withActivity, layout: "oneColumn", activityView: "table" },

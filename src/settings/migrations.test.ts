@@ -46,6 +46,17 @@ describe("placement none's migration (P-LAYOUT-F1 B)", () => {
     expect(JSON.parse(backing.getItem(sectionStorageKey("assignments"))!).value).not.toHaveProperty("channelChips");
   });
 
+  it("a stored panelPinned (retired, P-LAYOUT-F3 10) is dropped from storage on load; the rest stays", () => {
+    const backing = memoryStorage({
+      [sectionStorageKey("assignments")]: stored({ ...defaultSettings().assignments, placement: "interiorPanel", panelPinned: "unpinned" }, SECTIONS.assignments.version),
+    });
+    const values = createSettingsStore(safeStorage(() => backing)).getState().values;
+    expect(values.assignments.placement).toBe("interiorPanel");
+    const raw = JSON.parse(backing.getItem(sectionStorageKey("assignments"))!).value;
+    expect(raw).not.toHaveProperty("panelPinned");
+    expect(raw.placement).toBe("interiorPanel");
+  });
+
   it("a stored map with the assignments at the top of Home migrates the same way", () => {
     const backing = memoryStorage({
       [sectionStorageKey("layout")]: stored({ parts: { assignments: { slot: "home-top" } } }, SECTIONS.layout.version),
