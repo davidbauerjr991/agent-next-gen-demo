@@ -245,14 +245,14 @@ export const HOME_LAYOUT_FIELD = oneOf(HOME_LAYOUTS, {
 const HOME_CONTENT_WIDTHS = ["max", "full"] as const;
 export type HomeContentWidth = (typeof HOME_CONTENT_WIDTHS)[number];
 export const HOME_CONTENT_WIDTH_FIELD = oneOf(HOME_CONTENT_WIDTHS, {
-  label: "Home content width",
+  label: "Dashboard content width",
   description:
-    "Max keeps Home's body in a centred column (1024px) inside the width beside any open panel; Full uses the whole width. The page header always spans the page. Changing Home layout sets it again: Max for one column, Full for two.",
+    "Max keeps the Dashboard in a centred column (1024px) inside the width beside any open panel; Full uses the whole width. The page header and the app tabs (Customers, Accounts, Tickets) always span the page. Changing Home layout sets it again: Max for one column, Full for two.",
 });
 /** Each option in Settings, one sentence (P-LAYOUT-F3 11). */
 export const HOME_CONTENT_WIDTH_OPTIONS: Record<HomeContentWidth, FieldMeta> = {
-  max: { label: "Max", description: "Home's body sits in a centred column." },
-  full: { label: "Full", description: "Home's body uses the whole width." },
+  max: { label: "Max", description: "The Dashboard sits in a centred column." },
+  full: { label: "Full", description: "The Dashboard uses the whole width." },
 };
 
 /** How the Activity feed lists its rows (P-HOME-1m), every view alike: the list, or a table (sortable columns). */
