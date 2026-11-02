@@ -626,7 +626,7 @@ describe("calls from schedule items (the leg-join P0.9 generalizes)", () => {
     // records fills the card's Outcome.
     expect(card().querySelectorAll("[data-kind-outcome-trigger]")).toHaveLength(1);
     await hangUp(call.id);
-    const wrapUpCard = () => h.container.querySelector<HTMLElement>('[role="region"][aria-label="Wrap up"]');
+    const wrapUpCard = () => h.container.querySelector<HTMLElement>('[role="region"][aria-label="Outcome"]');
     await type(wrapUpCard()!.querySelector("textarea")!, "Refund posted while on the call");
     await h.click(card().querySelector("[data-kind-outcome-trigger]")!);
     expect(outcomeForm()?.querySelector("textarea")?.value).toBe("Refund posted while on the call");
