@@ -197,6 +197,11 @@ export function ReferenceSlotFrame({
   // The slot follows the panel's width while it's open (a drag pushes the action area); lyra opens it at the card width.
   const [panelWidth, setPanelWidth] = useState(openWidth);
   const [resizing, setResizing] = useState(false);
+  // No width transition while anything here is being dragged: the column's edge, the slide-over's, or the Copilot
+  // panel's (the controller's `sidePanelResizing`). The slide-over follows the column's width on every pointer move,
+  // and the column follows a wider slide-over, so each must jump, never slide (P-LAYOUT-F4 22).
+  const { sidePanelResizing } = useWorkspace();
+  const instantWidth = resizing || (externalColumn && sidePanelResizing);
   useEffect(() => {
     if (!mounted) setPanelWidth(baseWidth);
   }, [mounted, baseWidth]);
@@ -239,7 +244,7 @@ export function ReferenceSlotFrame({
       {/* Measures the row (a hidden child, so the row is its parent). */}
       <div ref={anchorRef} hidden aria-hidden="true" />
       {reference && (
-        <ReferenceColumn width={slotWidth} transition={resizing ? "none" : WIDTH_TRANSITION} title={referenceTitle} headerToggle={headerToggle} onResizeStateChange={setResizing}>
+        <ReferenceColumn width={slotWidth} transition={resizing ? "none" : WIDTH_TRANSITION} title={referenceTitle} headerToggle={headerToggle} onResizeStateChange={setResizing} instantWidth={instantWidth}>
           {reference}
         </ReferenceColumn>
       )}
@@ -265,6 +270,7 @@ export function ReferenceSlotFrame({
           width={openWidth}
           minWidth={baseWidth}
           maxWidth={Math.max(baseWidth, available - ACTION_AREA_MIN_WIDTH - bodyReserved)}
+          instantWidthChange={instantWidth}
           onWidthChange={(width) => {
             setPanelWidth(width);
             remember({ width });

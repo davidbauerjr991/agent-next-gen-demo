@@ -27,7 +27,10 @@ export function ReferenceColumn({
   title,
   headerToggle = false,
   onResizeStateChange,
+  instantWidth = false,
 }: {
+  /** No width transition now: a drag is in progress here or in the slide-over over this column. */
+  instantWidth?: boolean;
   /** A drag of the column's edge starts or ends (the frame turns its width transition off meanwhile). */
   onResizeStateChange?: (resizing: boolean) => void;
   children: ReactNode;
@@ -96,6 +99,7 @@ export function ReferenceColumn({
           if (width === size.width) size.onWidthChange(next);
         }}
         onResizeStateChange={onResizeStateChange}
+        instantWidthChange={instantWidth}
         aria-label={title ?? t("Summaries")}
         // The content card's own surface, not SidePanel's grey: the column's structure is its cards and its border
         // (P-LAYOUT-F4 11). Opaque, so the hover flyout still covers the action area.
