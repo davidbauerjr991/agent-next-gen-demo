@@ -3,7 +3,7 @@ import type { Workspace } from "./controller/useWorkspaceController";
 
 /** The workspace controller's result, for the page's regions (P-EXTRACT C8).
  *  One context: the page re-rendered every region on any change before the
- *  split, and still does; narrower contexts are P2.0's. */
+ *  split, and still does; narrower contexts are P-PERF-CONTROLLER's. */
 export const WorkspaceContext = createContext<Workspace | null>(null);
 
 export function useWorkspace(): Workspace {

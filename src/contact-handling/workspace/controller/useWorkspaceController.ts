@@ -21,7 +21,7 @@ import { useSettings } from "@/settings";
  *  adds its own; a name a slice needs from a later one is read through
  *  `late` (see `WorkspaceLate`), filled in right after its slice runs. The
  *  result is what the workspace's regions read (`useWorkspace`). One
- *  object, as the page was one function: narrower contexts are P2.0's. */
+ *  object, as the page was one function: narrower contexts are P-PERF-CONTROLLER's. */
 export function useWorkspaceController(props: WorkspaceControllerProps) {
   const late = useRef({} as WorkspaceLate).current;
   const cards = useWsCards(props, late);
