@@ -41,7 +41,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AiActionsFeed } from "@/components/transcript/InteractionTranscript";
-import { isAiActionMessage } from "@/components/agent-next-gen-ai-messages";
+import { isAiActionMessage, isOnDemandAiMessage } from "@/components/agent-next-gen-ai-messages";
 import { buildNavItems } from "@/components/agent-next-gen-interaction-dashboard";
 import { useSearchPanelContent } from "@/components/agent-next-gen-search-panel";
 import { AGENT_WORKSPACE_CUSTOMER_PANEL_TABS, DetailsPanelAccordions } from "@/components/customer-info";
@@ -809,7 +809,8 @@ export function useWsHeaderApps(prev: WsOutbound) {
     const isLucas = scenarioKeyOf(activeInteraction.id) === LUCAS_THOMAS_ID;
     return (
       <AiActionsFeed
-        messages={Object.values(activeInteraction.liveMessages ?? {}).flat()}
+        // Under "panel" only the on-demand cards are the panel's; "main" (the AI workspace) holds them all.
+        messages={Object.values(activeInteraction.liveMessages ?? {}).flat().filter((m) => aiWorkspaceMain || isOnDemandAiMessage(m))}
         overview={overview}
         onApprovalDecision={isLucas ? handleLucasApprovalDecision : undefined}
         onApprovalCallRequest={isLucas && calling.elevation ? handleLucasCallRequest : undefined}
@@ -868,7 +869,7 @@ export function useWsHeaderApps(prev: WsOutbound) {
   // How many AI items the panel feed holds (the overview counts as one); a
   // change scrolls the panel to the newest when the agent is at the bottom.
   const aiFeedCount = activeInteraction
-    ? Object.values(activeInteraction.liveMessages ?? {}).flat().filter(isAiActionMessage).length
+    ? Object.values(activeInteraction.liveMessages ?? {}).flat().filter(aiWorkspaceMain ? isAiActionMessage : isOnDemandAiMessage).length
     : 0;
   // "AI in panel": the docked Copilot composer shows with the docked panel's
   // AI Overview (since P-HOME-1n its only content but a thread), not over a

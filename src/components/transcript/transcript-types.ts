@@ -34,6 +34,9 @@ export interface TranscriptMessage {
   /** Renders the clickable instruction row (opens a side panel via `onSnapshotLink`), showing "AI agent is
    *  performing this now…" until `performedAt` (epoch ms; absent: already performed). */
   instruction?: { title: string; by: string; link: string; performedAt?: number };
+  /** The instruction row is the answer an Ask Copilot question or chip left (`useCopilotAsk`): an on-demand AI card
+   *  (`ai-card-kinds.ts`), not an interstitial for something the AI or the agent did. */
+  copilotAsk?: true;
   /** Renders a "Wrap up" accordion (same shell as the approval request, success-subtle header) with a summary and a completion button. */
   wrapUp?: { title: string; summary: string; disposition: string; buttonLabel: string; exiting?: boolean };
   /** Renders the "Add {address} as … for {customer}?" card (k8 8): a thread started on an address not on the record. */

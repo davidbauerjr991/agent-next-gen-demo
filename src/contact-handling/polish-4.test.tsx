@@ -31,7 +31,8 @@ const row = (title: string) =>
   [...document.body.querySelectorAll<HTMLElement>("button")].find((b) => b.textContent?.startsWith(title) && b.textContent.includes("John Smith"));
 const openSlideOver = (title: string) =>
   [...document.body.querySelectorAll<HTMLElement>('[style*="visibility"]')].find(
-    (el) => el.style.visibility === "visible" && el.firstElementChild?.textContent?.includes(title),
+    // (Not the reference column, a SidePanel since P-LAYOUT-F4 7: its Artifacts list names the same row.)
+    (el) => el.style.visibility === "visible" && !el.closest("[data-canvas-region=reference]") && el.firstElementChild?.textContent?.includes(title),
   ) ?? null;
 
 async function setAi(displayLocation: AiDisplayLocation) {

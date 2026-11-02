@@ -323,7 +323,7 @@ describe("Voice: controls location", () => {
 });
 
 describe("AI: display location", () => {
-  it("In the Contact Details panel moves Lucas's approval card out of the transcript, below the Agentic reference cards", async () => {
+  it("In the Contact Details panel keeps Lucas's approval card (a pushed AI card) in the transcript; the panel holds the reference cards (P-LAYOUT-F4 8)", async () => {
     await h.show(AgentWorkspaceAdvancedPage);
     await h.play(LUCAS_THOMAS_SCRIPT.id);
     await h.click(h.navCard("Lucas Thomas"));
@@ -336,20 +336,15 @@ describe("AI: display location", () => {
     expect(feed()).toBeNull();
 
     await setSettings("ai", { displayLocation: "panel" });
-    expect(feed()).not.toBeNull();
-    // One approval card, and it's in the panel's feed.
+    // One approval card, still in the transcript: it was pushed by the AI, not asked for, so it isn't the panel's.
     expect(occurrences(prompt)).toHaveLength(1);
-    expect(feed()!.contains(occurrences(prompt)[0])).toBe(true);
-    // No Autosummary (P-CANVAS): the Real-Time Summary is a reference card above the feed.
+    expect(feed()?.contains(occurrences(prompt)[0]) ?? false).toBe(false);
+    expect(h.container.querySelector("[data-slot=right-panel]")!.contains(occurrences(prompt)[0])).toBe(false);
+    // No Autosummary (P-CANVAS): the Real-Time Summary is a reference card in the panel.
     expect(h.container.querySelector("[data-slot=autosummary]")).toBeNull();
-    const summary = h.container.querySelector("[data-slot=right-panel] [data-canvas-cell=real-time-summary]")!;
-    expect(summary).not.toBeNull();
-    expect(summary.compareDocumentPosition(feed()!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-
-    // Deciding from the panel reaches the provider like the inline card.
-    const approve = [...feed()!.querySelectorAll("button, [role=radio], label")].find((el) =>
-      /approve/i.test(el.textContent ?? ""),
-    );
+    expect(h.container.querySelector("[data-slot=right-panel] [data-canvas-cell=real-time-summary]")).not.toBeNull();
+    // Deciding is the card's own, in the transcript.
+    const approve = [...h.container.querySelectorAll("button, [role=radio], label")].find((el) => /approve/i.test(el.textContent ?? ""));
     expect(approve).toBeTruthy();
 
     await setSettings("ai", { displayLocation: "inline" });
@@ -438,18 +433,16 @@ describe("AI display panel: docked Copilot composer", () => {
     Object.defineProperty(el, "scrollHeight", { configurable: true, get: () => scrollHeight });
     Object.defineProperty(el, "clientHeight", { configurable: true, get: () => 400 });
     Object.defineProperty(el, "scrollTop", { configurable: true, get: () => scrollTop, set: (v: number) => (scrollTop = v) });
-    const feedItems = () => document.body.querySelector("[data-slot=ai-feed]")!.querySelectorAll(":scope > div > *").length;
 
-    // Scrolled up (from the bottom, where the panel opens): the script's next
-    // AI items (the approval request) arrive and the position is left alone.
+    // Scrolled up (from the bottom, where the panel opens): the script's next AI items (the approval request, a pushed
+    // card: it lands in the transcript, not the panel, P-LAYOUT-F4 8) arrive and the position is left alone.
     scrollTop = scrollHeight - 400;
     el.dispatchEvent(new Event("scroll"));
     scrollTop = 100;
     el.dispatchEvent(new Event("scroll"));
-    const before = feedItems();
     scrollHeight += 400;
     await h.advance(14_000);
-    expect(feedItems()).toBeGreaterThan(before);
+    expect(document.body.textContent).toContain("How would you like to proceed?");
     expect(scrollTop).toBe(100);
 
     // The chip row appears on takeover (no chips while the bot holds the chat).
@@ -490,16 +483,7 @@ describe("AI display panel: docked Copilot composer", () => {
     expect(document.body.textContent).toContain("How would you like to proceed?");
     expect(scrollTop).toBe(0);
 
-    // Scrolled to the top, the agent clicks Approve: follows to the bottom.
-    scrollToTop();
-    const approve = [...document.body.querySelectorAll("[data-ai-action] button, [data-ai-action] [role=radio]")].find((b) =>
-      /approve/i.test(b.textContent ?? ""),
-    )!;
-    expect(approve).toBeTruthy();
-    scrollHeight += 300;
-    await h.click(approve);
-    expect(scrollTop).toBe(scrollHeight);
-
+    // (Approve is the transcript's card now, a pushed one: nothing of it lands in the panel to follow, P-LAYOUT-F4 8.)
     // Scrolled to the top, a Copilot chip in the docked composer (it appears on takeover): follows too.
     await takeOver();
     scrollToTop();
@@ -583,15 +567,16 @@ describe("Contact Details Overview stack, events, composer fade", () => {
   const APPROVAL_PROMPT = "How would you like to proceed?";
 
 
-  it("(5, 10) panel mode: Overview = the Agentic reference cards (Real-Time Summary, Journey Summary, Customer Info) + the AI feed; no Session tab (P-HOME-1n); the feed's AICards radius md", async () => {
+  it("(5, 10) panel mode: Overview = the Agentic reference cards (Real-Time Summary, Journey Summary, Customer Info) + the on-demand AI feed; no Session tab (P-HOME-1n)", async () => {
     await lucas("panel");
-    // The reference column's own cells, in its order, then the feed.
-    const order = [...body().querySelectorAll("[data-slot=real-time-summary], [data-slot=journey-summary], [data-slot=customer-info-card], [data-slot=ai-feed]")].map(
+    // The reference column's own cells, in its order, then the feed (when it has an on-demand card).
+    const order = [...body().querySelectorAll("[data-slot=real-time-summary], [data-slot=journey-summary], [data-slot=customer-info-card]")].map(
       (el) => el.getAttribute("data-slot"),
     );
-    expect(order).toEqual(["real-time-summary", "journey-summary", "customer-info-card", "ai-feed"]);
+    expect(order).toEqual(["real-time-summary", "journey-summary", "customer-info-card"]);
     expect(body().querySelector("[data-slot=autosummary]")).toBeNull();
-    expect(aiCard("Approval request", body()), "Approval request AICard on Overview").not.toBeNull();
+    // The approval request is a pushed card: in the transcript, not on the Overview (P-LAYOUT-F4 8).
+    expect(aiCard("Approval request", body()), "Approval request AICard not on Overview").toBeNull();
     // The Journey Summary carries the Artifacts; no separate Artifacts card.
     expect(aiCard("Artifacts", body())).toBeNull();
     // Session Details is its own slide-over now: no Session tab anywhere.
@@ -630,21 +615,15 @@ describe("Contact Details Overview stack, events, composer fade", () => {
     }
   });
 
-  it("(6) panel mode: the event rows stay in the transcript; the approval card moves to the panel", async () => {
+  it("(6) panel mode: the event rows and the approval card (pushed) stay in the transcript; the panel holds none of them (P-LAYOUT-F4 8)", async () => {
     await lucas("panel");
-    // The approval card's own checklist mentions "Payment link sent"; that's
-    // card content, not an event row.
-    const approval = aiCard("Approval request", body())!;
     for (const event of EVENTS) {
       expect(leaves(event).some((el) => !panel().contains(el)), `${event} in the transcript`).toBe(true);
-      expect(
-        leaves(event).some((el) => panel().contains(el) && !approval.contains(el)),
-        `${event} not an event row in the panel`,
-      ).toBe(false);
+      expect(leaves(event).some((el) => panel().contains(el)), `${event} not in the panel`).toBe(false);
     }
     const prompts = leaves(APPROVAL_PROMPT);
     expect(prompts).toHaveLength(1);
-    expect(panel().contains(prompts[0])).toBe(true);
+    expect(panel().contains(prompts[0])).toBe(false);
   });
 
   it("(6) inline mode: the event rows and the approval card are both in the transcript", async () => {

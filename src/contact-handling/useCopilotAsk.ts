@@ -158,6 +158,7 @@ export function useCopilotAsk({ setCards, linkFor, resultFor, interactionIdFor, 
         timestamp: time,
         text,
         instruction: { title: text, by: agentName, link: chipLink ?? ownLink, performedAt: finishedAt() },
+        copilotAsk: true,
       });
       /** Shows the result: a plain answer as a line, anything more as the row (`placed`: in place of the pending line). A
        *  card result opens here only with an artifact (else its row does, on a click). */

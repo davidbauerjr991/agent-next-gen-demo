@@ -49,7 +49,7 @@ export const PRESET_ROWS: readonly PresetRow[] = [
     help: "Where Copilot's suggestions, answers and cards show: in the conversation, in the Contact Details panel beside it, or in the main column with the conversations moved to the panel.",
     options: [
       { value: "inline", label: "Inline in the transcript", description: "Copilot's rows and cards sit in the conversation." },
-      { value: "panel", label: "In the Contact Details panel", description: "Copilot sits in the Contact Details panel beside the conversation." },
+      { value: "panel", label: "In the Contact Details panel", description: "Copilot answers and the summary cards sit in the Contact Details panel, while approvals, the Next Best Action and the AI's other prompts stay in the conversation." },
       { value: "main", label: "Main column (conversations in panel)", description: "Copilot holds the main column, and the conversations move to the panel." },
     ],
   },

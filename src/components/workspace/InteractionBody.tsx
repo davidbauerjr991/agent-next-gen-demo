@@ -36,7 +36,7 @@ export function InteractionBody() {
   const {
     activeChannel, activeChannelAwaitingSeverity, activeChannelHoldSeverity, activeChannelIsNewOutboundThread,
     activeChannelKey, activeChannelStatus, activeChannelType, activeInteraction, activeInteractionIsRealCustomer,
-    activeWrapUpThread, aiFeedCount, aiFollowSignal, aiInPanel, assignmentsSettings, calling,
+    activeWrapUpThread, aiFeedCount, aiFollowSignal, assignmentsSettings, calling,
     confirmDismiss, contactStateById, copilotComposerProps, copilotDock, copilotHost, copilotSlot,
     customerTyping, focusCustomerPanelTab, handleCopilotAsk, handleDismissChannel,
     handleDismissInteraction, handleInteractionStatusChange, handleLucasApprovalDecision, handleLucasCallRequest,
@@ -564,8 +564,9 @@ export function InteractionBody() {
                             <InteractionComposer
                               hideAiActions={hideAiActions}
                               // Only where AI rows interleave with a chat transcript.
-                              // Every digital thread in the main column with AI display inline; not voice, panel or "main".
-                              onHideAiActionsChange={activeChannelType !== "voice" && !aiInPanel && !panelPlacement ? setHideAiActions : undefined}
+                              // Every digital thread in the main column with AI display inline or panel (the pushed AI
+                              // cards are in the transcript under both, P-LAYOUT-F4 8); not voice or "main".
+                              onHideAiActionsChange={activeChannelType !== "voice" && !panelPlacement ? setHideAiActions : undefined}
                               {...transcriptSwitch}
                               copilotDock={copilotDock}
                               copilotOnly={

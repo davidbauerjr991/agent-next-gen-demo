@@ -10,7 +10,7 @@ import { CREATE_NEW_CUSTOMERS, type CreateNewCustomerRecord } from "@nicecxone/l
 import { buildCustomerContextOverviewInfo } from "@/components/agent-next-gen-shared-utils";
 import type { ConfirmCloseCopy } from "@/contact-handling/ConfirmCloseDialog";
 import type { TranscriptMessage } from "@/components/transcript/InteractionTranscript";
-import { isAiActionMessage } from "@/components/agent-next-gen-ai-messages";
+import { isOnDemandAiMessage } from "@/components/agent-next-gen-ai-messages";
 import { OUTBOUND_AGENTS } from "@/components/agent-next-gen-outbound-data";
 import type { Thread, Interaction, AssignmentSortDirection } from "@/components/agent-next-gen-interaction-dashboard";
 import type { AssignmentSortMode } from "@/settings";
@@ -490,8 +490,10 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
     setRightPanelSlotMounted(!!el);
   }, []);
   const portalInto = (mount: HTMLElement | null, node: React.ReactElement) => (mount ? createPortal(node, mount) : node);
+  // Under AI display "panel" the on-demand cards (Copilot asks and chip results) are the panel's; the pushed ones (the
+  // Next Best Action, approvals, wrap-ups, interstitials) stay in the transcript, as under inline (`ai-card-kinds.ts`).
   const stripAiInPanel = (messages: TranscriptMessage[]) =>
-    aiInPanel ? messages.filter((m) => !isAiActionMessage(m)) : messages;
+    aiInPanel ? messages.filter((m) => !isOnDemandAiMessage(m)) : messages;
   // The docked Copilot composer portals into one stable host for the page's life (`portal-hosts.tsx`); the slot that
   // holds it is the main column's dock ("main") or the panel footer (`copilotSlot`). Moving the host never remounts
   // the composer, so its draft, tab and chips survive a layout switch.

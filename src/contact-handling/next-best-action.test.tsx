@@ -145,8 +145,10 @@ describe("the Next Best Action: the greeting on connect, then on a pause or on r
       await h.advance(BEAT_MS);
       expect(frame()).toBe("say");
       expect(nba()!.textContent).toContain("Greet Priya and say the chat is recorded");
-      // In the conversation (inline) or the AI feed ("main": the main column; panel: Contact Details), not a canvas cell.
-      expect(nba()!.closest(displayLocation === "panel" ? "[data-slot=right-panel] [data-slot=ai-feed]" : "[data-main-thread]")).not.toBeNull();
+      // In the conversation (inline and panel: the Next Best Action is a pushed card, P-LAYOUT-F4 8) or the AI feed
+      // ("main": the main column), not a canvas cell.
+      expect(nba()!.closest("[data-main-thread]")).not.toBeNull();
+      if (displayLocation === "panel") expect(nba()!.closest("[data-slot=right-panel]")).toBeNull();
       expect(nba()!.closest("[data-canvas-cell]")).toBeNull();
     });
   }
