@@ -322,4 +322,6 @@ export interface LayoutSetting<V extends string = string> {
 
 export const LAYOUT_SETTINGS: readonly LayoutSetting[] = [
   { id: "home.contentWidth", values: ["max", "full"], get: (s) => s.home.contentWidth },
+  // P-LAYOUT-F4 18: the record header's Contact Details button (Settings → Workspace), with an identified contact.
+  { id: "workspace.showContactDetailsButton", values: ["on", "off"], get: (s) => (s.workspace.showContactDetailsButton ? "on" : "off") },
 ];

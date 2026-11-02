@@ -107,15 +107,18 @@ export function SwitchRow({
   checked,
   onCheckedChange,
   pending,
+  help,
 }: {
   label: string;
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
   pending?: string;
+  /** The setting's one-sentence description, as the label's (?) help. */
+  help?: string;
 }) {
   return (
     <div className="flex items-center gap-2">
-      <Switch size="sm" label={label} checked={checked} onCheckedChange={onCheckedChange} />
+      <Switch size="sm" label={label} labelHelpText={help} checked={checked} onCheckedChange={onCheckedChange} />
       {pending && <Pending>{pending}</Pending>}
     </div>
   );

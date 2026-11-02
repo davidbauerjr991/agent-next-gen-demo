@@ -13,6 +13,7 @@ import {
   EXTRA_HEADER_APPS,
   PERSONAS,
   PERSONA_FIELD,
+  SHOW_CONTACT_DETAILS_BUTTON_FIELD,
   useSetPersona,
   useSettings,
   type AiChipBehavior,
@@ -42,7 +43,7 @@ const PERSONA_LABELS: Record<Persona, string> = {
 
 export function WorkspaceSection({ first }: { first?: boolean }) {
   const [header, updateHeader] = useSettings("header");
-  const [workspace] = useSettings("workspace");
+  const [workspace, updateWorkspace] = useSettings("workspace");
   const setPersona = useSetPersona();
   const [ai, updateAi] = useSettings("ai");
   const personaLabelId = React.useId();
@@ -63,6 +64,15 @@ export function WorkspaceSection({ first }: { first?: boolean }) {
             <RadioGroupItem key={persona} value={persona} label={t(PERSONA_LABELS[persona])} />
           ))}
         </RadioGroup>
+      </Section>
+
+      <Section title={t("Record header")} lockKey="workspace">
+        <SwitchRow
+          label={t(SHOW_CONTACT_DETAILS_BUTTON_FIELD.meta.label)}
+          help={t(SHOW_CONTACT_DETAILS_BUTTON_FIELD.meta.description)}
+          checked={workspace.showContactDetailsButton}
+          onCheckedChange={(showContactDetailsButton) => updateWorkspace({ showContactDetailsButton })}
+        />
       </Section>
 
       <Section title={t("Header & apps")} lockKey="header">

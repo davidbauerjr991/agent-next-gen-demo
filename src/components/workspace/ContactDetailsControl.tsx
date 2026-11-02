@@ -10,6 +10,8 @@
 import { Button, Link, PanelHeader, Popover, Tooltip } from "@nicecxone/lyra-ui";
 import { IdCard } from "lucide-react";
 import { HOVER_PREVIEW_POPOVER_CLASS, HoverPreviewFrame, panelToggleClass } from "@/contact-handling";
+import { contactDetailsButtonShown } from "@/contact-handling/contact-details-button";
+import { useSetting } from "@/settings";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
@@ -24,7 +26,9 @@ export function ContactDetailsControl({ compact = false }: { compact?: boolean }
   } = useWorkspace();
   // P-LAYOUT-F3 8: hidden for an unidentified contact (`isIdentifiedContact`) — the header shows Session Details
   // only — and shown once the contact is linked (hide-never-disable). A kind cell's subject is its customer's record.
-  if (!contactSubject || !contactDetails || !activeInteractionIsRealCustomer) return null;
+  // P-LAYOUT-F4 18: and the setting (Settings → Workspace → "Show Contact Details button") is on.
+  const [enabled] = useSetting("workspace", "showContactDetailsButton");
+  if (!contactSubject || !contactDetails || !contactDetailsButtonShown({ enabled, identified: activeInteractionIsRealCustomer })) return null;
   // The one view-model (`contactDetailsFor`): the slide-over's header reads the same name.
   const name = contactDetails.name;
   return (

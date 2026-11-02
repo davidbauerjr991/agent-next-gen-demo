@@ -76,6 +76,7 @@ export {
   type HomeContentWidth,
   PERSONAS,
   PERSONA_FIELD,
+  SHOW_CONTACT_DETAILS_BUTTON_FIELD,
   type Persona,
   TOAST_EVENTS_RAISED,
   TOAST_EVENT_FIELDS,

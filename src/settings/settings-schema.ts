@@ -409,15 +409,23 @@ export const PERSONA_FIELD = oneOf(PERSONAS, {
   description: "The role the workspace is set up for: its seeded day, the kinds of work in the Activity feed, and its Home cards.",
 });
 
+export const SHOW_CONTACT_DETAILS_BUTTON_FIELD = flag({
+  label: "Show Contact Details button",
+  description: "Shows the Contact Details button in the record header for an identified contact; Contact Details stays open to the Customer Info card and every link into it.",
+});
+
 export interface WorkspaceSettings {
   persona: Persona;
+  /** The record header's Contact Details button (P-LAYOUT-F4 18): shown for an identified contact while on. */
+  showContactDetailsButton: boolean;
 }
 
+// No version bump for `showContactDetailsButton`: a missing stored key reads as its default (on).
 const workspace = defineSection<WorkspaceSettings>({
   key: "workspace",
   version: 1,
-  defaults: { persona: "agent" },
-  fields: { persona: PERSONA_FIELD },
+  defaults: { persona: "agent", showContactDetailsButton: true },
+  fields: { persona: PERSONA_FIELD, showContactDetailsButton: SHOW_CONTACT_DETAILS_BUTTON_FIELD },
 });
 
 /** Digital channels a contact can be auto-accepted on (calls always ring). */

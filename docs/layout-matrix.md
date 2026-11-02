@@ -53,6 +53,7 @@ Layout settings that move no parts (`LAYOUT_SETTINGS`; a Settings → Layout pre
 | Setting | Values | Phase 1 | Phase 2 | AI-first | Panel agent | Compact | Focus | Back office |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `home.contentWidth` | **max**, full | max | max | full | max | max | full | full |
+| `workspace.showContactDetailsButton` | **on**, off | on | on | on | on | on | on | on |
 
 Read through only (no preset row; the map's order or a cell's region writes them):
 
@@ -77,7 +78,7 @@ Legacy fields:
 
 Layout settings:
 
-None.
+- `workspace.showContactDetailsButton`: `off`
 
 Parts, by slot (`layout.parts`; Settings → Layout → Advanced reaches every one):
 
