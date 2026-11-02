@@ -38,7 +38,11 @@ export function WorkspaceRightPanel({ inColumn = false }: { inColumn?: boolean }
     sidePanelFullScreen, sidePanelOpen, sidePanelResizing, sidePanelWidth, threadOutcomeProps,
     viewSessionDetails,
   } = useWorkspace();
-  const dockedToggle = usePanelToggles()?.docked;
+  // The panel as the right column (AI display "panel") is driven by the reference column's toggle, so hover-reveal,
+  // click-to-pin and the always-present toggle behave as the reference column's do (P-LAYOUT-F4 16); a thread under
+  // "main" and a kind cell's panel keep the docked toggle.
+  const toggles = usePanelToggles();
+  const dockedToggle = inColumn ? toggles?.reference : toggles?.docked;
   // Under AI display "panel" a conversation's panel is the right column (P-LAYOUT-F4 8): the interaction's row mounts
   // it (`inColumn`), at the reference column's place and width, below the record header. Everywhere else (a thread
   // under "main", a kind cell's) it's the page's, beside the whole page column.
@@ -139,17 +143,17 @@ export function WorkspaceRightPanel({ inColumn = false }: { inColumn?: boolean }
                   // which opens over it, as over the reference column.
                   className={cn("relative shrink-0 h-full animate-in fade-in-0 duration-200 delay-150 fill-mode-backwards", inColumn ? "z-[2]" : "z-[5]")}
                   data-slot="right-panel"
-                  data-open={sidePanelOpen || !!channelPreviewThreadKey}
+                  data-open={inColumn ? !!dockedToggle?.open : sidePanelOpen || !!channelPreviewThreadKey}
                   data-thread={channelPreviewThread?.type ?? "details"}
                 >
                 <CustomerInformationSidePanel
                   headerless={inColumn}
-                  open={sidePanelOpen || !!channelPreviewThreadKey}
+                  open={inColumn ? !!dockedToggle?.open : sidePanelOpen || !!channelPreviewThreadKey}
                   // Always unpinned (floating overlay) while full-screen —
                   // per explicit request this should overlay the parent
                   // Container, not push the tab row/transcript column over
                   // via docked mode.
-                  pinned={sidePanelFullScreen ? false : effectiveSidePanelPinned}
+                  pinned={inColumn ? !!dockedToggle?.pinned : sidePanelFullScreen ? false : effectiveSidePanelPinned}
                   // Always shown, even in the narrow-container overlay mode
                   // — per explicit request, an agent who's opened it as a
                   // floating overlay still needs a way to close it again

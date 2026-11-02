@@ -46,7 +46,7 @@ import { ContactDetailsControl } from "./ContactDetailsControl";
 export function RecordHeader() {
   const {
     SHOW_RECORD_HEADER_SUBTITLE, activeChannelDateTime, activeChannelKey,
-    activeChannelType, activeInteraction, activeInteractionIsAgentCall, activeInteractionIsRealCustomer,
+    activeChannelType, activeInteraction, activeInteractionIsAgentCall, aiInPanel, activeInteractionIsRealCustomer,
     addChannelActionFor, caseStatusCapable, channelHoverPreviewKey, channelPreviewThreadKey,
     handleChannelSelect, handleDismissChannel, handleDismissInteraction,
     handleInteractionStatusChange, handleOutcomeCancel, handleOutcomeOpenChange, handleOutcomeSave,
@@ -126,6 +126,7 @@ export function RecordHeader() {
                       // else the docked panel.
                       rightPanel
                       referenceColumn={hasReferenceColumn}
+                      referenceLabel={aiInPanel ? "Copilot" : undefined}
                       className={sessionRowInHeader ? undefined : "border-b border-lyra-border-subtle pb-3"}
                       // Per explicit request ("add an icon indicating
                       // whether the interaction is an agent or a customer

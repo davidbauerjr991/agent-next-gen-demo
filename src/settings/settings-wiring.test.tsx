@@ -521,7 +521,7 @@ describe("AI display panel: docked Copilot composer", () => {
     expect(panel().querySelector('[aria-label*="full screen" i], [aria-label*="Expand" i]')).toBeNull();
     expect([...panel().querySelectorAll("button")].some((b) => b.textContent?.trim() === "Lucas Thomas")).toBe(false);
     expect([...panel().querySelectorAll("h1, h2, h3, h4, [data-slot=container-header-title]")].some((el) => el.textContent?.trim() === "Copilot")).toBe(false);
-    expect(document.body.querySelector('[data-slot=record-header] button[aria-label="Details panel"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-slot=record-header] button[aria-label="Copilot"]')).not.toBeNull();
 
     // The Customer Info card's link (an Overview card): a top-level entry, no back arrow (P-LAYOUT-F4 15).
     await h.click(panel().querySelector("[data-slot=customer-info-card] [aria-expanded]")!);

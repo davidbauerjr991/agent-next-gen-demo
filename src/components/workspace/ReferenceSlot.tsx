@@ -55,7 +55,7 @@ function afterNextFrame(run: () => void): () => void {
  *  this slot and the panel measure it, and the panel positions against it. */
 export function ReferenceSlot({ reference, panelColumn = false }: { reference?: ReactNode; panelColumn?: boolean }) {
   const { activeInteractionId, selectedDetailPanelContent, slideOverMode } = useWorkspace();
-  const sideOpen = useReferenceSideGate({ hasColumn: !!reference, content: selectedDetailPanelContent });
+  const sideOpen = useReferenceSideGate({ hasColumn: !!reference || panelColumn, content: selectedDetailPanelContent });
   const panel = useDetailSlideOverPanel({
     wanted: slideOverMode === "referenceSlot" && !!selectedDetailPanelContent && sideOpen,
     assignmentKey: activeInteractionId ?? undefined,

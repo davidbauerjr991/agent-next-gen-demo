@@ -15,10 +15,12 @@ export interface WorkspacePageHeaderProps extends PageHeaderProps {
   rightPanel?: boolean;
   /** The page shows a reference column (the canvas's two columns, a kind cell's). */
   referenceColumn?: boolean;
+  /** The reference toggle's name (default "Summaries"): "Copilot" where the right column is the Copilot panel. */
+  referenceLabel?: string;
 }
 
 export const WorkspacePageHeader = React.forwardRef<HTMLDivElement, WorkspacePageHeaderProps>(function WorkspacePageHeader(
-  { rightPanel = false, referenceColumn = false, ...props },
+  { rightPanel = false, referenceColumn = false, referenceLabel, ...props },
   ref,
 ) {
   const toggles = usePanelToggles();
@@ -44,7 +46,7 @@ export const WorkspacePageHeader = React.forwardRef<HTMLDivElement, WorkspacePag
       })}
       {...(right && {
         ...withoutPinnedPreview(right),
-        innerPanelToggleLabel: target === "reference" ? t("Summaries") : t("Details panel"),
+        innerPanelToggleLabel: target === "reference" ? t(referenceLabel ?? "Summaries") : t("Details panel"),
       })}
     />
   );

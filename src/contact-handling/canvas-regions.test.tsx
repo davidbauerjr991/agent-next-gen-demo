@@ -511,10 +511,10 @@ describe("the reference column and its record-header toggle", () => {
     expect(detailOpen()).toBe(true);
   });
 
-  it("AI display panel: the record header's right toggle opens and closes the docked AI panel (P-LAYOUT-F1 A1)", async () => {
+  it("AI display panel: the Copilot panel is the right column on the reference column's toggle: pinned open, a click closes, a click opens (P-LAYOUT-F1 A1, P-LAYOUT-F4 16)", async () => {
     await open({ displayLocation: "panel", canvasLayout: "twoColumn" });
     await CASES.noah();
-    const toggle = () => h.container.querySelector<HTMLElement>('[data-slot=record-header] button[aria-label="Details panel"]')!;
+    const toggle = () => h.container.querySelector<HTMLElement>('[data-slot=record-header] button[aria-label="Copilot"]')!;
     const shown = () => h.container.querySelector("[data-slot=right-panel]")?.getAttribute("data-open") === "true";
     const before = shown();
     expect(toggle().getAttribute("aria-expanded")).toBe(String(before));
