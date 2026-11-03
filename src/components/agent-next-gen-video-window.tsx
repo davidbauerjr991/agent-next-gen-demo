@@ -20,7 +20,7 @@
 //
 // Purely decorative, same "fake it with a toast/placeholder, no real
 // backing" convention every other placeholder control in this app already
-// follows (see agent-next-gen-voice-call-controls.tsx's own top doc
+// follows (see lyra-ui's voice-call-controls.tsx's own top doc
 // comment) — there's no real camera/stream in this prototype, just dark
 // placeholder areas standing in for one.
 import { ContainerHeader, Draggable, Tooltip } from "@nicecxone/lyra-ui";

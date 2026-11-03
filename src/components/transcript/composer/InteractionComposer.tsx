@@ -518,7 +518,7 @@ export function InteractionComposer({
           originally narrowed together from
           1200px to 1024px; later narrowed again, together with that
           wrapper and `VoiceCallControls`' own floating card in
-          agent-next-gen-voice-call-controls.tsx, from 1024px to 768px per
+          lyra-ui's voice-call-controls.tsx, from 1024px to 768px per
           explicit request), so the composer stays the same width as the
           transcript content sitting above it. */}
       <CenteredColumn width="action">

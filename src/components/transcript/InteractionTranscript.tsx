@@ -610,7 +610,7 @@ export function InteractionTranscript({
                     request — "make the max-width of the interaction
                     content 768px instead of 1024px" — narrowed it, along
                     with its two synced siblings below and in
-                    agent-next-gen-voice-call-controls.tsx) moved back
+                    lyra-ui's voice-call-controls.tsx) moved back
                     down onto THIS wrapper, around just the message
                     content — message bubbles are unaffected visually,
                     still centered at the same width and alignment as
@@ -683,7 +683,7 @@ export function InteractionTranscript({
                   // lived here at all" history). The composer's own matching
                   // wrapper (`InteractionComposer`, further down this file)
                   // and `VoiceCallControls`' own floating card
-                  // (agent-next-gen-voice-call-controls.tsx) are kept in
+                  // (lyra-ui's voice-call-controls.tsx) are kept in
                   // sync at the same 768px so the message column, the input
                   // box below it, and the voice controls bar all stay the
                   // same width.

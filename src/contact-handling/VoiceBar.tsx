@@ -1,5 +1,6 @@
 import { createPortal } from "react-dom";
-import { VoiceCallControls, type VoiceCallControlsProps } from "@/components/agent-next-gen-voice-call-controls";
+import { VoiceCallControls, type VoiceCallControlsProps } from "@nicecxone/lyra-ui";
+import { ClockTick } from "@/components/agent-next-gen-clock-tick";
 import type { VoiceBarCall } from "./useVoiceBarCall";
 import { CallSwitcher, callLabel } from "./CallSwitcher";
 import type { VoiceCallControlProps } from "./useVoiceCallControls";
@@ -7,7 +8,7 @@ import type { VoiceCallControlProps } from "./useVoiceCallControls";
 export interface VoiceBarProps
   extends Omit<
     VoiceCallControlsProps,
-    "callStartTick" | "holdStartTick" | "customerLabel" | "className" | "showAddVideo" | "stacked"
+    "callStartTick" | "holdStartTick" | "renderClock" | "customerLabel" | "className" | "showAddVideo" | "stacked" | "layout"
   > {
   /** The call it shows (`useVoiceBarCall`): the selected card's, else the
    *  live or most recent held one. */
@@ -50,12 +51,14 @@ export function VoiceBar({ call, controls, placement = "bottom", host, calls = [
             ? "bg-transparent px-0 pt-0 pb-2 animate-in fade-in-0 duration-200"
             : "bg-transparent px-0 pt-2 pb-0 animate-in slide-in-from-bottom-4 fade-in-0 duration-200"
         }
-        stacked={atTop}
+        layout={atTop ? "rail" : "bar"}
         // Video isn't offered yet on either page.
         showAddVideo={false}
         {...controls}
         callStartTick={call.thread.startTick}
         holdStartTick={call.thread.heldSinceTick}
+        // Live timers from the page clock: each tick re-renders only the timer text, not the whole bar.
+        renderClock={(render) => <ClockTick>{render}</ClockTick>}
         customerLabel={
           calls.length > 1 && onSelectCall ? <CallSwitcher calls={calls} current={call} onSelect={onSelectCall} /> : callLabel(call)
         }
