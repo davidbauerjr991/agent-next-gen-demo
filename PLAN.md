@@ -230,7 +230,7 @@ All client-side. The provider layer keeps a real backend (Twilio, CXone ACD) a s
   - **Home's tabs** go in an additive lyra `PageHeader` `tabs` slot, F3-L1, pre-approved. The blocking line: `page-header.tsx:18–209` has no tabs slot; `titleSuffix` (`:61–78`) is inline in the title row only.
   - **One standard header form** in every Home layout: the default size and border, as Settings uses.
   - **Under two-column Home** the queue panel follows the same push/overlay rule as everywhere else.
-  - **The voice bar fix stays in the app's fork** (`agent-next-gen-voice-call-controls.tsx`, not lyra's `VoiceCallControls`) for this batch; P-TIMERS absorbs the fork.
+  - **The voice bar fix stays in the app's fork** (`agent-next-gen-voice-call-controls.tsx`, not lyra's `VoiceCallControls`) for this batch; P-TIMERS absorbs the fork. *(Superseded 2026-11-04: Dave absorbed the fork into lyra by hand, lyra `b5d31f9`, demo `6111ec9`.)*
   - **The profile picker** compares the agent's own layer only (item 14). P-CONFIG-LAYERS left this for Dave.
 
   *Items:*
@@ -338,7 +338,7 @@ All client-side. The provider layer keeps a real backend (Twilio, CXone ACD) a s
 
   F2-L3's lyra stories for the node forms wait for this step, which retires them.
 
-  Also (P-LAYOUT-F3, Dave 2026-11-01): absorb src/components/agent-next-gen-voice-call-controls.tsx into lyra's VoiceCallControls — the app's additions (the stacked layout with wrap, the hosts, the timer nodes) become props; the fork is deleted; the app consumes lyra's.
+  Also (P-LAYOUT-F3, Dave 2026-11-01): absorb src/components/agent-next-gen-voice-call-controls.tsx into lyra's VoiceCallControls — the app's additions (the stacked layout with wrap, the hosts, the timer nodes) become props; the fork is deleted; the app consumes lyra's. *(Done by Dave by hand 2026-11-04, lyra `b5d31f9`, demo `6111ec9`.)*
 
 **P-PERF-CONTROLLER — the workspace controller's outputs (added 2026-11-02, Dave; after P-TIMERS, before P0.6, so the demo gets it).** Stabilise the workspace controller's outputs (memoised values and handlers), then split it into narrower contexts (the P2.0 note moves here); measured with scripts/profile-renders.mjs; done when an arrival re-renders only the affected card and its list. Baseline: `docs/perf/2026-11-01-events.md` (P-LAYOUT-F3 item 12). About 1 day; Plan: Opus · Implement: Opus.
 
@@ -1156,3 +1156,13 @@ Order of attack (revised 2026-10-19, demo-first; 2026-10-18 additions: P-LYRA-RT
   - **Item 12 closed as measured, not fixed** (Dave, 2026-11-02): the fix is P-PERF-CONTROLLER, after P-TIMERS and before P0.6.
   - **Escape on the opener closes a slide-over** (a11y-review): the docked Home panel and Contact Details close on Escape while focus is still on what opened them, as from inside.
   - **Commit 5's Compact snapshots** (the panel docked; the NBA region's timing in the chat cases) were shown to Dave and accepted.
+- 2026-11-04 — P-LAYOUT-F4 as built (Dave's live fix loop on P-LAYOUT-F3; PROGRESS row; lyra `3beb76d`, `bfb0f15`, `47d8eb4`, each authorized). Where it departs from F3, or settles what it left open:
+  - **The right column is one thing in every AI display.** Under inline and main it is the reference column; under "In the Contact Details panel" it is the Copilot panel, in the interaction's row at the column's place and width, below the record header, headerless. Both are lyra `SidePanel`s on the record header's right toggle (always present; named "Summaries", or "Copilot"): pinned open beside the action area (the default), or closed with the toggle's hover flyout, a click pinning it; the flyout only where it doesn't fit (`pinDisabled`). Pinned/closed and the dragged width are per-browser working state (`referencePinned`, `referenceWidth` in `assignments-working-state.ts`); resizable from the card width up to what leaves the action area its minimum (`reference-column-width.ts`, one rule for both). Its fill is the content card's surface; the cards and the `SidePanel`'s left border are the only structure.
+  - **Details open in the column, not beside it** (reverses F3 10's column part, Dave): Contact Details, Experience Memory and Session Details cover the column at its current width (it is the column's content) and the toggle collapses both; the detail's own close closes only it; opening one while the right side is collapsed opens it. Only with no column (stacked canvas, cells in main) does a detail dock beside the page column (F1 D2). Two-column Home's queue panel is at the Home level so a tab switch doesn't unmount it.
+  - **AI cards are pushed or on demand, by kind** (`ai-card-kinds.ts`, one registry): approvals, wrap-ups, the Next Best Action, save-address offers and the interstitials are pushed and stay in the transcript under every AI display; Copilot asks and chip results are on demand and the panel's (under "panel"), beside the static cells (Real-Time Summary, Journey, Customer Info). "Main" is unchanged. The AI display "panel" preset says so in one sentence.
+  - **Back arrows only for a detail opened from inside another** (the order from Experience Memory or Purchase history); Customer Info, Experience Memory and Artifacts are top-level.
+  - **Home:** `home.contentWidth` is the Dashboard's only, and forced Full (row disabled with its reason) under Two columns; Two columns is disabled with its reason while the Activity feed is off (`homeFeedOn`); the queue panel docks only while the cards stay 2-up (lyra's grid stack width).
+  - **Dragging re-renders nothing per move** (measured, `docs/perf/2026-11-02-column-drag.md`): the width is previewed in a ref and written once on release, since each write re-rendered the whole workspace through the controller; lyra `InteriorPanel` keeps an explicit width live and takes `instantWidthChange`.
+  - **Settings:** `workspace.showContactDetailsButton` (default on, agent scope, no version bump), shown with an identified contact (`contactDetailsButtonShown`).
+  - **The voice bar fork was absorbed into lyra by Dave by hand** (lyra `b5d31f9`, demo `6111ec9`); P-TIMERS no longer carries that item.
+  - **A reviewer-found bug worth remembering:** two `ReferenceSlotFrame`s on one page must not both publish the shared row width and fit flag (`publishesRow`); two frames oscillated and hung the page.
