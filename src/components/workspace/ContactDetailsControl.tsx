@@ -89,9 +89,13 @@ export function ContactDetailsControl({ compact = false }: { compact?: boolean }
           )}
           data-contact-details=""
           data-preview-open={(customerInfoPreviewOpen && !contactDetailsShowing) || undefined}
+          // One state pattern (a11y-review, P-LAYOUT-F4): a fixed name with aria-pressed. The hover preview's Popover
+          // would add aria-expanded and aria-haspopup (a second, false state), so they're cleared.
           aria-pressed={contactDetailsShowing}
+          aria-expanded={undefined}
+          aria-haspopup={undefined}
           onClick={() => selectPanel({ kind: "details" })}
-          aria-label={contactDetailsShowing ? t("Close Contact Details") : sidePanelToggleLabel ?? t("Open Contact Details")}
+          aria-label={sidePanelToggleLabel ?? t("Contact Details")}
         >
           <IdCard className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
           {!compact && <span>{t("Contact Details")}</span>}

@@ -256,7 +256,7 @@ export function ReferenceSlotFrame({
       {/* Measures the row (a hidden child, so the row is its parent). */}
       <div ref={anchorRef} hidden aria-hidden="true" />
       {reference && (
-        <ReferenceColumn width={slotWidth} transition={resizing ? "none" : WIDTH_TRANSITION} title={referenceTitle} headerToggle={headerToggle} onResizeStateChange={setResizing} instantWidth={instantWidth}>
+        <ReferenceColumn width={slotWidth} transition={resizing ? "none" : WIDTH_TRANSITION} title={referenceTitle} headerToggle={headerToggle} onResizeStateChange={setResizing} instantWidth={instantWidth} covered={open && !docks}>
           {reference}
         </ReferenceColumn>
       )}
@@ -308,6 +308,9 @@ export function ReferenceSlotFrame({
           rounded={false}
           margin={false}
           data-slot={panel.slot}
+          // A named region (a11y-review, P-LAYOUT-F4), as the column it covers is.
+          role="region"
+          aria-label={typeof panel.header.headerTitle === "string" ? panel.header.headerTitle : undefined}
           {...panel.header}
         >
           {panel.body}

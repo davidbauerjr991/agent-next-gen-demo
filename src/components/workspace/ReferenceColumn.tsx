@@ -28,7 +28,11 @@ export function ReferenceColumn({
   headerToggle = false,
   onResizeStateChange,
   instantWidth = false,
+  covered = false,
 }: {
+  /** A detail slide-over is open over this column: its cards and resize edge are out of the tab order and the
+   *  accessibility tree while it covers them (a11y-review, P-LAYOUT-F4). */
+  covered?: boolean;
   /** No width transition now: a drag is in progress here or in the slide-over over this column. */
   instantWidth?: boolean;
   /** A drag of the column's edge starts or ends (the frame turns its width transition off meanwhile). */
@@ -111,6 +115,7 @@ export function ReferenceColumn({
         className="bg-lyra-bg-surface-base"
         data-canvas-region="reference"
         data-docked={pinned ? "true" : undefined}
+        inert={covered || undefined}
       >
         <div className={cn("flex flex-col gap-3 px-4 pb-4", CANVAS_CONTENT_TOP_CLASS)}>{children}</div>
       </SidePanel>

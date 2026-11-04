@@ -37,7 +37,7 @@ function RightPanel({ inColumn }: { inColumn: boolean }) {
     activeInteractionIsAgentCall, activeInteractionIsRealCustomer, addToast, aiInPanel, channelPreviewMeta, channelPreviewThread,
     channelPreviewThreadKey, channelPreviewThreadStableKey, confirmDismiss, copilotComposerProps,
     copilotDockConcealed, copilotDockShown, copilotHost, copilotSlot,
-    effectiveSidePanelPinned, focusCustomerPanelTab,
+    effectiveSidePanelPinned, focusCustomerPanelTab, selectedDetailPanelContent, slideOverMode,
     handleInteractionStatusChange, handleOutcomeSaveAndDismissChannel,
     handleSendEmailDraft, handleSendMessage, handleSidePanelClose, handleStartCall,
     botHolds, hideAiActions, isSidePanelAtMinimalThreshold,
@@ -153,6 +153,9 @@ function RightPanel({ inColumn }: { inColumn: boolean }) {
                   data-slot="right-panel"
                   data-open={inColumn ? !!dockedToggle?.open : sidePanelOpen || !!channelPreviewThreadKey}
                   data-thread={channelPreviewThread?.type ?? "details"}
+                  // A reference-slot detail open over this column (not one portaled into the panel) covers it: its cards
+                  // leave the tab order and the accessibility tree meanwhile (a11y-review, P-LAYOUT-F4).
+                  inert={(inColumn && slideOverMode === "referenceSlot" && !!selectedDetailPanelContent && !!dockedToggle?.open) || undefined}
                 >
                 <CustomerInformationSidePanel
                   headerless={inColumn}
