@@ -24,6 +24,9 @@ export interface ReferenceColumnWidth {
   preview: (width: number) => void;
   /** The drag ended: the last previewed width is written to the working state, once. */
   commit: () => void;
+  /** Ready-made SidePanel handlers: a drag's moves are previewed, its end commits, anything else (the keyboard)
+   *  writes at once. Pass them straight to `onWidthChange` and `onResizeStateChange`. */
+  drag: { onWidthChange: (width: number) => void; onResizeStateChange: (resizing: boolean) => void };
 }
 
 /** `rowWidth`: the row's measured width (0: not measured). The widest column leaves the action area its minimum. */
@@ -39,18 +42,29 @@ export function useReferenceColumnWidth(): ReferenceColumnWidth {
   const [rowWidth] = useWorkspaceUiField("regionsRowWidth");
   const bounds = referenceColumnBounds(rowWidth);
   const pending = useRef<number | null>(null);
+  const dragging = useRef(false);
+  const write = (width: number) => setAssignmentsWorkingState({ referenceWidth: clampReferenceWidth(width, bounds) });
+  const preview = (width: number) => {
+    pending.current = clampReferenceWidth(width, bounds);
+  };
+  const commit = () => {
+    if (pending.current === null) return;
+    setAssignmentsWorkingState({ referenceWidth: pending.current });
+    pending.current = null;
+  };
   return {
     width: clampReferenceWidth(referenceWidth, bounds),
     minWidth: bounds.min,
     maxWidth: bounds.max,
-    onWidthChange: (width) => setAssignmentsWorkingState({ referenceWidth: clampReferenceWidth(width, bounds) }),
-    preview: (width) => {
-      pending.current = clampReferenceWidth(width, bounds);
-    },
-    commit: () => {
-      if (pending.current === null) return;
-      setAssignmentsWorkingState({ referenceWidth: pending.current });
-      pending.current = null;
+    onWidthChange: write,
+    preview,
+    commit,
+    drag: {
+      onWidthChange: (width) => (dragging.current ? preview(width) : write(width)),
+      onResizeStateChange: (resizing) => {
+        dragging.current = resizing;
+        if (!resizing) commit();
+      },
     },
   };
 }

@@ -44,9 +44,10 @@ function afterNextFrame(run: () => void): () => void {
  *  slide-over is open in it (slide-over-placement.ts), a lyra
  *  `InteriorPanel` over it — in lyra's overlay layout, right-aligned below
  *  the record header, sliding in from the right. The cards stay mounted
- *  underneath. The column's slot widens with the panel (its width from
- *  `onWidthChange`), so dragging the panel pushes the action area (never
- *  below `ACTION_AREA_MIN_WIDTH`); full screen covers the row. With no
+ *  underneath. The panel fills the column's current width (a column the agent
+ *  resized, P-LAYOUT-F4 19, 20) or is dragged wider, the column's slot widening
+ *  with it so it pushes the action area (never below `ACTION_AREA_MIN_WIDTH`);
+ *  full screen covers the row. With no
  *  column (the stacked canvas, or every card in main), while the panel and the
  *  action area's minimum fit (`fitsBeside`), it docks beside the whole page
  *  column instead, in the page's right host, pushing the page header with the
@@ -99,13 +100,14 @@ function nearest(from: Element | null, selector: string | undefined): HTMLElemen
   return null;
 }
 
-/** The reference slot's layout, shared by the interaction (ReferenceSlot) and
- *  two-column Home (P-HOME-1e), and one-column Home's detail panel: the
- *  measured reference column and, while `panel` is wanted, the
- *  `InteriorPanel` — docked beside the whole page column (the page's right
- *  host) while it fits (`fitsBeside`, P-LAYOUT-F3 4), else over the column
- *  (widening the slot) or over the body. Mount it as the last child of a
- *  `relative` row. */
+/** The reference slot's layout, shared by the interaction (ReferenceSlot), a
+ *  kind cell and two-column Home's Cards column (P-HOME-1e; its panel is
+ *  Home's, below), and Home's detail panel (a frame with no column, mounted at
+ *  the Home level, P-LAYOUT-F4 4): the measured reference column and, while
+ *  `panel` is wanted, the `InteriorPanel` — docked beside the whole page column
+ *  (the page's right host) while there is no column and it fits (`fitsBeside`,
+ *  P-LAYOUT-F3 4), else over the column or over the body. Mount it as the last
+ *  child of a `relative` row. */
 export function ReferenceSlotFrame({
   reference,
   referenceTitle,
@@ -114,7 +116,12 @@ export function ReferenceSlotFrame({
   bodyReserved = 0,
   headerToggle = false,
   externalColumn = false,
+  publishesRow = true,
 }: {
+  /** Whether this frame's row width and fit flag are the shared ones (`regionsRowWidth`, `referenceColumnFits`) the
+   *  toggle, the column and the assignments panel read. One frame per page does; Home's detail panel beside
+   *  two-column Home's own frame does not. */
+  publishesRow?: boolean;
   reference?: ReactNode;
   referenceTitle?: string;
   panel: ReferenceSlotPanel;
@@ -135,7 +142,7 @@ export function ReferenceSlotFrame({
   const column = useReferenceColumnWidth();
   const hasColumn = headerToggle && (!!reference || externalColumn);
   const baseWidth = hasColumn ? column.width : LYRA_CARD_MAX_WIDTH;
-  const rowWidth = useReferenceColumnFit(anchorRef, baseWidth);
+  const rowWidth = useReferenceColumnFit(anchorRef, baseWidth, publishesRow);
   const { wanted } = panel;
   // Opened by a click: mounted closed, then opened a frame later (lyra's width transition slides it in); closed by
   // `open`, then unmounted after its transition. Nothing else re-mounts. A frame that mounts already wanted (the
@@ -315,14 +322,19 @@ export function ReferenceSlotFrame({
  *  zero width (not laid out; jsdom) keeps the last answer. The row is the
  *  content card minus the docked Contact Details / thread panel, so an open
  *  thread panel under "main" counts. */
-function useReferenceColumnFit(anchorRef: React.RefObject<HTMLElement | null>, columnWidth: number): number {
-  const [rowWidth, setRowWidth] = useWorkspaceUiField("regionsRowWidth");
+function useReferenceColumnFit(anchorRef: React.RefObject<HTMLElement | null>, columnWidth: number, publish: boolean): number {
+  const [storedWidth, setRowWidth] = useWorkspaceUiField("regionsRowWidth");
   const [, setFits] = useWorkspaceUiField("referenceColumnFits");
+  // A frame that doesn't publish (one-column Home's panel, beside two-column Home's own frame) measures for itself
+  // only: two frames writing the one shared row width and fit flag would leave whichever measured last (P-LAYOUT-F4 audit).
+  const [ownWidth, setOwnWidth] = useState(0);
   useLayoutEffect(() => {
     const row = anchorRef.current?.parentElement;
     if (!row) return;
     const measure = (width: number) => {
       if (width <= 0) return;
+      setOwnWidth(width);
+      if (!publish) return;
       setRowWidth(width);
       setFits(width >= ACTION_AREA_MIN_WIDTH + columnWidth);
     };
@@ -330,6 +342,6 @@ function useReferenceColumnFit(anchorRef: React.RefObject<HTMLElement | null>, c
     const ro = new ResizeObserver(([entry]) => measure(entry.contentRect.width));
     ro.observe(row);
     return () => ro.disconnect();
-  }, [anchorRef, setRowWidth, setFits, columnWidth]);
-  return rowWidth;
+  }, [anchorRef, setRowWidth, setFits, columnWidth, publish]);
+  return publish ? storedWidth : ownWidth;
 }

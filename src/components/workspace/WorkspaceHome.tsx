@@ -34,6 +34,7 @@ function HomeDetailPanel() {
   const panel = useHomeDetailPanel();
   return (
     <ReferenceSlotFrame
+      publishesRow={false}
       panel={{ ...panel, wanted: showInteriorPanel && panel.wanted }}
       bodyReserved={homeIsTwoColumn(home, parts) ? LYRA_CARD_MAX_WIDTH : HOME_CARDS_RESERVED}
     />

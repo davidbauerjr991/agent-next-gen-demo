@@ -20,8 +20,10 @@ export function ReferenceOverlayToggle({ label, hidden = false }: { label: strin
   );
 }
 
-/** P-CANVAS: the interaction has a reference column to toggle — the two-column canvas. The toggle stays while a
- *  detail panel is open over the column: it closes both, and opening it restores both (P-LAYOUT-F4 10). */
+/** The interaction has a right column to toggle: the two-column canvas's reference column, or under AI display "panel"
+ *  the Copilot panel (P-LAYOUT-F4 8, 16). The toggle stays while a detail panel is open over the column: it closes
+ *  both, and opening it restores both (P-LAYOUT-F4 10). (Lives here beside Home's own toggle to avoid an import cycle
+ *  with the canvas registry.) */
 export function useRecordReferenceColumn(): boolean {
   const { twoColumn } = useCanvasRegions();
   // AI display "panel": the Copilot panel is the right column (P-LAYOUT-F4 8, 16), on the same toggle.

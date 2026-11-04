@@ -456,14 +456,12 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
     showContactDetails();
   };
   /** "View customer info" (the Contact Overview's link, the Customer Info card, the preview's name): Contact
-   *  Details' customer drill-in, in its slide-over. */
-  // A top-level entry into the column, with no back arrow whichever way it's reached (P-LAYOUT-F4 15; it had one from
-  // the card's link, none from the panel's name, P-LAYOUT-F1 F).
+   *  Details' customer drill-in, in its slide-over. A top-level entry into the column, with no back arrow whichever
+   *  way it's reached (P-LAYOUT-F4 15). */
   const focusCustomerPanelTab = () => {
     setCustomerPanelActiveTab("Customer Info");
     showContactDetails();
   };
-  const focusCustomerInfoFromName = focusCustomerPanelTab;
   // No setter — always pinned. `onPinToggle` is deliberately left unset on
   // the real `SidePanel` below (see its own doc comment), so there's no
   // path that ever actually unpins this; kept as `useState` rather than a
@@ -889,7 +887,6 @@ export function useWsPanels(prev: WsDetails, late: WorkspaceLate) {
     setChannelHoverPreviewKey, threadMenu, channelHoverPreviewTimer, channelHoverOpenTimer,
     marcusMemoryFocus, setMarcusMemoryFocus,
     experienceMemoryFocus, setExperienceMemoryFocus, openExperienceMemoryInSidePanel, openArtifactsList, focusCustomerPanelTab,
-    focusCustomerInfoFromName,
     sidePanelPinned, sidePanelResizing, setSidePanelResizing, sidePanelWidth, setSidePanelWidth, sidePanelFullScreen,
     setSidePanelFullScreen, isSidePanelContainerNarrow, effectiveSidePanelPinned,
     isSidePanelAtMaxWidthBreakpoint, isSidePanelAtMinimalThreshold,

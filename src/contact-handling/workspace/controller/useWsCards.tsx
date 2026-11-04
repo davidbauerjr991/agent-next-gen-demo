@@ -9,6 +9,7 @@ import { useToast, type CreateNewOutboundContact } from "@nicecxone/lyra-ui";
 import { CREATE_NEW_CUSTOMERS, type CreateNewCustomerRecord } from "@nicecxone/lyra-ui/customers-data";
 import { buildCustomerContextOverviewInfo } from "@/components/agent-next-gen-shared-utils";
 import type { ConfirmCloseCopy } from "@/contact-handling/ConfirmCloseDialog";
+import type { DialpadPlacement } from "@/contact-handling/useOutboundDial";
 import type { TranscriptMessage } from "@/components/transcript/InteractionTranscript";
 import { isOnDemandAiMessage } from "@/components/agent-next-gen-ai-messages";
 import { OUTBOUND_AGENTS } from "@/components/agent-next-gen-outbound-data";
@@ -397,7 +398,7 @@ export function useWsCards(props: WorkspaceControllerProps, late: WorkspaceLate)
     interactionId: string,
     phoneNumber: string,
     anchorEl: HTMLElement | null,
-    placement?: { side?: "top" | "bottom"; align?: "start" | "center" | "end" },
+    placement?: DialpadPlacement,
   ) => {
     setOutcomeDraftKey(null);
     late.outboundDial.openCardRedialPad(interactionId, phoneNumber, anchorEl, placement);

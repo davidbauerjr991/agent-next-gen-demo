@@ -54,7 +54,7 @@ export function ContactDetailsControl({ compact = false }: { compact?: boolean }
             header={
               <PanelHeader
                 title={t("Contact Details")}
-                // The customer's name opens the docked panel's Customer Info drill-in, as its own header's does
+                // The customer's name opens Contact Details' Customer Info drill-in, in the slide-over
                 // (`focusCustomerPanelTab` closes this preview).
                 subhead={
                   name ? (

@@ -1,4 +1,3 @@
-import { useRef } from "react";
 import { PanelFooter } from "@nicecxone/lyra-ui";
 import { OverviewBody } from "./contact-details-tab-bodies";
 import {
@@ -23,12 +22,22 @@ import { cn } from "@/lib/utils";
  *  Overview, in `CustomerInformationSidePanel` (P-HOME-1n: Contact Details moved to the reference slide-over). Its
  *  wrapper is the slide-over's host in the panel (`rightPanelRef`). */
 export function WorkspaceRightPanel({ inColumn = false }: { inColumn?: boolean } = {}) {
+  // Under AI display "panel" a conversation's panel is the right column (P-LAYOUT-F4 8): the interaction's row mounts
+  // it (`inColumn`), at the reference column's place and width, below the record header. Everywhere else (a thread
+  // under "main", a kind cell's) it's the page's, beside the whole page column. Only the one that applies runs its
+  // hooks (the body below).
+  const { aiInPanel, activeInteraction } = useWorkspace();
+  if (inColumn !== (aiInPanel && !!activeInteraction)) return null;
+  return <RightPanel inColumn={inColumn} />;
+}
+
+function RightPanel({ inColumn }: { inColumn: boolean }) {
   const {
     activeCustomerOverviewEditing, activeCustomerRecordDraft, activeInteraction, contactSubject,
     activeInteractionIsAgentCall, activeInteractionIsRealCustomer, addToast, aiInPanel, channelPreviewMeta, channelPreviewThread,
     channelPreviewThreadKey, channelPreviewThreadStableKey, confirmDismiss, copilotComposerProps,
     copilotDockConcealed, copilotDockShown, copilotHost, copilotSlot,
-    effectiveSidePanelPinned, focusCustomerInfoFromName,
+    effectiveSidePanelPinned, focusCustomerPanelTab,
     handleInteractionStatusChange, handleOutcomeSaveAndDismissChannel,
     handleSendEmailDraft, handleSendMessage, handleSidePanelClose, handleStartCall,
     botHolds, hideAiActions, isSidePanelAtMinimalThreshold,
@@ -44,13 +53,8 @@ export function WorkspaceRightPanel({ inColumn = false }: { inColumn?: boolean }
   // click-to-pin and the always-present toggle behave as the reference column's do (P-LAYOUT-F4 16); a thread under
   // "main" and a kind cell's panel keep the docked toggle.
   const columnSize = useReferenceColumnWidth();
-  const columnDragging = useRef(false);
   const toggles = usePanelToggles();
   const dockedToggle = inColumn ? toggles?.reference : toggles?.docked;
-  // Under AI display "panel" a conversation's panel is the right column (P-LAYOUT-F4 8): the interaction's row mounts
-  // it (`inColumn`), at the reference column's place and width, below the record header. Everywhere else (a thread
-  // under "main", a kind cell's) it's the page's, beside the whole page column.
-  if (inColumn !== (aiInPanel && !!activeInteraction)) return null;
   return (
     <>
               {/* Contact Details' subject: a conversation, or a kind cell's customer (P-HOME-1m). */}
@@ -208,16 +212,10 @@ export function WorkspaceRightPanel({ inColumn = false }: { inColumn?: boolean }
                   maxWidthRatio={inColumn && sidePanelContainerWidth > 0 ? columnSize.maxWidth / sidePanelContainerWidth : undefined}
                   // The column's drag is previewed and written once on release (P-LAYOUT-F4 22b), as the reference
                   // column's; the thread panel keeps its own width state.
-                  onWidthChange={
-                    inColumn
-                      ? (next) => (columnDragging.current ? columnSize.preview(next) : columnSize.onWidthChange(next))
-                      : setSidePanelWidth
-                  }
+                  onWidthChange={inColumn ? columnSize.drag.onWidthChange : setSidePanelWidth}
                   onResizeStateChange={(resizing) => {
                     setSidePanelResizing(resizing);
-                    if (!inColumn) return;
-                    columnDragging.current = resizing;
-                    if (!resizing) columnSize.commit();
+                    if (inColumn) columnSize.drag.onResizeStateChange(resizing);
                   }}
                   onAddToast={addToast}
                   recordDraft={activeCustomerRecordDraft}
@@ -283,7 +281,7 @@ export function WorkspaceRightPanel({ inColumn = false }: { inColumn?: boolean }
                   // neither prop has a pre-existing ternary of its own to
                   // slot into (unlike `headerTitleOverride` above).
                   // The customer's name (the panel's subhead) opens the Customer Info drill-in, now in the slide-over.
-                  onViewCustomerInfo={!channelPreviewThread && activeInteractionIsRealCustomer ? focusCustomerInfoFromName : undefined}
+                  onViewCustomerInfo={!channelPreviewThread && activeInteractionIsRealCustomer ? focusCustomerPanelTab : undefined}
                   headerTabsOverride={
                     channelPreviewThread && activeInteraction
                       ? panelPlacement && (

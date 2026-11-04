@@ -7,7 +7,7 @@
 // Which side a card is on is its kind's `delivery`, never a per-card list.
 import type { TranscriptMessage } from "@/components/transcript/transcript-types";
 
-export type AiCardDelivery = "pushed" | "onDemand";
+type AiCardDelivery = "pushed" | "onDemand";
 
 export interface AiCardKind {
   id: string;
@@ -19,7 +19,7 @@ export interface AiCardKind {
 export const isCopilotLine = (m: TranscriptMessage) => !!(m.event && m.eventContext);
 
 /** In match order: the first kind that matches a message is its kind. */
-export const AI_CARD_KINDS: readonly AiCardKind[] = [
+const AI_CARD_KINDS: readonly AiCardKind[] = [
   { id: "copilot-line", delivery: "onDemand", matches: isCopilotLine },
   // The row an Ask Copilot question or a chip leaves (`useCopilotAsk`), before the interstitial rows below.
   { id: "copilot-result", delivery: "onDemand", matches: (m) => !!m.instruction && !!m.copilotAsk },

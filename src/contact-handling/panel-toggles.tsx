@@ -5,10 +5,12 @@
 // - Left: the assignments in the interior-panel slot. Open, pinned and width are the per-browser working state
 //   (`assignments-working-state.ts`); pinned, it pushes the content while it fits (`assignmentsPanelDocks`), and
 //   where it doesn't it renders unpinned, as lyra's `pinDisabled`.
-// - Right: the reference column's overlay while the column doesn't fit, and otherwise the docked AI panel (AI display
-//   "panel": its AI Overview): `rightPanelTarget`, with the page header saying whether it has a reference column
-//   (`WorkspacePageHeader`'s `referenceColumn`). Under "main" the docked panel is a thread, picked from the record
-//   header's channel icons, so it has no header toggle.
+// - Right (P-LAYOUT-F4 7, 16): the right column, always present while the page has one (the reference column, or under
+//   AI display "panel" the Copilot panel that takes its place): pinned open beside the action area, or closed with the
+//   toggle's hover flyout, a click pinning it (`referencePinned`, per browser; the flyout only where it doesn't fit).
+//   `rightPanelTarget`, with the page header saying whether it has a column (`WorkspacePageHeader`'s
+//   `referenceColumn`). Without one, the docked panel where the assignment has it; under "main" the docked panel is a
+//   thread, picked from the record header's channel icons, so it has no header toggle.
 import * as React from "react";
 import { useSidePanelToggle, type UseSidePanelToggleReturn } from "@nicecxone/lyra-ui";
 import { useSlotFor } from "@/layout/useSlot";
@@ -44,7 +46,7 @@ export function hasDockedPanel({
 interface PanelToggles {
   /** The assignments panel's toggle, while the assignments are in the interior-panel slot. */
   assignments: UseSidePanelToggleReturn | null;
-  /** The reference column's overlay (always instantiated: the column reads its panel props). */
+  /** The right column's toggle (always instantiated: the column and the Copilot panel read its panel props). */
   reference: UseSidePanelToggleReturn;
   /** The docked panel (always instantiated: WorkspaceRightPanel reads its panel props). */
   docked: UseSidePanelToggleReturn;

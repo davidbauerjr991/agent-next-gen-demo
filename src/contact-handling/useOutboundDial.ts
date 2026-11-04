@@ -19,11 +19,13 @@ import type { ActivationMode } from "./useContactActivation";
 // `DialRequest`; the card appears when the provider's contact reaches the
 // store (useContactActivation), never optimistically.
 
+export type DialpadPlacement = { side?: "top" | "bottom"; align?: "start" | "center" | "end" };
+
 export interface DialpadRequest {
   phoneNumber: string;
   anchorEl?: HTMLElement | null;
   /** Which side of `anchorEl` it opens on (lyra's `dialpadRequest.placement`); default below, start-aligned. */
-  placement?: { side?: "top" | "bottom"; align?: "start" | "center" | "end" };
+  placement?: DialpadPlacement;
   customerName?: string;
   phoneOptions?: { value: string; label: string }[];
 }
