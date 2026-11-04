@@ -228,7 +228,7 @@ Built from PLAN.md's P-CONFIG-LAYERS entry ("As planned (2026-11-01, plan review
 
 Built from PLAN.md's P-LAYOUT-F3 entry (Dave's answers, items 1–14, reverses) and Decisions 2026-11-01 "Plan additions".
 
-### P-TRANSFER — Consult / Transfer in the call controls   (Plan: Opus · Implement: Opus) — after P-LAYOUT-F3, before P-TIMERS
+### P-TRANSFER — Consult / Transfer in the call controls   (Plan: Opus · Implement: Opus) — after P-LAYOUT-F3 (and its F4 fix loop), before P-TIMERS
 
 Prompt to follow.
 
