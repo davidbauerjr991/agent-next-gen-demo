@@ -45,7 +45,15 @@ function slideOvers(page: Page, title: string) {
   return page.evaluate(
     (t) =>
       [...document.querySelectorAll<HTMLElement>('[style*="visibility"]')]
-        .filter((el) => el.style.visibility === "visible" && el.firstElementChild?.textContent?.includes(t))
+        // Not the reference column (a SidePanel since P-LAYOUT-F4 7) nor the Copilot panel: their Artifacts list and
+        // Overview cards name the same panel.
+        .filter(
+          (el) =>
+            el.style.visibility === "visible" &&
+            !el.closest("[data-canvas-region=reference]") &&
+            !el.querySelector("[data-slot=details-panel-body], [data-slot=customer-info-card]") &&
+            el.firstElementChild?.textContent?.includes(t),
+        )
         .map((el) => {
           const b = el.getBoundingClientRect();
           const host = el.closest("[data-slot=right-panel]") ? "right-panel" : el.closest("[data-slot=content-card]") ? "content-card" : "other";
@@ -74,7 +82,11 @@ async function switchAi(page: Page, to: Ai) {
 async function closeByX(page: Page, title: string) {
   await page.evaluate((t) => {
     const shell = [...document.querySelectorAll<HTMLElement>('[style*="visibility"]')].find(
-      (el) => el.style.visibility === "visible" && el.firstElementChild?.textContent?.includes(t),
+      (el) =>
+        el.style.visibility === "visible" &&
+        !el.closest("[data-canvas-region=reference]") &&
+        !el.querySelector("[data-slot=details-panel-body], [data-slot=customer-info-card]") &&
+        el.firstElementChild?.textContent?.includes(t),
     )!;
     [...shell.firstElementChild!.querySelectorAll<HTMLElement>("button")].find((b) => /close/i.test(b.getAttribute("aria-label") ?? ""))!.click();
   }, title);

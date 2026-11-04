@@ -4,6 +4,9 @@ import { lucasInPanelMode, scrollMetrics } from "./helpers";
 // Item 13: opening (and closing) a Copilot result row's slide-over leaves the
 // Overview body's scroll position exactly where it was.
 test("a Copilot result row's slide-over keeps the Overview body's scrollTop", async ({ page }) => {
+  // Short, so the Overview (its reference cards and the feed) overflows the body (the approval card is the
+  // transcript's now, P-LAYOUT-F4 8, so the panel holds less).
+  await page.setViewportSize({ width: 1600, height: 560 });
   await lucasInPanelMode(page);
 
   // A Copilot result row: ask through a chip (the chip row shows once the agent has the chat); its slide-over

@@ -66,16 +66,23 @@ test("fits without a panel: the column is centred in the action area, at its 768
   expect(Math.abs(c.referenceRight! - c.cardRight)).toBeLessThanOrEqual(2);
 });
 
-test("fits with a panel: Contact Details pushes, and the column re-centres in what's left", async ({ page }) => {
+test("with a reference column, Contact Details opens over the column (P-LAYOUT-F4 3): the action area and its centred column stay put", async ({ page }) => {
   await mayaOpen(page, 2400);
   const before = await settled(page);
   await openContactDetails(page);
-  await expect(page.locator("[data-slot=page-right-host] [data-slot=reference-slide-over]")).toHaveCount(1);
-  // The push lands: the available width gives up the panel's, and the column re-centres in what's left.
-  await expect.poll(async () => (await centres(page)).availableWidth).toBeLessThan(before.availableWidth - 300);
+  // The column's own slide-over, not a panel beside the page column.
+  await expect(page.locator("[data-slot=page-right-host] [data-slot=reference-slide-over]")).toHaveCount(0);
+  await page.waitForTimeout(500);
   const after = await settled(page);
-  // The reference column stays at the row's end, now just before the docked panel.
-  expect(Math.abs(after.referenceRight! - after.dockedLeft!)).toBeLessThanOrEqual(2);
+  expect(Math.round(after.availableWidth)).toBe(Math.round(before.availableWidth));
+  expect(Math.round(after.column)).toBe(Math.round(before.column));
+  // Over the column: the same right edge and width as the column it covers.
+  const [col, so] = await page.evaluate(() => {
+    const r = (s: string) => document.querySelector(s)!.getBoundingClientRect();
+    return [r("[data-canvas-region=reference]"), r("[data-slot=reference-slide-over]")].map((b) => ({ left: b.left, right: b.right }));
+  });
+  expect(Math.abs(so.right - col.right)).toBeLessThanOrEqual(1);
+  expect(Math.abs(so.left - col.left)).toBeLessThanOrEqual(1);
 });
 
 // P-LAYOUT-F3 3: Home's body under home.contentWidth — max: the 1024px column centred in the page column; full: the

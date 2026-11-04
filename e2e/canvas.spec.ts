@@ -51,7 +51,8 @@ for (const displayLocation of ["inline", "main"] as const) {
     // Under "main" the card's email opens in the docked panel too, so give it room.
     await setUp(page, { displayLocation, canvasLayout: "twoColumn" }, displayLocation === "main" ? 2200 : 1600);
     await expect(reference(page)).toHaveAttribute("data-docked", "true");
-    await expect(summaries(page)).toHaveCount(0);
+    // The toggle is always there (P-LAYOUT-F4 7): active while the column is pinned open beside the action area.
+    await expect(summaries(page)).toHaveAttribute("aria-expanded", "true");
     const token = await tokenWidth(page);
     expect(token).toBeGreaterThan(0);
     const col = await box(page, "[data-canvas-region=reference]");
@@ -151,10 +152,13 @@ test("inline, two columns: the column starts below the session row, which spans 
   expect(g.sessionRow!.left).toBeLessThanOrEqual(r.left + 24.5);
   expect(g.sessionRow!.right).toBeGreaterThanOrEqual(r.right - 24.5);
   expect(Math.round(col.right)).toBe(Math.round(r.right));
-  // Docked: no "Summaries" header, no panel background.
+  // Docked: no "Summaries" header, and the content card's own surface (not SidePanel's grey; P-LAYOUT-F4 9, 11).
   await expect(reference(page)).not.toContainText("Summaries");
-  const bg = await page.evaluate(() => getComputedStyle(document.querySelector("[data-canvas-region=reference]")!).backgroundColor);
-  expect(bg).toBe("rgba(0, 0, 0, 0)");
+  const surfaces = await page.evaluate(() => ({
+    column: getComputedStyle(document.querySelector("[data-canvas-region=reference]")!).backgroundColor,
+    card: getComputedStyle(document.querySelector("[data-slot=content-card]")!).backgroundColor,
+  }));
+  expect(surfaces.column).toBe(surfaces.card);
 });
 
 test("main, two columns: the column starts where the action area does, below the record header", async ({ page }) => {
@@ -217,7 +221,7 @@ test("inline chat, Ask Copilot: the composer area ends at the chips (the chat pa
   expect(Math.abs(m.cell - m.chips)).toBeLessThanOrEqual(2);
 });
 
-test("narrow: the column becomes the Summaries overlay; outside click and its close button close it", async ({ page }) => {
+test("narrow: the column is the toggle's flyout only (it can't pin); leaving it closes it (P-LAYOUT-F4 7)", async ({ page }) => {
   // 1000px: the row (~730px) is under the action area's minimum plus the column.
   await setUp(page, { displayLocation: "inline", canvasLayout: "twoColumn" }, 1000);
   await expect(summaries(page)).toBeVisible();
@@ -236,15 +240,11 @@ test("narrow: the column becomes the Summaries overlay; outside click and its cl
   expect(Math.round(col.right)).toBe(Math.round(r.right));
   // Over the action area, not beside it: the action area didn't shrink.
   expect(Math.round((await box(page, "[data-canvas-region=action]")).width)).toBe(Math.round(before.width));
-  // Outside click closes it.
-  await page.mouse.click(before.left + 40, 300);
+  // The pointer leaving the toggle and the flyout closes it (no header or close button of its own).
+  await page.mouse.move(before.left + 40, 300);
   await expect(summaries(page)).toHaveAttribute("aria-expanded", "false");
   await page.waitForTimeout(400);
   expect(Math.round((await box(page, "[data-canvas-region=reference]")).width)).toBe(0);
-  // So does its close button.
-  await summaries(page).click();
-  await reference(page).getByRole("button", { name: "Close panel" }).click();
-  await expect(summaries(page)).toHaveAttribute("aria-expanded", "false");
 });
 
 test("main with the card's thread open in the docked panel: the column is the overlay at a width where inline docks it", async ({ page }) => {
@@ -419,13 +419,16 @@ for (const displayLocation of ["inline", "main"] as const) {
 
     expect(await sameCards()).toBe(true);
 
-    // Close: the panel slides out and goes; the cards were never re-mounted; the action area has its width again.
+    // Close: the panel slides out and goes; the cards were never re-mounted. The drag was the column's edge (the
+    // slide-over fills the column, P-LAYOUT-F4 19, 20), so the column keeps its dragged width, kept per browser: the
+    // action area gives up that 200px for good.
     await page.locator(slideOver).getByRole("button", { name: /^Close / }).click();
     await page.waitForTimeout(600);
     await expect(page.locator(slideOver)).toHaveCount(0);
     await expect(page.locator("[data-canvas-region=reference]")).toBeVisible();
     expect(await sameCards()).toBe(true);
-    expect(Math.round((await rect(page, "[data-canvas-region=action]"))!.width)).toBe(Math.round(actionBefore.width));
+    expect(Math.round((await rect(page, "[data-canvas-region=reference]"))!.width)).toBe(Math.round(column.width + 200));
+    expect(Math.round((await rect(page, "[data-canvas-region=action]"))!.width)).toBe(Math.round(actionBefore.width - 200));
     expect(Math.round((await row(page)).width)).toBe(Math.round(rowBefore.width));
   });
 }

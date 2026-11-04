@@ -34,7 +34,9 @@ test("Maya at arrival: Journey Summary and Customer Info; the Real-Time Summary 
   await setUp(page);
   await page.keyboard.press("b");
   await page.locator("aside [aria-label^='Maya Chen']").first().click({ force: true });
-  await expect.poll(() => cells(page)).toEqual(["journey-summary", "customer-info"]);
+  // Journey Summary and Customer Info from the start; the Real-Time Summary joins them after her first summary turn
+  // (it can already be in by the first look on a fast machine: this failed at febffa1 too, a race, not a regression).
+  await expect.poll(() => cells(page)).toEqual(expect.arrayContaining(["journey-summary", "customer-info"]));
   await expect.poll(() => cells(page), { timeout: 10_000 }).toEqual(["real-time-summary", "journey-summary", "customer-info"]);
   await expect(page.locator("[data-canvas-cell=real-time-summary] .animate-in").first()).toBeAttached();
 });
