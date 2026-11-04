@@ -7,7 +7,7 @@
 // beside the whole page column while it fits and opens over the right column
 // when it doesn't, as the interaction's slide-over does (P-LAYOUT-F3 4).
 import * as React from "react";
-import { ReferenceSlotFrame } from "@/components/workspace/ReferenceSlot";
+import { ReferenceSlotFrame, type ReferenceSlotPanel } from "@/components/workspace/ReferenceSlot";
 import { ReferenceOverlayToggle } from "@/components/workspace/SummariesToggle";
 import { useWorkspace } from "@/contact-handling/workspace/WorkspaceContext";
 import { useHomeDetailPanel } from "./home-detail-panel";
@@ -24,8 +24,10 @@ export function HomeCardsToggle() {
   return <ReferenceOverlayToggle label={t("Cards")} hidden={wanted} />;
 }
 
+/** This frame has no panel of its own (Home's is at the Home level): never wanted, so nothing mounts. */
+const NO_PANEL: ReferenceSlotPanel = { wanted: false, onClose: () => {}, header: {}, body: null, slot: "home-detail-panel" };
+
 export function HomeTwoColumn({ feed, side }: { feed: React.ReactNode; side: React.ReactNode[] }) {
-  const panel = useHomeDetailPanel();
   const asTable = usePartOption("activityFeed", "view") === "table";
   const contentWidth = useHomeContentWidth();
   return (
@@ -53,7 +55,7 @@ export function HomeTwoColumn({ feed, side }: { feed: React.ReactNode; side: Rea
           }
           // The detail panel isn't here: it lives at the Home level (WorkspaceHome's HomeDetailPanel), so a tab
           // change doesn't unmount it (P-LAYOUT-F4 4). This frame is the column alone.
-          panel={{ ...panel, wanted: false }}
+          panel={NO_PANEL}
         />
       </CenteredColumn>
     </div>

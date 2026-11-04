@@ -151,13 +151,18 @@ export function PanelTogglesProvider({ children }: { children: React.ReactNode }
  *  toggle collapses the column and the open detail together and reopening restores both. Opening a detail (`content`
  *  changes to a new one) while the right side is collapsed opens it, as the toggle's click does, where the column fits;
  *  where it doesn't, the detail overlays on its own. */
-export function useReferenceSideGate({ hasColumn, content }: { hasColumn: boolean; content: unknown }): boolean {
+export function useReferenceSideGate({ hasColumn, content, scope }: { hasColumn: boolean; content: unknown; scope?: string | null }): boolean {
   const open = usePanelToggles()?.referenceSideOpen ?? true;
   const [fits] = useWorkspaceUiField("referenceColumnFits");
   const previous = React.useRef(content);
+  // `scope`: the assignment. The content is per assignment, so switching to one whose detail was left open is not a
+  // detail being opened: it must not undo a collapse (commit-check, P-LAYOUT-F4 audit).
+  const previousScope = React.useRef(scope);
   React.useEffect(() => {
-    if (content && content !== previous.current && hasColumn && fits) setAssignmentsWorkingState({ referencePinned: true });
+    const sameScope = previousScope.current === scope;
+    if (sameScope && content && content !== previous.current && hasColumn && fits) setAssignmentsWorkingState({ referencePinned: true });
     previous.current = content;
-  }, [content, hasColumn, fits]);
+    previousScope.current = scope;
+  }, [content, hasColumn, fits, scope]);
   return !hasColumn || open;
 }

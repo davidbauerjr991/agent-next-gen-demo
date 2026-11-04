@@ -39,6 +39,7 @@ import { SHOW_CHANNEL_TOGGLE_GROUP } from "./workspace-constants";
 import { useRecordReferenceColumn } from "./SummariesToggle";
 import { WorkspacePageHeader } from "./WorkspacePageHeader";
 import { ContactDetailsControl } from "./ContactDetailsControl";
+import { t } from "@/i18n";
 
 /** The active interaction's record header (P-EXTRACT C8, from the page):
  *  the avatar, call badge, add-channel "+", one icon per channel with its
@@ -126,7 +127,7 @@ export function RecordHeader() {
                       // else the docked panel.
                       rightPanel
                       referenceColumn={hasReferenceColumn}
-                      referenceLabel={aiInPanel ? "Copilot" : undefined}
+                      referenceLabel={aiInPanel ? t("Copilot") : undefined}
                       className={sessionRowInHeader ? undefined : "border-b border-lyra-border-subtle pb-3"}
                       // Per explicit request ("add an icon indicating
                       // whether the interaction is an agent or a customer

@@ -8,6 +8,8 @@ import { Accordion, Button, Switch, ToggleGroup } from "@nicecxone/lyra-ui";
 import { t } from "@/i18n";
 import type { Page } from "@/layout/slots";
 import { LAYOUT_ADVANCED_FIELD, resetLayoutToProfile, useSectionLocked, useSettingDisabledBy, useSettings, type HomeContentWidth } from "@/settings";
+import { homeFeedOn } from "@/contact-handling/home/home-layout";
+import { HOME_TWO_COLUMNS_NEED_FEED_REASON } from "@/settings";
 import { Section, SettingsGroup } from "../settings-parts";
 import { LayoutPresetRow, SettingPresetRow } from "./LayoutPresetRow";
 import { HOME_CONTENT_WIDTH_ROW, PRESET_ROWS } from "./layout-preset-rows";
@@ -37,8 +39,7 @@ export function LayoutSection() {
   // Two columns puts the Activity feed on the left (`homeIsTwoColumn`): with the feed off it would render one column,
   // so the option is disabled, with its reason, until the feed is on (P-LAYOUT-F4 6).
   const [home] = useSettings("home");
-  const feedOn = home.sections.some((s) => s.key === "activity" && s.enabled);
-  const homeLayoutUnavailable = feedOn ? undefined : { twoColumn: "Turn on the Activity feed in Home's sections to use two columns." };
+  const homeLayoutUnavailable = homeFeedOn(home) ? undefined : { twoColumn: HOME_TWO_COLUMNS_NEED_FEED_REASON };
   const advanced = (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">

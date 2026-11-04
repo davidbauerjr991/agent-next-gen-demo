@@ -32,7 +32,12 @@ const row = (title: string) =>
 const openSlideOver = (title: string) =>
   [...document.body.querySelectorAll<HTMLElement>('[style*="visibility"]')].find(
     // (Not the reference column, a SidePanel since P-LAYOUT-F4 7: its Artifacts list names the same row.)
-    (el) => el.style.visibility === "visible" && !el.closest("[data-canvas-region=reference]") && el.firstElementChild?.textContent?.includes(title),
+    // Not a column or the panel that merely lists the row (its feed or its Overview names the same title).
+    (el) =>
+      el.style.visibility === "visible" &&
+      !el.closest("[data-canvas-region=reference]") &&
+      !el.querySelector("[data-slot=ai-feed], [data-slot=details-panel-body]") &&
+      el.firstElementChild?.textContent?.includes(title),
   ) ?? null;
 
 async function setAi(displayLocation: AiDisplayLocation) {

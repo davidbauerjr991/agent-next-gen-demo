@@ -95,7 +95,7 @@ export function KindCell({ item }: { item: ScheduleItem }) {
   const customer = useScheduleItemCustomer(item);
   const regions = useKindCanvasRegions();
   // Always the reference slot: a kind cell has no docked Contact Details for the slide-over to open in instead.
-  const sideOpen = useReferenceSideGate({ hasColumn: !!regions.reference, content: selectedDetailPanelContent });
+  const sideOpen = useReferenceSideGate({ hasColumn: !!regions.reference, content: selectedDetailPanelContent, scope: item.id });
   const slideOver = useDetailSlideOverPanel({ wanted: !!selectedDetailPanelContent && sideOpen, assignmentKey: scheduleCardKey(item.id) });
   return (
     // P-HOME-1g: the main column's enter fade (the interaction body's, Home's and Settings' `animate-in fade-in-0

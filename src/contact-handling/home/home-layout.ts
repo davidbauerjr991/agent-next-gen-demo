@@ -24,9 +24,12 @@ export function homeSideSections(home: HomeSettings, parts: LayoutParts): HomeSe
     .sort((a, b) => parts[partOf(a)].order - parts[partOf(b)].order);
 }
 
+/** The Activity feed is on (Home's sections): what two columns needs, and what Settings → Layout checks before
+ *  offering them (P-LAYOUT-F4 6). The one predicate. */
+export const homeFeedOn = (home: HomeSettings): boolean => home.sections.some((s) => s.key === "activity" && s.enabled);
+
 /** Home renders in two columns: a section is in the trailing column and the feed (the main column) is on. Its
  *  feed's History view is Contact History there, so the right column skips the Contact History card (P-HOME-1e). */
 export function homeIsTwoColumn(home: HomeSettings, parts: LayoutParts): boolean {
-  const feedOn = home.sections.some((s) => s.key === "activity" && s.enabled);
-  return feedOn && parts.activityFeed.slot === "main" && home.sections.some((s) => s.key !== "activity" && parts[partOf(s.key)].slot === "main-trailing");
+  return homeFeedOn(home) && parts.activityFeed.slot === "main" && home.sections.some((s) => s.key !== "activity" && parts[partOf(s.key)].slot === "main-trailing");
 }

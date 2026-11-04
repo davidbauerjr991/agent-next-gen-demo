@@ -46,7 +46,7 @@ export const WorkspacePageHeader = React.forwardRef<HTMLDivElement, WorkspacePag
       })}
       {...(right && {
         ...withoutPinnedPreview(right),
-        innerPanelToggleLabel: target === "reference" ? t(referenceLabel ?? "Summaries") : t("Details panel"),
+        innerPanelToggleLabel: target === "reference" ? referenceLabel ?? t("Summaries") : t("Details panel"),
       })}
     />
   );

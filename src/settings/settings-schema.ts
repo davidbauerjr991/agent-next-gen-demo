@@ -239,6 +239,10 @@ export const HOME_LAYOUT_FIELD = oneOf(HOME_LAYOUTS, {
   description: "One column keeps the sections as rows with the Activity feed among them; two columns puts the feed on the left and the other sections on the right.",
 });
 
+/** Why the Two columns option is disabled while the Activity feed is off (English source; through `t()`). Declared
+ *  with the layout field it qualifies (P-LAYOUT-F4 6). */
+export const HOME_TWO_COLUMNS_NEED_FEED_REASON = "Turn on the Activity feed in Home's sections to use two columns.";
+
 /** Home's body width (P-LAYOUT-F3 3): "max" centres it at the content max width (`CenteredColumn`), "full" stretches
  *  it. The page header is always full width. Its default follows the Home layout (one column → max, two → full): a
  *  preset follow rule, written with the layout (`presets.ts`), not a constraint, so the agent can change it after. */
